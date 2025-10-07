@@ -15,6 +15,11 @@ export const handlePOApproval = async (po_id, data) => {
   return res;
 };
 
+export const handlePOInitialization = async (po_id) => {
+  const res = await axiosInstance.get(`/po/initiate/${po_id}`);
+  return res;
+};
+
 export const handleCreateMilestone = async (payload) => {
   const res = await axiosInstance.post('/po/milestones', payload);
   return res;

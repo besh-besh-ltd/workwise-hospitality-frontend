@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { extractQuotation, getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
+import { extractQuotation, fetchQuoteHistory, getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
 import Loader from "@/components/shared/Loader";
 import { toast } from "react-toastify";
@@ -17,27 +17,44 @@ import { calculateTotal as sharedCalculateTotal } from "@/utils/sharedFunctions"
 import { QuotesOverrideModal } from "@/components/modal/ExtractedQuotesModal";
 import { IoMdInformationCircleOutline } from "react-icons/io";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
+import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
-    <div className="mt-2 d-flex gap-2" role="group">
+    <div className="mt-2 d-flex " role="group" style={{marginBottom : "16px"}} >
       <SmartButton
         onClick={() => onToggle('percentage')}
-        theme={`${currentMode === 'percentage' ? 'primary' : 'light'}`}
-        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+        theme={currentMode === 'percentage' ? 'primary' : 'light'}
+        style={{ 
+          paddingLeft: "0.6rem", 
+          paddingRight: "0.6rem",
+          borderTopRightRadius: 0,
+          borderBottomRightRadius: 0,
+          minHeight : "40px",
+          marginBottom: "10px"
+        }}
         label="%"
         id="percentage_toggle-percentage_absolute_toggle-send_quote_page"
       />
       <SmartButton
         onClick={() => onToggle('absolute')}
-        theme={`${currentMode === 'absolute' ? 'primary' : 'light'}`}
-        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+        theme={currentMode === 'absolute' ? 'primary' : 'light'}
+        style={{ 
+          paddingLeft: "0.6rem", 
+          paddingRight: "0.6rem",
+          borderTopLeftRadius: 0,
+          borderBottomLeftRadius: 0,
+          minHeight : "40px",
+          marginBottom: "10px"
+        }}
         label="₹"
         id="absolute_toggle-percentage_absolute_toggle-send_quote_page"
       />
     </div>
   );
 };
+
 
 const SendQuotePageComp = () => {
   const router = useRouter();
@@ -73,6 +90,8 @@ const SendQuotePageComp = () => {
     data: null,
   })
   const [extractingQuotes, setExtractingQuotes] = useState(false);
+const [quoteHistory, setQuoteHistory] = useState(null);
+const [showQuoteHistoryModal, setShowQuoteHistoryModal] = useState(false); //to fetch the quote hitory for a product for vendor page
 
   // structured payment terms rows
 const [paymentTermsRows, setPaymentTermsRows] = useState([
@@ -130,6 +149,17 @@ const originalPaymentTermsListRef = useRef(null);
       };
     });
   }
+
+const openQuoteHistoryModal = async (product_variant_id, index) => {
+  try {
+    const response = await fetchQuoteHistory(product_variant_id);
+    setQuoteHistory(response); // load data
+    setShowQuoteHistoryModal(true); // open modal
+  } catch (error) {
+    console.error("Error fetching quote history:", error);
+  }
+};
+
 
   // Changes by Agnij 2024-07-30 [Add function to check if fields are filled]
   const isAnyFieldFilled = () => {
@@ -486,7 +516,10 @@ return { deletedTerms, createdTerms, updatedTerms };
   };
 
   const handleSubmitQuoteConfirm = () => {
+
+    
     setShowSubmitQuoteConfirmModal(false);
+
     // Validate payment terms - at least one valid row should exist
     const validPaymentTerms = paymentTermsRows.filter(row => 
       row && 
@@ -962,13 +995,15 @@ return { deletedTerms, createdTerms, updatedTerms };
                             <th>Item</th>
                             <th>Qty</th>
                             {/* <th>Unit</th> */}
-                            <th>Base Price</th>
-                            <th>Freight</th>
+                            <th>Pricing</th>
+                            {/* <th>Freight</th> */}
                             <th>Package</th>
                             <th>Taxes</th>
                             <th>Total</th>
                             <th>Vendor Comments</th>
-                            <th>Delivery Period</th>
+                            <th style={{ maxWidth: "100px" }}>
+                              Delivery Period
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1136,7 +1171,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                   
        
         {/* AI file upload start here */}
-       {/* <div>
+       <div>
+       <div>
 
          <div className="d-flex align-items-center my-3">
            <hr className="flex-grow-1" />
@@ -1146,23 +1182,74 @@ return { deletedTerms, createdTerms, updatedTerms };
            <hr className="flex-grow-1" />
          </div>
 
+                      <label
+                        className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
+                        style={{
+                          background: "#edf0ff",
+                          border: "1px dashed #c9cff8",
+                          cursor: "pointer",
+                          opacity: extractingQuotes ? "0.5" : "1",
+                        }}
+                      >
+                        <FontAwesomeIcon
+                          icon={faWandMagicSparkles}
+                          className="me-2"
+                        />
+                        {extractingQuotes
+                          ? "Extracing quotes from document..."
+                          : "Upload document to extract quotes"}
+                        <input
+                          type="file"
+                          accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                          onChange={(e) => uploadExtractionDocument(e)}
+                          multiple
+                          disabled={extractingQuotes}
+                        />
+                      </label>
 
-        <label
-          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
-          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer", opacity: extractingQuotes ? '0.5' : '1' }}
-        >
-          <FontAwesomeIcon icon={faWandMagicSparkles} className="me-2" />
-          {extractingQuotes ? 'Extracing quotes from document...' : 'Upload document to extract quotes'}
-          <input
-            type="file"
-            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-            onChange={(e) => uploadExtractionDocument(e)}
-            multiple
-            disabled={extractingQuotes}
-          />
-        </label>
-
-//             start: recently upload files 
+                      {/*  start: recently upload files */}
+                      {/* {globalDocumentFiles &&
+                        globalDocumentFiles.length > 0 && (
+                          <div className="row">
+                            <p className="fw-medium mb-1">
+                              New Uploaded Files:
+                            </p>
+                            <div className="d-flex gap-4">
+                              {globalDocumentFiles.map((doc_file) => {
+                                return (
+                                  <p
+                                    key={doc_file}
+                                    href={doc_file}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="badge bg-light border text-primary   text-truncate cursor-pointer "
+                                    style={{ maxWidth: 280 }}
+                                    title={"Click here to download the file"}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      removeGlobalFiles(doc_file);
+                                    }}
+                                  >
+                                    <FontAwesomeIcon
+                                      icon={faDownload}
+                                      className="text-primary "
+                                    />
+                                    <span
+                                      className="text-truncate"
+                                      style={{
+                                        maxWidth: 200,
+                                        marginLeft: "10px",
+                                      }}
+                                    >
+                                      {extractfileName(doc_file)}
+                                    </span>
+                                  </p>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )} */}
+           {/*  start: recently upload files */}
            {globalDocumentFiles && globalDocumentFiles.length > 0 && (
           <div className="row">
            <p className="fw-medium mb-1">New Uploaded Files:</p>
@@ -1226,284 +1313,390 @@ return { deletedTerms, createdTerms, updatedTerms };
            OR send quotation manually
          </span>
          <hr className="flex-grow-1" />
-       </div>  */}
+       </div> 
 
 
-<div className="row align-items-stretch">
-  {/* ========== COLUMN 1: Global Costing + Quote Document ========== */}
-  <div className="col-lg-3 col-12 d-flex">
-    <div className="card border shadow-sm rounded-3 w-100 h-100">
-      <div className="card-body">
-        <h3 className="fs-6 fw-semibold mb-3">Global Costing</h3>
+                    <div className="row align-items-stretch">
+                      {/* ========== COLUMN 1: Global Costing + Quote Document + Global Comment ========== */}
+                      <div className="col-lg-7 col-12 d-flex">
+                        <div className="card border shadow-sm rounded-3 w-100 h-100">
+                          <div className="card-body">
+                            <h3 className="fs-6 fw-semibold mb-3">
+                              Global Costing
+                            </h3>
 
-        <div className="row g-3 mb-4">
-          {/* Freight */}
-          <div className="col-12 col-sm-4">
-            <label className="form-label">Freight</label>
-            <input
-              type="number"
-              className="form-control"
-              min={0}
-              value={globalFreight}
-              placeholder={chargesMode.freight.global === "percentage" ? "3%" : "₹950"}
-              onChange={(e) => setglobalFreight(e.target.value || "")}
-              onWheel={(e) => e.currentTarget.blur()}
-            />
-            <div className="mt-2">
-              <PercentageAbsoluteToggle
-                currentMode={chargesMode.freight.global}
-                onToggle={(value) =>
-                  setChargesMode((prev) => ({ ...prev, freight: { ...prev.freight, global: value } }))
-                }
-              />
-            </div>
-          </div>
+                            <div className="row g-3 mb-4">
+                              {/* Freight */}
+                              <div className="col-12 col-sm-4">
+                                <label className="form-label">Freight</label>
+                                <input
+                                  type="number"
+                                  className="form-control"
+                                  min={0}
+                                  value={globalFreight}
+                                  placeholder={
+                                    chargesMode.freight.global === "percentage"
+                                      ? "3%"
+                                      : "₹950"
+                                  }
+                                  onChange={(e) =>
+                                    setglobalFreight(e.target.value || "")
+                                  }
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                />
+                                <div className="mt-2">
+                                  <PercentageAbsoluteToggle
+                                    currentMode={chargesMode.freight.global}
+                                    onToggle={(value) =>
+                                      setChargesMode((prev) => ({
+                                        ...prev,
+                                        freight: {
+                                          ...prev.freight,
+                                          global: value,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              </div>
 
-          {/* Packaging */}
-          <div className="col-12 col-sm-4">
-            <label className="form-label">Packaging</label>
-            <input
-              type="number"
-              className="form-control"
-              min={0}
-              value={globalPackaging}
-              placeholder={chargesMode.package.global === "percentage" ? "4%" : "₹1450"}
-              onChange={(e) => setglobalPackaging(e.target.value || "")}
-              onWheel={(e) => e.currentTarget.blur()}
-            />
-            <div className="mt-2">
-              <PercentageAbsoluteToggle
-                currentMode={chargesMode.package.global}
-                onToggle={(value) =>
-                  setChargesMode((prev) => ({ ...prev, package: { ...prev.package, global: value } }))
-                }
-              />
-            </div>
-          </div>
+                              {/* Packaging */}
+                              <div className="col-12 col-sm-4">
+                                <label className="form-label">Packaging</label>
+                                <input
+                                  type="number"
+                                  className="form-control"
+                                  min={0}
+                                  value={globalPackaging}
+                                  placeholder={
+                                    chargesMode.package.global === "percentage"
+                                      ? "4%"
+                                      : "₹1450"
+                                  }
+                                  onChange={(e) =>
+                                    setglobalPackaging(e.target.value || "")
+                                  }
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                />
+                                <div className="mt-2">
+                                  <PercentageAbsoluteToggle
+                                    currentMode={chargesMode.package.global}
+                                    onToggle={(value) =>
+                                      setChargesMode((prev) => ({
+                                        ...prev,
+                                        package: {
+                                          ...prev.package,
+                                          global: value,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              </div>
 
-          {/* TAX */}
-          <div className="col-12 col-sm-4">
-            <label className="form-label">TAX</label>
-            <input
-              type="number"
-              className="form-control"
-              min={0}
-              value={globalTax}
-              placeholder={chargesMode.tax.global === "percentage" ? "18%" : "₹18940"}
-              onChange={(e) => setglobalTax(e.target.value || "")}
-              onWheel={(e) => e.currentTarget.blur()}
-            />
-            <div className="mt-2">
-              <PercentageAbsoluteToggle
-                currentMode={chargesMode.tax.global}
-                onToggle={(value) =>
-                  setChargesMode((prev) => ({ ...prev, tax: { ...prev.tax, global: value } }))
-                }
-              />
-            </div>
-          </div>
-        </div>
+                              {/* TAX */}
+                              <div className="col-12 col-sm-4">
+                                <label className="form-label">TAX</label>
+                                <input
+                                  type="number"
+                                  className="form-control"
+                                  min={0}
+                                  value={globalTax}
+                                  placeholder={
+                                    chargesMode.tax.global === "percentage"
+                                      ? "18%"
+                                      : "₹18940"
+                                  }
+                                  onChange={(e) =>
+                                    setglobalTax(e.target.value || "")
+                                  }
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                />
+                                <div className="mt-2">
+                                  <PercentageAbsoluteToggle
+                                    currentMode={chargesMode.tax.global}
+                                    onToggle={(value) =>
+                                      setChargesMode((prev) => ({
+                                        ...prev,
+                                        tax: { ...prev.tax, global: value },
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            </div>
 
-        <label
-          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
-          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer" }}
-        >
-          <FontAwesomeIcon icon={faFile} className="me-2" />
-          Upload Quotation Document
-          <input
-            type="file"
-            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-            onChange={(e) => uploadGlobalDocumentFiles(e)}
-            multiple
-          />
-        </label>
+                            {/* Upload Quotation Document */}
+                            <label
+                              className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
+                              style={{
+                                background: "#edf0ff",
+                                border: "1px dashed #c9cff8",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faFile} className="me-2" />
+                              Upload Quotation Document
+                              <input
+                                type="file"
+                                accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                                onChange={(e) => uploadGlobalDocumentFiles(e)}
+                                multiple
+                              />
+                            </label>
 
-           {/*  start: recently upload files */}
-           {globalDocumentFiles && globalDocumentFiles.length > 0 && (
-          <div className="row">
-           <p className="fw-medium mb-1">New Uploaded Files:</p>
-            <div className="d-flex gap-4" >
-              {globalDocumentFiles.map((doc_file) => {
-               return (
-                  <p
-                  key={doc_file}
-                  href={doc_file}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="badge bg-light border text-primary   text-truncate cursor-pointer "
-                  style={{ maxWidth: 280 }}
-                  title={"Click here to download the file"}
-                  onClick={(e) => {
-                      e.preventDefault()
-                      removeGlobalFiles(doc_file)
-                    }}
-                >
-                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
-                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
-                   {extractfileName(doc_file)}
-                  </span>
-                </p>
- 
-              )
-            })}
-            </div>
-         </div>
-          )}
+                            {/* Uploaded Files */}
+                            {globalDocumentFiles &&
+                              globalDocumentFiles.length > 0 && (
+                                <div className="row">
+                                  <p className="fw-medium mb-1">
+                                    New Uploaded Files:
+                                  </p>
+                                  <div className="d-flex gap-4">
+                                    {globalDocumentFiles.map((doc_file) => (
+                                      <p
+                                        key={doc_file}
+                                        className="badge bg-light border text-primary text-truncate cursor-pointer"
+                                        style={{ maxWidth: 280 }}
+                                        title="Click here to remove file"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          removeGlobalFiles(doc_file);
+                                        }}
+                                      >
+                                        <FontAwesomeIcon
+                                          icon={faDownload}
+                                          className="text-primary"
+                                        />
+                                        <span
+                                          className="text-truncate"
+                                          style={{
+                                            maxWidth: 200,
+                                            marginLeft: "10px",
+                                          }}
+                                        >
+                                          {extractfileName(doc_file)}
+                                        </span>
+                                      </p>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
 
-        {previousGlobalFiles?.length > 0 && (
-          <div className=" mb-3">
-            <p className="fw-medium mb-1">Previously Uploaded Files:</p>
-            <div className="d-flex gap-4 ">
-              {previousGlobalFiles.map((prev_file) => (
-                <a
-                  key={prev_file}
-                  href={prev_file}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="badge bg-light border text-primary   text-truncate "
-                  style={{ maxWidth: 280 }}
-                  title={"Click here to download the file"}
-                >
-                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
-                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
-                    {extractfileName(prev_file)}
-                  </span>
-                </a>
-              ))}
+                            {previousGlobalFiles?.length > 0 && (
+                              <div className="mb-3">
+                                <p className="fw-medium mb-1">
+                                  Previously Uploaded Files:
+                                </p>
+                                <div className="d-flex gap-4">
+                                  {previousGlobalFiles.map((prev_file) => (
+                                    <a
+                                      key={prev_file}
+                                      href={prev_file}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="badge bg-light border text-primary text-truncate"
+                                      style={{ maxWidth: 280 }}
+                                      title="Click here to download the file"
+                                    >
+                                      <FontAwesomeIcon
+                                        icon={faDownload}
+                                        className="text-primary"
+                                      />
+                                      <span
+                                        className="text-truncate"
+                                        style={{
+                                          maxWidth: 200,
+                                          marginLeft: "10px",
+                                        }}
+                                      >
+                                        {extractfileName(prev_file)}
+                                      </span>
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
 
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
+                            {/* Global Comment moved here */}
+                            <h3 className="fs-6 fw-semibold mb-2">
+                              Global Comment
+                            </h3>
+                            <textarea
+                              className="form-control"
+                              rows={3}
+                              value={globalComment}
+                              placeholder="Placeholder text for global comment"
+                              onChange={(e) => setglobalComment(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
 
-  {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
-  <div className="col-lg-4 col-12 d-flex">
-    <div className="card border shadow-sm rounded-3 w-100 h-100">
-      <div className="card-body d-flex flex-column">
-      
-      {globalPaymentTerms && (
-      <>
-        <div className="mb-3 d-flex align-items-center justify-content-between">
-          <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
-        </div>
-        <textarea
-          className="form-control mb-3"
-          rows={3}
-          value={globalPaymentTerms}
-          placeholder="100% Against Proforma Invoice"
-          onChange={(e) => setglobalPaymentTerms(e.target.value)}
-        />
-        </>
-      )}
+                      {/* ========== COLUMN 2: Payment Terms Only ========== */}
+                      {/* <div className="col-lg-5 col-12 d-flex">
+                        <div className="card border shadow-sm rounded-3 w-100 h-100">
+                          <div className="card-body d-flex flex-column">
+                            {globalPaymentTerms && (
+                              <>
+                                <div className="mb-3 d-flex align-items-center justify-content-between">
+                                  <h3 className="fs-6 fw-semibold mb-0">
+                                    Payment Terms{" "}
+                                    <span className="text-danger">*</span>
+                                  </h3>
+                                </div>
+                                <textarea
+                                  className="form-control flex-grow-1"
+                                  rows={3}
+                                  value={globalPaymentTerms}
+                                  placeholder="100% Against Proforma Invoice"
+                                  onChange={(e) =>
+                                    setglobalPaymentTerms(e.target.value)
+                                  }
+                                />
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div> */}
 
-        <h3 className="fs-6 fw-semibold mb-2">Global Comment</h3>
-        <textarea
-          className="form-control flex-grow-1"
-        value={globalComment}
-        placeholder="Placeholder text for global comment"
-        onChange={(e) => setglobalComment(e.target.value)}
-      />
-    </div>
-  </div>
-</div>
+                      {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
+                      <div className="col-lg-5 col-12">
+                        <div className="border rounded-3 p-3">
+                          <div className="d-flex align-items-center justify-content-between mb-2">
+                            <div>
+                              <h3 className="fs-6 fw-semibold mb-0">
+                                Payment Terms{" "}
+                                <span className="text-danger">*</span>
+                              </h3>
+                              <small className="text-muted">
+                                amount defined so far:{" "}
+                                {paymentTermsRows.reduce(
+                                  (a, b) => a + (Number(b.value) || 0),
+                                  0
+                                )}
+                                %
+                              </small>
+                              {paymentTermsRows.filter(
+                                (row) =>
+                                  row &&
+                                  row.action !== "delete" &&
+                                  row.type &&
+                                  row.value != null &&
+                                  row.value > 0
+                              ).length === 0 && (
+                                <>
+                                  <br />
+                                  <small className="text-danger">
+                                    At least one valid payment term is required
+                                  </small>
+                                </>
+                              )}
+                            </div>
 
-  {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
-  <div className="col-lg-5 col-12">
+                            <SmartButton
+                              onClick={() =>
+                                setPaymentTermsRows((prev) => [
+                                  ...(prev || []),
+                                  {
+                                    id: null,
+                                    value: "",
+                                    type: "advance",
+                                    days: "",
+                                    comment: "",
+                                  },
+                                ])
+                              }
+                              theme={"primary"}
+                              style={{
+                                paddingLeft: "0.6rem",
+                                paddingRight: "0.6rem",
+                              }}
+                              label="Add Term"
+                              icon={
+                                <FontAwesomeIcon
+                                  icon={faPlus}
+                                  className="me-1"
+                                />
+                              }
+                            />
+                          </div>
 
-   <div className="border rounded-3 p-3" >
-          <div className="d-flex align-items-center justify-content-between mb-2">
-          <div>
-          <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
-            <small className="text-muted">amount defined so far: {paymentTermsRows.reduce((a,b)=>a+(Number(b.value)||0),0)}%</small>
-            {paymentTermsRows.filter(row => 
-              row && 
-              row.action !== "delete" && 
-              row.type && 
-              row.value != null && 
-              row.value > 0
-            ).length === 0 && (
-              <>
-                <br />
-                <small className="text-danger">At least one valid payment term is required</small>
-              </>
-            )}
-            </div>
-
-        <SmartButton
-              onClick={() =>
-                setPaymentTermsRows((prev) => [ ...(prev || []), { id:null,  value: "", type: "advance", days: "", comment:'' } ])
-              }
-        theme={'primary'}
-        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
-        label="Add Term"
-        icon={<FontAwesomeIcon icon={faPlus} className="me-1" />}
-      />
-
-
-          </div>
-
-          <PaymentTermsEditor
-            value={paymentTermsRows}
-            onChange={setPaymentTermsRows}
-          />
-        </div>
-  </div>
-
-</div>
-
-
-
+                          <PaymentTermsEditor
+                            value={paymentTermsRows}
+                            onChange={setPaymentTermsRows}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div className="table-responsive">
                     <div className="table-container">
                       <table className="table">
                         <thead>
                           <tr>
-                            <th>Sl No.</th>
-                            <th>Item</th>
-                            <th>Qty</th>
-                            {/* <th>Unit</th> */}
-                            <th>Base Price</th>
-                            <th>
-                              Freight
+                            <th
+                              rowSpan="2"
+                              className="align-middle"
+                              style={{ maxWidth: "40px" }}
+                            >
+                              Sl No.
                             </th>
-                            <th>
-                              Packaging
+                            <th rowSpan="2" className="align-middle">
+                              Item Details
                             </th>
-                            <th>
-                              Taxes
+                            <th
+                              className="text-center"
+                              style={{ minWidth: "160px" }}
+                            >
+                              Pricing
+                              <br />
+                              <small>(Base + Freight)</small>
                             </th>
-                            <th>Total</th>
-                            {currentLowest ? <th>Current Lowest</th> : null}
-                            <th>Product Specific Comments</th>
-                            <th>
+
+                            <th
+                              className="text-center"
+                              style={{ minWidth: "160px" }}
+                            >
+                              Packaging / Taxes
+                            </th>
+
+                            <th className="text-center">Total</th>
+                            {currentLowest ? (
+                              <th rowSpan="2" className="align-middle">
+                                Current Lowest
+                              </th>
+                            ) : null}
+                            <th className="text-center">Specific Comments</th>
+                            <th className="text-center">
                               Delivery Period <small>(In Days)</small>
                             </th>
-                            <th>Add Documents</th>
-                            {alreadyQuoted ? <th>Previous Documents</th> : null}
+                            <th className="text-center">Add Documents</th>
+                            {/* {alreadyQuoted ? (
+                              <th className="text-center">
+                                Previous Documents
+                              </th>
+                            ) : null} */}
                           </tr>
                         </thead>
                         <tbody>
                           {rfqDetails.products &&
                             rfqDetails.products.length > 0 &&
                             rfqDetails.products.map((item, index) => {
-
                               if (isAvailableForQuote(item)) {
                                 // Changes by Agnij 2024-07-29 [Fix tech eval restrictions check]
                                 const techStatus = techEvalStatuses[item.id];
 
                                 // Determine if inputs should be disabled - only during reverse auction for rejected products
-                                const isTechEvalPendingOrRejected = showTechEvalRestrictions &&
-                                                                   techStatus &&
-                                                                   techStatus.has_tech_eval === true &&
-                                                                   techStatus.is_accepted !== true;
-
+                                const isTechEvalPendingOrRejected =
+                                  showTechEvalRestrictions &&
+                                  techStatus &&
+                                  techStatus.has_tech_eval === true &&
+                                  techStatus.is_accepted !== true;
 
                                 return (
                                   <tr
-                                    key={`q_${item.id}_${item.product_id}_${item.variant}}`}
+                                    key={`q_${item.id}_${item.product_id}_${item.variant}`}
                                   >
                                     <td>{index + 1}</td>
                                     <td>
@@ -1516,6 +1709,15 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           "Size"
                                         )}
                                       </p>
+                                      <p className="text-sm mb-1 text-success fw-bold">
+                                        {`${getProductSpecValueByTitle(
+                                          item?.product_specs,
+                                          "Quantity"
+                                        )} - ${getProductSpecValueByTitle(
+                                          item?.product_specs,
+                                          "Unit"
+                                        )}`}
+                                      </p>
                                       {item?.product_specs[1]?.value && (
                                         <ReadMore
                                           content={`- ${getProductSpecValueByTitle(
@@ -1526,41 +1728,19 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           additionalClasses="text-sm"
                                         />
                                       )}
-                                    </td>
-                                    <td>
-                                      {`${getProductSpecValueByTitle(
-                                        item?.product_specs,
-                                        "Quantity"
-                                      )} - ${getProductSpecValueByTitle(
-                                        item?.product_specs,
-                                        "Unit"
-                                      )}`}
-                                    </td>
-                                    <td>
-                                      <input
-                                        type="number"
-                                        name=""
-                                        id=""
-                                        placeholder="₹"
-                                        value={quoteProducts[index].unit_price}
-                                        min={0}
-                                        onChange={(e) =>
-                                          handleUpdateData(
-                                            item.id,
-                                            e,
+                                      <button
+                                        className="minimal-btn "
+                                        style={{ marginTop: "auto" }}
+                                        // style={{"maxWidth":"120px"}}
+                                        onClick={() =>
+                                          openQuoteHistoryModal(
                                             item.product_id,
-                                            item.variant,
-                                            "unit_price",
-                                            "",
-                                            getProductSpecValueByTitle(
-                                              item?.product_specs,
-                                              "Quantity"
-                                            )
+                                            index
                                           )
-                                        }
-                                        onWheel={(e) => e.target.blur()}
-                                        disabled={isTechEvalPendingOrRejected}
-                                      />
+                                        } // Replace with your actual handler function
+                                      >
+                                        Prev Quotes
+                                      </button>
                                       {isTechEvalPendingOrRejected && (
                                         <small
                                           className="d-block text-danger mt-1"
@@ -1569,240 +1749,345 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           Not accepted
                                         </small>
                                       )}
+                                    </td>
+                                    <td style={{ minWidth: "160px" }}>
+                                      {/* Base Price */}
+                                      <div className="mb-2">
+                                        <small
+                                          className="d-block fw-bold"
+                                          style={{ fontSize: "0.9rem" , marginBottom : "10px" }}
+                                        >
+                                          Base Price
+                                        </small>
+                                        <input
+                                          type="number"
+                                          name=""
+                                          id=""
+                                          placeholder="₹"
+                                          style={{ minWidth: "150px" }}
+                                          value={
+                                            quoteProducts[index].unit_price
+                                          }
+                                          min={0}
+                                          onChange={(e) =>
+                                            handleUpdateData(
+                                              item.id,
+                                              e,
+                                              item.product_id,
+                                              item.variant,
+                                              "unit_price",
+                                              "",
+                                              getProductSpecValueByTitle(
+                                                item?.product_specs,
+                                                "Quantity"
+                                              )
+                                            )
+                                          }
+                                          onWheel={(e) => e.target.blur()}
+                                          disabled={isTechEvalPendingOrRejected}
+                                        />
+
+                                        {isTechEvalPendingOrRejected && (
+                                          <small
+                                            className="d-block text-danger mt-1"
+                                            style={{ fontSize: "0.7rem" }}
+                                          >
+                                            Not accepted
+                                          </small>
+                                        )}
+                                      </div>
+
+                                      {/* Freight */}
+                                      <div className="mt-2">
+                                        {/* Label */}
+                                        <small
+                                          className="d-block fw-bold"
+                                          style={{ fontSize: "0.9rem" }}
+                                        >
+                                          Freight
+                                        </small>
+
+                                        {/* Input + Toggle */}
+                                        <div className="d-flex align-items-center">
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            style={{
+                                              width: "80px",
+                                              marginRight: "8px",
+                                              marginTop: "-18px",
+                                            }}
+                                            placeholder={
+                                              chargesMode.freight[item.id] ===
+                                              "percentage"
+                                                ? "%"
+                                                : "₹"
+                                            }
+                                            value={
+                                              quoteProducts[index]
+                                                .freight_price || ""
+                                            }
+                                            onChange={(e) =>
+                                              handleUpdateData(
+                                                item.id,
+                                                e,
+                                                item.product_id,
+                                                item.variant,
+                                                "freight_price",
+                                                "",
+                                                getProductSpecValueByTitle(
+                                                  item?.product_specs,
+                                                  "Quantity"
+                                                )
+                                              )
+                                            }
+                                            onWheel={(e) => e.target.blur()}
+                                            disabled={
+                                              isTechEvalPendingOrRejected
+                                            }
+                                          />
+
+                                          <PercentageAbsoluteToggle
+                                            currentMode={
+                                              chargesMode.freight[item.id]
+                                            }
+                                            onToggle={(value) => {
+                                              setChargesMode((prev) => ({
+                                                ...prev,
+                                                freight: {
+                                                  ...prev.freight,
+                                                  [item.id]: value,
+                                                },
+                                              }));
+                                              handleUpdateData(
+                                                item.id,
+                                                {
+                                                  target: {
+                                                    value:
+                                                      quoteProducts[index]
+                                                        .freight_price || 0,
+                                                  },
+                                                },
+                                                item.product_id,
+                                                item.variant,
+                                                "freight_price",
+                                                "",
+                                                getProductSpecValueByTitle(
+                                                  item?.product_specs,
+                                                  "Quantity"
+                                                ),
+                                                null,
+                                                null,
+                                                value
+                                              );
+                                            }}
+                                          />
+                                        </div>
+
+                                        {/* Error message */}
+                                        {isTechEvalPendingOrRejected && (
+                                          <small
+                                            className="d-block text-danger mt-1"
+                                            style={{ fontSize: "0.7rem" }}
+                                          >
+                                            Not accepted
+                                          </small>
+                                        )}
+                                      </div>
                                     </td>
 
-                                    <td>
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        name=""
-                                        id=""
-                                        placeholder={
-                                          chargesMode.freight[item.id] ==
-                                          "percentage"
-                                            ? "%"
-                                            : "₹"
-                                        }
-                                        value={
-                                          quoteProducts[index].freight_price ||
-                                          ""
-                                        }
-                                        onChange={(e) =>
-                                          handleUpdateData(
-                                            item.id,
-                                            e,
-                                            item.product_id,
-                                            item.variant,
-                                            "freight_price",
-                                            "",
-                                            getProductSpecValueByTitle(
-                                              item?.product_specs,
-                                              "Quantity"
-                                            )
-                                          )
-                                        }
-                                        onWheel={(e) => e.target.blur()}
-                                        disabled={isTechEvalPendingOrRejected}
-                                      />
-                                      <PercentageAbsoluteToggle
-                                        currentMode={
-                                          chargesMode.freight[item.id]
-                                        }
-                                        onToggle={(value) => {
-                                          setChargesMode((prev) => ({
-                                            ...prev,
-                                            freight: {
-                                              ...prev.freight,
-                                              [item.id]: value,
-                                            },
-                                          }));
-                                          handleUpdateData(
-                                            item.id,
-                                            {
-                                              target: {
-                                                value:
-                                                  quoteProducts[index]
-                                                    .freight_price || 0,
-                                              },
-                                            },
-                                            item.product_id,
-                                            item.variant,
-                                            "freight_price",
-                                            "",
-                                            getProductSpecValueByTitle(
-                                              item?.product_specs,
-                                              "Quantity"
-                                            ),
-                                            null,
-                                            null,
-                                            value,
-                                          );
-                                        }}
-                                      />
-                                      {isTechEvalPendingOrRejected && (
+                                    <td style={{ minWidth: "180px" }}>
+                                      {/* Packaging */}
+                                      <div className="mb-3" style={{maxHeight : "48px"}}>
                                         <small
-                                          className="d-block text-danger mt-1"
-                                          style={{ fontSize: "0.7rem" }}
+                                          className="d-block fw-bold "
+                                          style={{ fontSize: "0.9rem" }}
                                         >
-                                          Not accepted
+                                          Packaging
                                         </small>
-                                      )}
-                                    </td>
 
-                                    <td>
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        name=""
-                                        id=""
-                                        placeholder={
-                                          chargesMode.package[item.id] ==
-                                          "percentage"
-                                            ? "%"
-                                            : "₹"
-                                        }
-                                        value={
-                                          quoteProducts[index].package_price ||
-                                          ""
-                                        }
-                                        onChange={(e) =>
-                                          handleUpdateData(
-                                            item.id,
-                                            e,
-                                            item.product_id,
-                                            item.variant,
-                                            "package_price",
-                                            "",
-                                            getProductSpecValueByTitle(
-                                              item?.product_specs,
-                                              "Quantity"
-                                            ),
-                                          )
-                                        }
-                                        onWheel={(e) => e.target.blur()}
-                                        disabled={isTechEvalPendingOrRejected}
-                                      />
-                                      <PercentageAbsoluteToggle
-                                        currentMode={
-                                          chargesMode.package[item.id]
-                                        }
-                                        onToggle={(value) => {
-                                          setChargesMode((prev) => ({
-                                            ...prev,
-                                            package: {
-                                              ...prev.package,
-                                              [item.id]: value,
-                                            },
-                                          }));
-                                          handleUpdateData(
-                                            item.id,
-                                            {
-                                              target: {
-                                                value:
-                                                  quoteProducts[index]
-                                                    .package_price || 0,
-                                              },
-                                            },
-                                            item.product_id,
-                                            item.variant,
-                                            "package_price",
-                                            "",
-                                            getProductSpecValueByTitle(
-                                              item?.product_specs,
-                                              "Quantity"
-                                            ),
-                                            null,
-                                            null,
-                                            undefined,
-                                            value
-                                          );
-                                        }}
-                                      />
-                                      {isTechEvalPendingOrRejected && (
-                                        <small
-                                          className="d-block text-danger mt-1"
-                                          style={{ fontSize: "0.7rem" }}
-                                        >
-                                          Not accepted
-                                        </small>
-                                      )}
-                                    </td>
+                                        <div className="d-flex align-items-center ">
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            style={{
+                                              width: "80px",
+                                              marginRight: "8px",
+                                              marginTop: "-18px",
+                                            }}
+                                            placeholder={
+                                              chargesMode.package[item.id] ===
+                                              "percentage"
+                                                ? "%"
+                                                : "₹"
+                                            }
+                                            value={
+                                              quoteProducts[index]
+                                                .package_price || ""
+                                            }
+                                            onChange={(e) =>
+                                              handleUpdateData(
+                                                item.id,
+                                                e,
+                                                item.product_id,
+                                                item.variant,
+                                                "package_price",
+                                                "",
+                                                getProductSpecValueByTitle(
+                                                  item?.product_specs,
+                                                  "Quantity"
+                                                )
+                                              )
+                                            }
+                                            onWheel={(e) => e.target.blur()}
+                                            disabled={
+                                              isTechEvalPendingOrRejected
+                                            }
+                                          />
 
-                                    <td>
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        name=""
-                                        id=""
-                                        placeholder={
-                                          chargesMode.tax[item.id] ==
-                                          "percentage"
-                                            ? "%"
-                                            : "₹"
-                                        }
-                                        value={quoteProducts[index].tax || ""}
-                                        onChange={(e) =>
-                                          handleUpdateData(
-                                            item.id,
-                                            e,
-                                            item.product_id,
-                                            item.variant,
-                                            "tax",
-                                            "",
-                                            getProductSpecValueByTitle(
-                                              item?.product_specs,
-                                              "Quantity"
-                                            )
-                                          )
-                                        }
-                                        onWheel={(e) => e.target.blur()}
-                                        disabled={isTechEvalPendingOrRejected}
-                                      />
-                                      <PercentageAbsoluteToggle
-                                        currentMode={
-                                          chargesMode.tax[item.id]
-                                        }
-                                        onToggle={(value) => {
-                                          setChargesMode((prev) => ({
-                                            ...prev,
-                                            tax: {
-                                              ...prev.tax,
-                                              [item.id]: value,
-                                            },
-                                          }));
-                                          handleUpdateData(
-                                            item.id,
-                                            {
-                                              target: {
-                                                value:
-                                                  quoteProducts[index]
-                                                    .tax || 0,
-                                              },
-                                            },
-                                            item.product_id,
-                                            item.variant,
-                                            "tax",
-                                            "",
-                                            getProductSpecValueByTitle(
-                                              item?.product_specs,
-                                              "Quantity"
-                                            ),
-                                            null,
-                                            null,
-                                            undefined,
-                                            undefined,
-                                            value
-                                          );
-                                        }}
-                                      />
-                                      {isTechEvalPendingOrRejected && (
+                                          <PercentageAbsoluteToggle
+                                            currentMode={
+                                              chargesMode.package[item.id]
+                                            }
+                                            onToggle={(value) => {
+                                              setChargesMode((prev) => ({
+                                                ...prev,
+                                                package: {
+                                                  ...prev.package,
+                                                  [item.id]: value,
+                                                },
+                                              }));
+                                              handleUpdateData(
+                                                item.id,
+                                                {
+                                                  target: {
+                                                    value:
+                                                      quoteProducts[index]
+                                                        .package_price || 0,
+                                                  },
+                                                },
+                                                item.product_id,
+                                                item.variant,
+                                                "package_price",
+                                                "",
+                                                getProductSpecValueByTitle(
+                                                  item?.product_specs,
+                                                  "Quantity"
+                                                ),
+                                                null,
+                                                null,
+                                                undefined,
+                                                value
+                                              );
+                                            }}
+                                          />
+                                        </div>
+
+                                        {isTechEvalPendingOrRejected && (
+                                          <small
+                                            className="d-block text-danger mt-1"
+                                            style={{ fontSize: "0.7rem" }}
+                                          >
+                                            Not accepted
+                                          </small>
+                                        )}
+                                      </div>
+
+                                      {/* Taxes */}
+                                      <div className="mt-8" style={{marginTop : "32px"}}>
                                         <small
-                                          className="d-block text-danger mt-1"
-                                          style={{ fontSize: "0.7rem" }}
+                                          className="d-block fw-bold mb-1"
+                                          style={{ fontSize: "0.9rem", }}
                                         >
-                                          Not accepted
+                                          Taxes
                                         </small>
-                                      )}
+
+                                        <div className="d-flex align-items-center">
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            style={{
+                                              width: "80px",
+                                              marginRight: "8px",
+                                              marginTop: "-24px",
+                                            }}
+                                            placeholder={
+                                              chargesMode.tax[item.id] ===
+                                              "percentage"
+                                                ? "%"
+                                                : "₹"
+                                            }
+                                            value={
+                                              quoteProducts[index].tax || ""
+                                            }
+                                            onChange={(e) =>
+                                              handleUpdateData(
+                                                item.id,
+                                                e,
+                                                item.product_id,
+                                                item.variant,
+                                                "tax",
+                                                "",
+                                                getProductSpecValueByTitle(
+                                                  item?.product_specs,
+                                                  "Quantity"
+                                                )
+                                              )
+                                            }
+                                            onWheel={(e) => e.target.blur()}
+                                            disabled={
+                                              isTechEvalPendingOrRejected
+                                            }
+                                          />
+
+                                          <PercentageAbsoluteToggle
+                                            currentMode={
+                                              chargesMode.tax[item.id]
+                                            }
+                                            onToggle={(value) => {
+                                              setChargesMode((prev) => ({
+                                                ...prev,
+                                                tax: {
+                                                  ...prev.tax,
+                                                  [item.id]: value,
+                                                },
+                                              }));
+                                              handleUpdateData(
+                                                item.id,
+                                                {
+                                                  target: {
+                                                    value:
+                                                      quoteProducts[index]
+                                                        .tax || 0,
+                                                  },
+                                                },
+                                                item.product_id,
+                                                item.variant,
+                                                "tax",
+                                                "",
+                                                getProductSpecValueByTitle(
+                                                  item?.product_specs,
+                                                  "Quantity"
+                                                ),
+                                                null,
+                                                null,
+                                                undefined,
+                                                undefined,
+                                                value
+                                              );
+                                            }}
+                                          />
+                                        </div>
+
+                                        {isTechEvalPendingOrRejected && (
+                                          <small
+                                            className="d-block text-danger mt-1"
+                                            style={{ fontSize: "0.7rem" }}
+                                          >
+                                            Not accepted
+                                          </small>
+                                        )}
+                                      </div>
                                     </td>
 
                                     <td>
@@ -1813,6 +2098,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         placeholder="₹"
                                         value={quoteProducts[index].total_price}
                                         disabled
+                                        style={{
+                                          maxWidth: "120px",
+                                          marginTop: "22px",
+                                        }}
                                       />
                                     </td>
                                     {currentLowest ? (
@@ -1877,6 +2166,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             cols="30"
                                             rows="3"
                                             value={quoteProducts[index].comment}
+                                            style={{
+                                              maxWidth: "180px",
+                                              minHeight: "120px",
+                                            }}
                                             onChange={(e) =>
                                               handleUpdateData(
                                                 item.id,
@@ -1910,7 +2203,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                     </td>
                                     <td style={{ width: 250 }}>
                                       <input
-                                        style={{ width: 150 }}
+                                        style={{ maxWidth: "80px" }}
                                         name="delivery_period"
                                         id="delivery_period"
                                         type="number"
@@ -1968,6 +2261,39 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           disabled={isTechEvalPendingOrRejected}
                                         />
                                       </label>
+                                      {alreadyQuoted && (
+                                        <td>
+                                          <div
+                                            style={{
+                                              display: "flex",
+                                              alignItems: "center",
+                                              gap: "8px",
+                                              fontSize: "0.85rem",
+                                            }}
+                                          >
+                                            <span
+                                              style={{
+                                                fontWeight: 600,
+                                                color: "#333",
+                                              }}
+                                            >
+                                              Previous Documents:
+                                            </span>
+                                            {quoteProducts[index]
+                                              ?.previous_document_files
+                                              ?.length > 0 ? (
+                                              renderFileLink(
+                                                quoteProducts[index]
+                                                  .previous_document_files
+                                              )
+                                            ) : (
+                                              <span style={{ color: "#888" }}>
+                                                No Files
+                                              </span>
+                                            )}
+                                          </div>
+                                        </td>
+                                      )}
                                       {isTechEvalPendingOrRejected && (
                                         <small
                                           className="d-block text-danger mt-1"
@@ -1977,7 +2303,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           accepted)
                                         </small>
                                       )}
-
                                       {quoteProducts[index].document_files &&
                                         quoteProducts[index].document_files
                                           .length > 0 &&
@@ -2021,7 +2346,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           }
                                         )}
                                     </td>
-                                    {alreadyQuoted && (
+                                    {/* {alreadyQuoted && (
                                       <td>
                                         {quoteProducts[index]
                                           .previous_document_files &&
@@ -2033,7 +2358,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               .previous_document_files
                                           )}
                                       </td>
-                                    )}
+                                    )} */}
                                   </tr>
                                 );
                               }
@@ -2046,8 +2371,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                   <div className="quote-sec-btm">
                     <div className="row">
                       <div className="col-md-6">
-                        {pageType != "update-quote" &&
-
+                        {pageType != "update-quote" && (
                           <button
                             id="regret_quote-quote_actions-send_quote_page"
                             type="submit"
@@ -2056,7 +2380,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                           >
                             Regret Quote
                           </button>
-                        }
+                        )}
                       </div>
                       <div className="col-md-6">
                         {/* Changes by Agnij 2024-07-30 [Disable send quote button when no fields are filled] */}
@@ -2076,6 +2400,7 @@ return { deletedTerms, createdTerms, updatedTerms };
               </div>
             </div>
           </div>
+          </div>
         </section>
       )}
       <RegretQuoteReasonModal
@@ -2088,7 +2413,9 @@ return { deletedTerms, createdTerms, updatedTerms };
       {extractedQuotes.data && (
         <QuotesOverrideModal
           show={extractedQuotes.show}
-          onClose={() => setExtractedQuotes(prev => ({...prev, show: false}))}
+          onClose={() =>
+            setExtractedQuotes((prev) => ({ ...prev, show: false }))
+          }
           quotes={extractedQuotes.data}
           overrideQuote={overrideQuote}
         />
@@ -2105,6 +2432,15 @@ return { deletedTerms, createdTerms, updatedTerms };
         confirmButtonText="Submit Quote"
         cancelButtonText="Cancel"
       />
+
+      {showQuoteHistoryModal && (
+        <VendorQuoteHistoryModal
+          showModal={showQuoteHistoryModal}
+          closeModal={() => setShowQuoteHistoryModal(false)}
+          quoteHistory={quoteHistory}
+          quotehistorydata={quoteHistory?.data} // pass previous_quotes etc.
+        />
+      )}
     </>
   );
 };
@@ -2252,5 +2588,4 @@ const PaymentTermsEditor = ({ value, onChange }) => {
     </div>
   );
 };
-
 

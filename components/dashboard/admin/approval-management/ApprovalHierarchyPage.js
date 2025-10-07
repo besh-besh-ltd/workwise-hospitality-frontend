@@ -40,7 +40,9 @@ const ApprovalHierarchyPage = () => {
     level: "",
   });
   const [editModal, setEditModal] = useState({ show: false, user: null });
+  const [finalApproverModal, setFinalApproverModal] = useState(false);
   const [editData, setEditData] = useState({ bypass_cap: "", active: true });
+  const [finalApproverData, setFinalApproverData] = useState({ user: null, active: true });
 
   const fetchCompanyUsers = async () => {
     try {
@@ -147,6 +149,45 @@ const ApprovalHierarchyPage = () => {
     setEditModal({ show: false, user: null });
   };
 
+  const handleFinalApprover = (user) => {
+    setFinalApproverModal(true);
+    setFinalApproverData({ user, active: user?.active ?? true });
+  };
+
+  const saveFinalApprover = () => {
+    const data = { ...finalApproverData }
+    if(!data.user || (!data.active == undefined)) return;
+
+    if(!data.bypass_cap) data.bypass_cap = 0;
+
+    let updatableHierarchy = [...hierarchy];
+
+    if(updatableHierarchy.find(u => u.id == data.user)) {
+      toast.error("Selected user is already included in the hierarchy, please select another user!")
+      setFinalApproverModal(false);
+      return;
+    }
+
+    if (updatableHierarchy.find((h) => h.level === -1)) {
+      updatableHierarchy = updatableHierarchy.filter(
+        (h) => h.level != -1
+      );
+    }
+
+    const user = users.find((u) => u.id === parseInt(data.user));
+    setHierarchy([
+      ...updatableHierarchy,
+      {
+        ...user,
+        bypass_cap: parseInt(data.bypass_cap),
+        active: data.active,
+        level: -1,
+      },
+    ]);
+    setFinalApproverData({ user: null, active: true });
+    setFinalApproverModal(false);
+  };
+
   const deleteUser = () => {
     setHierarchy(hierarchy.filter((u) => u.id !== editModal.user.id));
     setRemovableApprovers((prev) =>
@@ -170,9 +211,36 @@ const ApprovalHierarchyPage = () => {
   };
 
   const isHighestApprover = (user, hierarchy) => {
-    const activeUsers = hierarchy.filter(h => h.active)
+    const activeUsers = hierarchy.filter(h => h.level > 0 && h.active)
     if(activeUsers.length <= 0) return false;
     return activeUsers[activeUsers.length - 1].id == user.id;
+  }
+
+  const getFinalApproverLayout = (hierarchy) => {
+    const finalApprover = hierarchy.find(h => h.level == -1);
+    return (
+      <Card
+        style={{ height: 240, minWidth: "320px", position: "relative" }}
+        className="shadow-sm"
+      >
+        <Card.Body>
+          <h6 className="mb-1">{finalApprover?.name || "NO FINAL APPROVER SELECTED"}</h6>
+          <p className="mb-2 small text-muted">{finalApprover?.email || "-"}</p>
+          <p className="mb-1">
+            <strong>Level:</strong> Final Approver
+          </p>
+          <p className="mb-0">
+            <strong>Status: </strong>
+            {finalApprover ? (
+              <Badge bg={finalApprover?.active ? 'success' : 'secondary'}>{finalApprover?.active ? 'Active' : 'Inactive'}</Badge>
+            ) : (
+              <Badge bg="warning">Not Selected</Badge>
+            )}
+          </p>
+          <button onClick={() => handleFinalApprover(finalApprover)} className="btn btn-light p-2 mt-5">Edit</button>
+        </Card.Body>
+      </Card>
+    );
   }
 
   useEffect(() => {
@@ -212,8 +280,14 @@ const ApprovalHierarchyPage = () => {
                 <div className="mx-4 mb-4">
                   <h4 className="mb-3 fw-medium">Purchase Order Hierarchy</h4>
                   {hierarchy && Array.isArray(hierarchy) && hierarchy.length > 0 ? (
-                    <div className="d-flex flex-wrap gap-3">
-                      {hierarchy
+                    <div className="d-flex gap-3">
+                      {/* {getFinalApproverLayout(hierarchy)} */}
+
+                      {/* <div class="vr mx-2"></div> */}
+
+                      <div className="d-flex flex-wrap gap-3">
+                        {hierarchy
+                        .filter(h => h.level > 0)
                         .sort((a, b) => a.level - b.level)
                         .map((user, index, self) => (
                           <>
@@ -227,20 +301,20 @@ const ApprovalHierarchyPage = () => {
                                 <p className="mb-2 small text-muted">
                                   {user.email}
                                 </p>
-                                <p className="mb-0">
-                                  <strong>Level:</strong> {user.level}
-                                </p>
                                 <p className="mb-1">
-                                  <strong>Bypass:</strong> ₹
-                                  {user.bypass_cap
-                                    ? formatToINRShort(user.bypass_cap)
-                                    : "-"}
+                                  <strong>Level:</strong> {user.level}
                                   {isHighestApprover(user, hierarchy) && (
                                     <small className="fw-medium">
                                       {" "}
                                       (Highest Approver)
                                     </small>
                                   )}
+                                </p>
+                                <p className="mb-1">
+                                  <strong>Approval Amount:</strong> ₹
+                                  {user.bypass_cap
+                                    ? formatToINRShort(user.bypass_cap)
+                                    : "-"}
                                 </p>
                                 <p className="mb-0">
                                   <strong>Status: </strong>
@@ -298,6 +372,7 @@ const ApprovalHierarchyPage = () => {
                             )}
                           </>
                         ))}
+                      </div>
                     </div>
                   ) : (
                     <div
@@ -376,9 +451,13 @@ const ApprovalHierarchyPage = () => {
                       <Form.Label>Level</Form.Label>
                       <Form.Control
                         type="number"
+                        min={1}
+                        max={99}
                         value={formData.level}
-                        onChange={(e) =>
-                          setFormData({ ...formData, level: e.target.value })
+                        onChange={(e) => {
+                          if((parseInt(e.target.value) > 0 && parseInt(e.target.value) < 100) || e.target.value == "")
+                           setFormData({ ...formData, level: e.target.value })
+                        }
                         }
                       />
                     </Form.Group>
@@ -455,6 +534,33 @@ const ApprovalHierarchyPage = () => {
                           </Card.Body>
                         </Card>
                       ))}
+
+                      <hr/>
+
+                      <Card className={`mb-2`}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between">
+                              <div>
+                                <strong>Kushal Shah</strong> <small className="text-muted fw-medium">(Final Approver)</small>
+                                <br />
+                                <small>kushal@letsworkwise.com</small>
+                                <br />
+                                <small>
+                                  <Badge
+                                    bg={"success"}
+                                  >
+                                    {"Active"}
+                                  </Badge>
+                                </small>
+                              </div>
+                              <button
+                                className="btn btn-primary p-2"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          </Card.Body>
+                        </Card>
                     <Button
                       disabled={saving}
                       variant="success"
@@ -516,6 +622,54 @@ const ApprovalHierarchyPage = () => {
               Delete
             </Button>
             <Button className="p-2" variant="primary" onClick={saveEdit} id="save_user_edit-edit_modal-approval_hierarchy_page">
+              Save
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        <Modal
+          centered
+          show={finalApproverModal}
+          onHide={() => setFinalApproverModal(false)}
+        >
+          <Modal.Header closeButton>
+            <Modal.Title className="m-3 mb-0 mt-2">Update Final Approver</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form.Group className="mb-3">
+              <Form.Label>Select User</Form.Label>
+              <Form.Select
+                value={finalApproverData.user}
+                onChange={(e) =>
+                  setFinalApproverData({ ...finalApproverData, user: e.target.value })
+                }
+              >
+                <option value="">Select</option>
+                {users.filter(u => ALLOWED_PO_USERS.includes(u.role) ).map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Status</Form.Label>
+              <Form.Select
+                value={finalApproverData.active}
+                onChange={(e) =>
+                  setEditData({
+                    ...finalApproverData,
+                    active: e.target.value === "true",
+                  })
+                }
+              >
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </Form.Select>
+            </Form.Group>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button className="p-2" variant="primary" onClick={saveFinalApprover}>
               Save
             </Button>
           </Modal.Footer>
