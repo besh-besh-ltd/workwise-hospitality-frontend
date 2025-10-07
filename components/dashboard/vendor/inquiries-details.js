@@ -675,7 +675,7 @@ const RfqManagementPreview = () => {
                     </h1>
                   )}
                 </div>
-                <div className="d-flex gap-3">
+                {!enableBuyerView && <div className="d-flex gap-3">
                   {/* Queries Button */}
                   <button
                     id="view_queries-rfq_header-inquiries_details_page"
@@ -730,7 +730,7 @@ const RfqManagementPreview = () => {
                       </button>
                     )}
                   {/* Send Quote Button / Disabled State */}
-                  {rfqDetails.quotations.length === 0 && (
+                  {!enableBuyerView && rfqDetails.quotations.length === 0 && (
                     <button
                       type="button"
                       className={`btn ${
@@ -783,7 +783,7 @@ const RfqManagementPreview = () => {
                       </>
                     </button>
                   ) : null}
-                </div>
+                </div>}
               </div>
             </div>
           </section>
@@ -793,7 +793,7 @@ const RfqManagementPreview = () => {
               <div className="row">
                 <div className="col-md-12">
                   {/* RFQ Details Section */}
-                  <div className="bg-light p-3 rounded-2">
+                 {!enableBuyerView && <div className="bg-light p-3 rounded-2">
                     <h5 className="fw-bold text-dark mb-3">Company Details</h5>
                     <div className="row g-3">
                       {rfqDetails?.company_name && (
@@ -862,7 +862,7 @@ const RfqManagementPreview = () => {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </div>}
 
                   <div className="manage-rfq-con">
                     {/* Content for Manage RFQs tab */}
