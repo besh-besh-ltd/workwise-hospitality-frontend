@@ -651,20 +651,23 @@ const clearVendorFilters = () => {
       return;
     }
 
+    // Support no-space location slugs: convert names by removing spaces and lowercasing
+    const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
     const segments = slug.split('-');
     let foundState = null, foundCity = null, productSegments = [];
+    // Note: if country is desired via slug, we can extend similarly using countries list
 
     for (let i = segments.length - 1; i >= 0; i--) {
-      const segment = segments[i];
+      const segment = segments[i].toLowerCase();
       if (!foundState) {
-        const stateMatch = stateList.find(state => state.state_name.toLowerCase() === segment.toLowerCase());
+        const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
         if (stateMatch) { foundState = stateMatch; setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]); continue; }
       }
       if (!foundCity) {
-        const cityMatch = cityList.find(city => city.city_name.toLowerCase() === segment.toLowerCase());
+        const cityMatch = cityList.find(city => normalize(city.city_name) === segment);
         if (cityMatch) { foundCity = cityMatch; setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]); continue; }
       }
-      productSegments.unshift(segment);
+      productSegments.unshift(segments[i]);
     }
     const finalSearchKey = productSegments.join('-');
     setSearch_key(finalSearchKey);
