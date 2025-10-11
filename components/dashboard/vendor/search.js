@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -6,7 +6,7 @@ import {
   faPlus,
   faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
-import {  getProductMakeList, searchProductsV2 } from "@/services/products";
+import {  getProductMakeList, parentCategoryList, searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
 import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
@@ -27,6 +27,8 @@ import Select from 'react-select';
 import axiosInstance from "@/lib/axios";
 import { BusinessTypes } from "@/utils/constants";
 import { getCountries, getStates, getCities } from "@/services/cms";
+import { AllCategoriesSection } from "@/components/products/utils/AllCategoriesSection";
+import { SecurityFeatures } from "@/pages/why-workwise/TrustSecurity";
 
 
 export const vendorConditions = [
@@ -190,6 +192,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     };
   }, []);
 
+  
   useEffect(() => {
     if(vendorTypes)
       setInternalVendorTypes(vendorTypes.filter(type => !selectedVendorTypes.some(_type => _type.value == type.value)))
@@ -485,6 +488,23 @@ const addRfqIdParam = (rfq_id) => {
 
       })
   };
+  
+
+  const getParentCategories = () => {
+    setloading(true)
+    parentCategoryList()
+      .then((res) => {
+        setCategories(res.data.parentCategories);
+        setProductsList([]);
+        setloading(false)
+        router.push("/vendor/all");
+        setIsOpen(false);
+      })
+      .catch((error) => {
+        setloading(false)
+        console.error("Error fetching categories:", error);
+      });
+  };
 
   const getCategories = () => {
     setcatloading(true);
@@ -506,7 +526,9 @@ const addRfqIdParam = (rfq_id) => {
         setcatloading(false);
       });
   };
-
+  useEffect(()=>{
+    getParentCategories();
+  },[])
   const getVendorApprovedby = () => {
     setvabloading(true);
   
@@ -1594,6 +1616,14 @@ const clearVendorFilters = () => {
           setActiveAuthTab={setActiveAuthTab}
         />
       </section>
+      <AllCategoriesSection allCategories={categories} />
+      <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
+  Why Trust Us
+</h3>
+<SecurityFeatures />
+
+
+
     </>
   );
 };
