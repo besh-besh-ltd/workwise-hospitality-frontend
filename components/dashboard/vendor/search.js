@@ -1,4 +1,4 @@
-import React, { use, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -6,7 +6,10 @@ import {
   faPlus,
   faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
-import {  getProductMakeList, parentCategoryList, searchProductsV2 } from "@/services/products";
+import {  getProductMakeList, parentCategoryList, searchProductsV2, nestedCategoryData, getRandomProducts } from "@/services/products";
+import Slider from 'react-slick';
+import RandomProductsCarousel from '@/components/dashboard/vendor/RandomProductsCarousel';
+import SeoTitle from '@/components/dashboard/vendor/SeoTitle';
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
 import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
@@ -29,6 +32,7 @@ import { BusinessTypes } from "@/utils/constants";
 import { getCountries, getStates, getCities } from "@/services/cms";
 import { AllCategoriesSection } from "@/components/products/utils/AllCategoriesSection";
 import { SecurityFeatures } from "@/pages/why-workwise/TrustSecurity";
+import NestedCategoryBrowser from "./NestedCategoryBrowser";
 
 
 export const vendorConditions = [
@@ -97,7 +101,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const tempProdRef = useRef(null);
   const [searchCategories, setSearchCategories] = useState([]);
   const [searchSubCategories, setSearchSubCategories] = useState([]);
+  // Nested categories state for dynamic rendering from backend
+  const [nestedCategories, setNestedCategories] = useState([]);
+  // Nested category browsing moved to NestedCategoryBrowser component
+  // fetchNestedCategories logic moved to NestedCategoryBrowser
   const [productsList, setProductsList] = useState([]);
+  // random products carousel state moved to RandomProductsCarousel component
   const categoryLvlRef = useRef(new Map());
   const [firstVisit, setFirstVisit] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -207,11 +216,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   }, [selectedApprovedBy])
 
   useEffect(() => {
+    // Normalize slug which can be string or array (catch-all routes)
+    const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
     // Prevent vendor search when slug is 'all'
-    if (slug === 'all') return;
+    if (slugStr === 'all') return;
     getVendorApprovedby();
     getVendors();
   }, [
+    slug,
     currentSelectedProduct,
     selectedApprovedBy,
     cat_id,
@@ -253,6 +265,54 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     let lowerCaseString = input.toLowerCase();
     let cleanedString = lowerCaseString.replace(/[\s\-\/()]+/g, ' ').trim();
     return cleanedString.replace(/\s+/g, '-');
+  }
+
+  // Fetch nested categories from backend using provided service
+  const fetchNestedCategories = async (parent_id = 0, slugParam = "") => {
+    setNestedLoading(true);
+    try {
+      // Convert any slash-separated slug into hyphen-separated for backend
+      const backendSlug = (() => {
+  if (!slugParam) return "";
+  
+  const slugStr = Array.isArray(slugParam)
+    ? slugParam.join("/")
+    : String(slugParam);
+
+  // Split by '/' or '-' and take last non-empty segment
+  const segments = slugStr.split(/[\/-]/).filter(Boolean);
+  return segments[segments.length - 1];
+})();
+  console.log("Fetching nested categories for parent_id:", parent_id, "slugParam:", slugParam, "backendSlug:", backendSlug);  
+      const rsp = await nestedCategoryData(parent_id, backendSlug);
+      // backend may return array directly or wrapped in data
+      const data = rsp?.data ?? rsp;
+      const arr = Array.isArray(data) ? data : data?.data ?? [];
+      setNestedCategories(arr || []);
+      // If backend returns no nested categories, treat the last slug segment as product
+      if ((!arr || arr.length === 0) && slugParam) {
+        const rawSlugStr = Array.isArray(slugParam) ? slugParam.join('/') : String(slugParam);
+        const segments = rawSlugStr.split(/[\/\-]/).filter(Boolean);
+        const last = segments.length ? segments[segments.length - 1] : '';
+        const productSearchKey = last.replace(/-/g, ' ');
+        // populate search box
+        setSearch_key(productSearchKey);
+        setcurrentSelectedProduct(null);
+        try {
+          // wait for products to be fetched, then fetch vendors
+          await getProducts(productSearchKey);
+          getVendors();
+        } catch (e) {
+          // ignore errors here but log for debugging
+          console.error('Error fetching products/vendors for slug:', rawSlugStr, e);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching nested categories:", err);
+      setNestedCategories([]);
+    } finally {
+      setNestedLoading(false);
+    }
   }
 
   const canAddItem = () => {
@@ -423,8 +483,8 @@ const addRfqIdParam = (rfq_id) => {
   const getProducts = (s_key = search_key) => {
     setloading(true);
     categoryLvlRef.current = new Map();
-    
-    searchProductsV2(
+
+    return searchProductsV2(
       {
         cat_id,
         search_key: s_key,
@@ -449,9 +509,11 @@ const addRfqIdParam = (rfq_id) => {
         } else {
           setcurrentSelectedProduct(null);
         }
+        return rsp;
       })
       .catch((error) => {
         setloading(false);
+        throw error;
       });
   };
 
@@ -529,6 +591,8 @@ const addRfqIdParam = (rfq_id) => {
   useEffect(()=>{
     getParentCategories();
   },[])
+
+  // Random products carousel logic extracted to RandomProductsCarousel component
   const getVendorApprovedby = () => {
     setvabloading(true);
   
@@ -665,15 +729,17 @@ const clearVendorFilters = () => {
 
   // --- Parse slug only ONCE when slug or lists are ready ---
   useEffect(() => {
-    if (!slug || slug === 'all') return;
+    // Normalize slug which may be string or array
+    const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
+    if (!slugStr || slugStr === 'all') return;
 
     // If location lists are not loaded yet, treat the entire slug as product search
     if (!stateList.length || !cityList.length) {
-      setSearch_key(slug);
+      setSearch_key(slugStr);
       return;
     }
 
-    const segments = slug.split('-');
+    const segments = slugStr.split('/');
     let foundState = null, foundCity = null, productSegments = [];
 
     for (let i = segments.length - 1; i >= 0; i--) {
@@ -688,9 +754,12 @@ const clearVendorFilters = () => {
       }
       productSegments.unshift(segment);
     }
-    const finalSearchKey = productSegments.join('-');
+    const finalSearchKey = productSegments.join('/');
     setSearch_key(finalSearchKey);
   }, [slug, stateList, cityList]);
+
+  // When slug changes (including 'all'), fetch nested categories.
+  // Nested category handling delegated to NestedCategoryBrowser
 
   // --- Trigger product search automatically ---
   useEffect(() => {
@@ -736,21 +805,13 @@ const clearVendorFilters = () => {
     <>
       <section className="vendor-common-header sc-pt-80" aria-label="header">
         <div className="container-fluid  text-center">
-          <h1 className="heading">
-            {(() => {
-              const slugStr = typeof slug === 'string' ? slug : '';
-              const rawProduct = getProductTitle() || search_key || slugStr;
-              const productName = textCapitalize((rawProduct || '').replace(/-/g, ' ').trim());
-              const stateName = selectedState?.[0]?.name;
-              const cityName = selectedCity?.[0]?.name;
-
-              if (slugStr === 'all') return 'Discover Verified Vendors for Industrial Procurement';
-              if (productName && cityName && stateName) return `Top ${productName} Vendors & Suppliers Near ${cityName},  ${stateName}`;
-              if (productName && stateName) return `Top ${productName} Vendors & Suppliers Near ${stateName}`;
-              if (productName) return `Top ${productName} Vendors & Suppliers`;
-              return 'Discover Verified Vendors for Industrial Procurement';
-            })()}
-          </h1>
+          <SeoTitle
+            slug={slug}
+            search_key={search_key}
+            currentSelectedProduct={currentSelectedProduct}
+            selectedState={selectedState}
+            selectedCity={selectedCity}
+          />
           <div className="d-flex justify-content-end">
             <Link
               href="/dashboard/buyer/boq-automation"
@@ -953,6 +1014,13 @@ const clearVendorFilters = () => {
 
       <section className="search-sec-2" aria-label="product-categories-section">
         <div className="container-fluid">
+          {/* Nested categories fetched dynamically from backend (now in NestedCategoryBrowser) */}
+          <NestedCategoryBrowser
+            slug={slug}
+            onGetProducts={getProducts}
+            onGetVendors={getVendors}
+            setSearchKey={setSearch_key}
+          />
           {/* Search Categories Section */}
           {searchSubCategories.length > 0 && (
             <div className=" col-md-12 bg-white rounded-5 p-4">
@@ -1616,7 +1684,12 @@ const clearVendorFilters = () => {
           setActiveAuthTab={setActiveAuthTab}
         />
       </section>
-      <AllCategoriesSection allCategories={categories} />
+     
+      {/* Random products carousel (between categories and Why Trust Us) */}
+      <div className="container my-4">
+        <RandomProductsCarousel className="" />
+      </div>
+
       <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
   Why Trust Us
 </h3>
