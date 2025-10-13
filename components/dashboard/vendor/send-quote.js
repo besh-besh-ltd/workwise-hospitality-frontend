@@ -1172,7 +1172,7 @@ return { deletedTerms, createdTerms, updatedTerms };
        
         {/* AI file upload start here */}
        <div>
-       <div>
+       {/* <div>
 
          <div className="d-flex align-items-center my-3">
            <hr className="flex-grow-1" />
@@ -1207,8 +1207,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                         />
                       </label>
 
-                      {/*  start: recently upload files */}
-                      {/* {globalDocumentFiles &&
+                       start: recently upload files 
+                       {globalDocumentFiles &&
                         globalDocumentFiles.length > 0 && (
                           <div className="row">
                             <p className="fw-medium mb-1">
@@ -1248,9 +1248,9 @@ return { deletedTerms, createdTerms, updatedTerms };
                               })}
                             </div>
                           </div>
-                        )} */}
-           {/*  start: recently upload files */}
-           {globalDocumentFiles && globalDocumentFiles.length > 0 && (
+                        )} 
+             start: recently upload files
+            {globalDocumentFiles && globalDocumentFiles.length > 0 && (
           <div className="row">
            <p className="fw-medium mb-1">New Uploaded Files:</p>
             <div className="d-flex gap-4" >
@@ -1304,16 +1304,18 @@ return { deletedTerms, createdTerms, updatedTerms };
 
             </div>
           </div>
-        )}
+        )} 
 
-       </div>
-       <div className="d-flex align-items-center my-3">
+
+       </div> */}
+
+       {/* <div className="d-flex align-items-center my-3">
          <hr className="flex-grow-1" />
          <span className="mx-3  fw-semibold">
            OR send quotation manually
          </span>
          <hr className="flex-grow-1" />
-       </div> 
+       </div>  */}
 
 
                     <div className="row align-items-stretch">
