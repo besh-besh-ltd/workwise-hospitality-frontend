@@ -1448,7 +1448,7 @@ export default function Home() {
                 <iframe
                   width="100%"
                   height="500px"
-                  src={`https://www.youtube.com/embed/-JPa1MX2HVE?autoplay=1`}
+                  src={"https://www.youtube.com/embed/hGLXaqCF5fc?autoplay=1"}
                   title="YouTube Video"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
