@@ -3,21 +3,27 @@ import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Field, Form, Formik } from "formik";
 import { useEffect, useState } from "react";
-import {  toast } from "react-toastify";
+import { toast } from "react-toastify";
 import * as yup from "yup";
 import FullLoader from "../shared/FullLoader";
 import { useRouter } from "next/router";
 import { getCountryCodes } from "@/services/cms";
+import { set } from "lodash";
 
-  {/* registerAs = vendor or buyer valid values */}
-const Register = ({registerAs, onRegistrationSuccess, isPaidSubscription = false}) => {
+{
+  /* registerAs = vendor or buyer valid values */
+}
+const Register = ({
+  registerAs,
+  onRegistrationSuccess,
+  isPaidSubscription = false,
+}) => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showCPassword, setShowCPassword] = useState(false);
   const [loading, setloading] = useState(false);
-  const [countryCode , setCountryCode] = useState([]);
-
-
+  const [countryCode, setCountryCode] = useState([]);
+  const [tncCheckned, setTncCheckned] = useState(false);
 
   useEffect(() => {
     const fetchCountryCodes = async () => {
@@ -28,11 +34,9 @@ const Register = ({registerAs, onRegistrationSuccess, isPaidSubscription = false
         console.error("Error fetching country codes:", error);
       }
     };
-  
+
     fetchCountryCodes();
   }, []);
-  
-
 
   // Set State Change
   const handleChange = (setState) => (event) => {
@@ -44,10 +48,11 @@ const Register = ({registerAs, onRegistrationSuccess, isPaidSubscription = false
     email: "",
     mobile: "",
     organization_name: "",
-    register_as : registerAs == "vendor" ? "3" : registerAs == "buyer" ? "2" : "",
+    register_as:
+      registerAs == "vendor" ? "3" : registerAs == "buyer" ? "2" : "",
     password: "",
     confirm_password: "",
-    countryCode :"+91"
+    countryCode: "+91",
   };
   // Register Initial Validations
   const validateSchema = yup.object().shape({
@@ -90,17 +95,20 @@ const Register = ({registerAs, onRegistrationSuccess, isPaidSubscription = false
   });
 
   const registerSubmitHandler = (values, resetForm) => {
-   setloading(true);
+    setloading(true);
 
-   const cleanMobile = values.mobile.trim().replace(/^0+/, '').replace(/^\+\d+\-/, '');
-   const fullMobile = `${values.countryCode}-${cleanMobile}`.substring(0, 15);
-   
-   const { countryCode, confirm_password, ...updatedValues } = { 
-    ...values, 
-    mobile: fullMobile,
-    // Set status to 1 (approved) for paid subscriptions to bypass admin approval
-    ...(isPaidSubscription && { status: 1 })
-  };
+    const cleanMobile = values.mobile
+      .trim()
+      .replace(/^0+/, "")
+      .replace(/^\+\d+\-/, "");
+    const fullMobile = `${values.countryCode}-${cleanMobile}`.substring(0, 15);
+
+    const { countryCode, confirm_password, ...updatedValues } = {
+      ...values,
+      mobile: fullMobile,
+      // Set status to 1 (approved) for paid subscriptions to bypass admin approval
+      ...(isPaidSubscription && { status: 1 }),
+    };
     RegisterService(updatedValues)
       .then((response) => {
         setloading(false);
@@ -108,22 +116,24 @@ const Register = ({registerAs, onRegistrationSuccess, isPaidSubscription = false
         toast.success(response.message, {
           position: "top-center",
         });
-        
+
         // If callback is provided, authenticate user and call it with user data
-        if (onRegistrationSuccess && typeof onRegistrationSuccess === 'function') {
-          
+        if (
+          onRegistrationSuccess &&
+          typeof onRegistrationSuccess === "function"
+        ) {
           // Automatically authenticate the user with the same credentials
           const loginData = {
             email: updatedValues.email,
-            password: updatedValues.password
+            password: updatedValues.password,
           };
-          
+
           LoginService(loginData, false)
             .then((loginResponse) => {
               // Call the success callback with user data and token
               onRegistrationSuccess({
                 ...updatedValues,
-                token: loginResponse.token
+                token: loginResponse.token,
               });
             })
             .catch((loginError) => {
@@ -268,8 +278,8 @@ const Register = ({registerAs, onRegistrationSuccess, isPaidSubscription = false
                 </div>
 
                 {/* Display validation errors */}
-                {touched[name] && errors[name] && (
-                  <div className="form-error">{errors[name]}</div>
+                {touched.mobile && errors.mobile && (
+                  <div className="form-error">{errors.mobile}</div>
                 )}
               </div>
               {/* 
@@ -336,7 +346,39 @@ const Register = ({registerAs, onRegistrationSuccess, isPaidSubscription = false
                   )}
                 </div>
               </div>
-              <button type="submit" className="btn btn-secondary">
+
+              {registerAs === "vendor" && (
+                <div className="">
+                  <label className="d-flex align-items-center mb-0">
+                    <input
+                      type="checkbox"
+                      name="vendor_tnc"
+                      checked={tncCheckned}
+                      onChange={(e) => {
+                        setTncCheckned(e.target.checked);
+                      }}
+                    />
+                    <span style={{ marginLeft: 8 }}>
+                      I agree to respond within 24 hours with best quality and
+                      competitive pricing
+                    </span>
+                  </label>
+                  <a
+                    href="http://localhost:8001/for-vendors/tnc"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ marginLeft: 20, fontWeight: 500 }}
+                  >
+                    Term and Conditions
+                  </a>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="btn btn-secondary"
+                disabled={registerAs === "vendor" ? !tncCheckned : false}
+              >
                 Register
               </button>
             </Form>
