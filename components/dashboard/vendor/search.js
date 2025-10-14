@@ -33,6 +33,7 @@ import { getCountries, getStates, getCities } from "@/services/cms";
 import { AllCategoriesSection } from "@/components/products/utils/AllCategoriesSection";
 import { SecurityFeatures } from "@/pages/why-workwise/TrustSecurity";
 import NestedCategoryBrowser from "./NestedCategoryBrowser";
+import FeatureSEOSection from "./FeatureSEOsection";
 
 
 export const vendorConditions = [
@@ -56,6 +57,8 @@ export const vendorConditions = [
 const Search = ({ title = "Preffered Vendors", type }) => {
   const router = useRouter();
   const { slug, s, loggedin } = router.query;
+
+  console.log("this is where ma checking the router ", "slug" , slug ,"s", s ,"loged in", loggedin);
   const vendor_area_ref = useRef();
   const id = Date.now().toString();
   const [isOpen, setIsOpen] = useState(false);
@@ -162,7 +165,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         searchLabelRef.current.click();
       }, 1000);
 
-      // getProducts();
+      getProducts();
     }
     if (localStorage.getItem("token")) {
       setIsLoggedIn(true);
@@ -215,30 +218,44 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setInternalApprovedBy(approved_by?.filter(approveBy => !selectedApprovedBy.some(_approvedBy => approveBy.vendor_approve == _approvedBy.vendor_approve)))
   }, [selectedApprovedBy])
 
-  useEffect(() => {
-    // Normalize slug which can be string or array (catch-all routes)
-    const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
-    // Prevent vendor search when slug is 'all'
-    if (slugStr === 'all') return;
-    getVendorApprovedby();
-    getVendors();
-  }, [
-    slug,
-    currentSelectedProduct,
-    selectedApprovedBy,
-    cat_id,
-    selectedState,
-    selectedCity,
-    selectedCountry,
-    selectedVendorTypes,
-    prevWorkedWith,
-    turnOver,
-    isLoggedIn,
-    debouncedVendorName, // Use debouncedVendorName instead of vendorName,
-    myVendorType,
-    selectedMakes,
-    search_key
-  ]);
+ useEffect(() => {
+  // Normalize slug which can be string or array (catch-all routes)
+  const slugStr = Array.isArray(slug)
+    ? slug.join('/')
+    : typeof slug === 'string'
+    ? slug
+    : '';
+
+  // Prevent vendor search when slug is 'all' or it's a category/product
+  if (
+    !slugStr || 
+    slugStr === 'all' || 
+    slugStr.includes('-category') // 👈 this blocks vendor fetch for category/product
+  ) {
+    return;
+  }
+
+  // ✅ Only for variant slugs → fetch vendors
+  getVendorApprovedby();
+  getVendors();
+}, [
+  slug,
+  currentSelectedProduct,
+  selectedApprovedBy,
+  cat_id,
+  selectedState,
+  selectedCity,
+  selectedCountry,
+  selectedVendorTypes,
+  prevWorkedWith,
+  turnOver,
+  isLoggedIn,
+  debouncedVendorName,
+  myVendorType,
+  selectedMakes,
+  search_key
+]);
+
 
   // When a new product is selected, update the search bar value
   useEffect(() => {
@@ -267,53 +284,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     return cleanedString.replace(/\s+/g, '-');
   }
 
-  // Fetch nested categories from backend using provided service
-  const fetchNestedCategories = async (parent_id = 0, slugParam = "") => {
-    setNestedLoading(true);
-    try {
-      // Convert any slash-separated slug into hyphen-separated for backend
-      const backendSlug = (() => {
-  if (!slugParam) return "";
-  
-  const slugStr = Array.isArray(slugParam)
-    ? slugParam.join("/")
-    : String(slugParam);
-
-  // Split by '/' or '-' and take last non-empty segment
-  const segments = slugStr.split(/[\/-]/).filter(Boolean);
-  return segments[segments.length - 1];
-})();
-  console.log("Fetching nested categories for parent_id:", parent_id, "slugParam:", slugParam, "backendSlug:", backendSlug);  
-      const rsp = await nestedCategoryData(parent_id, backendSlug);
-      // backend may return array directly or wrapped in data
-      const data = rsp?.data ?? rsp;
-      const arr = Array.isArray(data) ? data : data?.data ?? [];
-      setNestedCategories(arr || []);
-      // If backend returns no nested categories, treat the last slug segment as product
-      if ((!arr || arr.length === 0) && slugParam) {
-        const rawSlugStr = Array.isArray(slugParam) ? slugParam.join('/') : String(slugParam);
-        const segments = rawSlugStr.split(/[\/\-]/).filter(Boolean);
-        const last = segments.length ? segments[segments.length - 1] : '';
-        const productSearchKey = last.replace(/-/g, ' ');
-        // populate search box
-        setSearch_key(productSearchKey);
-        setcurrentSelectedProduct(null);
-        try {
-          // wait for products to be fetched, then fetch vendors
-          await getProducts(productSearchKey);
-          getVendors();
-        } catch (e) {
-          // ignore errors here but log for debugging
-          console.error('Error fetching products/vendors for slug:', rawSlugStr, e);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching nested categories:", err);
-      setNestedCategories([]);
-    } finally {
-      setNestedLoading(false);
-    }
-  }
+ 
 
   const canAddItem = () => {
     if (!vendorMetaData.logged_In) {
@@ -762,11 +733,18 @@ const clearVendorFilters = () => {
   // Nested category handling delegated to NestedCategoryBrowser
 
   // --- Trigger product search automatically ---
-  useEffect(() => {
-    if (search_key && slug && slug !== 'all' && !currentSelectedProduct) {
-      getProducts(search_key);
-    }
-  }, [search_key, slug, currentSelectedProduct]);
+useEffect(() => {
+  if (
+    search_key && 
+    slug && 
+    slug !== 'all' && 
+    !String(slug).includes('-category') && // 👈 only trigger for variants
+    !currentSelectedProduct
+  ) {
+    getProducts(search_key);
+  }
+}, [search_key, slug, currentSelectedProduct]);
+
 
   // --- When filters are cleared, update the URL ---
   const clearLocationFilter = () => {
@@ -796,6 +774,7 @@ const clearVendorFilters = () => {
 
   useEffect(() => {
     // If no product is selected but search_key is set (e.g., from URL), update inputValue
+    console.log("this even 2")
     if (!currentSelectedProduct && search_key) {
       setInputValue(search_key);
     }
@@ -1660,14 +1639,14 @@ const clearVendorFilters = () => {
                     </div>
                   </div>
                 )}
-                {!currentSelectedProduct && (
+                {/* {!currentSelectedProduct && (
                   <div className="col-md-12 hasblankpadding">
                     <h2 className="fs-5 text-center">
                       <b>Search & Select a product</b>
                       <br /> to see the available vendors!
                     </h2>
                   </div>
-                )}
+                )} */}
               </div>
             </div>
             {/* END:  vendor list*/}
@@ -1694,6 +1673,8 @@ const clearVendorFilters = () => {
   Why Trust Us
 </h3>
 <SecurityFeatures />
+
+<FeatureSEOSection/>
 
 
 
