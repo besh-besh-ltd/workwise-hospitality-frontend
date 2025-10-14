@@ -364,7 +364,7 @@ const Register = ({
                     </span>
                   </label>
                   <a
-                    href="http://localhost:8001/for-vendors/tnc"
+                    href="/for-vendors/tnc"
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ marginLeft: 20, fontWeight: 500 }}
