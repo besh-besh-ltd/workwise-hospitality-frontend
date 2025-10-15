@@ -57,8 +57,7 @@ const VendorProfile = () => {
 
 
 
-   useEffect(() => {
-      const fetchPaymentTerms = async () => {
+ const fetchPaymentTerms = async () => {
         try {
           const res = await getUserPaymentTerms(id , 'buyer');
           const terms = res?.data?.data || res?.data || [];
@@ -88,13 +87,11 @@ const VendorProfile = () => {
           ]);
         }
       };
-  
-      fetchPaymentTerms();
-    }, []);
 
   useEffect(() => {
     if (id != "") {
       getVendorProfile();
+      fetchPaymentTerms();
     }
   }, [router]);
 
