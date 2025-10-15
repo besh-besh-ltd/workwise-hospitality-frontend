@@ -6,7 +6,7 @@ import { useRouter } from "next/router";
 import { faTimesCircle, faEnvelope, faFileLines } from "@fortawesome/free-regular-svg-icons";
 import { faCheckCircle, faLocation, faPhone, faUser } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { getProfile } from "@/services/Auth";
+import { getProfile, getUserPaymentTerms } from "@/services/Auth";
 import {
   getPastRFQS,
   getVendorDetailsByID,
@@ -49,8 +49,48 @@ const VendorProfile = () => {
   const [createLoading, setCreateLoading] = useState(false);
   const [countryCode, setCountryCode] = useState([]);
   const [isBuyerUser, setIsBuyerUser] = useState(false);
+  const [paymentTermsRows, setPaymentTermsRows] = useState([
+    // {id:null, value: "", type: "advance", days: "", comment: ""},
+  ]);  //For rendering the payment terms
 
   const isBuyer = isBuyerUser;
+
+
+
+   useEffect(() => {
+      const fetchPaymentTerms = async () => {
+        try {
+          const res = await getUserPaymentTerms(id , 'buyer');
+          const terms = res?.data?.data || res?.data || [];
+          setPaymentTermsRows(
+            Array.isArray(terms) && terms.length > 0
+              ? terms
+              : [
+                  {
+                    id: null,
+                    value: "",
+                    type: "advance",
+                    days: "",
+                    comment: "",
+                  },
+                ]
+          );
+        } catch (err) {
+          console.error("Error fetching payment terms:", err);
+          setPaymentTermsRows([
+            {
+              id: null,
+              value: "",
+              type: "advance",
+              days: "",
+              comment: "",
+            },
+          ]);
+        }
+      };
+  
+      fetchPaymentTerms();
+    }, []);
 
   useEffect(() => {
     if (id != "") {
@@ -558,42 +598,87 @@ const VendorProfile = () => {
                     </h3>
 
                     {[
+                      "payment_terms",
                       "project_document",
                       "product_image",
                       "product_video",
                       "certification",
-                      "payment_terms",
                     ].map((type) => {
                       const documents = vendorDetails.vendor_info.filter(
                         (doc) => doc.file_type === type
                       );
 
-                      if (documents.length === 0) return null;
+                      if (type !== "payment_terms" && documents.length === 0) return null;
 
                       const sectionTitles = {
-                        project_document : "Projects Completed",
+                        payment_terms: "Payment Terms",
+                        project_document: "Projects Completed",
                         product_image: "Product Images",
                         product_video: "Product Videos",
                         certification: "Certifications",
-                        payment_terms: "Payment Terms",
                       };
 
                       const sectionIcons = {
-                        project_document : "bi-folder2-open",
+                        payment_terms: "bi-cash-stack",
+                        project_document: "bi-folder2-open",
                         product_image: "bi-images",
                         product_video: "bi-play-btn",
                         certification: "bi-award",
-                        payment_terms: "bi-credit-card",
                       };
 
+                      // 🧠 Handle Payment Terms separately
+                      if (type === "payment_terms") {
+                        const terms =   paymentTermsRows || [];
+                        console.log("Rendering payment terms:", terms);
+
+                        if (terms.length === 0) return null;
+
+                        return (
+                          <div key={type} className="mb-5">
+                            {/* Section Header */}
+                            <div className="d-flex justify-content-between align-items-center mb-3">
+                              <h5 className="text-dark fw-semibold mb-0">
+                                <i className={`${sectionIcons[type]} me-2 text-primary`}></i>
+                                {sectionTitles[type]}
+                              </h5>
+                              <span className="badge bg-primary rounded-pill">
+                                {terms.length}
+                              </span>
+                            </div>
+
+                            {/* Static display of payment terms */}
+                            <div className="table-responsive">
+                              <table className="table table-bordered align-middle mb-0">
+                                <thead className="table-light">
+                                  <tr>
+                                    <th style={{ width: "15%" }}>% of Amount</th>
+                                    <th style={{ width: "20%" }}>Type</th>
+                                    <th style={{ width: "15%" }}>Credit Days</th>
+                                    <th>Comment / Notes</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {terms.map((term, index) => (
+                                    <tr key={index}>
+                                      <td>{term.value || "-"}</td>
+                                      <td className="text-capitalize">{term.type || "-"}</td>
+                                      <td>{term.type === "credit" ? term.days || "-" : "-"}</td>
+                                      <td>{term.comment || "-"}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // 🧱 Existing media/document sections (unchanged)
                       return (
                         <div key={type} className="mb-5">
-                          {/* Section Header */}
                           <div className="d-flex justify-content-between align-items-center mb-3">
                             <h5 className="text-dark fw-semibold mb-0">
-                              <i
-                                className={`${sectionIcons[type]} me-2 text-primary`}
-                              ></i>
+                              <i className={`${sectionIcons[type]} me-2 text-primary`}></i>
                               {sectionTitles[type]}
                             </h5>
                             <span className="badge bg-primary rounded-pill">
@@ -601,7 +686,6 @@ const VendorProfile = () => {
                             </span>
                           </div>
 
-                          {/* Grid of media */}
                           <div className="row g-4">
                             {documents.map((doc) => (
                               <div className="col-md-4 col-sm-6" key={doc.id}>
@@ -615,13 +699,11 @@ const VendorProfile = () => {
                                     <div className="mt-2">
                                       <small className="text-muted">
                                         Uploaded:{" "}
-                                        {new Date(
-                                          doc.created_at
-                                        ).toLocaleDateString()}
+                                        {new Date(doc.created_at).toLocaleDateString()}
                                       </small>
                                       {doc.is_approved && (
                                         <span className="badge bg-success ms-2">
-                                          <i className="bi bi-check-circle me-1"></i>{" "}
+                                          <i className="bi bi-check-circle me-1"></i>
                                           Approved
                                         </span>
                                       )}
@@ -634,6 +716,7 @@ const VendorProfile = () => {
                         </div>
                       );
                     })}
+
                   </div>
                 )}
 
