@@ -718,7 +718,7 @@ const RfqManagementPreview = () => {
                           (quoteDisabled &&
                             statusMessage !== "Reverse Auction is Active") ||
                           rfqDetails.status == 2 ||
-                          rfqDetails.products?.some(
+                          rfqDetails.products?.every(
                             (item) =>
                               item.finalization_status ===
                                 "Another vendor is finalized" ||
@@ -741,7 +741,7 @@ const RfqManagementPreview = () => {
                         (quoteDisabled &&
                           statusMessage !== "Reverse Auction is Active") ||
                         rfqDetails.status == 2 ||
-                        rfqDetails.products?.some(
+                        rfqDetails.products?.every(
                           (item) =>
                             item.finalization_status ===
                               "Another vendor is finalized" ||
