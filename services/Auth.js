@@ -218,6 +218,28 @@ export const getVendorApproveList = () => {
 	});
 };
 
+export const getUserPaymentTerms = (id , type='vendor') => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/users/get-vendor-payment-terms?vendor_id=${id}&type=${type}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const uploadUserPaymentTerms = (data) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(`/users/upload-payment-terms`, data);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const handleUploadFiles = (files, type) => {
 	const payload = new FormData();
 	files.forEach((file, i) => {

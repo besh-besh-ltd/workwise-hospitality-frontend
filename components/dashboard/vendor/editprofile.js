@@ -5,12 +5,14 @@ import {
   getProfile,
   getProfileDocuments,
   getProfileReviews,
+  getUserPaymentTerms,
   getVendorApproveList,
   handleChangeProfilePicture,
   handleUploadFiles,
   publishVendorReviews,
   updateProfile,
   updatecompany,
+  uploadUserPaymentTerms,
   uploadVendorDocument,
   vendorProfileDocuments,
 } from "@/services/Auth";
@@ -24,11 +26,13 @@ import UploadFiles from "@/components/shared/ImagesUpload";
 import FullLoader from "@/components/shared/FullLoader";
 import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faFolderPlus, faTrash, faTrashCanArrowUp } from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faFolderPlus, faPlus, faTrash, faTrashCanArrowUp } from "@fortawesome/free-solid-svg-icons";
 import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
 import { addSpoc, editSpoc } from "@/services/Auth";
-import { faTrashAlt, faTrashCan } from "@fortawesome/free-regular-svg-icons";
+import { faSave, faTrashAlt, faTrashCan } from "@fortawesome/free-regular-svg-icons";
 import Select from "react-select";
+import SmartButton from "@/components/shared/SmartButton";
+import { FaSave } from "react-icons/fa";
 
 
 const EditProfile = () => {
@@ -98,6 +102,11 @@ const [selectedProjectDocumentreset , setselectedProjectDocumentreset] = useStat
 const [paymentTerms, setPaymentTerms] = useState(""); // text input value
 const [selectedPaymentTermsFiles, setSelectedPaymentTermsFiles] = useState([]); // uploaded files
 const [selectedPaymentTermsFilesReset, setSelectedPaymentTermsFilesReset] = useState(false); // reset trigger
+const [paymentTermsRows, setPaymentTermsRows] = useState([
+  // {id:null, value: "", type: "advance", days: "", comment: ""},
+]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
 //Revies cards to be displayed
  const [reviews, setReviews] = useState([]);
@@ -107,7 +116,6 @@ const [selectedPaymentTermsFilesReset, setSelectedPaymentTermsFilesReset] = useS
   certifications: [],
   product_images: [],
   product_videos: [],
-  payment_terms: [],
   project_document : []
 });
 
@@ -117,7 +125,6 @@ const [userDocuments, setUserDocuments] = useState({
   certifications: null,
   product_images: null,
   product_videos: null,
-  payment_terms : null ,
   project_document : null
 });
 
@@ -161,6 +168,49 @@ const [userDocuments, setUserDocuments] = useState({
     {value: 'Wholesaler', label: 'Wholesaler' } 
   ];
 
+
+   // ✅ Fetch payment terms on component mount
+  useEffect(() => {
+    const fetchPaymentTerms = async () => {
+      try {
+        const res = await getUserPaymentTerms();
+        const terms = res?.data?.data || res?.data || [];
+        setPaymentTermsRows(
+          Array.isArray(terms) && terms.length > 0
+            ? terms
+            : [
+                {
+                  id: null,
+                  value: "",
+                  type: "advance",
+                  days: "",
+                  comment: "",
+                },
+              ]
+        );
+      } catch (err) {
+        console.error("Error fetching payment terms:", err);
+        setPaymentTermsRows([
+          {
+            id: null,
+            value: "",
+            type: "advance",
+            days: "",
+            comment: "",
+          },
+        ]);
+      }
+    };
+
+    fetchPaymentTerms();
+  }, []);
+
+
+
+  useEffect(() => {
+    if (paymentTermsRows.length > 0){
+      console.log("Payment terms rows updated:", paymentTermsRows);
+    }},[paymentTermsRows])
   const customSelectStyles = {
     control: (base) => ({
       ...base,
@@ -673,6 +723,21 @@ const fetchProfileDocuments = async () => {
     });
   }
 };
+
+  // ✅ Upload handler
+  const handleSavePaymentTerms = async () => {
+    try {
+      setSaving(true);
+      const res = await uploadUserPaymentTerms({ terms: paymentTermsRows });
+      alert("Payment terms saved successfully!");
+      console.log("Saved:", res.data);
+    } catch (err) {
+      console.error("Error saving payment terms:", err);
+      alert("Failed to save payment terms. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const selectedCountryCode = countryCode.find(
     (item) => item.phone_code === extractedCountryCode
@@ -1243,8 +1308,8 @@ const fetchProfileDocuments = async () => {
                       </div>
                     </div>
 
-                    {/* Payment Terms Section */}
-                    <div className="vendor-edit-sec-form">
+                    {/*  Section */}
+                    {/* <div className="vendor-edit-sec-form">
                       <span className="title">Payment Terms</span>
                       <div className="contact-form">
                         <div className="row">
@@ -1278,6 +1343,71 @@ const fetchProfileDocuments = async () => {
                           >
                             Save Payment Terms
                           </button>
+                        )}
+                      </div>
+                    </div> */}
+                      {/** Payment terms  */}
+                    <div className="col-12">
+                      <div className="border rounded-3 p-3">
+                        <div className="d-flex align-items-center justify-content-between mb-2 gap-4">
+                          <div>
+                            <h3 className="fs-6 fw-semibold mb-0">
+                              Payment Terms <span className="text-danger">*</span>
+                            </h3>
+                            <small className="text-muted">
+                              amount defined so far:{" "}
+                              {paymentTermsRows.reduce(
+                                (a, b) => a + (Number(b.value) || 0),
+                                0
+                              )}
+                              %
+                            </small>
+                          </div>
+
+                          <div className="d-flex gap-2">
+                            <SmartButton
+                              onClick={() =>
+                                setPaymentTermsRows((prev) => [
+                                  ...(prev || []),
+                                  {
+                                    id: null,
+                                    value: "",
+                                    type: "advance",
+                                    days: "",
+                                    comment: "",
+                                  },
+                                ])
+                              }
+                              theme="primary"
+                              style={{
+                                paddingLeft: "0.6rem",
+                                paddingRight: "0.6rem",
+                              }}
+                              label="Add Term"
+                              icon={<FontAwesomeIcon icon={faPlus} className="me-1" />}
+                            />
+
+                            <SmartButton
+                              onClick={handleSavePaymentTerms}
+                              theme="success"
+                              disabled={saving}
+                              style={{
+                                paddingLeft: "0.6rem",
+                                paddingRight: "0.6rem",
+                              }}
+                              label={saving ? "Saving..." : "Save Terms"}
+                              icon={<FontAwesomeIcon icon={faSave} className="me-1" />}
+                            />
+                          </div>
+                        </div>
+
+                        {loading ? (
+                          <p className="text-center text-muted my-3">Loading terms...</p>
+                        ) : (
+                          <PaymentTermsEditor
+                            value={paymentTermsRows}
+                            onChange={setPaymentTermsRows}
+                          />
                         )}
                       </div>
                     </div>
@@ -1540,3 +1670,123 @@ const fetchProfileDocuments = async () => {
 };
 
 export default EditProfile;
+
+
+
+
+
+//  PaymentTermsUIOnly component
+const PaymentTermsEditor = ({ value, onChange }) => {
+  const rows = Array.isArray(value) ? value : [];
+
+  const setRows = (next) => onChange && onChange(next);
+
+  const markDeleted = (index) => {
+    const updated = rows.filter((_, i) => i !== index);
+    setRows(updated);
+  };
+
+  const updateRow = (index, patch) =>
+    setRows(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+
+  return (
+    <div className="mt-2">
+      {rows.map((row, index) => {
+        const isCredit = row.type === "credit";
+
+        return (
+          <div
+            key={index}
+            className="d-flex flex-wrap align-items-end gap-3 border-bottom pb-3 mb-3"
+          >
+            {/* % of Amount */}
+            <div className="flex-grow-1" style={{ minWidth: "140px" }}>
+              <label className="form-label mb-1">% of Amount</label>
+              <input
+                type="number"
+                className="form-control"
+                placeholder="e.g., 30"
+                value={row.value}
+                onChange={(e) =>
+                  updateRow(index, {
+                    value: e.target.value === "" ? "" : Number(e.target.value),
+                  })
+                }
+                min={0}
+                max={100}
+              />
+            </div>
+
+            {/* Type */}
+            <div className="flex-grow-1" style={{ minWidth: "160px" }}>
+              <label className="form-label mb-1">Type</label>
+              <select
+                className="form-select"
+                value={row.type}
+                onChange={(e) => {
+                  const nextType = e.target.value;
+                  updateRow(index, {
+                    type: nextType,
+                    days: nextType === "credit" ? row.days : "",
+                    comment:
+                      nextType === "credit" ? "" : (row.comment ?? ""),
+                  });
+                }}
+              >
+                <option value="advance">Advance</option>
+                <option value="credit">Credit</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            {/* Credit Days / Comment */}
+            <div className="flex-grow-1" style={{ minWidth: "200px" }}>
+              <label className="form-label mb-1">
+                {isCredit ? "Credit Days" : "Comment"}
+              </label>
+              <input
+                type={isCredit ? "number" : "text"}
+                className="form-control"
+                placeholder={
+                  isCredit
+                    ? "e.g., 30"
+                    : row.type === "other"
+                    ? "Describe payment term"
+                    : "Note (optional)"
+                }
+                value={isCredit ? row.days : row.comment || ""}
+                onChange={(e) =>
+                  updateRow(index, {
+                    [isCredit ? "days" : "comment"]:
+                      isCredit
+                        ? e.target.value === ""
+                          ? ""
+                          : Number(e.target.value)
+                        : e.target.value,
+                  })
+                }
+                min={isCredit ? 1 : undefined}
+              />
+            </div>
+
+            {/* Remove button (aligned right end) */}
+            <div className="d-flex align-items-end">
+              <SmartButton
+                onClick={() => markDeleted(index)}
+                theme="red"
+                style={{
+                  paddingLeft: "0.8rem",
+                  paddingRight: "0.8rem",
+                  height: "38px",
+                }}
+                label="Remove"
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+
