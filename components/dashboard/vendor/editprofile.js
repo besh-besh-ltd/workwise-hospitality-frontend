@@ -24,11 +24,12 @@ import UploadFiles from "@/components/shared/ImagesUpload";
 import FullLoader from "@/components/shared/FullLoader";
 import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faFolderPlus, faTrash, faTrashCanArrowUp } from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faFolderPlus, faPlus, faTrash, faTrashCanArrowUp } from "@fortawesome/free-solid-svg-icons";
 import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
 import { addSpoc, editSpoc } from "@/services/Auth";
 import { faTrashAlt, faTrashCan } from "@fortawesome/free-regular-svg-icons";
 import Select from "react-select";
+import SmartButton from "@/components/shared/SmartButton";
 
 
 const EditProfile = () => {
@@ -98,6 +99,9 @@ const [selectedProjectDocumentreset , setselectedProjectDocumentreset] = useStat
 const [paymentTerms, setPaymentTerms] = useState(""); // text input value
 const [selectedPaymentTermsFiles, setSelectedPaymentTermsFiles] = useState([]); // uploaded files
 const [selectedPaymentTermsFilesReset, setSelectedPaymentTermsFilesReset] = useState(false); // reset trigger
+const [paymentTermsRows, setPaymentTermsRows] = useState([
+  // {id:null, value: "", type: "advance", days: "", comment: ""},
+]);
 
 //Revies cards to be displayed
  const [reviews, setReviews] = useState([]);
@@ -161,6 +165,10 @@ const [userDocuments, setUserDocuments] = useState({
     {value: 'Wholesaler', label: 'Wholesaler' } 
   ];
 
+  useEffect(() => {
+    if (paymentTermsRows.length > 0){
+      console.log("Payment terms rows updated:", paymentTermsRows);
+    }},[paymentTermsRows])
   const customSelectStyles = {
     control: (base) => ({
       ...base,
@@ -1244,7 +1252,7 @@ const fetchProfileDocuments = async () => {
                     </div>
 
                     {/* Payment Terms Section */}
-                    <div className="vendor-edit-sec-form">
+                    {/* <div className="vendor-edit-sec-form">
                       <span className="title">Payment Terms</span>
                       <div className="contact-form">
                         <div className="row">
@@ -1280,7 +1288,75 @@ const fetchProfileDocuments = async () => {
                           </button>
                         )}
                       </div>
-                    </div>
+                    </div> */}
+
+                     <div className="col-lg-5 col-12">
+                        <div className="border rounded-3 p-3">
+                          <div className="d-flex align-items-center justify-content-between mb-2">
+                            <div>
+                              <h3 className="fs-6 fw-semibold mb-0">
+                                Payment Terms{" "}
+                                <span className="text-danger">*</span>
+                              </h3>
+                              <small className="text-muted">
+                                amount defined so far:{" "}
+                                {paymentTermsRows.reduce(
+                                  (a, b) => a + (Number(b.value) || 0),
+                                  0
+                                )}
+                                %
+                              </small>
+                              {paymentTermsRows.filter(
+                                (row) =>
+                                  row &&
+                                  row.action !== "delete" &&
+                                  row.type &&
+                                  row.value != null &&
+                                  row.value > 0
+                              ).length === 0 && (
+                                <>
+                                  <br />
+                                  <small className="text-danger">
+                                    At least one valid payment term is required
+                                  </small>
+                                </>
+                              )}
+                            </div>
+
+                            <SmartButton
+                              onClick={() =>
+                                setPaymentTermsRows((prev) => [
+                                  ...(prev || []),
+                                  {
+                                    id: null,
+                                    value: "",
+                                    type: "advance",
+                                    days: "",
+                                    comment: "",
+                                  },
+                                ])
+                              }
+                              theme={"primary"}
+                              style={{
+                                paddingLeft: "0.6rem",
+                                paddingRight: "0.6rem",
+                              }}
+                              label="Add Term"
+                              icon={
+                                <FontAwesomeIcon
+                                  icon={faPlus}
+                                  className="me-1"
+                                />
+                              }
+                            />
+                          </div>
+
+                          <PaymentTermsEditor
+                            value={paymentTermsRows}
+                            onChange={setPaymentTermsRows}
+                          />
+                        </div>
+                      </div>
 
                     {/* Product Videos Section */}
                     <div className="vendor-edit-sec-form">
@@ -1540,3 +1616,144 @@ const fetchProfileDocuments = async () => {
 };
 
 export default EditProfile;
+
+
+
+
+
+//  PaymentTermsUIOnly component
+const PaymentTermsEditor = ({ value, onChange }) => {
+  const rows = Array.isArray(value) ? value : [];
+
+    const setRows = (next) => onChange && onChange(next);
+
+    const markDeleted = (index) => {
+     const updated = [...rows];
+     const row = updated[index] || {};
+    updated[index] = { ...row, action: "delete" };
+    setRows(updated);
+  };
+
+  const restoreRow = (index) => {
+    const updated = [...rows];
+    const row = updated[index];
+    if (!row) return;
+    const { action, ...rest } = row;
+    updated[index] = rest;
+    setRows(updated);
+  };
+
+  const updateRow = (index, patch) =>
+    setRows(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+
+  return (
+    <div>
+      {rows.map((row, index) => {
+        const isCredit = row.type === "credit";
+        const isDeleted = row.action === "delete";
+        return (
+          <div key={index} className="row g-2 align-items-end mb-2">
+            <div className="col-3">
+              <label className="form-label mb-1">% of Amount</label>
+              <input
+                type="number"
+                className="form-control"
+                placeholder="e.g., 30"
+                value={row.value}
+                onChange={(e) =>
+                  updateRow(index, {
+                    value: e.target.value === "" ? "" : Number(e.target.value),
+                  })
+                }
+                min={0}
+                max={100}
+                disabled={isDeleted}
+              />
+            </div>
+
+            <div className="col-3">
+              <label className="form-label mb-1">Type</label>
+              <select
+                className="form-select"
+                value={row.type}
+                onChange={(e) => {
+                  const nextType = e.target.value;
+                  updateRow(index, {
+                    type: nextType,
+                    days: nextType === "credit" ? row.days : "",
+                    comment: nextType === "credit" ? "" : (row.comment ?? ""),
+                  });
+                }}
+                disabled={isDeleted}
+              >
+                <option value="advance">Advance</option>
+                <option value="credit">Credit</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            {isCredit ? (
+              <div className="col-4">
+                <label className="form-label mb-1">Credit Days</label>
+                <input
+                  type="number"
+                  className="form-control"
+                  placeholder="e.g., 30"
+                  value={row.days}
+                  onChange={(e) =>
+                    updateRow(index, {
+                      days: e.target.value === "" ? "" : Number(e.target.value),
+                    })
+                  }
+                  min={1}
+                disabled={ isDeleted}
+                />
+              </div>
+            ) : (
+              <div className="col-4">
+                <label className="form-label mb-1">
+                  Comment
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder={row.type === "other" ? "Describe payment term" : "Note (optional)"}
+                  value={row.comment || ""}
+                  onChange={(e) => updateRow(index, { comment: e.target.value })}
+               disabled={ isDeleted}
+                />
+              </div>
+            )}
+
+            <div className="col-2 d-flex mb-1">
+              {!isDeleted ? (
+                <SmartButton
+                  onClick={() => markDeleted(index)}
+                  theme={"red"}
+                  style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+                  label="Remove"
+                />
+              ) : (
+                <SmartButton
+                  onClick={() => restoreRow(index)}
+                  theme={"secondary"}
+                  style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+                  label="Restore"
+                />
+              )}
+            </div>
+
+            {/* Small status line below inputs when deleted */}
+            {isDeleted && (
+              <div className="col-12 mt-0">
+                <small className="text-danger">
+                  you removed this term. Click "Restore" to add it back.
+                </small>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
