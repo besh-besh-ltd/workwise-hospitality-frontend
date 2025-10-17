@@ -232,6 +232,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     slugStr === 'all' || 
     slugStr.includes('-category') // 👈 this blocks vendor fetch for category/product
   ) {
+    setcurrentSelectedProduct(null);
+    setVendors([]);
+    setApproved_by([]);
     return;
   }
 
