@@ -8,6 +8,8 @@ import {
 import { BsBoxSeam, BsPerson, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill } from 'react-icons/bs';
 import { FiPaperclip } from "react-icons/fi";
 import { HiOutlineTrash, HiPencil } from "react-icons/hi";
+import { BsFilePdf } from "react-icons/bs";
+import { FiDownload, FiExternalLink } from "react-icons/fi";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft,
@@ -18,7 +20,7 @@ import { handleDeleteMilestone, handleDeleteTask, handleGetTasks } from '@/servi
 import CreateTaskModal from './CreateTaskModal';
 import Pagination from '@/components/shared/Pagination';
 import { getProjectAvailableBudget } from '@/services/project';
-import { addCommasToNumber } from '@/utils/sharedFunctions';
+import { addCommasToNumber, formatToINRShort } from '@/utils/sharedFunctions';
 import Link from 'next/link';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
 
@@ -100,7 +102,7 @@ const elipsisToLimit = (text, limit = 45) => {
   return text.length > limit ? text.slice(0, limit).concat('...') : text;
 }
 
-const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODetails, companyUsers }) => {
+const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers }) => {
   const {
     id,
     rfq_id,
@@ -114,6 +116,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     total_value,
     initiated_by_name,
     created_at,
+    project_id,
     project_details,
     product_details,
     is_approver,
@@ -121,11 +124,14 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     approval_status,
     approval_history = [],
     payment_milestones,
+    quotations,
+    rfq_product_id,
+    poPdfUrl
   } = data;
 
   const [selectedMilestone, setSelectedMilestone] = useState(null);
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
-  const [availableBudget, setAvailableBudget] = useState(null);
+  const [budgetInfo, setBudgetInfo] = useState(null);
 
   const [tasks, setTasks] = useState(null);
   const [filters, setFilters] = useState({
@@ -180,6 +186,59 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     }
   }
 
+  const handleFetchBudget = async () => {
+    try {
+      if(!project_id) return;
+      
+      const res = await getProjectAvailableBudget(project_id);
+      if(res) {
+        setBudgetInfo(res);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  const POReviewCompact = (poData) => {
+      if(!poData) return null;
+
+      console.log("PO DATA:", poData);
+  
+      const pdfUrl = poData.poPdfUrl;
+      const fileName = `PO_${poData.po_number}.pdf`;
+  
+      return (
+        <div className="card border-0">
+          <div className="card-body">
+            <div className="flex align-items-center gap-2">
+              <div>
+                <BsFilePdf size={32} className="text-danger" />
+              </div>
+              <div className="mt-1">
+                <div className="fw-semibold">{fileName}</div>
+                <small className="text-muted">Purchase Order Document</small>
+              </div>
+              <div className="mt-2">
+                <a 
+                  className="btn p-2 btn-outline-secondary"
+                  href={pdfUrl}
+                  target="__blank"
+                >
+                  View
+                  <FiExternalLink className="ms-1" size={12} />
+                </a>
+              </div>
+            </div>
+            <div className="mt-2">
+              <small className="text-muted">
+                Click to preview the formal PO document that will be emailed to the vendor.
+              </small>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
   const handleMilestoneEdition = (milestone) => {
     setSelectedMilestone(milestone);
     setShowMilestoneModal(true);
@@ -193,6 +252,10 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
   useEffect(() => {
     handleFetchTasks();
   }, [filters])
+
+  useEffect(() => {
+    handleFetchBudget();
+  }, [])
 
   return (
     <div>
@@ -216,6 +279,22 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         </div>
         <div className="d-flex gap-2 flex-column">
           <POStatusBadge status={status} />
+          {status === 'draft' && (
+            <div className="d-flex gap-1 justify-content-between">
+              <Badge
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  await handleInitiatePO(id);
+                  await refetchPODetails();
+                }}
+                bg={"success"}
+                className="fs-6 px-2 py-1 float-end text-uppercase"
+                style={{ cursor: "pointer" }}
+              >
+                Initiate
+              </Badge>
+            </div>
+          )}
           {is_approver && (
             <div className="d-flex gap-1 justify-content-between">
               <Badge
@@ -242,42 +321,62 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
       </div>
 
       {/* PO Overview */}
-      <Card className="mb-3 shadow-sm">
-        <Card.Body
-          style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
-        >
-          <div className="row">
-            <div className="col-md-6">
-              <PODetailItem label="Quantity" value={quantity} />
-              <PODetailItem label="Unit Price" value={`₹ ${addCommasToNumber(unit_price)}`} />
-              <PODetailItem label="Total Value" value={`₹ ${addCommasToNumber(total_value)}`} />
-              {project_details && (
-                <PODetailItem label="Project Name" value={project_details.name} />
-              )}
-            </div>
-            <div className="col-md-6">
-              <PODetailItem label="Created At" value={formatIST(created_at)} />
-              <PODetailItem label="Initiated By" value={initiated_by_name} />
-              <PODetailItem
-                label="Status"
-                value={status.replace("_", " ").toUpperCase()}
-              />
-            </div>
-          </div>
-        </Card.Body>
-      </Card>
-
-      {/* Product Details */}
-      <div className="mb-4 d-flex gap-3">
-        <Card className="shadow-sm w-100">
-          <Card.Body className="d-flex align-items-center">
-            <BsBoxSeam className="me-3 fs-2 text-primary" />
-            <div>
-              <strong>{product_details?.name}</strong>
-              <div className="text-muted">
-                Product ID: {product_details?.product_id}
+      <div className="d-flex gap-2 align-items-center justify-content-between">
+        <Card className="mb-3 shadow-sm" style={{ width: "100%" }}>
+          <Card.Body
+            style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
+          >
+            <div className="row">
+              <div className="col-md-6">
+                <PODetailItem label="Quantity" value={quantity} />
+                <PODetailItem label="Unit Price" value={`₹ ${addCommasToNumber(unit_price)}`} />
+                <PODetailItem label="Total Value" value={`₹ ${addCommasToNumber(total_value)}`} />
+                {project_details && (
+                  <PODetailItem label="Project Name" value={project_details.name} />
+                )}
+              </div>
+              <div className="col-md-6">
+                <PODetailItem label="Created At" value={formatIST(created_at)} />
+                <PODetailItem label="Initiated By" value={initiated_by_name} />
+                <PODetailItem
+                  label="Status"
+                  value={status.replace("_", " ").toUpperCase()}
+                />
               </div>
             </div>
+          </Card.Body>
+        </Card>
+        {
+          budgetInfo && (
+            <Card className="mb-3 shadow-sm" style={{ width: "100%", maxWidth: "30%" }}>
+              <Card.Body
+                style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
+                className='d-flex flex-column'
+              >
+                <PODetailItem label="Total Assigned Budget" value={`₹${formatToINRShort(budgetInfo.total_budget)}`} />
+                <PODetailItem label="Available Budget" value={`₹${formatToINRShort(budgetInfo.available_budget)}`} />
+                <PODetailItem label="PO Value" value={`₹${formatToINRShort(total_value)}`} />
+                <PODetailItem label="Budget if PO approves" value={`₹${formatToINRShort(budgetInfo.available_budget - total_value)}`} />
+              </Card.Body>
+            </Card>
+          )
+        }
+      </div>
+
+      {/* Product Details */}
+      <div className="mb-3 d-flex gap-3">
+        <Card className="shadow-sm w-100">
+          <Card.Body className="d-flex align-items-center justify-content-between">
+            <div className="d-flex align-items-center">
+              <BsBoxSeam className="me-3 fs-2 text-primary" />
+              <div>
+                <strong>{product_details.map(p => p.name).join(", ")}</strong>
+                <div className="text-muted">
+                  Product ID(s): {product_details.map(p => p.product_id).join(",")}
+                </div>
+              </div>
+            </div>
+            <Link href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}&rfq_product_id=${rfq_product_id}&source=PO&tab=category`} className="btn p-2 btn-primary">Compare Quotes</Link>
           </Card.Body>
         </Card>
         <Link className='w-100' href={`/vendor/vendor-profile?id=${finalized_vendor_id}`} target='__blank'>
@@ -295,6 +394,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         </Link>
       </div>
 
+
       {/* Approval Timeline */}
       <h5 className="mb-3">
         <MdEventNote className="me-2" />
@@ -303,9 +403,9 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
       <Card className="mb-4">
         <Card.Body className="d-flex flex-column gap-3">
           <TimelineItem
-            title={"Initiated"}
+            title={status == 'draft' ? 'Drafted' : 'Initiated'}
             name={initiated_by_name}
-            icon={<BsCheckCircleFill className="text-primary" size={25} />}
+            icon={<BsCheckCircleFill className={status == 'draft' ? 'text-secondary' : "text-primary"} size={25} />}
             time={formatIST(created_at)}
           />
           {approval_history.map((entry, index) => (
@@ -332,7 +432,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
               remarks={entry.remarks}
             />
           ))}
-          {approval_status.status == "pending" && (
+          {approval_status?.status == "pending" && (
             <TimelineItem
               title={"Action Pending"}
               name={approval_status.current_approver_name}
@@ -608,6 +708,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         confirmButtonColor="success"
         confirmButtonText="Approve"
         cancelButtonText="Cancel"
+        customFooter={POReviewCompact(data)}
       />
 
       <ConfirmationModal

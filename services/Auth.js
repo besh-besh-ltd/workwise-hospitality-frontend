@@ -1,6 +1,7 @@
 import axiosInstance from "@/lib/axios";
 import axiosFormData from "@/lib/axiosFormData";
 import storageInstance from "@/utils/storageInstance";
+import { resolve } from "styled-jsx/css";
 
 export const BookaCall = (values) => {
 	return new Promise(async (resolve, reject) => {
@@ -97,6 +98,31 @@ export const updateProfile = (values, user_id) => {
 	});
 };
 
+export const getProfileReviews = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/users/get-vendor-profile-reviews`);
+      resolve(response.data); // resolve with actual data
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+
+export const publishVendorReviews = (reviewIds) => {
+  return new Promise(async (resolve, reject) => {
+	try {
+	const response = await axiosInstance.post(`/users/publish-profile-reviews`, { review_ids: reviewIds });
+	resolve(response.data); // resolve with actual data
+	} catch (error) {
+	reject({ message: error });
+	}	
+	  });
+};
+
+
+
 export const updatecompany = (values, user_id) => {
 	return new Promise(async (resolve, reject) => {
 		try {
@@ -192,6 +218,28 @@ export const getVendorApproveList = () => {
 	});
 };
 
+export const getUserPaymentTerms = (id , type='vendor') => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/users/get-vendor-payment-terms?vendor_id=${id}&type=${type}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const uploadUserPaymentTerms = (data) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(`/users/upload-payment-terms`, data);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const handleUploadFiles = (files, type) => {
 	const payload = new FormData();
 	files.forEach((file, i) => {
@@ -210,6 +258,26 @@ export const handleUploadFiles = (files, type) => {
 		}
 	});
 };
+
+
+export const uploadVendorDocument = async (files, type, text_content = "",payment_terms) => {
+  const payload = new FormData();
+
+  files.forEach((file) => {
+    payload.append("file", file, file.name);
+  });
+
+  payload.append("doc_type", type);
+  if (text_content) payload.append("text_content", text_content);
+
+  if (payment_terms) payload.append("payment_terms", payment_terms);
+
+  return axiosFormData.post(
+    `${process.env.NEXT_PUBLIC_API_URL}/users/enhance-vendor-profile`,
+    payload
+  );
+};
+
 
 export const getProfileDocuments = () => {
 	return new Promise(async (resolve, reject) => {
@@ -297,6 +365,17 @@ export const editSpoc = (payload,spocId) => {
             reject({ message: error });
         }
     });
+  }
+
+  export const vendorProfileDocuments = () =>{
+	return new Promise (async (resolve , reject) =>{
+		try {
+			let response  =  await axiosInstance.get(`users/get-vendor-profile-documents`);
+			resolve(response);
+		} catch (error) {
+			reject({message : error})
+		}
+	})
   }
 
   export const addSpoc = (payload) => {

@@ -1,7 +1,7 @@
 import { faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import Image from "next/image";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
+
 const UploadFiles = ({
   noLabel,
   accept,
@@ -32,13 +32,20 @@ const UploadFiles = ({
 
   useEffect(() => {
     if (preview) {
-      setViewFiles(preview);
+      // Normalize API data into expected format
+      const normalized = preview.map((item) => ({
+        file_url: item.file_url || item.file_path, // API or old format
+        file_name: item.file_name || "file",
+        type: item.file_url?.endsWith(".pdf")
+          ? "application/pdf"
+          : "image", // quick type check
+      }));
+      setViewFiles(normalized);
     }
   }, [preview]);
 
   const selectFiles = (event) => {
     let files = [];
-
     for (let i = 0; i < event.target.files.length; i++) {
       files.push({
         file: URL.createObjectURL(event.target.files[i]),
@@ -63,36 +70,21 @@ const UploadFiles = ({
         <div className="form-group">
           {noLabel != "true" ? (
             <label htmlFor="">{label ? label : "Upload files"}</label>
-          ) : (
-            ""
-          )}
-          {isMultiple == true ? (
-            <input
-              type="file"
-              data-multiple-caption="{count} files selected"
-              className="file-control"
-              multiple
-              onChange={selectFiles}
-              id={`file_upload${uid}`}
-              accept={accept.toString()}
-              disabled={isDisabled}
-            />
-          ) : (
-            <input
-              type="file"
-              data-multiple-caption="{count} files selected"
-              className="file-control"
-              onChange={selectFiles}
-              id={`file_upload${uid}`}
-              accept={accept.toString()}
-              disabled={isDisabled}
-            />
-          )}
-
+          ) : null}
+          <input
+            type="file"
+            className="file-control"
+            multiple={isMultiple}
+            onChange={selectFiles}
+            id={`file_upload${uid}`}
+            accept={accept?.toString()}
+            disabled={isDisabled}
+          />
           <label htmlFor={`file_upload${uid}`} className="label-file">
             <span>Choose file</span>
           </label>
         </div>
+
         {progressInfos > 0 && (
           <div className="progress mb-3">
             <div
@@ -106,52 +98,50 @@ const UploadFiles = ({
           </div>
         )}
       </div>
+
+      {/* Newly selected files */}
       {filePreviews &&
-        filePreviews.map((img, i) => {
-          return (
-            <>
-              <div
-                className="col-md-2 doc-thumb"
-                key={i}
-                onClick={() => {
-                  handleRemoveFile(i);
-                }}
-              >
-                {img.type !== "application/pdf" && (
-                  <img
-                    className="preview"
-                    src={img.file}
-                    alt={"file-" + i}
-                    width={140}
-                    height={164}
-                    priority="true"
-                  />
-                )}
-              </div>
-              {img.type == "application/pdf" && (
-                <a href={img.file} target="_blank">
-                  <FontAwesomeIcon icon={faEye} />
-                  {img.name}
-                </a>
-              )}
-            </>
-          );
-        })}
-      {viewFiles &&
-        viewFiles.map((item, i) => {
-          return (
-            <div className="col-md-2 doc-thumb hide-close" key={i}>
+        filePreviews.map((img, i) => (
+          <div
+            className="col-md-2 doc-thumb"
+            key={i}
+            onClick={() => handleRemoveFile(i)}
+          >
+            {img.type !== "application/pdf" ? (
               <img
                 className="preview"
-                src={item.file_path}
+                src={img.file}
                 alt={"file-" + i}
                 width={140}
                 height={164}
-                priority="true"
               />
-            </div>
-          );
-        })}
+            ) : (
+              <a href={img.file} target="_blank" rel="noreferrer">
+                <FontAwesomeIcon icon={faEye} /> {img.name}
+              </a>
+            )}
+          </div>
+        ))}
+
+      {/* Pre-filled files from API */}
+      {viewFiles &&
+        viewFiles.map((item, i) => (
+          <div className="col-md-2 doc-thumb hide-close" key={i}>
+            {item.type !== "application/pdf" ? (
+              <img
+                className="preview"
+                src={item.file_url}
+                alt={item.file_name}
+                width={140}
+                height={164}
+              />
+            ) : (
+              <a href={item.file_url} target="_blank" rel="noreferrer">
+                <FontAwesomeIcon icon={faEye} /> {item.file_name}
+              </a>
+            )}
+          </div>
+        ))}
     </>
   );
 };

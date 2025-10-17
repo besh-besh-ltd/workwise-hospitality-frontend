@@ -2,13 +2,15 @@ import React, { useEffect, useState } from "react";
 import Select from "react-select";
 import Link from "next/link";
 import { getRfqs } from "@/services/rfq";
-import { getPoData, getPoDetails, handlePOApproval } from "@/services/po";
+import { getPoData, getPoDetails, handlePOApproval, handlePOInitialization } from "@/services/po";
 import { useRouter } from "next/router";
 import { getProjectList } from "@/services/project";
 import POListing from "./POListing";
 import PurchaseOrderDetails from "./PODetails";
 import { toast } from "react-toastify";
 import { getCompanyUsers } from "@/services/Auth";
+import RejectRemarksModal from "./RejectRemarksModal";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 const PurchaseOrders = () => {
   const router = useRouter();
@@ -22,8 +24,18 @@ const PurchaseOrders = () => {
   const [selectedproject, setSelectedproject] = useState(null);
   const [poData, setPOData] = useState(null);
   const [totalData, setTotalData] = useState(0);
+  const [approvalLevel, setApprovalLevel] = useState(null);
   const [poDetails, setPODetails] = useState(null);
   const [companyUsers, setCompanyUsers] = useState([]);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedPODetail, setSelectedPODetail] = useState({
+    po_id: null,
+    data: null,
+  })
+  const [initiatePOModal, setInitiatePOModal] = useState({
+    selectedPO: null,
+    showModal: false
+  });
 
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(100);
@@ -90,13 +102,36 @@ const PurchaseOrders = () => {
         if(value) {
           setPOData(value.data);
           setTotalData(value.total);
+          setApprovalLevel(value.approval_level);
         }
     }).finally(() => setloading(false));
   };
 
+  const openRejectRemarksModal = (po_id, data) => {
+    setSelectedPODetail({
+      po_id,
+      data,
+    })
+    setShowRejectModal(true);
+  }
+
+  const rejectWithRemarks = async (remarks) => {
+    const res = await handlePOApproval(selectedPODetail.po_id, {...selectedPODetail.data, remarks});
+    if(res) {
+      toast.success(res.message);
+    } else {
+      throw new Error("Something went wrong while making a decision, please try again!")
+    }
+    setShowRejectModal(false);
+  }
+
   const handlePODecision = async (po_id, data) => {
     try {
       setloading(true);
+      if(data.decision == 'rejected') {
+        openRejectRemarksModal(po_id, data);
+        return;
+      }
       const res = await handlePOApproval(po_id, data);
       if(res) {
         toast.success(res.message);
@@ -108,6 +143,35 @@ const PurchaseOrders = () => {
       toast.error(error.message ?? 'Something went wrong while making a decision, please try again!')
     } finally {
       setloading(false);
+    }
+  }
+
+  const handleInitiatePO = async (po_id) => {
+   setInitiatePOModal({
+    showModal: true,
+    selectedPO: po_id,
+   }) 
+  }
+
+  const confirmInitiatePO = async () => {
+    try {
+      setloading(true);
+      const res = await handlePOInitialization(initiatePOModal.selectedPO);
+      getPOData(poMeta);
+      if(res) {
+        toast.success(res.message);
+      } else {
+        throw new Error("Something went wrong while making a decision, please try again!")
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message ?? 'Something went wrong while making a decision, please try again!')
+    } finally {
+      setloading(false);
+      setInitiatePOModal({
+        showModal: false,
+        selectedPO: null
+      })
     }
   }
 
@@ -285,6 +349,7 @@ const PurchaseOrders = () => {
                       rfq_id={rfq}
                       refetchPOList={getPOData}
                       handlePODecision={handlePODecision}
+                      handleInitiatePO={handleInitiatePO}
                       onSelect={(po_id) =>
                         router.push(
                           `/dashboard/buyer/purchase-order/?rfq=${rfq}&po=${po_id}`
@@ -296,6 +361,7 @@ const PurchaseOrders = () => {
                         )
                       }
                       companyUsers={companyUsers}
+                      approvalLevel={approvalLevel}
                     />
                   </div>
                 </div>
@@ -307,6 +373,7 @@ const PurchaseOrders = () => {
                       data={poDetails}
                       handlePODecision={handlePODecision}
                       refetchPODetails={getPODetails}
+                      handleInitiatePO={handleInitiatePO}
                       handleBack={() => {
                         setPODetails(null);
                         router.push(
@@ -324,6 +391,21 @@ const PurchaseOrders = () => {
           </div>
         </div>
       </section>
+
+      <RejectRemarksModal show={showRejectModal} onClose={() => setShowRejectModal(false)} onReject={(remarks) => rejectWithRemarks(remarks)}/>
+      <ConfirmationModal
+        isOpen={initiatePOModal.showModal}
+        onClose={() => setInitiatePOModal({
+          showModal: false,
+          selectedPO: null
+        })}
+        onConfirm={confirmInitiatePO}
+        title="Initiate this PO"
+        description={`Are you sure you want to initiate this PO? Once initiated this action cannot be reversed!`}
+        confirmButtonColor="warning"
+        confirmButtonText="Initiate PO"
+        cancelButtonText="Cancel"
+      />
     </>
   );
 };

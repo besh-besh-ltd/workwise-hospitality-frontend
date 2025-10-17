@@ -18,6 +18,7 @@ import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { toast } from "react-toastify";
 import { Collapse } from 'react-bootstrap';
+import { Collapse } from 'react-bootstrap';
 
 const RfqManagementPreview = () => {
   const router = useRouter();

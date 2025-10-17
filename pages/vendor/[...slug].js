@@ -5,25 +5,25 @@ import { useRouter } from "next/router";
 import { textCapitalize } from "@/utils/sharedFunctions";
 import { State_Cities } from "@/utils/constants";
 
-// Precompute state slugs
+// Precompute state slugs (no spaces)
 const stateSet = new Set(
   State_Cities.map((st) =>
-    st.state_name?.trim()?.toLowerCase()?.replace(/\s+/g, "-")
+    st.state_name?.trim()?.toLowerCase()?.replace(/\s+/g, "")
   )
 );
 
-// Precompute city slugs
+// Precompute city slugs (no spaces)
 const citySet = new Set();
 State_Cities.forEach((st) => {
   st.cities.forEach((c) => {
-    const citySlug = c?.name?.trim()?.toLowerCase()?.replace(/\s+/g, "-");
+    const citySlug = c?.name?.trim()?.toLowerCase()?.replace(/\s+/g, "");
     citySet.add(citySlug);
   });
 });
 
 // ✅ Usage
 const generateMetatitleDesc = (slug = "") => {
-  const slugifyLower = (s) => s?.trim()?.toLowerCase()?.replace(/\s+/g, "-") || "";
+  const slugifyLower = (s) => s?.trim()?.toLowerCase()?.replace(/\s+/g, "") || "";
   const toTitle = (s) => textCapitalize((s || "").replace(/-/g, " ").trim());
 
   const slugStr = Array.isArray(slug) ? slug.join("/") : slug || "";
@@ -33,11 +33,11 @@ const slugArr = slugStr
   .filter((x) => x !== "");
 
 
-  // Try to match trailing city/state using 3→2→1 tokens, normalizing spaces
+  // Try to match trailing city/state using 3→2→1 tokens, normalizing spaces (remove spaces)
   const tryMatchFromEnd = (arr, set) => {
     for (let len = 3; len >= 1; len--) {
       if (arr.length >= len) {
-        const raw = arr.slice(arr.length - len).join("-");
+        const raw = arr.slice(arr.length - len).join("");
         const candidate = slugifyLower(raw);
         if (set.has(candidate)) {
           return { match: candidate, consumed: len };
