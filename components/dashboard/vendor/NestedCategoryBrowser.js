@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { nestedCategoryData } from '@/services/products';
 import { textCapitalize } from '@/utils/sharedFunctions';
 
-const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey }) => {
+const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey , onHide}) => {
   const router = useRouter();
   const [nestedItems, setNestedItems] = useState([]);
   const [categoryPath, setCategoryPath] = useState([]);
@@ -75,6 +75,13 @@ useEffect(() => {
   };
 }, [router]);
 
+const handleRouteChange = (url) => {
+  const match = url.match(/category(\d+)/);
+  const categoryId = match ? parseInt(match[1], 10) : 0; // ← defaults to 0
+  const slug = url.split('/').pop()?.replace(/-category\d+$/, '') || 'all';
+  fetchNestedCategories(categoryId, slug);
+};
+
 
   const buildVendorUrl = (name, id, type) => {
     const slug = name
@@ -98,6 +105,8 @@ useEffect(() => {
       setSearchKey(cleanName);
       if (onGetProducts) await onGetProducts(cleanName);
       if (onGetVendors) onGetVendors();
+      // ✅ Hide the NestedCategoryBrowser
+      if (onHide) onHide();
       const variantUrl = buildVendorUrl(name, id, 'variant');
       router.push(variantUrl);
       return;

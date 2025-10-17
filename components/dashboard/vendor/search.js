@@ -121,6 +121,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [inputValue, setInputValue] = useState(""); // For what user is typing
   const [suggestionLoading, setSuggestionLoading] = useState(false); // For suggestion fetch
   const [suggestions, setSuggestions] = useState([]); // Product name suggestions
+    const [showBrowser, setShowBrowser] = useState(true);
 
   const [queryMeta, setQueryMeta] = useState({
     rfq_id: null,
@@ -702,38 +703,38 @@ const clearVendorFilters = () => {
   useEffect(() => { getCities().then(res => setCityList(res.data || [])); }, []);
 
   // --- Parse slug only ONCE when slug or lists are ready ---
-  useEffect(() => {
-    // Normalize slug which may be string or array
-    const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
-    if (!slugStr || slugStr === 'all') return;
+  // useEffect(() => {
+  //   // Normalize slug which may be string or array
+  //   const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
+  //   if (!slugStr || slugStr === 'all') return;
 
-    // If location lists are not loaded yet, treat the entire slug as product search
-    if (!stateList.length || !cityList.length) {
-      setSearch_key(slugStr);
-      return;
-    }
+  //   // If location lists are not loaded yet, treat the entire slug as product search
+  //   if (!stateList.length || !cityList.length) {
+  //     setSearch_key(slugStr);
+  //     return;
+  //   }
 
-    // Support no-space location slugs: convert names by removing spaces and lowercasing
-    const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
-    const segments = slug.split('-');
-    let foundState = null, foundCity = null, productSegments = [];
-    // Note: if country is desired via slug, we can extend similarly using countries list
+  //   // Support no-space location slugs: convert names by removing spaces and lowercasing
+  //   const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
+  //   const segments = slugStr.split('-');
+  //   let foundState = null, foundCity = null, productSegments = [];
+  //   // Note: if country is desired via slug, we can extend similarly using countries list
 
-    for (let i = segments.length - 1; i >= 0; i--) {
-      const segment = segments[i].toLowerCase();
-      if (!foundState) {
-        const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
-        if (stateMatch) { foundState = stateMatch; setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]); continue; }
-      }
-      if (!foundCity) {
-        const cityMatch = cityList.find(city => normalize(city.city_name) === segment);
-        if (cityMatch) { foundCity = cityMatch; setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]); continue; }
-      }
-      productSegments.unshift(segments[i]);
-    }
-    const finalSearchKey = productSegments.join('/');
-    setSearch_key(finalSearchKey);
-  }, [slug, stateList, cityList]);
+  //   for (let i = segments.length - 1; i >= 0; i--) {
+  //     const segment = segments[i].toLowerCase();
+  //     if (!foundState) {
+  //       const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
+  //       if (stateMatch) { foundState = stateMatch; setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]); continue; }
+  //     }
+  //     if (!foundCity) {
+  //       const cityMatch = cityList.find(city => normalize(city.city_name) === segment);
+  //       if (cityMatch) { foundCity = cityMatch; setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]); continue; }
+  //     }
+  //     productSegments.unshift(segments[i]);
+  //   }
+  //   const finalSearchKey = productSegments.join('/');
+  //   setSearch_key(finalSearchKey);
+  // }, [slug, stateList, cityList]);
 
   // When slug changes (including 'all'), fetch nested categories.
   // Nested category handling delegated to NestedCategoryBrowser
@@ -1000,12 +1001,14 @@ useEffect(() => {
       <section className="search-sec-2" aria-label="product-categories-section">
         <div className="container-fluid">
           {/* Nested categories fetched dynamically from backend (now in NestedCategoryBrowser) */}
-          <NestedCategoryBrowser
-            slug={slug}
-            onGetProducts={getProducts}
-            onGetVendors={getVendors}
-            setSearchKey={setSearch_key}
-          />
+          {showBrowser && (
+        <NestedCategoryBrowser
+          onGetProducts={getProducts}
+          onGetVendors={getVendors}
+          setSearchKey={setSearch_key}
+          onHide={() => setShowBrowser(false)} // ✅ Pass a callback to hide
+        />
+      )}
           {/* Search Categories Section */}
           {searchSubCategories.length > 0 && (
             <div className=" col-md-12 bg-white rounded-5 p-4">
