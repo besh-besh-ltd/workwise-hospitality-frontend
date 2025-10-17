@@ -534,7 +534,17 @@ const addRfqIdParam = (rfq_id) => {
         setCategories(res.data.parentCategories);
         setProductsList([]);
         setloading(false)
-        router.push("/vendor/all");
+        // Avoid redirecting away when a specific category URL is directly opened
+        // e.g., /vendor/physical-security-equipment-category5049
+        try {
+          const currentPath = router?.asPath || "";
+          const isCategoryDeepLink = /\/vendor\/.+-category\d+$/.test(currentPath);
+          if (!isCategoryDeepLink) {
+            router.push("/vendor/all");
+          }
+        } catch (_) {
+          router.push("/vendor/all");
+        }
         setIsOpen(false);
       })
       .catch((error) => {
