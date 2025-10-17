@@ -54,7 +54,7 @@ const iconMap28 = {
   'file-contract': <FaFileContract className="text-danger" size={28} />
 };
 
-const SecurityFeatures = ({ 
+export const SecurityFeatures = ({ 
   className = '',
   title,
   features,

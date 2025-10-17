@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -6,7 +6,10 @@ import {
   faPlus,
   faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
-import {  getProductMakeList, searchProductsV2 } from "@/services/products";
+import {  getProductMakeList, parentCategoryList, searchProductsV2, nestedCategoryData, getRandomProducts } from "@/services/products";
+import Slider from 'react-slick';
+import RandomProductsCarousel from '@/components/dashboard/vendor/RandomProductsCarousel';
+import SeoTitle from '@/components/dashboard/vendor/SeoTitle';
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
 import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
@@ -27,6 +30,10 @@ import Select from 'react-select';
 import axiosInstance from "@/lib/axios";
 import { BusinessTypes } from "@/utils/constants";
 import { getCountries, getStates, getCities } from "@/services/cms";
+import { AllCategoriesSection } from "@/components/products/utils/AllCategoriesSection";
+import { SecurityFeatures } from "@/pages/why-workwise/TrustSecurity";
+import NestedCategoryBrowser from "./NestedCategoryBrowser";
+import FeatureSEOSection from "./FeatureSEOsection";
 
 
 export const vendorConditions = [
@@ -50,6 +57,8 @@ export const vendorConditions = [
 const Search = ({ title = "Preffered Vendors", type }) => {
   const router = useRouter();
   const { slug, s, loggedin } = router.query;
+
+  console.log("this is where ma checking the router ", "slug" , slug ,"s", s ,"loged in", loggedin);
   const vendor_area_ref = useRef();
   const id = Date.now().toString();
   const [isOpen, setIsOpen] = useState(false);
@@ -95,7 +104,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const tempProdRef = useRef(null);
   const [searchCategories, setSearchCategories] = useState([]);
   const [searchSubCategories, setSearchSubCategories] = useState([]);
+  // Nested categories state for dynamic rendering from backend
+  const [nestedCategories, setNestedCategories] = useState([]);
+  // Nested category browsing moved to NestedCategoryBrowser component
+  // fetchNestedCategories logic moved to NestedCategoryBrowser
   const [productsList, setProductsList] = useState([]);
+  // random products carousel state moved to RandomProductsCarousel component
   const categoryLvlRef = useRef(new Map());
   const [firstVisit, setFirstVisit] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -151,7 +165,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         searchLabelRef.current.click();
       }, 1000);
 
-      // getProducts();
+      getProducts();
     }
     if (localStorage.getItem("token")) {
       setIsLoggedIn(true);
@@ -190,6 +204,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     };
   }, []);
 
+  
   useEffect(() => {
     if(vendorTypes)
       setInternalVendorTypes(vendorTypes.filter(type => !selectedVendorTypes.some(_type => _type.value == type.value)))
@@ -203,27 +218,47 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setInternalApprovedBy(approved_by?.filter(approveBy => !selectedApprovedBy.some(_approvedBy => approveBy.vendor_approve == _approvedBy.vendor_approve)))
   }, [selectedApprovedBy])
 
-  useEffect(() => {
-    // Prevent vendor search when slug is 'all'
-    if (slug === 'all') return;
-    getVendorApprovedby();
-    getVendors();
-  }, [
-    currentSelectedProduct,
-    selectedApprovedBy,
-    cat_id,
-    selectedState,
-    selectedCity,
-    selectedCountry,
-    selectedVendorTypes,
-    prevWorkedWith,
-    turnOver,
-    isLoggedIn,
-    debouncedVendorName, // Use debouncedVendorName instead of vendorName,
-    myVendorType,
-    selectedMakes,
-    search_key
-  ]);
+ useEffect(() => {
+  // Normalize slug which can be string or array (catch-all routes)
+  const slugStr = Array.isArray(slug)
+    ? slug.join('/')
+    : typeof slug === 'string'
+    ? slug
+    : '';
+
+  // Prevent vendor search when slug is 'all' or it's a category/product
+  if (
+    !slugStr || 
+    slugStr === 'all' || 
+    slugStr.includes('-category') // 👈 this blocks vendor fetch for category/product
+  ) {
+    setcurrentSelectedProduct(null);
+    setVendors([]);
+    setApproved_by([]);
+    return;
+  }
+
+  // ✅ Only for variant slugs → fetch vendors
+  getVendorApprovedby();
+  getVendors();
+}, [
+  slug,
+  currentSelectedProduct,
+  selectedApprovedBy,
+  cat_id,
+  selectedState,
+  selectedCity,
+  selectedCountry,
+  selectedVendorTypes,
+  prevWorkedWith,
+  turnOver,
+  isLoggedIn,
+  debouncedVendorName,
+  myVendorType,
+  selectedMakes,
+  search_key
+]);
+
 
   // When a new product is selected, update the search bar value
   useEffect(() => {
@@ -251,6 +286,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     let cleanedString = lowerCaseString.replace(/[\s\-\/()]+/g, ' ').trim();
     return cleanedString.replace(/\s+/g, '-');
   }
+
+ 
 
   const canAddItem = () => {
     if (!vendorMetaData.logged_In) {
@@ -420,8 +457,8 @@ const addRfqIdParam = (rfq_id) => {
   const getProducts = (s_key = search_key) => {
     setloading(true);
     categoryLvlRef.current = new Map();
-    
-    searchProductsV2(
+
+    return searchProductsV2(
       {
         cat_id,
         search_key: s_key,
@@ -446,9 +483,11 @@ const addRfqIdParam = (rfq_id) => {
         } else {
           setcurrentSelectedProduct(null);
         }
+        return rsp;
       })
       .catch((error) => {
         setloading(false);
+        throw error;
       });
   };
 
@@ -485,6 +524,23 @@ const addRfqIdParam = (rfq_id) => {
 
       })
   };
+  
+
+  const getParentCategories = () => {
+    setloading(true)
+    parentCategoryList()
+      .then((res) => {
+        setCategories(res.data.parentCategories);
+        setProductsList([]);
+        setloading(false)
+        router.push("/vendor/all");
+        setIsOpen(false);
+      })
+      .catch((error) => {
+        setloading(false)
+        console.error("Error fetching categories:", error);
+      });
+  };
 
   const getCategories = () => {
     setcatloading(true);
@@ -506,7 +562,11 @@ const addRfqIdParam = (rfq_id) => {
         setcatloading(false);
       });
   };
+  useEffect(()=>{
+    getParentCategories();
+  },[])
 
+  // Random products carousel logic extracted to RandomProductsCarousel component
   const getVendorApprovedby = () => {
     setvabloading(true);
   
@@ -643,11 +703,13 @@ const clearVendorFilters = () => {
 
   // --- Parse slug only ONCE when slug or lists are ready ---
   useEffect(() => {
-    if (!slug || slug === 'all') return;
+    // Normalize slug which may be string or array
+    const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
+    if (!slugStr || slugStr === 'all') return;
 
     // If location lists are not loaded yet, treat the entire slug as product search
     if (!stateList.length || !cityList.length) {
-      setSearch_key(slug);
+      setSearch_key(slugStr);
       return;
     }
 
@@ -669,16 +731,26 @@ const clearVendorFilters = () => {
       }
       productSegments.unshift(segments[i]);
     }
-    const finalSearchKey = productSegments.join('-');
+    const finalSearchKey = productSegments.join('/');
     setSearch_key(finalSearchKey);
   }, [slug, stateList, cityList]);
 
+  // When slug changes (including 'all'), fetch nested categories.
+  // Nested category handling delegated to NestedCategoryBrowser
+
   // --- Trigger product search automatically ---
-  useEffect(() => {
-    if (search_key && slug && slug !== 'all' && !currentSelectedProduct) {
-      getProducts(search_key);
-    }
-  }, [search_key, slug, currentSelectedProduct]);
+useEffect(() => {
+  if (
+    search_key && 
+    slug && 
+    slug !== 'all' && 
+    !String(slug).includes('-category') && // 👈 only trigger for variants
+    !currentSelectedProduct
+  ) {
+    getProducts(search_key);
+  }
+}, [search_key, slug, currentSelectedProduct]);
+
 
   // --- When filters are cleared, update the URL ---
   const clearLocationFilter = () => {
@@ -708,6 +780,7 @@ const clearVendorFilters = () => {
 
   useEffect(() => {
     // If no product is selected but search_key is set (e.g., from URL), update inputValue
+    console.log("this even 2")
     if (!currentSelectedProduct && search_key) {
       setInputValue(search_key);
     }
@@ -717,21 +790,13 @@ const clearVendorFilters = () => {
     <>
       <section className="vendor-common-header sc-pt-80" aria-label="header">
         <div className="container-fluid  text-center">
-          <h1 className="heading">
-            {(() => {
-              const slugStr = typeof slug === 'string' ? slug : '';
-              const rawProduct = getProductTitle() || search_key || slugStr;
-              const productName = textCapitalize((rawProduct || '').replace(/-/g, ' ').trim());
-              const stateName = selectedState?.[0]?.name;
-              const cityName = selectedCity?.[0]?.name;
-
-              if (slugStr === 'all') return 'Discover Verified Vendors for Industrial Procurement';
-              if (productName && cityName && stateName) return `Top ${productName} Vendors & Suppliers Near ${cityName},  ${stateName}`;
-              if (productName && stateName) return `Top ${productName} Vendors & Suppliers Near ${stateName}`;
-              if (productName) return `Top ${productName} Vendors & Suppliers`;
-              return 'Discover Verified Vendors for Industrial Procurement';
-            })()}
-          </h1>
+          <SeoTitle
+            slug={slug}
+            search_key={search_key}
+            currentSelectedProduct={currentSelectedProduct}
+            selectedState={selectedState}
+            selectedCity={selectedCity}
+          />
           <div className="d-flex justify-content-end">
             <Link
               href="/dashboard/buyer/boq-automation"
@@ -934,6 +999,13 @@ const clearVendorFilters = () => {
 
       <section className="search-sec-2" aria-label="product-categories-section">
         <div className="container-fluid">
+          {/* Nested categories fetched dynamically from backend (now in NestedCategoryBrowser) */}
+          <NestedCategoryBrowser
+            slug={slug}
+            onGetProducts={getProducts}
+            onGetVendors={getVendors}
+            setSearchKey={setSearch_key}
+          />
           {/* Search Categories Section */}
           {searchSubCategories.length > 0 && (
             <div className=" col-md-12 bg-white rounded-5 p-4">
@@ -1573,14 +1645,14 @@ const clearVendorFilters = () => {
                     </div>
                   </div>
                 )}
-                {!currentSelectedProduct && (
+                {/* {!currentSelectedProduct && (
                   <div className="col-md-12 hasblankpadding">
                     <h2 className="fs-5 text-center">
                       <b>Search & Select a product</b>
                       <br /> to see the available vendors!
                     </h2>
                   </div>
-                )}
+                )} */}
               </div>
             </div>
             {/* END:  vendor list*/}
@@ -1597,6 +1669,21 @@ const clearVendorFilters = () => {
           setActiveAuthTab={setActiveAuthTab}
         />
       </section>
+     
+      {/* Random products carousel (between categories and Why Trust Us) */}
+      <div className="container my-4">
+        <RandomProductsCarousel className="" />
+      </div>
+
+      <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
+  Why Trust Us
+</h3>
+<SecurityFeatures />
+
+<FeatureSEOSection/>
+
+
+
     </>
   );
 };
