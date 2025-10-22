@@ -26,10 +26,12 @@ const generateMetatitleDesc = (slug = "") => {
   const slugifyLower = (s) => s?.trim()?.toLowerCase()?.replace(/\s+/g, "") || "";
   const toTitle = (s) => textCapitalize((s || "").replace(/-/g, " ").trim());
 
-  const slugArr = slug
-    .trim()
-    .split("-")
-    .filter((x) => x !== "");
+  const slugStr = Array.isArray(slug) ? slug.join("/") : slug || "";
+const slugArr = slugStr
+  .trim()
+  .split("-")
+  .filter((x) => x !== "");
+
 
   // Try to match trailing city/state using 3→2→1 tokens, normalizing spaces (remove spaces)
   const tryMatchFromEnd = (arr, set) => {

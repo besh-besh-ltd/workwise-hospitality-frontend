@@ -29,14 +29,14 @@ export const getServerSideProps = async ({ params, res }) => {
   
   try {
     // Fetch the API response with streaming enabled
-    const apiRes = await fetch(`${API_URL}/seo/vendors/sitemap?page=${pageNumber}&limit=1000`, {
+    const apiRes = await fetch(`${API_URL}/seo/vendors/sitemap?page=${pageNumber}&limit=50000`, {
       method: 'GET',
       headers: {
         'Accept': 'application/xml',
         'Accept-Encoding': 'gzip, deflate, br', // Enable compression
       },
     });
-
+   console.log("API URL being fetched for sitemap: ",apiRes);
     // Check if the response is OK
     if (!apiRes.ok) {
       res.statusCode = apiRes.status;

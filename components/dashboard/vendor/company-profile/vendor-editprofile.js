@@ -58,6 +58,7 @@ const VendorProfile = () => {
 
 
  const fetchPaymentTerms = async () => {
+       if (!id) return ;
         try {
           const res = await getUserPaymentTerms(id , 'buyer');
           const terms = res?.data?.data || res?.data || [];
@@ -86,14 +87,19 @@ const VendorProfile = () => {
             },
           ]);
         }
-      };
+    };
 
-  useEffect(() => {
-    if (id != "") {
-      getVendorProfile();
-      fetchPaymentTerms();
-    }
-  }, [router]);
+useEffect(() => {
+  // ✅ Wait until router is ready and id is defined
+  if (!router.isReady || !id) return;
+
+  const fetchData = async () => {
+    await getVendorProfile();
+    await fetchPaymentTerms();
+  };
+
+  fetchData();
+}, [router.isReady, id]);
 
   useEffect(() => {
     if (isLoggedin) {

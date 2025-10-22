@@ -392,6 +392,38 @@ export const parentCategoryList = (slug) => {
   });
 };
 
+export const nestedCategoryData = (parent_id = 0, slug) => {
+  const baseUrl = `${process.env.NEXT_PUBLIC_API_URL}/products/nested-category-list`;
+
+  return new Promise((resolve, reject) => {
+    let url = `${baseUrl}?parent_id=${parent_id}`;
+
+    if (slug && slug !== 'undefined' && slug.trim() !== '') {
+      url += `&slug=${encodeURIComponent(slug)}`;
+    }
+
+    axiosInstance
+      .get(url)
+      .then((response) => resolve(response))
+      .catch((error) => reject(error));
+  });
+};
+
+
+
+export const getRandomProducts = () => {
+  return new Promise(async (resolve , reject)=>{
+    try {
+      let response = await axiosInstance.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/products/random-products-for-carausel`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    } 
+  })
+}
+
 export const productListByCategory = (cat_id, page = 1, limit = 200) => {
   return new Promise(async (resolve, reject) => {
     try {

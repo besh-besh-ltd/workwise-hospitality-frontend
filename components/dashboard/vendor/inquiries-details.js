@@ -17,7 +17,6 @@ import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { toast } from "react-toastify";
-import { Collapse } from 'react-bootstrap';
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -714,17 +713,16 @@ const RfqManagementPreview = () => {
                           e.preventDefault();
                           setregretModal(true);
                         }}
-                        disabled={
-                          (quoteDisabled &&
-                            statusMessage !== "Reverse Auction is Active") ||
-                          rfqDetails.status == 2 ||
-                          rfqDetails.products?.every(
-                            (item) =>
-                              item.finalization_status ===
-                                "Another vendor is finalized" ||
-                              item.finalization_status === "You are finalized"
-                          )
-                        }
+                      disabled={
+                        (quoteDisabled && statusMessage !== "Reverse Auction is Active") ||
+                        rfqDetails.status == 2 ||
+                        rfqDetails.products?.every(
+                          (item) =>
+                            item.finalization_status === "Another vendor is finalized" ||
+                            item.finalization_status === "You are finalized"
+                        )
+                      }
+
                       >
                         Regret Quote
                       </button>
