@@ -56,7 +56,17 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey , onH
   };
 
   useEffect(() => {
-    fetchNestedCategories(0, 'all');
+    // Initialize from current URL if it contains a category deep link
+    // Pattern: /vendor/<slug>-category<id>
+    try {
+      const currentPath = router?.asPath || '';
+      const idMatch = currentPath.match(/category(\d+)$/);
+      const categoryId = idMatch ? parseInt(idMatch[1], 10) : 0;
+      const slug = currentPath.split('/').pop()?.replace(/-category\d+$/, '') || 'all';
+      fetchNestedCategories(categoryId, slug);
+    } catch (_) {
+      fetchNestedCategories(0, 'all');
+    }
   }, []);
   // ✅ Re-run fetch logic when browser back/forward changes URL
 useEffect(() => {
