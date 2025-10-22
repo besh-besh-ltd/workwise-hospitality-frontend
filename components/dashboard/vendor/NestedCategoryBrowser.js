@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { nestedCategoryData } from '@/services/products';
 import { textCapitalize } from '@/utils/sharedFunctions';
 
-const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey , onHide}) => {
+const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHide }) => {
   const router = useRouter();
   const [nestedItems, setNestedItems] = useState([]);
   const [categoryPath, setCategoryPath] = useState([]);
@@ -12,14 +12,26 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey , onH
   const [selectedId, setSelectedId] = useState(null);
   const [relatedCategories, setRelatedCategories] = useState([]);
   const [previousLevelCategories, setPreviousLevelCategories] = useState([]);
-
-  // ✅ Show/Hide toggle states
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showAllRelated, setShowAllRelated] = useState(false);
 
+  // ✅ Add ref to track if we're currently navigating
+  const isNavigatingRef = useRef(false);
+  const lastFetchedRef = useRef({ categoryId: null, slug: null });
+
   // ✅ Fetch nested categories
   const fetchNestedCategories = async (parent_id = 0, slugParam = '', currentCategory = null) => {
+    // ✅ Prevent duplicate fetches
+    if (
+      lastFetchedRef.current.categoryId === parent_id &&
+      lastFetchedRef.current.slug === slugParam
+    ) {
+      return;
+    }
+
+    lastFetchedRef.current = { categoryId: parent_id, slug: slugParam };
     setNestedLoading(true);
+
     try {
       const rsp = await nestedCategoryData(parent_id);
       const payload = rsp;
@@ -38,7 +50,8 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey , onH
 
       setPreviousLevelCategories(arr);
 
-      if (arr.length === 0 && slugParam && slugParam !== 'all') {
+      // ✅ Only trigger product search for variants, not for "all" or category navigation
+      if (arr.length === 0 && slugParam && slugParam !== 'all' && type === 'variant') {
         const productSearchKey = slugParam.replace(/-/g, ' ');
         setSearchKey(productSearchKey);
         if (onGetProducts) await onGetProducts(productSearchKey);
@@ -52,12 +65,12 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey , onH
       setNestedLoading(false);
       setShowAllCategories(false);
       setShowAllRelated(false);
+      isNavigatingRef.current = false;
     }
   };
 
+  // ✅ Initialize from URL on mount
   useEffect(() => {
-    // Initialize from current URL if it contains a category deep link
-    // Pattern: /vendor/<slug>-category<id>
     try {
       const currentPath = router?.asPath || '';
       const idMatch = currentPath.match(/category(\d+)$/);
@@ -67,31 +80,31 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey , onH
     } catch (_) {
       fetchNestedCategories(0, 'all');
     }
-  }, []);
-  // ✅ Re-run fetch logic when browser back/forward changes URL
-useEffect(() => {
-  const handleRouteChange = (url) => {
-    // Extract category id from URL (e.g., /vendor/slug-category123)
-    const match = url.match(/category(\d+)/);
-    const categoryId = match ? parseInt(match[1], 10) : 0;
-    const slug = url.split('/').pop()?.replace(/-category\d+$/, '') || 'all';
+  }, []); // ✅ Only run on mount
 
-    fetchNestedCategories(categoryId, slug);
-  };
+  // ✅ Handle browser back/forward navigation
+  useEffect(() => {
+    const handleRouteChange = (url) => {
+      if (isNavigatingRef.current) return; // ✅ Skip if we're programmatically navigating
 
-  router.events.on('routeChangeComplete', handleRouteChange);
-  return () => {
-    router.events.off('routeChangeComplete', handleRouteChange);
-  };
-}, [router]);
+      const match = url.match(/category(\d+)/);
+      const categoryId = match ? parseInt(match[1], 10) : 0;
+      const slug = url.split('/').pop()?.replace(/-category\d+$/, '') || 'all';
 
-const handleRouteChange = (url) => {
-  const match = url.match(/category(\d+)/);
-  const categoryId = match ? parseInt(match[1], 10) : 0; // ← defaults to 0
-  const slug = url.split('/').pop()?.replace(/-category\d+$/, '') || 'all';
-  fetchNestedCategories(categoryId, slug);
-};
+      // ✅ Only fetch if URL actually changed
+      if (
+        lastFetchedRef.current.categoryId !== categoryId ||
+        lastFetchedRef.current.slug !== slug
+      ) {
+        fetchNestedCategories(categoryId, slug);
+      }
+    };
 
+    router.events.on('routeChangeComplete', handleRouteChange);
+    return () => {
+      router.events.off('routeChangeComplete', handleRouteChange);
+    };
+  }, [router]);
 
   const buildVendorUrl = (name, id, type) => {
     const slug = name
@@ -99,9 +112,7 @@ const handleRouteChange = (url) => {
       .replace(/[\s\-\/()]+/g, ' ')
       .trim()
       .replace(/\s+/g, '-');
-    return type === 'variant'
-      ? `/vendor/${slug}`
-      : `/vendor/${slug}-category${id}`;
+    return type === 'variant' ? `/vendor/${slug}` : `/vendor/${slug}-category${id}`;
   };
 
   const handleCardClick = async (item) => {
@@ -110,15 +121,16 @@ const handleRouteChange = (url) => {
     const cleanName = name.replace(/-/g, ' ');
 
     setSelectedId(id);
+    isNavigatingRef.current = true; // ✅ Mark as programmatic navigation
 
     if (currentType === 'variant') {
       setSearchKey(cleanName);
       if (onGetProducts) await onGetProducts(cleanName);
       if (onGetVendors) onGetVendors();
-      // ✅ Hide the NestedCategoryBrowser
       if (onHide) onHide();
       const variantUrl = buildVendorUrl(name, id, 'variant');
-      router.push(variantUrl);
+      await router.push(variantUrl);
+      isNavigatingRef.current = false;
       return;
     }
 
@@ -126,14 +138,12 @@ const handleRouteChange = (url) => {
     const currentCategories = nestedItems;
     await fetchNestedCategories(id, name, item);
 
-    const newPath = [
-      ...categoryPath,
-      { id, slug: newUrl, title: textCapitalize(name) },
-    ];
+    const newPath = [...categoryPath, { id, slug: newUrl, title: textCapitalize(name) }];
     setCategoryPath(newPath);
 
     setRelatedCategories(currentCategories);
-    router.push(newUrl);
+    await router.push(newUrl);
+    isNavigatingRef.current = false;
   };
 
   const handleBreadcrumbClick = async (index) => {
@@ -141,6 +151,7 @@ const handleRouteChange = (url) => {
     const newPath = categoryPath.slice(0, index + 1);
     setCategoryPath(newPath);
     setSelectedId(pathItem.id);
+    isNavigatingRef.current = true; // ✅ Mark as programmatic navigation
 
     if (index === 0) {
       setRelatedCategories([]);
@@ -148,9 +159,7 @@ const handleRouteChange = (url) => {
       const previousLevelId = index > 0 ? categoryPath[index - 1].id : 0;
       try {
         const previousRes = await nestedCategoryData(previousLevelId);
-        const previousArr = Array.isArray(previousRes.data)
-          ? previousRes.data
-          : [];
+        const previousArr = Array.isArray(previousRes.data) ? previousRes.data : [];
         setRelatedCategories(previousArr);
       } catch (err) {
         console.error('Error fetching previous level categories:', err);
@@ -159,6 +168,7 @@ const handleRouteChange = (url) => {
     }
 
     await fetchNestedCategories(pathItem.id, pathItem.slug);
+    isNavigatingRef.current = false;
   };
 
   const handleRelatedCategoryClick = async (item) => {
@@ -166,29 +176,23 @@ const handleRouteChange = (url) => {
     const id = item.id || item.category_id;
 
     setSelectedId(id);
+    isNavigatingRef.current = true; // ✅ Mark as programmatic navigation
 
     const newUrl = buildVendorUrl(name, id, 'category');
     const currentCategories = nestedItems;
 
     await fetchNestedCategories(id, name, item);
 
-    const newPath = [
-      ...categoryPath,
-      { id, slug: newUrl, title: textCapitalize(name) },
-    ];
+    const newPath = [...categoryPath, { id, slug: newUrl, title: textCapitalize(name) }];
     setCategoryPath(newPath);
 
     setRelatedCategories(currentCategories);
-    router.push(newUrl);
+    await router.push(newUrl);
+    isNavigatingRef.current = false;
   };
 
-  // ✅ Limit to 12 unless "Know More" is clicked
-  const visibleCategories = showAllCategories
-    ? nestedItems
-    : nestedItems.slice(0, 12);
-  const visibleRelated = showAllRelated
-    ? relatedCategories
-    : relatedCategories.slice(0, 12);
+  const visibleCategories = showAllCategories ? nestedItems : nestedItems.slice(0, 12);
+  const visibleRelated = showAllRelated ? relatedCategories : relatedCategories.slice(0, 12);
 
   return (
     <div className="row mb-3">
@@ -201,17 +205,19 @@ const handleRouteChange = (url) => {
             : 'All Categories'}
         </h2>
 
-        {/* ✅ Breadcrumb */}
         {categoryPath.length > 0 && (
           <div className="breadcrumb mb-3 bg-light p-2 rounded-3">
             <span
               role="button"
               className="text-primary fw-medium me-2"
               onClick={() => {
+                isNavigatingRef.current = true;
                 setCategoryPath([]);
                 setRelatedCategories([]);
                 fetchNestedCategories(0, 'all');
-                router.push('/vendor/all');
+                router.push('/vendor/all').then(() => {
+                  isNavigatingRef.current = false;
+                });
               }}
             >
               Home
@@ -222,9 +228,7 @@ const handleRouteChange = (url) => {
                 <span
                   role="button"
                   className={`ms-1 ${
-                    i === categoryPath.length - 1
-                      ? 'text-dark fw-semibold'
-                      : 'text-primary'
+                    i === categoryPath.length - 1 ? 'text-dark fw-semibold' : 'text-primary'
                   }`}
                   onClick={() => handleBreadcrumbClick(i)}
                 >
@@ -235,11 +239,8 @@ const handleRouteChange = (url) => {
           </div>
         )}
 
-        {/* ✅ Main Cards */}
         {nestedLoading && <p className="text-muted">Loading...</p>}
-        {!nestedLoading && nestedItems.length === 0 && (
-          <p className="text-muted">No data found.</p>
-        )}
+        {!nestedLoading && nestedItems.length === 0 && <p className="text-muted">No data found.</p>}
 
         <div className="row">
           {visibleCategories.map((item) => {
@@ -266,9 +267,7 @@ const handleRouteChange = (url) => {
                     {item.title || item.category_name || item.name}
                   </h5>
                   {item.description && (
-                    <p className="card-text text-truncate mb-0">
-                      {item.description}
-                    </p>
+                    <p className="card-text text-truncate mb-0">{item.description}</p>
                   )}
                 </div>
               </div>
@@ -276,23 +275,21 @@ const handleRouteChange = (url) => {
           })}
         </div>
 
-        {/* ✅ Know More toggle for main grid */}
         {nestedItems.length > 12 && (
           <div className="text-center mt-2">
             <button
               className="btn btn-outline-primary rounded-pill px-4 py-1"
               onClick={() => setShowAllCategories(!showAllCategories)}
             >
-              {showAllCategories ? 'Show Less' : 'Know More'}
+              {showAllCategories ? 'Show Less' : 'Show More'}
             </button>
           </div>
         )}
 
-        {/* ✅ Related Categories */}
         {relatedCategories.length > 0 && (
           <div className="mt-4 pt-4 border-top">
             <h5 className="fw-semibold text-dark mb-3">
-              <i className="bi bi-arrow-return-left me-2 text-primary"></i> 
+              <i className="bi bi-arrow-return-left me-2 text-primary"></i>
               Related Categories
             </h5>
             <div className="d-flex overflow-auto gap-3 pb-2">
@@ -303,21 +300,18 @@ const handleRouteChange = (url) => {
                   style={{ minWidth: '180px', cursor: 'pointer' }}
                   onClick={() => handleRelatedCategoryClick(cat)}
                 >
-                  <h6 className="mb-0 text-capitalize fw-semibold">
-                    {cat.title || cat.name}
-                  </h6>
+                  <h6 className="mb-0 text-capitalize fw-semibold">{cat.title || cat.name}</h6>
                 </div>
               ))}
             </div>
 
-            {/* ✅ Know More toggle for related carousel */}
             {relatedCategories.length > 12 && (
               <div className="text-center mt-2">
                 <button
                   className="btn btn-outline-secondary rounded-pill px-4 py-1"
                   onClick={() => setShowAllRelated(!showAllRelated)}
                 >
-                  {showAllRelated ? 'Show Less' : 'Know More'}
+                  {showAllRelated ? 'Show Less' : 'Show More'}
                 </button>
               </div>
             )}
