@@ -58,7 +58,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const router = useRouter();
   const { slug, s, loggedin } = router.query;
 
-  console.log("this is where ma checking the router ", "slug" , slug ,"s", s ,"loged in", loggedin);
+  // console.log("this is where ma checking the router ", "slug" , slug ,"s", s ,"loged in", loggedin);
   const vendor_area_ref = useRef();
   const id = Date.now().toString();
   const [isOpen, setIsOpen] = useState(false);
@@ -242,6 +242,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   // ✅ Only for variant slugs → fetch vendors
   getVendorApprovedby();
   getVendors();
+  setShowBrowser(true);
 }, [
   slug,
   currentSelectedProduct,
@@ -458,7 +459,7 @@ const addRfqIdParam = (rfq_id) => {
   const getProducts = (s_key = search_key) => {
     setloading(true);
     categoryLvlRef.current = new Map();
-
+    console.log("chekng if this functon is being called again and again " , search_key);
     return searchProductsV2(
       {
         cat_id,
@@ -750,17 +751,33 @@ const clearVendorFilters = () => {
   // Nested category handling delegated to NestedCategoryBrowser
 
   // --- Trigger product search automatically ---
+// ✅ Add a ref to track if products were already loaded
+const productsLoadedRef = useRef(false);
+
 useEffect(() => {
   if (
     search_key && 
     slug && 
     slug !== 'all' && 
-    !String(slug).includes('-category') && // 👈 only trigger for variants
-    !currentSelectedProduct
+    !String(slug).includes('-category') && // only trigger for variants
+    !currentSelectedProduct &&
+    !productsLoadedRef.current // ✅ Prevent re-fetching
   ) {
-    getProducts(search_key);
+    console.log("Loading products for:", search_key);
+    productsLoadedRef.current = true;
+    getProducts(search_key).finally(() => {
+      // Reset flag after a delay to allow future legitimate loads
+      setTimeout(() => {
+        productsLoadedRef.current = false;
+      }, 1000);
+    });
   }
 }, [search_key, slug, currentSelectedProduct]);
+useEffect(() => {
+  if (slug === 'all') {
+    productsLoadedRef.current = false;
+  }
+}, [slug]);
 
 
   // --- When filters are cleared, update the URL ---
