@@ -611,7 +611,7 @@ useEffect(() => {
                         (doc) => doc.file_type === type
                       );
 
-                      if (type !== "payment_terms" && documents.length === 0) return null;
+                      // if (type !== "payment_terms" && documents.length === 0) return null;
 
                       const sectionTitles = {
                         payment_terms: "Payment Terms",
@@ -632,7 +632,7 @@ useEffect(() => {
                       // 🧠 Handle Payment Terms separately
                       if (type === "payment_terms") {
                         const terms =   paymentTermsRows || [];
-                        console.log("Rendering payment terms:", terms);
+                        // console.log("Rendering payment terms:", terms);
 
                         if (terms.length === 0) return null;
 
