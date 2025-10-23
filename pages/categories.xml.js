@@ -1,49 +1,43 @@
-import React from "react";
+import axios from "axios";
 
-const Categories = () => {
-  const xmlData = `
-  <?xml version="1.0" encoding="UTF-8"?>
-  <urlset
-    xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-    xmlns:xhtml="http://www.w3.org/1999/xhtml"
-  >
-    <url>
-      <loc>https://letsworkwise.com/vendor/electrical-category1234</loc>
-      <lastmod>2025-10-15</lastmod>
-      <priority>1.0</priority>
-    </url>
-    <url>
-      <loc>https://letsworkwise.com/vendor/mechanical-category5678</loc>
-      <lastmod>2025-10-14</lastmod>
-      <priority>0.9</priority>
-    </url>
-    <url>
-      <loc>https://letsworkwise.com/vendor/instrumentation-category8910</loc>
-      <lastmod>2025-10-13</lastmod>
-      <priority>0.8</priority>
-    </url>
-    <url>
-      <loc>https://letsworkwise.com/vendor/chemical-category2222</loc>
-      <lastmod>2025-10-12</lastmod>
-      <priority>0.7</priority>
-    </url>
-  </urlset>
-  `;
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://api.letsworkwise.com/api/v1";
 
-  return (
-    <pre
-      style={{
-        whiteSpace: "pre-wrap",
-        background: "#f7f7f7",
-        padding: "20px",
-        borderRadius: "10px",
-        fontFamily: "monospace",
-        color: "#333",
-      }}
-    >
-      {xmlData}
-    </pre>
-  );
+function CategorySitemapIndex() {
+  // This page renders nothing — it just streams XML
+  return null;
+}
+
+export const getServerSideProps = async ({ res }) => {
+  try {
+    // Fetch category sitemap index XML from backend
+    const response = await axios.get(`${API_URL}/seo/category/sitemap-index`, {
+      responseType: "text", // ensure raw XML response
+    });
+
+    // Set response type and send the XML directly
+    res.setHeader("Content-Type", "application/xml");
+    res.write(response.data);
+    res.end();
+  } catch (error) {
+    console.error("Error fetching category sitemap index:", error.message);
+
+    // Fallback XML (minimal)
+    const fallbackXml = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://letsworkwise.com/vendors/categories/sitemap/1.xml</loc>
+    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
+  </sitemap>
+</sitemapindex>`;
+
+    res.setHeader("Content-Type", "application/xml");
+    res.statusCode = 200;
+    res.write(fallbackXml);
+    res.end();
+  }
+
+  return { props: {} };
 };
 
-export default Categories;
+export default CategorySitemapIndex;
