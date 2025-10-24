@@ -13,8 +13,24 @@ const SeoTitle = ({ slug, search_key, currentSelectedProduct, selectedState, sel
   };
 
   const rawProduct = getProductTitle() || search_key || slugStr;
-  const safeRawProduct = Array.isArray(rawProduct) ? rawProduct.join(' ') : String(rawProduct || '');
-  const productName = textCapitalize(safeRawProduct.replace(/-/g, ' ').trim());
+
+  // Convert to safe string
+  const safeRawProduct = Array.isArray(rawProduct)
+    ? rawProduct.join(" ")
+    : String(rawProduct || "");
+
+  // ✅ Clean unwanted tokens: "category1234", numbers, slashes, etc.
+  const cleanedProduct = safeRawProduct
+    .replace(/category\d*/gi, "")  // remove words like "category3211"
+    .replace(/\/+/g, " ")          // replace slashes with spaces
+    .replace(/\d+/g, "")           // remove standalone numbers
+    .replace(/--+/g, "-")          // collapse multiple dashes
+    .replace(/\s{2,}/g, " ")       // collapse multiple spaces
+    .trim();
+
+  // Capitalize the cleaned product name
+  const productName = textCapitalize(cleanedProduct.replace(/-/g, " ").trim());
+
 
   const stateName = selectedState?.[0]?.name;
   const cityName = selectedCity?.[0]?.name;
