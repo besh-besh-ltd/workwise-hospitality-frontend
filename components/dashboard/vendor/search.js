@@ -58,7 +58,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const router = useRouter();
   const { slug, s, loggedin } = router.query;
 
-  // console.log("this is where ma checking the router ", "slug" , slug ,"s", s ,"loged in", loggedin);
   const vendor_area_ref = useRef();
   const id = Date.now().toString();
   const [isOpen, setIsOpen] = useState(false);
@@ -528,31 +527,31 @@ const addRfqIdParam = (rfq_id) => {
   };
   
 
-  const getParentCategories = () => {
-    setloading(true)
-    parentCategoryList()
-      .then((res) => {
-        setCategories(res.data.parentCategories);
-        setProductsList([]);
-        setloading(false)
-        // Avoid redirecting away when a specific category URL is directly opened
-        // e.g., /vendor/physical-security-equipment-category5049
-        try {
-          const currentPath = router?.asPath || "";
-          const isCategoryDeepLink = /\/vendor\/.+-category\d+$/.test(currentPath);
-          if (!isCategoryDeepLink) {
-            router.push("/vendor/all");
-          }
-        } catch (_) {
-          router.push("/vendor/all");
-        }
-        setIsOpen(false);
-      })
-      .catch((error) => {
-        setloading(false)
-        console.error("Error fetching categories:", error);
-      });
-  };
+ const getParentCategories = () => {
+  setloading(true)
+  parentCategoryList()
+    .then((res) => {
+      setCategories(res.data.parentCategories);
+      setProductsList([]);
+      setloading(false)
+      
+      // ONLY redirect to /vendor/all if current path is exactly /vendor
+      // and we don't have a specific product slug
+      const currentPath = router?.asPath || "";
+      const isRootVendorPath = currentPath === '/vendor' || currentPath === '/vendor/';
+      const hasSpecificSlug = slug && slug !== 'all';
+      
+      if (isRootVendorPath && !hasSpecificSlug) {
+        router.push("/vendor/all");
+      }
+      
+      setIsOpen(false);
+    })
+    .catch((error) => {
+      setloading(false)
+      console.error("Error fetching categories:", error);
+    });
+};
 
   const getCategories = () => {
     setcatloading(true);
@@ -714,38 +713,38 @@ const clearVendorFilters = () => {
   useEffect(() => { getCities().then(res => setCityList(res.data || [])); }, []);
 
   // --- Parse slug only ONCE when slug or lists are ready ---
-  // useEffect(() => {
-  //   // Normalize slug which may be string or array
-  //   const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
-  //   if (!slugStr || slugStr === 'all') return;
+  useEffect(() => {
+    // Normalize slug which may be string or array
+    const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
+    if (!slugStr || slugStr === 'all') return;
 
-  //   // If location lists are not loaded yet, treat the entire slug as product search
-  //   if (!stateList.length || !cityList.length) {
-  //     setSearch_key(slugStr);
-  //     return;
-  //   }
+    // If location lists are not loaded yet, treat the entire slug as product search
+    if (!stateList.length || !cityList.length) {
+      setSearch_key(slugStr);
+      return;
+    }
 
-  //   // Support no-space location slugs: convert names by removing spaces and lowercasing
-  //   const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
-  //   const segments = slugStr.split('-');
-  //   let foundState = null, foundCity = null, productSegments = [];
-  //   // Note: if country is desired via slug, we can extend similarly using countries list
+    // Support no-space location slugs: convert names by removing spaces and lowercasing
+    const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
+    const segments = slugStr.split('-');
+    let foundState = null, foundCity = null, productSegments = [];
+    // Note: if country is desired via slug, we can extend similarly using countries list
 
-  //   for (let i = segments.length - 1; i >= 0; i--) {
-  //     const segment = segments[i].toLowerCase();
-  //     if (!foundState) {
-  //       const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
-  //       if (stateMatch) { foundState = stateMatch; setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]); continue; }
-  //     }
-  //     if (!foundCity) {
-  //       const cityMatch = cityList.find(city => normalize(city.city_name) === segment);
-  //       if (cityMatch) { foundCity = cityMatch; setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]); continue; }
-  //     }
-  //     productSegments.unshift(segments[i]);
-  //   }
-  //   const finalSearchKey = productSegments.join('/');
-  //   setSearch_key(finalSearchKey);
-  // }, [slug, stateList, cityList]);
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const segment = segments[i].toLowerCase();
+      if (!foundState) {
+        const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
+        if (stateMatch) { foundState = stateMatch; setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]); continue; }
+      }
+      if (!foundCity) {
+        const cityMatch = cityList.find(city => normalize(city.city_name) === segment);
+        if (cityMatch) { foundCity = cityMatch; setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]); continue; }
+      }
+      productSegments.unshift(segments[i]);
+    }
+    const finalSearchKey = productSegments.join('/');
+    setSearch_key(finalSearchKey);
+  }, [slug, stateList, cityList]);
 
   // When slug changes (including 'all'), fetch nested categories.
   // Nested category handling delegated to NestedCategoryBrowser
