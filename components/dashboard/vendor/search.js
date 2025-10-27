@@ -235,13 +235,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setcurrentSelectedProduct(null);
     setVendors([]);
     setApproved_by([]);
+    setShowBrowser(true);
     return;
   }
 
   // ✅ Only for variant slugs → fetch vendors
   getVendorApprovedby();
   getVendors();
-  setShowBrowser(true);
+  setShowBrowser(false);
 }, [
   slug,
   currentSelectedProduct,

@@ -202,6 +202,8 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
             ? 'Available Variants'
             : currentType === 'product'
             ? 'Available Products'
+            : categoryPath.length > 0
+            ? `${categoryPath[categoryPath.length - 1].title} Categories`
             : 'All Categories'}
         </h2>
 
