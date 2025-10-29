@@ -165,7 +165,7 @@ const StakeholderPage = () => {
         layout="centered"
         size="medium"
         textAlign="left"
-        primaryButton={{ label: data.hero.buttonLabel, variant: 'black', onClick: () => setShowBookCall(true) }}
+        primaryButton={{ id: 'book_a_call-hero-who_we_serve_stakeholder_page', label: data.hero.buttonLabel, variant: 'black', onClick: () => setShowBookCall(true) }}
         showVisual={false}
       />
 
@@ -192,6 +192,7 @@ const StakeholderPage = () => {
           </div>
           <div className="text-center mt-5">
             <Button 
+              id="book_a_call-benefits-who_we_serve_stakeholder_page"
               variant="primary" 
               size="lg"
               onClick={() => setShowBookCall(true)}
@@ -385,6 +386,7 @@ const StakeholderPage = () => {
           </div>
           <div className="text-center mt-4">
             <Button 
+              id="lets_talk-trust_section-who_we_serve_stakeholder_page"
               variant="secondary" 
               size="lg"
               onClick={() => {
@@ -420,6 +422,7 @@ const StakeholderPage = () => {
           </div>
           <div className="text-center mt-5">
             <Button 
+              id="see_it_in_action-functionalities-who_we_serve_stakeholder_page"
               variant="primary" 
               size="lg"
               onClick={() => {
@@ -682,6 +685,7 @@ const StakeholderPage = () => {
           </div>
           <div className="text-center mt-5">
             <Button 
+              id="book_a_call-why_now-who_we_serve_stakeholder_page"
               variant="primary" 
               size="lg"
               onClick={() => setShowBookCall(true)}
@@ -712,6 +716,7 @@ const StakeholderPage = () => {
           </div>
           <div className="text-center mt-5">
             <Button 
+              id="lets_talk-faqs-who_we_serve_stakeholder_page"
               variant="secondary" 
               size="lg"
               onClick={() => setShowBookCall(true)}
@@ -726,7 +731,7 @@ const StakeholderPage = () => {
       <CtaSection
         title={data.hero.title}
         description={data.hero.subtitle}
-        primaryButton={{ label: data.hero.buttonLabel, variant: 'white', onClick: () => setShowBookCall(true) }}
+        primaryButton={{ id: 'primary_cta-final_cta-who_we_serve_stakeholder_page', label: data.hero.buttonLabel, variant: 'white', onClick: () => setShowBookCall(true) }}
         className="mt-0"
       />
 

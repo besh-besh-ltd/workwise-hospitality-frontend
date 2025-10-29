@@ -33,6 +33,7 @@ const CtaSection = ({
             <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center">
               {primaryButton && (
                 <Button
+                  id={primaryButton.id}
                   label={primaryButton.label}
                   variant={primaryButton.variant}
                   icon={primaryButton.icon}
@@ -45,6 +46,7 @@ const CtaSection = ({
               
               {secondaryButton && (
                 <Button
+                  id={secondaryButton.id}
                   label={secondaryButton.label}
                   variant={secondaryButton.variant}
                   icon={secondaryButton.icon}

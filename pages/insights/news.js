@@ -90,7 +90,7 @@ const NewsPage = () => {
             <div className="d-flex align-items-center justify-content-between">
               <h2 className="fs-2 fw-bold text-dark mb-0">Coverage</h2>
               <div className="position-relative">
-                <button className="btn btn-light dropdown-toggle" onClick={() => setOpenYear(openYear === 2024 ? 2023 : 2024)}>
+                <button className="btn btn-light dropdown-toggle" id="toggle_year-filter-insights_news_page" onClick={() => setOpenYear(openYear === 2024 ? 2023 : 2024)}>
                   {openYear}
                 </button>
               </div>
@@ -139,6 +139,7 @@ const NewsPage = () => {
               
               <div className="d-flex justify-content-center gap-3">
                 <button
+                  id="download_press_kit-press_kit-insights_news_page"
                   className="btn btn-primary px-4 py-2"
                   onClick={handleDownloadPressKit}
                   style={{
@@ -154,6 +155,7 @@ const NewsPage = () => {
                 </button>
                 
                 <button
+                  id="media_contact-press_kit-insights_news_page"
                   className="btn btn-outline-primary px-4 py-2"
                   onClick={handleMediaContact}
                   style={{

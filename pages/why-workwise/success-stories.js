@@ -87,7 +87,8 @@ const SuccessStoriesPage = () => {
             </div>
             {/* <div className="col-md-4">
               <div className="d-flex flex-column h-100 justify-content-end">
-                <button
+              <button
+                id="book_a_call-hero-why_workwise_success_stories_page"
                   onClick={handleBookCall}
                   className="btn w-100 h-100 d-flex align-items-center justify-content-center text-white fw-medium"
                                         style={{ 
@@ -130,6 +131,7 @@ const SuccessStoriesPage = () => {
           {visibleStories < filteredStories.length && (
             <div className="text-center mt-5">
               <button
+                id="load_more-stories-why_workwise_success_stories_page"
                 onClick={handleLoadMore}
                 className="btn btn-primary px-4 py-2 fw-medium"
                 style={{ 

@@ -385,6 +385,7 @@ const PricingPage = () => {
                 border: '1px solid var(--light-grey-border)'
               }}>
                 <button
+                  id="buyers_tab-tab_nav-pricing_page"
                   className="btn"
                   onClick={() => {
                     setActiveTab('buyers');
@@ -405,6 +406,7 @@ const PricingPage = () => {
                   Buyers
                 </button>
                 <button
+                  id="sellers_tab-tab_nav-pricing_page"
                   className="btn"
                   onClick={() => {
                     setActiveTab('sellers');
@@ -501,6 +503,7 @@ const PricingPage = () => {
 
                       {/* CTA Button */}
                       <Button
+                        id="contact_us-buyers_cta-pricing_page"
                         label={pricingData.buyers.cta.label}
                         variant="dark"
                         icon="arrow-right"
@@ -804,6 +807,7 @@ const PricingPage = () => {
 
                         {/* CTA Button */}
                         <Button
+                          id={`select_plan-${plan.name.toLowerCase()}_sellers-pricing_page`}
                           label={plan.cta.label}
                           variant={plan.name === 'Silver' ? 'warning' : 'dark'}
                           onClick={

@@ -285,6 +285,7 @@ const CareersPage = () => {
                       {/* CTA aligned to bottom */}
                       <div className="mt-auto pt-2">
                         <Button
+                          id={`apply_now-${position.title.replace(/\s+/g,'_').toLowerCase()}-careers_page`}
                           label="Apply Now"
                           variant="primary"
                           onClick={() => handleApplyNow(position)}
@@ -537,12 +538,14 @@ const CareersPage = () => {
                 </p>
                 <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center">
                   <Button
+                    id="view_all_positions-footer-carrers_page"
                     label="View All Positions"
                     variant="white"
                     onClick={() => document.getElementById('open-positions')?.scrollIntoView({ behavior: 'smooth' })}
                     size="lg"
                   />
                   <Button
+                    id="contact_hr-footer-carrers_page"
                     label="Contact HR Team"
                     variant="outline-white"
                     onClick={() => document.getElementById('application-form')?.scrollIntoView({ behavior: 'smooth' })}

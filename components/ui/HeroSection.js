@@ -99,6 +99,7 @@ const HeroSection = React.forwardRef(({
                 <div className={`d-flex flex-column flex-sm-row gap-3 ${textAlign === 'center' ? 'justify-content-center' : textAlign === 'right' ? 'justify-content-end' : 'justify-content-start'}`}>
                   {primaryButton && (
                     <Button
+                      id={primaryButton.id}
                       label={primaryButton.label}
                       variant={primaryButton.variant || "black"}
                       icon={primaryButton.icon || "none"}
@@ -108,6 +109,7 @@ const HeroSection = React.forwardRef(({
                   )}
                   {secondaryButton && (
                     <Button
+                      id={secondaryButton.id}
                       label={secondaryButton.label}
                       variant={secondaryButton.variant || "white"}
                       icon={secondaryButton.icon || "phone"}
@@ -198,6 +200,7 @@ const HeroSection = React.forwardRef(({
               <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center">
                 {primaryButton && (
                   <Button
+                    id={primaryButton.id}
                     label={primaryButton.label}
                     variant={primaryButton.variant || "black"}
                     icon={primaryButton.icon || "none"}
@@ -208,6 +211,7 @@ const HeroSection = React.forwardRef(({
                 )}
                 {secondaryButton && (
                   <Button
+                    id={secondaryButton.id}
                     label={secondaryButton.label}
                     variant={secondaryButton.variant || "white"}
                     icon={secondaryButton.icon || "phone"}
@@ -267,6 +271,7 @@ const HeroSection = React.forwardRef(({
                 <div className={`d-flex flex-column flex-sm-row gap-3 ${textAlign === 'center' ? 'justify-content-center' : textAlign === 'right' ? 'justify-content-end' : 'justify-content-start'}`}>
                   {primaryButton && (
                     <Button
+                      id={primaryButton.id}
                       label={primaryButton.label}
                       variant={primaryButton.variant || "black"}
                       icon={primaryButton.icon || "none"}
@@ -277,6 +282,7 @@ const HeroSection = React.forwardRef(({
                   )}
                   {secondaryButton && (
                     <Button
+                      id={secondaryButton.id}
                       label={secondaryButton.label}
                       variant={secondaryButton.variant || "white"}
                       icon={secondaryButton.icon || "phone"}

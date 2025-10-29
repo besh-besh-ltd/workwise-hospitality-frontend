@@ -349,6 +349,7 @@ function MissionRecruitmentBanner() {
 
         {/* CTA */}
         <button
+          id="view_careers-cta-team_timeline_page"
           type="button"
           className="btn btn-dark btn-lg d-inline-flex align-items-center gap-2 px-4 py-3 fw-semibold"
           onMouseEnter={() => setIsHovered(true)}
