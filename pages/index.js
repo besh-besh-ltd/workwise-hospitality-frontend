@@ -47,6 +47,16 @@ const pageInfo = {
 }
 
 export default function Home() {
+  // Landing popup to announce event participation (shown once per session)
+  const [showEventPopup, setShowEventPopup] = useState(false);
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && !sessionStorage.getItem('ww_event_popup_shown')) {
+        setShowEventPopup(true);
+        sessionStorage.setItem('ww_event_popup_shown', '1');
+      }
+    } catch (_) {}
+  }, []);
   // Counting animation helper
   const AnimatedCounter = ({ targetValue, duration = 1500, suffix = '' }) => {
     const [value, setValue] = useState(0);
@@ -1408,6 +1418,55 @@ export default function Home() {
 
         
       </main>
+
+      {/* Event Announcement Popup (hero gradient, rounded) */}
+      {showEventPopup && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3"
+          style={{ background: 'rgba(0,0,0,0.55)', zIndex: 1080 }}
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowEventPopup(false)}
+        >
+          <div
+            className="shadow-lg rounded-4 text-white"
+            style={{
+              maxWidth: 560,
+              width: '100%',
+              background: 'linear-gradient(to bottom, #004B84, #30A07D)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="d-flex justify-content-end p-3">
+              <button
+                type="button"
+                aria-label="Close"
+                className="btn rounded-circle"
+                onClick={() => setShowEventPopup(false)}
+                style={{
+                  width: 36,
+                  height: 36,
+                  background: '#ffffff',
+                  color: '#0a0a0a',
+                  border: '0 none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.25)'
+                }}
+              >
+                <span style={{ lineHeight: 1, fontSize: 18 }}>×</span>
+              </button>
+            </div>
+            <div className="px-4 pb-4 text-center">
+              <h3 className="fw-bold mb-2">We are participating in Chennai event</h3>
+              <p className="mb-0" style={{ opacity: 0.95 }}>
+                Catch us live and explore how Workwise boosts procurement efficiency.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CallNowModal */}
       <Modal

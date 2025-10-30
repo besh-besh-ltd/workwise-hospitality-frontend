@@ -100,6 +100,7 @@ const Layout = (props) => {
 
       <div className="min-vh-100 d-flex flex-column" onClick={handleContainerClick}>
         <Header />
+        {/* Home-only announcement bar just below navbar */}
         <main className="flex-grow-1 ">{props.children}</main>
         {/* <Footer
           cmsdata={cmsdata}
