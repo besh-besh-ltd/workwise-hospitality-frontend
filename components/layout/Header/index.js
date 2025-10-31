@@ -836,7 +836,7 @@ const Header = () => {
           >
             <div className="container py-2 text-center">
               <span className="fw-semibold" style={{ color: '#5b4d00' }}>
-                We are participating in Chennai event
+                We are exhibiting at IPVS & ICPE 2025 Chennai Trade Centre | 13–15 November | Booth No. L18 | Come visit us!
               </span>
             </div>
           </div>
