@@ -296,6 +296,7 @@ const EventsPage = () => {
                 {eventsData.finalCta.subtitle}
               </p>
               <button
+                id="get_updates-final_cta-insights_events_page"
                 className="btn btn-light px-4 py-2 fw-semibold"
                 onClick={handleGetUpdates}
                 style={{

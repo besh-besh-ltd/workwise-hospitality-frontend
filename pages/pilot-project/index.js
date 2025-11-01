@@ -106,6 +106,7 @@ const PilotProjectPage = () => {
           title={pilotProjectData.hero.title}
           subtitle={pilotProjectData.hero.subtitle}
           primaryButton={{
+            id: "primary_cta-hero-pilot_project_page",
             label: pilotProjectData.formSection.buttonText,
             variant: "white",
             onClick: handleClaimPilot
@@ -124,6 +125,7 @@ const PilotProjectPage = () => {
                 </p>
               </div>
               <Button
+                id="claim_pilot-mobile_form-pilot_project_page"
                 label={pilotProjectData.formSection.buttonText}
                 variant="primary"
                 onClick={handleClaimPilot}
@@ -215,6 +217,7 @@ const PilotProjectPage = () => {
             {/* CTA */}
             <div className="text-center mt-5">
               <Button
+                id="start_free_pilot-what_you_get-pilot_project_page"
                 label="Start Your Free Pilot Today"
                 variant="primary"
                 icon="arrow"
@@ -266,6 +269,7 @@ const PilotProjectPage = () => {
             {/* Final CTA */}
             <div className="text-center mt-5">
               <Button
+                id="claim_pilot_final-cta-pilot_project_page"
                 label="🚀 Claim Your Pilot Project Access"
                 variant="gradient"
                 onClick={handleClaimPilot}

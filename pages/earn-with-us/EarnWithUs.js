@@ -138,6 +138,7 @@ const HowItWorksSection = ({
         {ctaButton !== false && (
           <div className="text-center">
             <button
+              id="cta_banner-hero-earn_with_us_page"
               className="btn btn-primary btn-lg px-4 py-3 fw-semibold rounded-3"
               onClick={ctaButton?.onClick}
               style={{ 
@@ -318,6 +319,7 @@ const WebinarComponent = ({ onRegister }) => {
             {/* Action Buttons */}
             <div>
               <button 
+                id="register_webinar-webinar_section-earn_with_us_page"
                 className="btn btn-primary btn-lg w-100 py-3 mb-3 fw-semibold d-flex align-items-center justify-content-center"
                 style={{ 
                   border: 'none',
@@ -390,7 +392,7 @@ const WhoIsThisForComponent = ({ onJoin }) => {
                 <p className="text-muted mb-4" style={{ fontSize: '1.05rem', lineHeight: '1.6', maxWidth: '600px', margin: '0 auto 2rem' }}>
                   Have contacts in industrial, manufacturing, or procurement sectors? You're a perfect fit!
                 </p>
-                <button onClick={() => onJoin && onJoin('Partner Registration')} className="btn btn-primary w-auto px-4 py-3 fw-semibold d-inline-flex align-items-center" style={{ border: 'none', borderRadius: '8px', fontSize: '1rem' }}>
+                <button id="join_partner-partner_section-earn_with_us_page" onClick={() => onJoin && onJoin('Partner Registration')} className="btn btn-primary w-auto px-4 py-3 fw-semibold d-inline-flex align-items-center" style={{ border: 'none', borderRadius: '8px', fontSize: '1rem' }}>
                   <FaUserPlus className="me-2" size={16} />
                   Join as a Partner
                 </button>
@@ -482,6 +484,7 @@ const PartnerStatsSection = () => {
 
         <div className="text-center mt-4">
           <button className="btn btn-primary w-auto px-4 py-3 fw-semibold" style={{ borderRadius: '10px' }}
+          id="start_earning_now-cta-earn_with_us_page"
           onClick={()=>{setShowCallModal(!showCallModal)}}
           >
             Start Earning Now
@@ -648,6 +651,7 @@ const JoinPartnersCTAComponent = ({ onPrimaryClick, onSecondaryClick }) => {
             <div className="d-flex flex-wrap justify-content-center gap-3">
               {/* Primary CTA - Register */}
               <button 
+                id="primary_cta-final_cta-earn_with_us_page"
                 className="btn btn-lg px-5 py-3 fw-semibold d-flex align-items-center"
                 onClick={onPrimaryClick}
                 style={{ 
@@ -665,6 +669,7 @@ const JoinPartnersCTAComponent = ({ onPrimaryClick, onSecondaryClick }) => {
 
               {/* Secondary CTA - Talk to Team */}
               <button 
+                id="talk_to_team-final_cta-earn_with_us_page"
                 className="btn btn-lg px-5 py-3 fw-semibold w-auto d-flex align-items-center"
                 onClick={onSecondaryClick}
                 style={{ 
@@ -724,12 +729,14 @@ const EarnWithUs = () => {
   subtitle={earnWithUsData.hero.subtitle}
   layout="centered"
   primaryButton={{
+    id: "primary_cta-hero-earn_with_us_page",
     label: earnWithUsData.hero.primaryButton.label,
     variant: earnWithUsData.hero.primaryButton.variant,
     icon: "person-plus",
     onClick: () => openRegister('Partner Registration')
   }}
   secondaryButton={{
+    id: "contact_us-hero-earn_with_us_page",
     label: earnWithUsData.hero.secondaryButton.label,
     variant: earnWithUsData.hero.secondaryButton.variant,
     onClick: handleSecondaryCTA

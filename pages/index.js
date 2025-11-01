@@ -365,10 +365,12 @@ export default function Home() {
           valueProps={homepageData.hero.valueProps}
           primaryButton={{
             ...homepageData.hero.primaryButton,
+            id: "primary_cta-hero-landing_page",
             onClick: handleBookCall
           }}
           secondaryButton={{
             ...homepageData.hero.secondaryButton,
+            id: "try_free_tools-hero-landing_page",
             onClick: handleTryFreeTools
           }}
           visualContent={{
@@ -609,6 +611,7 @@ export default function Home() {
                          cursor: 'pointer',
                          transition: 'all 0.3s ease'
                        }}
+                       id="open_module-modular_offerings-landing_page"
                        onClick={() => window.location.href = module.link}
                        onMouseEnter={(e) => {
                          e.currentTarget.style.transform = 'translateY(-4px)';
@@ -742,6 +745,7 @@ export default function Home() {
                   
                   <p className="text-muted mb-3 d-none d-md-block">{homepageData.modularOfferings.vendorSupport.footerText}</p>
                   <Button 
+                    id="vendor_support-cta-landing_page"
                     onClick={handleVendorSupport}
                     className="btn fw-bold text-white w-auto"
                     type="button"
@@ -939,6 +943,7 @@ export default function Home() {
               
                       <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center mb-4">
                 <Button 
+                id="book_a_call-cta-landing_page"
                   onClick={handleBookCall}
                   className="btn fw-medium text-dark px-4 py-3"
                   size="md"
@@ -1358,6 +1363,7 @@ export default function Home() {
                   <div key={categoryIndex} className="mb-4">
                     {/* Category Header as dropdown trigger */}
                     <button
+                      id={`toggle_faq_category_${categoryIndex}-faq-landing_page`}
                       className="w-100 bg-transparent border-0 p-0 text-start"
                       onClick={() => setOpenCategoryIndex(openCategoryIndex === categoryIndex ? null : categoryIndex)}
                       aria-expanded={openCategoryIndex === categoryIndex}
@@ -1432,6 +1438,7 @@ export default function Home() {
           tabIndex="-1"
           role="dialog"
           style={{ background: 'rgba(0, 0, 0, 0.6)' }}
+          id="close_demo_overlay-modal_overlay-landing_page"
           onClick={() => setShowPortalDemoModal(false)}
         >
           <div
@@ -1442,7 +1449,7 @@ export default function Home() {
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title p-4 text-center fw-bold">workwise Demo</h5>
-                <button type="button" className="btn-close" onClick={() => setShowPortalDemoModal(false)}></button>
+                <button type="button" className="btn-close" id="close_demo_modal-modal_header-landing_page" onClick={() => setShowPortalDemoModal(false)}></button>
               </div>
               <div className="modal-body d-flex justify-content-center">
                 <iframe

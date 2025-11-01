@@ -235,10 +235,12 @@ const ModulePage = () => {
         layout="centered"
         primaryButton={{
           ...moduleData.hero.primaryButton,
+          id: "primary_cta-hero-modules_page",
           onClick: handlePrimaryAction
         }}
         secondaryButton={{
           ...moduleData.hero.secondaryButton,
+          id: "book_a_call-hero-modules_page",
           onClick: handleSecondaryAction
         }}
         visualContent={{
@@ -361,10 +363,12 @@ const ModulePage = () => {
         icon={(props) => <FontAwesomeIcon icon={faCircleQuestion} {...props} />}
         primaryButton={{
           ...moduleData.finalCta.primaryButton,
+          id: "primary_cta-final_cta-modules_page",
           onClick: handlePrimaryAction
         }}
         secondaryButton={{
           ...moduleData.finalCta.secondaryButton,
+          id: "book_a_call-final_cta-modules_page",
           onClick: handleSecondaryAction
         }}
       />
@@ -377,6 +381,7 @@ const ModulePage = () => {
             variant={moduleData.hero.primaryButton.variant || 'primary'}
             icon={moduleData.hero.primaryButton.icon || 'none'}
             onClick={handlePrimaryAction}
+            id="primary_cta-sticky_footer-modules_page"
           />
         </div>
       </div>
