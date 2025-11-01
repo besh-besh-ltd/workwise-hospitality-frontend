@@ -826,6 +826,21 @@ const Header = () => {
           </div>
         </div>
 
+        {/* Announcement bar injected by Cursor for Chennai Event - home page only */}
+          <div
+            className="w-100"
+            style={{
+              background: 'linear-gradient(90deg, #FFF1B8 0%, #FFD666 100%)',
+              borderBottom: '1px solid rgba(0,0,0,0.06)'
+            }}
+          >
+            <div className="container py-2 text-center">
+              <span className="fw-semibold" style={{ color: '#5b4d00' }}>
+                We are exhibiting at IPVS & ICPE 2025 Chennai Trade Centre | 13–15 November | Booth No. L18 | Come visit us!
+              </span>
+            </div>
+          </div>
+
         {/* Mobile Menu */}
         {menuClass && (
             mainNavs.includes(pathname) ||

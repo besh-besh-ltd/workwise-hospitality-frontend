@@ -152,6 +152,30 @@ export const teamTimelineData = {
       linkedin: 'https://www.linkedin.com/in/ayan-majumder-0000000000/',
       description: 'IGNOU',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690774714-ce10bd1d-e6cf-46db-aaa4-1c81e54c049b.jpg'
+    },
+    {
+      id: 19,
+      name: 'Prince Tiwari',
+      title: 'Client Success Head',
+      linkedin: 'https://www.linkedin.com/in/tiwari-prince?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
+      description: 'Driving Success across the board',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1761980617192-c51803f9-4fdb-46e7-9bb6-13fec48ea980.jpg'
+    },
+    {
+      id: 20,
+      name: 'Ashlesha Anand',
+      title: 'Client Success Head',
+      linkedin: 'https://www.linkedin.com/in/ashlesha-anand-4800421bb?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=ios_app',
+      description: 'Boosting Vendor Engagement',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1761980606857-c2aa5641-3ee0-455a-9c64-d8e57dd3ddbf.jpeg'
+    },
+    {
+      id: 21,
+      name: 'Parth Parmar',
+      title: 'Founding Member - Product Growth',
+      linkedin: 'https://www.linkedin.com/in/parthparmar3112/',
+      description: 'Driving product-market fit',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1761982342896-5a50a0f4-461e-4d69-81f2-d03a64ede862.jpg'
     }
   ],
 
