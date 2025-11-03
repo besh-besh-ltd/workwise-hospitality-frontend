@@ -826,7 +826,7 @@ const Header = () => {
           </div>
         </div>
 
-        {/* Announcement bar injected by Cursor for Chennai Event - home page only */}
+        {/* Announcement bar for Chennai Event with marquee scroll */}
           <div
             className="w-100"
             style={{
@@ -834,11 +834,19 @@ const Header = () => {
               borderBottom: '1px solid rgba(0,0,0,0.06)'
             }}
           >
-            <div className="container py-2 text-center">
-              <span className="fw-semibold" style={{ color: '#5b4d00' }}>
-                We are exhibiting at IPVS & ICPE 2025 Chennai Trade Centre | 13–15 November | Booth No. L18 | Come visit us!
-              </span>
+            <div className="announcement-wrap w-100">
+              <div className="announcement-track">
+                <span className="fw-semibold" style={{ color: '#5b4d00', whiteSpace: 'nowrap', lineHeight: '36px' }}>
+                  We are exhibiting at IPVS & ICPE 2025 Chennai Trade Centre | 13-15 November | Booth No. L18 | Come visit us!
+                </span>
+              </div>
             </div>
+            <style jsx>{`
+              .announcement-wrap { position: relative; overflow: hidden; height: 36px; padding: 0; margin: 0; }
+              .announcement-track { position: absolute; top: 0; left: 0; white-space: nowrap; will-change: transform; animation: bannerMarquee 18s linear infinite; }
+              @keyframes bannerMarquee { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
+              @media (max-width: 768px) { .announcement-track { animation-duration: 14s; } }
+            `}</style>
           </div>
 
         {/* Mobile Menu */}
