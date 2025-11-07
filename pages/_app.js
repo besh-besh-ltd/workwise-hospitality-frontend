@@ -35,6 +35,38 @@ export default function App({ Component, pageProps }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const isLogRocketInitialized = useRef(false);
+  
+  useEffect(() => {
+  const handleStart = () => setLoading(true);
+  const handleComplete = () => {
+    setTimeout(() => {
+      setLoading(false);
+    }, 300);
+
+    // ✅ Freshchat hiding logic here
+    if (router?.pathname?.startsWith("/dashboard")) {
+      if (window.fcWidget) {
+        window.fcWidget.destroy(); // removes widget and script DOM nodes
+      }
+    } else {
+      // If widget is already initialized, show it
+      if (window.fcWidget) {
+        window.fcWidget.show();
+      }
+    }
+  };
+
+  router.events.on("routeChangeStart", handleStart);
+  router.events.on("routeChangeComplete", handleComplete);
+  router.events.on("routeChangeError", handleComplete);
+
+  return () => {
+    router.events.off("routeChangeStart", handleStart);
+    router.events.off("routeChangeComplete", handleComplete);
+    router.events.off("routeChangeError", handleComplete);
+  };
+}, [router]);
+
 
   useEffect(() => {
 
