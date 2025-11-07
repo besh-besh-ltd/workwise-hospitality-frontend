@@ -733,30 +733,35 @@ useEffect(() => {
                       {/* Product Carousel is ready whenever Product Image will be available uncomment this */}
                       {/* <ProductCarousel data={vendorDetails?.product_list} /> */}
 
-                      {vendorDetails?.product_list &&
-                      vendorDetails?.product_list.length > 0 ? (
-                        <div className="row">
-                          {vendorDetails?.product_list?.map((prodItem) => {
-                            return (
-                              <div
-                                key={`prod_${prodItem.id}`}
-                                className="col-sm-2 col-md-3 col-lg-4 mb-2"
-                              >
-                                <div className="card">
-                                  <div class="card-body">
-                                    {/* <h5 class="card-title"></h5> */}
-                                    <p class="card-text text-sm">
-                                      {prodItem.product_name}
+                    {vendorDetails?.product_list && vendorDetails?.product_list.length > 0 ? (
+                      <div className="row">
+                        {vendorDetails?.product_list?.map((prodItem, index) => {
+                          return (
+                            <div
+                              key={`prod_${index}`}
+                              className="col-sm-6 col-md-4 col-lg-3 mb-3"
+                            >
+                              <div className="card shadow-sm border-light h-100">
+                                <div className="card-body">
+                                  <p className="card-title fw-semibold mb-1">
+                                    {prodItem.product_name}
+                                  </p>
+
+                                  {prodItem.product_make && (
+                                    <p className="text-muted small mb-0">
+                                      <span className="fw-semibold">Make:</span> {prodItem.product_make}
                                     </p>
-                                  </div>
+                                  )}
                                 </div>
                               </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p>NO Product List Available.</p>
-                      )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p>No product list available.</p>
+                    )}
+
                       <hr />
                     </div>
                   )}
