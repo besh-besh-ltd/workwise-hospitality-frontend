@@ -749,7 +749,7 @@ useEffect(() => {
 
                                   {prodItem.product_make && (
                                     <p className="text-muted small mb-0">
-                                      <span className="fw-semibold">Make:</span> {prodItem.product_make}
+                                      <span className="fw-semibold">Product-Make:</span> {prodItem.product_make}
                                     </p>
                                   )}
                                 </div>
