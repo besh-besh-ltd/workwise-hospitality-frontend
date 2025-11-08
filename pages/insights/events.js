@@ -41,9 +41,19 @@ const EventsPage = () => {
       dec: 11, december: 11,
     };
 
-    // Patterns we expect:
-    // 1) "11-14 Feb 2025" or "5-7 Mar 2025"
-    let m = s.match(/^(\d{1,2})\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{2,4})$/);
+    // Pattern 1: Cross-month dates like "30 October - 1 November 2025"
+    let m = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{2,4})$/);
+    if (m) {
+      const endDay = parseInt(m[3], 10);
+      const endMonthKey = m[4].toLowerCase();
+      const year = parseInt(m[5].length === 2 ? `20${m[5]}` : m[5], 10);
+      const endMonth = monthMap[endMonthKey];
+      if (endMonth === undefined) return null;
+      return new Date(year, endMonth, endDay);
+    }
+
+    // Pattern 2: Same-month date ranges like "11-14 Feb 2025" or "5-7 Mar 2025"
+    m = s.match(/^(\d{1,2})\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{2,4})$/);
     if (m) {
       const endDay = parseInt(m[2], 10);
       const monthKey = m[3].toLowerCase();
@@ -53,7 +63,7 @@ const EventsPage = () => {
       return new Date(year, month, endDay);
     }
 
-    // 2) "22-24 Aug 2025" already handled above; 3) single day like "8-Aug-25" or "8 Aug 2025"
+    // Pattern 3: Single day like "8-Aug-25" or "8 Aug 2025"
     m = s.match(/^(\d{1,2})[\s-]*([A-Za-z]+)[\s-]*(\d{2,4})$/);
     if (m) {
       const day = parseInt(m[1], 10);
@@ -196,27 +206,31 @@ const EventsPage = () => {
 
           {/* Events Grid */}
           {upcomingEvents.length > 0 ? (
-            <div className="row g-4 justify-content-center">
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+              gap: '1.5rem',
+              alignItems: 'stretch'
+            }}>
               {upcomingEvents.map((event) => (
-                <div key={event.id} className="col-md-6 col-lg-5 col-xl-4">
-                  <DynamicCard
-                    type="event"
-                    size="medium"
-                    title={event.name}
-                    description={event.description}
-                    date={event.date}
-                    location={event.location}
-                    venue={event.venue}
-                    status={event.status}
-                    participationTypes={event.participationTypes}
-                    image={event.image}
-                    primaryAction={{
-                      label: "Register Your Interest",
-                      variant: "default"
-                    }}
-                    onPrimaryAction={() => handleRegisterInterest(event)}
-                  />
-                </div>
+                <DynamicCard
+                  key={event.id}
+                  type="event"
+                  size="medium"
+                  title={event.name}
+                  description={event.description}
+                  date={event.date}
+                  location={event.location}
+                  venue={event.venue}
+                  status={event.status}
+                  participationTypes={event.participationTypes}
+                  image={event.image}
+                  primaryAction={{
+                    label: "Register Your Interest",
+                    variant: "default"
+                  }}
+                  onPrimaryAction={() => handleRegisterInterest(event)}
+                />
               ))}
             </div>
           ) : (
@@ -242,27 +256,31 @@ const EventsPage = () => {
 
           {/* Events Grid */}
           {pastEvents.length > 0 ? (
-            <div className="row g-4 justify-content-center">
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+              gap: '1.5rem',
+              alignItems: 'stretch'
+            }}>
               {pastEvents.map((event) => (
-                <div key={event.id} className="col-md-6 col-lg-5 col-xl-4">
-                  <DynamicCard
-                    type="event"
-                    size="medium"
-                    title={event.name}
-                    description={event.description}
-                    date={event.date}
-                    location={event.location}
-                    venue={event.venue}
-                    status={event.status}
-                    participationTypes={event.participationTypes}
-                    image={event.image}
-                    // primaryAction={{
-                    //   label: "View Event Highlights",
-                    //   variant: "outline"
-                    // }}
-                    // onPrimaryAction={() => handleViewHighlights(event)}
-                  />
-                </div>
+                <DynamicCard
+                  key={event.id}
+                  type="event"
+                  size="medium"
+                  title={event.name}
+                  description={event.description}
+                  date={event.date}
+                  location={event.location}
+                  venue={event.venue}
+                  status={event.status}
+                  participationTypes={event.participationTypes}
+                  image={event.image}
+                  // primaryAction={{
+                  //   label: "View Event Highlights",
+                  //   variant: "outline"
+                  // }}
+                  // onPrimaryAction={() => handleViewHighlights(event)}
+                />
               ))}
             </div>
           ) : (
