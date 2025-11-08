@@ -10,7 +10,7 @@ export const eventsData = {
     },
     location: {
       label: "All Locations",
-      options: ["All Locations", "Mumbai", "Delhi", "Bangalore", "Chennai", "Hyderabad", "Pune"]
+      options: ["All Locations", "Mumbai", "Delhi", "Bangalore", "Chennai", "Hyderabad", "Pune", "Goa"]
     },
     participationType: {
       label: "All Participation Type",
@@ -125,6 +125,30 @@ export const eventsData = {
       description: "An exclusive industry exhibition dedicated to electrical, fiber optic, and industrial cable manufacturers. The event offered insights into emerging cable technologies, power transmission solutions, and supplier networks within the EPC and infrastructure domains.",
       status: "Upcoming",
       image: "https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1762605348827-a1440468-2eed-44ba-8dcd-75a6135fb464.png"
+    },
+    {
+      id: 10,
+      name: "IPVS & ICPE Expo 2025",
+      date: "13-15 November 2025",
+      location: "Chennai",
+      venue: "Chennai Trade Centre, Chennai",
+      role: "Exhibitor",
+      participationTypes: ["Exhibitor"],
+      description: "The International Pumps, Valves & Systems (IPVS) and International Chemical Process Equipment (ICPE) Expo bring together leading manufacturers, suppliers, and EPC professionals from the process and mechanical industries. The event highlights innovations in industrial flow control, pumping systems, gaskets, seals, and chemical process equipment.",
+      status: "Upcoming",
+      image: "https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1762607467857-a1a324a8-ec62-4d17-a916-d335cb8887c2.jpeg"
+    },
+    {
+      id: 11,
+      name: "India Energy Week (IEW) 2026",
+      date: "27-30 January 2026",
+      location: "Goa",
+      venue: "Dr. Shyama Prasad Mukherjee Indoor Stadium Complex, Goa",
+      role: "Exhibitor",
+      participationTypes: ["Exhibitor"],
+      description: "India's premier energy exhibition and conference, IEW brings global energy leaders, EPC firms, and equipment suppliers together to showcase sustainable and future-ready energy solutions. Workwise will be exhibiting to connect with key stakeholders in procurement, project management, and energy infrastructure.",
+      status: "Upcoming",
+      image: "https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1762607888499-4e132240-ea6e-47c6-ad61-793e43098cf3.png"
     }
   ],
   finalCta: {
