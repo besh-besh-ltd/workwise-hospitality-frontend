@@ -747,11 +747,14 @@ useEffect(() => {
                                     {prodItem.product_name}
                                   </p>
 
-                                  {prodItem.product_make && (
-                                    <p className="text-muted small mb-0">
-                                      <span className="fw-semibold">Product-Make:</span> {prodItem.product_make}
-                                    </p>
-                                  )}
+                                   {prodItem.product_make && (
+                              <p className="text-muted small mb-0">
+                                <span className="fw-semibold">Product-Make:</span>{" "}
+                                {Array.isArray(prodItem.product_make)
+                                  ? prodItem.product_make.join(", ")
+                                  : prodItem.product_make}
+                              </p>
+                            )}
                                 </div>
                               </div>
                             </div>
