@@ -246,9 +246,9 @@ const DynamicCard = ({
     if (!date && !location && !venue) return null;
 
     return (
-      <div className={`d-flex align-items-center ${config.gap}`} style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
+      <div className={`d-flex align-items-start ${config.gap}`} style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
         {date && (
-          <div className="d-flex align-items-center me-3">
+          <div className="d-flex align-items-center me-3" style={{ flexShrink: 0 }}>
             <FontAwesomeIcon icon={faCalendar} className="text-muted me-1" style={{ fontSize: (size === 'small' ? 10 : 12) + 'px' }} />
             <span className="text-muted" style={{ fontSize: config.descriptionSize }}>
               {date}
@@ -256,9 +256,9 @@ const DynamicCard = ({
           </div>
         )}
         {location && (
-          <div className="d-flex align-items-center">
-            <FontAwesomeIcon icon={faMapMarkerAlt} className="text-muted me-1" style={{ fontSize: (size === 'small' ? 10 : 12) + 'px' }} />
-            <span className="text-muted" style={{ fontSize: config.descriptionSize }}>
+          <div className="d-flex align-items-start" style={{ flex: '1 1 auto', minWidth: 0 }}>
+            <FontAwesomeIcon icon={faMapMarkerAlt} className="text-muted me-1" style={{ fontSize: (size === 'small' ? 10 : 12) + 'px', flexShrink: 0, marginTop: '2px' }} />
+            <span className="text-muted" style={{ fontSize: config.descriptionSize, wordBreak: 'break-word' }}>
               {venue ? `${location} • ${venue}` : location}
             </span>
           </div>
