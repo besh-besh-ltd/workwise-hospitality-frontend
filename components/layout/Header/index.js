@@ -827,22 +827,37 @@ const Header = () => {
         </div>
 
         {/* Announcement bar for Chennai Event with marquee scroll */}
-          <div
-            className="w-100"
-            style={{
-              background: 'linear-gradient(90deg, #FFF1B8 0%, #FFD666 100%)',
-              borderBottom: '1px solid rgba(0,0,0,0.06)'
-            }}
-          >
-            <div className=" w-100">
-              <marquee className="mt-1" >
-                <span className="fw-semibold"  >
-                  We are exhibiting at IPVS & ICPE 2025 Chennai Trade Centre | 13-15 November | Booth No. L18 | Come visit us!
+        {(mainNavs.includes(pathname) ||
+          pathname?.startsWith("/solutions") ||
+          pathname?.startsWith("/insights") ||
+          pathname?.startsWith("/ai-tools") ||
+          pathname?.startsWith("/modules") ||
+          pathname?.startsWith("/work-with-us") ||
+          pathname?.startsWith("/who-we-serve") ||
+          pathname?.startsWith("/why-workwise") ||
+          pathname?.startsWith("/earn-with-us") ||
+          pathname?.startsWith("/pricing") ||
+          pathname?.startsWith("/blogs") ||
+          pathname?.startsWith("/for-vendors") ||
+          pathname?.startsWith("/contactus") ||
+          pathname?.startsWith("/aboutus") ||
+          (pathname?.startsWith("/vendor") && !(loggedinUser && loggedinUser?.name)) ||
+          pathname === "/") && (
+            <div
+              className="announcement-wrapper"
+              style={{
+                background: 'linear-gradient(90deg, #FFF1B8 0%, #FFD666 100%)',
+                borderBottom: '1px solid rgba(0,0,0,0.06)'
+              }}
+            >
+              <div className="announcement-track">
+                <span className="announcement-text fw-semibold">
+                  We are exhibiting at IPVS & ICPE 2025 Chennai Trade Centre | 13–15 November | Booth No. L18 | Come visit us!
                 </span>
-              </marquee>
+              </div>
             </div>
+          )}
 
-          </div>
 
         {/* Mobile Menu */}
         {menuClass && (

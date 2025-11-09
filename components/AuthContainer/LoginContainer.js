@@ -43,15 +43,17 @@ const LoginContainer = (props) => {
                 // subscribe to SW
                 SWSubscribe({ subscription: swSubscription, token: response.token })
                     .then((res) => {
-                        console.log("PUSH SENT");
+                        // console.log("PUSH SENT");
                     })
                     .catch((err) => { });
                 props.setloading(false);
                 handleChange(props.setOpenAuthModal(false));
 
                 toast.success(response.message, {
-                    position: "top-center",
-                });
+                    position: "top-right",
+                    offset: '60px' // <-- PUSHES IT DOWN
+               });
+
 
                 let userType = "";
                 if (response.user_detail[0].user_type == 2) {
@@ -110,14 +112,14 @@ const LoginContainer = (props) => {
                     }, 1000);
                 } else if (error?.message?.response?.data) {
                     toast.error(error?.message?.response?.data?.message, {
-                        position: "top-center",
+                        position: "top-right",
                     });
                 }
 
                 if (error?.response?.status === 400) {
                 } else {
                     toast.error(error?.message, {
-                        position: "top-center",
+                        position: "top-right",
                     });
                 }
             });
@@ -146,7 +148,7 @@ const LoginContainer = (props) => {
                     handleChange(props.setOpenAuthModal(false));
 
                     toast.success(response.message, {
-                        position: "top-center",
+                        position: "top-right",
                     });
 
                     let userType = "";
@@ -190,7 +192,7 @@ const LoginContainer = (props) => {
                         }, 1000);
                     } else if (error?.message?.response?.data) {
                         toast.error(error?.message?.response?.data?.message, {
-                            position: "top-center",
+                            position: "top-right",
                         });
                     }
                 });
