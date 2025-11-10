@@ -383,8 +383,53 @@ const Item = ({
     >
       <Accordion.Header>
         {/* start: Accrodian header */}
-        <div className="d-flex justify-content-between w-100 align-items-center">
+      <div
+        className="d-flex justify-content-between w-100 align-items-center"
+  //       style={{
+  //      backgroundColor: (() => {
+  //       // if vendors not loaded yet, fallback to rfqProduct.vendor_count
+  //       if (vendors?.length == 0) {
+  //         return rfqProduct?.vendor_count == 0 ? "#ffe6e6" : "transparent";
+  //       }
+      
+  //       // vendors are loaded -> calculate effective selected vendor count
+  //       const selectedVendorCount =
+  //         (vendors?.length || 0) +
+  //         ((updatableData?.vendors?.[data.id]?.addable?.length ?? 0) -
+  //           (updatableData?.vendors?.[data.id]?.deletable?.length ?? 0));
+      
+  //       return selectedVendorCount === 0 ? "#e6e6fe" : "transparent";
+  //     })(),
+  // }}
+>
+
+
+
+<div>
           <h2 className="h6 mb-0"> {rfqProduct?.name}</h2>
+    {(() => {
+        // ✅ same logic reused exactly for error condition
+        let isError = false;
+
+        if (vendors?.length == 0) {
+          isError = rfqProduct?.vendor_count == 0;
+        } else {
+          const selectedVendorCount =
+            (vendors?.length || 0) +
+            ((updatableData?.vendors?.[data.id]?.addable?.length ?? 0) -
+              (updatableData?.vendors?.[data.id]?.deletable?.length ?? 0));
+          isError = selectedVendorCount === 0;
+        }
+
+        return (
+          isError && (
+            <small className="text-danger fw-bold">
+              Add at least one vendor before issuing RFQ.
+            </small>
+          )
+        );
+      })()}
+    </div>
 
           {/* start: remove and add variant button container */}
           <div className="d-flex gap-3 mr-4 ">
@@ -415,8 +460,10 @@ const Item = ({
                 </>
               )}
             </button>
+            
             {/* end: remove button container */}
           </div>
+
           {/* end: remove and add variant button container */}
         </div>
         {/* end: Accrodian header */}
