@@ -54,3 +54,13 @@ export const handleDeleteTask = async (id) => {
   const res = await axiosInstance.delete(`/po/tasks/${id}`);
   return res;
 };
+
+export const handleUpdateHSN = async (id, hsn_codes) => {
+  const res = await axiosInstance.post(`/po/updateHSN/${id}`, { hsn_codes });
+  return res;
+}
+
+export const handleUpdateGST = async (id, value) => {
+  const res = await axiosInstance.post(`/po/updateGST/${id}`, { value });
+  return res;
+}
