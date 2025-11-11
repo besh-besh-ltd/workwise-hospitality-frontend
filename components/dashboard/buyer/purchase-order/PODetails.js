@@ -16,13 +16,14 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import CreateMilestoneModal from './CreateMilestoneModal';
 import { toast } from 'react-toastify';
-import { handleDeleteMilestone, handleDeleteTask, handleGetTasks } from '@/services/po';
+import { handleDeleteMilestone, handleDeleteTask, handleGetTasks, handleUpdateGST, handleUpdateHSN } from '@/services/po';
 import CreateTaskModal from './CreateTaskModal';
 import Pagination from '@/components/shared/Pagination';
 import { getProjectAvailableBudget } from '@/services/project';
 import { addCommasToNumber, formatToINRShort } from '@/utils/sharedFunctions';
 import Link from 'next/link';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
+import CommonFormInput from '@/components/shared/CommonFormInput';
 
 const statusColors = {
   draft: 'secondary',
@@ -124,6 +125,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     approval_status,
     approval_history = [],
     payment_milestones,
+    hsn_codes,
+    gstin: fetchedGST,
     quotations,
     rfq_product_id,
     poPdfUrl
@@ -132,6 +135,11 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   const [selectedMilestone, setSelectedMilestone] = useState(null);
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
   const [budgetInfo, setBudgetInfo] = useState(null);
+  const [hsnCodeInfo, setHSNCodeInfo] = useState({
+    loadMore: false,
+    hsnCodes: []
+  })
+  const [gstin, setGstin] = useState(fetchedGST);
 
   const [tasks, setTasks] = useState(null);
   const [filters, setFilters] = useState({
@@ -199,6 +207,30 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     }
   }
 
+  const handleSaveHSN = async () => {
+    try {
+      const res = await handleUpdateHSN(id, hsnCodeInfo.hsnCodes);
+      if(res) {
+        toast.success("HSN Codes has been saved successfully!")
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save HSN Codes, please try again!")
+    }
+  }
+
+  const handleSaveGST = async () => {
+    try {
+      const res = await handleUpdateGST(id, gstin);
+      if(res) {
+        toast.success("GSTIN has been saved successfully!")
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save GSTIN, please try again!")
+    }
+  }
+
   const POReviewCompact = (poData) => {
       if(!poData) return null;
 
@@ -256,6 +288,19 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   useEffect(() => {
     handleFetchBudget();
   }, [])
+
+  useEffect(() => {
+    if(data) {
+      setHSNCodeInfo((info) => ({
+        ...info,
+        hsnCodes: hsn_codes.map((hsn) => ({
+          rfq_item_id: hsn.rfq_item_id,
+          code: hsn.hsn_code,
+        })),
+      }));
+      setGstin(fetchedGST);
+    }
+  }, [data]);
 
   return (
     <div>
@@ -329,14 +374,26 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             <div className="row">
               <div className="col-md-6">
                 <PODetailItem label="Quantity" value={quantity} />
-                <PODetailItem label="Unit Price" value={`₹ ${addCommasToNumber(unit_price)}`} />
-                <PODetailItem label="Total Value" value={`₹ ${addCommasToNumber(total_value)}`} />
+                <PODetailItem
+                  label="Unit Price"
+                  value={`₹ ${addCommasToNumber(unit_price)}`}
+                />
+                <PODetailItem
+                  label="Total Value"
+                  value={`₹ ${addCommasToNumber(total_value)}`}
+                />
                 {project_details && (
-                  <PODetailItem label="Project Name" value={project_details.name} />
+                  <PODetailItem
+                    label="Project Name"
+                    value={project_details.name}
+                  />
                 )}
               </div>
               <div className="col-md-6">
-                <PODetailItem label="Created At" value={formatIST(created_at)} />
+                <PODetailItem
+                  label="Created At"
+                  value={formatIST(created_at)}
+                />
                 <PODetailItem label="Initiated By" value={initiated_by_name} />
                 <PODetailItem
                   label="Status"
@@ -346,21 +403,36 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             </div>
           </Card.Body>
         </Card>
-        {
-          budgetInfo && (
-            <Card className="mb-3 shadow-sm" style={{ width: "100%", maxWidth: "30%" }}>
-              <Card.Body
-                style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
-                className='d-flex flex-column'
-              >
-                <PODetailItem label="Total Assigned Budget" value={`₹${formatToINRShort(budgetInfo.total_budget)}`} />
-                <PODetailItem label="Available Budget" value={`₹${formatToINRShort(budgetInfo.available_budget)}`} />
-                <PODetailItem label="PO Value" value={`₹${formatToINRShort(total_value)}`} />
-                <PODetailItem label="Budget if PO approves" value={`₹${formatToINRShort(budgetInfo.available_budget - total_value)}`} />
-              </Card.Body>
-            </Card>
-          )
-        }
+        {budgetInfo && (
+          <Card
+            className="mb-3 shadow-sm"
+            style={{ width: "100%", maxWidth: "30%" }}
+          >
+            <Card.Body
+              style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
+              className="d-flex flex-column"
+            >
+              <PODetailItem
+                label="Total Assigned Budget"
+                value={`₹${formatToINRShort(budgetInfo.total_budget)}`}
+              />
+              <PODetailItem
+                label="Available Budget"
+                value={`₹${formatToINRShort(budgetInfo.available_budget)}`}
+              />
+              <PODetailItem
+                label="PO Value"
+                value={`₹${formatToINRShort(total_value)}`}
+              />
+              <PODetailItem
+                label="Budget if PO approves"
+                value={`₹${formatToINRShort(
+                  budgetInfo.available_budget - total_value
+                )}`}
+              />
+            </Card.Body>
+          </Card>
+        )}
       </div>
 
       {/* Product Details */}
@@ -370,30 +442,132 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             <div className="d-flex align-items-center">
               <BsBoxSeam className="me-3 fs-2 text-primary" />
               <div>
-                <strong>{product_details.map(p => p.name).join(", ")}</strong>
+                <strong>{product_details.map((p) => p.name).join(", ")}</strong>
                 <div className="text-muted">
-                  Product ID(s): {product_details.map(p => p.product_id).join(",")}
+                  Product ID(s):{" "}
+                  {product_details.map((p) => p.product_id).join(",")}
                 </div>
               </div>
             </div>
-            <Link href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}&rfq_product_id=${rfq_product_id}&source=PO&tab=category`} className="btn p-2 btn-primary">Compare Quotes</Link>
+            <Link
+              href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}&rfq_product_id=${rfq_product_id}&source=PO&tab=category`}
+              className="btn p-2 btn-primary"
+            >
+              Compare Quotes
+            </Link>
           </Card.Body>
         </Card>
-        <Link className='w-100' href={`/vendor/vendor-profile?id=${finalized_vendor_id}`} target='__blank'>
+        <Link
+          className="w-100"
+          href={`/vendor/vendor-profile?id=${finalized_vendor_id}`}
+          target="__blank"
+        >
           <Card className="shadow-sm">
             <Card.Body className="d-flex align-items-center">
               <BsPerson className="me-3 fs-2 text-primary" />
               <div>
-                <strong>{finalized_vendor_name}</strong> <small className='text-muted'>(Finalized Vendor)</small>
-                <div className="text-muted">
-                  {finalized_vendor_email}
-                </div>
+                <strong>{finalized_vendor_name}</strong>{" "}
+                <small className="text-muted">(Finalized Vendor)</small>
+                <div className="text-muted">{finalized_vendor_email}</div>
               </div>
             </Card.Body>
           </Card>
         </Link>
       </div>
 
+      <div className="mb-3 d-flex gap-3">
+        <Card className="shadow-sm w-100">
+          <Card.Body className="d-flex flex-column gap-2">
+            <span className="fw-semibold">HSN Codes</span>
+            <div className="d-flex flex-column gap-1">
+              {(hsnCodeInfo.loadMore
+                ? product_details
+                : product_details.slice(0, 1)
+              )?.map((product) => {
+                const hsnCode = hsnCodeInfo.hsnCodes.find(
+                  (code) => code.rfq_item_id == product.rfq_item_id
+                );
+
+                return (
+                  <CommonFormInput
+                    type="simple-text"
+                    label={product.name}
+                    placeholder={`Enter ${product.name} HSN Code here...`}
+                    values={hsnCode?.code || ""}
+                    onChange={(change) => {
+                      setHSNCodeInfo((info) => {
+                        if (hsnCode) {
+                          return {
+                            ...info,
+                            hsnCodes: info.hsnCodes.map((hsn) =>
+                              hsn.rfq_item_id == product.rfq_item_id
+                                ? { ...hsn, code: change.target.value }
+                                : hsn
+                            ),
+                          };
+                        } else {
+                          return {
+                            ...info,
+                            hsnCodes: [
+                              ...info.hsnCodes,
+                              {
+                                rfq_item_id: product.rfq_item_id,
+                                code: change.target.value,
+                              },
+                            ],
+                          };
+                        }
+                      });
+                    }}
+                  />
+                );
+              })}
+              <div className='d-flex gap-2'>
+                {(product_details.length > 1) && (
+                  <button
+                    className="btn btn-success p-2"
+                    onClick={() =>
+                      setHSNCodeInfo((info) => ({
+                        ...info,
+                        loadMore: !info.loadMore,
+                      }))
+                    }
+                  >
+                    {hsnCodeInfo.loadMore ? 'Load Less' : `Load ${product_details.length - 1} More`}
+                  </button>
+                )}
+                <button
+                  className="btn btn-dark p-2"
+                  onClick={handleSaveHSN}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </Card.Body>
+        </Card>
+        <Card className="shadow-sm w-100">
+          <Card.Body className="d-flex flex-column gap-2">
+            <div className="d-flex flex-column gap-1">
+              <CommonFormInput
+                type="simple-text"
+                label={"GSTIN ( To be printed in the PO )"}
+                placeholder={`Enter GSTIN here...`}
+                values={gstin || ""}
+                onChange={(change) => {
+                  setGstin(change.target.value);
+                }}
+              />
+              <button
+                className="btn btn-dark p-2"
+                onClick={handleSaveGST}
+              >
+                Save Changes
+              </button>
+            </div>
+          </Card.Body>
+        </Card>
+      </div>
 
       {/* Approval Timeline */}
       <h5 className="mb-3">
@@ -403,9 +577,16 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
       <Card className="mb-4">
         <Card.Body className="d-flex flex-column gap-3">
           <TimelineItem
-            title={status == 'draft' ? 'Drafted' : 'Initiated'}
+            title={status == "draft" ? "Drafted" : "Initiated"}
             name={initiated_by_name}
-            icon={<BsCheckCircleFill className={status == 'draft' ? 'text-secondary' : "text-primary"} size={25} />}
+            icon={
+              <BsCheckCircleFill
+                className={
+                  status == "draft" ? "text-secondary" : "text-primary"
+                }
+                size={25}
+              />
+            }
             time={formatIST(created_at)}
           />
           {approval_history.map((entry, index) => (
@@ -571,7 +752,11 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           Status Timeline
         </h5>
 
-        <button className="minimal-btn" onClick={() => setShowTaskModal(true)} id="add_task-status_timeline-po_details">
+        <button
+          className="minimal-btn"
+          onClick={() => setShowTaskModal(true)}
+          id="add_task-status_timeline-po_details"
+        >
           Add Task
         </button>
       </div>
@@ -655,7 +840,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             </tbody>
           </table>
         </Card.Body>
-        <Card.Footer className='pt-3'>
+        <Card.Footer className="pt-3">
           {tasks?.data && (
             <Pagination
               page={filters.page}
@@ -665,7 +850,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               totalData={tasks.total}
             />
           )}
-          </Card.Footer>
+        </Card.Footer>
       </Card>
 
       <CreateMilestoneModal
@@ -699,12 +884,14 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
         isOpen={showApproveConfirmModal}
         onClose={() => setShowApproveConfirmModal(false)}
         onConfirm={async () => {
-          await handlePODecision(id, { decision: 'approved' });
+          await handlePODecision(id, { decision: "approved" });
           await refetchPODetails();
           setShowApproveConfirmModal(false);
         }}
         title={"Approve Purchase Order"}
-        description={`Are you sure you want to approve PO #${po_number || 'this purchase order'}?\nThis action will approve the purchase order and notify relevant parties.`}
+        description={`Are you sure you want to approve PO #${
+          po_number || "this purchase order"
+        }?\nThis action will approve the purchase order and notify relevant parties.`}
         confirmButtonColor="success"
         confirmButtonText="Approve"
         cancelButtonText="Cancel"
@@ -715,12 +902,14 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
         isOpen={showRejectConfirmModal}
         onClose={() => setShowRejectConfirmModal(false)}
         onConfirm={async () => {
-          await handlePODecision(id, { decision: 'rejected' });
+          await handlePODecision(id, { decision: "rejected" });
           await refetchPODetails();
           setShowRejectConfirmModal(false);
         }}
         title={"Reject Purchase Order"}
-        description={`Are you sure you want to reject PO #${po_number || 'this purchase order'}?\nThis action will reject the purchase order and notify relevant parties.`}
+        description={`Are you sure you want to reject PO #${
+          po_number || "this purchase order"
+        }?\nThis action will reject the purchase order and notify relevant parties.`}
         confirmButtonColor="danger"
         confirmButtonText="Reject"
         cancelButtonText="Cancel"
