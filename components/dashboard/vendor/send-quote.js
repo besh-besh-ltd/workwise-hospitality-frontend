@@ -1327,9 +1327,9 @@ return { deletedTerms, createdTerms, updatedTerms };
        </div>  */}
 
 
-                    <div className="row align-items-stretch">
+                    <div className="row align-items-stretch mb-4">
                       {/* ========== COLUMN 1: Global Costing + Quote Document + Global Comment ========== */}
-                      <div className="col-lg-7 col-12 d-flex">
+                      <div className="col-lg-4 col-12 d-flex">
                         <div className="card border shadow-sm rounded-3 w-100 h-100">
                           <div className="card-body">
                             <h3 className="fs-6 fw-semibold mb-3">
@@ -1544,95 +1544,93 @@ return { deletedTerms, createdTerms, updatedTerms };
                         </div>
                       </div>
 
-  {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
-  <div className="col-lg-4 col-12 d-flex">
-    <div className="card border shadow-sm rounded-3 w-100 h-100">
-      <div className="card-body d-flex flex-column">
-      
-      {globalPaymentTerms && (
-      <>
-        <div className="mb-3 d-flex align-items-center justify-content-between">
-          <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
-        </div>
-        <textarea
-          className="form-control mb-3"
-          rows={3}
-          value={globalPaymentTerms}
-          placeholder="100% Against Proforma Invoice"
-          onChange={(e) => setglobalPaymentTerms(e.target.value)}
-        />
-        </>
-      )}
+                      {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
+                      <div className="col-lg-4 col-12 d-flex">
+                        <div className="card border shadow-sm rounded-3 w-100 h-100">
+                          <div className="card-body d-flex flex-column">
+                          
+                          {globalPaymentTerms && (
+                          <>
+                            <div className="mb-3 d-flex align-items-center justify-content-between">
+                              <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
+                            </div>
+                            <textarea
+                              className="form-control mb-3"
+                              rows={3}
+                              value={globalPaymentTerms}
+                              placeholder="100% Against Proforma Invoice"
+                              onChange={(e) => setglobalPaymentTerms(e.target.value)}
+                            />
+                            </>
+                          )}
 
-        <h3 className="fs-6 fw-semibold mb-2">Global Comment</h3>
-        <textarea
-          className="form-control flex-grow-1"
-        value={globalComment}
-        placeholder="Placeholder text for global comment"
-        onChange={(e) => setglobalComment(e.target.value)}
-      />
-    </div>
-  </div>
-</div>
+                            <h3 className="fs-6 fw-semibold mb-2">Global Comment</h3>
+                            <textarea
+                              className="form-control flex-grow-1"
+                            value={globalComment}
+                            placeholder="Placeholder text for global comment"
+                            onChange={(e) => setglobalComment(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      </div>
 
-  {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
-  <div className="col-lg-5 col-12">
+                      {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
+                      <div className="col-lg-4 col-12">
+                        <div className="border rounded-3 p-3 pb-2 mb-3" >
+                          <div className="d-flex align-items-center justify-content-between mb-2">
+                            <div className="d-flex flex-column gap-2 w-100">
+                              <h3 className="fs-6 fw-semibold mb-0">GSTIN <span className="text-danger">*</span></h3>
+                              <input
+                                className="form-control w-100"
+                                max={15}
+                                value={vendorGSTIN}
+                                placeholder="Enter your GSTIN as per delivery location"
+                                onChange={(e) => setVendorGSTIN(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                          </div>
 
-    <div className="border rounded-3 p-3 pb-2 mb-3" >
-      <div className="d-flex align-items-center justify-content-between mb-2">
-        <div className="d-flex flex-column gap-2 w-100">
-          <h3 className="fs-6 fw-semibold mb-0">GSTIN <span className="text-danger">*</span></h3>
-          <input
-            className="form-control w-100"
-            max={15}
-            value={vendorGSTIN}
-            placeholder="Enter your GSTIN as per delivery location"
-            onChange={(e) => setVendorGSTIN(e.target.value)}
-          />
-        </div>
-      </div>
-    </div>
+                          <div className="border rounded-3 p-3 pb-2" >
+                              <div className="d-flex align-items-center justify-content-between mb-2">
+                              <div>
+                              <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
+                                <small className="text-muted">amount defined so far: {paymentTermsRows.reduce((a,b)=>a+(Number(b.value)||0),0)}%</small>
+                                {paymentTermsRows.filter(row => 
+                                  row && 
+                                  row.action !== "delete" && 
+                                  row.type && 
+                                  row.value != null && 
+                                  row.value > 0
+                                ).length === 0 && (
+                                  <>
+                                    <br />
+                                    <small className="text-danger">At least one valid payment term is required</small>
+                                  </>
+                                )}
+                                </div>
 
-   <div className="border rounded-3 p-3 pb-2" >
-          <div className="d-flex align-items-center justify-content-between mb-2">
-          <div>
-          <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
-            <small className="text-muted">amount defined so far: {paymentTermsRows.reduce((a,b)=>a+(Number(b.value)||0),0)}%</small>
-            {paymentTermsRows.filter(row => 
-              row && 
-              row.action !== "delete" && 
-              row.type && 
-              row.value != null && 
-              row.value > 0
-            ).length === 0 && (
-              <>
-                <br />
-                <small className="text-danger">At least one valid payment term is required</small>
-              </>
-            )}
-            </div>
-
-        <SmartButton
-              onClick={() =>
-                setPaymentTermsRows((prev) => [ ...(prev || []), { id:null,  value: "", type: "advance", days: "", comment:'' } ])
-              }
-        theme={'primary'}
-        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
-        label="Add Term"
-        icon={<FontAwesomeIcon icon={faPlus} className="me-1" />}
-      />
+                            <SmartButton
+                                  onClick={() =>
+                                    setPaymentTermsRows((prev) => [ ...(prev || []), { id:null,  value: "", type: "advance", days: "", comment:'' } ])
+                                  }
+                            theme={'primary'}
+                            style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+                            label="Add Term"
+                            icon={<FontAwesomeIcon icon={faPlus} className="me-1" />}
+                          />
 
 
-          </div>
+                              </div>
 
-          <PaymentTermsEditor
-            value={paymentTermsRows}
-            onChange={setPaymentTermsRows}
-          />
-        </div>
-  </div>
-
-</div>
+                              <PaymentTermsEditor
+                                value={paymentTermsRows}
+                                onChange={setPaymentTermsRows}
+                              />
+                            </div>
+                      </div>
+                  </div>
                   </div>
                   <div className="table-responsive">
                     <div className="table-container">
