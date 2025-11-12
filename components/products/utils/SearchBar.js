@@ -66,8 +66,9 @@ export const ProductSearchBar = () => {
           onChange={(e) => setSearchTerm(e.target.value)}
           style={{ fontSize: "1.1rem" }}
         />
-        <button 
-        className="btn btn-primary rounded-end-pill" 
+        <button
+        id="search_products_submit-search_bar"
+        className="btn btn-primary rounded-end-pill"
         style={{maxWidth:"80px"}}
         onClick={handleRedirect}>
          <span><FontAwesomeIcon icon={faSearch} /></span> 
@@ -93,8 +94,9 @@ export const ProductSearchBar = () => {
             Matching Products ({productList.length})
           </h6>
           {productList.map((product, index) => (
-            <button 
-              key={index} 
+            <button
+              id={`select_product_${product?.id ?? product?.product_id ?? index}-search_dropdown`}
+              key={index}
               className={`dropdown-item d-flex flex-column py-2 ${product.is_variant ? 'border-start border-4 border-primary' : ''}`}
               onClick={() => handleProductSelect(product)}
               style={{ transition: "all 0.2s" }}

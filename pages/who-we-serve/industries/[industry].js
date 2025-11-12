@@ -20,6 +20,12 @@ import { homepageData } from '@/components/constants/homepageData';
 // Import default data (Power). Additional industries can be added to this map.
 import { industryPageData as powerData, industriesPageData } from '@/components/constants/industryPageData';
 
+const sanitizeForId = (value) =>
+  String(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
 const dataMap = industriesPageData || { power: powerData };
 
 const PowerTeamsFaq = ({ className = '', faqs, title }) => (
@@ -47,7 +53,9 @@ const WorkwiseModules = ({ className = '', title, modules, onLearnMore }) => {
           </h2>
         </div>
         <div className="row g-4">
-          {displayModules.map((mod) => (
+          {displayModules.map((mod) => {
+            const learnMoreId = `learn_more_${sanitizeForId(mod.id || mod.name)}-industry_modules`;
+            return (
             <div key={mod.id} className="col-lg-4 col-md-6">
               <div className="card h-100 shadow-sm border-0">
                 <div className="card-body p-4">
@@ -62,6 +70,7 @@ const WorkwiseModules = ({ className = '', title, modules, onLearnMore }) => {
                   <h5 className="fw-semibold mb-3 text-dark">{mod.name}</h5>
                   <p className="text-muted small mb-4" style={{ minHeight: '64px' }}>{mod.description}</p>
                   <a
+                    id={learnMoreId}
                     href={mod.link || '#'}
                     onClick={(e) => {
                       if (onLearnMore) {
@@ -76,7 +85,7 @@ const WorkwiseModules = ({ className = '', title, modules, onLearnMore }) => {
                 </div>
               </div>
             </div>
-          ))}
+          )})}
         </div>
       </div>
     </section>
@@ -130,7 +139,9 @@ const TestimonialsSection = ({ className = '', title, testimonials }) => {
           </Slider>
         </div>
         <div className="row g-4">
-          {displayTestimonials.map((t) => (
+          {displayTestimonials.map((t) => {
+            const testimonialLinkId = `testimonial_link_${sanitizeForId(t.id || t.authorName)}-industries_page`;
+            return (
             <div key={t.id} className="col-lg-4 col-md-6">
               <TestimonialCard quote={t.quote} authorName={t.authorName} authorTitle={t.authorTitle} authorImage={t.authorImage} className="h-100">
                 <div className="position-absolute top-0 end-0 m-3">
@@ -140,14 +151,19 @@ const TestimonialsSection = ({ className = '', title, testimonials }) => {
                 </div>
                 {t.hasLink && (
                   <div className="mt-3 pt-3 border-top">
-                    <a href="#" className="text-primary text-decoration-none small fw-medium" onClick={(e) => e.preventDefault()}>
+                    <a
+                      id={testimonialLinkId}
+                      href="#"
+                      className="text-primary text-decoration-none small fw-medium"
+                      onClick={(e) => e.preventDefault()}
+                    >
                       {t.linkText}
                     </a>
                   </div>
                 )}
               </TestimonialCard>
             </div>
-          ))}
+          )})}
         </div>
       </div>
       </section>
@@ -178,7 +194,12 @@ const AllDisciplines = ({ className = '', title, disciplines }) => {
                   {d.icon === 'fan' && <FaFan style={{ color: '#4285f4' }} size={24} />}
                 </div>
                 <div className="fw-semibold text-dark">
-                  <Link href={`/solutions/${slugify(d.label)}`}>{d.label}</Link>
+                  <Link
+                    id={`discipline_${slugify(d.label)}-industries_page`}
+                    href={`/solutions/${slugify(d.label)}`}
+                  >
+                    {d.label}
+                  </Link>
                 </div>
               </div>
             </div>
@@ -263,6 +284,7 @@ const IndustryDynamicPage = () => {
   const { industry } = router.query;
   const key = typeof industry === 'string' ? industry.toLowerCase() : 'power';
   const data = (dataMap && dataMap[key]) || powerData;
+  const industrySlug = sanitizeForId(typeof industry === 'string' ? industry : key);
 
   const [showBookCall, setShowBookCall] = React.useState(false);
 
@@ -274,7 +296,12 @@ const IndustryDynamicPage = () => {
         layout="centered"
         size="medium"
         showVisual={false}
-        primaryButton={{ label: data.hero.buttonLabel, variant: 'black', onClick: () => setShowBookCall(true) }}
+        primaryButton={{
+          id: `book_a_call_${industrySlug}-hero-who_we_serve_industry_page`,
+          label: data.hero.buttonLabel,
+          variant: 'black',
+          onClick: () => setShowBookCall(true)
+        }}
       />
       <PowerProcurementChallenges title={data.challengesTitle || 'We Understand the Real-World Challenges of Industry Procurement'} challenges={data.challenges} />
       <CapexProjectsServed title={data.projectsTitle || "Capex Projects We've Served in Industry"} projects={data.projects} />
@@ -285,8 +312,20 @@ const IndustryDynamicPage = () => {
       <CtaSection
         title={data.cta.title}
         description={data.cta.description}
-        primaryButton={{ label: data.cta.primaryButton.label, variant: data.cta.primaryButton.variant, onClick: () => setShowBookCall(true) }}
-        secondaryButton={{ label: data.cta.secondaryButton.label, variant: data.cta.secondaryButton.variant, onClick: () => { window.location.href = '/why-workwise/success-stories'; } }}
+        primaryButton={{
+          id: `primary_cta_${industrySlug}-final_cta-who_we_serve_industry_page`,
+          label: data.cta.primaryButton.label,
+          variant: data.cta.primaryButton.variant,
+          onClick: () => setShowBookCall(true)
+        }}
+        secondaryButton={{
+          id: `secondary_cta_${industrySlug}-final_cta-who_we_serve_industry_page`,
+          label: data.cta.secondaryButton.label,
+          variant: data.cta.secondaryButton.variant,
+          onClick: () => {
+            window.location.href = '/why-workwise/success-stories';
+          }
+        }}
         className="mt-4"
       />
 

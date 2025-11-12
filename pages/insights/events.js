@@ -226,6 +226,7 @@ const EventsPage = () => {
                   participationTypes={event.participationTypes}
                   image={event.image}
                   primaryAction={{
+                    id: `register_interest_${event.id}-insights_events_page`,
                     label: "Register Your Interest",
                     variant: "default"
                   }}

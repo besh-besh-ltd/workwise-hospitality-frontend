@@ -44,6 +44,7 @@ const SearchItem = ({
           )}
           {selectedProduct && (
             <button
+              id={`remove_selected_${data?.id}-search_item`}
               onClick={() => handleRemoveCurrentSelected()}
               className="removeSelectedProduct"
             >
