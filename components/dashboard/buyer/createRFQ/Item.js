@@ -416,10 +416,17 @@ const Item = ({
         if (vendors?.length == 0) {
           isError = rfqProduct?.vendor_count == 0;
         } else {
+          // Get current vendor IDs (after filtering)
+          const currentVendorIds = vendors?.map(v => v.user_id || v.id) || [];
+          // Only count deletable vendors that are still present in current vendors
+          const deletableVendors = (updatableData?.vendors?.[data.id]?.deletable ?? []).filter(
+            deletableId => currentVendorIds.includes(deletableId)
+          );
+          
           const selectedVendorCount =
             (vendors?.length || 0) +
             ((updatableData?.vendors?.[data.id]?.addable?.length ?? 0) -
-              (updatableData?.vendors?.[data.id]?.deletable?.length ?? 0));
+              deletableVendors.length);
           isError = selectedVendorCount === 0;
         }
 
@@ -787,18 +794,31 @@ const Item = ({
                   Selected Vendors -{" "}
                   <strong>
                     {" "}
-                    {(vendors
-                      ? vendors.length == 0
-                        ? "0"
-                        : vendors.length
-                      : data.vendors?.length) +
-                      (updatableData
+                    {(() => {
+                      // Get base vendor count
+                      const baseVendorCount = vendors
+                        ? vendors.length == 0
+                          ? 0
+                          : vendors.length
+                        : data.vendors?.length || 0;
+                      
+                      // Get addable vendors count
+                      const addableCount = updatableData
                         ? updatableData.vendors?.[data.id]?.addable?.length ?? 0
-                        : 0) -
-                      (updatableData
-                        ? updatableData.vendors?.[data.id]?.deletable?.length ??
-                          0
-                        : 0)}
+                        : 0;
+                      
+                      // Get current vendor IDs (after filtering)
+                      const currentVendorIds = vendors?.map(v => v.user_id || v.id) || 
+                        (data.vendors?.map(v => v.user_id || v.id) || []);
+                      
+                      // Only count deletable vendors that are still present in current vendors
+                      const deletableVendors = (updatableData?.vendors?.[data.id]?.deletable ?? []).filter(
+                        deletableId => currentVendorIds.includes(deletableId)
+                      );
+                      
+                      const totalCount = baseVendorCount + addableCount - deletableVendors.length;
+                      return Math.max(0, totalCount); // Ensure non-negative
+                    })()}
                   </strong>{" "}
                 </span>
                 {!handleViewVendorInEdit ? (
