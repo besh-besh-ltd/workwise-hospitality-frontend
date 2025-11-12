@@ -44,6 +44,7 @@ const Item = ({
   // Behavioural Html injection props
   header,
   footer,
+  hasVendorError,
 }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
@@ -407,6 +408,7 @@ const Item = ({
 
 <div>
           <h2 className="h6 mb-0"> {rfqProduct?.name}</h2>
+
     {(() => {
         // ✅ same logic reused exactly for error condition
         let isError = false;
@@ -422,13 +424,14 @@ const Item = ({
         }
 
         return (
-          isError && (
+         (hasVendorError || isError) && (
             <small className="text-danger fw-bold">
-              Add at least one vendor before issuing RFQ.
+              Select atleast one vendor
             </small>
           )
         );
       })()}
+
     </div>
 
           {/* start: remove and add variant button container */}
