@@ -569,6 +569,37 @@ useEffect(() => {
     setTermFilesChanged(true);
   };
 
+  const validateVendors = () => {
+    const productsWithoutVendors = [];
+    
+    rfqProducts.forEach((product) => {
+      if (updatableData.products.deletable.includes(product.id)) return;
+      
+      const key = `${product.id}`;
+      const currentVendors = vendors?.[key] || product.vendors || [];
+      const currentVendorIds = currentVendors.map(v => v.user_id || v.id);
+      
+      const addableVendors = updatableData.vendors?.[product.id]?.addable ?? [];
+      const deletableVendors = (updatableData.vendors?.[product.id]?.deletable ?? []).filter(
+        id => currentVendorIds.includes(id)
+      );
+      
+      const totalVendors = currentVendors.length + addableVendors.length - deletableVendors.length;
+      
+      if (totalVendors <= 0) {
+        productsWithoutVendors.push(product.id);
+      }
+    });
+    
+    if (productsWithoutVendors.length > 0) {
+      setErrorProducts(new Set(productsWithoutVendors));
+      toast.error("At least one vendor is required for each product. Please add vendors or remove products with no vendors.");
+      return false;
+    }
+    
+    return true;
+  }
+
   const validateRFQFields = (values) => {
     // Deep clone the form data to avoid direct mutation
     const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
@@ -592,10 +623,20 @@ useEffect(() => {
       }
     }
 
+    if (!validateVendors()) {
+      setMainLoading(false);
+      return false;
+    }
+
     return true
   }
 
   const handleCreateRFQ = (values) => {
+    if (!validateVendors()) {
+      setMainLoading(false);
+      return;
+    }
+
     setMainLoading(true);
     setHasUnsavedChanges(false);
 
@@ -689,23 +730,19 @@ useEffect(() => {
         dispatch(clearState());
       })
       .catch((err) => {
-        console.error("Error creating RFQ:", err);
         setMainLoading(false);
         setHasUnsavedChanges(true);
         
         const errorData = err?.message?.response?.data;
+        const errorMessage = errorData?.message || "Failed to create RFQ. Please check your form and try again.";
 
         if (errorData?.status === 2 && Array.isArray(errorData.details)) {
           const missingVendorIds = errorData.details.map(d => d.rfqProductId);
           setErrorProducts(new Set(missingVendorIds));
-      
-          toast.warning(
-            errorData.message || "Some products have no vendors.",
-            { position: "top-right", autoClose: 4000 }
-          );
+          toast.error(errorMessage);
+        } else {
+          toast.error(errorMessage);
         }
-
-        toast.error("Failed to create RFQ. Please check your form and try again.");
       });
   };
 
@@ -760,6 +797,10 @@ useEffect(() => {
   }
 
   const handleSaveDraft = async () => {
+    if (!validateVendors()) {
+      return;
+    }
+
     setMainLoading(true);
 
     const contactNumber = rfqFormDataRef?.current?.contact_number?.trim();
@@ -829,22 +870,18 @@ useEffect(() => {
         dispatch(setOtherFormFields({ rfq_id: res.message.rfq_id }));
       }
     } catch (error) {
-
-      const errorData = error?.message?.response?.data?.errors;
-
-        if (Array.isArray(errorData.details)) {
-          const missingVendorIds = errorData.details?.map(d => d.rfqProductId);
-          setErrorProducts(new Set(missingVendorIds));
-      
-          // toast.warning(
-          //   errorData.message || "Some products have no vendors.",
-          //   { position: "top-right", autoClose: 4000 }
-          // );
-        }
-
-      console.error("Error saving draft:", error);
       setMainLoading(false);
-      toast.error("Failed to save draft. Please try again.");
+      
+      const errorData = error?.message?.response?.data;
+      const errorMessage = errorData?.message || errorData?.errors?.message || "Failed to save draft. Please try again.";
+
+      if (errorData?.errors?.details && Array.isArray(errorData.errors.details)) {
+        const missingVendorIds = errorData.errors.details.map(d => d.rfqProductId);
+        setErrorProducts(new Set(missingVendorIds));
+        toast.error(errorMessage);
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
