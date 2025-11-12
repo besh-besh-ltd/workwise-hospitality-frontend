@@ -169,6 +169,7 @@ const CreateRFQ = () => {
   const rfqFormDataRef = useRef({});
 
   const [validationErrors, setValidationErrors] = useState({});
+  const [errorProducts, setErrorProducts] = useState(new Set());
 
   const fetchVendorsForProduct = async (rfqProductId, refetch = false) => {
     try {
@@ -691,6 +692,19 @@ useEffect(() => {
         console.error("Error creating RFQ:", err);
         setMainLoading(false);
         setHasUnsavedChanges(true);
+        
+        const errorData = err?.message?.response?.data;
+
+        if (errorData?.status === 2 && Array.isArray(errorData.details)) {
+          const missingVendorIds = errorData.details.map(d => d.rfqProductId);
+          setErrorProducts(new Set(missingVendorIds));
+      
+          toast.warning(
+            errorData.message || "Some products have no vendors.",
+            { position: "top-right", autoClose: 4000 }
+          );
+        }
+
         toast.error("Failed to create RFQ. Please check your form and try again.");
       });
   };
@@ -815,11 +829,30 @@ useEffect(() => {
         dispatch(setOtherFormFields({ rfq_id: res.message.rfq_id }));
       }
     } catch (error) {
+
+      const errorData = error?.message?.response?.data?.errors;
+
+        if (Array.isArray(errorData.details)) {
+          const missingVendorIds = errorData.details?.map(d => d.rfqProductId);
+          setErrorProducts(new Set(missingVendorIds));
+      
+          // toast.warning(
+          //   errorData.message || "Some products have no vendors.",
+          //   { position: "top-right", autoClose: 4000 }
+          // );
+        }
+
       console.error("Error saving draft:", error);
       setMainLoading(false);
       toast.error("Failed to save draft. Please try again.");
     }
   };
+
+//   useEffect(()=>{
+
+//         console.log(" ->>>>>>>>>>>>> ", errorProducts )
+// alert(" => >>>>>>>>>>>>> "+ Array.from( errorProducts ) )
+//   },[errorProducts])
 
   const loadDraft = async (id, sheet_id = queryMeta.sheet_id) => {
     dispatch(setStoreLoading(true));
@@ -2006,6 +2039,7 @@ useEffect(() => {
                               }
                               // Header
                               header={generateDynamicFilter}
+                              hasVendorError={errorProducts.has(product.id)}
                             />
                           );
                         })}

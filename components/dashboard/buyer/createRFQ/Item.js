@@ -44,6 +44,7 @@ const Item = ({
   // Behavioural Html injection props
   header,
   footer,
+  hasVendorError,
 }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
@@ -383,8 +384,62 @@ const Item = ({
     >
       <Accordion.Header>
         {/* start: Accrodian header */}
-        <div className="d-flex justify-content-between w-100 align-items-center">
+      <div
+        className="d-flex justify-content-between w-100 align-items-center"
+  //       style={{
+  //      backgroundColor: (() => {
+  //       // if vendors not loaded yet, fallback to rfqProduct.vendor_count
+  //       if (vendors?.length == 0) {
+  //         return rfqProduct?.vendor_count == 0 ? "#ffe6e6" : "transparent";
+  //       }
+      
+  //       // vendors are loaded -> calculate effective selected vendor count
+  //       const selectedVendorCount =
+  //         (vendors?.length || 0) +
+  //         ((updatableData?.vendors?.[data.id]?.addable?.length ?? 0) -
+  //           (updatableData?.vendors?.[data.id]?.deletable?.length ?? 0));
+      
+  //       return selectedVendorCount === 0 ? "#e6e6fe" : "transparent";
+  //     })(),
+  // }}
+>
+
+
+
+<div>
           <h2 className="h6 mb-0"> {rfqProduct?.name}</h2>
+
+    {(() => {
+        // ✅ same logic reused exactly for error condition
+        let isError = false;
+
+        if (vendors?.length == 0) {
+          isError = rfqProduct?.vendor_count == 0;
+        } else {
+          // Get current vendor IDs (after filtering)
+          const currentVendorIds = vendors?.map(v => v.user_id || v.id) || [];
+          // Only count deletable vendors that are still present in current vendors
+          const deletableVendors = (updatableData?.vendors?.[data.id]?.deletable ?? []).filter(
+            deletableId => currentVendorIds.includes(deletableId)
+          );
+          
+          const selectedVendorCount =
+            (vendors?.length || 0) +
+            ((updatableData?.vendors?.[data.id]?.addable?.length ?? 0) -
+              deletableVendors.length);
+          isError = selectedVendorCount === 0;
+        }
+
+        return (
+         (hasVendorError || isError) && (
+            <small className="text-danger fw-bold">
+              Select atleast one vendor
+            </small>
+          )
+        );
+      })()}
+
+    </div>
 
           {/* start: remove and add variant button container */}
           <div className="d-flex gap-3 mr-4 ">
@@ -415,8 +470,10 @@ const Item = ({
                 </>
               )}
             </button>
+            
             {/* end: remove button container */}
           </div>
+
           {/* end: remove and add variant button container */}
         </div>
         {/* end: Accrodian header */}
@@ -737,18 +794,31 @@ const Item = ({
                   Selected Vendors -{" "}
                   <strong>
                     {" "}
-                    {(vendors
-                      ? vendors.length == 0
-                        ? "0"
-                        : vendors.length
-                      : data.vendors?.length) +
-                      (updatableData
+                    {(() => {
+                      // Get base vendor count
+                      const baseVendorCount = vendors
+                        ? vendors.length == 0
+                          ? 0
+                          : vendors.length
+                        : data.vendors?.length || 0;
+                      
+                      // Get addable vendors count
+                      const addableCount = updatableData
                         ? updatableData.vendors?.[data.id]?.addable?.length ?? 0
-                        : 0) -
-                      (updatableData
-                        ? updatableData.vendors?.[data.id]?.deletable?.length ??
-                          0
-                        : 0)}
+                        : 0;
+                      
+                      // Get current vendor IDs (after filtering)
+                      const currentVendorIds = vendors?.map(v => v.user_id || v.id) || 
+                        (data.vendors?.map(v => v.user_id || v.id) || []);
+                      
+                      // Only count deletable vendors that are still present in current vendors
+                      const deletableVendors = (updatableData?.vendors?.[data.id]?.deletable ?? []).filter(
+                        deletableId => currentVendorIds.includes(deletableId)
+                      );
+                      
+                      const totalCount = baseVendorCount + addableCount - deletableVendors.length;
+                      return Math.max(0, totalCount); // Ensure non-negative
+                    })()}
                   </strong>{" "}
                 </span>
                 {!handleViewVendorInEdit ? (
