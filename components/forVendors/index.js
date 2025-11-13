@@ -245,9 +245,9 @@ const ForVendors = () => {
                   }}
                 >
                   <span style={{ fontSize: '1rem', marginRight: '0.4rem' }}>✨</span>
-                  <span>Premium Vendor Onboarding</span>
+                  <span> Vendor Onboarding</span>
                   <span style={{ textDecoration: 'line-through', opacity: 0.7, marginLeft: '0.4rem' }}>₹50,000</span>
-                  <span style={{ marginLeft: '0.2rem' }}>0 (Free)</span>
+                  <span style={{ marginLeft: '0.2rem' }}>(Free)</span>
                 </Button>
                 <p className="text-white mt-1.5 mb-0 text-start" style={{ fontSize: 'clamp(0.7rem, 1.3vw, 0.85rem)', opacity: 0.9 }}>
                   **offer valid till 31st Dec 25
