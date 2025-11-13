@@ -173,7 +173,7 @@ const StakeholderPage = () => {
         layout="centered"
         size="medium"
         textAlign="left"
-        primaryButton={{ id: 'book_a_call-hero-who_we_serve_stakeholder_page', label: data.hero.buttonLabel, variant: 'black', onClick: () => setShowBookCall(true) }}
+        primaryButton={{ id: `book_a_call-hero-who_we_serve_${pageIdSuffix}_page`, label: data.hero.buttonLabel, variant: 'black', onClick: () => setShowBookCall(true) }}
         showVisual={false}
       />
 

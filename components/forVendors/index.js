@@ -236,6 +236,7 @@ const ForVendors = () => {
               <div className="d-flex flex-column align-items-start">
                 <Button
                   onClick={handleStartSelling}
+                  id="vendor_onboarding-hero-for_vendors_page"
                   variant="primary"
                   size="lg"
                   className="rounded-3 px-4 py-3"
@@ -532,6 +533,7 @@ const ForVendors = () => {
             {/* CTA */}
             <div className="text-center">
               <Button
+                id="talk_to_vendor_team-why_choose-for_vendors_page"
                 onClick={handleTalkToVendorTeam}
                 variant="primary"
                 size="lg"
@@ -596,6 +598,7 @@ const ForVendors = () => {
                          {/* CTA */}
              <div className="text-center">
                <Button 
+               id="create_supplier_account-video-for_vendors_page"
                  onClick={() => setShowRegistrationModal(true)}
                  className="btn-secondary fw-bold text-white px-4 py-2 w-auto"
                >
@@ -709,12 +712,14 @@ const ForVendors = () => {
           title={vendorPageData.finalCta.title}
           description={vendorPageData.finalCta.subtitle}
           primaryButton={{
+            id: "join_now-final_cta-for_vendors_page",
             label: "Join Now",
             variant: "white",
             icon: "rocket",
             onClick: handleJoinNow
           }}
           secondaryButton={{
+            id: "talk_to_vendor_team-final_cta-for_vendors_page",
             label: "Talk to Vendor Success Team",
             variant: "outline-white",
             icon: "phone",
@@ -742,6 +747,7 @@ const ForVendors = () => {
                   <div key={categoryIndex} className="mb-4">
                     {/* Category Header as dropdown trigger */}
                     <button
+                      id={`toggle_faq_category_${categoryIndex}-faq-for_vendors_page`}
                       className="w-100 bg-transparent border-0 p-0 text-start"
                       onClick={() => setOpenCategoryIndex(openCategoryIndex === categoryIndex ? null : categoryIndex)}
                       aria-expanded={openCategoryIndex === categoryIndex}
