@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { Inter } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRocket, faPhone, faWrench, faShield, faClock, faEye, faUsers, faBuilding, faCheckCircle, faExclamationTriangle, faMoneyBill, faPlay, faCheck, faTimes, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faRocket, faPhone, faWrench, faShield, faClock, faEye, faUsers, faBuilding, faCheckCircle, faExclamationTriangle, faMoneyBill, faPlay, faCheck, faTimes, faChevronDown, faChevronUp, faStar } from '@fortawesome/free-solid-svg-icons';
 import { faCirclePlay } from '@fortawesome/free-regular-svg-icons';
 import Slider from 'react-slick';
 import { useEffect, useRef, useState } from 'react';
@@ -230,14 +230,31 @@ const ForVendors = () => {
           subtitle={vendorPageData.hero.subtitle}
           valueProps={vendorPageData.hero.valueProps}
           primaryButton={{
-            ...vendorPageData.hero.primaryButton,
-            id: "primary_cta-hero-for_vendors_page",
-            onClick: handleStartSelling
-          }}
-          secondaryButton={{
-            ...vendorPageData.hero.secondaryButton,
-            id: "talk_to_vendor_team-hero-for_vendors_page",
-            onClick: handleTalkToVendorTeam
+            custom: true,
+            onClick: handleStartSelling,
+            component: (
+              <div className="d-flex flex-column align-items-start">
+                <Button
+                  onClick={handleStartSelling}
+                  id="vendor_onboarding-hero-for_vendors_page"
+                  variant="primary"
+                  size="lg"
+                  className="rounded-3 px-4 py-3"
+                  style={{
+                    fontSize: 'clamp(0.75rem, 1.5vw, 0.9rem)',
+                    borderRadius: '12px'
+                  }}
+                >
+                  <span style={{ fontSize: '1rem', marginRight: '0.4rem' }}>✨</span>
+                  <span> Vendor Onboarding</span>
+                  <span style={{ textDecoration: 'line-through', opacity: 0.7, marginLeft: '0.4rem' }}>₹50,000</span>
+                  <span style={{ marginLeft: '0.2rem' }}>(Free)</span>
+                </Button>
+                <p className="text-white mt-1.5 mb-0 text-start" style={{ fontSize: 'clamp(0.7rem, 1.3vw, 0.85rem)', opacity: 0.9 }}>
+                  **offer valid till 31st Dec 25
+                </p>
+              </div>
+            )
           }}
           visualContent={{
             video: (
