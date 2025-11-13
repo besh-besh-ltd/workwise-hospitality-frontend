@@ -107,7 +107,13 @@ export default function Home() {
 
   const handleExploreVendorTools = () => {};
 
-  const handleVendorSupport = () => {
+const sanitizeForId = (value) =>
+  String(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+const handleVendorSupport = () => {
     // Redirect to contact us page
     window.location.href = '/contactus';
   };
@@ -601,6 +607,12 @@ export default function Home() {
                    bg: module.iconColor || '#0EA5E9',
                    icon: module.iconColor || '#0EA5E9'
                  };
+
+              const moduleIdFragment =
+                module.link?.split('/').filter(Boolean).pop() ||
+                sanitizeForId(module.title) ||
+                `module-${index}`;
+              const learnMoreId = `learn_more_${moduleIdFragment}-modular_offerings`;
                  
                  return (
                    <div key={index} className="col-lg-6">
@@ -678,8 +690,25 @@ export default function Home() {
                        {/* Learn More Link */}
                        <div className="mt-auto">
                          <span 
+                          id={learnMoreId}
                            className="text-decoration-none fw-bold d-inline-flex align-items-center"
                            style={{ color: colors.icon }}
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (module.link) {
+                              window.location.href = module.link;
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              if (module.link) {
+                                window.location.href = module.link;
+                              }
+                            }
+                          }}
                          >
                            Learn more →
                          </span>
@@ -1455,7 +1484,7 @@ export default function Home() {
                 <iframe
                   width="100%"
                   height="500px"
-                  src={"https://www.youtube.com/embed/hGLXaqCF5fc?autoplay=1"}
+                  src={"https://www.youtube.com/embed/pLJam-SULh4?autoplay=1"}
                   title="YouTube Video"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen

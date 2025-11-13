@@ -53,6 +53,12 @@ const ComparisonTable = ({ rows }) => (
   </div>
 );
 
+const sanitizeForId = (value) =>
+  String(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
 const StakeholderPage = () => {
   const router = useRouter();
   const { stakeholder } = router.query;
@@ -66,6 +72,8 @@ const StakeholderPage = () => {
     }
   }, [router, router.isReady, stakeholder]);
   const data = stakeholdersPageData[key] || stakeholdersPageData['epcs'];
+  const stakeholderSlug = sanitizeForId(typeof stakeholder === 'string' ? stakeholder : key);
+  const pageIdSuffix = stakeholderSlug || 'stakeholder';
 
   const AnimatedCounter = ({ targetValue, suffix = '', duration = 1500 }) => {
     const [value, setValue] = React.useState(0);
@@ -589,6 +597,7 @@ const StakeholderPage = () => {
             
             <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center mb-4">
               <Button 
+                id={`book_a_demo-video-who_we_serve_${pageIdSuffix}_page`}
                 variant="white" 
                 size="lg"
                 onClick={() => setShowRegister(true)}
@@ -596,6 +605,7 @@ const StakeholderPage = () => {
                 Book a Demo
               </Button>
               <Button 
+                id={`lets_talk-video-who_we_serve_${pageIdSuffix}_page`}
                 className="text-white border-white" 
                 variant="outline-white" 
                 size="lg"

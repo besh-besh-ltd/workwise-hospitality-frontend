@@ -507,6 +507,7 @@ const CareersPage = () => {
                               </div>
 
                               <button
+                                id="submit_application-careers_page"
                                 type="submit"
                                 className="btn btn-secondary"
                               >

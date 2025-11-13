@@ -80,6 +80,19 @@ const ModulePage = () => {
     return null;
   }
 
+  const sanitizeForId = (value) =>
+    String(value ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
+  const moduleSlug = sanitizeForId(currentModule);
+  const heroPrimaryId = `primary_cta_${moduleSlug}-hero-modules_page`;
+  const heroSecondaryId = `book_a_call_${moduleSlug}-hero-modules_page`;
+  const finalPrimaryId = `primary_cta_${moduleSlug}-final_cta-modules_page`;
+  const finalSecondaryId = `book_a_call_${moduleSlug}-final_cta-modules_page`;
+  const stickyPrimaryId = `primary_cta_${moduleSlug}-sticky_footer-modules_page`;
+
   // Icon mapping for different modules
   const getFeatureIcons = (moduleType) => {
     const iconMap = {
@@ -235,12 +248,12 @@ const ModulePage = () => {
         layout="centered"
         primaryButton={{
           ...moduleData.hero.primaryButton,
-          id: "primary_cta-hero-modules_page",
+          id: heroPrimaryId,
           onClick: handlePrimaryAction
         }}
         secondaryButton={{
           ...moduleData.hero.secondaryButton,
-          id: "book_a_call-hero-modules_page",
+          id: heroSecondaryId,
           onClick: handleSecondaryAction
         }}
         visualContent={{
@@ -363,12 +376,12 @@ const ModulePage = () => {
         icon={(props) => <FontAwesomeIcon icon={faCircleQuestion} {...props} />}
         primaryButton={{
           ...moduleData.finalCta.primaryButton,
-          id: "primary_cta-final_cta-modules_page",
+          id: finalPrimaryId,
           onClick: handlePrimaryAction
         }}
         secondaryButton={{
           ...moduleData.finalCta.secondaryButton,
-          id: "book_a_call-final_cta-modules_page",
+          id: finalSecondaryId,
           onClick: handleSecondaryAction
         }}
       />
@@ -381,7 +394,7 @@ const ModulePage = () => {
             variant={moduleData.hero.primaryButton.variant || 'primary'}
             icon={moduleData.hero.primaryButton.icon || 'none'}
             onClick={handlePrimaryAction}
-            id="primary_cta-sticky_footer-modules_page"
+            id={stickyPrimaryId}
           />
         </div>
       </div>
