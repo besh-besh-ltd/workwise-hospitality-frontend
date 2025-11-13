@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { Inter } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRocket, faPhone, faWrench, faShield, faClock, faEye, faUsers, faBuilding, faCheckCircle, faExclamationTriangle, faMoneyBill, faPlay, faCheck, faTimes, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faRocket, faPhone, faWrench, faShield, faClock, faEye, faUsers, faBuilding, faCheckCircle, faExclamationTriangle, faMoneyBill, faPlay, faCheck, faTimes, faChevronDown, faChevronUp, faStar } from '@fortawesome/free-solid-svg-icons';
 import { faCirclePlay } from '@fortawesome/free-regular-svg-icons';
 import Slider from 'react-slick';
 import { useEffect, useRef, useState } from 'react';
@@ -230,12 +230,47 @@ const ForVendors = () => {
           subtitle={vendorPageData.hero.subtitle}
           valueProps={vendorPageData.hero.valueProps}
           primaryButton={{
-            ...vendorPageData.hero.primaryButton,
-            onClick: handleStartSelling
-          }}
-          secondaryButton={{
-            ...vendorPageData.hero.secondaryButton,
-            onClick: handleTalkToVendorTeam
+            custom: true,
+            onClick: handleStartSelling,
+            component: (
+              <div className="d-flex flex-column align-items-start">
+                <button
+                  onClick={handleStartSelling}
+                  className="btn px-5 py-4 fw-bold text-white d-flex align-items-center gap-2"
+                  style={{
+                    background: '#8B5CF6',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: 'clamp(0.75rem, 1.5vw, 0.9rem)',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    whiteSpace: 'nowrap',
+                    overflow: 'visible',
+                    minWidth: 'fit-content',
+                    width: 'auto',
+                    padding: 'clamp(0.875rem 1.5rem, 1.25rem 2rem, 1.5rem 2.5rem)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#7C3AED';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#8B5CF6';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>✨</span>
+                  <span>Premium Vendor Onboarding</span>
+                  <span style={{ textDecoration: 'line-through', opacity: 0.7, marginLeft: '0.5rem' }}>₹50,000</span>
+                  <span style={{ marginLeft: '0.25rem' }}>0 (Free)</span>
+                </button>
+                <p className="text-white mt-2 mb-0 text-start" style={{ fontSize: 'clamp(0.7rem, 1.3vw, 0.85rem)', opacity: 0.9 }}>
+                  **offer valid till 31st Dec 25
+                </p>
+              </div>
+            )
           }}
           visualContent={{
             video: (

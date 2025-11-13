@@ -98,16 +98,20 @@ const HeroSection = React.forwardRef(({
                 {/* CTA Buttons */}
                 <div className={`d-flex flex-column flex-sm-row gap-3 ${textAlign === 'center' ? 'justify-content-center' : textAlign === 'right' ? 'justify-content-end' : 'justify-content-start'}`}>
                   {primaryButton && (
-                    <Button
-                      id={primaryButton.id}
-                      label={primaryButton.label}
-                      variant={primaryButton.variant || "black"}
-                      icon={primaryButton.icon || "none"}
-                      size="md"
-                      onClick={primaryButton.onClick}
-                    />
+                    primaryButton.custom ? (
+                      primaryButton.component
+                    ) : (
+                      <Button
+                        id={primaryButton.id}
+                        label={primaryButton.label}
+                        variant={primaryButton.variant || "black"}
+                        icon={primaryButton.icon || "none"}
+                        size="md"
+                        onClick={primaryButton.onClick}
+                      />
+                    )
                   )}
-                  {secondaryButton && (
+                  {secondaryButton && !primaryButton?.custom && (
                     <Button
                       id={secondaryButton.id}
                       label={secondaryButton.label}
@@ -199,17 +203,21 @@ const HeroSection = React.forwardRef(({
               {/* CTA Buttons */}
               <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center">
                 {primaryButton && (
-                  <Button
-                    id={primaryButton.id}
-                    label={primaryButton.label}
-                    variant={primaryButton.variant || "black"}
-                    icon={primaryButton.icon || "none"}
-                    size="lg"
-                    onClick={primaryButton.onClick}
-                    classname="w-auto"
-                  />
+                  primaryButton.custom ? (
+                    primaryButton.component
+                  ) : (
+                    <Button
+                      id={primaryButton.id}
+                      label={primaryButton.label}
+                      variant={primaryButton.variant || "black"}
+                      icon={primaryButton.icon || "none"}
+                      size="lg"
+                      onClick={primaryButton.onClick}
+                      classname="w-auto"
+                    />
+                  )
                 )}
-                {secondaryButton && (
+                {secondaryButton && !primaryButton?.custom && (
                   <Button
                     id={secondaryButton.id}
                     label={secondaryButton.label}
@@ -270,17 +278,21 @@ const HeroSection = React.forwardRef(({
                 {/* CTA Buttons */}
                 <div className={`d-flex flex-column flex-sm-row gap-3 ${textAlign === 'center' ? 'justify-content-center' : textAlign === 'right' ? 'justify-content-end' : 'justify-content-start'}`}>
                   {primaryButton && (
-                    <Button
-                      id={primaryButton.id}
-                      label={primaryButton.label}
-                      variant={primaryButton.variant || "black"}
-                      icon={primaryButton.icon || "none"}
-                      size="lg"
-                      onClick={primaryButton.onClick}
-                      classname="w-auto"
-                    />
+                    primaryButton.custom ? (
+                      primaryButton.component
+                    ) : (
+                      <Button
+                        id={primaryButton.id}
+                        label={primaryButton.label}
+                        variant={primaryButton.variant || "black"}
+                        icon={primaryButton.icon || "none"}
+                        size="lg"
+                        onClick={primaryButton.onClick}
+                        classname="w-auto"
+                      />
+                    )
                   )}
-                  {secondaryButton && (
+                  {secondaryButton && !primaryButton?.custom && (
                     <Button
                       id={secondaryButton.id}
                       label={secondaryButton.label}
