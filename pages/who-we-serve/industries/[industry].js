@@ -13,7 +13,6 @@ import { TestimonialCard } from '@/components/ui/TestimonialCard';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { HeroSection } from '@/components/ui/HeroSection';
-import Layout from '@/components/layout';
 import ContactUsModal from '@/components/modal/contactUsModal';
 import { homepageData } from '@/components/constants/homepageData';
 
@@ -289,7 +288,7 @@ const IndustryDynamicPage = () => {
   const [showBookCall, setShowBookCall] = React.useState(false);
 
   return (
-    <Layout>
+    <>
       <HeroSection
         title={data.hero.title}
         subtitle={data.hero.description}
@@ -334,7 +333,7 @@ const IndustryDynamicPage = () => {
         fromType={'industry'}
         closeModal={() => setShowBookCall(false)}
       />
-    </Layout>
+    </>
   );
 };
 
