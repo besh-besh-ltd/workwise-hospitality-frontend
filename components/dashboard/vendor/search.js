@@ -742,12 +742,7 @@ const clearVendorFilters = () => {
   useEffect(() => {
     // Normalize slug which may be string or array
     const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
-    if (!slugStr || slugStr === 'all') {
-      // Clear location filters when slug is 'all' or empty
-      setselectedState([]);
-      setselectedCity([]);
-      return;
-    }
+    if (!slugStr || slugStr === 'all') return;
 
     // If location lists are not loaded yet, treat the entire slug as product search
     if (!stateList.length || !cityList.length) {
@@ -759,58 +754,21 @@ const clearVendorFilters = () => {
     const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
     const segments = slugStr.split('-');
     let foundState = null, foundCity = null, productSegments = [];
-    
-    // Try to match state and city by checking combinations of segments from the end
-    // URL format: product-city-state (e.g., flange-stainless-steel-ghaziabad-uttar-pradesh)
-    // So we check state first (last in URL), then city (second to last)
-    for (let endIdx = segments.length - 1; endIdx >= 0; endIdx--) {
-      // Try matching state with increasing number of segments (1, 2, 3, etc.)
-      // State comes after city in URL, so check it first
+    // Note: if country is desired via slug, we can extend similarly using countries list
+
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const segment = segments[i].toLowerCase();
       if (!foundState) {
-        for (let len = 1; len <= 3 && endIdx - len + 1 >= 0; len++) {
-          const stateSegments = segments.slice(endIdx - len + 1, endIdx + 1);
-          const stateSlug = stateSegments.join('-');
-          const stateMatch = stateList.find(state => normalize(state.state_name) === normalize(stateSlug));
-          if (stateMatch) {
-            foundState = stateMatch;
-            setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]);
-            endIdx = endIdx - len; // Skip the matched segments
-            break;
-          }
-        }
-        if (foundState) continue;
+        const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
+        if (stateMatch) { foundState = stateMatch; setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]); continue; }
       }
-      
-      // Try matching city with increasing number of segments (1, 2, 3, etc.)
-      // City comes before state in URL
       if (!foundCity) {
-        for (let len = 1; len <= 3 && endIdx - len + 1 >= 0; len++) {
-          const citySegments = segments.slice(endIdx - len + 1, endIdx + 1);
-          const citySlug = citySegments.join('-');
-          const cityMatch = cityList.find(city => normalize(city.city_name) === normalize(citySlug));
-          if (cityMatch) {
-            foundCity = cityMatch;
-            setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]);
-            endIdx = endIdx - len; // Skip the matched segments
-            break;
-          }
-        }
-        if (foundCity) continue;
+        const cityMatch = cityList.find(city => normalize(city.city_name) === segment);
+        if (cityMatch) { foundCity = cityMatch; setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]); continue; }
       }
-      
-      // If neither state nor city matched, this segment is part of the product name
-      productSegments.unshift(segments[endIdx]);
+      productSegments.unshift(segments[i]);
     }
-    
-    // Clear location filters if not found in URL
-    if (!foundState) {
-      setselectedState([]);
-    }
-    if (!foundCity) {
-      setselectedCity([]);
-    }
-    
-    const finalSearchKey = productSegments.join('-');
+    const finalSearchKey = productSegments.join('/');
     setSearch_key(finalSearchKey);
   }, [slug, stateList, cityList]);
 
