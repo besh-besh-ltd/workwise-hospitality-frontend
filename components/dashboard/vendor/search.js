@@ -307,6 +307,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     return cleanedString.replace(/\s+/g, '-');
   }
 
+  // Helper function to remove -category{number} from display (but keep in URL)
+  const removeCategorySuffix = (str) => {
+    if (!str) return str;
+    return str.replace(/-category\d+$/i, '');
+  }
+
  
 
   const canAddItem = () => {
@@ -741,18 +747,21 @@ const clearVendorFilters = () => {
   // --- Parse slug only ONCE when slug or lists are ready ---
   useEffect(() => {
     // Normalize slug which may be string or array
-    const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
+    let slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
     if (!slugStr || slugStr === 'all') return;
+
+    // Remove -category{number} from slug before parsing (keep it in URL but not in parsing/display)
+    const slugForParsing = removeCategorySuffix(slugStr);
 
     // If location lists are not loaded yet, treat the entire slug as product search
     if (!stateList.length || !cityList.length) {
-      setSearch_key(slugStr);
+      setSearch_key(slugForParsing);
       return;
     }
 
     // Support no-space location slugs: convert names by removing spaces and lowercasing
     const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
-    const segments = slugStr.split('-');
+    const segments = slugForParsing.split('-');
     let foundState = null, foundCity = null, productSegments = [];
     // Note: if country is desired via slug, we can extend similarly using countries list
 
@@ -1574,7 +1583,7 @@ useEffect(() => {
                       <h2 className="fs-5">
                         Available Vendors for{" "}
                         <span style={{ fontWeight: "500" }}>
-                          {textCapitalize(search_key)}
+                          {textCapitalize(removeCategorySuffix(search_key))}
                         </span>
                       </h2>
                     )}
@@ -1774,12 +1783,12 @@ useEffect(() => {
         });
 
         if (uniqueCities.length > 0 && (currentSelectedProduct || (search_key && slug && String(slug).includes('-category')))) {
-          const productSlug = currentSelectedProduct?.slug || cleanAndAddHyphen(search_key);
+          const productSlug = currentSelectedProduct?.slug || cleanAndAddHyphen(removeCategorySuffix(search_key));
           
           return (
             <div className="container my-4">
               <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
-                {currentSelectedProduct ? `${getProductTitle()} Vendors by City` : `${textCapitalize(search_key)} Vendors by City`}
+                {currentSelectedProduct ? `${getProductTitle()} Vendors by City` : `${textCapitalize(removeCategorySuffix(search_key))} Vendors by City`}
               </h3>
               <div className="row">
                 {uniqueCities.map((city, index) => {
