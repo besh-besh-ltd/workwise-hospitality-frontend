@@ -318,7 +318,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
         <div>
           <h3 className="mb-1">Purchase Order #{po_number}</h3>
           <div className="text-muted">
-            Initiated by: <strong>{initiated_by_name}</strong> on{" "}
+            Initiated by: <strong>{initiated_by_name || "-"}</strong> on{" "}
             <strong>{formatIST(created_at)}</strong>
           </div>
         </div>
@@ -394,7 +394,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                   label="Created At"
                   value={formatIST(created_at)}
                 />
-                <PODetailItem label="Initiated By" value={initiated_by_name} />
+                <PODetailItem label="Initiated By" value={initiated_by_name ?? "-"} />
                 <PODetailItem
                   label="Status"
                   value={status.replace("_", " ").toUpperCase()}

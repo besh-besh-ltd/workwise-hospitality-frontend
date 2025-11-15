@@ -165,7 +165,8 @@ const PurchaseOrders = () => {
       }
     } catch (error) {
       console.error(error);
-      toast.error(error.message ?? 'Something went wrong while making a decision, please try again!')
+      const message = error?.response?.data?.message || error.message || 'Something went wrong while making a decision, please try again!'
+      toast.error(message)
     } finally {
       setloading(false);
       setInitiatePOModal({

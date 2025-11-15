@@ -373,7 +373,7 @@ const POListing = ({
                       </td>
                       <td>{po.quantity}</td>
                       <td>₹ {addCommasToNumber(po.total_value)}</td>
-                      <td>{po.initiated_by}</td>
+                      <td>{po.initiated_by ?? "-"}</td>
                       <td>{formatISTDate(po.created_at)}</td>
                       <td>
                         {isPending && isCurrentApprover ? (
