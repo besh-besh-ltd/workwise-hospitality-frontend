@@ -52,6 +52,23 @@ const DynamicCard = ({
   ...props
 }) => {
   
+  // Helpers
+  const sanitizeForId = (value) =>
+    String(value ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
+  const defaultCardIdFragment = sanitizeForId(typeof title === 'string' ? title : type);
+
+  const buildActionId = (action, prefix) => {
+    if (!action) return undefined;
+    if (action.id) return action.id;
+    const labelFragment = sanitizeForId(action.label);
+    const base = labelFragment || defaultCardIdFragment || 'dynamic-card';
+    return `${prefix}-${base}`;
+  };
+
   // Size configurations
   const sizeConfig = {
     small: {
@@ -300,10 +317,14 @@ const DynamicCard = ({
   const renderActions = () => {
     if (!primaryAction && !secondaryAction) return null;
 
+    const primaryActionId = buildActionId(primaryAction, 'primary_action');
+    const secondaryActionId = buildActionId(secondaryAction, 'secondary_action');
+
     return (
       <div className="d-flex align-items-center justify-content-between">
         {primaryAction && (
           <button
+            id={primaryActionId}
             className="btn w-100"
             onClick={onPrimaryAction}
             style={{
@@ -340,6 +361,7 @@ const DynamicCard = ({
         
         {secondaryAction && (
           <button
+            id={secondaryActionId}
             className="btn btn-link p-0"
             onClick={onSecondaryAction}
             style={{

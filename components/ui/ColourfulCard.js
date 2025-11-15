@@ -32,9 +32,19 @@ const ColourfulCard = ({
   iconColor,
   note,
   buttonStyle,
+  buttonId,
   url,
   onClick
 }) => {
+  const sanitizeForId = (value) =>
+    String(value ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
+  const derivedButtonId =
+    buttonId || `try_now_${sanitizeForId(title)}-colourful_card`;
+
   // Icon mapping
   const getIcon = (iconName) => {
     const iconMap = {
@@ -123,6 +133,7 @@ const ColourfulCard = ({
         {/* Button - show only on desktop; on mobile, whole card is clickable */}
         <div className="d-none d-lg-block">
           <Button
+            id={derivedButtonId}
             variant={buttonVariant}
             className="w-100 py-2 fw-semibold rounded-3 text-white"
             style={{
@@ -149,11 +160,20 @@ const ColourfulCard = ({
           {/* Learn More Link */}
           <div className="text-center">
             <span 
+              id={`${derivedButtonId}_mobile`}
               className="text-decoration-none fw-bold d-inline-flex align-items-center small"
               style={{ color: iconColor || '#007bff', fontSize: '16px' }}
               onClick={(e) => {
                 e.stopPropagation();
                 handleClick();
+              }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleClick();
+                }
               }}
             >
               Try Now →

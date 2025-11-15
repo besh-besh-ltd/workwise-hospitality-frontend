@@ -183,6 +183,7 @@ const TrustSecurity = () => {
         size="medium"
         showVisual={true}
         primaryButton={{
+          id: "schedule_demo-hero-trust_security_page",
           label: trustSecurityData.hero.buttonLabel,
           variant: "black",
           onClick: () => console.log('Schedule Demo clicked')

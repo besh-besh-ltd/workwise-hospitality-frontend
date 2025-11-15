@@ -136,11 +136,13 @@ const CareersPage = () => {
           title={careersData.hero.title}
           subtitle={careersData.hero.subtitle}
           primaryButton={{
+            id: "view_open_positions-hero-careers_page",
             label: "View Open Positions",
             variant: "white",
             onClick: () => document.getElementById('open-positions')?.scrollIntoView({ behavior: 'smooth' })
           }}
           secondaryButton={{
+            id: "learn_about_culture-hero-careers_page",
             label: "Learn About Culture",
             variant: "outline-white",
             onClick: () => document.getElementById('company-culture')?.scrollIntoView({ behavior: 'smooth' })
@@ -507,6 +509,7 @@ const CareersPage = () => {
                               </div>
 
                               <button
+                                id="submit_application-careers_page"
                                 type="submit"
                                 className="btn btn-secondary"
                               >

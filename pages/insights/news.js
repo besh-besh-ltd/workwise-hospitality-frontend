@@ -70,6 +70,7 @@ const NewsPage = () => {
                   category={article.category}
                   image={article.image}
                   secondaryAction={{
+                    id: `view_article_${article.id}-featured_insights_news_page`,
                     label: "View",
                     color: "var(--orange-color)",
                     showArrow: false

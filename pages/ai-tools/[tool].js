@@ -31,6 +31,16 @@ import { homepageData } from '@/components/constants/homepageData';
 const AiToolPage = () => {
   const router = useRouter();
   const { tool } = router.query;
+  
+  const sanitizeForId = (value) =>
+    String(value ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  
+  const toolSlug = typeof tool === 'string' ? sanitizeForId(tool) : 'ai-tool';
+  const pageIdSuffix = `${toolSlug}_ai_tools_page`;
+  
   const [mounted, setMounted] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -370,11 +380,13 @@ const AiToolPage = () => {
             size="large"
             showVisual={false}
             primaryButton={{
+              id: `try_for_free-hero-${pageIdSuffix}`,
               label: toolData.hero.primaryButton.label,
               variant: "black",
               onClick: () => uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
             }}
             secondaryButton={{
+              id: `watch_demo-hero-${pageIdSuffix}`,
               label: "Watch Demo",
               variant: "white",
               onClick: handleWatchDemo
@@ -492,6 +504,7 @@ const AiToolPage = () => {
 
                   <div className="text-center">
                     <button
+                      id={`upload_file-upload_section-${pageIdSuffix}`}
                       onClick={handleUpload}
                       className="btn btn-primary px-5 py-3 fw-medium"
                       style={{ minWidth: "300px" }}
@@ -596,7 +609,11 @@ const AiToolPage = () => {
                     <span>Generate accurate cost estimates in minutes</span>
                   </li>
                 </ul>
-                <button className="btn btn-primary" onClick={handleWatchDemo}>
+                <button 
+                  id={`watch_demo-see_in_action-${pageIdSuffix}`}
+                  className="btn btn-primary" 
+                  onClick={handleWatchDemo}
+                >
                   <FontAwesomeIcon icon={faPlay} className="me-2" /> Watch Demo
                 </button>
               </div>
@@ -733,6 +750,7 @@ const AiToolPage = () => {
                     Your file has been uploaded and is being processed. You will receive an email with the results once processing is complete.
                   </p>
                   <button
+                    id={`got_it-success_modal-${pageIdSuffix}`}
                     onClick={() => setShowSuccessModal(false)}
                     className="btn btn-primary px-4 py-2"
                   >
@@ -772,6 +790,7 @@ const AiToolPage = () => {
                   
                   <div className="d-flex justify-content-center gap-3 flex-wrap">
                     <button
+                      id={`download_output-output_view-${pageIdSuffix}`}
                       onClick={handleDownload}
                       className="btn btn-outline-primary px-4 py-2"
                     >
@@ -779,6 +798,7 @@ const AiToolPage = () => {
                       {toolData.outputView.downloadText}
                     </button>
                     <button
+                      id={`book_call-output_view-${pageIdSuffix}`}
                       onClick={handleBookCall}
                       className="btn btn-primary px-4 py-2"
                     >
@@ -814,6 +834,7 @@ const AiToolPage = () => {
               </>
             }
             primaryButton={{
+              id: `try_for_free-final_cta-${pageIdSuffix}`,
               label: "Try for Free",
               variant: "white",
               onClick: handleTryForFree,
@@ -821,6 +842,7 @@ const AiToolPage = () => {
               style: { minWidth: '200px' }
             }}
             secondaryButton={{
+              id: `book_demo-final_cta-${pageIdSuffix}`,
               label: "Book a Demo",
               variant: "outline",
               onClick: handleBookDemo,
@@ -1167,6 +1189,7 @@ const AiToolPage = () => {
               </div>
               <div className="modal-footer border-0">
                 <button
+                  id={`close_modal-technical_summary-${pageIdSuffix}`}
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => setShowTechnicalSummaryModal(false)}
@@ -1174,6 +1197,7 @@ const AiToolPage = () => {
                   Close
                 </button>
                 <button
+                  id={`download_excel-technical_summary-${pageIdSuffix}`}
                   type="button"
                   className="btn btn-primary"
                   onClick={() => {

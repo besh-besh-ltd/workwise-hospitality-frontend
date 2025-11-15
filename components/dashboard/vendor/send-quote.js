@@ -1530,7 +1530,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                             )}
 
                             {/* Global Comment moved here */}
-                            <h3 className="fs-6 fw-semibold mb-2">
+                            {/* <h3 className="fs-6 fw-semibold mb-2">
                               Global Comment
                             </h3>
                             <textarea
@@ -1539,13 +1539,13 @@ return { deletedTerms, createdTerms, updatedTerms };
                               value={globalComment}
                               placeholder="Placeholder text for global comment"
                               onChange={(e) => setglobalComment(e.target.value)}
-                            />
+                            /> */}
                           </div>
                         </div>
                       </div>
 
                       {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
-                      <div className="col-lg-4 col-12 d-flex">
+                      <div className="col-lg-3 col-12 d-flex">
                         <div className="card border shadow-sm rounded-3 w-100 h-100">
                           <div className="card-body d-flex flex-column">
                           
@@ -1576,7 +1576,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                       </div>
 
                       {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
-                      <div className="col-lg-4 col-12">
+                      <div className="col-lg-5 col-12">
                         <div className="border rounded-3 p-3 pb-2 mb-3" >
                           <div className="d-flex align-items-center justify-content-between mb-2">
                             <div className="d-flex flex-column gap-2 w-100">

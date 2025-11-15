@@ -154,6 +154,7 @@ const SuccessStoriesPage = () => {
         title={successStoriesData.cta.title}
         primaryButton={{
           ...successStoriesData.cta.primaryButton,
+          id: "book_a_call-final_cta-why_workwise_success_stories_page",
           onClick: handleBookCall
         }}
       />
@@ -286,10 +287,11 @@ const SuccessStoryCard = ({ story, onReadMore }) => {
 
           {/* Read More Button */}
           <button
+            id={`read_more_${story.id}-story_card-why_workwise_success_stories_page`}
             className="btn btn-secondary w-100"
             onClick={onReadMore}
-            style={{ 
-              backgroundColor: 'var(--muted-text)', 
+            style={{
+              backgroundColor: 'var(--muted-text)',
               borderColor: 'var(--muted-text)',
               color: 'white',
               transition: 'none',

@@ -62,6 +62,7 @@ const OurStoryPage = () => {
         layout="centered"
         size="medium"
         primaryButton={{
+          id: "meet_people_hero-our_story_page",
           label: ourStoryData.hero.ctaButton.label,
           variant: "white",
           icon: "none",
@@ -284,6 +285,7 @@ const OurStoryPage = () => {
         title={ourStoryData.finalCta.title}
         description={ourStoryData.finalCta.subtitle}
         primaryButton={{
+          id: "book_a_call-final_cta-our_story_page",
           ...ourStoryData.finalCta.button,
           onClick: handleBookCall
         }}

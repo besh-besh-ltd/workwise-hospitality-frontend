@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { Inter } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRocket, faPhone, faWrench, faShield, faClock, faEye, faUsers, faBuilding, faCheckCircle, faExclamationTriangle, faMoneyBill, faPlay, faCheck, faTimes, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faRocket, faPhone, faWrench, faShield, faClock, faEye, faUsers, faBuilding, faCheckCircle, faExclamationTriangle, faMoneyBill, faPlay, faCheck, faTimes, faChevronDown, faChevronUp, faStar } from '@fortawesome/free-solid-svg-icons';
 import { faCirclePlay } from '@fortawesome/free-regular-svg-icons';
 import Slider from 'react-slick';
 import { useEffect, useRef, useState } from 'react';
@@ -230,12 +230,31 @@ const ForVendors = () => {
           subtitle={vendorPageData.hero.subtitle}
           valueProps={vendorPageData.hero.valueProps}
           primaryButton={{
-            ...vendorPageData.hero.primaryButton,
-            onClick: handleStartSelling
-          }}
-          secondaryButton={{
-            ...vendorPageData.hero.secondaryButton,
-            onClick: handleTalkToVendorTeam
+            custom: true,
+            onClick: handleStartSelling,
+            component: (
+              <div className="d-flex flex-column align-items-start">
+                <Button
+                  onClick={handleStartSelling}
+                  id="vendor_onboarding-hero-for_vendors_page"
+                  variant="primary"
+                  size="lg"
+                  className="rounded-3 px-4 py-3"
+                  style={{
+                    fontSize: 'clamp(0.75rem, 1.5vw, 0.9rem)',
+                    borderRadius: '12px'
+                  }}
+                >
+                  <span style={{ fontSize: '1rem', marginRight: '0.4rem' }}>✨</span>
+                  <span> Vendor Onboarding</span>
+                  <span style={{ textDecoration: 'line-through', opacity: 0.7, marginLeft: '0.4rem' }}>₹50,000</span>
+                  <span style={{ marginLeft: '0.2rem' }}>(Free)</span>
+                </Button>
+                <p className="text-white mt-1.5 mb-0 text-start" style={{ fontSize: 'clamp(0.7rem, 1.3vw, 0.85rem)', opacity: 0.9 }}>
+                  **offer valid till 31st Dec 25
+                </p>
+              </div>
+            )
           }}
           visualContent={{
             video: (
@@ -514,6 +533,7 @@ const ForVendors = () => {
             {/* CTA */}
             <div className="text-center">
               <Button
+                id="talk_to_vendor_team-why_choose-for_vendors_page"
                 onClick={handleTalkToVendorTeam}
                 variant="primary"
                 size="lg"
@@ -578,6 +598,7 @@ const ForVendors = () => {
                          {/* CTA */}
              <div className="text-center">
                <Button 
+               id="create_supplier_account-video-for_vendors_page"
                  onClick={() => setShowRegistrationModal(true)}
                  className="btn-secondary fw-bold text-white px-4 py-2 w-auto"
                >
@@ -691,12 +712,14 @@ const ForVendors = () => {
           title={vendorPageData.finalCta.title}
           description={vendorPageData.finalCta.subtitle}
           primaryButton={{
+            id: "join_now-final_cta-for_vendors_page",
             label: "Join Now",
             variant: "white",
             icon: "rocket",
             onClick: handleJoinNow
           }}
           secondaryButton={{
+            id: "talk_to_vendor_team-final_cta-for_vendors_page",
             label: "Talk to Vendor Success Team",
             variant: "outline-white",
             icon: "phone",
@@ -724,6 +747,7 @@ const ForVendors = () => {
                   <div key={categoryIndex} className="mb-4">
                     {/* Category Header as dropdown trigger */}
                     <button
+                      id={`toggle_faq_category_${categoryIndex}-faq-for_vendors_page`}
                       className="w-100 bg-transparent border-0 p-0 text-start"
                       onClick={() => setOpenCategoryIndex(openCategoryIndex === categoryIndex ? null : categoryIndex)}
                       aria-expanded={openCategoryIndex === categoryIndex}

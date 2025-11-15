@@ -226,6 +226,7 @@ const EventsPage = () => {
                   participationTypes={event.participationTypes}
                   image={event.image}
                   primaryAction={{
+                    id: `register_interest_${event.id}-insights_events_page`,
                     label: "Register Your Interest",
                     variant: "default"
                   }}
@@ -314,7 +315,7 @@ const EventsPage = () => {
                 {eventsData.finalCta.subtitle}
               </p>
               <button
-                id="get_updates-final_cta-insights_events_page"
+                id="register_interest-final_cta-insights_events_page"
                 className="btn btn-light px-4 py-2 fw-semibold"
                 onClick={handleGetUpdates}
                 style={{
