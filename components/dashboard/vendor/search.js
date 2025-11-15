@@ -226,12 +226,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     ? slug
     : '';
 
-  // Prevent vendor search when slug is 'all' or it's a category/product
-  if (
-    !slugStr || 
-    slugStr === 'all' || 
-    slugStr.includes('-category') // 👈 this blocks vendor fetch for category/product
-  ) {
+  // Prevent vendor search when slug is 'all'
+  if (!slugStr || slugStr === 'all') {
     setcurrentSelectedProduct(null);
     setVendors([]);
     setApproved_by([]);
@@ -239,10 +235,32 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     return;
   }
 
-  // ✅ Only for variant slugs → fetch vendors
-  getVendorApprovedby();
-  getVendors();
-  setShowBrowser(false);
+  // ✅ For variant slugs (no -category) → fetch vendors and hide browser
+  if (!slugStr.includes('-category')) {
+    getVendorApprovedby();
+    getVendors();
+    setShowBrowser(false);
+    return;
+  }
+
+  // ✅ For product-level categories (with -category and search_key set) → fetch vendors but keep browser visible
+  // The NestedCategoryBrowser will set search_key when type is 'product'
+  if (slugStr.includes('-category') && search_key) {
+    // Fetch vendors for product-level category
+    getVendorApprovedby();
+    getVendors();
+    // Keep browser visible - don't hide it
+    setShowBrowser(true);
+    return;
+  }
+
+  // ✅ For regular category navigation (with -category but no search_key) → just show browser
+  if (slugStr.includes('-category')) {
+    setcurrentSelectedProduct(null);
+    setVendors([]);
+    setApproved_by([]);
+    setShowBrowser(true);
+  }
 }, [
   slug,
   currentSelectedProduct,
@@ -287,6 +305,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     let lowerCaseString = input.toLowerCase();
     let cleanedString = lowerCaseString.replace(/[\s\-\/()]+/g, ' ').trim();
     return cleanedString.replace(/\s+/g, '-');
+  }
+
+  // Helper function to remove -category{number} from display (but keep in URL)
+  const removeCategorySuffix = (str) => {
+    if (!str) return str;
+    return str.replace(/-category\d+$/i, '');
   }
 
  
@@ -580,9 +604,16 @@ const addRfqIdParam = (rfq_id) => {
 
   // Random products carousel logic extracted to RandomProductsCarousel component
   const getVendorApprovedby = () => {
+    // For product-level categories, we might not have a variant_id
+    // Only fetch if we have a variant_id
+    if (!currentSelectedProduct?.variant_id) {
+      setApproved_by([]);
+      return;
+    }
+    
     setvabloading(true);
   
-    vendorApproveList(currentSelectedProduct?.variant_id)
+    vendorApproveList(currentSelectedProduct.variant_id)
       .then((rsp) => {
         setvabloading(false);
         setApproved_by(rsp.data);
@@ -716,18 +747,21 @@ const clearVendorFilters = () => {
   // --- Parse slug only ONCE when slug or lists are ready ---
   useEffect(() => {
     // Normalize slug which may be string or array
-    const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
+    let slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
     if (!slugStr || slugStr === 'all') return;
+
+    // Remove -category{number} from slug before parsing (keep it in URL but not in parsing/display)
+    const slugForParsing = removeCategorySuffix(slugStr);
 
     // If location lists are not loaded yet, treat the entire slug as product search
     if (!stateList.length || !cityList.length) {
-      setSearch_key(slugStr);
+      setSearch_key(slugForParsing);
       return;
     }
 
     // Support no-space location slugs: convert names by removing spaces and lowercasing
     const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
-    const segments = slugStr.split('-');
+    const segments = slugForParsing.split('-');
     let foundState = null, foundCity = null, productSegments = [];
     // Note: if country is desired via slug, we can extend similarly using countries list
 
@@ -1132,7 +1166,7 @@ useEffect(() => {
           {/* vendor List Section */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {/* START : Filter side bar */}
-            {currentSelectedProduct && (
+            {(currentSelectedProduct || (search_key && slug && String(slug).includes('-category') && !currentSelectedProduct)) && (
               <div className="col-md-3">
                 <aside>
                   <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">
@@ -1140,19 +1174,17 @@ useEffect(() => {
                   </h4>
 
                   {/* START: Vender search by name */}
-                  {currentSelectedProduct && (
-                    <div className="search-con-right-1">
-                      <input
-                        type="text"
-                        name="vendorName"
-                        value={vendorName}
-                        className="form-control"
-                        placeholder="Search vendors"
-                        onChange={(e) => setVendorName(e.target.value)}
-                        id="search_vendor_name-filters-vendor_search_page"
-                      />
-                    </div>
-                  )}
+                  <div className="search-con-right-1">
+                    <input
+                      type="text"
+                      name="vendorName"
+                      value={vendorName}
+                      className="form-control"
+                      placeholder="Search vendors"
+                      onChange={(e) => setVendorName(e.target.value)}
+                      id="search_vendor_name-filters-vendor_search_page"
+                    />
+                  </div>
                   {/* END: Vender search by name */}
 
                   {/* START: product make filter */}
@@ -1444,88 +1476,90 @@ useEffect(() => {
                   {/* END: Previously Worked With */}
 
                   {/* START: Vendor Approved By */}
-                  <div className="search-con-right-1">
-                    <p className="fw-semibold mb-2">Vendor Approved By</p>
-                    <div
-                      ref={vendorApprovedByRef}
-                      className="selection-dropdown"
-                    >
-                      <input
-                        // ref={citySelectionRef}
-                        type="text"
-                        onChange={(e) => {
-                          setInternalApprovedBy(
-                            approved_by.filter((_) =>
-                              _.vendor_approve
-                                .toLowerCase()
-                                .includes(e.target.value)
-                            )
-                          );
-                        }}
-                        placeholder="Select vendor types"
-                        onFocus={() => setApprovedByOpen(true)}
-                      />
-                      <div className="d-flex gap-2 flex-wrap mt-2">
-                        {selectedApprovedBy.map((approvedBy) => (
-                          <div className="selected-country">
-                            {approvedBy.vendor_approve}
-                            <button
-                              onClick={() =>
-                                setSelectedApprovedBy((prev) =>
-                                  prev.filter(
-                                    (_approvedBy) =>
-                                      !(_approvedBy.id == approvedBy.id)
-                                  )
-                                )
-                              }
-                            >
-                              X
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      {approvedByOpen && (
-                        <ul
-                          className="dropdown"
-                          style={{
-                            maxWidth: 315,
+                  {currentSelectedProduct && (
+                    <div className="search-con-right-1">
+                      <p className="fw-semibold mb-2">Vendor Approved By</p>
+                      <div
+                        ref={vendorApprovedByRef}
+                        className="selection-dropdown"
+                      >
+                        <input
+                          // ref={citySelectionRef}
+                          type="text"
+                          onChange={(e) => {
+                            setInternalApprovedBy(
+                              approved_by.filter((_) =>
+                                _.vendor_approve
+                                  .toLowerCase()
+                                  .includes(e.target.value)
+                              )
+                            );
                           }}
-                        >
-                          {internalApprovedBy.length > 0 ? (
-                            internalApprovedBy
-                              .filter((item) => {
-                                return (
-                                  item.show_in_website == 1 &&
-                                  item.vendor_approve &&
-                                  item.vendor_approve != "null"
-                                );
-                              })
-                              .map((approveBy) => (
-                                <li
-                                  key={approveBy.id}
-                                  onClick={() => {
-                                    if (
-                                      !vendorMetaData || !vendorMetaData.logged_In
+                          placeholder="Select vendor types"
+                          onFocus={() => setApprovedByOpen(true)}
+                        />
+                        <div className="d-flex gap-2 flex-wrap mt-2">
+                          {selectedApprovedBy.map((approvedBy) => (
+                            <div className="selected-country">
+                              {approvedBy.vendor_approve}
+                              <button
+                                onClick={() =>
+                                  setSelectedApprovedBy((prev) =>
+                                    prev.filter(
+                                      (_approvedBy) =>
+                                        !(_approvedBy.id == approvedBy.id)
                                     )
-                                      return setOpenAuthModal(true);
-                                    setSelectedApprovedBy((prev) => [
-                                      ...prev,
-                                      approveBy,
-                                    ]);
-                                    setApprovedByOpen(false);
-                                  }}
-                                  className="dropdown-item"
-                                >
-                                  {approveBy.vendor_approve}
-                                </li>
-                              ))
-                          ) : (
-                            <li className="dropdown-item">No results found</li>
-                          )}
-                        </ul>
-                      )}
+                                  )
+                                }
+                              >
+                                X
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        {approvedByOpen && (
+                          <ul
+                            className="dropdown"
+                            style={{
+                              maxWidth: 315,
+                            }}
+                          >
+                            {internalApprovedBy.length > 0 ? (
+                              internalApprovedBy
+                                .filter((item) => {
+                                  return (
+                                    item.show_in_website == 1 &&
+                                    item.vendor_approve &&
+                                    item.vendor_approve != "null"
+                                  );
+                                })
+                                .map((approveBy) => (
+                                  <li
+                                    key={approveBy.id}
+                                    onClick={() => {
+                                      if (
+                                        !vendorMetaData || !vendorMetaData.logged_In
+                                      )
+                                        return setOpenAuthModal(true);
+                                      setSelectedApprovedBy((prev) => [
+                                        ...prev,
+                                        approveBy,
+                                      ]);
+                                      setApprovedByOpen(false);
+                                    }}
+                                    className="dropdown-item"
+                                  >
+                                    {approveBy.vendor_approve}
+                                  </li>
+                                ))
+                            ) : (
+                              <li className="dropdown-item">No results found</li>
+                            )}
+                          </ul>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                   {/* END: Vendor Approved By */}
                 </aside>
               </div>
@@ -1533,15 +1567,23 @@ useEffect(() => {
             {/* END: Filter side bar */}
 
             {/* START:  vendor list*/}
-            <div className={currentSelectedProduct ? `col-md-9` : `col-md-12`}>
+            <div className={(currentSelectedProduct || (search_key && slug && String(slug).includes('-category') && !currentSelectedProduct)) ? `col-md-9` : `col-md-12`}>
               <div className="row">
-                {currentSelectedProduct && (
+                {/* Show vendors when we have a selected product OR when we're at product-level category with search_key set */}
+                {(currentSelectedProduct || (search_key && slug && String(slug).includes('-category') && !currentSelectedProduct)) && (
                   <div className="col-md-12">
-                    {currentSelectedProduct && (
+                    {currentSelectedProduct ? (
                       <h2 className="fs-5">
                         Available Vendors for{" "}
                         <span style={{ fontWeight: "500" }}>
                           {getProductTitle()}
+                        </span>
+                      </h2>
+                    ) : (
+                      <h2 className="fs-5">
+                        Available Vendors for{" "}
+                        <span style={{ fontWeight: "500" }}>
+                          {textCapitalize(removeCategorySuffix(search_key))}
                         </span>
                       </h2>
                     )}
@@ -1704,6 +1746,74 @@ useEffect(() => {
       <div className="container my-4">
         <RandomProductsCarousel className="" />
       </div>
+
+      {/* City Selection Section */}
+      {(() => {
+        // Extract unique cities from vendors
+        const uniqueCities = [];
+        const cityMap = new Map();
+        
+        if (vendors && vendors.length > 0) {
+          vendors.forEach(vendor => {
+            if (vendor.city_name && vendor.state_name) {
+              const cityKey = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
+              if (!cityMap.has(cityKey)) {
+                cityMap.set(cityKey, {
+                  city_name: vendor.city_name,
+                  state_name: vendor.state_name,
+                  city_id: vendor.city_id || null,
+                  state_id: vendor.state_id || null
+                });
+                uniqueCities.push({
+                  city_name: vendor.city_name,
+                  state_name: vendor.state_name,
+                  city_id: vendor.city_id || null,
+                  state_id: vendor.state_id || null
+                });
+              }
+            }
+          });
+        }
+
+        // Sort cities alphabetically
+        uniqueCities.sort((a, b) => {
+          if (a.city_name < b.city_name) return -1;
+          if (a.city_name > b.city_name) return 1;
+          return 0;
+        });
+
+        if (uniqueCities.length > 0 && (currentSelectedProduct || (search_key && slug && String(slug).includes('-category')))) {
+          const productSlug = currentSelectedProduct?.slug || cleanAndAddHyphen(removeCategorySuffix(search_key));
+          
+          return (
+            <div className="container my-4">
+              <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
+                {currentSelectedProduct ? `${getProductTitle()} Vendors by City` : `${textCapitalize(removeCategorySuffix(search_key))} Vendors by City`}
+              </h3>
+              <div className="row">
+                {uniqueCities.map((city, index) => {
+                  const citySlug = cleanAndAddHyphen(city.city_name);
+                  const stateSlug = cleanAndAddHyphen(city.state_name);
+                  const cityUrl = `/vendor/${productSlug}-${citySlug}-${stateSlug}`;
+                  
+                  return (
+                    <div key={`city_${city.city_id || index}_${city.city_name}_${city.state_name}`} className="col-md-3 col-sm-4 col-6 mb-3">
+                      <button
+                        className="btn btn-outline-primary w-100"
+                        onClick={() => router.push(cityUrl)}
+                        style={{ minHeight: '50px' }}
+                      >
+                        {city.city_name}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
   Why Trust Us
