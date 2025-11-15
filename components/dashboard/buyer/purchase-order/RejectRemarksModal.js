@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
 
-export default function RejectRemarksModal({ show, onClose, onReject }) {
+export default function RejectRemarksModal({ type = 'reject', show, onClose, onAction, poData }) {
   const [reason, setReason] = useState("");
 
   useEffect(() => {
@@ -10,7 +10,7 @@ export default function RejectRemarksModal({ show, onClose, onReject }) {
 
   const handleReject = () => {
     // Pass the typed reason up to the caller
-    onReject?.(reason.trim());
+    onAction?.(reason.trim());
   };
 
   return (
@@ -24,16 +24,16 @@ export default function RejectRemarksModal({ show, onClose, onReject }) {
     >
       <Modal.Body>
         <Form.Group controlId="rejectReason">
-          <Form.Label className="fs-5 fw-semibold">Reject reason</Form.Label>
+          <Form.Label className="fs-5 fw-semibold">{type == 'reject' ? 'Reject' : 'Approve'} reason</Form.Label>
           <Form.Control
             as="textarea"
             rows={6}
-            placeholder="Please share the reason for rejecting this PO..."
+            placeholder={`Please share the reason for ${type == 'reject' ? 'Rejecting' : 'Approving'} this PO...`}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />
           <div className="form-text">
-            This note will be recorded with the rejection.
+            This note will be recorded with the {type == 'reject' ? 'Rejection' : 'Approval'}.
           </div>
         </Form.Group>
       </Modal.Body>
@@ -43,13 +43,13 @@ export default function RejectRemarksModal({ show, onClose, onReject }) {
           Cancel
         </Button>
         <Button
-          variant="danger"
+          variant={type == 'reject' ? 'danger' : 'success'}
           onClick={handleReject}
-          disabled={reason.trim().length === 0}
-          title={reason.trim().length === 0 ? "Enter a reject reason" : "Reject PO"}
+          disabled={(type == 'reject' && reason.trim().length === 0)}
+          title={reason.trim().length === 0 ? "Enter a reason" : `${type == 'reject' ? 'Reject' : 'Approve'} PO`}
           className="p-2"
         >
-          Reject PO
+          {type == 'reject' ? 'Reject' : 'Approve'} PO
         </Button>
       </Modal.Footer>
 

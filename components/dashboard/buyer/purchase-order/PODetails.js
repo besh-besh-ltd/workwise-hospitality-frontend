@@ -233,8 +233,6 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
 
   const POReviewCompact = (poData) => {
       if(!poData) return null;
-
-      console.log("PO DATA:", poData);
   
       const pdfUrl = poData.poPdfUrl;
       const fileName = `PO_${poData.po_number}.pdf`;
@@ -909,7 +907,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
         title={"Reject Purchase Order"}
         description={`Are you sure you want to reject PO #${
           po_number || "this purchase order"
-        }?\nThis action will reject the purchase order and notify relevant parties.`}
+        }?\nThis action will reject the purchase order, de-finalize the vendors and notify relevant parties.`}
         confirmButtonColor="danger"
         confirmButtonText="Reject"
         cancelButtonText="Cancel"

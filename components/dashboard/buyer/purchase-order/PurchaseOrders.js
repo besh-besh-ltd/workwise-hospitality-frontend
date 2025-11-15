@@ -28,9 +28,11 @@ const PurchaseOrders = () => {
   const [poDetails, setPODetails] = useState(null);
   const [companyUsers, setCompanyUsers] = useState([]);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
   const [selectedPODetail, setSelectedPODetail] = useState({
     po_id: null,
     data: null,
+    selectedPO: null,
   })
   const [initiatePOModal, setInitiatePOModal] = useState({
     selectedPO: null,
@@ -107,12 +109,21 @@ const PurchaseOrders = () => {
     }).finally(() => setloading(false));
   };
 
-  const openRejectRemarksModal = (po_id, data) => {
+  const openRejectRemarksModal = (po_id, data, selectedPO) => {
+    setSelectedPODetail({
+      po_id,
+      data,
+      selectedPO,
+    })
+    setShowRejectModal(true);
+  }
+
+  const openApproveRemarksModal = (po_id, data) => {
     setSelectedPODetail({
       po_id,
       data,
     })
-    setShowRejectModal(true);
+    setShowApproveModal(true);
   }
 
   const rejectWithRemarks = async (remarks) => {
@@ -125,18 +136,25 @@ const PurchaseOrders = () => {
     setShowRejectModal(false);
   }
 
-  const handlePODecision = async (po_id, data) => {
+  const approveWithRemarks = async (remarks) => {
+    const res = await handlePOApproval(selectedPODetail.po_id, {...selectedPODetail.data, remarks});
+    if(res) {
+      toast.success(res.message);
+    } else {
+      throw new Error("Something went wrong while making a decision, please try again!")
+    }
+    setShowApproveModal(false);
+  }
+
+  const handlePODecision = async (po_id, data, selectedPO) => {
     try {
       setloading(true);
       if(data.decision == 'rejected') {
-        openRejectRemarksModal(po_id, data);
+        openRejectRemarksModal(po_id, data, selectedPO);
         return;
-      }
-      const res = await handlePOApproval(po_id, data);
-      if(res) {
-        toast.success(res.message);
       } else {
-        throw new Error("Something went wrong while making a decision, please try again!")
+        openApproveRemarksModal(po_id, data);
+        return;
       }
     } catch (error) {
       console.error(error);
@@ -393,7 +411,8 @@ const PurchaseOrders = () => {
         </div>
       </section>
 
-      <RejectRemarksModal show={showRejectModal} onClose={() => setShowRejectModal(false)} onReject={(remarks) => rejectWithRemarks(remarks)}/>
+      <RejectRemarksModal show={showRejectModal} poData={selectedPODetail.selectedPO} onClose={() => setShowRejectModal(false)} onAction={(remarks) => rejectWithRemarks(remarks)}/>
+      <RejectRemarksModal type="approve" show={showApproveModal} onClose={() => setShowApproveModal(false)} onAction={(remarks) => approveWithRemarks(remarks)}/>
       <ConfirmationModal
         isOpen={initiatePOModal.showModal}
         onClose={() => setInitiatePOModal({

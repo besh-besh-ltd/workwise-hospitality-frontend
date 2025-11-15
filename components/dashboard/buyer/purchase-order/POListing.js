@@ -101,7 +101,7 @@ const POListing = ({
     if (pendingPO) {
       await handlePODecision(pendingPO.id, {
         decision: "approved",
-      });
+      }, pendingPO);
       await refetchPOList({
         ...filters,
         poNumber: debouncedPONumber,
@@ -115,7 +115,7 @@ const POListing = ({
     if (pendingPO) {
       await handlePODecision(pendingPO.id, {
         decision: "rejected",
-      });
+      }, pendingPO);
       await refetchPOList({
         ...filters,
         poNumber: debouncedPONumber,
@@ -137,8 +137,6 @@ const POListing = ({
 
   const POReviewCompact = (poData) => {
     if(!poData) return null;
-
-    console.log("PO DATA:", poData);
     
     const pdfUrl = poData.poPdfUrl;
     const fileName = `PO_${poData.po_number}.pdf`;
@@ -491,7 +489,7 @@ const POListing = ({
         title="Reject Purchase Order"
         description={`Are you sure you want to reject PO #${
           pendingPO?.po_number || "this purchase order"
-        }?\nThis action will reject the purchase order and notify relevant parties.`}
+        }?\nThis action will reject the purchase order, de-finalize the vendors and notify relevant parties.`}
         confirmButtonColor="danger"
         confirmButtonText="Reject"
         cancelButtonText="Cancel"
