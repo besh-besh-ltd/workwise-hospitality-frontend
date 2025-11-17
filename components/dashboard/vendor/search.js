@@ -739,6 +739,33 @@ const clearVendorFilters = () => {
   const [stateList, setStateList] = useState([]);
   const [cityList, setCityList] = useState([]);
 
+  const normalizeNameValue = (value = "") =>
+    value.toLowerCase().replace(/\s+/g, " ").trim();
+
+  const findStateByName = (stateName) => {
+    if (!stateName || !stateList?.length) return null;
+    const normalized = normalizeNameValue(stateName);
+    return (
+      stateList.find(
+        (state) => normalizeNameValue(state.state_name) === normalized
+      ) || null
+    );
+  };
+
+  const findCityByName = (cityName, stateId = null) => {
+    if (!cityName || !cityList?.length) return null;
+    const normalized = normalizeNameValue(cityName);
+    return (
+      cityList.find((city) => {
+        if (normalizeNameValue(city.city_name) !== normalized) return false;
+        if (stateId && city.state_id && city.state_id !== stateId) {
+          return false;
+        }
+        return true;
+      }) || null
+    );
+  };
+
   // Fetch country/state/city lists for dropdowns (unchanged)
   useEffect(() => { getCountries().then(res => setCountryList(res.data || [])); }, []);
   useEffect(() => { getStates().then(res => setStateList(res.data || [])); }, []);
@@ -748,7 +775,14 @@ const clearVendorFilters = () => {
   useEffect(() => {
     // Normalize slug which may be string or array
     let slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
-    if (!slugStr || slugStr === 'all') return;
+
+    if (!slugStr || slugStr === 'all') {
+      setSearch_key('');
+      setselectedCountry([]);
+      setselectedState([]);
+      setselectedCity([]);
+      return;
+    }
 
     // Remove -category{number} from slug before parsing (keep it in URL but not in parsing/display)
     const slugForParsing = removeCategorySuffix(slugStr);
@@ -763,22 +797,30 @@ const clearVendorFilters = () => {
     const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
     const segments = slugForParsing.split('-');
     let foundState = null, foundCity = null, productSegments = [];
-    // Note: if country is desired via slug, we can extend similarly using countries list
 
     for (let i = segments.length - 1; i >= 0; i--) {
       const segment = segments[i].toLowerCase();
       if (!foundState) {
         const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
-        if (stateMatch) { foundState = stateMatch; setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]); continue; }
+        if (stateMatch) {
+          foundState = { id: stateMatch.id, name: stateMatch.state_name };
+          continue;
+        }
       }
       if (!foundCity) {
         const cityMatch = cityList.find(city => normalize(city.city_name) === segment);
-        if (cityMatch) { foundCity = cityMatch; setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]); continue; }
+        if (cityMatch) {
+          foundCity = { id: cityMatch.id, name: cityMatch.city_name };
+          continue;
+        }
       }
       productSegments.unshift(segments[i]);
     }
     const finalSearchKey = productSegments.join('/');
     setSearch_key(finalSearchKey);
+    setselectedCountry([]);
+    setselectedState(foundState ? [foundState] : []);
+    setselectedCity(foundCity ? [foundCity] : []);
   }, [slug, stateList, cityList]);
 
   // When slug changes (including 'all'), fetch nested categories.
@@ -1758,18 +1800,21 @@ useEffect(() => {
             if (vendor.city_name && vendor.state_name) {
               const cityKey = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
               if (!cityMap.has(cityKey)) {
-                cityMap.set(cityKey, {
+                const matchedState = findStateByName(vendor.state_name);
+                const matchedCity = findCityByName(
+                  vendor.city_name,
+                  matchedState?.id || null
+                );
+
+                const cityPayload = {
                   city_name: vendor.city_name,
                   state_name: vendor.state_name,
-                  city_id: vendor.city_id || null,
-                  state_id: vendor.state_id || null
-                });
-                uniqueCities.push({
-                  city_name: vendor.city_name,
-                  state_name: vendor.state_name,
-                  city_id: vendor.city_id || null,
-                  state_id: vendor.state_id || null
-                });
+                  city_id: matchedCity?.id || null,
+                  state_id: matchedState?.id || matchedCity?.state_id || null
+                };
+
+                cityMap.set(cityKey, cityPayload);
+                uniqueCities.push(cityPayload);
               }
             }
           });
@@ -1796,11 +1841,47 @@ useEffect(() => {
                   const stateSlug = cleanAndAddHyphen(city.state_name);
                   const cityUrl = `/vendor/${productSlug}-${citySlug}-${stateSlug}`;
                   
+                  const handleCitySelection = () => {
+                    const matchedState =
+                      (city.state_id &&
+                        stateList.find((state) => state.id === city.state_id)) ||
+                      findStateByName(city.state_name);
+
+                    const matchedCity =
+                      (city.city_id &&
+                        cityList.find((_city) => _city.id === city.city_id)) ||
+                      findCityByName(city.city_name, matchedState?.id || null);
+
+                    if (matchedState) {
+                      setselectedState([{
+                        id: matchedState.id,
+                        name: matchedState.state_name,
+                      }]);
+                    } else if (city.state_name) {
+                      setselectedState([{ id: null, name: city.state_name }]);
+                    } else {
+                      setselectedState([]);
+                    }
+
+                    if (matchedCity) {
+                      setselectedCity([{
+                        id: matchedCity.id,
+                        name: matchedCity.city_name,
+                      }]);
+                    } else if (city.city_name) {
+                      setselectedCity([{ id: null, name: city.city_name }]);
+                    } else {
+                      setselectedCity([]);
+                    }
+
+                    router.push(cityUrl);
+                  };
+                  
                   return (
                     <div key={`city_${city.city_id || index}_${city.city_name}_${city.state_name}`} className="col-md-3 col-sm-4 col-6 mb-3">
                       <button
                         className="btn btn-outline-primary w-100"
-                        onClick={() => router.push(cityUrl)}
+                        onClick={handleCitySelection}
                         style={{ minHeight: '50px' }}
                       >
                         {city.city_name}
