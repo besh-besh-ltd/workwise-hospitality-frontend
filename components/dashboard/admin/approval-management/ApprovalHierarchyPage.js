@@ -18,7 +18,6 @@ import {
   createHierarchy,
   getHierarchy,
   updateHierarchy,
-  // expected service to save mappings - adapt if your backend uses a different name
   updateHierarchyProjectMapping,
   updateDefaultHierarchy,
   getHierarchyTypes,
@@ -71,6 +70,9 @@ const ApprovalHierarchyMultiPage = () => {
   const [mappingModal, setMappingModal] = useState({ show: false, hierarchy: null, selected: [] });
   const [mappingSaving, setMappingSaving] = useState(false);
 
+  // UI state for grouping hover
+  const [hoveredGroup, setHoveredGroup] = useState(null); // string key: `${hierarchyId}-${level}` or `preview-${level}`
+
   // fetch company users
   const fetchCompanyUsers = async () => {
     try {
@@ -82,6 +84,13 @@ const ApprovalHierarchyMultiPage = () => {
     }
   };
 
+  const getMinLevel = (approvers) => {
+    let min = 999;
+    approvers.forEach(approver => approver.level < min ? min = approver.level : null)
+
+    return min;
+  }
+
   // fetch projects
   const fetchProjects = async () => {
     try {
@@ -89,7 +98,6 @@ const ApprovalHierarchyMultiPage = () => {
       if (res?.data) setProjects(res.data || []);
     } catch (err) {
       console.error(err);
-      // fallback: if API not available, you can still map using a manual list
       toast.warning("Failed to fetch projects");
       setProjects([]);
     }
@@ -102,7 +110,6 @@ const ApprovalHierarchyMultiPage = () => {
       if (res?.data) setHierarchyTypes(res.data || []);
     } catch (err) {
       console.error(err);
-      // fallback: if API not available, you can still map using a manual list
       toast.warning("Failed to fetch hierarchyTypes");
       setHierarchyTypes([]);
     }
@@ -147,7 +154,7 @@ const ApprovalHierarchyMultiPage = () => {
     }
   };
 
-  // select hierarchy for preview
+  // select hierarchy for preview (display)
   const selectHierarchy = (type, hierarchyId) => {
     const list = grouped[type] || [];
     const picked = list.find((h) => String(h.hierarchy_id) === String(hierarchyId));
@@ -178,7 +185,6 @@ const ApprovalHierarchyMultiPage = () => {
 
   // mapping modal open
   const openMappingModal = (hierarchy) => {
-    // hierarchy may contain mapping metadata like mapped_project_ids or project_mappings
     const existing = hierarchy.mapped_project_ids || [];
     const ids = Array.isArray(existing) ? existing.map((p) => parseInt(p.project_id)) : [];
     setMappingModal({ show: true, hierarchy, selected: ids });
@@ -195,10 +201,8 @@ const ApprovalHierarchyMultiPage = () => {
     if (!mappingModal.hierarchy) return;
     setMappingSaving(true);
     try {
-      // call service - adapt if your API expects different args
       await updateHierarchyProjectMapping(mappingModal.hierarchy.hierarchy_id, mappingModal.hierarchy.hierarchy_type || formData.module, mappingModal.selected);
       toast.success("Mapping saved successfully");
-      // refresh hierarchies so UI shows updated mapping
       await fetchAllHierarchies();
       setMappingModal({ show: false, hierarchy: null, selected: [] });
     } catch (err) {
@@ -220,8 +224,16 @@ const ApprovalHierarchyMultiPage = () => {
 
     let updatable = [...previewApprovers];
 
+    // Remove only existing entry for the same user to avoid duplicate user rows.
+    // IMPORTANT: do NOT remove existing users of the same level — we allow multiple users per level.
     updatable = updatable.filter((h) => h.id !== parseInt(data.userId));
-    updatable = updatable.filter((h) => h.level !== parseInt(data.level));
+
+    const alreadyAtLevel = updatable.find(approver => approver.level == data.level)
+    
+    if((data.level > getMinLevel(updatable)) && alreadyAtLevel) {
+      updatable = updatable.filter(h => h.level != data.level);
+      setRemovableApprovers((prev) => (!prev.includes(alreadyAtLevel.id) ? [...prev, alreadyAtLevel.id] : prev));
+    }
 
     const user = users.find((u) => u.id === parseInt(data.userId));
     if (!user) {
@@ -328,6 +340,20 @@ const ApprovalHierarchyMultiPage = () => {
     fetchHierarchyTypes();
   }, []);
 
+  // helper to group approvers by level for display
+  const groupByLevel = (approvers) => {
+    const grouped = {};
+    (approvers || []).forEach((a) => {
+      const lvl = a.level ?? 0;
+      if (!grouped[lvl]) grouped[lvl] = [];
+      grouped[lvl].push(a);
+    });
+    // return array sorted by level
+    return Object.keys(grouped)
+      .map((k) => ({ level: parseInt(k), users: grouped[k] }))
+      .sort((x, y) => x.level - y.level);
+  };
+
   return (
     <>
       <section className="buyer-common-header sc-pt-80">
@@ -387,7 +413,7 @@ const ApprovalHierarchyMultiPage = () => {
                                         Default
                                       </Badge>
                                     ) : (
-                                      <Badge onClick={(e) => {e.stopPropagation(); handleSetDefault(h.hierarchy_id, type)}} bg='none' className="small px-2 py-1 text-uppercase outline-badge">
+                                      <Badge onClick={(e) => {e.stopPropagation(); handleSetDefault(h.hierarchy_id, type)}} bg='none' className="small px-2 py-1 text-uppercase outline-badge" style={{ cursor: 'pointer' }}>
                                         Set as default
                                       </Badge>
                                     )}
@@ -407,51 +433,113 @@ const ApprovalHierarchyMultiPage = () => {
 
                             <Accordion.Body>
                               <div className="d-flex flex-wrap gap-3">
-                                {(h.approvers || [])
-                                  .filter((a) => a.level > 0)
-                                  .sort((a, b) => a.level - b.level)
-                                  .map((user, i, self) => (
-                                    <React.Fragment key={user.id + "-" + user.level}>
-                                      <Card style={{ width: "320px", position: "relative" }} className="shadow-sm">
-                                        <Card.Body>
-                                          <h6 className="mb-1">{user.name}</h6>
-                                          <p className="mb-2 small text-muted">{user.email}</p>
-                                          <p className="mb-1"><strong>Level:</strong> {user.level}{isHighestApprover(user, h.approvers) && <small className="fw-medium"> (Highest Approver)</small>}</p>
-                                          <p className="mb-1"><strong>Approval Amount:</strong> ₹{user.bypass_cap ? formatToINRShort(user.bypass_cap) : "-"}</p>
-                                          <p className="mb-0"><strong>Status: </strong><Badge bg={user.active ? "success" : "secondary"}>{user.active ? "Active" : "Inactive"}</Badge></p>
-                                        </Card.Body>
-                                      </Card>
+                                {/* grouped rendering: users with same level clubbed visually */}
+                                {groupByLevel(h.approvers)
+                                  .map((group, gi, garr) => (
+                                    <div key={h.hierarchy_id + "-lvl-" + group.level} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                      {/* render the group: if single user, show card, else show clean clustered avatars with +N */}
+                                      {group.users.length === 1 ? (
+                                        <Card style={{ width: "320px", position: "relative" }} className="shadow-sm">
+                                          <Card.Body>
+                                            <h6 className="mb-1">{group.users[0].name}</h6>
+                                            <p className="mb-2 small text-muted">{group.users[0].email}</p>
+                                            <p className="mb-1"><strong>Level:</strong> {group.users[0].level}{isHighestApprover(group.users[0], h.approvers) && <small className="fw-medium"> (Highest Approver)</small>}</p>
+                                            <p className="mb-1"><strong>Approval Amount:</strong> ₹{group.users[0].bypass_cap ? formatToINRShort(group.users[0].bypass_cap) : "-"}</p>
+                                            <p className="mb-0"><strong>Status: </strong><Badge bg={group.users[0].active ? "success" : "secondary"}>{group.users[0].active ? "Active" : "Inactive"}</Badge></p>
+                                          </Card.Body>
+                                        </Card>
+                                      ) : (
+                                        <Card onMouseEnter={() => setHoveredGroup(`${h.hierarchy_id}-${group.level}`)}
+                                              onMouseLeave={() => setHoveredGroup(null)}
+                                              style={{ position: 'relative', width: 320 }} className="shadow-sm">
+                                          <Card.Body>
+                                              {/* clean cluster: overlapping round avatars with initials and a +N badge */}
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <div style={{ display: 'flex', position: 'relative', paddingLeft: 4 }}>
+                                                  {group.users.slice(0, 5).map((u, idx) => (
+                                                    <div key={u.id} style={{
+                                                      width: 44,
+                                                      height: 44,
+                                                      borderRadius: '50%',
+                                                      background: '#f8fafc',
+                                                      display: 'flex',
+                                                      alignItems: 'center',
+                                                      justifyContent: 'center',
+                                                      fontWeight: 700,
+                                                      position: 'relative',
+                                                      left: idx * -14,
+                                                      border: '2px solid #fff',
+                                                      boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+                                                    }} title={`${u.name} • ${u.email}`}>
+                                                      <span style={{ fontSize: 12 }}>{u.name.toUpperCase().split(' ').map(n => n[0]).slice(0,2).join('')}</span>
+                                                    </div>
+                                                  ))}
 
-                                      {i < self.length - 1 && (
+                                                  {group.users.length > 5 && (
+                                                    <div style={{ marginLeft: 10, borderRadius: '18px', padding: '6px 10px', background: '#eef2ff', fontWeight: 600, fontSize: 13 }}>+{group.users.length - 5}</div>
+                                                  )}
+                                                </div>
+
+                                                <div>
+                                                  <div style={{ fontWeight: 700 }}>Level {group.level}</div>
+                                                  <div className="small text-muted">{group.users.length} users</div>
+                                                </div>
+                                              </div>
+                                              <p className="small mt-3 mb-0"><strong>NOTE: </strong>This level include multiple users, regardless of who initiates, it will always lead to the <strong>Next</strong> available level.</p>
+
+                                              {/* expanded hover panel showing all users */}
+                                              {hoveredGroup === `${h.hierarchy_id}-${group.level}` && (
+                                                <div style={{ position: 'absolute', left: 0, top: 78, zIndex: 2000, background: '#fff', padding: 12, borderRadius: 8, boxShadow: '0 6px 24px rgba(0,0,0,0.12)', maxWidth: 420 }}>
+                                                  <div style={{ fontWeight: 600, marginBottom: 8 }}>Level {group.level} — {group.users.length} users</div>
+                                                  {group.users.map((u) => (
+                                                    <Card key={`expanded-${u.id}`} className="mb-2">
+                                                      <Card.Body style={{ padding: 8 }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: "14px" }}>
+                                                          <div>
+                                                            <div style={{ fontWeight: 600 }}>{u.name}</div>
+                                                            <div className="text-muted" style={{ fontSize: 12 }}>{u.email}</div>
+                                                          </div>
+                                                          <div style={{ textAlign: 'right' }}>
+                                                            <div className="small">₹{u.bypass_cap ? formatToINRShort(u.bypass_cap) : '-'}</div>
+                                                            <Badge bg={u.active ? 'success' : 'secondary'} className="mt-1">{u.active ? 'Active' : 'Inactive'}</Badge>
+                                                          </div>
+                                                        </div>
+                                                      </Card.Body>
+                                                    </Card>
+                                                  ))}
+                                                </div>
+                                              )}
+                                          </Card.Body>
+                                        </Card>
+                                      )}
+
+                                      {/* arrow between groups */}
+                                      {gi < garr.length - 1 && (
                                         <div className="d-flex flex-column justify-content-center">
-                                          <BsArrowRight className={`${self[i + 1].active ? "text-success" : "text-danger"}`} size={35} />
-                                          {!self[i + 1].active && <p className="fw-semibold mb-0 text-danger">SKIP</p>}
+                                          <BsArrowRight className={`${(garr[gi + 1].users[0] && garr[gi + 1].users[0].active) ? "text-success" : "text-danger"}`} size={35} />
+                                          {!(garr[gi + 1].users[0] && garr[gi + 1].users[0].active) && <p className="fw-semibold mb-0 text-danger">SKIP</p>}
                                         </div>
                                       )}
-                                    </React.Fragment>
+                                    </div>
                                   ))}
 
                                 {/* show mapped projects (if any) */}
                                 <div style={{ minWidth: 320 }}>
                                   <Card className="shadow-sm">
                                     <Card.Body>
-                                      <h6 className="mb-1">Mapped Projects</h6>
-                                      <div className="small text-muted mb-2">
-                                        {h.mapped_project_ids && h.mapped_project_ids.length > 0
-                                          ? `${h.mapped_project_ids.length} project(s) mapped`
-                                          : (h.project_mappings && h.project_mappings.length > 0
-                                            ? `${h.project_mappings.length} project(s) mapped`
-                                            : "No projects mapped")}
-                                      </div>
-
-                                      {(h.mapped_project_ids || []).slice(0, 3).map((pid, i) => {
+                                      <h6 className="mb-1 fw-semibold">Mapped {h?.mapped_project_ids?.length ?? 0} Projects</h6>
+                                      <div className="d-flex flex-column mt-2 gap-1">
+                                      {(h.mapped_project_ids || []).slice(0, 2).map((pid, i) => {
                                         const id = pid.project_id;
                                         const p = projects.find((pp) => String(pp.id) === String(id));
                                         return <div key={i} className="small">• {p ? p.name : `Project #${id}`}</div>;
                                       })}
+                                      </div>
 
                                       <div className="mt-2">
-                                        <Button size="sm" variant="outline-secondary" className="p-2 mt-2" onClick={() => openMappingModal(h)}>Edit Mapping</Button>
+                                        <Button size="sm" variant="outline-secondary" className="p-2 mt-2" onClick={() => openMappingModal(h)}>
+                                          {(h.mapped_project_ids || []).length > 0 ? `View ${h.mapped_project_ids.length - 2} More` : "View Mapping(s)"}
+                                        </Button>
                                       </div>
                                     </Card.Body>
                                   </Card>
@@ -474,7 +562,7 @@ const ApprovalHierarchyMultiPage = () => {
                       <Form.Label>Module / Type</Form.Label>
                       <Form.Select disabled={previewApprovers.length > 0} value={formData.module} onChange={(e) => setFormData({ ...formData, module: e.target.value })}>
                         {hierarchyTypes?.map(type => (
-                          <option value={type.value}>{type.label}</option>
+                          <option key={type.value} value={type.value}>{type.label}</option>
                         ))}
                       </Form.Select>
                     </Form.Group>
@@ -502,6 +590,9 @@ const ApprovalHierarchyMultiPage = () => {
                           setFormData({ ...formData, level: v });
                         }
                       }} />
+                      {(formData.level > getMinLevel(previewApprovers)) && previewApprovers.find(approver => approver.level == formData.level) && (
+                        <span className="text-danger small mt-1">User already exist at level {formData.level}, this action will replace them.</span>
+                      )}
                     </Form.Group>
 
                     <Form.Group className="mb-3">
@@ -526,7 +617,7 @@ const ApprovalHierarchyMultiPage = () => {
                       }} className="mt-1 p-2">Reset</Button>
                     </div>
 
-                    <p className="mt-2"><strong>NOTE:</strong> If a user already exists with given level, they will be replaced by the new entry.</p>
+                    <p className="mt-2"><strong>NOTE:</strong> If a user already exists with given level, they will be kept — multiple users per level are allowed now.</p>
                   </Col>
 
                   <Col md={7}>
@@ -543,31 +634,101 @@ const ApprovalHierarchyMultiPage = () => {
                       </Card>
                     )}
 
-                    {previewApprovers.slice().sort((a, b) => a.level - b.level).map((user) => (
-                      <Card key={user.id + "-" + user.level} className="mb-2">
-                        <Card.Body>
-                          <div className="d-flex justify-content-between">
-                            <div>
-                              <strong>{user.name} {isHighestApprover(user, previewApprovers) ? <small className="text-muted fw-medium">(Highest Approver)</small> : null}</strong>
-                              <br />
-                              <small>{user.email}</small>
-                              <br />
-                              <small>Level: {user.level} | ₹{addCommasToNumber(user.bypass_cap)} | <Badge bg={user.active ? "success" : "secondary"}>{user.active ? "Active" : "Inactive"}</Badge></small>
-                            </div>
+                    {/* create preview: group by level and show clubbed if multiple users */}
+                    {groupByLevel(previewApprovers).map((group) => (
+                      <div key={`preview-lvl-${group.level}`} className="mb-3" onMouseEnter={() => setHoveredGroup(`preview-${group.level}`)} onMouseLeave={() => setHoveredGroup(null)}>
+                        {group.users.length === 1 ? (
+                          <Card className="mb-2">
+                            <Card.Body>
+                              <div className="d-flex justify-content-between">
+                                <div>
+                                  <strong>{group.users[0].name} {isHighestApprover(group.users[0], previewApprovers) ? <small className="text-muted fw-medium">(Highest Approver)</small> : null}</strong>
+                                  <br />
+                                  <small>{group.users[0].email}</small>
+                                  <br />
+                                  <small>Level: {group.users[0].level} | ₹{addCommasToNumber(group.users[0].bypass_cap)} | <Badge bg={group.users[0].active ? "success" : "secondary"}>{group.users[0].active ? "Active" : "Inactive"}</Badge></small>
+                                </div>
 
-                            <div className="d-flex flex-column gap-2">
-                              <div className="d-flex gap-1">
-                                <button className="btn btn-light p-2" onClick={() => shiftUser(user.id, "left")}>Shift Up</button>
-                                <button className="btn btn-light p-2" onClick={() => shiftUser(user.id, "right")}>Shift Down</button>
+                                <div className="d-flex flex-column gap-2">
+                                  <div className="d-flex gap-1">
+                                    <button className="btn btn-light p-2" onClick={() => shiftUser(group.users[0].id, "left")}>Shift Up</button>
+                                    <button className="btn btn-light p-2" onClick={() => shiftUser(group.users[0].id, "right")}>Shift Down</button>
+                                  </div>
+                                  <div className="d-flex gap-1">
+                                    <button className="btn btn-primary p-2" onClick={() => { setFormData({ ...formData, userId: group.users[0].id, bypass_cap: group.users[0].bypass_cap, level: group.users[0].level, active: group.users[0].active, }); }}>Edit</button>
+                                    <button className="btn btn-danger p-2" onClick={() => removeUserFromPreview(group.users[0].id)}>Remove</button>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="d-flex gap-1">
-                                <button className="btn btn-primary p-2" onClick={() => { setFormData({ ...formData, userId: user.id, bypass_cap: user.bypass_cap, level: user.level, active: user.active, }); }}>Edit</button>
-                                <button className="btn btn-danger p-2" onClick={() => removeUserFromPreview(user.id)}>Remove</button>
+                            </Card.Body>
+                          </Card>
+                        ) : (
+                          <Card className="mb-2">
+                            <Card.Body>
+                              <div style={{ position: 'relative', padding: 8 }}>
+                                {/* clean cluster: overlapping circular initials and level info */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                  <div style={{ display: 'flex', position: 'relative', paddingLeft: 6 }}>
+                                    {group.users.slice(0, 5).map((u, idx) => (
+                                      <div key={u.id} style={{
+                                        width: 44,
+                                        height: 44,
+                                        borderRadius: '50%',
+                                        background: '#f8fafc',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontWeight: 700,
+                                        position: 'relative',
+                                        left: idx * -14,
+                                        border: '2px solid #fff',
+                                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
+                                      }} title={`${u.name} • ${u.email}`}>
+                                        <span style={{ fontSize: 12 }}>{u.name.toUpperCase().split(' ').map(n => n[0]).slice(0,2).join('')}</span>
+                                      </div>
+                                    ))}
+
+                                    {group.users.length > 5 && (
+                                      <div style={{ marginLeft: 10, borderRadius: '18px', padding: '6px 10px', background: '#eef2ff', fontWeight: 600, fontSize: 13 }}>+{group.users.length - 5}</div>
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    <div style={{ fontWeight: 700 }}>Level {group.level}</div>
+                                    <div className="small text-muted">{group.users.length} users</div>
+                                  </div>
+                                </div>
+
+                                {hoveredGroup === `preview-${group.level}` && (
+                                  <div style={{ position: 'absolute', left: 0, top: 72, zIndex: 2000, background: '#fff', padding: 12, borderRadius: 8, boxShadow: '0 6px 24px rgba(0,0,0,0.12)', maxWidth: 420 }}>
+                                    <div style={{ fontWeight: 600, marginBottom: 8 }}>Level {group.level} — {group.users.length} users</div>
+                                    {group.users.map((u) => (
+                                      <Card key={`pv-${u.id}`} className="mb-2">
+                                        <Card.Body style={{ padding: 8 }}>
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: "14px" }}>
+                                            <div>
+                                              <div style={{ fontWeight: 600 }}>{u.name}</div>
+                                              <div className="small text-muted" style={{ fontSize: 12 }}>{u.email}</div>
+                                            </div>
+                                            <div style={{ textAlign: 'right' }}>
+                                              <div className="small">₹{u.bypass_cap ? formatToINRShort(u.bypass_cap) : '-'}</div>
+                                              <Badge bg={u.active ? 'success' : 'secondary'} className="mt-1">{u.active ? 'Active' : 'Inactive'}</Badge>
+                                            </div>
+                                          </div>
+                                          <div className="d-flex gap-2 mt-2">
+                                            <button className="btn btn-sm btn-outline-success p-1" onClick={() => { setFormData({ ...formData, userId: u.id, bypass_cap: u.bypass_cap, level: u.level, active: u.active, }); }}>Edit</button>
+                                            <button className="btn btn-sm btn-outline-danger p-1" onClick={() => removeUserFromPreview(u.id)}>Remove</button>
+                                          </div>
+                                        </Card.Body>
+                                      </Card>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          </div>
-                        </Card.Body>
-                      </Card>
+                            </Card.Body>
+                          </Card>
+                        )}
+                      </div>
                     ))}
 
                     <hr />
