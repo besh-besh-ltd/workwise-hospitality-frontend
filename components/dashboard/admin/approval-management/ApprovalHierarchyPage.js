@@ -21,6 +21,7 @@ import {
   // expected service to save mappings - adapt if your backend uses a different name
   updateHierarchyProjectMapping,
   updateDefaultHierarchy,
+  getHierarchyTypes,
 } from "@/services/general";
 
 import { ALLOWED_PO_USERS } from "@/utils/constants";
@@ -66,6 +67,7 @@ const ApprovalHierarchyMultiPage = () => {
 
   // projects & mapping
   const [projects, setProjects] = useState([]);
+  const [hierarchyTypes, setHierarchyTypes] = useState([]);
   const [mappingModal, setMappingModal] = useState({ show: false, hierarchy: null, selected: [] });
   const [mappingSaving, setMappingSaving] = useState(false);
 
@@ -88,8 +90,21 @@ const ApprovalHierarchyMultiPage = () => {
     } catch (err) {
       console.error(err);
       // fallback: if API not available, you can still map using a manual list
-      toast.warning("Failed to fetch projects (check getProjectList service). Project-mapping will be disabled.");
+      toast.warning("Failed to fetch projects");
       setProjects([]);
+    }
+  };
+
+  // fetch hierarchy types
+  const fetchHierarchyTypes = async () => {
+    try {
+      const res = await getHierarchyTypes();
+      if (res?.data) setHierarchyTypes(res.data || []);
+    } catch (err) {
+      console.error(err);
+      // fallback: if API not available, you can still map using a manual list
+      toast.warning("Failed to fetch hierarchyTypes");
+      setHierarchyTypes([]);
     }
   };
 
@@ -310,6 +325,7 @@ const ApprovalHierarchyMultiPage = () => {
     fetchCompanyUsers();
     fetchAllHierarchies();
     fetchProjects();
+    fetchHierarchyTypes();
   }, []);
 
   return (
@@ -356,7 +372,7 @@ const ApprovalHierarchyMultiPage = () => {
                   {Object.keys(grouped).map((type) => (
                     <div key={type} className="mb-4">
                       <Badge bg='dark' className="fs-6 px-3 py-2 text-uppercase mb-3">
-                        {type} hierarchies
+                        {type.replace("_", " ")} hierarchies
                       </Badge>
                       <Accordion defaultActiveKey="0" alwaysOpen>
                         {grouped[type].map((h, idx) => (
@@ -365,7 +381,7 @@ const ApprovalHierarchyMultiPage = () => {
                               <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <div className="d-flex flex-column gap-2">
                                   <div className="d-flex gap-2 align-items-center">
-                                    <strong>Hierarchy #{h.hierarchy_id}</strong>
+                                    <strong>Hierarchy - {idx + 1}</strong>
                                     {(h.is_default) ? (
                                       <Badge bg='success' className="small px-2 py-1 text-uppercase">
                                         Default
@@ -456,8 +472,10 @@ const ApprovalHierarchyMultiPage = () => {
                   <Col md={5}>
                     <Form.Group className="mb-3">
                       <Form.Label>Module / Type</Form.Label>
-                      <Form.Select value={formData.module} onChange={(e) => setFormData({ ...formData, module: e.target.value })}>
-                        <option value="po">Purchase Order (po)</option>
+                      <Form.Select disabled={previewApprovers.length > 0} value={formData.module} onChange={(e) => setFormData({ ...formData, module: e.target.value })}>
+                        {hierarchyTypes?.map(type => (
+                          <option value={type.value}>{type.label}</option>
+                        ))}
                       </Form.Select>
                     </Form.Group>
 
