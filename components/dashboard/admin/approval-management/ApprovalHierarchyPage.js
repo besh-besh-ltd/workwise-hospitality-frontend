@@ -20,6 +20,7 @@ import {
   updateHierarchy,
   // expected service to save mappings - adapt if your backend uses a different name
   updateHierarchyProjectMapping,
+  updateDefaultHierarchy,
 } from "@/services/general";
 
 import { ALLOWED_PO_USERS } from "@/utils/constants";
@@ -294,6 +295,17 @@ const ApprovalHierarchyMultiPage = () => {
     return activeUsers[activeUsers.length - 1].id === user.id;
   };
 
+  const handleSetDefault = async (hierarchy, type) => {
+    try {
+      await updateDefaultHierarchy(hierarchy, type);
+      await fetchAllHierarchies();
+      toast.success("Hierarchy has been set as default.")
+    } catch (error) {
+      console.error(error);
+      toast.error("Something went wrong while setting the hierarchy as default")
+    }
+  }
+
   useEffect(() => {
     fetchCompanyUsers();
     fetchAllHierarchies();
@@ -343,18 +355,31 @@ const ApprovalHierarchyMultiPage = () => {
 
                   {Object.keys(grouped).map((type) => (
                     <div key={type} className="mb-4">
-                      <h5 className="mb-2 text-capitalize fw-medium mb-2">{type} hierarchies</h5>
+                      <Badge bg='dark' className="fs-6 px-3 py-2 text-uppercase mb-3">
+                        {type} hierarchies
+                      </Badge>
                       <Accordion defaultActiveKey="0" alwaysOpen>
                         {grouped[type].map((h, idx) => (
                           <Accordion.Item eventKey={`${type}-${idx}`} key={h.hierarchy_id}>
                             <Accordion.Header>
                               <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <div>
-                                  <strong>Hierarchy #{h.hierarchy_id}</strong>
+                                <div className="d-flex flex-column gap-2">
+                                  <div className="d-flex gap-2 align-items-center">
+                                    <strong>Hierarchy #{h.hierarchy_id}</strong>
+                                    {(h.is_default) ? (
+                                      <Badge bg='success' className="small px-2 py-1 text-uppercase">
+                                        Default
+                                      </Badge>
+                                    ) : (
+                                      <Badge onClick={(e) => {e.stopPropagation(); handleSetDefault(h.hierarchy_id, type)}} bg='none' className="small px-2 py-1 text-uppercase outline-badge">
+                                        Set as default
+                                      </Badge>
+                                    )}
+                                  </div>
                                   <div className="small text-muted">{h.approvers?.length ?? 0} approver(s) • Created: {h.approvers?.[0]?.created_at ? new Date(h.approvers[0].created_at).toLocaleString() : "-"}</div>
                                 </div>
 
-                                <div className="d-flex gap-2 me-4">
+                                <div className="d-flex gap-3 me-4">
                                   <Button size="sm" variant="outline-secondary" className="p-2" onClick={(e) => { e.stopPropagation(); editHierarchy(type, h.hierarchy_id); }}>Edit</Button>
 
                                   <Button size="sm" variant="outline-secondary" className="p-2" onClick={(e) => { e.stopPropagation(); openMappingModal(h); }}>
