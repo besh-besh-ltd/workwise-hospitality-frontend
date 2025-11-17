@@ -95,6 +95,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [prevWorkedWith, setPrevWorkedWith] = useState(null);
   const [makeList, setMakeList] = useState([]);
   const [selectedMakes, setSelectedMakes] = useState([]);
+  const [allAvailableCities, setAllAvailableCities] = useState([]);
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -427,9 +428,6 @@ const addRfqIdParam = (rfq_id) => {
     setloading(true);
     setVendors([]);
     setSearchSubCategories([]);
-    // changes by mukul jatav 29-08-2024 
-    // setbulkRFQVendors([]);
-    // Use the name of the currentSelectedProduct as the search_key for vendor search
     let canonicalSearchKey = search_key;
     if (currentSelectedProduct) {
       canonicalSearchKey = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || search_key;
@@ -437,7 +435,6 @@ const addRfqIdParam = (rfq_id) => {
       canonicalSearchKey = products[0].variant_name || products[0].product_name || search_key;
     }
     if (canonicalSearchKey != "") {
-      // Convert location filters to proper format for backend
       const stateFilter = selectedState && selectedState.length > 0 ? selectedState : [];
       const cityFilter = selectedCity && selectedCity.length > 0 ? selectedCity : [];
       const countryFilter = selectedCountry && selectedCountry.length > 0 ? selectedCountry : [];
@@ -461,22 +458,39 @@ const addRfqIdParam = (rfq_id) => {
       )
         .then((rsp) => {
           setloading(false);
-
           let d = rsp.data.map((item) => {
             item.selected = bulkRFQVendors.some(vendor => vendor.id === item.id);
             return item;
           });
-          
           setVendors(d);
-
-          setVendorMetaData(rsp)
-          currentSelectedProduct
-            ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" })
-            : null;
+          
+          // Store all cities without filters for city list
+          if (!cityFilter.length && !stateFilter.length) {
+            const cities = [];
+            const cityMap = new Map();
+            d.forEach(vendor => {
+              if (vendor.city_name && vendor.state_name) {
+                const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
+                if (!cityMap.has(key)) {
+                  cityMap.set(key, true);
+                  cities.push({
+                    city_name: vendor.city_name,
+                    state_name: vendor.state_name,
+                    city_id: vendor.city_id,
+                    state_id: vendor.state_id
+                  });
+                }
+              }
+            });
+            setAllAvailableCities(cities.sort((a, b) => a.city_name.localeCompare(b.city_name)));
+          }
+          
+          setVendorMetaData(rsp);
+          currentSelectedProduct ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" }) : null;
         })
         .catch((error) => {
           setloading(false);
-          setVendorMetaData(error?.response?.data)
+          setVendorMetaData(error?.response?.data);
         });
     }
   };
@@ -739,33 +753,6 @@ const clearVendorFilters = () => {
   const [stateList, setStateList] = useState([]);
   const [cityList, setCityList] = useState([]);
 
-  const normalizeNameValue = (value = "") =>
-    value.toLowerCase().replace(/\s+/g, " ").trim();
-
-  const findStateByName = (stateName) => {
-    if (!stateName || !stateList?.length) return null;
-    const normalized = normalizeNameValue(stateName);
-    return (
-      stateList.find(
-        (state) => normalizeNameValue(state.state_name) === normalized
-      ) || null
-    );
-  };
-
-  const findCityByName = (cityName, stateId = null) => {
-    if (!cityName || !cityList?.length) return null;
-    const normalized = normalizeNameValue(cityName);
-    return (
-      cityList.find((city) => {
-        if (normalizeNameValue(city.city_name) !== normalized) return false;
-        if (stateId && city.state_id && city.state_id !== stateId) {
-          return false;
-        }
-        return true;
-      }) || null
-    );
-  };
-
   // Fetch country/state/city lists for dropdowns (unchanged)
   useEffect(() => { getCountries().then(res => setCountryList(res.data || [])); }, []);
   useEffect(() => { getStates().then(res => setStateList(res.data || [])); }, []);
@@ -775,14 +762,7 @@ const clearVendorFilters = () => {
   useEffect(() => {
     // Normalize slug which may be string or array
     let slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
-
-    if (!slugStr || slugStr === 'all') {
-      setSearch_key('');
-      setselectedCountry([]);
-      setselectedState([]);
-      setselectedCity([]);
-      return;
-    }
+    if (!slugStr || slugStr === 'all') return;
 
     // Remove -category{number} from slug before parsing (keep it in URL but not in parsing/display)
     const slugForParsing = removeCategorySuffix(slugStr);
@@ -797,31 +777,34 @@ const clearVendorFilters = () => {
     const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
     const segments = slugForParsing.split('-');
     let foundState = null, foundCity = null, productSegments = [];
+    // Note: if country is desired via slug, we can extend similarly using countries list
 
     for (let i = segments.length - 1; i >= 0; i--) {
       const segment = segments[i].toLowerCase();
       if (!foundState) {
         const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
-        if (stateMatch) {
-          foundState = { id: stateMatch.id, name: stateMatch.state_name };
-          continue;
+        if (stateMatch) { 
+          foundState = stateMatch; 
+          setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]);
+          // Auto-select country
+          const country = countryList.find(c => c.id === stateMatch.country_id);
+          if (country) setselectedCountry([{ id: country.id, name: country.country_name }]);
+          continue; 
         }
       }
       if (!foundCity) {
         const cityMatch = cityList.find(city => normalize(city.city_name) === segment);
-        if (cityMatch) {
-          foundCity = { id: cityMatch.id, name: cityMatch.city_name };
-          continue;
+        if (cityMatch) { 
+          foundCity = cityMatch; 
+          setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]);
+          continue; 
         }
       }
       productSegments.unshift(segments[i]);
     }
     const finalSearchKey = productSegments.join('/');
     setSearch_key(finalSearchKey);
-    setselectedCountry([]);
-    setselectedState(foundState ? [foundState] : []);
-    setselectedCity(foundCity ? [foundCity] : []);
-  }, [slug, stateList, cityList]);
+  }, [slug, stateList, cityList, countryList]);
 
   // When slug changes (including 'all'), fetch nested categories.
   // Nested category handling delegated to NestedCategoryBrowser
@@ -856,13 +839,31 @@ useEffect(() => {
 }, [slug]);
 
 
-  // --- When filters are cleared, update the URL ---
+  // Update URL when location filters change
+  useEffect(() => {
+    if (!search_key || !slug) return;
+    
+    const baseSlug = currentSelectedProduct?.slug || removeCategorySuffix(search_key).replace(/\s+/g, '-').toLowerCase();
+    let newSlug = baseSlug;
+    
+    if (selectedCity.length > 0 && selectedState.length > 0) {
+      const citySlug = cleanAndAddHyphen(selectedCity[0].name);
+      const stateSlug = cleanAndAddHyphen(selectedState[0].name);
+      newSlug = `${baseSlug}-${citySlug}-${stateSlug}`;
+    }
+    
+    const currentSlug = Array.isArray(slug) ? slug.join('/') : slug;
+    if (removeCategorySuffix(currentSlug) !== newSlug && vendors.length > 0) {
+      router.replace(`/vendor/${newSlug}`, undefined, { shallow: true });
+    }
+  }, [selectedCity, selectedState, vendors]);
+
   const clearLocationFilter = () => {
     setselectedState([]);
     setselectedCity([]);
     setselectedCountry([]);
-    router.replace(`/vendor/${search_key || 'all'}`);
-    getProducts(search_key);
+    const baseSlug = currentSelectedProduct?.slug || removeCategorySuffix(search_key).replace(/\s+/g, '-').toLowerCase();
+    router.replace(`/vendor/${baseSlug}`);
   };
 
   // --- Search bar: always editable ---
@@ -1790,111 +1791,33 @@ useEffect(() => {
       </div>
 
       {/* City Selection Section */}
-      {(() => {
-        // Extract unique cities from vendors
-        const uniqueCities = [];
-        const cityMap = new Map();
-        
-        if (vendors && vendors.length > 0) {
-          vendors.forEach(vendor => {
-            if (vendor.city_name && vendor.state_name) {
-              const cityKey = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
-              if (!cityMap.has(cityKey)) {
-                const matchedState = findStateByName(vendor.state_name);
-                const matchedCity = findCityByName(
-                  vendor.city_name,
-                  matchedState?.id || null
-                );
-
-                const cityPayload = {
-                  city_name: vendor.city_name,
-                  state_name: vendor.state_name,
-                  city_id: matchedCity?.id || null,
-                  state_id: matchedState?.id || matchedCity?.state_id || null
-                };
-
-                cityMap.set(cityKey, cityPayload);
-                uniqueCities.push(cityPayload);
-              }
-            }
-          });
-        }
-
-        // Sort cities alphabetically
-        uniqueCities.sort((a, b) => {
-          if (a.city_name < b.city_name) return -1;
-          if (a.city_name > b.city_name) return 1;
-          return 0;
-        });
-
-        if (uniqueCities.length > 0 && (currentSelectedProduct || (search_key && slug && String(slug).includes('-category')))) {
-          const productSlug = currentSelectedProduct?.slug || cleanAndAddHyphen(removeCategorySuffix(search_key));
-          
-          return (
-            <div className="container my-4">
-              <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
-                {currentSelectedProduct ? `${getProductTitle()} Vendors by City` : `${textCapitalize(removeCategorySuffix(search_key))} Vendors by City`}
-              </h3>
-              <div className="row">
-                {uniqueCities.map((city, index) => {
-                  const citySlug = cleanAndAddHyphen(city.city_name);
-                  const stateSlug = cleanAndAddHyphen(city.state_name);
-                  const cityUrl = `/vendor/${productSlug}-${citySlug}-${stateSlug}`;
-                  
-                  const handleCitySelection = () => {
-                    const matchedState =
-                      (city.state_id &&
-                        stateList.find((state) => state.id === city.state_id)) ||
-                      findStateByName(city.state_name);
-
-                    const matchedCity =
-                      (city.city_id &&
-                        cityList.find((_city) => _city.id === city.city_id)) ||
-                      findCityByName(city.city_name, matchedState?.id || null);
-
-                    if (matchedState) {
-                      setselectedState([{
-                        id: matchedState.id,
-                        name: matchedState.state_name,
-                      }]);
-                    } else if (city.state_name) {
-                      setselectedState([{ id: null, name: city.state_name }]);
-                    } else {
-                      setselectedState([]);
-                    }
-
-                    if (matchedCity) {
-                      setselectedCity([{
-                        id: matchedCity.id,
-                        name: matchedCity.city_name,
-                      }]);
-                    } else if (city.city_name) {
-                      setselectedCity([{ id: null, name: city.city_name }]);
-                    } else {
-                      setselectedCity([]);
-                    }
-
-                    router.push(cityUrl);
-                  };
-                  
-                  return (
-                    <div key={`city_${city.city_id || index}_${city.city_name}_${city.state_name}`} className="col-md-3 col-sm-4 col-6 mb-3">
-                      <button
-                        className="btn btn-outline-primary w-100"
-                        onClick={handleCitySelection}
-                        style={{ minHeight: '50px' }}
-                      >
-                        {city.city_name}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        }
-        return null;
-      })()}
+      {allAvailableCities.length > 0 && (currentSelectedProduct || (search_key && slug && String(slug).includes('-category'))) && (
+        <div className="container my-4">
+          <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
+            {currentSelectedProduct ? `${getProductTitle()} Vendors by City` : `${textCapitalize(removeCategorySuffix(search_key))} Vendors by City`}
+          </h3>
+          <div className="row">
+            {allAvailableCities.map((city, index) => {
+              const productSlug = currentSelectedProduct?.slug || cleanAndAddHyphen(removeCategorySuffix(search_key));
+              const citySlug = cleanAndAddHyphen(city.city_name);
+              const stateSlug = cleanAndAddHyphen(city.state_name);
+              const cityUrl = `/vendor/${productSlug}-${citySlug}-${stateSlug}`;
+              
+              return (
+                <div key={`city_${city.city_id || index}_${city.city_name}_${city.state_name}`} className="col-md-3 col-sm-4 col-6 mb-3">
+                  <button
+                    className="btn btn-outline-primary w-100"
+                    onClick={() => router.push(cityUrl)}
+                    style={{ minHeight: '50px' }}
+                  >
+                    {city.city_name}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
   Why Trust Us
