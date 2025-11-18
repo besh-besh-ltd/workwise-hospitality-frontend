@@ -33,3 +33,19 @@ export const updateHierarchyProjectMapping = async (hierarchy_id, hierarchy_type
   });
   return res;
 };
+
+export const updateDefaultHierarchy = async (hierarchy_id, hierarchy_type) => {
+  const res = await axiosInstance.post(`/general/setDefaultHierarchy`, {
+    hierarchy_id,
+    hierarchy_type,
+  });
+  return res;
+};
+
+export const getHierarchyTypes = async (hierarchy_id, hierarchy_type) => {
+  const res = await axiosInstance.get(`/general/hierarchyTypes`, {
+    hierarchy_id,
+    hierarchy_type,
+  });
+  return res;
+};
