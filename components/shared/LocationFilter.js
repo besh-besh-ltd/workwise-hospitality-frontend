@@ -205,16 +205,19 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
     const handleStateOptionClick = (state) => {
         const countryItem = countries.find((item) => item.id === state.country_id);
         
-        if (countryItem && !selectedCountry.some(c => c.id === countryItem.id)) {
-            setselectedCountry(prev => [...prev, {
+        if (countryItem) {
+            setselectedCountry([{
                 id: countryItem.id,
                 name: countryItem.country_name
             }]);
             setInputCountryValue(countryItem.country_name);
+        } else {
+            setselectedCountry([]);
+            setInputCountryValue("");
         }
         
         setInputStateValue(state.state_name);
-        setselectedState(prev => [...prev, {
+        setselectedState([{
             id: state.id,
             name: state.state_name
         }]);
@@ -230,24 +233,30 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
         const stateItem = states.find((item) => item.id === city.state_id);
         const countryItem = countries.find((item) => item.id === city.country_id);
         
-        if (countryItem && !selectedCountry.some(c => c.id === countryItem.id)) {
-            setselectedCountry(prev => [...prev, {
+        if (countryItem) {
+            setselectedCountry([{
                 id: countryItem.id,
                 name: countryItem.country_name
             }]);
             setInputCountryValue(countryItem.country_name);
+        } else {
+            setselectedCountry([]);
+            setInputCountryValue("");
         }
         
-        if (stateItem && !selectedState.some(s => s.id === stateItem.id)) {
-            setselectedState(prev => [...prev, {
+        if (stateItem) {
+            setselectedState([{
                 id: stateItem.id,
                 name: stateItem.state_name
             }]);
             setInputStateValue(stateItem.state_name);
+        } else {
+            setselectedState([]);
+            setInputStateValue("");
         }
         
         setInputCityValue(city.city_name);
-        setselectedCity(prev => [...prev, {
+        setselectedCity([{
             id: city.id,
             name: city.city_name
         }]);
@@ -261,7 +270,7 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
     const handleCountryOptionClick = (country) => {
 
             setInputCountryValue(country.country_name);
-            setselectedCountry(prev => [...prev, {
+            setselectedCountry([{
                 id: country.id,
                 name: country.country_name
             }]);
