@@ -96,6 +96,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [makeList, setMakeList] = useState([]);
   const [selectedMakes, setSelectedMakes] = useState([]);
   const [allAvailableCities, setAllAvailableCities] = useState([]);
+  const vendorRequestIdRef = useRef(0);
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -255,18 +256,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 }, [
   slug,
   currentSelectedProduct,
-  selectedApprovedBy,
   cat_id,
-  selectedState,
-  selectedCity,
-  selectedCountry,
-  selectedVendorTypes,
-  prevWorkedWith,
-  turnOver,
-  isLoggedIn,
-  debouncedVendorName,
-  myVendorType,
-  selectedMakes,
   search_key
 ]);
 
@@ -470,6 +460,7 @@ const addRfqIdParam = (rfq_id) => {
           console.error("Error fetching cities:", error);
         });
       
+      const requestId = ++vendorRequestIdRef.current;
       searchProductsV2(
         {
           cat_id,
@@ -488,16 +479,35 @@ const addRfqIdParam = (rfq_id) => {
         "vendors"
       )
         .then((rsp) => {
+          if (requestId !== vendorRequestIdRef.current) return;
           setloading(false);
           let d = rsp.data.map((item) => {
             item.selected = bulkRFQVendors.some(vendor => vendor.id === item.id);
             return item;
           });
           setVendors(d);
+          const cities = [];
+          const cityMap = new Map();
+          d.forEach((vendor) => {
+            if (vendor.city_name && vendor.state_name) {
+              const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
+              if (!cityMap.has(key)) {
+                cityMap.set(key, true);
+                cities.push({
+                  city_name: vendor.city_name,
+                  state_name: vendor.state_name,
+                  city_id: vendor.city_id,
+                  state_id: vendor.state_id
+                });
+              }
+            }
+          });
+          setAllAvailableCities(cities.sort((a, b) => a.city_name.localeCompare(b.city_name)));
           setVendorMetaData(rsp);
           currentSelectedProduct ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" }) : null;
         })
         .catch((error) => {
+          if (requestId !== vendorRequestIdRef.current) return;
           setloading(false);
           setVendorMetaData(error?.response?.data);
         });
