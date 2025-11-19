@@ -75,7 +75,6 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
         }
         else if (!selectedCity) {
             const cityVal = cities?.find((item) => item.id == selectedCity)?.city_name;
-            console.log(cityVal)
             setInputCityValue(cityVal || "");
         }
         else if (!selectedCountry) {
@@ -203,36 +202,67 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
         setCountryDropdownVisible(true);
     };
 
-    // Handle state selection
     const handleStateOptionClick = (state) => {
-
-            setInputStateValue(state.state_name);
-            setselectedState(prev => [...prev, {
-                id: state.id,
-                name: state.state_name
+        const countryItem = countries.find((item) => item.id === state.country_id);
+        
+        if (countryItem) {
+            setselectedCountry([{
+                id: countryItem.id,
+                name: countryItem.country_name
             }]);
-            setInputCityValue("");
-            setselectedCity([]);
-            setStateDropdownVisible(false);
-            if (stateSelectionRef.current) {
-                stateSelectionRef.current.value = "";
-            }
+            setInputCountryValue(countryItem.country_name);
+        } else {
+            setselectedCountry([]);
+            setInputCountryValue("");
+        }
+        
+        setInputStateValue(state.state_name);
+        setselectedState([{
+            id: state.id,
+            name: state.state_name
+        }]);
+        setInputCityValue("");
+        setselectedCity([]);
+        setStateDropdownVisible(false);
+        if (stateSelectionRef.current) {
+            stateSelectionRef.current.value = "";
+        }
     };
 
-    // Handle city selection
     const handleCityOptionClick = (city) => {
-
-            const stateItem = states.find((item) => item.id === city.state_id);
-            setInputStateValue(stateItem.state_name);
-            setInputCityValue(city.city_name);
-            setselectedCity(prev => [...prev, {
-                id: city.id,
-                name: city.city_name
+        const stateItem = states.find((item) => item.id === city.state_id);
+        const countryItem = countries.find((item) => item.id === city.country_id);
+        
+        if (countryItem) {
+            setselectedCountry([{
+                id: countryItem.id,
+                name: countryItem.country_name
             }]);
-            setCityDropdownVisible(false);
-            if (citySelectionRef.current) {
-                citySelectionRef.current.value = "";
-            
+            setInputCountryValue(countryItem.country_name);
+        } else {
+            setselectedCountry([]);
+            setInputCountryValue("");
+        }
+        
+        if (stateItem) {
+            setselectedState([{
+                id: stateItem.id,
+                name: stateItem.state_name
+            }]);
+            setInputStateValue(stateItem.state_name);
+        } else {
+            setselectedState([]);
+            setInputStateValue("");
+        }
+        
+        setInputCityValue(city.city_name);
+        setselectedCity([{
+            id: city.id,
+            name: city.city_name
+        }]);
+        setCityDropdownVisible(false);
+        if (citySelectionRef.current) {
+            citySelectionRef.current.value = "";
         }
     };
 
@@ -240,7 +270,7 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
     const handleCountryOptionClick = (country) => {
 
             setInputCountryValue(country.country_name);
-            setselectedCountry(prev => [...prev, {
+            setselectedCountry([{
                 id: country.id,
                 name: country.country_name
             }]);

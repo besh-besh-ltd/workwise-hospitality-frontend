@@ -538,7 +538,7 @@ const ApprovalHierarchyMultiPage = () => {
 
                                       <div className="mt-2">
                                         <Button size="sm" variant="outline-secondary" className="p-2 mt-2" onClick={() => openMappingModal(h)}>
-                                          {(h.mapped_project_ids || []).length > 0 ? `View ${h.mapped_project_ids.length - 2} More` : "View Mapping(s)"}
+                                          {((h.mapped_project_ids || []).length - 2) > 0 ? `View ${h.mapped_project_ids.length - 2} More` : "View Mapping(s)"}
                                         </Button>
                                       </div>
                                     </Card.Body>
@@ -758,6 +758,13 @@ const ApprovalHierarchyMultiPage = () => {
                   id={`proj-${p.id}`}
                   className="mb-2"
                   type="checkbox"
+                  disabled={
+                    !!allHierarchies.find(h => 
+                      (h?.mapped_project_ids || []).find(prj => 
+                        prj.project_id == p.id && h.hierarchy_id != mappingModal.hierarchy?.hierarchy_id
+                      )
+                    )
+                  }
                   label={`${p.name} (#${p.id})`}
                   checked={mappingModal.selected.includes(p.id)}
                   onChange={() => toggleProjectSelection(p.id)}

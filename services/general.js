@@ -49,3 +49,8 @@ export const getHierarchyTypes = async (hierarchy_id, hierarchy_type) => {
   });
   return res;
 };
+
+export const getAvailableHierarchies = async (type, project_id, ) => {
+  const res = await axiosInstance.get(`/general/getUserHierarchies`, { params: { type, project_id, currentUserOnly: true }});
+  return res;
+}

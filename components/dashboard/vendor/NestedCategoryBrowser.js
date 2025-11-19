@@ -76,13 +76,11 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
       setPreviousLevelCategories(arr);
 
 
-      // Only fetch vendors at 3rd level (when categoryPath has 2+ items)
-      const shouldFetchVendors = categoryPath.length >= 2 && 
-                                   arr.length > 0 && 
+      // Only fetch vendors at 3rd level (when parent_id > 0 and has parent)
+      const shouldFetchVendors = parent_id > 0 &&
+                                   categoryPath.length >= 2 && 
                                    slugParam && 
-                                   slugParam !== 'all' && 
-                                   !isFetchingFromRoot && 
-                                   !isLikelyTopLevel;
+                                   slugParam !== 'all';
 
       if (shouldFetchVendors) {
         const productSearchKey = slugParam.replace(/-category\d+$/i, '').replace(/-/g, ' ');

@@ -40,7 +40,6 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 const QuoteCompare = () => {
   const router = useRouter();
   const { rfq, rfq_product_id, source, tab = 'product' } = router.query;
-  console.log("TAB:", tab);
   const [loading, setloading] = useState(false);
   const [quotesLoading, setquotesLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
@@ -1112,7 +1111,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     setShowCloseConfirmModal(false);
   };
 
-  const handleFinalize = (item, proditem, existingPOId) => {
+  const handleFinalize = (item, proditem, existingPOId, selectedHierarchy) => {
     setfinalizeLoading(true);
     const specs = proditem.product_details[0].rfq_details;
 
@@ -1120,6 +1119,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       project_id: proditem.rfq[0].project_id,
       total_value: item.total_price,
       existing_po_id: existingPOId,
+      selected_hierarchy: selectedHierarchy,
       product_info: {
         rfq_product_id: proditem.id,
         quantity: specs.find(spec => spec.title == 'Quantity')?.value ?? -1,
@@ -1946,6 +1946,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                         isRfqClosed={
                                           Array.isArray(item.rfq) &&
                                           item.rfq[0]?.status === 2
+                                        }
+                                        projectId={
+                                          Array.isArray(item.rfq) &&
+                                          item.rfq[0]?.project_id
                                         }
                                         availableBudget={availableBudget}
                                         targetPrice={item.latest_target_price}
