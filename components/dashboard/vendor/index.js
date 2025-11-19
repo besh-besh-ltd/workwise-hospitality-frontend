@@ -6,19 +6,57 @@ import { faUser } from "@fortawesome/free-solid-svg-icons";
 import { Chart } from "chart.js";
 import Head from "next/head";
 import { getVendorDashboardData } from "@/services/cms";
-import { getDashboardData } from "@/services/Auth";
+import {
+  getDashboardData,
+  getProfile
+} from "@/services/Auth";
+import {
+  proceedToSubscription,
+  loadScript,
+  testRazorPayEndpoint
+} from "@/services/subscription";
 import FullLoader from "@/components/shared/FullLoader";
 import InquiriesReceived from "./inquiries-received";
 import StarRating from "@/components/StarRating";
 import moment from "moment";
+import { toast } from "react-toastify";
 
 const Vendor = () => {
   const canvasRef = useRef();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setloading] = useState(false);
+  const [hospitalityPaymentTriggered, setHospitalityPaymentTriggered] =
+    useState(false);
 
 
   useEffect(() => {
+    // Check if hospitality vendor has paid
+    const checkHospitalityPayment = async () => {
+      try {
+        const profileResponse = await getProfile();
+        const userProfile = profileResponse.data;
+        
+        // Check if user is hospitality vendor
+        if (userProfile.is_hospitality === 1 || userProfile.is_hospitality === '1') {
+          // Check if user has active subscription (payment made)
+          const hasSubscription = userProfile.subscription_plan_id && userProfile.subscription_plan_id !== null;
+          
+          // If no subscription, redirect to payment
+          if (!hasSubscription) {
+            if (!hospitalityPaymentTriggered) {
+              await triggerHospitalityPayment(userProfile);
+            }
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking hospitality payment status:', error);
+        // Continue to load dashboard even if check fails
+      }
+    };
+
+    checkHospitalityPayment();
+
     setloading(true);
     getDashboardData({
       project_id: -1,
@@ -35,7 +73,94 @@ const Vendor = () => {
         setloading(true);
         console.error(err);
       });
-  }, []);
+  }, [hospitalityPaymentTriggered]);
+
+  const triggerHospitalityPayment = async (profile) => {
+    try {
+      setHospitalityPaymentTriggered(true);
+      toast.warning(
+        'Payment required for hospitality vendors. Opening payment gateway...'
+      );
+
+      const payload = {
+        sub_id: '21',
+        coupon_code: '',
+        user_email: profile.email,
+        user_name: profile.name,
+        user_mobile: profile.mobile,
+        organization_name: profile.organization_name,
+        register_as: profile.user_type
+      };
+
+      const response = await proceedToSubscription(payload);
+      if (response?.status) {
+        await payWithRazorPay(response?.data);
+      } else {
+        setHospitalityPaymentTriggered(false);
+        toast.error('Unable to initiate payment. Please try again.');
+      }
+    } catch (error) {
+      setHospitalityPaymentTriggered(false);
+      console.error('Hospitality payment error:', error);
+      toast.error('Failed to start payment. Please try again.');
+    }
+  };
+
+  const payWithRazorPay = async (orderId) => {
+    const res = await loadScript(
+      'https://checkout.razorpay.com/v1/checkout.js'
+    );
+
+    if (!res) {
+      toast.error('Razorpay SDK failed to load. Are you online?');
+      setHospitalityPaymentTriggered(false);
+      return;
+    }
+
+    const options = {
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
+      order_id: orderId,
+      currency: 'INR',
+      name: 'Workwise',
+      description: 'Hospitality Vendor Subscription',
+      image: '/assets/images/logo.png',
+      handler: function () {
+        const payload = {
+          order_id: orderId
+        };
+        testRazorPayEndpoint(payload)
+          .then((res) => {
+            if (res.data) {
+              toast.success(
+                'Payment successful! Refreshing your dashboard...'
+              );
+              setTimeout(() => {
+                window.location.reload();
+              }, 2000);
+            }
+          })
+          .catch(() => {
+            toast.success(
+              'Payment captured. Please refresh the page after a minute.'
+            );
+          });
+      },
+      prefill: {
+        name: '',
+        email: '',
+        contact: ''
+      },
+      notes: {
+        address: 'India'
+      },
+      theme: {
+        color: '#158993'
+      }
+    };
+
+    const paymentObject = new window.Razorpay(options);
+    paymentObject.open();
+  };
 
 
   const get_notification_title = (item, type) => {

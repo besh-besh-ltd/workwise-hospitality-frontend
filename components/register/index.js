@@ -17,6 +17,7 @@ const Register = ({
   registerAs,
   onRegistrationSuccess,
   isPaidSubscription = false,
+  isHospitality = false,
 }) => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -106,8 +107,11 @@ const Register = ({
     const { countryCode, confirm_password, ...updatedValues } = {
       ...values,
       mobile: fullMobile,
-      // Set status to 1 (approved) for paid subscriptions to bypass admin approval
-      ...(isPaidSubscription && { status: 1 }),
+      // For hospitality vendors, keep status 0 (unapproved) until payment
+      // For other paid subscriptions, set status to 1 (approved)
+      ...(isPaidSubscription && !isHospitality && { status: 1 }),
+      // Add is_hospitality flag for hospitality vendors
+      ...(isHospitality && { is_hospitality: 1 }),
     };
     RegisterService(updatedValues)
       .then((response) => {

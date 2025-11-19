@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/router';
 import { LoginService, SWSubscribe, handleSocialLogin } from "@/services/Auth";
+import { hospitalitySubscriptionPayment, loadScript, testRazorPayEndpoint } from "@/services/subscription";
 import { toast } from 'react-toastify';
 import { useGoogleLogin } from "@react-oauth/google";
 import { useSelector } from 'react-redux';
@@ -17,6 +18,7 @@ const LoginContainer = (props) => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loginWith, setLoginWith] = useState("");
+    const [, setIsHospitalityPaymentLoading] = useState(false);
     
     const handleOtherDeviceLoginModalOpen = () => {
         setShowModal(true);
@@ -33,42 +35,117 @@ const LoginContainer = (props) => {
 
     const swSubscription = useSelector((data) => data.swSubscription);
 
+    const initiateHospitalityPayment = async (hospitalityUser) => {
+        try {
+            setIsHospitalityPaymentLoading(true);
+            const payload = {
+                user_key: hospitalityUser.user_key,
+                sub_id: 21,
+                coupon_code: ""
+            };
+            const response = await hospitalitySubscriptionPayment(payload);
+            if (response?.status) {
+                await payWithRazorPay(response?.data);
+            } else {
+                toast.error("Unable to initiate payment. Please try again.");
+            }
+        } catch (error) {
+            console.error("Hospitality payment error:", error);
+            toast.error("Failed to start payment. Please try again.");
+        } finally {
+            setIsHospitalityPaymentLoading(false);
+        }
+    };
+
+    const payWithRazorPay = async (orderId) => {
+        const res = await loadScript(
+            "https://checkout.razorpay.com/v1/checkout.js"
+        );
+
+        if (!res) {
+            toast.error("Razorpay SDK failed to load. Are you online?");
+            return;
+        }
+
+        const options = {
+            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
+            order_id: orderId,
+            currency: "INR",
+            name: "Workwise",
+            description: "Hospitality Vendor Subscription",
+            image: "/assets/images/logo.png",
+            handler: function () {
+                const payload = {
+                    order_id: orderId
+                };
+                testRazorPayEndpoint(payload)
+                    .then(() => {
+                        toast.success("Payment successful! Please login again after a minute.");
+                    })
+                    .catch(() => {
+                        toast.success("Payment captured. Please login again after a minute.");
+                    });
+            },
+            prefill: {
+                name: "",
+                email: "",
+                contact: "",
+            },
+            notes: {
+                address: "India",
+            },
+            theme: {
+                color: "#158993",
+            },
+        };
+
+        const paymentObject = new window.Razorpay(options);
+        paymentObject.open();
+    };
+
     const loginSubmitHandler = (values, isFromOtherModal = false) => {
         props.setloading(true);
         LoginService(values, isFromOtherModal)
             .then((response) => {
+                props.setloading(false);
+                if (response?.status === 5 && response?.hospitality_user) {
+                    toast.warning("Payment required for hospitality vendors. Please complete the payment to activate your account.");
+                    initiateHospitalityPayment(response.hospitality_user);
+                    return;
+                }
                 if (isFromOtherModal) {
                     handleClose();
                 }
-                // subscribe to SW
-                SWSubscribe({ subscription: swSubscription, token: response.token })
-                    .then((res) => {
-                        // console.log("PUSH SENT");
-                    })
-                    .catch((err) => { });
-                props.setloading(false);
+                if (response?.token) {
+                    SWSubscribe({ subscription: swSubscription, token: response.token })
+                        .catch(() => {});
+                }
                 handleChange(props.setOpenAuthModal(false));
 
                 toast.success(response.message, {
                     position: "top-right",
-                    offset: '60px' // <-- PUSHES IT DOWN
+                    offset: '60px'
                });
 
-
+                const userDetail = response?.user_detail?.[0];
+                if (!userDetail) {
+                    toast.error("Unable to fetch user details. Please try again.");
+                    return;
+                }
                 let userType = "";
-                if (response.user_detail[0].user_type == 2) {
+                if (userDetail.user_type == 2) {
                     userType = "buyer";
-                } else if (response.user_detail[0].user_type == 3) {
+                } else if (userDetail.user_type == 3) {
                     userType = "vendor";
-                } else if (response.user_detail[0].user_type == 4) {
+                } else if (userDetail.user_type == 4) {
                     userType = "other";
-                } else if (response.user_detail[0].user_type == 7) {
+                } else if (userDetail.user_type == 7) {
                     userType = "admin";
-                } else if (response.user_detail[0].user_type == 8) {
+                } else if (userDetail.user_type == 8) {
                     userType = "management";
-                } else if (response.user_detail[0].user_type == 9) {
+                } else if (userDetail.user_type == 9) {
                     userType = "engineering";
-                } else if (response.user_detail[0].user_type == 10) {
+                } else if (userDetail.user_type == 10) {
                     userType = "finance";
                 }
                 storageInstance.setStorage("current-user-type", userType);
@@ -94,7 +171,6 @@ const LoginContainer = (props) => {
                         router.push(`/dashboard/${userType}`);
                     }
                 }
-                //router.push(`/dashboard`);
             })
             .catch((error) => {
                 props.setloading(false);

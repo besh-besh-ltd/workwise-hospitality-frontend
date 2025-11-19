@@ -67,3 +67,17 @@ export const applyCoupon = (payload) => {
         }
     });
 }
+
+export const hospitalitySubscriptionPayment = (payload) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.post(
+                `/users/hospitality-subscription-payment`,
+                payload
+            );
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+}

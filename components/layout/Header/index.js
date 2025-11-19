@@ -93,6 +93,11 @@ const roleMenus = {
       label: "PO Approval Hierarchy",
       targetMenu: "nav",
     },
+    {
+      href: "/dashboard/admin/hospitality-manager",
+      label: "Hospitality Network",
+      targetMenu: "nav",
+    },
     // { href: "/dashboard/admin/account-management/create-account", label: "RFQ management" },
   ],
   buyer: [ // procurment person 

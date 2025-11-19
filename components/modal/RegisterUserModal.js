@@ -9,7 +9,8 @@ export default function RegisterUserModal({
   showButton = true,
   onRegistrationSuccess,
   onClose,
-  isPaidSubscription = false
+  isPaidSubscription = false,
+  isHospitality = false
 }) {
  
   // Use internal state if props not provided (for backwards compatibility)
@@ -60,6 +61,7 @@ export default function RegisterUserModal({
             registerAs={"vendor"} 
             onRegistrationSuccess={onRegistrationSuccess}
             isPaidSubscription={isPaidSubscription}
+            isHospitality={isHospitality}
           />
         </Modal.Body>
       </Modal>

@@ -19,7 +19,11 @@ export const LoginService = (values, confirm) => {
 	return new Promise(async (resolve, reject) => {
 		try {
 			let response = await axiosInstance.post(`/users/login?conform=${confirm}`, values);
-			storageInstance.setStorage("token", response.token);
+			if (response?.token) {
+				storageInstance.setStorage("token", response.token);
+			} else {
+				storageInstance.removeStorege("token");
+			}
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
