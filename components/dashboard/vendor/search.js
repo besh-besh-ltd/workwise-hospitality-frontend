@@ -285,12 +285,15 @@ useEffect(() => {
  }
 
  setcurrentSelectedProduct(null);
- setSearch_key('');
- setInputValue('');
  setApproved_by([]);
  setAllAvailableCities([]);
  if (!isTopLevelCategory && categoryIdFromSlug) {
-   getVendors();
+   const label = removeCategorySuffix(slugStr || '').replace(/-/g, ' ').trim();
+   if (label && label !== search_key) {
+     setSearch_key(label);
+     setInputValue(label);
+   }
+   getVendors(label, categoryIdFromSlug);
  }
  setShowBrowser(true);
 }, [
@@ -298,7 +301,8 @@ useEffect(() => {
   isCategorySlug,
   isTopLevelCategory,
   categoryIdFromSlug,
-  categoriesLoaded
+  categoriesLoaded,
+  search_key
 ]);
 
 
@@ -445,9 +449,10 @@ const addRfqIdParam = (rfq_id) => {
     }
   };
 
-  const getVendors = () => {
+  const getVendors = async (overrideSearchKey = null, overrideCatId = null) => {
     const effectiveCatId =
       currentSelectedProduct?.category_id ??
+      overrideCatId ??
       cat_id ??
       categoryIdFromSlug ??
       null;
@@ -460,15 +465,30 @@ const addRfqIdParam = (rfq_id) => {
     setloading(true);
     setVendors([]);
     setSearchSubCategories([]);
-    let canonicalSearchKey = search_key;
+    let canonicalSearchKey = overrideSearchKey ?? search_key;
     if (currentSelectedProduct) {
       canonicalSearchKey = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || search_key;
-    } else if (products && products.length > 0) {
+    } else if (!canonicalSearchKey && products && products.length > 0) {
       canonicalSearchKey = products[0].variant_name || products[0].product_name || search_key;
     }
 
     if (!canonicalSearchKey && Array.isArray(products) && products.length > 0) {
       canonicalSearchKey = products[0].variant_name || products[0].product_name || '';
+    }
+
+    if (!canonicalSearchKey && isCategorySlug && effectiveCatId) {
+      try {
+        const fallbackRes = await categoryListById({ category_id: effectiveCatId });
+        const fallbackProduct = fallbackRes?.productList?.[0];
+        if (fallbackProduct) {
+          canonicalSearchKey =
+            fallbackProduct.variant_name ||
+            fallbackProduct.product_name ||
+            removeCategorySuffix(slugStr || '').replace(/-/g, ' ');
+        }
+      } catch (err) {
+        console.error("Error fetching fallback product for category:", err);
+      }
     }
 
     if (!canonicalSearchKey && isCategorySlug) {
