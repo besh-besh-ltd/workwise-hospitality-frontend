@@ -76,22 +76,17 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
       setPreviousLevelCategories(arr);
 
 
-      const isNestedProductLevel = type === 'single' && 
-                                   arr.length > 0 && 
+      // Only fetch vendors at 3rd level (when parent_id > 0 and has parent)
+      const shouldFetchVendors = parent_id > 0 &&
+                                   categoryPath.length >= 2 && 
                                    slugParam && 
-                                   slugParam !== 'all' && 
-                                   !isFetchingFromRoot && 
-                                   !isLikelyTopLevel; // Only fetch if NOT a direct navigation (i.e., clicked through)
+                                   slugParam !== 'all';
 
-      if (isNestedProductLevel) {
-        // Use the category slug/name to search for vendors
-        // This will fetch vendors for all products in this product category
-        const productSearchKey = slugParam.replace(/-/g, ' ');
+      if (shouldFetchVendors) {
+        const productSearchKey = slugParam.replace(/-category\d+$/i, '').replace(/-/g, ' ');
         setSearchKey(productSearchKey);
-        // Trigger vendor fetch - but don't hide categories section
         if (onGetProducts) await onGetProducts(productSearchKey);
         if (onGetVendors) onGetVendors();
-        // Don't call onHide() - keep categories section visible
       }
 
       // ✅ For variants: when we have variants in the array, don't auto-fetch
@@ -148,24 +143,9 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
         let isDirectNavigation = false;
         
         if (hasStoredPath) {
-          // ✅ Coming back from variant - restore the full path that was stored
-          const storedPath = pathBeforeVariantRef.current;
-          const pathIndex = storedPath.findIndex(p => p.id === categoryId);
-          
-          if (pathIndex !== -1) {
-            // Category is in the stored path - restore path up to that point
-            const restoredPath = storedPath.slice(0, pathIndex + 1);
-            setCategoryPath(restoredPath);
-            // Clear the stored path since we've restored it
-            pathBeforeVariantRef.current = [];
-            // Not a direct navigation since we're restoring from stored path
-            isDirectNavigation = false;
-          } else {
-            // Category not in stored path - restore full stored path anyway
-            setCategoryPath(storedPath);
-            pathBeforeVariantRef.current = [];
-            isDirectNavigation = false;
-          }
+          setCategoryPath(pathBeforeVariantRef.current);
+          pathBeforeVariantRef.current = [];
+          isDirectNavigation = false;
         } else {
           // ✅ Normal navigation - check if current path already contains this category
           const pathIndex = categoryPath.findIndex(p => p.id === categoryId);
@@ -210,13 +190,8 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
     setSelectedId(id);
     isNavigatingRef.current = true; // ✅ Mark as programmatic navigation
 
-    // ✅ Check if this is a variant (when currentType is variant, items are variants)
     if (currentType === 'variant') {
-      // ✅ Store the current category path before navigating to variant
-      // This allows us to restore it when user clicks back from variant
       pathBeforeVariantRef.current = [...categoryPath];
-      
-      // Hide browser immediately before navigation
       if (onHide) onHide();
       setSearchKey(cleanName);
       if (onGetProducts) await onGetProducts(cleanName);
@@ -228,15 +203,10 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
     }
 
     const newUrl = buildVendorUrl(name, id, currentType);
-    const currentCategories = nestedItems;
-    // ✅ When clicking through categories, this is NOT a direct navigation
-    // Pass false to indicate we've navigated through categories
-    await fetchNestedCategories(id, name, item, false);
-
     const newPath = [...categoryPath, { id, slug: newUrl, title: textCapitalize(name) }];
     setCategoryPath(newPath);
-
-    setRelatedCategories(currentCategories);
+    setRelatedCategories(nestedItems);
+    await fetchNestedCategories(id, name, item, false);
     await router.push(newUrl);
     isNavigatingRef.current = false;
   };
