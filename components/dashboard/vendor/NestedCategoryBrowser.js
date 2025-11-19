@@ -76,17 +76,15 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
       setPreviousLevelCategories(arr);
 
 
-      // Only fetch vendors at 3rd level (when parent_id > 0 and has parent)
+      // Fetch vendors when drilling into actual product categories
       const shouldFetchVendors = parent_id > 0 &&
-                                   categoryPath.length >= 2 && 
-                                   slugParam && 
+                                   slugParam &&
                                    slugParam !== 'all';
-
+                                   
       if (shouldFetchVendors) {
         const productSearchKey = slugParam.replace(/-category\d+$/i, '').replace(/-/g, ' ');
         setSearchKey(productSearchKey);
-        if (onGetProducts) await onGetProducts(productSearchKey);
-        if (onGetVendors) onGetVendors();
+        if (onGetVendors) onGetVendors(productSearchKey);
       }
 
       // ✅ For variants: when we have variants in the array, don't auto-fetch
@@ -110,7 +108,10 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
       const idMatch = currentPath.match(/category(\d+)$/);
       const categoryId = idMatch ? parseInt(idMatch[1], 10) : 0;
       const slug = currentPath.split('/').pop()?.replace(/-category\d+$/, '') || 'all';
-      fetchNestedCategories(categoryId, slug);
+      if (categoryId > 0) {
+        rebuildCategoryPathFromUrl(categoryId, slug);
+      }
+      fetchNestedCategories(categoryId, slug, null, categoryId > 0);
     } catch (_) {
       fetchNestedCategories(0, 'all');
     }

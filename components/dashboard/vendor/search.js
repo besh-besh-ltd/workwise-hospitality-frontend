@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -133,6 +133,42 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const toRef = useRef(null);
   const vendorTypeRef = useRef(null);
   const vendorApprovedByRef = useRef(null);
+  const slugStr = useMemo(() => {
+    if (Array.isArray(slug)) return slug.join("/");
+    return typeof slug === "string" ? slug : "";
+  }, [slug]);
+  const categoryIdFromSlug = useMemo(() => {
+    if (!slugStr) return null;
+    const match = slugStr.match(/-category(\d+)/i);
+    return match ? parseInt(match[1], 10) : null;
+  }, [slugStr]);
+  const isCategorySlug = useMemo(() => !!categoryIdFromSlug, [categoryIdFromSlug]);
+  const categoriesLoaded = Array.isArray(categories) && categories.length > 0;
+  const topLevelCategoryIds = useMemo(
+    () => (categoriesLoaded ? categories.map((cat) => cat.id) : []),
+    [categoriesLoaded, categories]
+  );
+  const isTopLevelCategory = useMemo(() => {
+    if (!categoryIdFromSlug) return false;
+    if (!categoriesLoaded) return true;
+    return topLevelCategoryIds.includes(categoryIdFromSlug);
+  }, [categoryIdFromSlug, topLevelCategoryIds, categoriesLoaded]);
+
+  useEffect(() => {
+    if (categoryIdFromSlug && categoryIdFromSlug !== cat_id) {
+      setCat_id(categoryIdFromSlug);
+      setcurrentSelectedProduct(null);
+    }
+  }, [categoryIdFromSlug, cat_id]);
+
+  useEffect(() => {
+    if (!isCategorySlug) return;
+    const label = removeCategorySuffix(slugStr || "").replace(/-/g, " ").trim();
+    if (label && label !== search_key) {
+      setSearch_key(label);
+      setInputValue(label);
+    }
+  }, [isCategorySlug, slugStr, search_key]);
 
   const handleRedirect = (e) => {
     if (!vendorMetaData?.logged_In)
@@ -220,44 +256,49 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setInternalApprovedBy(approved_by?.filter(approveBy => !selectedApprovedBy.some(_approvedBy => approveBy.vendor_approve == _approvedBy.vendor_approve)))
   }, [selectedApprovedBy])
 
- useEffect(() => {
-  const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
-
-  if (!slugStr || slugStr === 'all') {
+useEffect(() => {
+  if (categoryIdFromSlug && categoryIdFromSlug !== cat_id) {
+    setCat_id(categoryIdFromSlug);
     setcurrentSelectedProduct(null);
-    setVendors([]);
-    setApproved_by([]);
-    setAllAvailableCities([]);
-    setShowBrowser(true);
-    return;
   }
+}, [categoryIdFromSlug]);
 
-  if (!slugStr.includes('-category')) {
-    getVendorApprovedby();
-    getVendors();
-    setShowBrowser(false);
-    return;
-  }
+useEffect(() => {
+ if (!slugStr || slugStr === 'all') {
+   setcurrentSelectedProduct(null);
+   setVendors([]);
+   setApproved_by([]);
+   setAllAvailableCities([]);
+   setShowBrowser(true);
+   return;
+ }
 
-  if (slugStr.includes('-category') && search_key && currentSelectedProduct) {
-    getVendorApprovedby();
-    getVendors();
-    setShowBrowser(true);
-    return;
-  }
+ if (!isCategorySlug) {
+   getVendorApprovedby();
+   getVendors();
+   setShowBrowser(false);
+   return;
+ }
 
-  if (slugStr.includes('-category')) {
-    setcurrentSelectedProduct(null);
-    setVendors([]);
-    setApproved_by([]);
-    setAllAvailableCities([]);
-    setShowBrowser(true);
-  }
+ if (!categoriesLoaded) {
+   return;
+ }
+
+ setcurrentSelectedProduct(null);
+ setSearch_key('');
+ setInputValue('');
+ setApproved_by([]);
+ setAllAvailableCities([]);
+ if (!isTopLevelCategory && categoryIdFromSlug) {
+   getVendors();
+ }
+ setShowBrowser(true);
 }, [
-  slug,
-  currentSelectedProduct,
-  cat_id,
-  search_key
+  slugStr,
+  isCategorySlug,
+  isTopLevelCategory,
+  categoryIdFromSlug,
+  categoriesLoaded
 ]);
 
 
@@ -405,6 +446,17 @@ const addRfqIdParam = (rfq_id) => {
   };
 
   const getVendors = () => {
+    const effectiveCatId =
+      currentSelectedProduct?.category_id ??
+      cat_id ??
+      categoryIdFromSlug ??
+      null;
+
+    if (isCategorySlug && (isTopLevelCategory || !effectiveCatId)) {
+      setloading(false);
+      setVendors([]);
+      return;
+    }
     setloading(true);
     setVendors([]);
     setSearchSubCategories([]);
@@ -414,7 +466,16 @@ const addRfqIdParam = (rfq_id) => {
     } else if (products && products.length > 0) {
       canonicalSearchKey = products[0].variant_name || products[0].product_name || search_key;
     }
-    if (canonicalSearchKey != "") {
+
+    if (!canonicalSearchKey && Array.isArray(products) && products.length > 0) {
+      canonicalSearchKey = products[0].variant_name || products[0].product_name || '';
+    }
+
+    if (!canonicalSearchKey && isCategorySlug) {
+      canonicalSearchKey = removeCategorySuffix(slugStr || '').replace(/-/g, ' ');
+    }
+
+    if (canonicalSearchKey !== "" || effectiveCatId) {
       const stateFilter = selectedState && selectedState.length > 0 ? selectedState : [];
       const cityFilter = selectedCity && selectedCity.length > 0 ? selectedCity : [];
       const countryFilter = selectedCountry && selectedCountry.length > 0 ? selectedCountry : [];
@@ -422,7 +483,7 @@ const addRfqIdParam = (rfq_id) => {
       // Fetch all cities without filters for the city list
       searchProductsV2(
         {
-          cat_id,
+          cat_id: effectiveCatId,
           search_key: canonicalSearchKey,
           approved_by: [],
           state: [],
@@ -463,7 +524,7 @@ const addRfqIdParam = (rfq_id) => {
       const requestId = ++vendorRequestIdRef.current;
       searchProductsV2(
         {
-          cat_id,
+          cat_id: effectiveCatId,
           search_key: canonicalSearchKey,
           approved_by: selectedApprovedBy,
           state: stateFilter,
@@ -535,8 +596,9 @@ const addRfqIdParam = (rfq_id) => {
         });
         setProducts(d);
         setSearchCategories(rsp.categoryData);
-        // Always set currentSelectedProduct to index 0 and log it
-        if (d.length > 0) {
+        // Only set currentSelectedProduct if this is not a "category result"
+        // If rsp.isCategoryResult is true, do NOT set currentSelectedProduct
+        if (d.length > 0 && !rsp.isCategoryResult) {
           setcurrentSelectedProduct(d[0]);
         } else {
           setcurrentSelectedProduct(null);
@@ -777,15 +839,17 @@ const clearVendorFilters = () => {
   useEffect(() => { getCities().then(res => setCityList(res.data || [])); }, []);
 
   useEffect(() => {
-    let slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
-    if (!slugStr || slugStr === 'all') {
-      setselectedState([]);
-      setselectedCity([]);
-      setselectedCountry([]);
+    let slugValue = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
+    if (!slugValue || slugValue === 'all' || slugValue.includes('-category')) {
+      if (!slugValue || slugValue === 'all') {
+        setselectedState([]);
+        setselectedCity([]);
+        setselectedCountry([]);
+      }
       return;
     }
 
-    const slugForParsing = removeCategorySuffix(slugStr);
+    const slugForParsing = removeCategorySuffix(slugValue);
 
     if (!stateList.length || !cityList.length) {
       setSearch_key(slugForParsing);
@@ -838,10 +902,10 @@ const productsLoadedRef = useRef(false);
 
 useEffect(() => {
   if (
-    search_key && 
-    slug && 
-    slug !== 'all' && 
-    !String(slug).includes('-category') && 
+    search_key &&
+    slugStr &&
+    slugStr !== 'all' &&
+    !slugStr.includes('-category') &&
     !currentSelectedProduct &&
     !productsLoadedRef.current
   ) {
@@ -852,16 +916,16 @@ useEffect(() => {
       }, 1000);
     });
   }
-}, [search_key, slug, currentSelectedProduct]);
+}, [search_key, slugStr, currentSelectedProduct]);
 useEffect(() => {
-  if (slug === 'all') {
+  if (slugStr === 'all') {
     productsLoadedRef.current = false;
   }
-}, [slug]);
+}, [slugStr]);
 
 
   useEffect(() => {
-    if (!currentSelectedProduct || !slug) return;
+    if (!currentSelectedProduct || !slugStr || isCategorySlug) return;
     
     const baseSlug = currentSelectedProduct.slug || cleanAndAddHyphen(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '');
     let newSlug = baseSlug;
@@ -872,15 +936,14 @@ useEffect(() => {
       newSlug = `${baseSlug}-${citySlug}-${stateSlug}`;
     }
     
-    const currentSlug = Array.isArray(slug) ? slug.join('/') : slug;
-    const currentSlugClean = removeCategorySuffix(currentSlug);
+    const currentSlugClean = removeCategorySuffix(slugStr);
     
     if (currentSlugClean !== newSlug) {
       const { rfq_id, sheet_id } = router.query;
       const queryStr = rfq_id && sheet_id ? `?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id ? `?rfq_id=${rfq_id}` : '';
       router.replace(`/vendor/${newSlug}${queryStr}`, undefined, { shallow: true });
     }
-  }, [selectedCity, selectedState]);
+  }, [selectedCity, selectedState, slugStr, isCategorySlug]);
 
   const clearLocationFilter = () => {
     setselectedState([]);
@@ -901,6 +964,19 @@ useEffect(() => {
       return title;
     }
     return '';
+  };
+
+  const getCategoryTitle = () => {
+    if (!slugStr) return '';
+    return removeCategorySuffix(slugStr).replace(/-/g, ' ');
+  };
+
+  const shouldShowVendors = !!currentSelectedProduct || (isCategorySlug && !isTopLevelCategory);
+
+  const getLocationBaseSlug = () => {
+    if (currentSelectedProduct?.slug) return currentSelectedProduct.slug;
+    if (isCategorySlug) return slugStr;
+    return cleanAndAddHyphen(removeCategorySuffix(search_key));
   };
 
 
@@ -1235,7 +1311,7 @@ useEffect(() => {
           {/* vendor List Section */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {/* START : Filter side bar */}
-            {currentSelectedProduct && (
+            {shouldShowVendors && (
               <div className="col-md-3">
                 <aside>
                   <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">
@@ -1257,7 +1333,7 @@ useEffect(() => {
                   {/* END: Vender search by name */}
 
                   {/* START: product make filter */}
-                  {makeList?.length > 0 && (
+                  {currentSelectedProduct && makeList?.length > 0 && (
                     <div className="search-con-right-1">
                       <p className="fw-semibold mb-2 mt-3">Product Make</p>
                       <div>
@@ -1636,17 +1712,20 @@ useEffect(() => {
             {/* END: Filter side bar */}
 
             {/* START:  vendor list*/}
-            <div className={currentSelectedProduct ? `col-md-9` : `col-md-12`}>
+            <div className={shouldShowVendors ? `col-md-9` : `col-md-12`}>
               <div className="row">
-                {currentSelectedProduct && (
+                {shouldShowVendors && (
                   <div className="col-md-12">
                     <h2 className="fs-5">
                       Available Vendors for{" "}
                       <span style={{ fontWeight: "500" }}>
-                        {getProductTitle()}
+                        {currentSelectedProduct
+                          ? getProductTitle()
+                          : textCapitalize(getCategoryTitle())}
                       </span>
                     </h2>
 
+                    {currentSelectedProduct && (
                     <div className="row search-sec-3-top">
                       <div className="col-md-3">
                         {vendors && vendors.length > 0 && (
@@ -1711,6 +1790,7 @@ useEffect(() => {
                         </div>
                       </div>
                     </div>
+                    )}
 
                     <hr />
 
@@ -1806,14 +1886,14 @@ useEffect(() => {
         <RandomProductsCarousel className="" />
       </div>
 
-      {allAvailableCities.length > 0 && currentSelectedProduct && (
+      {allAvailableCities.length > 0 && shouldShowVendors && (
         <div className="container my-4">
           <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
-            {getProductTitle()} Vendors by City
+            {currentSelectedProduct ? getProductTitle() : textCapitalize(getCategoryTitle())} Vendors by City
           </h3>
           <div className="row">
             {allAvailableCities.map((city, index) => {
-              const productSlug = currentSelectedProduct.slug || cleanAndAddHyphen(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '');
+              const productSlug = getLocationBaseSlug();
               const citySlug = cleanAndAddHyphen(city.city_name);
               const stateSlug = cleanAndAddHyphen(city.state_name);
               const cityUrl = `/vendor/${productSlug}-${citySlug}-${stateSlug}`;
