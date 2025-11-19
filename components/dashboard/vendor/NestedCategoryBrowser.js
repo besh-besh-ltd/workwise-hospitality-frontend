@@ -76,21 +76,22 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
       setPreviousLevelCategories(arr);
 
 
+      // Fetch vendors for subcategories (parent_id != 0) that contain products (type === 'single')
+      // This ensures vendors are fetched for all products under the selected subcategory
       const isNestedProductLevel = type === 'single' && 
-                                   arr.length > 0 && 
                                    slugParam && 
                                    slugParam !== 'all' && 
-                                   !isFetchingFromRoot && 
-                                   !isLikelyTopLevel; // Only fetch if NOT a direct navigation (i.e., clicked through)
+                                   parent_id !== 0; // Only fetch for subcategories (parent_id != 0)
 
       if (isNestedProductLevel) {
-        // Use the category slug/name to search for vendors
-        // This will fetch vendors for all products in this product category
-        const productSearchKey = slugParam.replace(/-/g, ' ');
-        setSearchKey(productSearchKey);
-        // Trigger vendor fetch - but don't hide categories section
-        if (onGetProducts) await onGetProducts(productSearchKey);
-        if (onGetVendors) onGetVendors();
+        // For subcategories, fetch vendors for all products under this category
+        // Use category ID instead of name to ensure accurate vendor fetching
+        const categoryName = slugParam.replace(/-/g, ' ');
+        setSearchKey(categoryName);
+        // Pass empty search key and category ID to fetch vendors for all products in this subcategory
+        if (onGetVendors) {
+          onGetVendors('', parent_id);
+        }
         // Don't call onHide() - keep categories section visible
       }
 
