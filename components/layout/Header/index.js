@@ -1,5 +1,5 @@
 "use client";
-import { getUserDetails } from "@/services/Auth";
+import { getProfile, getUserDetails } from "@/services/Auth";
 import storageInstance from "@/utils/storageInstance";
 import { faBell, faUser, faMessage } from "@fortawesome/free-regular-svg-icons";
 import { faGear, faSignOut } from "@fortawesome/free-solid-svg-icons";
@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import DropdownMenu from "@/components/shared/DropdownMenu";
@@ -361,6 +361,7 @@ const Header = () => {
   const [currentUserType, setcurrentUserType] = useState("vendor");
   const [loading, setloading] = useState(false);
   const [mainNavs, setMainNavs] = useState(initialMainNavs);
+  const [isHospitalityCompany, setIsHospitalityCompany] = useState(false);
 
   const togglePopover = () => {
     setPopoverVisible(!popoverVisible);
@@ -481,6 +482,44 @@ const Header = () => {
     }
   }, [router, pathname]);
 
+  useEffect(() => {
+    let isMounted = true;
+    const fetchHospitalityFlag = async () => {
+      try {
+        const response = await getProfile();
+        if (!isMounted) return;
+        const profile = response?.data;
+        const hospitalityEnabled =
+          profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
+        setIsHospitalityCompany(!!hospitalityEnabled);
+      } catch (error) {
+        if (isMounted) {
+          setIsHospitalityCompany(false);
+        }
+      }
+    };
+
+    if (loggedinUser && currentUserType === "admin") {
+      fetchHospitalityFlag();
+    } else {
+      setIsHospitalityCompany(false);
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loggedinUser, currentUserType]);
+
+  const currentRoleMenu = useMemo(() => {
+    const baseMenu = roleMenus[currentUserType] || [];
+    if (currentUserType === "admin" && !isHospitalityCompany) {
+      return baseMenu.filter(
+        (item) => item.href !== "/dashboard/admin/hospitality-manager"
+      );
+    }
+    return baseMenu;
+  }, [currentUserType, isHospitalityCompany]);
+
   return (
     <>
       <header
@@ -600,7 +639,7 @@ const Header = () => {
                       {popoverVisible && (
                         <div className="popover-account" ref={popoverRef}>
                           <ul className="vertical-links">
-                            {roleMenus[currentUserType]
+                            {currentRoleMenu
                               ?.filter((menuType) => menuType.targetMenu == "popup")
                               ?.map((item) => (
                                 <li
@@ -743,7 +782,7 @@ const Header = () => {
                         <div className="header-right header-center align-items-center forLoggedIn">
                           <nav className="main-menu">
                             <ul className="d-flex justify-content-start w-100">
-                              {roleMenus[currentUserType]
+                              {currentRoleMenu
                                 ?.filter(
                                   (menuType) => menuClass || menuType.targetMenu == "nav"
                                 )
@@ -779,7 +818,7 @@ const Header = () => {
                   {popoverVisible && (
                     <div className="popover-account" ref={popoverRef}>
                       <ul className="vertical-links">
-                        {roleMenus[currentUserType]
+                        {currentRoleMenu
                           ?.filter((menuType) => menuType.targetMenu == "popup")
                           ?.map((item) => (
                             <li
@@ -937,7 +976,7 @@ const Header = () => {
           <div className="mobile-menu">
             <nav className="main-menu">
               <ul>
-                {roleMenus[currentUserType]
+                {currentRoleMenu
                   ?.filter((menuType) => menuType.targetMenu == "nav")
                   ?.map((item) => (
                     <li

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import Modal from "react-modal";
 
 const mockCompanies = [
   {
@@ -56,6 +57,7 @@ const HospitalityManager = () => {
     region: "",
     contact: "",
   });
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
 
   const [hotelForm, setHotelForm] = useState({
     name: "",
@@ -105,6 +107,7 @@ const HospitalityManager = () => {
     }));
     setSelectedCompanyId(newCompany.id);
     resetCompanyForm();
+    setShowCompanyModal(false);
   };
 
   const handleHotelSubmit = (event) => {
@@ -144,16 +147,22 @@ const HospitalityManager = () => {
           <div className="col-lg-4">
             <div className="card buyer-card shadow-sm border-0 h-100">
               <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center mb-3">
+                <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                   <div>
                     <h5 className="mb-1">Companies</h5>
                     <small className="text-muted">
                       {companies.length} active company profiles
                     </small>
                   </div>
-                  <span className="badge badge-light text-dark">
-                    Hospitality
-                  </span>
+                  <div className="d-flex align-items-center gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary"
+                      onClick={() => setShowCompanyModal(true)}
+                    >
+                      Create Company
+                    </button>
+                  </div>
                 </div>
                 <div className="list-group list-group-flush border-top">
                   {companies.map((company) => {
@@ -256,71 +265,23 @@ const HospitalityManager = () => {
               </div>
             </div>
 
-            <div className="card buyer-card shadow-sm border-0 mb-4">
-              <div className="card-body">
-                <h5 className="mb-3">Create Hospitality Company</h5>
-                <form className="row g-3" onSubmit={handleCompanySubmit}>
-                  <div className="col-md-4">
-                    <label className="form-label">Company Name</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={companyForm.name}
-                      onChange={(e) =>
-                        setCompanyForm((prev) => ({
-                          ...prev,
-                          name: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: UrbanStay Hotels"
-                    />
-                  </div>
-                  <div className="col-md-4">
-                    <label className="form-label">Region</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={companyForm.region}
-                      onChange={(e) =>
-                        setCompanyForm((prev) => ({
-                          ...prev,
-                          region: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: North India"
-                    />
-                  </div>
-                  <div className="col-md-4">
-                    <label className="form-label">Primary Contact</label>
-                    <input
-                      type="email"
-                      className="form-control"
-                      value={companyForm.contact}
-                      onChange={(e) =>
-                        setCompanyForm((prev) => ({
-                          ...prev,
-                          contact: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: hospitality@urbanstay.com"
-                    />
-                  </div>
-                  <div className="col-12 text-end">
-                    <button type="submit" className="btn btn-dark">
-                      Add Company
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-
             <div className="card buyer-card shadow-sm border-0">
               <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center mb-3">
+                <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                   <h5 className="mb-0">Hotel Inventory</h5>
-                  <span className="text-muted">
-                    Mapped to {selectedCompany?.name || "N/A"}
-                  </span>
+                  <div className="d-flex align-items-center gap-2">
+                    <span className="text-muted">Mapped to</span>
+                    <span
+                      className="badge"
+                      style={{
+                        backgroundColor: "#e0f2f1",
+                        color: "#0f766e",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {selectedCompany?.name || "N/A"}
+                    </span>
+                  </div>
                 </div>
                 <form className="row g-3 mb-4" onSubmit={handleHotelSubmit}>
                   <div className="col-md-4">
@@ -436,6 +397,95 @@ const HospitalityManager = () => {
           </div>
         </div>
       </section>
+      <Modal
+        isOpen={showCompanyModal}
+        onRequestClose={() => setShowCompanyModal(false)}
+        ariaHideApp={false}
+        style={{
+          overlay: {
+            backgroundColor: "rgba(15, 23, 42, 0.55)",
+            zIndex: 1200,
+          },
+          content: {
+            inset: "50% auto auto 50%",
+            transform: "translate(-50%, -50%)",
+            maxWidth: "640px",
+            width: "90%",
+            borderRadius: "20px",
+            padding: "32px",
+            border: "none",
+            boxShadow: "0 24px 60px rgba(15,23,42,0.15)",
+          },
+        }}
+      >
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h4 className="mb-1">Create Hospitality Company</h4>
+            <p className="text-muted mb-0">
+              Capture company basics to start mapping hotel inventories.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-close"
+            onClick={() => setShowCompanyModal(false)}
+            aria-label="Close"
+          ></button>
+        </div>
+        <form className="row g-3" onSubmit={handleCompanySubmit}>
+          <div className="col-12">
+            <label className="form-label">Company Name</label>
+            <input
+              type="text"
+              className="form-control"
+              value={companyForm.name}
+              onChange={(e) =>
+                setCompanyForm((prev) => ({
+                  ...prev,
+                  name: e.target.value,
+                }))
+              }
+              placeholder="Ex: UrbanStay Hotels"
+              required
+            />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Region</label>
+            <input
+              type="text"
+              className="form-control"
+              value={companyForm.region}
+              onChange={(e) =>
+                setCompanyForm((prev) => ({
+                  ...prev,
+                  region: e.target.value,
+                }))
+              }
+              placeholder="Ex: North India"
+            />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Primary Contact</label>
+            <input
+              type="email"
+              className="form-control"
+              value={companyForm.contact}
+              onChange={(e) =>
+                setCompanyForm((prev) => ({
+                  ...prev,
+                  contact: e.target.value,
+                }))
+              }
+              placeholder="Ex: hospitality@urbanstay.com"
+            />
+          </div>
+          <div className="col-12 text-end">
+            <button type="submit" className="btn btn-primary">
+              Add Company
+            </button>
+          </div>
+        </form>
+      </Modal>
     </>
   );
 };
