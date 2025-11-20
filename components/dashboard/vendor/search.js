@@ -465,18 +465,28 @@ const addRfqIdParam = (rfq_id) => {
     setloading(true);
     setVendors([]);
     setSearchSubCategories([]);
-    let canonicalSearchKey = overrideSearchKey ?? search_key;
-    if (currentSelectedProduct) {
+    
+    // Check if overrideSearchKey was explicitly passed as empty string (for category-based vendor fetching)
+    const isExplicitEmptySearch = overrideSearchKey === '';
+    const hasCategoryIdOverride = overrideCatId !== null;
+    
+    let canonicalSearchKey = overrideSearchKey !== null ? overrideSearchKey : search_key;
+    
+    // Only use currentSelectedProduct if we don't have an explicit category ID override
+    // When fetching vendors for a category (not a specific product), we want empty search key
+    if (currentSelectedProduct && !hasCategoryIdOverride) {
       canonicalSearchKey = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || search_key;
-    } else if (!canonicalSearchKey && products && products.length > 0) {
+    } else if (!canonicalSearchKey && !hasCategoryIdOverride && products && products.length > 0) {
       canonicalSearchKey = products[0].variant_name || products[0].product_name || search_key;
     }
 
-    if (!canonicalSearchKey && Array.isArray(products) && products.length > 0) {
+    if (!canonicalSearchKey && !hasCategoryIdOverride && Array.isArray(products) && products.length > 0) {
       canonicalSearchKey = products[0].variant_name || products[0].product_name || '';
     }
 
-    if (!canonicalSearchKey && isCategorySlug && effectiveCatId) {
+    // Only use fallback logic if search key is not explicitly empty and we have a category ID
+    // When explicitly empty with category ID, we want to fetch vendors for ALL products in that category
+    if (!canonicalSearchKey && !isExplicitEmptySearch && isCategorySlug && effectiveCatId) {
       try {
         const fallbackRes = await categoryListById({ category_id: effectiveCatId });
         const fallbackProduct = fallbackRes?.productList?.[0];
@@ -491,7 +501,7 @@ const addRfqIdParam = (rfq_id) => {
       }
     }
 
-    if (!canonicalSearchKey && isCategorySlug) {
+    if (!canonicalSearchKey && !isExplicitEmptySearch && isCategorySlug) {
       canonicalSearchKey = removeCategorySuffix(slugStr || '').replace(/-/g, ' ');
     }
 
