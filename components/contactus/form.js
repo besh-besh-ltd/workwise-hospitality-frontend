@@ -6,6 +6,11 @@ import { ToastContainer, toast } from "react-toastify";
 import * as yup from "yup";
 import Loader from "../shared/Loader";
 import { useRouter } from "next/router";
+import {
+  CONTACT_US_RECAPTCHA_ACTION,
+  executeRecaptcha,
+  isRecaptchaConfigured,
+} from "@/utils/recaptcha";
 
 const ContactUsForm = ({ isModalForm = false, closeModal, fromType }) => {
   const [loading, setLoading] = useState(false);
@@ -77,31 +82,48 @@ const ContactUsForm = ({ isModalForm = false, closeModal, fromType }) => {
     });
   }
 
-  const contactUsSubmitHandler = (values, resetForm) => {
-    setLoading(true);
-    const payload = {
-      ...values,
-      submitted_from: fromType,
-    };
-    contactUsFormService(payload)
-      .then((response) => {
-        setLoading(false);
-        toast.success(response.message, {
-          position: "top-center",
-        });
-
-        removeQueryString();
-        resetForm();
-      })
-      .catch((error) => {
-        setLoading(false);
-        if (error.response?.status === 400) {
-        } else {
-          toast.error(error.message, {
-            position: "top-center",
-          });
-        }
+  const contactUsSubmitHandler = async (values, resetForm) => {
+    if (!isRecaptchaConfigured) {
+      toast.error("reCAPTCHA is not configured. Please try again later.", {
+        position: "top-center",
       });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const recaptchaToken = await executeRecaptcha(
+        CONTACT_US_RECAPTCHA_ACTION
+      );
+
+      const payload = {
+        ...values,
+        submitted_from: fromType,
+        recaptchaToken,
+      };
+
+      const response = await contactUsFormService(payload);
+      toast.success(response.message, {
+        position: "top-center",
+      });
+      removeQueryString();
+      resetForm();
+    } catch (error) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Unable to submit the form. Please try again.";
+      toast.error(
+        typeof errorMessage === "string"
+          ? errorMessage
+          : "Unable to submit the form. Please try again.",
+        {
+          position: "top-center",
+        }
+      );
+    } finally {
+      setLoading(false);
+    }
   };
   const removeQueryString = () => {
     const { pathname } = router;

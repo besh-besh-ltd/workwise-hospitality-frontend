@@ -116,6 +116,14 @@ export default function App({ Component, pageProps }) {
       <Providers>
         <GoogleOAuthProvider clientId="866474332918-fi599o8btdrikvi9ieq7pqksngvh2mlv.apps.googleusercontent.com">
           <Layout>
+            {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+              <Script
+                id="recaptcha-v3"
+                src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
+                strategy="afterInteractive"
+              />
+            )}
+
             {/* Only load Google Analytics and tag manager script in production */}
             {process.env.NEXT_PUBLIC_ENV == 'production' && (
               <>

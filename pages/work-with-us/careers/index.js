@@ -13,6 +13,11 @@ import * as yup from 'yup';
 import { toast } from 'react-toastify';
 import FormikField from '@/components/shared/FormikField';
 import { contactUsFormService } from '@/services/contact';
+import {
+  CONTACT_US_RECAPTCHA_ACTION,
+  executeRecaptcha,
+  isRecaptchaConfigured,
+} from '@/utils/recaptcha';
 
 // Import data
 import { careersData } from '@/components/constants/careersData';
@@ -380,26 +385,45 @@ const CareersPage = () => {
                         subject: yup.string().required("Subject is required"),
                         comment: yup.string().required("Please tell us why you want to join Workwise")
                       })}
-                      onSubmit={(values, { resetForm }) => {
+                      onSubmit={async (values, { resetForm }) => {
+                        if (!isRecaptchaConfigured) {
+                          toast.error("reCAPTCHA is not configured. Please try again later.", {
+                            position: "top-center",
+                          });
+                          return;
+                        }
+
                         const fullMobile = `${values.countryCode}-${values.phone.trim().replace(/^0+/, "")}`;
                         const { countryCode, ...updatedValues } = { 
                           ...values, 
                           phone: fullMobile,
                           submitted_from: "1",
                         };
-                        
-                        contactUsFormService(updatedValues)
-                          .then((response) => {
-                            resetForm();
-                            toast.success("Application submitted successfully! We'll get back to you soon.", {
-                              position: "top-center",
-                            });
-                          })
-                          .catch((error) => {
-                            toast.error("Failed to submit application. Please try again.", {
-                              position: "top-center",
-                            });
+
+                        try {
+                          const recaptchaToken = await executeRecaptcha(CONTACT_US_RECAPTCHA_ACTION);
+                          await contactUsFormService({
+                            ...updatedValues,
+                            recaptchaToken,
                           });
+                          resetForm();
+                          toast.success("Application submitted successfully! We'll get back to you soon.", {
+                            position: "top-center",
+                          });
+                        } catch (error) {
+                          const errorMessage =
+                            error?.response?.data?.message ||
+                            error?.message ||
+                            "Failed to submit application. Please try again.";
+                          toast.error(
+                            typeof errorMessage === "string"
+                              ? errorMessage
+                              : "Failed to submit application. Please try again.",
+                            {
+                              position: "top-center",
+                            }
+                          );
+                        }
                       }}
                     >
                       {({ values, errors, touched, setFieldValue }) => (

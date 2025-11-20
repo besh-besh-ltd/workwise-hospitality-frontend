@@ -7,6 +7,11 @@ import FormikField from "../shared/FormikField";
 import { contactUsFormService } from "@/services/contact";
 import { toast } from "react-toastify";
 import FullLoader from "../shared/FullLoader";
+import {
+  CONTACT_US_RECAPTCHA_ACTION,
+  executeRecaptcha,
+  isRecaptchaConfigured,
+} from "@/utils/recaptcha";
 
 
 const ContactUsPage = () => {
@@ -87,30 +92,52 @@ const ContactUsPage = () => {
       });
   };
 
-  const handleSubmit = (values, resetForm) => {
-   
-     const fullMobile = `${values.countryCode}-${values.phone.trim().replace(/^0+/, "")}`;
-    const { countryCode, ...updatedValues } = { 
-      ...values, 
-      phone: fullMobile ,
+  const handleSubmit = async (values, resetForm) => {
+    if (!isRecaptchaConfigured) {
+      toast.error("reCAPTCHA is not configured. Please try again later.", {
+        position: "top-center",
+      });
+      return;
+    }
+
+    const fullMobile = `${values.countryCode}-${values.phone
+      .trim()
+      .replace(/^0+/, "")}`;
+    const { countryCode, ...updatedValues } = {
+      ...values,
+      phone: fullMobile,
       submitted_from: "1",
     };
-    
-    setloading(true);
-    setformSubmitted(false);
-    contactUsFormService(updatedValues)
-      .then((response) => {
-        resetForm();
-        setloading(false);
-        setformSubmitted(true);
-      })
-      .catch((error) => {
-        setloading(false);
-        setformSubmitted(false);
-        toast.error("Failed to submit form. Please try again.", {
-          position: "top-center",
-        });
+
+    try {
+      setloading(true);
+      setformSubmitted(false);
+      const recaptchaToken = await executeRecaptcha(
+        CONTACT_US_RECAPTCHA_ACTION
+      );
+      await contactUsFormService({
+        ...updatedValues,
+        recaptchaToken,
       });
+      resetForm();
+      setformSubmitted(true);
+    } catch (error) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to submit form. Please try again.";
+      toast.error(
+        typeof errorMessage === "string"
+          ? errorMessage
+          : "Failed to submit form. Please try again.",
+        {
+          position: "top-center",
+        }
+      );
+      setformSubmitted(false);
+    } finally {
+      setloading(false);
+    }
   };
 
   return (
