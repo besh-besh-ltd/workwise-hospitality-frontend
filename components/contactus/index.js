@@ -11,6 +11,8 @@ import {
   CONTACT_US_RECAPTCHA_ACTION,
   executeRecaptcha,
   isRecaptchaConfigured,
+  loadRecaptchaScript,
+  unloadRecaptchaScript,
 } from "@/utils/recaptcha";
 
 
@@ -27,6 +29,18 @@ const ContactUsPage = () => {
     getCmsSections();
     getBanner();
     fetchCountryCodes();
+
+    let shouldUnload = false;
+    if (isRecaptchaConfigured) {
+      shouldUnload = true;
+      loadRecaptchaScript().catch(() => {});
+    }
+
+    return () => {
+      if (isRecaptchaConfigured && shouldUnload) {
+        unloadRecaptchaScript();
+      }
+    };
   }, []);
 
   const fetchCountryCodes = () => {

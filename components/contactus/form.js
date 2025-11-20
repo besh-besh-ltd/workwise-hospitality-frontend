@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { contactUsFormService } from "@/services/contact";
 import { Field, Form, Formik } from "formik";
@@ -10,11 +10,27 @@ import {
   CONTACT_US_RECAPTCHA_ACTION,
   executeRecaptcha,
   isRecaptchaConfigured,
+  loadRecaptchaScript,
+  unloadRecaptchaScript,
 } from "@/utils/recaptcha";
 
 const ContactUsForm = ({ isModalForm = false, closeModal, fromType }) => {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    let shouldUnload = false;
+    if (isRecaptchaConfigured) {
+      shouldUnload = true;
+      loadRecaptchaScript().catch(() => {});
+    }
+
+    return () => {
+      if (isRecaptchaConfigured && shouldUnload) {
+        unloadRecaptchaScript();
+      }
+    };
+  }, []);
 
   // Login Initial Value
   const initialValues = {

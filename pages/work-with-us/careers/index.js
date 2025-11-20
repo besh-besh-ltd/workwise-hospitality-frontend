@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { Inter } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMapMarkerAlt, faClock, faDollarSign, faGraduationCap, faCheck } from '@fortawesome/free-solid-svg-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // Import components
 import { HeroSection } from '@/components/ui/HeroSection';
@@ -17,6 +17,8 @@ import {
   CONTACT_US_RECAPTCHA_ACTION,
   executeRecaptcha,
   isRecaptchaConfigured,
+  loadRecaptchaScript,
+  unloadRecaptchaScript,
 } from '@/utils/recaptcha';
 
 // Import data
@@ -34,6 +36,20 @@ const pageInfo = {
 
 const CareersPage = () => {
   const [selectedPosition, setSelectedPosition] = useState(null);
+
+  useEffect(() => {
+    let shouldUnload = false;
+    if (isRecaptchaConfigured) {
+      shouldUnload = true;
+      loadRecaptchaScript().catch(() => {});
+    }
+
+    return () => {
+      if (isRecaptchaConfigured && shouldUnload) {
+        unloadRecaptchaScript();
+      }
+    };
+  }, []);
 
   const handleApplyNow = (position) => {
     setSelectedPosition(position);
