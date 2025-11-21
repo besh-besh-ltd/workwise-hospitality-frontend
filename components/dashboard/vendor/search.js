@@ -1009,6 +1009,33 @@ useEffect(() => {
     return cleanAndAddHyphen(removeCategorySuffix(search_key));
   };
 
+  const filtersInitializedRef = useRef(false);
+  useEffect(() => {
+    if (!shouldShowVendors) {
+      filtersInitializedRef.current = false;
+      return;
+    }
+
+    if (!filtersInitializedRef.current) {
+      filtersInitializedRef.current = true;
+      return;
+    }
+
+    getVendors();
+  }, [
+    shouldShowVendors,
+    selectedCountry,
+    selectedState,
+    selectedCity,
+    selectedVendorTypes,
+    selectedApprovedBy,
+    selectedMakes,
+    prevWorkedWith,
+    myVendorType,
+    debouncedVendorName,
+    turnOver,
+  ]);
+
 
   useEffect(() => {
     // Update inputValue when a product is selected (after fetch or navigation)
