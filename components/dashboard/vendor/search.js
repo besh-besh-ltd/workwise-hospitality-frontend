@@ -333,10 +333,9 @@ useEffect(() => {
     return cleanedString.replace(/\s+/g, '-');
   }
 
-  // Helper function to remove -category{number} from display (but keep in URL)
   const removeCategorySuffix = (str) => {
     if (!str) return str;
-    return str.replace(/-category\d+$/i, '');
+    return str.replace(/-category\d+/gi, '');
   }
 
  
@@ -463,10 +462,13 @@ const addRfqIdParam = (rfq_id) => {
       return;
     }
 
-    const isExplicitEmptySearch = overrideSearchKey === '';
     const hasCategoryIdOverride = overrideCatId !== null;
+    const shouldUseCategoryVendors =
+      !currentSelectedProduct &&
+      effectiveCatId &&
+      (isCategorySlug || hasCategoryIdOverride);
 
-    if (isExplicitEmptySearch && hasCategoryIdOverride) {
+    if (shouldUseCategoryVendors) {
       setloading(true);
       const requestId = ++vendorRequestIdRef.current;
 
@@ -908,12 +910,10 @@ const clearVendorFilters = () => {
 
   useEffect(() => {
     let slugValue = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
-    if (!slugValue || slugValue === 'all' || slugValue.includes('-category')) {
-      if (!slugValue || slugValue === 'all') {
-        setselectedState([]);
-        setselectedCity([]);
-        setselectedCountry([]);
-      }
+    if (!slugValue || slugValue === 'all') {
+      setselectedState([]);
+      setselectedCity([]);
+      setselectedCountry([]);
       return;
     }
 
