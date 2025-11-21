@@ -1050,9 +1050,36 @@ useEffect(() => {
     return '';
   };
 
+  const stripLocationSuffix = (slugValue) => {
+    if (!slugValue) return slugValue;
+    let updatedSlug = slugValue;
+
+    const removeSuffix = (slugStr, suffix) => {
+      if (!suffix) return slugStr;
+      const normalizedSlug = slugStr.toLowerCase();
+      const normalizedSuffix = suffix.toLowerCase();
+      if (normalizedSlug.endsWith(normalizedSuffix)) {
+        return slugStr.slice(0, slugStr.length - suffix.length);
+      }
+      return slugStr;
+    };
+
+    if (selectedCity?.length > 0 && selectedState?.length > 0) {
+      const citySlug = cleanAndAddHyphen(selectedCity[0].name);
+      const stateSlug = cleanAndAddHyphen(selectedState[0].name);
+      updatedSlug = removeSuffix(updatedSlug, `-${citySlug}-${stateSlug}`);
+    } else if (selectedState?.length > 0) {
+      const stateSlug = cleanAndAddHyphen(selectedState[0].name);
+      updatedSlug = removeSuffix(updatedSlug, `-${stateSlug}`);
+    }
+
+    return updatedSlug;
+  };
+
   const getCategoryTitle = () => {
     if (!slugStr) return '';
-    return removeCategorySuffix(slugStr).replace(/-/g, ' ');
+    const baseSlug = stripLocationSuffix(removeCategorySuffix(slugStr));
+    return baseSlug.replace(/-/g, ' ');
   };
 
   const shouldShowVendors = !!currentSelectedProduct || (isCategorySlug && !isTopLevelCategory);
