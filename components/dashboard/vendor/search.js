@@ -12,7 +12,7 @@ import RandomProductsCarousel from '@/components/dashboard/vendor/RandomProducts
 import SeoTitle from '@/components/dashboard/vendor/SeoTitle';
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
-import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
+import { categoryList, categoryListById, vendorApproveList, addProductToDraft, bulkSearchVendorsByCategory } from "@/services/rfq";
 import { useDispatch } from "react-redux";
 import {
   setDefaultVAB,
@@ -293,7 +293,7 @@ useEffect(() => {
      setSearch_key(label);
      setInputValue(label);
    }
-   getVendors(label, categoryIdFromSlug);
+   getVendors('', categoryIdFromSlug);
  }
  setShowBrowser(true);
 }, [
@@ -462,31 +462,86 @@ const addRfqIdParam = (rfq_id) => {
       setVendors([]);
       return;
     }
-    setloading(true);
-    setVendors([]);
-    setSearchSubCategories([]);
-    
-    // Check if overrideSearchKey was explicitly passed as empty string (for category-based vendor fetching)
+
     const isExplicitEmptySearch = overrideSearchKey === '';
     const hasCategoryIdOverride = overrideCatId !== null;
-    
+
+    if (isExplicitEmptySearch && hasCategoryIdOverride) {
+      setloading(true);
+      setVendors([]);
+      setSearchSubCategories([]);
+      const requestId = ++vendorRequestIdRef.current;
+
+      try {
+        const response = await bulkSearchVendorsByCategory({
+          category_id: effectiveCatId,
+          approved_by_id: selectedApprovedBy,
+          state: selectedState?.length > 0 ? selectedState : [],
+          city: selectedCity?.length > 0 ? selectedCity : [],
+          country: selectedCountry?.length > 0 ? selectedCountry : [],
+          turnOver,
+          vendorType: selectedVendorTypes,
+          prevWorkedWith,
+          vendor_name: vendorName,
+          myVendorType,
+          productMakes: selectedMakes,
+          page: 1,
+          limit: 20
+        });
+
+        if (requestId !== vendorRequestIdRef.current) return;
+
+        const bulkRFQVendorIds = new Set(bulkRFQVendors.map(item => item.id));
+        const vendors = (response?.data || []).map(vendor => ({
+          ...vendor,
+          selected: bulkRFQVendorIds.has(vendor.id)
+        }));
+
+        const cityMap = new Map();
+        vendors.forEach(vendor => {
+          if (vendor.city_name && vendor.state_name) {
+            const cityKey = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
+            if (!cityMap.has(cityKey)) {
+              cityMap.set(cityKey, {
+                city_name: vendor.city_name,
+                state_name: vendor.state_name,
+                city_id: vendor.city_id,
+                state_id: vendor.state_id
+              });
+            }
+          }
+        });
+
+        const cities = Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name));
+
+        setloading(false);
+        setVendors(vendors);
+        setAllAvailableCities(cities);
+        setVendorMetaData({
+          data: vendors,
+          total: response?.total || 0,
+          logged_In: response?.logged_In || false,
+          subscription: response?.subscription || false
+        });
+      } catch (error) {
+        if (requestId !== vendorRequestIdRef.current) return;
+        console.error("Error fetching category vendors:", error);
+        setloading(false);
+        setVendors([]);
+        setAllAvailableCities([]);
+      }
+      return;
+    }
+
     let canonicalSearchKey = overrideSearchKey !== null ? overrideSearchKey : search_key;
     
-    // Only use currentSelectedProduct if we don't have an explicit category ID override
-    // When fetching vendors for a category (not a specific product), we want empty search key
     if (currentSelectedProduct && !hasCategoryIdOverride) {
       canonicalSearchKey = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || search_key;
     } else if (!canonicalSearchKey && !hasCategoryIdOverride && products && products.length > 0) {
       canonicalSearchKey = products[0].variant_name || products[0].product_name || search_key;
     }
 
-    if (!canonicalSearchKey && !hasCategoryIdOverride && Array.isArray(products) && products.length > 0) {
-      canonicalSearchKey = products[0].variant_name || products[0].product_name || '';
-    }
-
-    // Only use fallback logic if search key is not explicitly empty and we have a category ID
-    // When explicitly empty with category ID, we want to fetch vendors for ALL products in that category
-    if (!canonicalSearchKey && !isExplicitEmptySearch && isCategorySlug && effectiveCatId) {
+    if (!canonicalSearchKey && isCategorySlug && effectiveCatId) {
       try {
         const fallbackRes = await categoryListById({ category_id: effectiveCatId });
         const fallbackProduct = fallbackRes?.productList?.[0];
@@ -501,16 +556,20 @@ const addRfqIdParam = (rfq_id) => {
       }
     }
 
-    if (!canonicalSearchKey && !isExplicitEmptySearch && isCategorySlug) {
+    if (!canonicalSearchKey && isCategorySlug) {
       canonicalSearchKey = removeCategorySuffix(slugStr || '').replace(/-/g, ' ');
     }
 
     if (canonicalSearchKey !== "" || effectiveCatId) {
-      const stateFilter = selectedState && selectedState.length > 0 ? selectedState : [];
-      const cityFilter = selectedCity && selectedCity.length > 0 ? selectedCity : [];
-      const countryFilter = selectedCountry && selectedCountry.length > 0 ? selectedCountry : [];
-      
-      // Fetch all cities without filters for the city list
+      setloading(true);
+      setVendors([]);
+      setSearchSubCategories([]);
+
+      const stateFilter = selectedState?.length > 0 ? selectedState : [];
+      const cityFilter = selectedCity?.length > 0 ? selectedCity : [];
+      const countryFilter = selectedCountry?.length > 0 ? selectedCountry : [];
+      const requestId = ++vendorRequestIdRef.current;
+
       searchProductsV2(
         {
           cat_id: effectiveCatId,
@@ -529,14 +588,12 @@ const addRfqIdParam = (rfq_id) => {
         "vendors"
       )
         .then((allRsp) => {
-          const cities = [];
           const cityMap = new Map();
           allRsp.data.forEach(vendor => {
             if (vendor.city_name && vendor.state_name) {
               const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
               if (!cityMap.has(key)) {
-                cityMap.set(key, true);
-                cities.push({
+                cityMap.set(key, {
                   city_name: vendor.city_name,
                   state_name: vendor.state_name,
                   city_id: vendor.city_id,
@@ -545,13 +602,10 @@ const addRfqIdParam = (rfq_id) => {
               }
             }
           });
-          setAllAvailableCities(cities.sort((a, b) => a.city_name.localeCompare(b.city_name)));
+          setAllAvailableCities(Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name)));
         })
-        .catch((error) => {
-          console.error("Error fetching cities:", error);
-        });
+        .catch((error) => console.error("Error fetching cities:", error));
       
-      const requestId = ++vendorRequestIdRef.current;
       searchProductsV2(
         {
           cat_id: effectiveCatId,
@@ -572,28 +626,11 @@ const addRfqIdParam = (rfq_id) => {
         .then((rsp) => {
           if (requestId !== vendorRequestIdRef.current) return;
           setloading(false);
-          let d = rsp.data.map((item) => {
-            item.selected = bulkRFQVendors.some(vendor => vendor.id === item.id);
-            return item;
-          });
-          setVendors(d);
-          const cities = [];
-          const cityMap = new Map();
-          d.forEach((vendor) => {
-            if (vendor.city_name && vendor.state_name) {
-              const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
-              if (!cityMap.has(key)) {
-                cityMap.set(key, true);
-                cities.push({
-                  city_name: vendor.city_name,
-                  state_name: vendor.state_name,
-                  city_id: vendor.city_id,
-                  state_id: vendor.state_id
-                });
-              }
-            }
-          });
-          setAllAvailableCities(cities.sort((a, b) => a.city_name.localeCompare(b.city_name)));
+          const vendors = rsp.data.map((item) => ({
+            ...item,
+            selected: bulkRFQVendors.some(vendor => vendor.id === item.id)
+          }));
+          setVendors(vendors);
           setVendorMetaData(rsp);
           currentSelectedProduct ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" }) : null;
         })
