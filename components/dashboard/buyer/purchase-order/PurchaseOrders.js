@@ -15,7 +15,7 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 const PurchaseOrders = () => {
   const router = useRouter();
 
-  const { rfq, po } = router.query;
+  const { rfq, po, edit } = router.query;
   const [loading, setloading] = useState(false);
   const [rfqLoading, setRFQLoading] = useState(false);
   const [myRFQs, setmyRFQs] = useState([]);
@@ -41,6 +41,7 @@ const PurchaseOrders = () => {
 
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(100);
+  const [isEditing, setIsEditing] = useState(edit == 'true')
 
   const [poMeta, setPOMeta] = useState({
     page: 1,
@@ -233,6 +234,11 @@ const PurchaseOrders = () => {
   }, [po]);
 
   useEffect(() => {
+    console.log("EDIT:", edit)
+    setIsEditing(edit == 'true')
+  }, [edit])
+
+  useEffect(() => {
     const handler = setTimeout(() => {
       getAllRFQs(true);
     }, 1000);
@@ -402,6 +408,11 @@ const PurchaseOrders = () => {
                         );
                       }}
                       companyUsers={companyUsers}
+                      isEditing={isEditing}
+                      setIsEditing={setIsEditing}
+                      handleUpdatePO={(payload) => {
+                        console.log("PO EDIT PAYLOAD:", payload)
+                      }}
                     />
                   </div>
                 </div>
