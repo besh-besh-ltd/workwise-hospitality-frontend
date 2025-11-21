@@ -12,7 +12,7 @@ import RandomProductsCarousel from '@/components/dashboard/vendor/RandomProducts
 import SeoTitle from '@/components/dashboard/vendor/SeoTitle';
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
-import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
+import { categoryList, categoryListById, vendorApproveList, addProductToDraft, bulkSearchVendorsByCategory } from "@/services/rfq";
 import { useDispatch } from "react-redux";
 import {
   setDefaultVAB,
@@ -293,7 +293,7 @@ useEffect(() => {
      setSearch_key(label);
      setInputValue(label);
    }
-   getVendors(label, categoryIdFromSlug);
+   getVendors('', categoryIdFromSlug);
  }
  setShowBrowser(true);
 }, [
@@ -462,31 +462,84 @@ const addRfqIdParam = (rfq_id) => {
       setVendors([]);
       return;
     }
-    setloading(true);
-    setVendors([]);
-    setSearchSubCategories([]);
-    
-    // Check if overrideSearchKey was explicitly passed as empty string (for category-based vendor fetching)
+
     const isExplicitEmptySearch = overrideSearchKey === '';
     const hasCategoryIdOverride = overrideCatId !== null;
-    
+
+    if (isExplicitEmptySearch && hasCategoryIdOverride) {
+      setloading(true);
+      const requestId = ++vendorRequestIdRef.current;
+
+      try {
+        const response = await bulkSearchVendorsByCategory({
+          category_id: effectiveCatId,
+          approved_by_id: selectedApprovedBy,
+          state: selectedState?.length > 0 ? selectedState : [],
+          city: selectedCity?.length > 0 ? selectedCity : [],
+          country: selectedCountry?.length > 0 ? selectedCountry : [],
+          turnOver,
+          vendorType: selectedVendorTypes,
+          prevWorkedWith,
+          vendor_name: vendorName,
+          myVendorType,
+          productMakes: selectedMakes,
+          page: 1,
+          limit: 20
+        });
+
+        if (requestId !== vendorRequestIdRef.current) return;
+
+        const bulkRFQVendorIds = new Set(bulkRFQVendors.map(item => item.id));
+        const vendors = (response?.data || []).map(vendor => ({
+          ...vendor,
+          selected: bulkRFQVendorIds.has(vendor.id)
+        }));
+
+        const cityMap = new Map();
+        vendors.forEach(vendor => {
+          if (vendor.city_name && vendor.state_name) {
+            const cityKey = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
+            if (!cityMap.has(cityKey)) {
+              cityMap.set(cityKey, {
+                city_name: vendor.city_name,
+                state_name: vendor.state_name,
+                city_id: vendor.city_id,
+                state_id: vendor.state_id
+              });
+            }
+          }
+        });
+
+        const cities = Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name));
+
+        setloading(false);
+        setVendors(vendors);
+        setAllAvailableCities(cities);
+        setVendorMetaData({
+          data: vendors,
+          total: response?.total || 0,
+          logged_In: response?.logged_In || false,
+          subscription: response?.subscription || false
+        });
+      } catch (error) {
+        if (requestId !== vendorRequestIdRef.current) return;
+        console.error("Error fetching category vendors:", error);
+        setloading(false);
+        setVendors([]);
+        setAllAvailableCities([]);
+      }
+      return;
+    }
+
     let canonicalSearchKey = overrideSearchKey !== null ? overrideSearchKey : search_key;
     
-    // Only use currentSelectedProduct if we don't have an explicit category ID override
-    // When fetching vendors for a category (not a specific product), we want empty search key
     if (currentSelectedProduct && !hasCategoryIdOverride) {
       canonicalSearchKey = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || search_key;
     } else if (!canonicalSearchKey && !hasCategoryIdOverride && products && products.length > 0) {
       canonicalSearchKey = products[0].variant_name || products[0].product_name || search_key;
     }
 
-    if (!canonicalSearchKey && !hasCategoryIdOverride && Array.isArray(products) && products.length > 0) {
-      canonicalSearchKey = products[0].variant_name || products[0].product_name || '';
-    }
-
-    // Only use fallback logic if search key is not explicitly empty and we have a category ID
-    // When explicitly empty with category ID, we want to fetch vendors for ALL products in that category
-    if (!canonicalSearchKey && !isExplicitEmptySearch && isCategorySlug && effectiveCatId) {
+    if (!canonicalSearchKey && isCategorySlug && effectiveCatId) {
       try {
         const fallbackRes = await categoryListById({ category_id: effectiveCatId });
         const fallbackProduct = fallbackRes?.productList?.[0];
@@ -501,16 +554,18 @@ const addRfqIdParam = (rfq_id) => {
       }
     }
 
-    if (!canonicalSearchKey && !isExplicitEmptySearch && isCategorySlug) {
+    if (!canonicalSearchKey && isCategorySlug) {
       canonicalSearchKey = removeCategorySuffix(slugStr || '').replace(/-/g, ' ');
     }
 
     if (canonicalSearchKey !== "" || effectiveCatId) {
-      const stateFilter = selectedState && selectedState.length > 0 ? selectedState : [];
-      const cityFilter = selectedCity && selectedCity.length > 0 ? selectedCity : [];
-      const countryFilter = selectedCountry && selectedCountry.length > 0 ? selectedCountry : [];
-      
-      // Fetch all cities without filters for the city list
+      setloading(true);
+
+      const stateFilter = selectedState?.length > 0 ? selectedState : [];
+      const cityFilter = selectedCity?.length > 0 ? selectedCity : [];
+      const countryFilter = selectedCountry?.length > 0 ? selectedCountry : [];
+      const requestId = ++vendorRequestIdRef.current;
+
       searchProductsV2(
         {
           cat_id: effectiveCatId,
@@ -529,14 +584,12 @@ const addRfqIdParam = (rfq_id) => {
         "vendors"
       )
         .then((allRsp) => {
-          const cities = [];
           const cityMap = new Map();
           allRsp.data.forEach(vendor => {
             if (vendor.city_name && vendor.state_name) {
               const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
               if (!cityMap.has(key)) {
-                cityMap.set(key, true);
-                cities.push({
+                cityMap.set(key, {
                   city_name: vendor.city_name,
                   state_name: vendor.state_name,
                   city_id: vendor.city_id,
@@ -545,13 +598,10 @@ const addRfqIdParam = (rfq_id) => {
               }
             }
           });
-          setAllAvailableCities(cities.sort((a, b) => a.city_name.localeCompare(b.city_name)));
+          setAllAvailableCities(Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name)));
         })
-        .catch((error) => {
-          console.error("Error fetching cities:", error);
-        });
+        .catch((error) => console.error("Error fetching cities:", error));
       
-      const requestId = ++vendorRequestIdRef.current;
       searchProductsV2(
         {
           cat_id: effectiveCatId,
@@ -572,28 +622,11 @@ const addRfqIdParam = (rfq_id) => {
         .then((rsp) => {
           if (requestId !== vendorRequestIdRef.current) return;
           setloading(false);
-          let d = rsp.data.map((item) => {
-            item.selected = bulkRFQVendors.some(vendor => vendor.id === item.id);
-            return item;
-          });
-          setVendors(d);
-          const cities = [];
-          const cityMap = new Map();
-          d.forEach((vendor) => {
-            if (vendor.city_name && vendor.state_name) {
-              const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
-              if (!cityMap.has(key)) {
-                cityMap.set(key, true);
-                cities.push({
-                  city_name: vendor.city_name,
-                  state_name: vendor.state_name,
-                  city_id: vendor.city_id,
-                  state_id: vendor.state_id
-                });
-              }
-            }
-          });
-          setAllAvailableCities(cities.sort((a, b) => a.city_name.localeCompare(b.city_name)));
+          const vendors = rsp.data.map((item) => ({
+            ...item,
+            selected: bulkRFQVendors.some(vendor => vendor.id === item.id)
+          }));
+          setVendors(vendors);
           setVendorMetaData(rsp);
           currentSelectedProduct ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" }) : null;
         })
@@ -642,37 +675,40 @@ const addRfqIdParam = (rfq_id) => {
   };
 
   const getCategoriesById = (category_id, category_name) => {
-    setloading(true)
-
-    router.push("/vendor/all");
-    categoryLvlRef.current.set(category_id, category_name)
+    setloading(true);
+    categoryLvlRef.current.set(category_id, category_name);
 
     categoryListById({ category_id })
       .then((res) => {
         setProductsList(res.productList);
         setcurrentSelectedProduct(null);
         setSearchSubCategories(res.subCategoryList);
+        
+        // Fetch vendors for this category
+        if (res.productList && res.productList.length > 0) {
+          getVendors('', category_id);
+        }
       })
       .catch((error) => {
         console.error(error);
       })
       .finally(() => {
-        setloading(false)
+        setloading(false);
         setIsOpen(false);
 
         // Get the rfq_id from the URL if it exists
         const { rfq_id, sheet_id } = router.query;
 
-        // Update the URL to include the selected product's name and preserve rfq_id if it exists
+        // Update the URL to include the selected category
         const categorySlug = cleanAndAddHyphen(category_name);
         const newUrl = rfq_id && sheet_id
-          ? `/vendor/${categorySlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id && !sheet_id 
+          ? `/vendor/${categorySlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}` 
+          : rfq_id && !sheet_id 
           ? `/vendor/${categorySlug}?rfq_id=${rfq_id}`
           : `/vendor/${categorySlug}`;
 
-        // window.history.pushState(null, null, newUrl);
-
-      })
+        router.push(newUrl, undefined, { shallow: true });
+      });
   };
   
 
@@ -890,37 +926,51 @@ const clearVendorFilters = () => {
     const segments = slugForParsing.split('-');
     let foundState = null, foundCity = null, productSegments = [];
 
+    // Parse from right to left to find state and city
     for (let i = segments.length - 1; i >= 0; i--) {
       const segment = segments[i].toLowerCase();
+      
       if (!foundState) {
         const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
         if (stateMatch) { 
-          foundState = stateMatch; 
-          setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]);
-          const country = countryList.find(c => c.id === stateMatch.country_id);
-          if (country) setselectedCountry([{ id: country.id, name: country.country_name }]);
+          foundState = stateMatch;
           continue; 
         }
       }
-      if (!foundCity) {
-        const cityMatch = cityList.find(city => normalize(city.city_name) === segment);
+      
+      if (!foundCity && foundState) {
+        const cityMatch = cityList.find(city => 
+          normalize(city.city_name) === segment && city.state_id === foundState.id
+        );
         if (cityMatch) { 
-          foundCity = cityMatch; 
-          setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]);
+          foundCity = cityMatch;
           continue; 
         }
       }
+      
       productSegments.unshift(segments[i]);
     }
     
-    if (!foundCity && !foundState) {
+    // Set state after parsing to avoid flickering
+    if (foundState) {
+      setselectedState([{ id: foundState.id, name: foundState.state_name }]);
+      const country = countryList.find(c => c.id === foundState.country_id);
+      if (country) setselectedCountry([{ id: country.id, name: country.country_name }]);
+    } else {
       setselectedState([]);
-      setselectedCity([]);
       setselectedCountry([]);
     }
     
-    const finalSearchKey = productSegments.join('/');
-    setSearch_key(finalSearchKey);
+    if (foundCity) {
+      setselectedCity([{ id: foundCity.id, name: foundCity.city_name }]);
+    } else {
+      setselectedCity([]);
+    }
+    
+    const finalSearchKey = productSegments.join('-').replace(/-/g, ' ');
+    if (finalSearchKey) {
+      setSearch_key(finalSearchKey);
+    }
   }, [slug, stateList, cityList, countryList]);
 
   // When slug changes (including 'all'), fetch nested categories.
@@ -971,9 +1021,11 @@ useEffect(() => {
     if (currentSlugClean !== newSlug) {
       const { rfq_id, sheet_id } = router.query;
       const queryStr = rfq_id && sheet_id ? `?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id ? `?rfq_id=${rfq_id}` : '';
-      router.replace(`/vendor/${newSlug}${queryStr}`, undefined, { shallow: true });
+      
+      // Use push instead of replace to allow proper back navigation
+      router.push(`/vendor/${newSlug}${queryStr}`, undefined, { shallow: true });
     }
-  }, [selectedCity, selectedState, slugStr, isCategorySlug]);
+  }, [selectedCity, selectedState]);
 
   const clearLocationFilter = () => {
     setselectedState([]);
@@ -1293,6 +1345,8 @@ useEffect(() => {
                                 categoryLvlRef.current = new Map(
                                   entries.slice(0, index + 1)
                                 );
+                                setVendors([]);
+                                setAllAvailableCities([]);
                                 getCategoriesById(category_id, category_name);
                               }}
                             >
@@ -1985,3 +2039,4 @@ useEffect(() => {
 };
 
 export default Search;
+

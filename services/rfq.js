@@ -103,6 +103,17 @@ export const categoryListById = (values) => {
   });
 };
 
+export const bulkSearchVendorsByCategory = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/bulk-search-vendors-by-category`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const createRfq = (values) => {
   return new Promise(async (resolve, reject) => {
     try {
