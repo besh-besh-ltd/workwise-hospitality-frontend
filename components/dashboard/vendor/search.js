@@ -163,7 +163,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   useEffect(() => {
     if (!isCategorySlug) return;
-    const label = removeCategorySuffix(slugStr || "").replace(/-/g, " ").trim();
+    const label = getCategoryDisplayName(slugStr || "");
     if (label && label !== search_key) {
       setSearch_key(label);
       setInputValue(label);
@@ -331,13 +331,23 @@ useEffect(() => {
     let lowerCaseString = input.toLowerCase();
     let cleanedString = lowerCaseString.replace(/[\s\-\/()]+/g, ' ').trim();
     return cleanedString.replace(/\s+/g, '-');
-  }
+  };
 
-  // Helper function to remove -category{number} from display (but keep in URL)
-  const removeCategorySuffix = (str) => {
-    if (!str) return str;
-    return str.replace(/-category\d+$/i, '');
-  }
+  const removeCategorySuffix = (str = '') => {
+    return str.replace(/-category\d+(?=-|$)/i, '');
+  };
+
+  const getCategoryBaseSlug = (slugValue = '') => {
+    if (!slugValue) return '';
+    const match = slugValue.match(/^(.+?-category\d+)/i);
+    return match ? match[1] : '';
+  };
+
+  const getCategoryDisplayName = (slugValue = '') => {
+    if (!slugValue) return '';
+    const match = slugValue.match(/^(.+?)-category\d+/i);
+    return match ? match[1].replace(/-/g, ' ').trim() : slugValue.replace(/-/g, ' ').trim();
+  };
 
  
 
@@ -521,6 +531,10 @@ const addRfqIdParam = (rfq_id) => {
           logged_In: response?.logged_In || false,
           subscription: response?.subscription || false
         });
+
+        if (vendors.length > 0) {
+          return;
+        }
       } catch (error) {
         if (requestId !== vendorRequestIdRef.current) return;
         console.error("Error fetching category vendors:", error);
@@ -528,7 +542,6 @@ const addRfqIdParam = (rfq_id) => {
         setVendors([]);
         setAllAvailableCities([]);
       }
-      return;
     }
 
     let canonicalSearchKey = overrideSearchKey !== null ? overrideSearchKey : search_key;

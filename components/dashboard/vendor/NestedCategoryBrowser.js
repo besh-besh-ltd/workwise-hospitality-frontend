@@ -76,14 +76,15 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
       setPreviousLevelCategories(arr);
 
 
-      // Fetch vendors for subcategories (parent_id != 0) that contain products (type === 'single')
+      // Fetch vendors for subcategories (parent_id != 0) that contain products or variants
       // This ensures vendors are fetched for all products under the selected subcategory
-      const isNestedProductLevel = type === 'single' && 
-                                   slugParam && 
-                                   slugParam !== 'all' && 
-                                   parent_id !== 0; // Only fetch for subcategories (parent_id != 0)
+      const shouldFetchVendors =
+        slugParam &&
+        slugParam !== 'all' &&
+        parent_id !== 0 &&
+        (type === 'single' || type === 'variant');
 
-      if (isNestedProductLevel) {
+      if (shouldFetchVendors) {
         // For subcategories, fetch vendors for all products under this category
         // Use category ID instead of name to ensure accurate vendor fetching
         const categoryName = slugParam.replace(/-/g, ' ');
@@ -94,9 +95,6 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
         }
         // Don't call onHide() - keep categories section visible
       }
-
-      // ✅ For variants: when we have variants in the array, don't auto-fetch
-      // Variants will be handled by handleCardClick when user clicks on them
     } catch (err) {
       console.error('Error fetching nested categories:', err);
       setNestedItems([]);
