@@ -1,6 +1,23 @@
 @import "variable";
 // @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
+.grecaptcha-badge {
+  left: 8px !important;
+  bottom: 8px !important;
+  z-index: 9999;
+  width: 70px !important;
+  height: 60px !important;
+  overflow: hidden;
+  transform: scale(0.8);
+  transform-origin: bottom left;
+
+  @media (max-width: 768px) {
+    left: 8px !important;
+    bottom: 80px !important;
+    transform: scale(0.75);
+  }
+}
+
 // GRID STRUCTURE STYLE
 *,
 ::after,
