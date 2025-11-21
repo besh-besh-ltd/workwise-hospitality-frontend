@@ -335,6 +335,11 @@ useEffect(() => {
     return cleanedString.replace(/\s+/g, '-');
   }
 
+  const normalizeLocationValue = (input = "") =>
+    input.toLowerCase().replace(/[\s\-\/()]+/g, "");
+
+  const createLocationSlug = (input = "") => normalizeLocationValue(input);
+
   const removeCategorySuffix = (str) => {
     if (!str) return str;
     return str.replace(/-category\d+/gi, '');
@@ -936,13 +941,13 @@ const clearVendorFilters = () => {
       return;
     }
 
-    const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
+    const normalize = (s) => (s || '').toLowerCase().replace(/[\s-]+/g, '');
     const segments = slugForParsing.split('-');
     let foundState = null, foundCity = null, productSegments = [];
 
     // Parse from right to left to find state and city
     for (let i = segments.length - 1; i >= 0; i--) {
-      const segment = segments[i].toLowerCase();
+      const segment = normalize(segments[i]);
       
       if (!foundState) {
         const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
@@ -1021,32 +1026,41 @@ useEffect(() => {
   useEffect(() => {
     if (!currentSelectedProduct || !slugStr || isCategorySlug) return;
     
-    const baseSlug = currentSelectedProduct.slug || cleanAndAddHyphen(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '');
+    let baseSlug =
+      currentSelectedProduct.slug ||
+      cleanAndAddHyphen(
+        currentSelectedProduct.variant_name || currentSelectedProduct.product_name || ""
+      );
+    baseSlug = stripLocationSuffix(baseSlug);
     let newSlug = baseSlug;
     
     if (selectedCity.length > 0 && selectedState.length > 0) {
-      const citySlug = cleanAndAddHyphen(selectedCity[0].name);
-      const stateSlug = cleanAndAddHyphen(selectedState[0].name);
+      const citySlug = createLocationSlug(selectedCity[0].name);
+      const stateSlug = createLocationSlug(selectedState[0].name);
       newSlug = `${baseSlug}-${citySlug}-${stateSlug}`;
     }
     
-    const currentSlugClean = removeCategorySuffix(slugStr);
+    const currentSlugClean = stripLocationSuffix(removeCategorySuffix(slugStr));
     
     if (currentSlugClean !== newSlug) {
       const { rfq_id, sheet_id } = router.query;
       const queryStr = rfq_id && sheet_id ? `?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id ? `?rfq_id=${rfq_id}` : '';
       
-      // Use push instead of replace to allow proper back navigation
       router.push(`/vendor/${newSlug}${queryStr}`, undefined, { shallow: true });
     }
-  }, [selectedCity, selectedState]);
+  }, [selectedCity, selectedState, currentSelectedProduct, slugStr]);
 
   const clearLocationFilter = () => {
     setselectedState([]);
     setselectedCity([]);
     setselectedCountry([]);
     if (currentSelectedProduct) {
-      const baseSlug = currentSelectedProduct.slug || cleanAndAddHyphen(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '');
+      const baseSlug = stripLocationSuffix(
+        currentSelectedProduct.slug ||
+          cleanAndAddHyphen(
+            currentSelectedProduct.variant_name || currentSelectedProduct.product_name || ""
+          )
+      );
       const { rfq_id, sheet_id } = router.query;
       const queryStr = rfq_id && sheet_id ? `?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id ? `?rfq_id=${rfq_id}` : '';
       router.replace(`/vendor/${baseSlug}${queryStr}`, undefined, { shallow: true });
@@ -1117,28 +1131,26 @@ useEffect(() => {
 
   const stripLocationSuffix = (slugValue) => {
     if (!slugValue) return slugValue;
-    let updatedSlug = slugValue;
+    const parts = slugValue.split('-');
+    if (parts.length < 3) return slugValue;
 
-    const removeSuffix = (slugStr, suffix) => {
-      if (!suffix) return slugStr;
-      const normalizedSlug = slugStr.toLowerCase();
-      const normalizedSuffix = suffix.toLowerCase();
-      if (normalizedSlug.endsWith(normalizedSuffix)) {
-        return slugStr.slice(0, slugStr.length - suffix.length);
-      }
-      return slugStr;
-    };
+    const statePart = normalizeLocationValue(parts[parts.length - 1]);
+    const cityPart = normalizeLocationValue(parts[parts.length - 2]);
 
-    if (selectedCity?.length > 0 && selectedState?.length > 0) {
-      const citySlug = cleanAndAddHyphen(selectedCity[0].name);
-      const stateSlug = cleanAndAddHyphen(selectedState[0].name);
-      updatedSlug = removeSuffix(updatedSlug, `-${citySlug}-${stateSlug}`);
-    } else if (selectedState?.length > 0) {
-      const stateSlug = cleanAndAddHyphen(selectedState[0].name);
-      updatedSlug = removeSuffix(updatedSlug, `-${stateSlug}`);
-    }
+    const matchedState = stateList.find(
+      (state) => normalizeLocationValue(state.state_name) === statePart
+    );
+    if (!matchedState) return slugValue;
 
-    return updatedSlug;
+    const matchedCity = cityList.find(
+      (city) =>
+        city.state_id === matchedState.id &&
+        normalizeLocationValue(city.city_name) === cityPart
+    );
+
+    if (!matchedCity) return slugValue;
+
+    return parts.slice(0, -2).join('-');
   };
 
   const getCategoryTitle = () => {
@@ -1173,7 +1185,9 @@ useEffect(() => {
     slugStr,
     currentSelectedProduct,
     search_key,
-    inputValue
+    inputValue,
+    stateList,
+    cityList
   ]);
 
   useEffect(() => {
@@ -1195,9 +1209,11 @@ useEffect(() => {
   const shouldShowVendors = !!currentSelectedProduct || (isCategorySlug && !isTopLevelCategory);
 
   const getLocationBaseSlug = () => {
-    if (currentSelectedProduct?.slug) return currentSelectedProduct.slug;
-    if (isCategorySlug) return slugStr;
-    return cleanAndAddHyphen(removeCategorySuffix(search_key));
+    let baseSlug = "";
+    if (currentSelectedProduct?.slug) baseSlug = currentSelectedProduct.slug;
+    else if (isCategorySlug) baseSlug = slugStr || "";
+    else baseSlug = cleanAndAddHyphen(removeCategorySuffix(search_key || ""));
+    return stripLocationSuffix(baseSlug);
   };
 
   const filtersInitializedRef = useRef(false);
@@ -2144,8 +2160,8 @@ useEffect(() => {
           <div className="row">
             {allAvailableCities.map((city, index) => {
               const productSlug = getLocationBaseSlug();
-              const citySlug = cleanAndAddHyphen(city.city_name);
-              const stateSlug = cleanAndAddHyphen(city.state_name);
+              const citySlug = createLocationSlug(city.city_name);
+              const stateSlug = createLocationSlug(city.state_name);
               const cityUrl = `/vendor/${productSlug}-${citySlug}-${stateSlug}`;
               
               return (
