@@ -97,6 +97,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [selectedMakes, setSelectedMakes] = useState([]);
   const [allAvailableCities, setAllAvailableCities] = useState([]);
   const vendorRequestIdRef = useRef(0);
+  const categoryCityCacheRef = useRef(new Map());
+  const categoryCityFetchRef = useRef(new Set());
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -462,6 +464,10 @@ const addRfqIdParam = (rfq_id) => {
       return;
     }
 
+    if (!currentSelectedProduct && effectiveCatId) {
+      ensureCategoryCityList(effectiveCatId);
+    }
+
     const hasCategoryIdOverride = overrideCatId !== null;
     const shouldUseCategoryVendors =
       !currentSelectedProduct &&
@@ -512,11 +518,17 @@ const addRfqIdParam = (rfq_id) => {
           }
         });
 
-        const cities = Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name));
+        const cachedCities = categoryCityCacheRef.current.get(effectiveCatId);
+        if (cachedCities) {
+          setAllAvailableCities(cachedCities);
+        } else {
+          const cities = buildCityListFromVendors(vendors);
+          categoryCityCacheRef.current.set(effectiveCatId, cities);
+          setAllAvailableCities(cities);
+        }
 
         setloading(false);
         setVendors(vendors);
-        setAllAvailableCities(cities);
         setVendorMetaData({
           data: vendors,
           total: response?.total || 0,
@@ -1050,6 +1062,59 @@ useEffect(() => {
     return '';
   };
 
+  const buildCityListFromVendors = (vendorsList = []) => {
+    const cityMap = new Map();
+    vendorsList.forEach(vendor => {
+      if (vendor.city_name && vendor.state_name) {
+        const cityKey = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
+        if (!cityMap.has(cityKey)) {
+          cityMap.set(cityKey, {
+            city_name: vendor.city_name,
+            state_name: vendor.state_name,
+            city_id: vendor.city_id,
+            state_id: vendor.state_id
+          });
+        }
+      }
+    });
+    return Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name));
+  };
+
+  const ensureCategoryCityList = async (categoryId) => {
+    if (!categoryId) return;
+    if (categoryCityCacheRef.current.has(categoryId)) {
+      setAllAvailableCities(categoryCityCacheRef.current.get(categoryId));
+      return;
+    }
+    if (categoryCityFetchRef.current.has(categoryId)) return;
+
+    categoryCityFetchRef.current.add(categoryId);
+    try {
+      const response = await bulkSearchVendorsByCategory({
+        category_id: categoryId,
+        approved_by_id: [],
+        state: [],
+        city: [],
+        country: [],
+        turnOver: { from: -1, to: -1 },
+        vendorType: [],
+        prevWorkedWith: null,
+        vendor_name: "",
+        myVendorType: null,
+        productMakes: [],
+        page: 1,
+        limit: 20
+      });
+      const cities = buildCityListFromVendors(response?.data || []);
+      categoryCityCacheRef.current.set(categoryId, cities);
+      setAllAvailableCities(cities);
+    } catch (error) {
+      console.error("Error preloading category cities:", error);
+    } finally {
+      categoryCityFetchRef.current.delete(categoryId);
+    }
+  };
+
   const stripLocationSuffix = (slugValue) => {
     if (!slugValue) return slugValue;
     let updatedSlug = slugValue;
@@ -1081,6 +1146,51 @@ useEffect(() => {
     const baseSlug = stripLocationSuffix(removeCategorySuffix(slugStr));
     return baseSlug.replace(/-/g, ' ');
   };
+
+  useEffect(() => {
+    if (!isCategorySlug || currentSelectedProduct) return;
+    const rawSlug = removeCategorySuffix(slugStr || '').replace(/-/g, ' ').trim();
+    const baseSlug = stripLocationSuffix(removeCategorySuffix(slugStr || '')).replace(/-/g, ' ').trim();
+    if (!baseSlug) return;
+
+    const shouldUpdateSearch =
+      !search_key ||
+      search_key.toLowerCase() === rawSlug.toLowerCase();
+
+    if (shouldUpdateSearch && search_key !== baseSlug) {
+      setSearch_key(baseSlug);
+    }
+
+    const shouldUpdateInput =
+      !inputValue ||
+      inputValue.toLowerCase() === rawSlug.toLowerCase();
+
+    if (shouldUpdateInput && inputValue !== baseSlug) {
+      setInputValue(baseSlug);
+    }
+  }, [
+    isCategorySlug,
+    slugStr,
+    currentSelectedProduct,
+    search_key,
+    inputValue
+  ]);
+
+  useEffect(() => {
+    if (!isCategorySlug || currentSelectedProduct) return;
+    const targetCategoryId =
+      currentSelectedProduct?.category_id ??
+      cat_id ??
+      categoryIdFromSlug ??
+      null;
+    if (!targetCategoryId) return;
+    ensureCategoryCityList(targetCategoryId);
+  }, [
+    isCategorySlug,
+    currentSelectedProduct,
+    cat_id,
+    categoryIdFromSlug
+  ]);
 
   const shouldShowVendors = !!currentSelectedProduct || (isCategorySlug && !isTopLevelCategory);
 
