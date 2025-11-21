@@ -468,8 +468,6 @@ const addRfqIdParam = (rfq_id) => {
 
     if (isExplicitEmptySearch && hasCategoryIdOverride) {
       setloading(true);
-      setVendors([]);
-      setSearchSubCategories([]);
       const requestId = ++vendorRequestIdRef.current;
 
       try {
@@ -562,8 +560,6 @@ const addRfqIdParam = (rfq_id) => {
 
     if (canonicalSearchKey !== "" || effectiveCatId) {
       setloading(true);
-      setVendors([]);
-      setSearchSubCategories([]);
 
       const stateFilter = selectedState?.length > 0 ? selectedState : [];
       const cityFilter = selectedCity?.length > 0 ? selectedCity : [];
@@ -679,37 +675,40 @@ const addRfqIdParam = (rfq_id) => {
   };
 
   const getCategoriesById = (category_id, category_name) => {
-    setloading(true)
-
-    router.push("/vendor/all");
-    categoryLvlRef.current.set(category_id, category_name)
+    setloading(true);
+    categoryLvlRef.current.set(category_id, category_name);
 
     categoryListById({ category_id })
       .then((res) => {
         setProductsList(res.productList);
         setcurrentSelectedProduct(null);
         setSearchSubCategories(res.subCategoryList);
+        
+        // Fetch vendors for this category
+        if (res.productList && res.productList.length > 0) {
+          getVendors('', category_id);
+        }
       })
       .catch((error) => {
         console.error(error);
       })
       .finally(() => {
-        setloading(false)
+        setloading(false);
         setIsOpen(false);
 
         // Get the rfq_id from the URL if it exists
         const { rfq_id, sheet_id } = router.query;
 
-        // Update the URL to include the selected product's name and preserve rfq_id if it exists
+        // Update the URL to include the selected category
         const categorySlug = cleanAndAddHyphen(category_name);
         const newUrl = rfq_id && sheet_id
-          ? `/vendor/${categorySlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id && !sheet_id 
+          ? `/vendor/${categorySlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}` 
+          : rfq_id && !sheet_id 
           ? `/vendor/${categorySlug}?rfq_id=${rfq_id}`
           : `/vendor/${categorySlug}`;
 
-        // window.history.pushState(null, null, newUrl);
-
-      })
+        router.push(newUrl, undefined, { shallow: true });
+      });
   };
   
 
@@ -927,37 +926,51 @@ const clearVendorFilters = () => {
     const segments = slugForParsing.split('-');
     let foundState = null, foundCity = null, productSegments = [];
 
+    // Parse from right to left to find state and city
     for (let i = segments.length - 1; i >= 0; i--) {
       const segment = segments[i].toLowerCase();
+      
       if (!foundState) {
         const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
         if (stateMatch) { 
-          foundState = stateMatch; 
-          setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]);
-          const country = countryList.find(c => c.id === stateMatch.country_id);
-          if (country) setselectedCountry([{ id: country.id, name: country.country_name }]);
+          foundState = stateMatch;
           continue; 
         }
       }
-      if (!foundCity) {
-        const cityMatch = cityList.find(city => normalize(city.city_name) === segment);
+      
+      if (!foundCity && foundState) {
+        const cityMatch = cityList.find(city => 
+          normalize(city.city_name) === segment && city.state_id === foundState.id
+        );
         if (cityMatch) { 
-          foundCity = cityMatch; 
-          setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]);
+          foundCity = cityMatch;
           continue; 
         }
       }
+      
       productSegments.unshift(segments[i]);
     }
     
-    if (!foundCity && !foundState) {
+    // Set state after parsing to avoid flickering
+    if (foundState) {
+      setselectedState([{ id: foundState.id, name: foundState.state_name }]);
+      const country = countryList.find(c => c.id === foundState.country_id);
+      if (country) setselectedCountry([{ id: country.id, name: country.country_name }]);
+    } else {
       setselectedState([]);
-      setselectedCity([]);
       setselectedCountry([]);
     }
     
-    const finalSearchKey = productSegments.join('/');
-    setSearch_key(finalSearchKey);
+    if (foundCity) {
+      setselectedCity([{ id: foundCity.id, name: foundCity.city_name }]);
+    } else {
+      setselectedCity([]);
+    }
+    
+    const finalSearchKey = productSegments.join('-').replace(/-/g, ' ');
+    if (finalSearchKey) {
+      setSearch_key(finalSearchKey);
+    }
   }, [slug, stateList, cityList, countryList]);
 
   // When slug changes (including 'all'), fetch nested categories.
@@ -1008,9 +1021,11 @@ useEffect(() => {
     if (currentSlugClean !== newSlug) {
       const { rfq_id, sheet_id } = router.query;
       const queryStr = rfq_id && sheet_id ? `?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id ? `?rfq_id=${rfq_id}` : '';
-      router.replace(`/vendor/${newSlug}${queryStr}`, undefined, { shallow: true });
+      
+      // Use push instead of replace to allow proper back navigation
+      router.push(`/vendor/${newSlug}${queryStr}`, undefined, { shallow: true });
     }
-  }, [selectedCity, selectedState, slugStr, isCategorySlug]);
+  }, [selectedCity, selectedState]);
 
   const clearLocationFilter = () => {
     setselectedState([]);
@@ -1330,6 +1345,8 @@ useEffect(() => {
                                 categoryLvlRef.current = new Map(
                                   entries.slice(0, index + 1)
                                 );
+                                setVendors([]);
+                                setAllAvailableCities([]);
                                 getCategoriesById(category_id, category_name);
                               }}
                             >
@@ -2022,3 +2039,4 @@ useEffect(() => {
 };
 
 export default Search;
+
