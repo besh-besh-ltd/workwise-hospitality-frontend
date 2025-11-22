@@ -92,6 +92,7 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
         // Pass empty search key and category ID to fetch vendors for all products in this subcategory
         if (onGetVendors) {
           onGetVendors('', parent_id);
+          console.warn(" nestedbrowser findvendor 95")
         }
         // Don't call onHide() - keep categories section visible
       }
@@ -219,7 +220,12 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
       if (onHide) onHide();
       setSearchKey(cleanName);
       if (onGetProducts) await onGetProducts(cleanName);
-      if (onGetVendors) onGetVendors();
+      if (onGetVendors){
+        onGetVendors();
+                console.warn(" nestedbrowser findvendor 95")
+
+      } 
+        
       const variantUrl = buildVendorUrl(name, id, 'variant');
       await router.push(variantUrl);
       isNavigatingRef.current = false;
