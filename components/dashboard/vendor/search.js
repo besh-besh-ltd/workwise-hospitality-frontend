@@ -135,6 +135,34 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const toRef = useRef(null);
   const vendorTypeRef = useRef(null);
   const vendorApprovedByRef = useRef(null);
+
+  const prevFiltersRef = useRef(null);
+
+  const filterSnapshot = useMemo(() => ({
+  country: selectedCountry,
+  state: selectedState,
+  city: selectedCity,
+  vendorTypes: selectedVendorTypes,
+  approvedBy: selectedApprovedBy,
+  makes: selectedMakes,
+  prevWorkedWith,
+  myVendorType,
+  vendorName: debouncedVendorName,
+  turnOver,
+}), [
+  selectedCountry,
+  selectedState,
+  selectedCity,
+  selectedVendorTypes,
+  selectedApprovedBy,
+  selectedMakes,
+  prevWorkedWith,
+  myVendorType,
+  debouncedVendorName,
+  turnOver
+]);
+
+
   const slugStr = useMemo(() => {
     if (Array.isArray(slug)) return slug.join("/");
     return typeof slug === "string" ? slug : "";
@@ -244,11 +272,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     };
   }, []);
 
-  
-  useEffect(() => {
-    if(vendorTypes)
-      setInternalVendorTypes(vendorTypes.filter(type => !selectedVendorTypes.some(_type => _type.value == type.value)))
-  }, [selectedVendorTypes])
+ useEffect(() => {
+  setInternalVendorTypes(
+    vendorTypes.filter(type => !selectedVendorTypes.some(t => t.value === type.value))
+  );
+}, [selectedVendorTypes, vendorTypes]);
+
 
   useEffect(() => {
     setInternalApprovedBy(approved_by)
@@ -1023,32 +1052,27 @@ useEffect(() => {
 }, [slugStr]);
 
 
-  useEffect(() => {
-    if (!currentSelectedProduct || !slugStr || isCategorySlug) return;
-    
-    let baseSlug =
-      currentSelectedProduct.slug ||
-      cleanAndAddHyphen(
-        currentSelectedProduct.variant_name || currentSelectedProduct.product_name || ""
-      );
-    baseSlug = stripLocationSuffix(baseSlug);
-    let newSlug = baseSlug;
-    
-    if (selectedCity.length > 0 && selectedState.length > 0) {
-      const citySlug = createLocationSlug(selectedCity[0].name);
-      const stateSlug = createLocationSlug(selectedState[0].name);
-      newSlug = `${baseSlug}-${citySlug}-${stateSlug}`;
-    }
-    
-    const currentSlugClean = stripLocationSuffix(removeCategorySuffix(slugStr));
-    
-    if (currentSlugClean !== newSlug) {
-      const { rfq_id, sheet_id } = router.query;
-      const queryStr = rfq_id && sheet_id ? `?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id ? `?rfq_id=${rfq_id}` : '';
-      
-      router.push(`/vendor/${newSlug}${queryStr}`, undefined, { shallow: true });
-    }
-  }, [selectedCity, selectedState, currentSelectedProduct, slugStr]);
+ useEffect(() => {
+  if (!currentSelectedProduct) return;
+  if (!selectedCity.length || !selectedState.length) return;
+
+  // Build new slug
+  const baseSlug = stripLocationSuffix(
+    currentSelectedProduct.slug ||
+    cleanAndAddHyphen(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || "")
+  );
+
+  const newSlug = `${baseSlug}-${createLocationSlug(selectedCity[0].name)}-${createLocationSlug(selectedState[0].name)}`;
+
+  // If slug already matches, do nothing
+  if (slugStr === newSlug) return;
+
+  // Prevent loops
+  if (router.asPath.includes(newSlug)) return;
+
+  router.replace(`/vendor/${newSlug}`, undefined, { shallow: true });
+}, [selectedCity, selectedState]);
+
 
   const clearLocationFilter = () => {
     setselectedState([]);
@@ -1216,32 +1240,24 @@ useEffect(() => {
     return stripLocationSuffix(baseSlug);
   };
 
-  const filtersInitializedRef = useRef(false);
-  useEffect(() => {
-    if (!shouldShowVendors) {
-      filtersInitializedRef.current = false;
-      return;
-    }
+useEffect(() => {
+  if (!shouldShowVendors) return;
 
-    if (!filtersInitializedRef.current) {
-      filtersInitializedRef.current = true;
-      return;
-    }
+  const prev = prevFiltersRef.current;
 
-    getVendors();
-  }, [
-    shouldShowVendors,
-    selectedCountry,
-    selectedState,
-    selectedCity,
-    selectedVendorTypes,
-    selectedApprovedBy,
-    selectedMakes,
-    prevWorkedWith,
-    myVendorType,
-    debouncedVendorName,
-    turnOver,
-  ]);
+  // 🔥 Skip if filters did not change deeply
+  if (prev && JSON.stringify(prev) === JSON.stringify(filterSnapshot)) {
+    return;
+  }
+
+  // Save new snapshot
+  prevFiltersRef.current = filterSnapshot;
+
+  // Finally call API
+  getVendors();
+
+}, [filterSnapshot, shouldShowVendors]);
+
 
 
   useEffect(() => {
