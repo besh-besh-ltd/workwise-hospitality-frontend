@@ -87,6 +87,7 @@ export const searchProductsV2 = (values, type = "products") => {
       productMakes: values?.selectedMakes?.map((item) => item.make_name),
     };
 
+    
     return new Promise(async (resolve, reject) => {
       try {
         let response = await axiosInstance.post(`/rfq/search-vendor`, payload);

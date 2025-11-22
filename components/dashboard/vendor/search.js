@@ -1230,7 +1230,6 @@ useEffect(() => {
     categoryIdFromSlug
   ]);
 
-  const shouldShowVendors = !!currentSelectedProduct || (isCategorySlug && !isTopLevelCategory);
 
   const getLocationBaseSlug = () => {
     let baseSlug = "";
@@ -1241,7 +1240,6 @@ useEffect(() => {
   };
 
 useEffect(() => {
-  if (!shouldShowVendors) return;
 
   const prev = prevFiltersRef.current;
 
@@ -1256,7 +1254,7 @@ useEffect(() => {
   // Finally call API
   getVendors();
 
-}, [filterSnapshot, shouldShowVendors]);
+}, [filterSnapshot]);
 
 
 
@@ -1593,7 +1591,7 @@ useEffect(() => {
           {/* vendor List Section */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {/* START : Filter side bar */}
-            {shouldShowVendors && (
+            {vendors && vendors.length > 0 && (
               <div className="col-md-3">
                 <aside>
                   <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">
@@ -1994,9 +1992,9 @@ useEffect(() => {
             {/* END: Filter side bar */}
 
             {/* START:  vendor list*/}
-            <div className={shouldShowVendors ? `col-md-9` : `col-md-12`}>
+            <div className={vendors && vendors.length > 0 ? `col-md-9` : `col-md-12`}>
               <div className="row">
-                {shouldShowVendors && (
+                {vendors && vendors.length > 0 && (
                   <div className="col-md-12">
                     <h2 className="fs-5">
                       Available Vendors for{" "}
@@ -2168,7 +2166,7 @@ useEffect(() => {
         <RandomProductsCarousel className="" />
       </div>
 
-      {allAvailableCities.length > 0 && shouldShowVendors && (
+      {allAvailableCities.length > 0 && vendors && vendors.length > 0 && (
         <div className="container my-4">
           <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
             {currentSelectedProduct ? getProductTitle() : textCapitalize(getCategoryTitle())} Vendors by City
