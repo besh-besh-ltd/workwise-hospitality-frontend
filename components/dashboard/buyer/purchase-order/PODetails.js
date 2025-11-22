@@ -7,7 +7,7 @@ import {
   MdTimeline
 } from 'react-icons/md';
 import { BsBoxSeam, BsPerson, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill } from 'react-icons/bs';
-import { FiPaperclip } from "react-icons/fi";
+import { MdHistory } from "react-icons/md";
 import { HiOutlineTrash, HiPencil } from "react-icons/hi";
 import { BsFilePdf } from "react-icons/bs";
 import { FiDownload, FiExternalLink } from "react-icons/fi";
@@ -656,7 +656,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                       type="simple-text"
                       label={product.name}
                       placeholder={`Enter ${product.name} HSN Code here...`}
-                      disabled={restrictModifyPO(status)}
+                      disabled={status == 'pending_approval' || restrictModifyPO(status)}
                       values={hsnCode?.code || ""}
                       onChange={(change) => {
                         setHSNCodeInfo((info) => {
@@ -702,7 +702,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                         : `Load ${product_details.length - 1} More`}
                     </button>
                   )}
-                  {!restrictModifyPO(status) && (
+                  {!restrictModifyPO(status) || status == 'pending_approval' && (
                     <button className="btn btn-dark p-2" onClick={handleSaveHSN}>
                       Save Changes
                     </button>
@@ -718,13 +718,13 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                   type="simple-text"
                   label={"GSTIN ( To be printed in the PO )"}
                   placeholder={`Enter GSTIN here...`}
-                  disabled={restrictModifyPO(status)}
+                  disabled={status == 'pending_approval' || restrictModifyPO(status)}
                   values={gstin || ""}
                   onChange={(change) => {
                     setGstin(change.target.value);
                   }}
                 />
-                {!restrictModifyPO(status) && (
+                {!restrictModifyPO(status) || status == 'pending_approval' && (
                   <button className="btn btn-dark p-2" onClick={handleSaveGST}>
                     Save Changes
                   </button>
@@ -754,7 +754,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               }
               time={formatIST(created_at)}
             />
-            {approval_history.map((entry, index) => (
+            {approval_history.reverse().map((entry, index) => (
               <TimelineItem
                 key={index}
                 title={
@@ -764,12 +764,16 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                     ? "Rejected"
                     : entry.action === "cancelled"
                     ? "Cancelled"
-                    : "Action Taken"
+                    : entry.action === "edited"
+                    ? "PO Edited" :
+                    "Action Taken"
                 }
                 name={entry.approved_by_name}
                 icon={
                   entry.action === "approved" ? (
                     <BsCheckCircleFill className="text-success" size={25} />
+                  ) : entry.action === "edited" ? (
+                    <MdHistory className="text-dark" size={25} />
                   ) : (
                     <BsXCircleFill className="text-danger" size={25} />
                   )

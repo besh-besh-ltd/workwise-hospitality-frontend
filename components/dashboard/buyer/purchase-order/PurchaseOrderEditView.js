@@ -15,7 +15,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { addCommasToNumber } from "@/utils/sharedFunctions";
 import CommonFormInput from "@/components/shared/CommonFormInput";
-import { consoleLoggingIntegration } from "@sentry/nextjs";
 
 const PurchaseOrderEditView = ({
   data,
@@ -38,16 +37,11 @@ const PurchaseOrderEditView = ({
 
   // HSN state: same UX as view page (loadMore + per-product code)
   const [hsnCodeInfo, setHSNCodeInfo] = useState({
-    hsnCodes: editablePO.hsn_codes || [], // expected [{ rfq_item_id, code }]
+    hsnCodes: editablePO.hsn_codes || [],
     loadMore: false,
   });
 
   const restrictModifyPO = (status) => status == 'rejected' || status == 'cancelled' || status == 'approved'
-
-  useEffect(() => {
-    console.log('CHANGES IN THE PO:')
-    console.dir(changes, { depth: null })
-  }, [changes])
 
   const parseNumber = (val) => {
     if (val === "" || val === null || val === undefined) return 0;
@@ -168,7 +162,7 @@ const PurchaseOrderEditView = ({
       const origProduct =
         originalPO.product_details?.[index] || oldProduct;
 
-      const path = `product[${updatedProduct.id || index}].${field}`;
+      const path = `product[${updatedProduct.rfq_item_id || index}].${field}`;
       const oldVal = field.startsWith("charges_meta.")
         ? (origProduct.charges_meta || {})[field.split(".")[1]]
         : origProduct[field];
@@ -180,7 +174,7 @@ const PurchaseOrderEditView = ({
           originalPO.product_details?.[index]?.total_price ||
           oldProduct.total_price;
         recordChange(
-          `product[${updatedProduct.id || index}].total_price`,
+          `product[${updatedProduct.rfq_item_id || index}].total_price`,
           oldTotal,
           updatedProduct.total_price
         );
@@ -337,98 +331,91 @@ const PurchaseOrderEditView = ({
       </Card>
 
       {/* PO + Vendor info */}
-      <Row className="gy-3 mb-4">
-        <Col md={8}>
-          <Card className="shadow-sm">
-            <Card.Body>
-              <h5 className="mb-3">PO Details</h5>
-              <Row className="gy-3">
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label>PO Number</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editablePO.po_number || ""}
-                      onChange={(e) =>
-                        handlePOFieldChange("po_number", e.target.value)
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label>Status</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editablePO.status || ""}
-                      className="text-capitalize"
-                      disabled
-                    />
-                  </Form.Group>
-                </Col>
+      <div className="d-flex flex-column gap-3 mb-4">
+        <Card className="shadow-sm">
+          <Card.Body>
+            <h5 className="mb-3">PO Details</h5>
+            <Row className="gy-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>PO Number</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={editablePO.po_number || ""}
+                    onChange={(e) =>
+                      handlePOFieldChange("po_number", e.target.value)
+                    }
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Status</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={(editablePO.status || "").replace("_", " ")}
+                    className="text-capitalize"
+                    disabled
+                  />
+                </Form.Group>
+              </Col>
 
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label>Project</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editablePO.project_details?.name || ""}
-                      disabled
-                    />
-                  </Form.Group>
-                </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Project</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={editablePO.project_details?.name || ""}
+                    disabled
+                  />
+                </Form.Group>
+              </Col>
 
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label>GSTIN</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editablePO.gstin || ""}
-                      onChange={(e) =>
-                        handlePOFieldChange("gstin", e.target.value)
-                      }
-                      placeholder="Enter GSTIN"
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
-        </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>RFQ Id</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={editablePO.rfq_id || ""}
+                    disabled
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
 
-        <Col md={4}>
-          <Card className="shadow-sm">
-            <Card.Body>
-              <h5 className="mb-3">Vendor Details</h5>
-              <div className="mb-2">
-                <div className="text-muted small">Vendor Name</div>
-                <div className="fw-semibold">
-                  {editablePO.finalized_vendor_name}
-                </div>
+        <Card className="shadow-sm">
+          <Card.Body>
+            <h5 className="mb-3">Vendor Details</h5>
+            <div className="mb-2">
+              <div className="text-muted small">Vendor Name</div>
+              <div className="fw-semibold">
+                {editablePO.finalized_vendor_name}
               </div>
-              <div className="mb-2">
-                <div className="text-muted small">Vendor Email</div>
-                <div className="fw-semibold">
-                  {editablePO.finalized_vendor_email}
-                </div>
+            </div>
+            <div className="mb-2">
+              <div className="text-muted small">Vendor Email</div>
+              <div className="fw-semibold">
+                {editablePO.finalized_vendor_email}
               </div>
-              <div className="mb-0">
-                <div className="text-muted small">Approval Status</div>
-                <Badge
-                  className="text-capitalize"
-                  bg={
-                    editablePO.approval_status?.status === "approved"
-                      ? "success"
-                      : "secondary"
-                  }
-                >
-                  {editablePO.approval_status?.status || "N/A"}
-                </Badge>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+            </div>
+            <div className="mb-0">
+              <div className="text-muted small">Approval Status</div>
+              <Badge
+                className="text-capitalize"
+                bg={
+                  editablePO.approval_status?.status === "approved"
+                    ? "success"
+                    : "secondary"
+                }
+              >
+                {editablePO.approval_status?.status || "N/A"}
+              </Badge>
+            </div>
+          </Card.Body>
+        </Card>
+      </div>
 
       {/* Products */}
       <section className="mb-4">
@@ -690,6 +677,7 @@ const PurchaseOrderEditView = ({
                               size="sm"
                               className="p-2"
                               onClick={() => handleRemoveProduct(idx)}
+                              disabled={productDetails.length <= 1}
                             >
                               Remove Product
                             </Button>
@@ -729,7 +717,7 @@ const PurchaseOrderEditView = ({
                       type="simple-text"
                       label={product.name}
                       placeholder={`Enter ${product.name} HSN Code here...`}
-                      values={hsnCode?.code || ""}
+                      values={hsnCode?.hsn_code || ""}
                       onChange={(change) => {
                         updateHSNForProduct(
                           product.rfq_item_id,

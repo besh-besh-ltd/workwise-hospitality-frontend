@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import Select from "react-select";
 import Link from "next/link";
 import { getRfqs } from "@/services/rfq";
-import { getPoData, getPoDetails, handlePOApproval, handlePOInitialization } from "@/services/po";
+import { getPoData, getPoDetails, handlePOApproval, handlePOInitialization, updatePODetails } from "@/services/po";
 import { useRouter } from "next/router";
 import { getProjectList } from "@/services/project";
 import POListing from "./POListing";
@@ -203,6 +203,18 @@ const PurchaseOrders = () => {
         if(value)
             setPODetails(value);
     }).finally(() => setloading(false));
+  }
+
+  const handlePOEdit = async (payload) => {
+    if(!po) return;
+
+    try {
+      setloading(true);
+      const response = await updatePODetails(po, payload)
+      console.log("PO UPDATE RESPONSE:", response);
+    } finally {
+      setloading(false);
+    }
   }
 
   const getAllProjects = () => {
@@ -410,8 +422,9 @@ const PurchaseOrders = () => {
                       companyUsers={companyUsers}
                       isEditing={isEditing}
                       setIsEditing={setIsEditing}
-                      handleUpdatePO={(payload) => {
+                      handleUpdatePO={async (payload) => {
                         console.log("PO EDIT PAYLOAD:", payload)
+                        await handlePOEdit(payload);
                       }}
                     />
                   </div>

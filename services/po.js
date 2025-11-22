@@ -10,6 +10,11 @@ export const getPoDetails = async (po_id) => {
   return res.data;
 };
 
+export const updatePODetails = async (po_id, payload) => {
+  const res = await axiosInstance.put(`/po/${po_id}`, payload);
+  return res.data;
+};
+
 export const handlePOApproval = async (po_id, data) => {
   const res = await axiosInstance.post(`/po/approve/${po_id}`, data);
   return res;
