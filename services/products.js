@@ -392,7 +392,7 @@ export const parentCategoryList = (slug) => {
   });
 };
 
-export const nestedCategoryData = (parent_id = 0, slug) => {
+export const nestedCategoryData = (parent_id = 0, slug, nestedCategoryData) => {
   const baseUrl = `${process.env.NEXT_PUBLIC_API_URL}/products/nested-category-list`;
 
   return new Promise((resolve, reject) => {
@@ -401,6 +401,7 @@ export const nestedCategoryData = (parent_id = 0, slug) => {
     if (slug && slug !== 'undefined' && slug.trim() !== '') {
       url += `&slug=${encodeURIComponent(slug)}`;
     }
+    url+=`&vendorRequired=${nestedCategoryData}`;
 
     axiosInstance
       .get(url)

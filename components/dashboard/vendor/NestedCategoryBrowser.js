@@ -58,7 +58,8 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
     setNestedLoading(true);
 
     try {
-      const rsp = await nestedCategoryData(parent_id);
+      //  nestedCategoryData(parentid, slug, nestedCategoryData)
+      const rsp = await nestedCategoryData(parent_id,'',true);
       const payload = rsp;
 
       const arr = Array.isArray(payload.data) ? payload.data : [];
@@ -222,8 +223,6 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
       if (onGetProducts) await onGetProducts(cleanName);
       if (onGetVendors){
         onGetVendors();
-                console.warn(" nestedbrowser findvendor 95")
-
       } 
         
       const variantUrl = buildVendorUrl(name, id, 'variant');
@@ -258,7 +257,8 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
     } else {
       const previousLevelId = index > 0 ? categoryPath[index - 1].id : 0;
       try {
-        const previousRes = await nestedCategoryData(previousLevelId);
+        //  nestedCategoryData(parentid, slug, nestedCategoryData)
+        const previousRes = await nestedCategoryData(previousLevelId, '', true);
         const previousArr = Array.isArray(previousRes.data) ? previousRes.data : [];
         setRelatedCategories(previousArr);
       } catch (err) {
