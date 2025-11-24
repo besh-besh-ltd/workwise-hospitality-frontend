@@ -14,6 +14,7 @@ const SearchItem = ({
   handleRemoveCurrentSelected,
 }) => {
   const [openCommonModal, setOpenCommonModal] = useState(false);
+  const vendorDisplayName = data?.company_name || data?.vendor_name || "";
 
   return (
     <>
@@ -30,7 +31,7 @@ const SearchItem = ({
               />
               {type == "products"
                 ? <span>By {data?.user_detail[0]?.name}</span>
-                : <span>{`By ${data?.company_name ? data?.company_name : data?.vendor_name}`}</span>
+                : <span>{`By ${vendorDisplayName}`}</span>
               }
             </label>
           )}
@@ -63,7 +64,7 @@ const SearchItem = ({
             }}
             // title={data.company_name}   // tooltip on hover
           >
-            {data?.company_name}
+            {vendorDisplayName}
           </h4>
               {type == "vendors" && (
                 <>

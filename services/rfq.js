@@ -103,6 +103,17 @@ export const categoryListById = (values) => {
   });
 };
 
+export const bulkSearchVendorsByCategory = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/bulk-search-vendors-by-category`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const createRfq = (values) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -711,16 +722,19 @@ export const getRfqDetails = (payload, token = null) => {
   });
 };
 
-export const broadcastMessage = ( payload ) =>{
-  return new Promise(async (resolve , reject) =>{
+export const broadcastMessage = (payload, token = null) => {
+  return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post('/rfq/send-query-message-to-vendor', payload)
-      resolve(response)
+      let response = await axiosFormData.post(
+        `/rfq/send-query-message-to-vendor${token == null ? '' : `?token=${token}`}`,
+        payload
+      );
+      resolve(response);
     } catch (error) {
-      reject({message : error})
+      reject({ message: error });
     }
-  })
-}
+  });
+};
 
 export const sendQueryMessage = (payload,token=null ) => {
   return new Promise(async (resolve, reject) => {
