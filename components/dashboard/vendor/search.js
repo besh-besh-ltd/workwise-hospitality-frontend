@@ -1070,7 +1070,10 @@ useEffect(() => {
   // Prevent loops
   if (router.asPath.includes(newSlug)) return;
 
+if (slugStr !== newSlug) {
   router.replace(`/vendor/${newSlug}`, undefined, { shallow: true });
+}
+
 }, [selectedCity, selectedState]);
 
 
