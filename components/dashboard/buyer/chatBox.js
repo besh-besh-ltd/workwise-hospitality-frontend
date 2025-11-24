@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { sendQueryMessage } from "@/services/rfq";
+import { sendQueryMessage, broadcastMessage } from "@/services/rfq";
 import Link from "next/link";
 import { formatDate } from "@/utils/sharedFunctions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -77,23 +77,43 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
     }
 
     try {
-      for (const targetVendor of targets) {
+      if (isBroadcastMode) {
         const formData = new FormData();
         formData.append("message_text", messageText);
         formData.append("rfq_id", rfq_id);
-        formData.append("receiver_id", targetVendor.user_id);
+        formData.append(
+          "receiver_ids",
+          JSON.stringify(targets.map((targetVendor) => ({ id: targetVendor.user_id })))
+        );
+        files.forEach((fileObj) => formData.append("files", fileObj.file));
+
+        const response = await broadcastMessage(formData, vendorwithoutlogintoken);
+        if (response.status !== 1) {
+          toast.error("Failed to send broadcast message.", { position: "top-right" });
+        } else {
+          toast.success(`Message sent to ${targets.length} vendor(s)`);
+        }
+      } else {
+        const singleVendor = targets[0];
+        const formData = new FormData();
+        formData.append("message_text", messageText);
+        formData.append("rfq_id", rfq_id);
+        formData.append("receiver_id", singleVendor.user_id);
         files.forEach((fileObj) => formData.append("files", fileObj.file));
 
         const response = await sendQueryMessage(formData, vendorwithoutlogintoken);
         if (response.status !== 1) {
-          toast.error(`Failed to send to ${targetVendor.company_name}`, { position: "top-right" });
+          toast.error(`Failed to send to ${singleVendor.company_name}`, {
+            position: "top-right",
+          });
+        } else {
+          toast.success("Message sent successfully");
         }
       }
 
       onMessageSent();
       setMessageText("");
       setFiles([]);
-      toast.success(`Message sent to ${targets.length} vendor(s)`);
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("An error occurred while sending the message.", { position: "top-right" });
