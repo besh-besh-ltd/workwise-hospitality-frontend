@@ -385,6 +385,27 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             )}
           </div>
         </div>
+        {poPdfUrl && (
+          <div className='mb-4'>
+            <div className="d-flex align-items-center gap-2">
+              <div>
+                <BsFilePdf size={36} className="text-danger" />
+              </div>
+              <div className="d-flex flex-column">
+                <div className="fw-semibold">PO_{po_number}.pdf</div>
+                <small className="text-muted">Purchase Order Document</small>
+              </div>
+              <a 
+                className="btn btn-sm p-2 btn-outline-secondary ms-3"
+                href={poPdfUrl}
+                target="__blank"
+              >
+                View the doc
+                <FiExternalLink className="ms-2" size={14} />
+              </a>
+            </div>
+          </div>
+        )}
   
         {/* PO Overview */}
         <div className="d-flex gap-2 align-items-center justify-content-between">
@@ -754,7 +775,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               }
               time={formatIST(created_at)}
             />
-            {approval_history.reverse().map((entry, index) => (
+            {approval_history.map((entry, index) => (
               <TimelineItem
                 key={index}
                 title={
