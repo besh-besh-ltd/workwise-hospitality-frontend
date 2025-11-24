@@ -616,41 +616,41 @@ const addRfqIdParam = (rfq_id) => {
       const countryFilter = selectedCountry?.length > 0 ? selectedCountry : [];
       const requestId = ++vendorRequestIdRef.current;
 
-      searchProductsV2(
-        {
-          cat_id: effectiveCatId,
-          search_key: canonicalSearchKey,
-          approved_by: [],
-          state: [],
-          city: [],
-          country: [],
-          turnOver: { from: -1, to: -1 },
-          vendorType: [],
-          prevWorkedWith: null,
-          vendor_name: "",
-          myVendorType: null,
-          selectedMakes: []
-        },
-        "vendors"
-      )
-        .then((allRsp) => {
-          const cityMap = new Map();
-          allRsp.data.forEach(vendor => {
-            if (vendor.city_name && vendor.state_name) {
-              const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
-              if (!cityMap.has(key)) {
-                cityMap.set(key, {
-                  city_name: vendor.city_name,
-                  state_name: vendor.state_name,
-                  city_id: vendor.city_id,
-                  state_id: vendor.state_id
-                });
-              }
-            }
-          });
-          setAllAvailableCities(Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name)));
-        })
-        .catch((error) => console.error("Error fetching cities:", error));
+      // searchProductsV2(
+      //   {
+      //     cat_id: effectiveCatId,
+      //     search_key: canonicalSearchKey,
+      //     approved_by: [],
+      //     state: [],
+      //     city: [],
+      //     country: [],
+      //     turnOver: { from: -1, to: -1 },
+      //     vendorType: [],
+      //     prevWorkedWith: null,
+      //     vendor_name: "",
+      //     myVendorType: null,
+      //     selectedMakes: []
+      //   },
+      //   "vendors"
+      // )
+      //   .then((allRsp) => {
+      //     const cityMap = new Map();
+      //     allRsp.data.forEach(vendor => {
+      //       if (vendor.city_name && vendor.state_name) {
+      //         const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
+      //         if (!cityMap.has(key)) {
+      //           cityMap.set(key, {
+      //             city_name: vendor.city_name,
+      //             state_name: vendor.state_name,
+      //             city_id: vendor.city_id,
+      //             state_id: vendor.state_id
+      //           });
+      //         }
+      //       }
+      //     });
+      //     setAllAvailableCities(Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name)));
+      //   })
+      //   .catch((error) => console.error("Error fetching cities:", error));
       
       searchProductsV2(
         {
@@ -682,6 +682,7 @@ const addRfqIdParam = (rfq_id) => {
         })
         .catch((error) => {
           if (requestId !== vendorRequestIdRef.current) return;
+          setVendors(vendors);
           setloading(false);
           setVendorMetaData(error?.response?.data);
         });
