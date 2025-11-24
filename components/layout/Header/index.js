@@ -227,6 +227,11 @@ const roleMenus = {
       label: "Reviews & Ratings",
       targetMenu: "nav",
     },
+    {
+      href: "/dashboard/vendor/order-book",
+      label: "Order Book",
+      targetMenu: "nav",
+    },
   ],
 };
 
