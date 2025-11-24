@@ -58,7 +58,8 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
     setNestedLoading(true);
 
     try {
-      const rsp = await nestedCategoryData(parent_id);
+      //  nestedCategoryData(parentid, slug, nestedCategoryData)
+      const rsp = await nestedCategoryData(parent_id,'',true);
       const payload = rsp;
 
       const arr = Array.isArray(payload.data) ? payload.data : [];
@@ -76,14 +77,15 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
       setPreviousLevelCategories(arr);
 
 
-      // Fetch vendors for subcategories (parent_id != 0) that contain products (type === 'single')
+      // Fetch vendors for subcategories (parent_id != 0) that contain products or variants
       // This ensures vendors are fetched for all products under the selected subcategory
-      const isNestedProductLevel = type === 'single' && 
-                                   slugParam && 
-                                   slugParam !== 'all' && 
-                                   parent_id !== 0; // Only fetch for subcategories (parent_id != 0)
+      const shouldFetchVendors =
+        slugParam &&
+        slugParam !== 'all' &&
+        parent_id !== 0 &&
+        (type === 'single' || type === 'variant');
 
-      if (isNestedProductLevel) {
+      if (shouldFetchVendors) {
         // For subcategories, fetch vendors for all products under this category
         // Use category ID instead of name to ensure accurate vendor fetching
         const categoryName = slugParam.replace(/-/g, ' ');
@@ -91,12 +93,10 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
         // Pass empty search key and category ID to fetch vendors for all products in this subcategory
         if (onGetVendors) {
           onGetVendors('', parent_id);
+          console.warn(" nestedbrowser findvendor 95")
         }
         // Don't call onHide() - keep categories section visible
       }
-
-      // ✅ For variants: when we have variants in the array, don't auto-fetch
-      // Variants will be handled by handleCardClick when user clicks on them
     } catch (err) {
       console.error('Error fetching nested categories:', err);
       setNestedItems([]);
@@ -221,7 +221,10 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
       if (onHide) onHide();
       setSearchKey(cleanName);
       if (onGetProducts) await onGetProducts(cleanName);
-      if (onGetVendors) onGetVendors();
+      if (onGetVendors){
+        onGetVendors();
+      } 
+        
       const variantUrl = buildVendorUrl(name, id, 'variant');
       await router.push(variantUrl);
       isNavigatingRef.current = false;
@@ -254,7 +257,8 @@ const NestedCategoryBrowser = ({ onGetProducts, onGetVendors, setSearchKey, onHi
     } else {
       const previousLevelId = index > 0 ? categoryPath[index - 1].id : 0;
       try {
-        const previousRes = await nestedCategoryData(previousLevelId);
+        //  nestedCategoryData(parentid, slug, nestedCategoryData)
+        const previousRes = await nestedCategoryData(previousLevelId, '', true);
         const previousArr = Array.isArray(previousRes.data) ? previousRes.data : [];
         setRelatedCategories(previousArr);
       } catch (err) {

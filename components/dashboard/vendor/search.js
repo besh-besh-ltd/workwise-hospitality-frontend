@@ -12,7 +12,7 @@ import RandomProductsCarousel from '@/components/dashboard/vendor/RandomProducts
 import SeoTitle from '@/components/dashboard/vendor/SeoTitle';
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
-import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
+import { categoryList, categoryListById, vendorApproveList, addProductToDraft, bulkSearchVendorsByCategory } from "@/services/rfq";
 import { useDispatch } from "react-redux";
 import {
   setDefaultVAB,
@@ -97,6 +97,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [selectedMakes, setSelectedMakes] = useState([]);
   const [allAvailableCities, setAllAvailableCities] = useState([]);
   const vendorRequestIdRef = useRef(0);
+  const categoryCityCacheRef = useRef(new Map());
+  const categoryCityFetchRef = useRef(new Set());
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -133,6 +135,34 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const toRef = useRef(null);
   const vendorTypeRef = useRef(null);
   const vendorApprovedByRef = useRef(null);
+
+  const prevFiltersRef = useRef(null);
+
+  const filterSnapshot = useMemo(() => ({
+  country: selectedCountry,
+  state: selectedState,
+  city: selectedCity,
+  vendorTypes: selectedVendorTypes,
+  approvedBy: selectedApprovedBy,
+  makes: selectedMakes,
+  prevWorkedWith,
+  myVendorType,
+  vendorName: debouncedVendorName,
+  turnOver,
+}), [
+  selectedCountry,
+  selectedState,
+  selectedCity,
+  selectedVendorTypes,
+  selectedApprovedBy,
+  selectedMakes,
+  prevWorkedWith,
+  myVendorType,
+  debouncedVendorName,
+  turnOver
+]);
+
+
   const slugStr = useMemo(() => {
     if (Array.isArray(slug)) return slug.join("/");
     return typeof slug === "string" ? slug : "";
@@ -242,11 +272,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     };
   }, []);
 
-  
-  useEffect(() => {
-    if(vendorTypes)
-      setInternalVendorTypes(vendorTypes.filter(type => !selectedVendorTypes.some(_type => _type.value == type.value)))
-  }, [selectedVendorTypes])
+ useEffect(() => {
+  setInternalVendorTypes(
+    vendorTypes.filter(type => !selectedVendorTypes.some(t => t.value === type.value))
+  );
+}, [selectedVendorTypes, vendorTypes]);
+
 
   useEffect(() => {
     setInternalApprovedBy(approved_by)
@@ -293,7 +324,7 @@ useEffect(() => {
      setSearch_key(label);
      setInputValue(label);
    }
-   getVendors(label, categoryIdFromSlug);
+   getVendors('', categoryIdFromSlug);
  }
  setShowBrowser(true);
 }, [
@@ -333,10 +364,14 @@ useEffect(() => {
     return cleanedString.replace(/\s+/g, '-');
   }
 
-  // Helper function to remove -category{number} from display (but keep in URL)
+  const normalizeLocationValue = (input = "") =>
+    input.toLowerCase().replace(/[\s\-\/()]+/g, "");
+
+  const createLocationSlug = (input = "") => normalizeLocationValue(input);
+
   const removeCategorySuffix = (str) => {
     if (!str) return str;
-    return str.replace(/-category\d+$/i, '');
+    return str.replace(/-category\d+/gi, '');
   }
 
  
@@ -462,31 +497,99 @@ const addRfqIdParam = (rfq_id) => {
       setVendors([]);
       return;
     }
-    setloading(true);
-    setVendors([]);
-    setSearchSubCategories([]);
-    
-    // Check if overrideSearchKey was explicitly passed as empty string (for category-based vendor fetching)
-    const isExplicitEmptySearch = overrideSearchKey === '';
+
+    if (!currentSelectedProduct && effectiveCatId) {
+      ensureCategoryCityList(effectiveCatId);
+    }
+
     const hasCategoryIdOverride = overrideCatId !== null;
-    
+    const shouldUseCategoryVendors =
+      !currentSelectedProduct &&
+      effectiveCatId &&
+      (isCategorySlug || hasCategoryIdOverride);
+
+    if (shouldUseCategoryVendors) {
+      setloading(true);
+      const requestId = ++vendorRequestIdRef.current;
+
+      try {
+        const response = await bulkSearchVendorsByCategory({
+          category_id: effectiveCatId,
+          approved_by_id: selectedApprovedBy,
+          state: selectedState?.length > 0 ? selectedState : [],
+          city: selectedCity?.length > 0 ? selectedCity : [],
+          country: selectedCountry?.length > 0 ? selectedCountry : [],
+          turnOver,
+          vendorType: selectedVendorTypes,
+          prevWorkedWith,
+          vendor_name: vendorName,
+          myVendorType,
+          productMakes: selectedMakes,
+          page: 1,
+          limit: 20
+        });
+
+        if (requestId !== vendorRequestIdRef.current) return;
+
+        const bulkRFQVendorIds = new Set(bulkRFQVendors.map(item => item.id));
+        const vendors = (response?.data || []).map(vendor => ({
+          ...vendor,
+          selected: bulkRFQVendorIds.has(vendor.id)
+        }));
+
+        const cityMap = new Map();
+        vendors.forEach(vendor => {
+          if (vendor.city_name && vendor.state_name) {
+            const cityKey = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
+            if (!cityMap.has(cityKey)) {
+              cityMap.set(cityKey, {
+                city_name: vendor.city_name,
+                state_name: vendor.state_name,
+                city_id: vendor.city_id,
+                state_id: vendor.state_id
+              });
+            }
+          }
+        });
+
+        const cachedCities = categoryCityCacheRef.current.get(effectiveCatId);
+        if (cachedCities) {
+          setAllAvailableCities(cachedCities);
+        } else {
+          const cities = buildCityListFromVendors(vendors);
+          categoryCityCacheRef.current.set(effectiveCatId, cities);
+          setAllAvailableCities(cities);
+        }
+
+        setloading(false);
+        setVendors(vendors);
+        setVendorMetaData({
+          data: vendors,
+          total: response?.total || 0,
+          logged_In: response?.logged_In || false,
+          subscription: response?.subscription || false
+        });
+        if(vendors.length > 0) {
+          return;
+        }
+      } catch (error) {
+        if (requestId !== vendorRequestIdRef.current) return;
+        console.error("Error fetching category vendors:", error);
+        setloading(false);
+        setVendors([]);
+        setAllAvailableCities([]);
+      }
+    }
+
     let canonicalSearchKey = overrideSearchKey !== null ? overrideSearchKey : search_key;
     
-    // Only use currentSelectedProduct if we don't have an explicit category ID override
-    // When fetching vendors for a category (not a specific product), we want empty search key
     if (currentSelectedProduct && !hasCategoryIdOverride) {
       canonicalSearchKey = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || search_key;
     } else if (!canonicalSearchKey && !hasCategoryIdOverride && products && products.length > 0) {
       canonicalSearchKey = products[0].variant_name || products[0].product_name || search_key;
     }
 
-    if (!canonicalSearchKey && !hasCategoryIdOverride && Array.isArray(products) && products.length > 0) {
-      canonicalSearchKey = products[0].variant_name || products[0].product_name || '';
-    }
-
-    // Only use fallback logic if search key is not explicitly empty and we have a category ID
-    // When explicitly empty with category ID, we want to fetch vendors for ALL products in that category
-    if (!canonicalSearchKey && !isExplicitEmptySearch && isCategorySlug && effectiveCatId) {
+    if (!canonicalSearchKey && isCategorySlug && effectiveCatId) {
       try {
         const fallbackRes = await categoryListById({ category_id: effectiveCatId });
         const fallbackProduct = fallbackRes?.productList?.[0];
@@ -501,16 +604,18 @@ const addRfqIdParam = (rfq_id) => {
       }
     }
 
-    if (!canonicalSearchKey && !isExplicitEmptySearch && isCategorySlug) {
+    if (!canonicalSearchKey && isCategorySlug) {
       canonicalSearchKey = removeCategorySuffix(slugStr || '').replace(/-/g, ' ');
     }
 
     if (canonicalSearchKey !== "" || effectiveCatId) {
-      const stateFilter = selectedState && selectedState.length > 0 ? selectedState : [];
-      const cityFilter = selectedCity && selectedCity.length > 0 ? selectedCity : [];
-      const countryFilter = selectedCountry && selectedCountry.length > 0 ? selectedCountry : [];
-      
-      // Fetch all cities without filters for the city list
+      setloading(true);
+
+      const stateFilter = selectedState?.length > 0 ? selectedState : [];
+      const cityFilter = selectedCity?.length > 0 ? selectedCity : [];
+      const countryFilter = selectedCountry?.length > 0 ? selectedCountry : [];
+      const requestId = ++vendorRequestIdRef.current;
+
       searchProductsV2(
         {
           cat_id: effectiveCatId,
@@ -529,14 +634,12 @@ const addRfqIdParam = (rfq_id) => {
         "vendors"
       )
         .then((allRsp) => {
-          const cities = [];
           const cityMap = new Map();
           allRsp.data.forEach(vendor => {
             if (vendor.city_name && vendor.state_name) {
               const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
               if (!cityMap.has(key)) {
-                cityMap.set(key, true);
-                cities.push({
+                cityMap.set(key, {
                   city_name: vendor.city_name,
                   state_name: vendor.state_name,
                   city_id: vendor.city_id,
@@ -545,13 +648,10 @@ const addRfqIdParam = (rfq_id) => {
               }
             }
           });
-          setAllAvailableCities(cities.sort((a, b) => a.city_name.localeCompare(b.city_name)));
+          setAllAvailableCities(Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name)));
         })
-        .catch((error) => {
-          console.error("Error fetching cities:", error);
-        });
+        .catch((error) => console.error("Error fetching cities:", error));
       
-      const requestId = ++vendorRequestIdRef.current;
       searchProductsV2(
         {
           cat_id: effectiveCatId,
@@ -572,28 +672,11 @@ const addRfqIdParam = (rfq_id) => {
         .then((rsp) => {
           if (requestId !== vendorRequestIdRef.current) return;
           setloading(false);
-          let d = rsp.data.map((item) => {
-            item.selected = bulkRFQVendors.some(vendor => vendor.id === item.id);
-            return item;
-          });
-          setVendors(d);
-          const cities = [];
-          const cityMap = new Map();
-          d.forEach((vendor) => {
-            if (vendor.city_name && vendor.state_name) {
-              const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
-              if (!cityMap.has(key)) {
-                cityMap.set(key, true);
-                cities.push({
-                  city_name: vendor.city_name,
-                  state_name: vendor.state_name,
-                  city_id: vendor.city_id,
-                  state_id: vendor.state_id
-                });
-              }
-            }
-          });
-          setAllAvailableCities(cities.sort((a, b) => a.city_name.localeCompare(b.city_name)));
+          const vendors = rsp.data.map((item) => ({
+            ...item,
+            selected: bulkRFQVendors.some(vendor => vendor.id === item.id)
+          }));
+          setVendors(vendors);
           setVendorMetaData(rsp);
           currentSelectedProduct ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" }) : null;
         })
@@ -642,37 +725,40 @@ const addRfqIdParam = (rfq_id) => {
   };
 
   const getCategoriesById = (category_id, category_name) => {
-    setloading(true)
-
-    router.push("/vendor/all");
-    categoryLvlRef.current.set(category_id, category_name)
+    setloading(true);
+    categoryLvlRef.current.set(category_id, category_name);
 
     categoryListById({ category_id })
       .then((res) => {
         setProductsList(res.productList);
         setcurrentSelectedProduct(null);
         setSearchSubCategories(res.subCategoryList);
+        
+        // Fetch vendors for this category
+        if (res.productList && res.productList.length > 0) {
+          getVendors('', category_id);
+        }
       })
       .catch((error) => {
         console.error(error);
       })
       .finally(() => {
-        setloading(false)
+        setloading(false);
         setIsOpen(false);
 
         // Get the rfq_id from the URL if it exists
         const { rfq_id, sheet_id } = router.query;
 
-        // Update the URL to include the selected product's name and preserve rfq_id if it exists
+        // Update the URL to include the selected category
         const categorySlug = cleanAndAddHyphen(category_name);
         const newUrl = rfq_id && sheet_id
-          ? `/vendor/${categorySlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id && !sheet_id 
+          ? `/vendor/${categorySlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}` 
+          : rfq_id && !sheet_id 
           ? `/vendor/${categorySlug}?rfq_id=${rfq_id}`
           : `/vendor/${categorySlug}`;
 
-        // window.history.pushState(null, null, newUrl);
-
-      })
+        router.push(newUrl, undefined, { shallow: true });
+      });
   };
   
 
@@ -870,12 +956,10 @@ const clearVendorFilters = () => {
 
   useEffect(() => {
     let slugValue = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
-    if (!slugValue || slugValue === 'all' || slugValue.includes('-category')) {
-      if (!slugValue || slugValue === 'all') {
-        setselectedState([]);
-        setselectedCity([]);
-        setselectedCountry([]);
-      }
+    if (!slugValue || slugValue === 'all') {
+      setselectedState([]);
+      setselectedCity([]);
+      setselectedCountry([]);
       return;
     }
 
@@ -886,41 +970,55 @@ const clearVendorFilters = () => {
       return;
     }
 
-    const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
+    const normalize = (s) => (s || '').toLowerCase().replace(/[\s-]+/g, '');
     const segments = slugForParsing.split('-');
     let foundState = null, foundCity = null, productSegments = [];
 
+    // Parse from right to left to find state and city
     for (let i = segments.length - 1; i >= 0; i--) {
-      const segment = segments[i].toLowerCase();
+      const segment = normalize(segments[i]);
+      
       if (!foundState) {
         const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
         if (stateMatch) { 
-          foundState = stateMatch; 
-          setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]);
-          const country = countryList.find(c => c.id === stateMatch.country_id);
-          if (country) setselectedCountry([{ id: country.id, name: country.country_name }]);
+          foundState = stateMatch;
           continue; 
         }
       }
-      if (!foundCity) {
-        const cityMatch = cityList.find(city => normalize(city.city_name) === segment);
+      
+      if (!foundCity && foundState) {
+        const cityMatch = cityList.find(city => 
+          normalize(city.city_name) === segment && city.state_id === foundState.id
+        );
         if (cityMatch) { 
-          foundCity = cityMatch; 
-          setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]);
+          foundCity = cityMatch;
           continue; 
         }
       }
+      
       productSegments.unshift(segments[i]);
     }
     
-    if (!foundCity && !foundState) {
+    // Set state after parsing to avoid flickering
+    if (foundState) {
+      setselectedState([{ id: foundState.id, name: foundState.state_name }]);
+      const country = countryList.find(c => c.id === foundState.country_id);
+      if (country) setselectedCountry([{ id: country.id, name: country.country_name }]);
+    } else {
       setselectedState([]);
-      setselectedCity([]);
       setselectedCountry([]);
     }
     
-    const finalSearchKey = productSegments.join('/');
-    setSearch_key(finalSearchKey);
+    if (foundCity) {
+      setselectedCity([{ id: foundCity.id, name: foundCity.city_name }]);
+    } else {
+      setselectedCity([]);
+    }
+    
+    const finalSearchKey = productSegments.join('-').replace(/-/g, ' ');
+    if (finalSearchKey) {
+      setSearch_key(finalSearchKey);
+    }
   }, [slug, stateList, cityList, countryList]);
 
   // When slug changes (including 'all'), fetch nested categories.
@@ -954,33 +1052,39 @@ useEffect(() => {
 }, [slugStr]);
 
 
-  useEffect(() => {
-    if (!currentSelectedProduct || !slugStr || isCategorySlug) return;
-    
-    const baseSlug = currentSelectedProduct.slug || cleanAndAddHyphen(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '');
-    let newSlug = baseSlug;
-    
-    if (selectedCity.length > 0 && selectedState.length > 0) {
-      const citySlug = cleanAndAddHyphen(selectedCity[0].name);
-      const stateSlug = cleanAndAddHyphen(selectedState[0].name);
-      newSlug = `${baseSlug}-${citySlug}-${stateSlug}`;
-    }
-    
-    const currentSlugClean = removeCategorySuffix(slugStr);
-    
-    if (currentSlugClean !== newSlug) {
-      const { rfq_id, sheet_id } = router.query;
-      const queryStr = rfq_id && sheet_id ? `?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id ? `?rfq_id=${rfq_id}` : '';
-      router.replace(`/vendor/${newSlug}${queryStr}`, undefined, { shallow: true });
-    }
-  }, [selectedCity, selectedState, slugStr, isCategorySlug]);
+ useEffect(() => {
+  if (!currentSelectedProduct) return;
+  if (!selectedCity.length || !selectedState.length) return;
+
+  // Build new slug
+  const baseSlug = stripLocationSuffix(
+    currentSelectedProduct.slug ||
+    cleanAndAddHyphen(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || "")
+  );
+
+  const newSlug = `${baseSlug}-${createLocationSlug(selectedCity[0].name)}-${createLocationSlug(selectedState[0].name)}`;
+
+  // If slug already matches, do nothing
+  if (slugStr === newSlug) return;
+
+  // Prevent loops
+  if (router.asPath.includes(newSlug)) return;
+
+  router.replace(`/vendor/${newSlug}`, undefined, { shallow: true });
+}, [selectedCity, selectedState]);
+
 
   const clearLocationFilter = () => {
     setselectedState([]);
     setselectedCity([]);
     setselectedCountry([]);
     if (currentSelectedProduct) {
-      const baseSlug = currentSelectedProduct.slug || cleanAndAddHyphen(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '');
+      const baseSlug = stripLocationSuffix(
+        currentSelectedProduct.slug ||
+          cleanAndAddHyphen(
+            currentSelectedProduct.variant_name || currentSelectedProduct.product_name || ""
+          )
+      );
       const { rfq_id, sheet_id } = router.query;
       const queryStr = rfq_id && sheet_id ? `?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id ? `?rfq_id=${rfq_id}` : '';
       router.replace(`/vendor/${baseSlug}${queryStr}`, undefined, { shallow: true });
@@ -996,18 +1100,162 @@ useEffect(() => {
     return '';
   };
 
+  const buildCityListFromVendors = (vendorsList = []) => {
+    const cityMap = new Map();
+    vendorsList.forEach(vendor => {
+      if (vendor.city_name && vendor.state_name) {
+        const cityKey = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
+        if (!cityMap.has(cityKey)) {
+          cityMap.set(cityKey, {
+            city_name: vendor.city_name,
+            state_name: vendor.state_name,
+            city_id: vendor.city_id,
+            state_id: vendor.state_id
+          });
+        }
+      }
+    });
+    return Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name));
+  };
+
+  const ensureCategoryCityList = async (categoryId) => {
+    if (!categoryId) return;
+    if (categoryCityCacheRef.current.has(categoryId)) {
+      setAllAvailableCities(categoryCityCacheRef.current.get(categoryId));
+      return;
+    }
+    if (categoryCityFetchRef.current.has(categoryId)) return;
+
+    categoryCityFetchRef.current.add(categoryId);
+    try {
+      const response = await bulkSearchVendorsByCategory({
+        category_id: categoryId,
+        approved_by_id: [],
+        state: [],
+        city: [],
+        country: [],
+        turnOver: { from: -1, to: -1 },
+        vendorType: [],
+        prevWorkedWith: null,
+        vendor_name: "",
+        myVendorType: null,
+        productMakes: [],
+        page: 1,
+        limit: 20
+      });
+      const cities = buildCityListFromVendors(response?.data || []);
+      categoryCityCacheRef.current.set(categoryId, cities);
+      setAllAvailableCities(cities);
+    } catch (error) {
+      console.error("Error preloading category cities:", error);
+    } finally {
+      categoryCityFetchRef.current.delete(categoryId);
+    }
+  };
+
+  const stripLocationSuffix = (slugValue) => {
+    if (!slugValue) return slugValue;
+    const parts = slugValue.split('-');
+    if (parts.length < 3) return slugValue;
+
+    const statePart = normalizeLocationValue(parts[parts.length - 1]);
+    const cityPart = normalizeLocationValue(parts[parts.length - 2]);
+
+    const matchedState = stateList.find(
+      (state) => normalizeLocationValue(state.state_name) === statePart
+    );
+    if (!matchedState) return slugValue;
+
+    const matchedCity = cityList.find(
+      (city) =>
+        city.state_id === matchedState.id &&
+        normalizeLocationValue(city.city_name) === cityPart
+    );
+
+    if (!matchedCity) return slugValue;
+
+    return parts.slice(0, -2).join('-');
+  };
+
   const getCategoryTitle = () => {
     if (!slugStr) return '';
-    return removeCategorySuffix(slugStr).replace(/-/g, ' ');
+    const baseSlug = stripLocationSuffix(removeCategorySuffix(slugStr));
+    return baseSlug.replace(/-/g, ' ');
   };
 
-  const shouldShowVendors = !!currentSelectedProduct || (isCategorySlug && !isTopLevelCategory);
+  useEffect(() => {
+    if (!isCategorySlug || currentSelectedProduct) return;
+    const rawSlug = removeCategorySuffix(slugStr || '').replace(/-/g, ' ').trim();
+    const baseSlug = stripLocationSuffix(removeCategorySuffix(slugStr || '')).replace(/-/g, ' ').trim();
+    if (!baseSlug) return;
+
+    const shouldUpdateSearch =
+      !search_key ||
+      search_key.toLowerCase() === rawSlug.toLowerCase();
+
+    if (shouldUpdateSearch && search_key !== baseSlug) {
+      setSearch_key(baseSlug);
+    }
+
+    const shouldUpdateInput =
+      !inputValue ||
+      inputValue.toLowerCase() === rawSlug.toLowerCase();
+
+    if (shouldUpdateInput && inputValue !== baseSlug) {
+      setInputValue(baseSlug);
+    }
+  }, [
+    isCategorySlug,
+    slugStr,
+    currentSelectedProduct,
+    search_key,
+    inputValue,
+    stateList,
+    cityList
+  ]);
+
+  useEffect(() => {
+    if (!isCategorySlug || currentSelectedProduct) return;
+    const targetCategoryId =
+      currentSelectedProduct?.category_id ??
+      cat_id ??
+      categoryIdFromSlug ??
+      null;
+    if (!targetCategoryId) return;
+    ensureCategoryCityList(targetCategoryId);
+  }, [
+    isCategorySlug,
+    currentSelectedProduct,
+    cat_id,
+    categoryIdFromSlug
+  ]);
+
 
   const getLocationBaseSlug = () => {
-    if (currentSelectedProduct?.slug) return currentSelectedProduct.slug;
-    if (isCategorySlug) return slugStr;
-    return cleanAndAddHyphen(removeCategorySuffix(search_key));
+    let baseSlug = "";
+    if (currentSelectedProduct?.slug) baseSlug = currentSelectedProduct.slug;
+    else if (isCategorySlug) baseSlug = slugStr || "";
+    else baseSlug = cleanAndAddHyphen(removeCategorySuffix(search_key || ""));
+    return stripLocationSuffix(baseSlug);
   };
+
+useEffect(() => {
+
+  const prev = prevFiltersRef.current;
+
+  // 🔥 Skip if filters did not change deeply
+  if (prev && JSON.stringify(prev) === JSON.stringify(filterSnapshot)) {
+    return;
+  }
+
+  // Save new snapshot
+  prevFiltersRef.current = filterSnapshot;
+
+  // Finally call API
+  getVendors();
+
+}, [filterSnapshot]);
+
 
 
   useEffect(() => {
@@ -1266,6 +1514,8 @@ useEffect(() => {
                                 categoryLvlRef.current = new Map(
                                   entries.slice(0, index + 1)
                                 );
+                                setVendors([]);
+                                setAllAvailableCities([]);
                                 getCategoriesById(category_id, category_name);
                               }}
                             >
@@ -1341,7 +1591,7 @@ useEffect(() => {
           {/* vendor List Section */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {/* START : Filter side bar */}
-            {shouldShowVendors && (
+            {vendors && vendors.length > 0 && (
               <div className="col-md-3">
                 <aside>
                   <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">
@@ -1742,9 +1992,9 @@ useEffect(() => {
             {/* END: Filter side bar */}
 
             {/* START:  vendor list*/}
-            <div className={shouldShowVendors ? `col-md-9` : `col-md-12`}>
+            <div className={vendors && vendors.length > 0 ? `col-md-9` : `col-md-12`}>
               <div className="row">
-                {shouldShowVendors && (
+                {vendors && vendors.length > 0 && (
                   <div className="col-md-12">
                     <h2 className="fs-5">
                       Available Vendors for{" "}
@@ -1916,7 +2166,7 @@ useEffect(() => {
         <RandomProductsCarousel className="" />
       </div>
 
-      {allAvailableCities.length > 0 && shouldShowVendors && (
+      {allAvailableCities.length > 0 && vendors && vendors.length > 0 && (
         <div className="container my-4">
           <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
             {currentSelectedProduct ? getProductTitle() : textCapitalize(getCategoryTitle())} Vendors by City
@@ -1924,8 +2174,8 @@ useEffect(() => {
           <div className="row">
             {allAvailableCities.map((city, index) => {
               const productSlug = getLocationBaseSlug();
-              const citySlug = cleanAndAddHyphen(city.city_name);
-              const stateSlug = cleanAndAddHyphen(city.state_name);
+              const citySlug = createLocationSlug(city.city_name);
+              const stateSlug = createLocationSlug(city.state_name);
               const cityUrl = `/vendor/${productSlug}-${citySlug}-${stateSlug}`;
               
               return (
@@ -1958,3 +2208,4 @@ useEffect(() => {
 };
 
 export default Search;
+
