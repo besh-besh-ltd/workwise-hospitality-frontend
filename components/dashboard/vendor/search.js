@@ -682,7 +682,7 @@ const addRfqIdParam = (rfq_id) => {
         })
         .catch((error) => {
           if (requestId !== vendorRequestIdRef.current) return;
-          setVendors(vendors);
+          setVendors([]);
           setloading(false);
           setVendorMetaData(error?.response?.data);
         });
