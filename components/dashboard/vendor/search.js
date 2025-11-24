@@ -1269,10 +1269,10 @@ useEffect(() => {
   }, [currentSelectedProduct]);
 
   useEffect(() => {
-    if (!currentSelectedProduct && search_key) {
+    if ( search_key) {
       setInputValue(search_key);
     }
-  }, [search_key, currentSelectedProduct]);
+  }, [search_key]);
 
   return (
     <>
