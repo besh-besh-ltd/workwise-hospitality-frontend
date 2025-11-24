@@ -2169,7 +2169,7 @@ useEffect(() => {
         <RandomProductsCarousel className="" />
       </div>
 
-      {allAvailableCities.length > 0 && vendors && vendors.length > 0 && (
+      {/* {allAvailableCities.length > 0 && vendors && vendors.length > 0 && (
         <div className="container my-4">
           <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
             {currentSelectedProduct ? getProductTitle() : textCapitalize(getCategoryTitle())} Vendors by City
@@ -2195,7 +2195,7 @@ useEffect(() => {
             })}
           </div>
         </div>
-      )}
+      )} */}
 
       <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
   Why Trust Us
