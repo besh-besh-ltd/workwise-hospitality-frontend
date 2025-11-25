@@ -1041,10 +1041,10 @@ const productsLoadedRef = useRef(false);
 
 useEffect(() => {
   if (
-    search_key &&
-    slugStr &&
-    slugStr !== 'all' &&
-    !slugStr.includes('-category') &&
+    // search_key &&
+    // slugStr &&
+    // slugStr !== 'all' &&
+    // !slugStr.includes('-category') &&
     !currentSelectedProduct &&
     !productsLoadedRef.current
   ) {
@@ -1056,6 +1056,8 @@ useEffect(() => {
     });
   }
 }, [search_key, slugStr, currentSelectedProduct]);
+
+
 useEffect(() => {
   if (slugStr === 'all') {
     productsLoadedRef.current = false;
