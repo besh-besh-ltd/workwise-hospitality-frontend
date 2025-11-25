@@ -869,6 +869,12 @@ useEffect(() => {
         // If this is a new draft and we got an ID back, update it locally
         dispatch(setOtherFormFields({ rfq_id: res.message.rfq_id }));
       }
+
+      // 🔥 Reload the page after a short delay so the toast is visible
+    setTimeout(() => {
+      window.location.reload();
+    }, 800);
+
     } catch (error) {
       setMainLoading(false);
       
@@ -883,6 +889,9 @@ useEffect(() => {
         toast.error(errorMessage);
       }
     }
+
+
+
   };
 
 //   useEffect(()=>{
