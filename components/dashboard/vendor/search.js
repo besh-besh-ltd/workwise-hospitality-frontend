@@ -1041,7 +1041,7 @@ const productsLoadedRef = useRef(false);
 
 useEffect(() => {
   if (
-    // search_key &&
+    search_key &&
     // slugStr &&
     // slugStr !== 'all' &&
     // !slugStr.includes('-category') &&
