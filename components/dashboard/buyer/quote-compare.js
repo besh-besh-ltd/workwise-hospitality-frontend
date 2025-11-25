@@ -1123,7 +1123,16 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       product_info: {
         rfq_product_id: proditem.id,
         quantity: specs.find(spec => spec.title == 'Quantity')?.value ?? -1,
+        unit: specs.find(spec => spec.title == 'Unit')?.value ?? "N/A",
         unit_price: item.unit_price,
+        charges_meta: {
+          freight_price: item.freight_price,
+          freight_mode: item.freight_mode,
+          package_price: item.package_price,
+          package_mode: item.package_mode,
+          tax: item.tax,
+          tax_mode: item.tax_mode
+        },
         finalized_vendor_id: item.quote_details.created_by
       },
     }

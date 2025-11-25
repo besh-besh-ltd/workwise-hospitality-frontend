@@ -675,7 +675,7 @@ const QuoteCompareTable = ({
         show={activeModal == 'finalize'}
         onHide={() => setActiveModal(null)}
         onConfirm={(selectedPOId) => {
-          if(availableBudget.length <= 0) {
+          if(availableHierarchies.length <= 0) {
             toast.error("You cannot finalize a vendor, as you don't belong to the company's PO approval hierarchy");
             return;
           }
