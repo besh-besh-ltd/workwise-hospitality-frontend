@@ -100,7 +100,10 @@ const ViewVendorModal = ({
                   }}
                 >
                   <h5 className="modal-title">
-                    RFQ Product #{productData.product?.id} Vendors List
+                    RFQ Product{" "}
+                    {productData.product?.name ??
+                      `#${productData.product?.id}`}{" "}
+                    Vendors List
                   </h5>
                   <div className="d-flex align-items-center gap-3">
                     {applyToOtherVariants && (

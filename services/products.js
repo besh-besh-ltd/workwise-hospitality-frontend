@@ -44,7 +44,7 @@ export const searchProducts = (values, type = "products") => {
 export const searchProductsV2 = (values, type = "products") => {
   if (type == "products") {
     let payload = {
-      category_id: values.cat_id,
+      // category_id: values.cat_id,
       search_key: values.search_key,
       vendor_name: values.vendor_name,
       include_variants: true
@@ -87,6 +87,7 @@ export const searchProductsV2 = (values, type = "products") => {
       productMakes: values?.selectedMakes?.map((item) => item.make_name),
     };
 
+    
     return new Promise(async (resolve, reject) => {
       try {
         let response = await axiosInstance.post(`/rfq/search-vendor`, payload);
@@ -392,7 +393,7 @@ export const parentCategoryList = (slug) => {
   });
 };
 
-export const nestedCategoryData = (parent_id = 0, slug) => {
+export const nestedCategoryData = (parent_id = 0, slug, nestedCategoryData) => {
   const baseUrl = `${process.env.NEXT_PUBLIC_API_URL}/products/nested-category-list`;
 
   return new Promise((resolve, reject) => {
@@ -401,6 +402,7 @@ export const nestedCategoryData = (parent_id = 0, slug) => {
     if (slug && slug !== 'undefined' && slug.trim() !== '') {
       url += `&slug=${encodeURIComponent(slug)}`;
     }
+    url+=`&vendorRequired=${nestedCategoryData}`;
 
     axiosInstance
       .get(url)

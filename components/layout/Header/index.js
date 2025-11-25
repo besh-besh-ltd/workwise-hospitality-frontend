@@ -827,7 +827,7 @@ const Header = () => {
         </div>
 
         {/* Announcement bar for Chennai Event with marquee scroll */}
-        {(mainNavs.includes(pathname) ||
+        {/* {(mainNavs.includes(pathname) ||
           pathname?.startsWith("/solutions") ||
           pathname?.startsWith("/insights") ||
           pathname?.startsWith("/ai-tools") ||
@@ -856,7 +856,7 @@ const Header = () => {
                 </span>
               </div>
             </div>
-          )}
+          )} */}
 
 
         {/* Mobile Menu */}
