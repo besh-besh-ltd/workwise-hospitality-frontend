@@ -21,7 +21,14 @@ import {
   getProjectBudget,
 } from "@/services/project";
 import { getCountryCodes } from "@/services/cms";
-import { getCompanyUsers } from "@/services/Auth";
+import { getCompanyUsers, getProfile } from "@/services/Auth";
+import {
+  getHospitalityCompanies,
+  getHospitalityHotels,
+  mapHospitalityProjects,
+  deleteProjectMapping,
+  getProjectMappings,
+} from "@/services/hospitality";
 import SmartButton from "@/components/shared/SmartButton";
 import { addCommasToNumber } from "@/utils/sharedFunctions";
 
@@ -51,6 +58,17 @@ const ProjectDetailsPage = () => {
   const [projectBudget, setProjectBudget] = useState([]);
   const [openEditProject, setOpenEditProject] = useState(false); 
   const [avlBudget , setAvlBudget] = useState(0);
+  const [isHospitalityCompany, setIsHospitalityCompany] = useState(false);
+  const [hospitalityCompanies, setHospitalityCompanies] = useState([]);
+  const [selectedHospitalityCompany, setSelectedHospitalityCompany] = useState("");
+  const [hotelsByCompany, setHotelsByCompany] = useState({});
+  const [hospitalityForm, setHospitalityForm] = useState({
+    mappingLevel: "company",
+    hotelId: "",
+  });
+  const [projectHospitalityMappings, setProjectHospitalityMappings] = useState([]);
+  const [isLoadingHospitalityData, setIsLoadingHospitalityData] = useState(false);
+  const [isSavingHospitality, setIsSavingHospitality] = useState(false);
 
 
 
@@ -63,6 +81,72 @@ const ProjectDetailsPage = () => {
       }
     } catch (error) {
       console.error("Error fetching country codes:", error);
+    }
+  };
+
+  const fetchHospitalityProfile = async () => {
+    try {
+      const response = await getProfile();
+      const profile = response?.data;
+      const hospitalityEnabled =
+        profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
+      setIsHospitalityCompany(hospitalityEnabled);
+      if (hospitalityEnabled) {
+        await Promise.all([loadHospitalityCompanies(), loadProjectHospitalityMappings()]);
+      }
+    } catch (error) {
+      setIsHospitalityCompany(false);
+    }
+  };
+
+  const loadHospitalityCompanies = async () => {
+    try {
+      const response = await getHospitalityCompanies();
+      const list = response?.data ?? response ?? [];
+      setHospitalityCompanies(list);
+      if (list.length) {
+        setSelectedHospitalityCompany((prev) =>
+          prev && list.some((company) => company.id === parseInt(prev, 10))
+            ? prev
+            : list[0].id
+        );
+      }
+    } catch (error) {
+      setHospitalityCompanies([]);
+    }
+  };
+
+  const loadCompanyHotels = async (companyId) => {
+    if (!companyId) return;
+    if (hotelsByCompany[companyId]) {
+      return;
+    }
+    try {
+      const response = await getHospitalityHotels(companyId);
+      const hotels = response?.data ?? response ?? [];
+      setHotelsByCompany((prev) => ({
+        ...prev,
+        [companyId]: hotels,
+      }));
+    } catch (error) {
+      setHotelsByCompany((prev) => ({
+        ...prev,
+        [companyId]: [],
+      }));
+    }
+  };
+
+  const loadProjectHospitalityMappings = async () => {
+    if (!projectId) return;
+    try {
+      setIsLoadingHospitalityData(true);
+      const response = await getProjectMappings(projectId);
+      const data = response?.data?.data || response?.data || [];
+      setProjectHospitalityMappings(data);
+    } catch (error) {
+      setProjectHospitalityMappings([]);
+    } finally {
+      setIsLoadingHospitalityData(false);
     }
   };
 
@@ -211,8 +295,15 @@ const ProjectDetailsPage = () => {
       fetchTeamMembers();
       fetchCountryCodes();
       fetchTeamMemberUsers();
+      fetchHospitalityProfile();
     }
   }, [projectId]);   
+
+  useEffect(() => {
+    if (isHospitalityCompany && selectedHospitalityCompany) {
+      loadCompanyHotels(selectedHospitalityCompany);
+    }
+  }, [isHospitalityCompany, selectedHospitalityCompany]);
 
   // Get paginated data
   const getPaginatedData = () => {
@@ -340,6 +431,73 @@ const ProjectDetailsPage = () => {
       setLoading(false);
     }
   };
+
+  const handleHospitalityMappingSubmit = async (event) => {
+    event.preventDefault();
+    if (!selectedHospitalityCompany) {
+      toast.error("Select a hospitality company");
+      return;
+    }
+    if (
+      hospitalityForm.mappingLevel === "hotel" &&
+      !hospitalityForm.hotelId
+    ) {
+      toast.error("Select a hotel for hotel-level mapping");
+      return;
+    }
+    try {
+      setIsSavingHospitality(true);
+      await mapHospitalityProjects(selectedHospitalityCompany, {
+        mapping_type: hospitalityForm.mappingLevel === "company" ? 0 : 1,
+        hotel_id:
+          hospitalityForm.mappingLevel === "hotel"
+            ? parseInt(hospitalityForm.hotelId, 10)
+            : null,
+        project_ids: [parseInt(projectId, 10)],
+      });
+      toast.success("Project mapped successfully");
+      setHospitalityForm({
+        mappingLevel: "company",
+        hotelId: "",
+      });
+      await loadProjectHospitalityMappings();
+    } catch (error) {
+      toast.error(
+        error?.message?.response?.data?.message ||
+          "Failed to map project"
+      );
+    } finally {
+      setIsSavingHospitality(false);
+    }
+  };
+
+  const handleRemoveHospitalityMapping = async (mapping) => {
+    try {
+      setIsLoadingHospitalityData(true);
+      await deleteProjectMapping(projectId, {
+        company_id: mapping.hospitality_company_id,
+        mapping_type: mapping.mapping_type,
+        hotel_id:
+          mapping.mapping_type === 1
+            ? mapping.hospitality_hotel_id
+            : null,
+      });
+      toast.success("Mapping removed");
+      await loadProjectHospitalityMappings();
+    } catch (error) {
+      toast.error(
+        error?.message?.response?.data?.message ||
+          "Failed to remove mapping"
+      );
+    } finally {
+      setIsLoadingHospitalityData(false);
+    }
+  };
+
+  const currentCompanyHotels =
+    (selectedHospitalityCompany &&
+      hotelsByCompany[selectedHospitalityCompany]) ||
+    [];
 
   if (!project && !loading) {
     return (
@@ -570,6 +728,160 @@ const ProjectDetailsPage = () => {
                   </div>
                 </div>
               </div>
+
+              {isHospitalityCompany && (
+                <div className="row">
+                  <div className="col-md-12 mb-4">
+                    <div className="card shadow-sm border-0">
+                      <div className="card-body p-4">
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                          <div>
+                            <h3 className="card-title mb-1">Hospitality Mapping</h3>
+                            <small className="text-muted">
+                              Map this project to hospitality companies or hotels
+                            </small>
+                          </div>
+                        </div>
+
+                        {isLoadingHospitalityData ? (
+                          <p className="text-muted mb-4">Loading mappings…</p>
+                        ) : projectHospitalityMappings.length === 0 ? (
+                          <p className="text-muted mb-4">This project is not mapped to any hospitality scope yet.</p>
+                        ) : (
+                          <div className="table-responsive mb-4">
+                            <table className="table table-striped align-middle">
+                              <thead>
+                                <tr>
+                                  <th>Scope</th>
+                                  <th>Company / Hotel</th>
+                                  <th>Mapped On</th>
+                                  <th className="text-end">Action</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {projectHospitalityMappings.map((mapping) => (
+                                  <tr key={`mapping-${mapping.id}`}>
+                                    <td>
+                                      <span
+                                        className={`badge ${
+                                          mapping.mapping_type === 0
+                                            ? "bg-primary"
+                                            : "bg-success"
+                                        }`}
+                                      >
+                                        {mapping.mapping_type === 0 ? "Company" : "Hotel"}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      {mapping.mapping_type === 0
+                                        ? mapping.company_name || "N/A"
+                                        : mapping.hotel_name || "N/A"}
+                                    </td>
+                                    <td>{formatDate(mapping.created_at)}</td>
+                                    <td className="text-end">
+                                      <SmartButton
+                                        label="Remove"
+                                        theme="red"
+                                        className="px-3 py-1"
+                                        onClick={() => handleRemoveHospitalityMapping(mapping)}
+                                        id={`remove_mapping_${mapping.id}-hospitality_actions-project_details_page`}
+                                      />
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        <hr className="mb-4" />
+
+                        {hospitalityCompanies.length === 0 ? (
+                          <p className="text-muted mb-0">
+                            No hospitality companies available. Create one from the Hospitality Manager.
+                          </p>
+                        ) : (
+                          <form onSubmit={handleHospitalityMappingSubmit} className="row g-3">
+                            <div className="col-md-4">
+                              <label className="form-label">Hospitality Company</label>
+                              <select
+                                className="form-select"
+                                value={selectedHospitalityCompany}
+                                onChange={(e) => {
+                                  setSelectedHospitalityCompany(e.target.value);
+                                  setHospitalityForm((prev) => ({
+                                    ...prev,
+                                    hotelId: "",
+                                  }));
+                                }}
+                              >
+                                {hospitalityCompanies.map((company) => (
+                                  <option key={company.id} value={company.id}>
+                                    {company.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="col-md-3">
+                              <label className="form-label">Mapping Level</label>
+                              <select
+                                className="form-select"
+                                value={hospitalityForm.mappingLevel}
+                                onChange={(e) =>
+                                  setHospitalityForm((prev) => ({
+                                    ...prev,
+                                    mappingLevel: e.target.value,
+                                    hotelId: e.target.value === "company" ? "" : prev.hotelId,
+                                  }))
+                                }
+                              >
+                                <option value="company">Company</option>
+                                <option value="hotel">Specific Hotel</option>
+                              </select>
+                            </div>
+                            {hospitalityForm.mappingLevel === "hotel" && (
+                              <div className="col-md-3">
+                                <label className="form-label">Hotel</label>
+                                <select
+                                  className="form-select"
+                                  value={hospitalityForm.hotelId}
+                                  onChange={(e) =>
+                                    setHospitalityForm((prev) => ({
+                                      ...prev,
+                                      hotelId: e.target.value,
+                                    }))
+                                  }
+                                >
+                                  <option value="">Select Hotel</option>
+                                  {currentCompanyHotels.map((hotel) => (
+                                    <option key={hotel.id} value={hotel.id}>
+                                      {hotel.name}
+                                    </option>
+                                  ))}
+                                  {currentCompanyHotels.length === 0 && (
+                                    <option value="" disabled>
+                                      No hotels for this company
+                                    </option>
+                                  )}
+                                </select>
+                              </div>
+                            )}
+                            <div className="col-md-2 d-flex align-items-end">
+                              <button
+                                type="submit"
+                                className="btn btn-primary w-100"
+                                disabled={isSavingHospitality}
+                              >
+                                {isSavingHospitality ? "Mapping..." : "Map Project"}
+                              </button>
+                            </div>
+                          </form>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Team Members Section */}
               <div className="row">

@@ -9,6 +9,10 @@ import {
   getHospitalityHotels,
   mapHospitalityProjects,
   mapHospitalityUsers,
+  getMappedUserIds,
+  getMappedProjectIds,
+  getCompanyUserMappings,
+  deleteUserMapping,
 } from "@/services/hospitality";
 import { getCompanyUsers } from "@/services/Auth";
 import { getAllProjects } from "@/services/project";
@@ -39,6 +43,21 @@ const defaultProjectMappingForm = {
   projects: [],
 };
 
+const dedupeHospitalityMappings = (list = []) => {
+  const seen = new Set();
+  return list.filter((item) => {
+    const key =
+      item.mapping_type === 0
+        ? `company-${item.user_id}`
+        : `hotel-${item.user_id}-${item.hospitality_hotel_id || "null"}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+};
+
 const HospitalityManager = () => {
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
@@ -65,6 +84,13 @@ const HospitalityManager = () => {
   const [isSubmittingHotel, setIsSubmittingHotel] = useState(false);
   const [isMappingUsers, setIsMappingUsers] = useState(false);
   const [isMappingProjects, setIsMappingProjects] = useState(false);
+  const [mappedUserIds, setMappedUserIds] = useState([]);
+  const [mappedProjectIds, setMappedProjectIds] = useState([]);
+  const [companyUserMappings, setCompanyUserMappings] = useState([]);
+  const [hotelUserMappings, setHotelUserMappings] = useState({});
+  const [isLoadingCompanyMappingList, setIsLoadingCompanyMappingList] =
+    useState(false);
+  const [hotelUserLoadingMap, setHotelUserLoadingMap] = useState({});
 
   const selectedCompany = useMemo(
     () => companies.find((item) => item.id === selectedCompanyId),
@@ -146,6 +172,156 @@ const HospitalityManager = () => {
     }
   };
 
+  const loadMappedUserIds = async () => {
+    if (!selectedCompanyId) {
+      setMappedUserIds([]);
+      return;
+    }
+    try {
+      const mappingType = userMappingForm.mappingLevel === "company" ? 0 : 1;
+      const hotelId =
+        userMappingForm.mappingLevel === "hotel" && userMappingForm.hotelId
+          ? parseInt(userMappingForm.hotelId, 10)
+          : null;
+      const response = await getMappedUserIds(
+        selectedCompanyId,
+        mappingType,
+        hotelId
+      );
+      const ids = response?.data?.data || response?.data || [];
+      setMappedUserIds(ids);
+    } catch (error) {
+      console.error(error);
+      setMappedUserIds([]);
+    }
+  };
+
+  const loadMappedProjectIds = async () => {
+    if (!selectedCompanyId) {
+      setMappedProjectIds([]);
+      return;
+    }
+    try {
+      const mappingType =
+        projectMappingForm.mappingLevel === "company" ? 0 : 1;
+      const hotelId =
+        projectMappingForm.mappingLevel === "hotel" &&
+        projectMappingForm.hotelId
+          ? parseInt(projectMappingForm.hotelId, 10)
+          : null;
+      const response = await getMappedProjectIds(
+        selectedCompanyId,
+        mappingType,
+        hotelId
+      );
+      const ids = response?.data?.data || response?.data || [];
+      setMappedProjectIds(ids);
+    } catch (error) {
+      console.error(error);
+      setMappedProjectIds([]);
+    }
+  };
+
+  const loadCompanyUserMappings = async () => {
+    if (!selectedCompanyId) {
+      setCompanyUserMappings([]);
+      return;
+    }
+    try {
+      setIsLoadingCompanyMappingList(true);
+      const response = await getCompanyUserMappings(selectedCompanyId, {
+        mappingType: 0,
+      });
+      const data = response?.data?.data || response?.data || [];
+      setCompanyUserMappings(dedupeHospitalityMappings(data));
+    } catch (error) {
+      console.error(error);
+      setCompanyUserMappings([]);
+    } finally {
+      setIsLoadingCompanyMappingList(false);
+    }
+  };
+
+  const loadHotelUserMappings = async (hotelId) => {
+    if (!selectedCompanyId || !hotelId) {
+      return;
+    }
+    setHotelUserLoadingMap((prev) => ({ ...prev, [hotelId]: true }));
+    try {
+      const response = await getCompanyUserMappings(selectedCompanyId, {
+        mappingType: 1,
+        hotelId,
+      });
+      const data = response?.data?.data || response?.data || [];
+      setHotelUserMappings((prev) => ({
+        ...prev,
+        [hotelId]: dedupeHospitalityMappings(data),
+      }));
+    } catch (error) {
+      console.error(error);
+      setHotelUserMappings((prev) => ({
+        ...prev,
+        [hotelId]: [],
+      }));
+    } finally {
+      setHotelUserLoadingMap((prev) => ({ ...prev, [hotelId]: false }));
+    }
+  };
+
+  const getHotelUserList = (hotelId) => {
+    const hotelSpecific =
+      (hotelUserMappings?.[hotelId] || []).map((item) => ({
+        ...item,
+        scope: "hotel",
+      }));
+    const ids = new Set(hotelSpecific.map((item) => item.user_id));
+    const combined = [...hotelSpecific];
+    companyUserMappings.forEach((item) => {
+      if (!ids.has(item.user_id)) {
+        combined.push({ ...item, scope: "company" });
+      }
+    });
+    return combined;
+  };
+
+  const handleRemoveUserMapping = async (mapping) => {
+    if (!selectedCompanyId) {
+      return;
+    }
+    const confirmRemove = window.confirm(
+      "Are you sure you want to remove this mapping?"
+    );
+    if (!confirmRemove) {
+      return;
+    }
+    try {
+      await deleteUserMapping(mapping.user_id, {
+        company_id: selectedCompanyId,
+        mapping_type: mapping.mapping_type,
+        hotel_id:
+          mapping.mapping_type === 1
+            ? mapping.hospitality_hotel_id || mapping.hotel_id
+            : null,
+      });
+      toast.success("Mapping removed");
+      await loadMappedUserIds();
+      await loadCompanyUserMappings();
+      if (mapping.mapping_type === 1 && mapping.hospitality_hotel_id) {
+        await loadHotelUserMappings(mapping.hospitality_hotel_id);
+      } else {
+        Object.keys(hotelUserMappings).forEach((hotelId) => {
+          loadHotelUserMappings(parseInt(hotelId, 10));
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        error?.message?.response?.data?.message ||
+          "Failed to remove mapping"
+      );
+    }
+  };
+
   useEffect(() => {
     loadCompanies();
     loadCompanyUsers();
@@ -157,8 +333,52 @@ const HospitalityManager = () => {
       loadHotels(selectedCompanyId);
       setUserMappingForm(defaultUserMappingForm);
       setProjectMappingForm(defaultProjectMappingForm);
+      loadCompanyUserMappings();
+      setHotelUserMappings({});
     }
   }, [selectedCompanyId]);
+
+  useEffect(() => {
+    loadMappedUserIds();
+  }, [
+    selectedCompanyId,
+    userMappingForm.mappingLevel,
+    userMappingForm.hotelId,
+  ]);
+
+  useEffect(() => {
+    loadMappedProjectIds();
+  }, [
+    selectedCompanyId,
+    projectMappingForm.mappingLevel,
+    projectMappingForm.hotelId,
+  ]);
+
+  useEffect(() => {
+    if (!selectedCompanyId || !selectedCompanyHotels.length) {
+      return;
+    }
+    selectedCompanyHotels.forEach((hotel) => {
+      loadHotelUserMappings(hotel.id);
+    });
+  }, [selectedCompanyId, selectedCompanyHotels]);
+
+  useEffect(() => {
+    if (!projects.length) {
+      return;
+    }
+    const mappedSelections = projects
+      .filter((project) => mappedProjectIds.includes(project.id))
+      .map((project) => ({
+        value: project.id,
+        label: project.name,
+        isDisabled: true,
+      }));
+    setProjectMappingForm((prev) => ({
+      ...prev,
+      projects: mappedSelections,
+    }));
+  }, [mappedProjectIds, projects]);
 
   const handleCompanySubmit = async (event) => {
     event.preventDefault();
@@ -249,12 +469,14 @@ const HospitalityManager = () => {
     }
     try {
       setIsMappingUsers(true);
+      const mappingLevel = userMappingForm.mappingLevel;
+      const targetHotelId =
+        mappingLevel === "hotel"
+          ? parseInt(userMappingForm.hotelId, 10)
+          : null;
       await mapHospitalityUsers(selectedCompanyId, {
-        mapping_type: userMappingForm.mappingLevel === "company" ? 0 : 1,
-        hotel_id:
-          userMappingForm.mappingLevel === "hotel"
-            ? parseInt(userMappingForm.hotelId, 10)
-            : null,
+        mapping_type: mappingLevel === "company" ? 0 : 1,
+        hotel_id: targetHotelId,
         user_ids: userMappingForm.users.map((user) =>
           parseInt(user.value, 10)
         ),
@@ -262,6 +484,15 @@ const HospitalityManager = () => {
       });
       toast.success("Users mapped successfully");
       setUserMappingForm(defaultUserMappingForm);
+      await loadMappedUserIds();
+      await loadCompanyUserMappings();
+      if (mappingLevel === "hotel" && targetHotelId) {
+        await loadHotelUserMappings(targetHotelId);
+      } else {
+        selectedCompanyHotels.forEach((hotel) => {
+          loadHotelUserMappings(hotel.id);
+        });
+      }
     } catch (error) {
       console.error(error);
       toast.error(
@@ -304,6 +535,7 @@ const HospitalityManager = () => {
       });
       toast.success("Projects mapped successfully");
       setProjectMappingForm(defaultProjectMappingForm);
+      await loadMappedProjectIds();
     } catch (error) {
       console.error(error);
       toast.error(
@@ -315,15 +547,23 @@ const HospitalityManager = () => {
     }
   };
 
-  const userOptions = companyUsers.map((user) => ({
-    value: user.id,
-    label: `${user.name} (${user.email})`,
-  }));
+  const userOptions = companyUsers
+    .filter((user) => !mappedUserIds.includes(user.id))
+    .map((user) => ({
+      value: user.id,
+      label: `${user.name} (${user.email})`,
+    }));
 
   const projectOptions = projects.map((project) => ({
     value: project.id,
     label: project.name,
+    isDisabled: mappedProjectIds.includes(project.id),
   }));
+
+  const availableUserCount = userOptions.length;
+  const availableProjectCount = projectOptions.filter(
+    (option) => !option.isDisabled
+  ).length;
 
   const selectStyles = {
     menuPortal: (base) => ({ ...base, zIndex: 9999 }),
@@ -465,6 +705,75 @@ const HospitalityManager = () => {
                     <p className="text-muted mb-0">
                       Select a company to preview its profile.
                     </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="card buyer-card shadow-sm border-0 mb-4">
+                <div className="card-body">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                      <h5 className="mb-1">Company Users</h5>
+                      <small className="text-muted">
+                        Users mapped at company level inherit every hotel
+                      </small>
+                    </div>
+                    <span className="badge bg-light text-dark">
+                      {companyUserMappings.length} Users
+                    </span>
+                  </div>
+                  {isLoadingCompanyMappingList ? (
+                    <p className="text-muted mb-0">Loading users...</p>
+                  ) : companyUserMappings.length === 0 ? (
+                    <p className="text-muted mb-0">
+                      No users mapped to this company yet.
+                    </p>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="table table-sm align-middle">
+                        <thead>
+                          <tr>
+                            <th>User</th>
+                            <th>Auto Map Projects</th>
+                            <th className="text-end">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {companyUserMappings.map((user) => (
+                            <tr key={`${user.user_id}-company`}>
+                              <td>
+                                <div className="fw-semibold">
+                                  {user.name || "N/A"}
+                                </div>
+                                <small className="text-muted">
+                                  {user.email || "No email"}
+                                </small>
+                              </td>
+                              <td>
+                                <span
+                                  className={`badge ${
+                                    user.auto_map_projects
+                                      ? "bg-success"
+                                      : "bg-secondary"
+                                  }`}
+                                >
+                                  {user.auto_map_projects ? "Yes" : "No"}
+                                </span>
+                              </td>
+                              <td className="text-end">
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-outline-danger"
+                                  onClick={() => handleRemoveUserMapping(user)}
+                                >
+                                  Remove
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               </div>
@@ -658,7 +967,7 @@ const HospitalityManager = () => {
                         )}
                         <div className="mb-3">
                           <label className="form-label">
-                            Users ({companyUsers.length})
+                          Users ({availableUserCount})
                           </label>
                           <Select
                             isMulti
@@ -763,7 +1072,7 @@ const HospitalityManager = () => {
                         )}
                         <div className="mb-3">
                           <label className="form-label">
-                            Projects ({projects.length})
+                          Projects ({availableProjectCount})
                           </label>
                           <Select
                             isMulti
@@ -782,6 +1091,7 @@ const HospitalityManager = () => {
                                 : "Pick projects"
                             }
                             isLoading={isLoadingProjects}
+                            isOptionDisabled={(option) => option.isDisabled}
                             styles={selectStyles}
                             menuPortalTarget={document.body}
                           />
@@ -794,6 +1104,121 @@ const HospitalityManager = () => {
                           {isMappingProjects ? "Mapping..." : "Map Projects"}
                         </button>
                       </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="row g-4 mt-1">
+                <div className="col-12">
+                  <div className="card buyer-card shadow-sm border-0">
+                    <div className="card-body">
+                      <h5 className="mb-3">Hotel User Lists</h5>
+                      {selectedCompanyHotels.length === 0 ? (
+                        <p className="text-muted mb-0">
+                          Add hotels to see their user mappings.
+                        </p>
+                      ) : (
+                        <div className="accordion" id="hotelUsersAccordion">
+                          {selectedCompanyHotels.map((hotel) => {
+                            const hotelUsers = getHotelUserList(hotel.id);
+                            const isLoading =
+                              hotelUserLoadingMap?.[hotel.id] || false;
+                            return (
+                              <div
+                                className="mb-3 border rounded"
+                                key={`hotel-users-${hotel.id}`}
+                              >
+                                <div className="d-flex justify-content-between align-items-center p-3 bg-light rounded-top">
+                                  <div>
+                                    <strong>{hotel.name}</strong>
+                                    <small className="d-block text-muted">
+                                      {hotel.city || "No city"}
+                                    </small>
+                                  </div>
+                                  <span className="badge bg-light text-dark">
+                                    {hotelUsers.length} Users
+                                  </span>
+                                </div>
+                                <div className="p-3">
+                                  {isLoading ? (
+                                    <p className="text-muted mb-0">
+                                      Loading users...
+                                    </p>
+                                  ) : hotelUsers.length === 0 ? (
+                                    <p className="text-muted mb-0">
+                                      No users mapped directly to this hotel.
+                                    </p>
+                                  ) : (
+                                    <div className="table-responsive">
+                                      <table className="table table-sm align-middle mb-0">
+                                        <thead>
+                                          <tr>
+                                            <th>User</th>
+                                            <th>Scope</th>
+                                            <th className="text-end">Action</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {hotelUsers.map((user) => (
+                                            <tr
+                                              key={`${user.user_id}-${user.scope}-${hotel.id}`}
+                                            >
+                                              <td>
+                                                <div className="fw-semibold">
+                                                  {user.name || "N/A"}
+                                                </div>
+                                                <small className="text-muted">
+                                                  {user.email || "No email"}
+                                                </small>
+                                              </td>
+                                              <td>
+                                                <span
+                                                  className={`badge ${
+                                                    user.scope === "hotel"
+                                                      ? "bg-primary"
+                                                      : "bg-secondary"
+                                                  }`}
+                                                >
+                                                  {user.scope === "hotel"
+                                                    ? "Hotel"
+                                                    : "Company"}
+                                                </span>
+                                              </td>
+                                              <td className="text-end">
+                                                <button
+                                                  type="button"
+                                                  className="btn btn-sm btn-outline-danger"
+                                                  disabled={
+                                                    user.scope === "company"
+                                                  }
+                                                  title={
+                                                    user.scope === "company"
+                                                      ? "Company-level users inherit every hotel and cannot be removed here"
+                                                      : "Remove user from this hotel"
+                                                  }
+                                                  onClick={() =>
+                                                    user.scope === "hotel" &&
+                                                    handleRemoveUserMapping(
+                                                      user
+                                                    )
+                                                  }
+                                                >
+                                                  Remove
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

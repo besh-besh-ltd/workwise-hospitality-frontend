@@ -8,6 +8,8 @@ import ReadMore from "@/components/shared/ReadMore";
 import DynamicFormModal from "@/components/modal/DynamicFormModal";
 import { toast } from "react-toastify";
 import { getAllProjects, createProject } from "@/services/project";
+import { getProfile } from "@/services/Auth";
+import { getProjectMappings } from "@/services/hospitality";
 import { getCountryCodes } from "@/services/cms";
 import SmartButton from "@/components/shared/SmartButton";
 
@@ -21,6 +23,9 @@ const ProjectManagementPage = () => {
     showCreateModal: false,
     countryCodes: [],
   });
+  const [isHospitalityCompany, setIsHospitalityCompany] = useState(false);
+  const [projectHospitalityMap, setProjectHospitalityMap] = useState({});
+  const [hospitalityLoading, setHospitalityLoading] = useState(false);
 
   const getPaginatedData = () => {
     const startIndex = (state.page - 1) * state.limit;
@@ -44,6 +49,18 @@ const ProjectManagementPage = () => {
       }
     } catch (error) {
       console.error("Error fetching country codes:", error);
+    }
+  };
+
+  const fetchProfile = async () => {
+    try {
+      const response = await getProfile();
+      const profile = response?.data;
+      const hospitalityEnabled =
+        profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
+      setIsHospitalityCompany(hospitalityEnabled);
+    } catch (error) {
+      setIsHospitalityCompany(false);
     }
   };
 
@@ -77,6 +94,9 @@ const ProjectManagementPage = () => {
           totalData: Array.isArray(projectsData) ? projectsData.length : 0,
           loading: false,
         }));
+        if (isHospitalityCompany && Array.isArray(projectsData)) {
+          fetchProjectMappingsForList(projectsData);
+        }
       } else {
         toast.error("Failed to fetch projects");
         setState((prev) => ({
@@ -97,10 +117,72 @@ const ProjectManagementPage = () => {
     }
   };
 
+  const fetchProjectMappingsForList = async (projects = []) => {
+    if (!projects.length) {
+      setProjectHospitalityMap({});
+      return;
+    }
+    try {
+      setHospitalityLoading(true);
+      const mappingPairs = await Promise.all(
+        projects.map(async (project) => {
+          try {
+            const response = await getProjectMappings(project.id);
+            const mappings = response?.data?.data || response?.data || [];
+            return [project.id, mappings];
+          } catch (error) {
+            return [project.id, []];
+          }
+        })
+      );
+      const mappingObj = mappingPairs.reduce((acc, [projectId, mappings]) => {
+        acc[projectId] = mappings;
+        return acc;
+      }, {});
+      setProjectHospitalityMap(mappingObj);
+    } finally {
+      setHospitalityLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchProjects();
     fetchCountryCodes();
+    fetchProfile();
   }, []);
+
+  useEffect(() => {
+    if (isHospitalityCompany && state.projects.length) {
+      fetchProjectMappingsForList(state.projects);
+    }
+  }, [isHospitalityCompany, state.projects]);
+
+  const renderHospitalitySummary = (projectId) => {
+    if (!isHospitalityCompany) return "—";
+    const mappings = projectHospitalityMap[projectId] || [];
+    if (hospitalityLoading && !mappings.length) {
+      return <span className="text-muted">Loading…</span>;
+    }
+    if (!mappings.length) {
+      return <span className="text-muted">Not mapped</span>;
+    }
+    return (
+      <div className="d-flex flex-column gap-1">
+        {mappings.map((mapping) => (
+          <span
+            key={`${projectId}-${mapping.id || mapping.mapping_type}-${mapping.hospitality_hotel_id || "company"}`}
+            className={`badge ${
+              mapping.mapping_type === 0 ? "bg-primary-subtle text-primary" : "bg-success-subtle text-success"
+            }`}
+          >
+            {mapping.mapping_type === 0
+              ? `Company: ${mapping.company_name || "N/A"}`
+              : `Hotel: ${mapping.hotel_name || "N/A"}`}
+          </span>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -147,6 +229,7 @@ const ProjectManagementPage = () => {
                             <th>Closed RFQs</th>
                             <th>Created Date</th>
                             <th>Created By</th>
+                          {isHospitalityCompany && <th>Hospitality Scope</th>}
                             <th>Budget</th>
                             <th>Action</th>
                           </tr>
@@ -170,6 +253,9 @@ const ProjectManagementPage = () => {
                               <td>{project.closed_rfqs || "0"}</td>
                               <td>{formatDate(project.created_at)}</td>
                               <td>{project.created_by_name || ""}</td>
+                              {isHospitalityCompany && (
+                                <td>{renderHospitalitySummary(project.id)}</td>
+                              )}
                               <td>{project?.budget || "N/A"}</td>
                               <td>
                                 <SmartButton
