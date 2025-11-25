@@ -72,7 +72,7 @@ export const hospitalitySubscriptionPayment = (payload) => {
     return new Promise(async (resolve, reject) => {
         try {
             let response = await axiosInstance.post(
-                `/users/hospitality-subscription-payment`,
+                `/hospitality/subscription-payment`,
                 payload
             );
             resolve(response);
