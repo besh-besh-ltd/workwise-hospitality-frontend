@@ -448,8 +448,12 @@ const generateExcelFile = (api_data) => {
 
   heading_array[0].push("LOWEST");
   heading_array[0].push("Selling Price");
+  heading_array[0].push("Target Price");
   heading_array[0].push("Last Purchase Rate");
   amount_array.push("");
+  amount_array.push("");  // for Selling Price
+  amount_array.push("");  // for Target Price
+  amount_array.push("");  // for Last Purchase Rate
 
   let data = heading_array;
   data.push(amount_array);
@@ -597,6 +601,13 @@ const generateExcelFile = (api_data) => {
           ?.value
       ) ?? "-"
     );
+
+    temp_arr.push(
+      item.latest_target_price 
+        ? addCommasToNumber(item.latest_target_price)
+        : "-"
+    );
+
     temp_arr.push(
       item.last_purchase_rate
         ? addCommasToNumber(
@@ -869,9 +880,14 @@ const generateExcelFile = (api_data) => {
     ws["!merges"].push(mergeConfig);
   }
   ws["!merges"].push({
-    s: { r: headerOffset + 0, c: range.e.c },
-    e: { r: headerOffset + 1, c: range.e.c },
+    s: { r: headerOffset + 0, c: range.e.c - 1},
+    e: { r: headerOffset + 1, c: range.e.c - 1},
   });
+
+  ws["!merges"].push({
+  s: { r: headerOffset + 0, c: range.e.c },
+  e: { r: headerOffset + 1, c: range.e.c },
+});
 
   for (let row = range.s.r; row <= range.e.r; row++) {
     const col = 0;

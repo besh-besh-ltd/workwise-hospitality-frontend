@@ -55,6 +55,7 @@ const CommonFormInput = ({
   placeholder = "",
   required = false,
   disabled = false,
+  validation = "", // for custom validation like float_number
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [countryCodes, setCountryCodes] = useState([]);
@@ -143,6 +144,12 @@ const CommonFormInput = ({
     //  this block state is used to handle the value of the textarea, this will fix the issue "user not able to edit the ionput from middle"
     const [value, setValue] = useState('');
     const handelOnChahnge = (e) => {
+      if(validation === "float_number"){
+        const regex = /^\d*\.?\d*$/;
+        if (!regex.test(e.target.value)) {
+          return; // Invalid input, do not update the value
+        }
+      }
       setValue(e.target.value);
       onChange && onChange(e);
     };

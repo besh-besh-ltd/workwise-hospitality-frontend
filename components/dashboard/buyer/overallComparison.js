@@ -9,6 +9,12 @@ import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
 import { Button, Badge } from "react-bootstrap";
+import { IoIosSave } from "react-icons/io";
+import { FaRegEdit } from "react-icons/fa";
+import { updateTargetPrice } from "@/services/rfq";
+import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
+import Tooltip from 'react-bootstrap/Tooltip';
+import { toast } from "react-toastify";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -25,6 +31,7 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalize
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [breakupStates, setBreakupStates] = useState({});
   const [openModals, setOpenModals] = useState({});
+  const [editTargetPrice, setEditTargetPrice] = useState({});
 
   // Helper function to check if vendor has missing freight or packaging costs
   const hasMissingCosts = (vendorId) => {
@@ -320,6 +327,47 @@ const openModalForVariant = (variantId) => {
     }
   };
 
+  function handleTargetChange(index, value) {
+
+    if(value.length > 12){
+      return;
+    }
+
+    let cleaned = value.replace(/\D/g, '');
+
+    if(cleaned === "0"){
+      cleaned = "";
+    }
+
+    cleaned = cleaned.replace(/^0+(?=[0-9.])/, ''); 
+    const updatedData = [...data];
+    updatedData[index].latest_target_price = cleaned // Remove non-numeric characters except dot
+    setdata(updatedData);
+  }
+
+  const saveTargetPrice = (item) => {
+    toggleEditPrice(item.id);
+
+    //Fetch call to uopdate target price
+    updateTargetPrice({
+      productId : item.id,
+      vendorIds : item.all_vendors.map((vendor)=>vendor.id),
+      targetPrice : item.latest_target_price,
+      rfq_id : item.rfq_id
+    }).then((res)=>{
+      toast.success(`Target Price for ${item.product_details[0]?.name} Updated Successfully`);
+    }).catch((err)=>{
+      toast.error("Error while updating the Target Price");
+    });
+  }
+
+  const toggleEditPrice =(id) =>{
+    setEditTargetPrice((prev)=>({
+      ...prev,
+      [id] : !prev[id]
+    }))
+  }
+
   return (
     <>
       {loading ? (
@@ -335,6 +383,8 @@ const openModalForVariant = (variantId) => {
                   <col style={{ width: "250px" }} />
                   <col style={{ width: "250px" }} />
                   <col style={{ width: "120px" }} />
+                  {data?.product_specs?.some((item)=>item.title) &&
+                    <col style={{ width: "250px" }} />}
                   <col style={{ width: "250px" }} />
                   <col style={{ width: "250px" }} />
                   {allvendors.length > 0 &&
@@ -402,9 +452,18 @@ const openModalForVariant = (variantId) => {
                         </div>
                       </div>
                     </th>
-                    <th scope="col" className="all_vendors" rowSpan={2}>
+                    {data?.product_specs?.some((item)=>item.title) &&
+                      <th scope="col" className="all_vendors" rowSpan={2}>
                       <p>
                         Selling Price
+                      </p>
+                    </th>}
+                    <th scope="col" className="all_vendors" rowSpan={2}>
+                      <p>
+                        Target Price
+                        <div className=" text-gray-500" style = {{"font-size" : "12px"}}>
+                          (Total Cost)
+                        </div>
                       </p>
                     </th>
                     
@@ -435,6 +494,7 @@ const openModalForVariant = (variantId) => {
                   {data &&
                     data.length > 0 &&
                     data.map((item, index) => {
+                      const isEditing = editTargetPrice[item.id] || false;
                       const rfq_product_id = item.id;
                       const productName =  item.product_details.map((prod)=>prod.name);
                       const key = item.product_variant_id + item.variant;
@@ -858,7 +918,7 @@ const openModalForVariant = (variantId) => {
                             </td>
                           )}
 
-                          <td>
+                          {selling_price && <td>
                             <table className="w-100">
                               {/* Selling Price Row */}
                               {selling_price && (
@@ -872,59 +932,44 @@ const openModalForVariant = (variantId) => {
                                   <td>₹{addCommasToNumber(selling_price)}</td>
                                 </tr>
                               )}
-
-                              {/* Target Price Row
-                              {item.latest_target_price && (
-                                <tr>
-                                  <td
-                                    className="pe-2 fw-bold"
-                                    style={{ whiteSpace: "nowrap" }}
-                                  >
-                                    Target Price:
-                                  </td>
-                                  <td>
-                                    ₹
-                                    {addCommasToNumber(
-                                      item.latest_target_price
-                                    )}
-                                  </td>
-                                </tr>
-                              )} */}
-
-                              {/* Set Target Price Row */}
-                              {/* <tr>
-                                <td colSpan="2" className="pt-2">
-                                  <Button
-                                    variant="outline-primary"
-                                    size="sm"
-                                    className="border-0 py-1 px-2"
-                                    onClick={async () => {
-                                      await getPricehistory(item.id);
-                                      setOpenModalId(item.id);
-                                    }}
-                                  >
-                                    Set Target
-                                  </Button>
-
-                                  <InputModal
-                                    show={openModalId === item.id}
-                                    onHide={() => setOpenModalId(null)}
-                                    onSubmit={(targetPrice) =>
-                                      handleSubmitTargetPrice(
-                                        targetPrice,
-                                        rfq_product_id
-                                      )
-                                    }
-                                    productName={productName}
-                                    initialValue={item.latest_target_price}
-                                    numericLabel="Target Price"
-                                    modalTitle="Set Target Price"
-                                    historyData={targetPriceHistory}
-                                  />
-                                </td>
-                              </tr> */}
                             </table>
-                          </td>
+                          </td>}
+                          
+                          <td>
+                                  <label>
+                                      <input 
+                                      type="text" 
+                                      class="!outline-none !border-none !bg-none"
+                                      style={{border : 'none', outline : 'none', background : 'none'}}
+                                      onChange={(e)=>handleTargetChange(index, e.target.value)} 
+                                      value={`₹ ${addCommasToNumber(item.latest_target_price)}`}
+                                      disabled={!isEditing}
+                                      />
+                                      {isEditing ?
+                                        <OverlayTrigger
+                                          placement={'bottom-end'}
+                                          overlay={
+                                              <Tooltip id={`tooltip-vendor-search`}>
+                                                  Save Target Price for all Vendors
+                                              </Tooltip>
+                                          }
+                                      >
+                                          <IoIosSave onClick={()=>saveTargetPrice(item)}/>
+                                      </OverlayTrigger>
+                                      :
+                                       <OverlayTrigger
+                                          placement={'bottom-end'}
+                                          overlay={
+                                              <Tooltip id={`tooltip-vendor-search`}>
+                                                  Edit Target Price 
+                                              </Tooltip>
+                                          }
+                                      >
+                                          <FaRegEdit onClick={()=>toggleEditPrice(item.id)}/>
+                                      </OverlayTrigger>
+                                      }
+                                  </label>
+                          </td> 
 
                           {item.quotations.length > 0 &&
                             item.quotations.map((quote_item, vIdx) => {
@@ -1271,42 +1316,6 @@ const openModalForVariant = (variantId) => {
                     })}
                 </tbody>
                 <tfoot>
-                  <tr>
-                    <th scope="col">&nbsp;</th>
-                    <th scope="col">&nbsp;</th>
-                    <th scope="col">&nbsp;</th>
-                    <th scope="col">&nbsp;</th>
-                    <th scope="col">&nbsp;</th>
-                    {allvendors.length > 0 && (
-                      <th scope="col" colSpan={allvendors.length}>
-                        &nbsp;
-                      </th>
-                    )}
-                  </tr>
-                  <tr>
-                    <th scope="col">&nbsp;</th>
-                    <th scope="col">&nbsp;</th>
-                    <th scope="col">&nbsp;</th>
-                    <th scope="col">&nbsp;</th>
-                    <th scope="col">&nbsp;</th>
-                    {allvendors.length > 0 && (
-                      <th scope="col" colSpan={allvendors.length}>
-                        &nbsp;
-                      </th>
-                    )}
-                  </tr>
-                  <tr>
-                    <th scope="col">&nbsp;</th>
-                    <th scope="col">&nbsp;</th>
-                    <th scope="col">&nbsp;</th>
-                    <th scope="col">&nbsp;</th>
-                    <th scope="col">&nbsp;</th>
-                    {allvendors.length > 0 && (
-                      <th scope="col" colSpan={allvendors.length}>
-                        &nbsp;
-                      </th>
-                    )}
-                  </tr>
                   <tr className="last_row small">
                     <th scope="col"></th>
                     <th scope="col"></th>
@@ -1318,7 +1327,7 @@ const openModalForVariant = (variantId) => {
                     )}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={6} scope="col">
+                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col">
                       TOTAL
                     </th>
 
@@ -1333,7 +1342,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={6} scope="col">
+                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col">
                       FINALIZED VENDOR
                     </th>
 
@@ -1347,7 +1356,7 @@ const openModalForVariant = (variantId) => {
                   </tr>
 
                   <tr className="last_row">
-                    <th colSpan={6} scope="col" className="bggray">
+                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col" className="bggray">
                       LOWEST TOTAL ( L1 Total )
                     </th>
 
@@ -1363,7 +1372,7 @@ const openModalForVariant = (variantId) => {
                   </tr>
 
                   <tr className="last_row">
-                    <th colSpan={6} scope="col">
+                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col">
                       Delivery{" "}
                     </th>
 
@@ -1379,7 +1388,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={6} scope="col">
+                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col">
                       Payment{" "}
                     </th>
 
@@ -1415,7 +1424,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={6} scope="col">
+                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col">
                       Vendor comment{" "}
                     </th>
 
@@ -1436,7 +1445,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={6} scope="col">
+                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col">
                       Attached Files{" "}
                     </th>
 

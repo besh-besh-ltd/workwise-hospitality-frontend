@@ -109,7 +109,7 @@ const ValidationErrorsDisplay = ({ selectedSheet, rfq_id, refetchRFQ, setLoading
           const errorMessages = Object.values(error.errors || {});
           return (
             errorMessages.length === 1 &&
-            errorMessages[0]?.toLowerCase().includes("product not found")
+            errorMessages[0]?.toLowerCase().includes("products to be added")
           );
         });
 
@@ -119,14 +119,14 @@ const ValidationErrorsDisplay = ({ selectedSheet, rfq_id, refetchRFQ, setLoading
           const errorMessages = Object.values(error.errors || {});
           return (
             errorMessages.length === 1 &&
-            errorMessages[0]?.toLowerCase().includes("product not found")
+            errorMessages[0]?.toLowerCase().includes("products to be added")
           );
         }).length;
 
         return (
           <div className="mb-5">
             <h4 className="mb-3 fw-medium text-danger">
-              🚫 {productNotFoundCount} Products Not Found
+              🚫 {productNotFoundCount} Products to be Added
             </h4>
             <div className="alert alert-info mb-3">
               <i className="bi bi-info-circle me-2"></i>
@@ -208,7 +208,7 @@ const ValidationErrorsDisplay = ({ selectedSheet, rfq_id, refetchRFQ, setLoading
           const errorMessages = Object.values(error.errors || {});
           return (
             errorMessages.length === 1 &&
-            errorMessages[0]?.toLowerCase().includes("no vendors found")
+            errorMessages[0]?.toLowerCase().includes("vendors to be added")
           );
         });
 
@@ -216,7 +216,7 @@ const ValidationErrorsDisplay = ({ selectedSheet, rfq_id, refetchRFQ, setLoading
 
         return (
           <div className="mb-5">
-            <h4 className="mb-3 fw-medium text-warning">⚠️ No Vendors Found</h4>
+            <h4 className="mb-3 fw-medium text-warning">⚠️ Vendors to be added</h4>
             <div className="alert alert-info mb-3">
               <i className="bi bi-info-circle me-2"></i>
               <strong>Quick Add:</strong> Click any similar product to add it to
