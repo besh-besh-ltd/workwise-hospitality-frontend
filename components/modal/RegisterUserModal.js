@@ -11,7 +11,7 @@ export default function RegisterUserModal({
   onRegistrationSuccess,
   onClose,
   isPaidSubscription = false,
-  subscription_plan = "Free"
+  subscription_plan = 0
 }) {
 
   const router = useRouter();
