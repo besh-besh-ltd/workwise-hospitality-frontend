@@ -111,7 +111,7 @@ const Register = ({
       // Set status to 1 (approved) for paid subscriptions to bypass admin approval
       ...(isPaidSubscription && { status: 1 }),
       ...(source ? { source } : {source:"self"}),
-      ...(subscription_plan ? { subscription_plan } : {subscription_plan:"Free"})
+      ...(subscription_plan ? { subscription_plan } : {subscription_plan: 0})
     };
     RegisterService(updatedValues)
       .then((response) => {
