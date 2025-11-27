@@ -21,6 +21,10 @@ import {
 } from "@/services/Auth";
 import { getCities, getCountries, getStates } from "@/services/cms";
 import { EditOnlyProfileSchema } from "@/utils/schema";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { FaEdit, FaTrashAlt } from "react-icons/fa";
+import { faEdit } from "@fortawesome/free-regular-svg-icons";
+import { faAtlas, faTrash } from "@fortawesome/free-solid-svg-icons";
 
 // User type mapping utility
 const getUserTypeLabel = (userType) => {
@@ -600,82 +604,80 @@ const handleCreateLocation = async (locationData) => {
 
               {/* Locations Table Section - Simple and clean */}
               <div className="buyer-edit-sec-form">
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <span className="title">Company Locations</span>
+
+                {/* Heading */}
+                <div className="d-flex align-items-center justify-content-between mb-3">
+                  <h5 className="title">Company Locations ({locations?.length || 0})</h5>
+
                   {isCompanyEditableForUserRef.current && (
-                    <button 
-                      className="btn btn-secondary btn-sm"
+                    <button
+                      className="btn btn-secondary"
                       onClick={handleAddLocation}
                     >
                       Add Location
                     </button>
                   )}
                 </div>
-                
-                {locations.length > 0 ? (
-                  <div className="table-responsive">
-                    <table className="table" style={{ border: '1px solid #dee2e6' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ border: '1px solid #dee2e6', padding: '12px', backgroundColor: '#f8f9fa' }}>Address</th>
-                          <th style={{ border: '1px solid #dee2e6', padding: '12px', backgroundColor: '#f8f9fa' }}>Postal Code</th>
-                          <th style={{ border: '1px solid #dee2e6', padding: '12px', backgroundColor: '#f8f9fa' }}>Country</th>
-                          <th style={{ border: '1px solid #dee2e6', padding: '12px', backgroundColor: '#f8f9fa' }}>State</th>
-                          <th style={{ border: '1px solid #dee2e6', padding: '12px', backgroundColor: '#f8f9fa' }}>City</th>
-                          {isCompanyEditableForUserRef.current && (
-                            <th style={{ border: '1px solid #dee2e6', padding: '12px', backgroundColor: '#f8f9fa' }}>Actions</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {locations.map((location) => (
-                          <tr key={location.id}>
-                            <td style={{ border: '1px solid #dee2e6', padding: '12px' }}>{location.address}</td>
-                            <td style={{ border: '1px solid #dee2e6', padding: '12px' }}>{location.postal_code}</td>
-                            <td style={{ border: '1px solid #dee2e6', padding: '12px' }}>{location.country_name}</td>
-                            <td style={{ border: '1px solid #dee2e6', padding: '12px' }}>{location.state_name}</td>
-                            <td style={{ border: '1px solid #dee2e6', padding: '12px' }}>{location.city_name}</td>
-                            {isCompanyEditableForUserRef.current && (
-                              <td style={{ border: '1px solid #dee2e6', padding: '12px' }}>
-                                <button
-                                  type="button"
-                                  className="btn btn-sm me-2"
-                                  style={{ backgroundColor: 'transparent', border: '1px solid #6c757d', color: '#6c757d' }}
-                                  onClick={() => handleEditLocation(location)}
-                                  title="Edit Location"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn btn-sm"
-                                  style={{ backgroundColor: 'transparent', border: '1px solid #dc3545', color: '#dc3545' }}
-                                  onClick={() => handleDeleteLocation(location.id)}
-                                  title="Delete Location"
-                                >
-                                  Delete
-                                </button>
-                              </td>
-                            )}
+
+                {/* Table Container */}
+                <div className="contact-form">
+                  {locations && locations.length > 0 ? (
+                    <div className="table-responsive">
+                      <table className="table table-striped">
+                        <thead>
+                          <tr>
+                            <th scope="col">S.R.</th>
+                            <th scope="col">Address</th>
+                            <th scope="col">City</th>
+                            <th scope="col">State</th>
+                            <th scope="col">Country</th>
+                            <th scope="col">Postal Code</th>
+                            {isCompanyEditableForUserRef.current && <th scope="col">Actions</th>}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-4" style={{ border: '1px solid #dee2e6', backgroundColor: '#f8f9fa' }}>
-                    <p className="text-muted mb-3">No locations found.</p>
-                    {isCompanyEditableForUserRef.current && (
-                      <button 
-                        className="btn btn-secondary"
-                        onClick={handleAddLocation}
-                      >
-                        Add Location
-                      </button>
-                    )}
-                  </div>
-                )}
+                        </thead>
+
+                        <tbody>
+                          {locations.map((location, idx) => (
+                            <tr key={location.id || idx}>
+                              <td>{idx + 1}</td>
+                              <td style={{ maxWidth: 300 }}>
+                                {location.address || location.street_address || "-"}
+                              </td>
+                              <td>{location.city_name || "-"}</td>
+                              <td>{location.state_name || "-"}</td>
+                              <td>{location.country_name || "-"}</td>
+                              <td>{location.postal_code || "-"}</td>
+
+                              {isCompanyEditableForUserRef.current && (
+                                <td>
+                                  <span
+                                    role="button"
+                                    className="cursor-pointer me-3"
+                                    onClick={() => handleEditLocation(location)}
+                                  >
+                                    <FontAwesomeIcon icon={faEdit} />
+                                  </span>
+                                  <span
+                                    role="button"
+                                    className="cursor-pointer text-danger"
+                                    onClick={() => handleDeleteLocation(location.id)}
+                                  >
+                                    <FontAwesomeIcon icon={faTrash} />
+                                  </span>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-muted">No locations found.</p>
+                  )}
+                </div>
+
               </div>
+
             </div>
             {/* END: details form container */}
           </div>
