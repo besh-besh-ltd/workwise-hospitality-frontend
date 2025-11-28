@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import { Formik, Form } from "formik";
 import { toast } from "react-toastify";
@@ -15,6 +15,7 @@ import {
   updateProfile,
 } from "@/services/Auth";
 import { getCities, getCountries, getStates } from "@/services/cms";
+import { getMyHospitalityContexts } from "@/services/hospitality";
 import { EditOnlyProfileSchema } from "@/utils/schema";
 import { faCommentsDollar } from "@fortawesome/free-solid-svg-icons";
 
@@ -71,12 +72,28 @@ const EditProfile = () => {
   );
   const [locationOptions, setLocationOptions] = useState(initializeLocation);
   const [userType, setUserType] = useState(null);
+  const [isHospitalityUser, setIsHospitalityUser] = useState(false);
+  const [hospitalityScopes, setHospitalityScopes] = useState([]);
+  const [hospitalityLoading, setHospitalityLoading] = useState(false);
 
   const [mainLoading, setMainLoading] = useState(false);
   const [profileImageLoading, setProfileImageLoading] = useState(false);
   const [userProfileLogo, setUserProfileLogo] = useState(null);
 
   const isCompanyEditableForUserRef = useRef(null);
+
+  const loadHospitalityScopes = async () => {
+    setHospitalityLoading(true);
+    try {
+      const response = await getMyHospitalityContexts();
+      const list = response?.data?.data || response?.data || [];
+      setHospitalityScopes(list);
+    } catch (error) {
+      setHospitalityScopes([]);
+    } finally {
+      setHospitalityLoading(false);
+    }
+  };
 
   // fetch initial data
   const fetchInitialData = async () => {
@@ -104,6 +121,15 @@ const EditProfile = () => {
       const [countryCode = "+91", mobileNumber = ""] = (
         data?.mobile || "+91-"
       ).split("-");
+
+      const hospitalityEnabled =
+        data?.is_hospitality === 1 || data?.is_hospitality === "1";
+      setIsHospitalityUser(!!hospitalityEnabled);
+      if (hospitalityEnabled) {
+        loadHospitalityScopes();
+      } else {
+        setHospitalityScopes([]);
+      }
 
       //  company is editable only if user type is 3 or 7 ( company admin )
       isCompanyEditableForUserRef.current =
@@ -197,6 +223,34 @@ const EditProfile = () => {
     setProfileImageLoading(false);
   };
 
+
+  const groupedHospitalityScopes = useMemo(() => {
+    if (!hospitalityScopes.length) return [];
+    const grouped = hospitalityScopes.reduce((acc, ctx) => {
+      const companyId = ctx.hospitality_company_id || ctx.id;
+      if (!companyId) {
+        return acc;
+      }
+      if (!acc[companyId]) {
+        acc[companyId] = {
+          companyId,
+          companyName: ctx.company_name || ctx.name || "Company",
+          hasCompanyAccess: false,
+          hotels: [],
+        };
+      }
+      if (ctx.mapping_type === 0) {
+        acc[companyId].hasCompanyAccess = true;
+      } else if (ctx.mapping_type === 1 && ctx.hospitality_hotel_id) {
+        acc[companyId].hotels.push({
+          id: ctx.hospitality_hotel_id,
+          name: ctx.hotel_name,
+        });
+      }
+      return acc;
+    }, {});
+    return Object.values(grouped);
+  }, [hospitalityScopes]);
 
   const handleLocationChange = async (field, option, setFieldValue) => {
   const value = option?.value || null;
@@ -474,6 +528,79 @@ const EditProfile = () => {
                 )}
               </Formik>
               {/* END: company details form: only editable for company admin */}
+
+              {isHospitalityUser && (
+                <div className="buyer-edit-sec-form">
+                  <div className="d-flex flex-wrap align-items-center justify-content-between mb-3">
+                    <span className="title mb-0">Hospitality Scope</span>
+                    <span
+                      className="badge"
+                      style={{
+                        backgroundColor: "#f8fafc",
+                        color: "#0f172a",
+                        fontWeight: 600,
+                        padding: "8px 16px",
+                        borderRadius: "999px",
+                      }}
+                    >
+                      {hospitalityLoading
+                        ? "Loading…"
+                        : groupedHospitalityScopes.length
+                        ? `${groupedHospitalityScopes.length} company${
+                            groupedHospitalityScopes.length > 1 ? " mappings" : " mapping"
+                          }`
+                        : "No mappings yet"}
+                    </span>
+                  </div>
+                  {hospitalityLoading ? (
+                    <p className="text-muted mb-0">
+                      Fetching your hospitality access…
+                    </p>
+                  ) : groupedHospitalityScopes.length === 0 ? (
+                    <p className="text-muted mb-0">
+                      You are not mapped to any hospitality company or hotel yet.
+                      Contact your administrator to gain access.
+                    </p>
+                  ) : (
+                    groupedHospitalityScopes.map((scope) => (
+                      <div
+                        key={`hospitality-scope-${scope.companyId}`}
+                        className="border rounded p-3 mb-3"
+                      >
+                        <div className="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                          <div>
+                            <h5 className="mb-1">{scope.companyName}</h5>
+                            {scope.hasCompanyAccess && (
+                              <span className="badge bg-primary">
+                                Company-level access
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-muted small">
+                            {scope.hotels.length
+                              ? `${scope.hotels.length} hotel${
+                                  scope.hotels.length > 1 ? "s" : ""
+                                }`
+                              : "No hotel-level mapping"}
+                          </span>
+                        </div>
+                        {scope.hotels.length > 0 && (
+                          <div className="d-flex flex-wrap gap-2 mt-3">
+                            {scope.hotels.map((hotel) => (
+                              <span
+                                key={`hotel-${scope.companyId}-${hotel.id}`}
+                                className="badge bg-light text-dark border"
+                              >
+                                {hotel.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
             {/* END: details form cotainer */}
           </div>

@@ -11,7 +11,6 @@ import { getCountryCodes } from "@/services/cms";
 import { toast } from "react-toastify";
 import { faUserPlus } from "@fortawesome/free-solid-svg-icons";
 import SmartButton from "@/components/shared/SmartButton";
-import Modal from "react-bootstrap/Modal";
 import {
   getHospitalityCompanies,
   getHospitalityHotels,
@@ -19,6 +18,21 @@ import {
   mapHospitalityUsers,
   deleteUserMapping,
 } from "@/services/hospitality";
+
+const dedupeHospitalityMappings = (list = []) => {
+  const seen = new Set();
+  return list.filter((item) => {
+    const key =
+      item.mapping_type === 0
+        ? `company-${item.hospitality_company_id}-${item.user_id}`
+        : `hotel-${item.hospitality_company_id}-${item.hospitality_hotel_id}-${item.user_id}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+};
 
 
 const roleOptions = [
@@ -55,9 +69,7 @@ const ManageAccountsPage = () => {
   const [hotelsByCompany, setHotelsByCompany] = useState({});
   const [userHospitalityMappings, setUserHospitalityMappings] = useState({});
   const [isFetchingUserMappings, setIsFetchingUserMappings] = useState(false);
-  const [hospitalityModal, setHospitalityModal] = useState({
-    open: false,
-    user: null,
+  const [hospitalityForm, setHospitalityForm] = useState({
     selectedCompanyId: "",
     mappingLevel: "company",
     hotelId: "",
@@ -121,10 +133,13 @@ const ManageAccountsPage = () => {
       const list = response?.data ?? response ?? [];
       setHospitalityCompanies(list);
       if (list.length) {
-        setHospitalityModal((prev) => ({
+        const defaultCompanyId =
+          hospitalityForm.selectedCompanyId || list[0].id;
+        setHospitalityForm((prev) => ({
           ...prev,
-          selectedCompanyId: prev.selectedCompanyId || list[0].id,
+          selectedCompanyId: defaultCompanyId,
         }));
+        loadCompanyHotels(defaultCompanyId);
       }
     } catch (error) {
       setHospitalityCompanies([]);
@@ -156,7 +171,7 @@ const ManageAccountsPage = () => {
       const mappings = response?.data?.data || response?.data || [];
       setUserHospitalityMappings((prev) => ({
         ...prev,
-        [userId]: mappings,
+        [userId]: dedupeHospitalityMappings(mappings),
       }));
     } catch (error) {
       setUserHospitalityMappings((prev) => ({
@@ -199,11 +214,28 @@ const ManageAccountsPage = () => {
         })
       : "";
 
-  const handleEditAccount = (account) =>
+  const handleEditAccount = (account) => {
+    if (isHospitalityCompany) {
+      const fallbackCompanyId =
+        hospitalityForm.selectedCompanyId ||
+        hospitalityCompanies[0]?.id ||
+        "";
+      if (fallbackCompanyId) {
+        setHospitalityForm((prev) => ({
+          ...prev,
+          selectedCompanyId: fallbackCompanyId,
+          mappingLevel: "company",
+          hotelId: "",
+        }));
+        loadCompanyHotels(fallbackCompanyId);
+      }
+      fetchUserMapping(account.id);
+    }
     setUiState((prev) => ({
       ...prev,
       modals: { showEditModal: true, selectedAccount: account },
     }));
+  };
 
   const updateUserData = async (updatedAccount) => {
     setUiState((prev) => ({ ...prev, loading: true }));
@@ -224,62 +256,32 @@ const ManageAccountsPage = () => {
     }
   };
 
-  const handleOpenHospitalityModal = (account) => {
-    if (!isHospitalityCompany) return;
-    const fallbackCompanyId =
-      hospitalityModal.selectedCompanyId ||
-      hospitalityCompanies[0]?.id ||
-      "";
-    setHospitalityModal((prev) => ({
-      ...prev,
-      open: true,
-      user: account,
-      selectedCompanyId: fallbackCompanyId,
-      mappingLevel: "company",
-      hotelId: "",
-      autoMapProjects: true,
-    }));
-    if (fallbackCompanyId) {
-      loadCompanyHotels(fallbackCompanyId);
-    }
-    fetchUserMapping(account.id);
-  };
-
-  const handleCloseHospitalityModal = () => {
-    setHospitalityModal((prev) => ({
-      ...prev,
-      open: false,
-      user: null,
-      submitting: false,
-    }));
-  };
-
-  const handleHospitalityUserSubmit = async (event) => {
-    event.preventDefault();
-    if (!hospitalityModal.user || !hospitalityModal.selectedCompanyId) {
+  const handleHospitalityUserSubmit = async () => {
+    const user = uiState.modals.selectedAccount;
+    if (!user || !hospitalityForm.selectedCompanyId) {
       toast.error("Select a hospitality company");
       return;
     }
     if (
-      hospitalityModal.mappingLevel === "hotel" &&
-      !hospitalityModal.hotelId
+      hospitalityForm.mappingLevel === "hotel" &&
+      !hospitalityForm.hotelId
     ) {
       toast.error("Select a hotel for hotel-level mapping");
       return;
     }
     try {
-      setHospitalityModal((prev) => ({ ...prev, submitting: true }));
-      await mapHospitalityUsers(hospitalityModal.selectedCompanyId, {
-        mapping_type: hospitalityModal.mappingLevel === "company" ? 0 : 1,
+      setHospitalityForm((prev) => ({ ...prev, submitting: true }));
+      await mapHospitalityUsers(hospitalityForm.selectedCompanyId, {
+        mapping_type: hospitalityForm.mappingLevel === "company" ? 0 : 1,
         hotel_id:
-          hospitalityModal.mappingLevel === "hotel"
-            ? parseInt(hospitalityModal.hotelId, 10)
+          hospitalityForm.mappingLevel === "hotel"
+            ? parseInt(hospitalityForm.hotelId, 10)
             : null,
-        user_ids: [hospitalityModal.user.id],
-        auto_map_projects: hospitalityModal.autoMapProjects,
+        user_ids: [user.id],
+        auto_map_projects: hospitalityForm.autoMapProjects,
       });
       toast.success("User mapped successfully");
-      await fetchUserMapping(hospitalityModal.user.id);
+      await fetchUserMapping(user.id);
       fetchUsers();
     } catch (error) {
       toast.error(
@@ -287,21 +289,21 @@ const ManageAccountsPage = () => {
           "Failed to map user"
       );
     } finally {
-      setHospitalityModal((prev) => ({ ...prev, submitting: false }));
+      setHospitalityForm((prev) => ({ ...prev, submitting: false }));
     }
   };
 
-  const handleRemoveUserHospitalityMapping = async (mapping) => {
-    if (!hospitalityModal.user) return;
+  const handleRemoveUserHospitalityMapping = async (userId, mapping) => {
+    if (!userId) return;
     try {
-      await deleteUserMapping(hospitalityModal.user.id, {
+      await deleteUserMapping(userId, {
         company_id: mapping.hospitality_company_id,
         mapping_type: mapping.mapping_type,
         hotel_id:
           mapping.mapping_type === 1 ? mapping.hospitality_hotel_id : null,
       });
       toast.success("Mapping removed");
-      await fetchUserMapping(hospitalityModal.user.id);
+      await fetchUserMapping(userId);
       fetchUsers();
     } catch (error) {
       toast.error(
@@ -313,7 +315,9 @@ const ManageAccountsPage = () => {
 
   const renderUserHospitalitySummary = (userId) => {
     if (!isHospitalityCompany) return "—";
-    const mappings = userHospitalityMappings[userId] || [];
+    const mappings = dedupeHospitalityMappings(
+      userHospitalityMappings[userId] || []
+    );
     if (isFetchingUserMappings && !mappings.length) {
       return <span className="text-muted">Loading…</span>;
     }
@@ -324,7 +328,7 @@ const ManageAccountsPage = () => {
       <div className="d-flex flex-column gap-1">
         {mappings.map((mapping) => (
           <span
-            key={`${userId}-${mapping.id}`}
+            key={`${userId}-${mapping.mapping_type}-${mapping.hospitality_hotel_id || "company"}`}
             className={`badge ${
               mapping.mapping_type === 0 ? "bg-primary" : "bg-success"
             }`}
@@ -375,14 +379,49 @@ const ManageAccountsPage = () => {
     }
   }, [isHospitalityCompany, data.accounts]);
 
-  const modalUserMappings =
-    (hospitalityModal.user &&
-      userHospitalityMappings[hospitalityModal.user.id]) ||
-    [];
-  const modalHotels =
-    (hospitalityModal.selectedCompanyId &&
-      hotelsByCompany[hospitalityModal.selectedCompanyId]) ||
-    [];
+  const selectedAccount = uiState.modals.selectedAccount;
+  const selectedAccountId = selectedAccount?.id;
+  const selectedCompanyHotels = hospitalityForm.selectedCompanyId
+    ? hotelsByCompany[hospitalityForm.selectedCompanyId] || []
+    : [];
+
+  const hospitalityModalProps =
+    isHospitalityCompany && selectedAccount
+      ? {
+          mappings: dedupeHospitalityMappings(
+            userHospitalityMappings[selectedAccountId] || []
+          ),
+          companies: hospitalityCompanies,
+          hotels: selectedCompanyHotels,
+          formState: hospitalityForm,
+          onCompanyChange: (value) => {
+            setHospitalityForm((prev) => ({
+              ...prev,
+              selectedCompanyId: value,
+              hotelId: "",
+            }));
+            if (value) {
+              loadCompanyHotels(value);
+            }
+          },
+          onMappingLevelChange: (value) =>
+            setHospitalityForm((prev) => ({
+              ...prev,
+              mappingLevel: value,
+              hotelId: value === "company" ? "" : prev.hotelId,
+            })),
+          onHotelChange: (value) =>
+            setHospitalityForm((prev) => ({ ...prev, hotelId: value })),
+          onToggleAutoMap: (checked) =>
+            setHospitalityForm((prev) => ({
+              ...prev,
+              autoMapProjects: checked,
+            })),
+          onSubmit: handleHospitalityUserSubmit,
+          onRemoveMapping: (mapping) =>
+            handleRemoveUserHospitalityMapping(selectedAccountId, mapping),
+        }
+      : null;
 
   return (
     <>
@@ -498,15 +537,6 @@ const ManageAccountsPage = () => {
                                     }}
                                     id={`edit_account_${account.id}-account_actions-manage_accounts_page`}
                                   />
-                                  {isHospitalityCompany && (
-                                    <SmartButton
-                                      label="Hospitality"
-                                      theme="secondary"
-                                      className="p-2 ms-2"
-                                      onClick={() => handleOpenHospitalityModal(account)}
-                                      id={`manage_hospitality_${account.id}-account_actions-manage_accounts_page`}
-                                    />
-                                  )}
                                 </td>
                               </tr>
                             );
@@ -554,193 +584,8 @@ const ManageAccountsPage = () => {
           handleEditAccount={updateUserData}
           countryCodes={data.countryCodes}
           roleOptions={roleOptions}
+          hospitalityProps={hospitalityModalProps}
         />
-      )}
-
-      {isHospitalityCompany && (
-        <Modal
-          centered
-          size="lg"
-          show={hospitalityModal.open}
-          onHide={handleCloseHospitalityModal}
-        >
-          <Modal.Header closeButton>
-            <Modal.Title>
-              Manage Hospitality Access{" "}
-              {hospitalityModal.user && `- ${hospitalityModal.user.name}`}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {hospitalityModal.user ? (
-              <>
-                {modalUserMappings.length === 0 ? (
-                  <p className="text-muted">
-                    This user is not mapped to any hospitality scope yet.
-                  </p>
-                ) : (
-                  <div className="table-responsive mb-4">
-                    <table className="table table-striped align-middle">
-                      <thead>
-                        <tr>
-                          <th>Scope</th>
-                          <th>Company / Hotel</th>
-                          <th>Auto Map Projects</th>
-                          <th className="text-end">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {modalUserMappings.map((mapping) => (
-                          <tr key={`user-mapping-${mapping.id}`}>
-                            <td>
-                              <span
-                                className={`badge ${
-                                  mapping.mapping_type === 0
-                                    ? "bg-primary"
-                                    : "bg-success"
-                                }`}
-                              >
-                                {mapping.mapping_type === 0
-                                  ? "Company"
-                                  : "Hotel"}
-                              </span>
-                            </td>
-                            <td>
-                              {mapping.mapping_type === 0
-                                ? mapping.company_name || "N/A"
-                                : mapping.hotel_name || "N/A"}
-                            </td>
-                            <td>
-                              <span
-                                className={`badge ${
-                                  mapping.auto_map_projects
-                                    ? "bg-success-subtle text-success"
-                                    : "bg-light text-muted"
-                                }`}
-                              >
-                                {mapping.auto_map_projects ? "Yes" : "No"}
-                              </span>
-                            </td>
-                            <td className="text-end">
-                              <SmartButton
-                                label="Remove"
-                                theme="red"
-                                className="px-3 py-1"
-                                onClick={() =>
-                                  handleRemoveUserHospitalityMapping(mapping)
-                                }
-                                id={`remove_user_mapping_${mapping.id}-hospitality_actions-manage_accounts_page`}
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                <form onSubmit={handleHospitalityUserSubmit} className="row g-3">
-                  <div className="col-md-4">
-                    <label className="form-label">Hospitality Company</label>
-                    <select
-                      className="form-select"
-                      value={hospitalityModal.selectedCompanyId}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setHospitalityModal((prev) => ({
-                          ...prev,
-                          selectedCompanyId: value,
-                          hotelId: "",
-                        }));
-                        loadCompanyHotels(value);
-                      }}
-                    >
-                      {hospitalityCompanies.map((company) => (
-                        <option key={company.id} value={company.id}>
-                          {company.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-md-4">
-                    <label className="form-label">Mapping Level</label>
-                    <select
-                      className="form-select"
-                      value={hospitalityModal.mappingLevel}
-                      onChange={(e) =>
-                        setHospitalityModal((prev) => ({
-                          ...prev,
-                          mappingLevel: e.target.value,
-                          hotelId:
-                            e.target.value === "company" ? "" : prev.hotelId,
-                        }))
-                      }
-                    >
-                      <option value="company">Company</option>
-                      <option value="hotel">Specific Hotel</option>
-                    </select>
-                  </div>
-                  {hospitalityModal.mappingLevel === "hotel" && (
-                    <div className="col-md-4">
-                      <label className="form-label">Hotel</label>
-                      <select
-                        className="form-select"
-                        value={hospitalityModal.hotelId}
-                        onChange={(e) =>
-                          setHospitalityModal((prev) => ({
-                            ...prev,
-                            hotelId: e.target.value,
-                          }))
-                        }
-                      >
-                        <option value="">Select Hotel</option>
-                        {modalHotels.map((hotel) => (
-                          <option key={hotel.id} value={hotel.id}>
-                            {hotel.name}
-                          </option>
-                        ))}
-                        {modalHotels.length === 0 && (
-                          <option value="" disabled>
-                            No hotels for this company
-                          </option>
-                        )}
-                      </select>
-                    </div>
-                  )}
-                  <div className="col-md-8">
-                    <div className="form-check form-switch mt-4">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id="autoMapProjects"
-                        checked={hospitalityModal.autoMapProjects}
-                        onChange={(e) =>
-                          setHospitalityModal((prev) => ({
-                            ...prev,
-                            autoMapProjects: e.target.checked,
-                          }))
-                        }
-                      />
-                      <label className="form-check-label" htmlFor="autoMapProjects">
-                        Auto add to active mapped projects
-                      </label>
-                    </div>
-                  </div>
-                  <div className="col-md-4 d-flex align-items-end">
-                    <button
-                      type="submit"
-                      className="btn btn-primary w-100"
-                      disabled={hospitalityModal.submitting}
-                    >
-                      {hospitalityModal.submitting ? "Mapping..." : "Map User"}
-                    </button>
-                  </div>
-                </form>
-              </>
-            ) : (
-              <p className="text-muted mb-0">Select a user to manage hospitality access.</p>
-            )}
-          </Modal.Body>
-        </Modal>
       )}
     </>
   );

@@ -209,12 +209,24 @@ const HospitalityManager = () => {
         projectMappingForm.hotelId
           ? parseInt(projectMappingForm.hotelId, 10)
           : null;
-      const response = await getMappedProjectIds(
+      const primaryResponse = await getMappedProjectIds(
         selectedCompanyId,
         mappingType,
         hotelId
       );
-      const ids = response?.data?.data || response?.data || [];
+      let ids = primaryResponse?.data?.data || primaryResponse?.data || [];
+
+      if (mappingType === 1) {
+        const companyResponse = await getMappedProjectIds(
+          selectedCompanyId,
+          0,
+          null
+        );
+        const companyIds =
+          companyResponse?.data?.data || companyResponse?.data || [];
+        ids = [...new Set([...ids, ...companyIds])];
+      }
+
       setMappedProjectIds(ids);
     } catch (error) {
       console.error(error);
@@ -374,10 +386,22 @@ const HospitalityManager = () => {
         label: project.name,
         isDisabled: true,
       }));
-    setProjectMappingForm((prev) => ({
-      ...prev,
-      projects: mappedSelections,
-    }));
+    setProjectMappingForm((prev) => {
+      const manualSelections =
+        prev.projects?.filter(
+          (project) => !mappedProjectIds.includes(project.value)
+        ) || [];
+      return {
+        ...prev,
+        projects: [
+          ...manualSelections,
+          ...mappedSelections.filter(
+            (mapped) =>
+              !manualSelections.some((item) => item.value === mapped.value)
+          ),
+        ],
+      };
+    });
   }, [mappedProjectIds, projects]);
 
   const handleCompanySubmit = async (event) => {

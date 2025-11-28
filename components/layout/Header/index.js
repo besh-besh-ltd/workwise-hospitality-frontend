@@ -11,6 +11,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import DropdownMenu from "@/components/shared/DropdownMenu";
+import HospitalityContextModal from "@/components/hospitality/HospitalityContextModal";
+import {
+  getStoredHospitalityContext,
+  setStoredHospitalityContext,
+  subscribeHospitalityContext,
+} from "@/utils/hospitalityContext";
+import { getMyHospitalityContexts } from "@/services/hospitality";
 
 const initialMainNavs = [
   "/",
@@ -362,6 +369,12 @@ const Header = () => {
   const [loading, setloading] = useState(false);
   const [mainNavs, setMainNavs] = useState(initialMainNavs);
   const [isHospitalityCompany, setIsHospitalityCompany] = useState(false);
+  const [hospitalityContexts, setHospitalityContexts] = useState([]);
+  const [contextModalOpen, setContextModalOpen] = useState(false);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [hospitalityContext, setHospitalityContextState] = useState(
+    getStoredHospitalityContext()
+  );
 
   const togglePopover = () => {
     setPopoverVisible(!popoverVisible);
@@ -417,10 +430,40 @@ const Header = () => {
     e.preventDefault();
     storageInstance.removeStorege("token");
     storageInstance.removeStorege("current-user-type");
+    setStoredHospitalityContext(null);
     setPopoverVisible(false);
     setLoggedinUser(null);
     setMainNavs(initialMainNavs);
     router.push("/");
+  };
+
+  const loadHospitalityContextData = async () => {
+    setContextLoading(true);
+    try {
+      const response = await getMyHospitalityContexts();
+      const list = response?.data?.data || response?.data || [];
+      setHospitalityContexts(list);
+    } catch (error) {
+      setHospitalityContexts([]);
+    } finally {
+      setContextLoading(false);
+    }
+  };
+
+  const handleOpenContextModal = () => {
+    if (!hospitalityContexts.length) {
+      loadHospitalityContextData();
+    }
+    setContextModalOpen(true);
+  };
+
+  const handleContextSelect = (selection) => {
+    setStoredHospitalityContext(selection);
+    setHospitalityContextState(selection);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("hospitalityScopeSelected", "1");
+    }
+    setContextModalOpen(false);
   };
 
   useEffect(() => {
@@ -492,14 +535,20 @@ const Header = () => {
         const hospitalityEnabled =
           profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
         setIsHospitalityCompany(!!hospitalityEnabled);
+        if (!hospitalityEnabled) {
+          setHospitalityContexts([]);
+          setStoredHospitalityContext(null);
+        }
       } catch (error) {
         if (isMounted) {
           setIsHospitalityCompany(false);
+          setHospitalityContexts([]);
+          setStoredHospitalityContext(null);
         }
       }
     };
 
-    if (loggedinUser && currentUserType === "admin") {
+    if (loggedinUser) {
       fetchHospitalityFlag();
     } else {
       setIsHospitalityCompany(false);
@@ -509,6 +558,51 @@ const Header = () => {
       isMounted = false;
     };
   }, [loggedinUser, currentUserType]);
+
+  useEffect(() => {
+    if (!isHospitalityCompany) {
+      return;
+    }
+    loadHospitalityContextData();
+  }, [isHospitalityCompany]);
+
+  useEffect(() => {
+    if (!hospitalityContexts.length) {
+      return;
+    }
+    if (!hospitalityContext) {
+      const hasOpened =
+        typeof window !== "undefined" &&
+        window.sessionStorage.getItem("hospitalityScopeSelected") === "1";
+      if (!hasOpened) {
+        setContextModalOpen(true);
+      }
+      return;
+    }
+    const stillValid = hospitalityContexts.some((ctx) => {
+      if (ctx.hospitality_company_id !== hospitalityContext.companyId) {
+        return false;
+      }
+      if (!hospitalityContext.hotelId) {
+        return ctx.mapping_type === 0;
+      }
+      return (
+        ctx.mapping_type === 1 &&
+        ctx.hospitality_hotel_id === hospitalityContext.hotelId
+      );
+    });
+    if (!stillValid) {
+      setStoredHospitalityContext(null);
+      setHospitalityContextState(null);
+    }
+  }, [hospitalityContexts, hospitalityContext]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeHospitalityContext((context) => {
+      setHospitalityContextState(context);
+    });
+    return () => unsubscribe && unsubscribe();
+  }, []);
 
   const currentRoleMenu = useMemo(() => {
     const baseMenu = roleMenus[currentUserType] || [];
@@ -796,6 +890,24 @@ const Header = () => {
                                     <Link href={item.href}>{item.label}</Link>
                                   </li>
                                 ))}
+                              {isHospitalityCompany && (
+                                <li className="ms-3">
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-light btn-sm"
+                                    onClick={handleOpenContextModal}
+                                  >
+                                    {hospitalityContext
+                                      ? `${hospitalityContext.companyName}${
+                                          hospitalityContext.hotelId
+                                            ? " / " +
+                                              hospitalityContext.hotelName
+                                            : ""
+                                        }`
+                                      : "Select Hospitality Scope"}
+                                  </button>
+                                </li>
+                              )}
                             </ul>
                           </nav>
                         </div>
@@ -806,7 +918,24 @@ const Header = () => {
 
                 <div className="header-right align-items-center forLoggedIn hidemobile">
                   <nav className="main-menu">
-                    <ul>
+                    <ul className="d-flex align-items-center">
+                      {isHospitalityCompany && (
+                        <li className="me-3">
+                          <button
+                            type="button"
+                            className="btn btn-outline-light btn-sm"
+                            onClick={handleOpenContextModal}
+                          >
+                            {hospitalityContext
+                              ? `${hospitalityContext.companyName}${
+                                  hospitalityContext.hotelId
+                                    ? " / " + hospitalityContext.hotelName
+                                    : ""
+                                }`
+                              : "Select Hospitality Scope"}
+                          </button>
+                        </li>
+                      )}
                       <li className="">
                         <Link href="" onClick={handleUserIconClick} id="user_icon-user_menu-header">
                           <FontAwesomeIcon icon={faUser} style={{ fontSize: 'calc(1em + 5px)' }} />
@@ -818,6 +947,26 @@ const Header = () => {
                   {popoverVisible && (
                     <div className="popover-account" ref={popoverRef}>
                       <ul className="vertical-links">
+                        {isHospitalityCompany && (
+                          <li className="mb-2">
+                            <button
+                              type="button"
+                              className="btn btn-outline-primary w-100"
+                              onClick={() => {
+                                setPopoverVisible(false);
+                                handleOpenContextModal();
+                              }}
+                            >
+                              {hospitalityContext
+                                ? `${hospitalityContext.companyName}${
+                                    hospitalityContext.hotelId
+                                      ? " / " + hospitalityContext.hotelName
+                                      : ""
+                                  }`
+                                : "Select Hospitality Scope"}
+                            </button>
+                          </li>
+                        )}
                         {currentRoleMenu
                           ?.filter((menuType) => menuType.targetMenu == "popup")
                           ?.map((item) => (
@@ -1014,6 +1163,14 @@ const Header = () => {
         setActiveAuthTab={setActiveAuthTab}
         loading={loading}
         setloading={setloading}
+      />
+      <HospitalityContextModal
+        isOpen={contextModalOpen}
+        onClose={() => setContextModalOpen(false)}
+        contexts={hospitalityContexts}
+        initialSelection={hospitalityContext}
+        onSelect={handleContextSelect}
+        loading={contextLoading}
       />
     </>
   );

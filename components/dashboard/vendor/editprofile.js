@@ -33,6 +33,7 @@ import { faSave, faTrashAlt, faTrashCan } from "@fortawesome/free-regular-svg-ic
 import Select from "react-select";
 import SmartButton from "@/components/shared/SmartButton";
 import { FaSave } from "react-icons/fa";
+import HospitalityContextBadge from "@/components/shared/HospitalityContextBadge";
 
 
 const EditProfile = () => {
@@ -773,6 +774,7 @@ const fetchProfileDocuments = async () => {
               </div>
             )}
           </div>
+          <HospitalityContextBadge className="mt-3 mb-0" />
         </div>
       </section>
       <section className="vendor-edit-sec-1">

@@ -191,4 +191,14 @@ export const deleteUserMapping = (userId, payload) =>
     }
   });
 
+export const getMyHospitalityContexts = () =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/hospitality/my-contexts`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 

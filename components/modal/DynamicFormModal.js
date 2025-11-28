@@ -55,7 +55,8 @@ const DynamicFormModal = ({
     handleAddTeamMember,
     countryCodes,
     roleOptions,
-    projectOptions
+    projectOptions,
+    hospitalityProps
 }) => {
 
     const initialVendorValues = {
@@ -523,6 +524,8 @@ Example:
                       const showRightColumn = type === "edit-account" ? !(values.role?.value === 7) : true;
                       const leftColumnClass = type === "edit-account" && !showRightColumn ? "col-12" : "col-md-6";
                       const rightColumnClass = showRightColumn ? "col-md-6" : "d-none";
+                      const showHospitalitySection = type === "edit-account" && Boolean(hospitalityProps);
+                      const hospitalityFormState = hospitalityProps?.formState || {};
                       
                       return (
                         <Form className="row add-vendor-modal-form">
@@ -1000,6 +1003,189 @@ Example:
                                     required={true}
                                   />
                                 )}
+                                {showHospitalitySection && (
+                                  <div className="mt-4">
+                                    <div className="card border-0 shadow-sm">
+                                      <div className="card-body">
+                                        <div className="d-flex justify-content-between align-items-center mb-3">
+                                          <h5 className="mb-0">Hospitality Access</h5>
+                                          <span className="text-muted small">
+                                            Manage company/hotel scope for this user
+                                          </span>
+                                        </div>
+                                        {(hospitalityProps.mappings || []).length === 0 ? (
+                                          <p className="text-muted mb-3">
+                                            This user is not mapped to any hospitality scope yet.
+                                          </p>
+                                        ) : (
+                                          <div className="table-responsive mb-3">
+                                            <table className="table table-striped align-middle">
+                                              <thead>
+                                                <tr>
+                                                  <th>Scope</th>
+                                                  <th>Company / Hotel</th>
+                                                  <th>Auto Map Projects</th>
+                                                  <th className="text-end">Action</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {hospitalityProps.mappings.map((mapping) => (
+                                                  <tr key={`user-mapping-${mapping.id}`}>
+                                                    <td>
+                                                      <span
+                                                        className={`badge ${
+                                                          mapping.mapping_type === 0
+                                                            ? "bg-primary"
+                                                            : "bg-success"
+                                                        }`}
+                                                      >
+                                                        {mapping.mapping_type === 0
+                                                          ? "Company"
+                                                          : "Hotel"}
+                                                      </span>
+                                                    </td>
+                                                    <td>
+                                                      {mapping.mapping_type === 0
+                                                        ? mapping.company_name || "N/A"
+                                                        : mapping.hotel_name || "N/A"}
+                                                    </td>
+                                                    <td>
+                                                      <span
+                                                        className={`badge ${
+                                                          mapping.auto_map_projects
+                                                            ? "bg-success-subtle text-success"
+                                                            : "bg-light text-muted"
+                                                        }`}
+                                                      >
+                                                        {mapping.auto_map_projects ? "Yes" : "No"}
+                                                      </span>
+                                                    </td>
+                                                    <td className="text-end">
+                                                      <button
+                                                        type="button"
+                                                        className="btn btn-outline-danger btn-sm"
+                                                        onClick={() =>
+                                                          hospitalityProps.onRemoveMapping(mapping)
+                                                        }
+                                                      >
+                                                        Remove
+                                                      </button>
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        )}
+
+                                        {hospitalityProps.companies?.length ? (
+                                          <div className="row g-3">
+                                            <div className="col-12">
+                                              <label className="form-label">
+                                                Hospitality Company
+                                              </label>
+                                              <select
+                                                className="form-select"
+                                                value={hospitalityFormState.selectedCompanyId}
+                                                onChange={(e) =>
+                                                  hospitalityProps.onCompanyChange(e.target.value)
+                                                }
+                                              >
+                                                <option value="" disabled>
+                                                  Select Company
+                                                </option>
+                                                {hospitalityProps.companies.map((company) => (
+                                                  <option key={company.id} value={company.id}>
+                                                    {company.name}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                            <div className="col-12">
+                                              <label className="form-label">Mapping Level</label>
+                                              <select
+                                                className="form-select"
+                                                value={hospitalityFormState.mappingLevel}
+                                                onChange={(e) =>
+                                                  hospitalityProps.onMappingLevelChange(
+                                                    e.target.value
+                                                  )
+                                                }
+                                              >
+                                                <option value="company">Company</option>
+                                                <option value="hotel">Specific Hotel</option>
+                                              </select>
+                                            </div>
+                                            {hospitalityFormState.mappingLevel === "hotel" && (
+                                              <div className="col-12">
+                                                <label className="form-label">Hotel</label>
+                                                <select
+                                                  className="form-select"
+                                                  value={hospitalityFormState.hotelId}
+                                                  onChange={(e) =>
+                                                    hospitalityProps.onHotelChange(e.target.value)
+                                                  }
+                                                >
+                                                  <option value="">Select Hotel</option>
+                                                  {hospitalityProps.hotels?.map((hotel) => (
+                                                    <option key={hotel.id} value={hotel.id}>
+                                                      {hotel.name}
+                                                    </option>
+                                                  ))}
+                                                  {(!hospitalityProps.hotels ||
+                                                    hospitalityProps.hotels.length === 0) && (
+                                                    <option value="" disabled>
+                                                      No hotels for this company
+                                                    </option>
+                                                  )}
+                                                </select>
+                                              </div>
+                                            )}
+                                            <div className="col-12">
+                                              <div className="form-check form-switch">
+                                                <input
+                                                  className="form-check-input"
+                                                  type="checkbox"
+                                                  id="autoMapProjectsSwitch"
+                                                  checked={Boolean(
+                                                    hospitalityFormState.autoMapProjects
+                                                  )}
+                                                  onChange={(e) =>
+                                                    hospitalityProps.onToggleAutoMap(
+                                                      e.target.checked
+                                                    )
+                                                  }
+                                                />
+                                                <label
+                                                  className="form-check-label"
+                                                  htmlFor="autoMapProjectsSwitch"
+                                                >
+                                                  Auto add to active mapped projects
+                                                </label>
+                                              </div>
+                                            </div>
+                                            <div className="col-12">
+                                              <button
+                                                type="button"
+                                                className="btn btn-primary w-100"
+                                                disabled={hospitalityFormState.submitting}
+                                                onClick={hospitalityProps.onSubmit}
+                                              >
+                                                {hospitalityFormState.submitting
+                                                  ? "Mapping..."
+                                                  : "Map User"}
+                                              </button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <p className="text-muted mb-0">
+                                            Create a hospitality company to start mapping users.
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </>
                             ) : type === "add-team-member" ? (
                               // Empty right column for team member modal
@@ -1080,7 +1266,6 @@ Example:
                               </>
                             )}
                           </div>
-
                           <div className="d-flex justify-content-end">
                             <button
                               disabled={!isValid}
