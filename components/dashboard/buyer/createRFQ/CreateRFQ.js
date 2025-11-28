@@ -869,6 +869,12 @@ useEffect(() => {
         // If this is a new draft and we got an ID back, update it locally
         dispatch(setOtherFormFields({ rfq_id: res.message.rfq_id }));
       }
+
+      // 🔥 Reload the page after a short delay so the toast is visible
+    setTimeout(() => {
+      window.location.reload();
+    }, 800);
+
     } catch (error) {
       setMainLoading(false);
       
@@ -883,6 +889,9 @@ useEffect(() => {
         toast.error(errorMessage);
       }
     }
+
+
+
   };
 
 //   useEffect(()=>{
@@ -1900,6 +1909,46 @@ useEffect(() => {
     if (selectedSheet) setSelectedSheetsForRFQ([selectedSheet.value]);
   }, [selectedSheet]);
 
+  // Generic helpers: get a spec field value (checks updatableData first, then product.spec(s), then direct prop)
+  const getSpecFieldValue = (product, fieldName) => {
+    // 1) updatableData (Item writes here)
+    const specsUp = updatableData?.products?.updatable?.specs?.[product.id];
+    if (specsUp) {
+      // try several key variants
+      const candidates = [fieldName, fieldName.toLowerCase(), fieldName.charAt(0).toUpperCase() + fieldName.slice(1)];
+      for (const k of candidates) {
+        if (Object.prototype.hasOwnProperty.call(specsUp, k)) return specsUp[k];
+      }
+      // also try any key that case-insensitively matches
+      for (const k of Object.keys(specsUp)) {
+        if (k.toLowerCase() === fieldName.toLowerCase()) return specsUp[k];
+      }
+    }
+
+    // 2) product.spec or product.specs array of { title|label, value }
+    const pSpecs = product?.spec || product?.specs;
+    if (Array.isArray(pSpecs)) {
+      const found = pSpecs.find((s) => ((s.title || s.label || "").toLowerCase() === fieldName.toLowerCase()));
+      if (found) return found.value ?? found.val ?? "";
+    }
+
+    // 3) direct property on product (e.g., product.quantity or product.unit)
+    const directKey = fieldName.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(product, directKey)) return product[directKey];
+
+    return undefined;
+  };
+
+  const isSpecFieldEmpty = (product, fieldName) => {
+    const v = getSpecFieldValue(product, fieldName);
+    return v === undefined || v === null || v === "";
+  };
+
+  // list any spec keys you want validated on Save Changes
+  const specFieldsToValidate = ["quantity", "unit"]; 
+  // highlight when Save Changes clicked and any product has any specified empty field
+  const hasEmptySpecFields = rfqProducts.some((p) => specFieldsToValidate.some((f) => isSpecFieldEmpty(p, f)));
+
   return (
     <>
       {(mainLoading || storeLoading) && <Loader />}
@@ -1984,7 +2033,7 @@ useEffect(() => {
                     style={{
                       height: "fit-content",
                       background: "#ffffa",
-                      border: "2px solid #CCCCCC",
+                      border: hasEmptySpecFields ? "2px solid #dc3545" : "2px solid #CCCCCC",
                       borderRadius: "10px",
                       padding: "10px",
                     }}

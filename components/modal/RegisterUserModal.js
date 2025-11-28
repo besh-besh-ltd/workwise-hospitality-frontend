@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { Modal } from "react-bootstrap";
 import Register from "../register";
+import { useRouter } from "next/router";
 
 export default function RegisterUserModal({ 
   showModal, 
@@ -9,8 +10,12 @@ export default function RegisterUserModal({
   showButton = true,
   onRegistrationSuccess,
   onClose,
-  isPaidSubscription = false
+  isPaidSubscription = false,
+  subscription_plan = 0
 }) {
+
+  const router = useRouter();
+  const source = router?.query?.source;
  
   // Use internal state if props not provided (for backwards compatibility)
   const [internalShowModal, setInternalShowModal] = useState(false);
@@ -60,6 +65,8 @@ export default function RegisterUserModal({
             registerAs={"vendor"} 
             onRegistrationSuccess={onRegistrationSuccess}
             isPaidSubscription={isPaidSubscription}
+            source={source}
+            subscription_plan={subscription_plan}
           />
         </Modal.Body>
       </Modal>

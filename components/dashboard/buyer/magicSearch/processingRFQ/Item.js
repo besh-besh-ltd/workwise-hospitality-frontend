@@ -6,10 +6,10 @@ import { Badge, Button, OverlayTrigger, Tooltip } from "react-bootstrap";
 const statusBadge = {
   processing: { variant: "info", label: "Processing", borderColor: "#17a2b8" },
   completed: { variant: "success", label: "Completed", borderColor: "#28a745" },
-  failed: { variant: "danger", label: "Failed", borderColor: "#dc3545" },
+  failed: { variant: "danger", label: "File Error", borderColor: "#dc3545" },
   partially_completed: {
     variant: "warning",
-    label: "Partially Completed",
+    label: "Processed",
     borderColor: "#ffc107",
   },
   terminated: {
@@ -112,7 +112,7 @@ const DraftRFQItem = ({ data, index, onViewErrors, handleCreateRFQ }) => {
     : "—";
 
   const errorTooltip = (
-    <Tooltip id={`tooltip-${data.id}`}>View Errors</Tooltip>
+    <Tooltip id={`tooltip-${data.id}`}>View Items</Tooltip>
   );
 
   return (
@@ -149,9 +149,11 @@ const DraftRFQItem = ({ data, index, onViewErrors, handleCreateRFQ }) => {
             <span style={{ cursor: data.errors ? "pointer" : "default" }}>
               {data.errors && typeof data.errors == "object"
                 ? data.errors?.actual && Array.isArray(data.errors.actual) && data.errors.actual.length > 0
-                  ? `Contain ${data.errors?.actual?.length || 1} Error${
-                      (data.errors?.actual?.length || 1) > 1 ? "s" : ""
-                    }`
+                  ? 
+                  // `Contain ${data.errors?.actual?.length || 1} Error${
+                  //     (data.errors?.actual?.length || 1) > 1 ? "s" : ""
+                  //   }`
+                    "Item List"
                   : "—"
                 : "—"}
             </span>

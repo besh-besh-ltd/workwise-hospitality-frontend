@@ -125,6 +125,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [suggestionLoading, setSuggestionLoading] = useState(false); // For suggestion fetch
   const [suggestions, setSuggestions] = useState([]); // Product name suggestions
     const [showBrowser, setShowBrowser] = useState(true);
+    const [vendorFirstSearch, setVendorFirstSearch] = useState(false);
 
   const [queryMeta, setQueryMeta] = useState({
     rfq_id: null,
@@ -512,6 +513,11 @@ const addRfqIdParam = (rfq_id) => {
       setloading(true);
       const requestId = ++vendorRequestIdRef.current;
 
+      if(!vendorFirstSearch){
+        setVendorFirstSearch(true)
+      }
+
+
       try {
         const response = await bulkSearchVendorsByCategory({
           category_id: effectiveCatId,
@@ -611,46 +617,50 @@ const addRfqIdParam = (rfq_id) => {
     if (canonicalSearchKey !== "" || effectiveCatId) {
       setloading(true);
 
+      if(!vendorFirstSearch){
+        setVendorFirstSearch(true)
+      }
+
       const stateFilter = selectedState?.length > 0 ? selectedState : [];
       const cityFilter = selectedCity?.length > 0 ? selectedCity : [];
       const countryFilter = selectedCountry?.length > 0 ? selectedCountry : [];
       const requestId = ++vendorRequestIdRef.current;
 
-      searchProductsV2(
-        {
-          cat_id: effectiveCatId,
-          search_key: canonicalSearchKey,
-          approved_by: [],
-          state: [],
-          city: [],
-          country: [],
-          turnOver: { from: -1, to: -1 },
-          vendorType: [],
-          prevWorkedWith: null,
-          vendor_name: "",
-          myVendorType: null,
-          selectedMakes: []
-        },
-        "vendors"
-      )
-        .then((allRsp) => {
-          const cityMap = new Map();
-          allRsp.data.forEach(vendor => {
-            if (vendor.city_name && vendor.state_name) {
-              const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
-              if (!cityMap.has(key)) {
-                cityMap.set(key, {
-                  city_name: vendor.city_name,
-                  state_name: vendor.state_name,
-                  city_id: vendor.city_id,
-                  state_id: vendor.state_id
-                });
-              }
-            }
-          });
-          setAllAvailableCities(Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name)));
-        })
-        .catch((error) => console.error("Error fetching cities:", error));
+      // searchProductsV2(
+      //   {
+      //     cat_id: effectiveCatId,
+      //     search_key: canonicalSearchKey,
+      //     approved_by: [],
+      //     state: [],
+      //     city: [],
+      //     country: [],
+      //     turnOver: { from: -1, to: -1 },
+      //     vendorType: [],
+      //     prevWorkedWith: null,
+      //     vendor_name: "",
+      //     myVendorType: null,
+      //     selectedMakes: []
+      //   },
+      //   "vendors"
+      // )
+      //   .then((allRsp) => {
+      //     const cityMap = new Map();
+      //     allRsp.data.forEach(vendor => {
+      //       if (vendor.city_name && vendor.state_name) {
+      //         const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
+      //         if (!cityMap.has(key)) {
+      //           cityMap.set(key, {
+      //             city_name: vendor.city_name,
+      //             state_name: vendor.state_name,
+      //             city_id: vendor.city_id,
+      //             state_id: vendor.state_id
+      //           });
+      //         }
+      //       }
+      //     });
+      //     setAllAvailableCities(Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name)));
+      //   })
+      //   .catch((error) => console.error("Error fetching cities:", error));
       
       searchProductsV2(
         {
@@ -682,6 +692,7 @@ const addRfqIdParam = (rfq_id) => {
         })
         .catch((error) => {
           if (requestId !== vendorRequestIdRef.current) return;
+          setVendors([]);
           setloading(false);
           setVendorMetaData(error?.response?.data);
         });
@@ -1031,9 +1042,9 @@ const productsLoadedRef = useRef(false);
 useEffect(() => {
   if (
     search_key &&
-    slugStr &&
-    slugStr !== 'all' &&
-    !slugStr.includes('-category') &&
+    // slugStr &&
+    // slugStr !== 'all' &&
+    // !slugStr.includes('-category') &&
     !currentSelectedProduct &&
     !productsLoadedRef.current
   ) {
@@ -1045,6 +1056,8 @@ useEffect(() => {
     });
   }
 }, [search_key, slugStr, currentSelectedProduct]);
+
+
 useEffect(() => {
   if (slugStr === 'all') {
     productsLoadedRef.current = false;
@@ -1070,7 +1083,10 @@ useEffect(() => {
   // Prevent loops
   if (router.asPath.includes(newSlug)) return;
 
+if (slugStr !== newSlug) {
   router.replace(`/vendor/${newSlug}`, undefined, { shallow: true });
+}
+
 }, [selectedCity, selectedState]);
 
 
@@ -1266,10 +1282,10 @@ useEffect(() => {
   }, [currentSelectedProduct]);
 
   useEffect(() => {
-    if (!currentSelectedProduct && search_key) {
+    if ( search_key) {
       setInputValue(search_key);
     }
-  }, [search_key, currentSelectedProduct]);
+  }, [search_key]);
 
   return (
     <>
@@ -1589,9 +1605,10 @@ useEffect(() => {
           )}
 
           {/* vendor List Section */}
+         {vendorFirstSearch && (
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {/* START : Filter side bar */}
-            {vendors && vendors.length > 0 && (
+
               <div className="col-md-3">
                 <aside>
                   <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">
@@ -1987,14 +2004,27 @@ useEffect(() => {
                   )}
                   {/* END: Vendor Approved By */}
                 </aside>
-              </div>
-            )}
+            </div>  
             {/* END: Filter side bar */}
+
+        {loading && <p className=" col-md-9 text-center ">  <FullLoader /> </p>}
+
+                {!loading && vendors.length == 0 && (
+                    <div className=" col-md-9">
+                      <h2 className="fs-5 text-center">
+                        <b>Vendors Not Found</b>
+                      </h2>
+                    </div>
+                  )
+                }
+
+
 
             {/* START:  vendor list*/}
             <div className={vendors && vendors.length > 0 ? `col-md-9` : `col-md-12`}>
+            
               <div className="row">
-                {vendors && vendors.length > 0 && (
+                { !loading && vendors && vendors.length > 0 && (
                   <div className="col-md-12">
                     <h2 className="fs-5">
                       Available Vendors for{" "}
@@ -2136,7 +2166,8 @@ useEffect(() => {
                     </div>
                   </div>
                 )}
-                {/* {!currentSelectedProduct && (
+
+                {/* {!currentSelectedProduct &&  && (
                   <div className="col-md-12 hasblankpadding">
                     <h2 className="fs-5 text-center">
                       <b>Search & Select a product</b>
@@ -2148,6 +2179,7 @@ useEffect(() => {
             </div>
             {/* END:  vendor list*/}
           </div>
+        )}
         </div>
 
         {/* ------------- Auth Modal ------------- */}
@@ -2166,7 +2198,7 @@ useEffect(() => {
         <RandomProductsCarousel className="" />
       </div>
 
-      {allAvailableCities.length > 0 && vendors && vendors.length > 0 && (
+      {/* {allAvailableCities.length > 0 && vendors && vendors.length > 0 && (
         <div className="container my-4">
           <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
             {currentSelectedProduct ? getProductTitle() : textCapitalize(getCategoryTitle())} Vendors by City
@@ -2192,7 +2224,7 @@ useEffect(() => {
             })}
           </div>
         </div>
-      )}
+      )} */}
 
       <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
   Why Trust Us
