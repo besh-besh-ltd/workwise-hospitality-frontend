@@ -796,6 +796,17 @@ useEffect(() => {
     return updatedFilters;
   }
 
+  const refreshVendorCounts = async (productIds = []) => {
+    if (!productIds || productIds.length === 0) return;
+    try {
+      await Promise.all(
+        productIds.map((productId) => fetchVendorsForProduct(productId, true))
+      );
+    } catch (error) {
+      console.error("Failed to refresh vendor counts:", error);
+    }
+  };
+
   const handleSaveDraft = async () => {
     if (!validateVendors()) {
       return;
@@ -838,10 +849,15 @@ useEffect(() => {
       termFilesChanged,
       selectedSheets: selectedSheetsForRFQ,
     };
+    const affectedVendorProductIds = Object.keys(
+      updatableData?.vendors || {}
+    );
+
     try {
       const res = await saveDraft(payload);
       setMainLoading(false);
       await getDraftInitialData();
+      await refreshVendorCounts(affectedVendorProductIds);
       if(activeKey) {
         for(const key of activeKey) {
           const rfqProductId = key;
