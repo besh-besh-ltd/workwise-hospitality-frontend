@@ -1042,9 +1042,9 @@ const productsLoadedRef = useRef(false);
 useEffect(() => {
   if (
     search_key &&
-    slugStr &&
-    slugStr !== 'all' &&
-    !slugStr.includes('-category') &&
+    // slugStr &&
+    // slugStr !== 'all' &&
+    // !slugStr.includes('-category') &&
     !currentSelectedProduct &&
     !productsLoadedRef.current
   ) {
@@ -1056,6 +1056,8 @@ useEffect(() => {
     });
   }
 }, [search_key, slugStr, currentSelectedProduct]);
+
+
 useEffect(() => {
   if (slugStr === 'all') {
     productsLoadedRef.current = false;
@@ -1603,7 +1605,7 @@ useEffect(() => {
           )}
 
           {/* vendor List Section */}
-                      {vendorFirstSearch && (
+         {vendorFirstSearch && (
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {/* START : Filter side bar */}
 
@@ -2002,26 +2004,27 @@ useEffect(() => {
                   )}
                   {/* END: Vendor Approved By */}
                 </aside>
-              </div>
-          
+            </div>  
             {/* END: Filter side bar */}
 
+        {loading && <p className=" col-md-9 text-center ">  <FullLoader /> </p>}
 
                 {!loading && vendors.length == 0 && (
                     <div className=" col-md-9">
                       <h2 className="fs-5 text-center">
-                        <b>No Vendors Found</b>
-                        <br /> Try adjusting your search or filters.
+                        <b>Vendors Not Found</b>
                       </h2>
                     </div>
                   )
                 }
 
+
+
             {/* START:  vendor list*/}
             <div className={vendors && vendors.length > 0 ? `col-md-9` : `col-md-12`}>
             
               <div className="row">
-                {vendors && vendors.length > 0 && (
+                { !loading && vendors && vendors.length > 0 && (
                   <div className="col-md-12">
                     <h2 className="fs-5">
                       Available Vendors for{" "}

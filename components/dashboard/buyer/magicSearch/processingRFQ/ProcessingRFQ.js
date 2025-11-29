@@ -75,7 +75,7 @@ const ProcessingRFQ = ({ handleCreateRFQ }) => {
                     <th>Completed At</th>
                     <th>Time Taken</th>
                     <th>RFQ ID</th>
-                    <th>Errors</th>
+                    <th>Pending Items</th>
                     <th>Action</th>
                   </tr>
                 </thead>

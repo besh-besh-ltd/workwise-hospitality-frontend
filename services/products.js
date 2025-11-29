@@ -44,7 +44,7 @@ export const searchProducts = (values, type = "products") => {
 export const searchProductsV2 = (values, type = "products") => {
   if (type == "products") {
     let payload = {
-      category_id: values.cat_id,
+      // category_id: values.cat_id,
       search_key: values.search_key,
       vendor_name: values.vendor_name,
       include_variants: true

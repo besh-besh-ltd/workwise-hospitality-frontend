@@ -18,6 +18,8 @@ const Register = ({
   onRegistrationSuccess,
   isPaidSubscription = false,
   isHospitality = false,
+  source,
+  subscription_plan
 }) => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -255,6 +257,8 @@ const Register = ({
       ...(isPaidSubscription && !isHospitality && { status: 1 }),
       // Add is_hospitality flag for hospitality vendors
       ...(isHospitality && { is_hospitality: 1 }),
+      ...(source ? { source } : {source:"self"}),
+      ...(subscription_plan ? { subscription_plan } : {subscription_plan: 0})
     };
     RegisterService(updatedValues)
       .then((response) => {
