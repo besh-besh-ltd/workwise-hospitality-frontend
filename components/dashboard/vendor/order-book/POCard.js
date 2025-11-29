@@ -5,39 +5,17 @@ import { addCommasToNumber } from '@/utils/sharedFunctions';
 import Link from 'next/link';
 
 const POCard = ({ po, onClick, initiatePO }) => {
-  // Status color mapping
-  const getStatusColor = (status) => {
-    const statusMap = {
-      'approved': 'success',
-      'dispatched': 'primary',
-      'in_progress': 'info',
-      'overdue': 'danger',
-      'invoice_pending': 'warning'
-    };
-    return statusMap[status.toLowerCase()] || 'secondary';
-  };
-
   // Status text mapping
   const getStatusText = (status) => {
     const statusTextMap = {
       'approved': 'Approved',
+      'invoice_raised': 'Invoice Raised',
       'dispatched': 'Dispatched', 
-      'in_progress': 'In Progress',
+      'grn': 'Goods Received Note',
       'overdue': 'Overdue',
-      'invoice_pending': 'Invoice Pending',
       'draft': 'Draft'
     };
     return statusTextMap[status.toLowerCase()] || status;
-  };
-
-  // Format currency
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
   };
 
   // Format date

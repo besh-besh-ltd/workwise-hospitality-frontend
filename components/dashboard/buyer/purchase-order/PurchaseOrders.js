@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import Select from "react-select";
 import Link from "next/link";
 import { getRfqs } from "@/services/rfq";
-import { getPoData, getPoDetails, handlePOApproval, handlePOInitialization, updatePODetails } from "@/services/po";
+import { getPoData, getPoDetails, handleMarkGRN, handlePOApproval, handlePOInitialization, updatePODetails } from "@/services/po";
 import { useRouter } from "next/router";
 import { getProjectList } from "@/services/project";
 import POListing from "./POListing";
@@ -11,6 +11,7 @@ import { toast } from "react-toastify";
 import { getCompanyUsers } from "@/services/Auth";
 import RejectRemarksModal from "./RejectRemarksModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import UpdateGRNModal from "./UpdateGRNModal";
 
 const PurchaseOrders = () => {
   const router = useRouter();
@@ -28,6 +29,7 @@ const PurchaseOrders = () => {
   const [poDetails, setPODetails] = useState(null);
   const [companyUsers, setCompanyUsers] = useState([]);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showGRNModal, setShowGRNModal] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [selectedPODetail, setSelectedPODetail] = useState({
     po_id: null,
@@ -127,6 +129,15 @@ const PurchaseOrders = () => {
     setShowApproveModal(true);
   }
 
+  const openGRNUpdateModal = (po_id, data, selectedPO) => {
+    setSelectedPODetail({
+      po_id,
+      data,
+      selectedPO,
+    })
+    setShowGRNModal(true);
+  }
+
   const rejectWithRemarks = async (remarks) => {
     const res = await handlePOApproval(selectedPODetail.po_id, {...selectedPODetail.data, remarks});
     if(res) {
@@ -147,15 +158,26 @@ const PurchaseOrders = () => {
     setShowApproveModal(false);
   }
 
+  const handleConfirmGRNUpdate = async (file) => {
+    await handleMarkGRN(selectedPODetail.po_id, file);
+    toast.success(`GRN Marked for PO #${selectedPODetail.data.po_number}`);
+    setShowGRNModal(false);
+    getPOData();
+  }
+
   const handlePODecision = async (po_id, data, selectedPO) => {
     try {
       setloading(true);
-      if(data.decision == 'rejected') {
-        openRejectRemarksModal(po_id, data, selectedPO);
-        return;
+      if(data.type == 'approval') {
+        if(data.decision == 'rejected') {
+          openRejectRemarksModal(po_id, data, selectedPO);
+          return;
+        } else {
+          openApproveRemarksModal(po_id, data);
+          return;
+        }
       } else {
-        openApproveRemarksModal(po_id, data);
-        return;
+        openGRNUpdateModal(po_id, data, selectedPO);
       }
     } catch (error) {
       console.error(error);
@@ -434,6 +456,12 @@ const PurchaseOrders = () => {
           </div>
         </div>
       </section>
+
+      <UpdateGRNModal 
+        show={showGRNModal} 
+        onClose={() => setShowGRNModal(false)} 
+        onAction={handleConfirmGRNUpdate}
+      />
 
       <RejectRemarksModal show={showRejectModal} poData={selectedPODetail.selectedPO} onClose={() => setShowRejectModal(false)} onAction={(remarks) => rejectWithRemarks(remarks)}/>
       <RejectRemarksModal type="approve" show={showApproveModal} onClose={() => setShowApproveModal(false)} onAction={(remarks) => approveWithRemarks(remarks)}/>

@@ -4,13 +4,15 @@ import { Card, Button, Accordion, Badge } from "react-bootstrap";
 import {
   MdEventNote,
   MdOutlineBusinessCenter,
+  MdOutlinePersonOutline,
   MdTimeline
 } from 'react-icons/md';
 import { BsBoxSeam, BsPerson, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill } from 'react-icons/bs';
 import { MdHistory } from "react-icons/md";
 import { HiOutlineTrash, HiPencil } from "react-icons/hi";
 import { BsFilePdf } from "react-icons/bs";
-import { FiDownload, FiExternalLink } from "react-icons/fi";
+import { FiExternalLink } from "react-icons/fi";
+import { TbFileInvoice, TbTruckDelivery } from "react-icons/tb";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft,
@@ -28,13 +30,17 @@ import ConfirmationModal from '@/components/modal/ConfirmationModal';
 import CommonFormInput from '@/components/shared/CommonFormInput';
 import { useRouter } from 'next/navigation';
 import PurchaseOrderEditView from './PurchaseOrderEditView';
+import { faUser } from '@fortawesome/free-regular-svg-icons';
+import AddSiteRepModal from './AddSiteRepModal';
 
 const statusColors = {
   draft: 'secondary',
   pending_approval: 'warning',
   approved: 'success',
   sent: 'primary',
-  GRN: 'info',
+  invoice_raised: 'success',
+  dispatched: 'success',
+  GRN: 'success',
   completed: 'dark',
   cancelled: 'danger',
   rejected: 'danger',
@@ -128,6 +134,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     logged_in_user,
     approval_status,
     approval_history = [],
+    documents = [],
+    site_rep,
     payment_milestones,
     hsn_codes,
     gstin: fetchedGST,
@@ -145,6 +153,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   })
   const [gstin, setGstin] = useState(fetchedGST);
   const [showEditConfirmModal, setShowEditConfirmModal] = useState(false);
+  const [showAddSiteRepModal, setShowAddSiteRepModal] = useState(false);
+  const [showGRNUpdateModal, setShowGRNUpdateModal] = useState(false);
   
   const [tasks, setTasks] = useState(null);
   const [filters, setFilters] = useState({
@@ -286,7 +296,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     setShowTaskModal(true);
   }
 
-  const restrictModifyPO = (status) => status == 'rejected' || status == 'cancelled' || status == 'approved'
+  const restrictModifyPO = (status) => !(status == 'pending_approval' || status == 'rejected')
 
   useEffect(() => {
     handleFetchTasks();
@@ -334,6 +344,15 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             <FontAwesomeIcon icon={faPencil} className="me-2" />
             Edit This PO
           </button>
+          <button
+            onClick={() => setShowAddSiteRepModal(true)}
+            className="btn btn-primary p-2 mb-3 px-3"
+            style={{ width: "fit-content" }}
+            id="add-site-rep-po_details-purchase_order_page"
+          >
+            <FontAwesomeIcon icon={faUser} className="me-2" />
+            Assign Site Rep
+          </button>
         </div>
         <div className="d-flex justify-content-between align-items-start mb-4">
           <div>
@@ -345,6 +364,18 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           </div>
           <div className="d-flex gap-2 flex-column">
             <POStatusBadge status={status} />
+            {status === "dispatched" && (
+              <div className="d-flex gap-1 justify-content-between">
+                <Badge
+                  onClick={() => setShowGRNUpdateModal(true)}
+                  bg={"warning"}
+                  className="fs-6 px-2 py-1 float-end text-uppercase"
+                  style={{ cursor: "pointer" }}
+                >
+                  Update to GRN
+                </Badge>
+              </div>
+            )}
             {status === "draft" && (
               <div className="d-flex gap-1 justify-content-between">
                 <Badge
@@ -505,7 +536,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               <div className="d-flex align-items-center justify-content-between mb-3">
                 <div className="d-flex align-items-center">
                   <div className="d-flex gap-2 align-items-center">
-                    <BsBoxSeam className="me-2 fs-3 text-primary" />
+                    <BsBoxSeam size={28} className="me-2 fs-3 text-primary" />
                     <div className="d-flex flex-column">
                       <strong>Product Details</strong>
                       <span className="small text-muted">
@@ -658,6 +689,73 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             </Card.Body>
           </Card>
         </div>
+
+        <Card className="shadow-sm w-100 mb-3">
+          <Card.Body>
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <div className="d-flex align-items-center">
+                <div className="d-flex gap-2 align-items-center">
+                  <TbFileInvoice size={28} className="me-2 fs-3 text-primary" />
+                  <div className="d-flex flex-column">
+                    <strong>Documents</strong>
+                    <span className="small text-muted">
+                      Files uploaded by Vendor and Buyer for this PO
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {(!documents || documents.length === 0) ? (
+              <p className="text-muted mb-0">
+                No documents uploaded yet for this Purchase Order.
+              </p>
+            ) : (
+              <div className="d-flex flex-column gap-2">
+                {documents.map((doc, idx) => {
+                  const uploadedAt = new Date(doc.created_at);
+                  const typeLabel =
+                    doc.document_type?.replace(/_/g, " ")?.toUpperCase() || "DOCUMENT";
+                  const uploadedByLabel =
+                    doc.uploaded_by === finalized_vendor_id
+                      ? "Vendor"
+                      : "Buyer / Internal User";
+
+                  return (
+                    <div
+                      key={doc.id}
+                      className="d-flex justify-content-between align-items-center border rounded px-3 py-2"
+                    >
+                      <div className="d-flex flex-column">
+                        <div className="d-flex align-items-center gap-2 mb-1">
+                          <span className="fw-semibold small">#{idx + 1}</span>
+                          <span className="badge bg-secondary text-uppercase small">
+                            {typeLabel}
+                          </span>
+                        </div>
+                        <div className="small text-muted">
+                          Uploaded by <strong>{uploadedByLabel}</strong>{" "}
+                          • {uploadedAt.toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div className="d-flex gap-2">
+                        <a
+                          href={doc.document_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-outline-dark btn-sm p-2 px-3"
+                        >
+                          View Document
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card.Body>
+        </Card>
   
         <div className="mb-3 d-flex gap-3">
           <Card className="shadow-sm w-100">
@@ -723,7 +821,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                         : `Load ${product_details.length - 1} More`}
                     </button>
                   )}
-                  {!restrictModifyPO(status) || status == 'pending_approval' && (
+                  {!restrictModifyPO(status) && (
                     <button className="btn btn-dark p-2" onClick={handleSaveHSN}>
                       Save Changes
                     </button>
@@ -745,7 +843,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                     setGstin(change.target.value);
                   }}
                 />
-                {!restrictModifyPO(status) || status == 'pending_approval' && (
+                {!restrictModifyPO(status) && (
                   <button className="btn btn-dark p-2" onClick={handleSaveGST}>
                     Save Changes
                   </button>
@@ -787,6 +885,10 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                     ? "Cancelled"
                     : entry.action === "edited"
                     ? "PO Edited" :
+                    entry.action === "invoice"
+                    ? "Invoice Raised" :
+                    entry.action === "grn"
+                    ? "GRN Marked" :
                     "Action Taken"
                 }
                 name={entry.approved_by_name}
@@ -795,6 +897,10 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                     <BsCheckCircleFill className="text-success" size={25} />
                   ) : entry.action === "edited" ? (
                     <MdHistory className="text-dark" size={25} />
+                  ) : entry.action === "invoice" ? (
+                    <TbFileInvoice className="text-dark" size={25} />
+                  ) : entry.action === "grn" ? (
+                    <TbTruckDelivery className="text-dark" size={25} />
                   ) : (
                     <BsXCircleFill className="text-danger" size={25} />
                   )
@@ -1156,6 +1262,37 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           confirmButtonColor="warning"
           confirmButtonText="Yes, go ahead"
           cancelButtonText="No, cancel it"
+        />
+
+        <AddSiteRepModal
+          show={showAddSiteRepModal}
+          onClose={() => setShowAddSiteRepModal(false)}
+          poId={id}
+          siteRep={site_rep} // or null/undefined if none
+          onAction={() => {
+            refetchPODetails();
+          }}
+        />
+
+
+        {/* PO Update Status to GRN */}
+        <ConfirmationModal
+          isOpen={showGRNUpdateModal}
+          onClose={() => setShowGRNUpdateModal(false)}
+          onConfirm={async () => {
+            await handlePODecision(id, { type: "grn_update", });
+            await refetchPODetails();
+            setShowGRNUpdateModal(false);
+          }}
+          title="Mark GRN for this PO"
+          description={`Are you sure you want to mark GRN for PO #${
+            po_number || "this purchase order"
+          }?\nThis action will mark the status for this PO as GRN ( Goods Reciept Note ),
+          That will indicate that the goods has been delivered to the site.`}
+          customFooter={`This Action Cannot be Reversed!`}
+          confirmButtonColor="success"
+          confirmButtonText="Yes, Go Ahead"
+          cancelButtonText="No, Cancel It"
         />
       </div>
     );

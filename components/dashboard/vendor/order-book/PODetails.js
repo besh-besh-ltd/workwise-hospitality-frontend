@@ -28,24 +28,20 @@ import ConfirmationModal from '@/components/modal/ConfirmationModal';
 import CommonFormInput from '@/components/shared/CommonFormInput';
 import { useRouter } from 'next/navigation';
 import PurchaseOrderEditView from './PurchaseOrderEditView';
+import { TbFileInvoice } from 'react-icons/tb';
 
 const statusColors = {
   draft: 'secondary',
   pending_approval: 'warning',
   approved: 'success',
   sent: 'primary',
-  GRN: 'info',
+  invoice_raised: 'success',
+  dispatched: 'success',
+  GRN: 'success',
   completed: 'dark',
   cancelled: 'danger',
   rejected: 'danger',
 };
-
-const milestoneBadges = {
-  pending: 'warning',
-  achieved: 'success',
-  cancelled: 'dark',
-  deleted: 'danger'
-}
 
 const POStatusBadge = ({ status }) => (
   <Badge bg={statusColors[status] || 'secondary'} className="fs-6 px-3 py-2 float-end text-uppercase">
@@ -120,15 +116,12 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     unit_price,
     total_value,
     initiated_by_name,
+    initiated_by_email,
     created_at,
     project_id,
     project_details,
     product_details,
-    is_approver,
-    logged_in_user,
-    approval_status,
-    approval_history = [],
-    payment_milestones,
+    documents = [],
     hsn_codes,
     gstin: fetchedGST,
     quotations,
@@ -154,12 +147,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   const [selectedTask, setSelectedTask] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
 
-  const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
-  const [showRejectConfirmModal, setShowRejectConfirmModal] = useState(false);
-  const [showDeleteMilestoneConfirmModal, setShowDeleteMilestoneConfirmModal] = useState(false);
-  const [showDeleteTaskConfirmModal, setShowDeleteTaskConfirmModal] = useState(false);
-  const [deleteMilestoneId, setDeleteMilestoneId] = useState(null);
-  const [deleteTaskId, setDeleteTaskId] = useState(null);
+  const [showRaiseInvoiceModal, setShowRaiseInvoiceModal] = useState(false);
+  const [showMarkDispatchedModal, setShowMarkDispatchedModal] = useState(false);
 
   const router = useRouter();
 
@@ -266,11 +255,6 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                 </a>
               </div>
             </div>
-            <div className="mt-2">
-              <small className="text-muted">
-                Click to preview the formal PO document that will be emailed to the vendor.
-              </small>
-            </div>
           </div>
         </div>
       );
@@ -324,16 +308,6 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             <FontAwesomeIcon icon={faArrowLeft} className="me-2" />
             Back
           </button>
-          <button
-            onClick={() => setShowEditConfirmModal(true)}
-            className="btn btn-primary p-2 mb-3 px-3"
-            style={{ width: "fit-content" }}
-            id="edit_button-po_details-purchase_order_page"
-            disabled={restrictModifyPO(status)}
-          >
-            <FontAwesomeIcon icon={faPencil} className="me-2" />
-            Edit This PO
-          </button>
         </div>
         <div className="d-flex justify-content-between align-items-start mb-4">
           <div>
@@ -345,43 +319,27 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           </div>
           <div className="d-flex gap-2 flex-column">
             <POStatusBadge status={status} />
-            {status === "draft" && (
-              <div className="d-flex gap-1 justify-content-between">
-                <Badge
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    await handleInitiatePO(id);
-                    await refetchPODetails();
-                  }}
-                  bg={"success"}
-                  className="fs-6 px-2 py-1 float-end text-uppercase"
-                  style={{ cursor: "pointer" }}
-                >
-                  Initiate
-                </Badge>
-              </div>
+            {status == 'approved' && (
+              <Badge
+                onClick={() => setShowRaiseInvoiceModal(true)}
+                bg={"secondary"}
+                className="fs-6 px-2 py-1 float-end text-uppercase"
+                style={{ cursor: "pointer" }}
+                id="raise_invoice_for_po-po_invoice-po_details"
+              >
+                Raise Invoice
+              </Badge>
             )}
-            {is_approver && (
-              <div className="d-flex gap-1 justify-content-between">
-                <Badge
-                  onClick={() => setShowApproveConfirmModal(true)}
-                  bg={"success"}
-                  className="fs-6 px-2 py-1 float-end text-uppercase"
-                  style={{ cursor: "pointer" }}
-                  id="approve_po-po_approval-po_details"
-                >
-                  Approve
-                </Badge>
-                <Badge
-                  onClick={() => setShowRejectConfirmModal(true)}
-                  bg={"danger"}
-                  className="fs-6 px-3 py-1 float-end text-uppercase"
-                  style={{ cursor: "pointer" }}
-                  id="reject_po-po_approval-po_details"
-                >
-                  Reject
-                </Badge>
-              </div>
+            {status == 'invoice_raised' && (
+              <Badge
+                onClick={() => setShowMarkDispatchedModal(true)}
+                bg={"secondary"}
+                className="fs-6 px-2 py-1 float-end text-uppercase"
+                style={{ cursor: "pointer" }}
+                id="raise_invoice_for_po-po_invoice-po_details"
+              >
+                Mark Dispatched
+              </Badge>
             )}
           </div>
         </div>
@@ -490,15 +448,15 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             <Card.Body className="d-flex align-items-center">
               <BsPerson className="me-3 fs-2 text-primary" />
               <div>
-                <strong>{finalized_vendor_name}</strong>{" "}
-                <small className="text-muted">(Finalized Vendor)</small>
-                <div className="text-muted">{finalized_vendor_email}</div>
+                <strong className='text-capitalize'>{initiated_by_name}</strong>{" "}
+                <small className="text-muted">(Respective Buyer)</small>
+                <div className="text-muted">{initiated_by_email}</div>
               </div>
             </Card.Body>
           </Card>
         </Link>
   
-        <div className="my-3 d-flex gap-3">
+        <div className="my-3 mb-0 d-flex gap-3 mb-3">
           <Card className="shadow-sm w-100">
             <Card.Body>
               {/* Header row (same as before) */}
@@ -514,12 +472,6 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                     </div>
                   </div>
                 </div>
-                <Link
-                  href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}&rfq_product_id=${rfq_product_id}&source=PO&tab=category`}
-                  className="btn p-2 btn-primary"
-                >
-                  Compare Quotes
-                </Link>
               </div>
   
               {/* Product accordion */}
@@ -658,528 +610,111 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             </Card.Body>
           </Card>
         </div>
-  
-        <div className="mb-3 d-flex gap-3">
-          <Card className="shadow-sm w-100">
-            <Card.Body className="d-flex flex-column gap-2">
-              <span className="fw-semibold">HSN Codes</span>
-              <div className="d-flex flex-column gap-1">
-                {(hsnCodeInfo.loadMore
-                  ? product_details
-                  : product_details.slice(0, 1)
-                )?.map((product) => {
-                  const hsnCode = hsnCodeInfo.hsnCodes.find(
-                    (code) => code.rfq_item_id == product.rfq_item_id
-                  );
-  
-                  return (
-                    <CommonFormInput
-                      type="simple-text"
-                      label={product.name}
-                      placeholder={`Enter ${product.name} HSN Code here...`}
-                      disabled={status == 'pending_approval' || restrictModifyPO(status)}
-                      values={hsnCode?.code || ""}
-                      onChange={(change) => {
-                        setHSNCodeInfo((info) => {
-                          if (hsnCode) {
-                            return {
-                              ...info,
-                              hsnCodes: info.hsnCodes.map((hsn) =>
-                                hsn.rfq_item_id == product.rfq_item_id
-                                  ? { ...hsn, code: change.target.value }
-                                  : hsn
-                              ),
-                            };
-                          } else {
-                            return {
-                              ...info,
-                              hsnCodes: [
-                                ...info.hsnCodes,
-                                {
-                                  rfq_item_id: product.rfq_item_id,
-                                  code: change.target.value,
-                                },
-                              ],
-                            };
-                          }
-                        });
-                      }}
-                    />
-                  );
-                })}
-                <div className="d-flex gap-2">
-                  {product_details.length > 1 && (
-                    <button
-                      className="btn btn-success p-2"
-                      onClick={() =>
-                        setHSNCodeInfo((info) => ({
-                          ...info,
-                          loadMore: !info.loadMore,
-                        }))
-                      }
-                    >
-                      {hsnCodeInfo.loadMore
-                        ? "Load Less"
-                        : `Load ${product_details.length - 1} More`}
-                    </button>
-                  )}
-                  {!restrictModifyPO(status) || status == 'pending_approval' && (
-                    <button className="btn btn-dark p-2" onClick={handleSaveHSN}>
-                      Save Changes
-                    </button>
-                  )}
+
+        <Card className="shadow-sm w-100">
+          <Card.Body>
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <div className="d-flex align-items-center">
+                <div className="d-flex gap-2 align-items-center">
+                  <TbFileInvoice size={28} className="me-2 fs-3 text-primary" />
+                  <div className="d-flex flex-column">
+                    <strong>Documents</strong>
+                    <span className="small text-muted">
+                      Files uploaded by Vendor and Buyer for this PO
+                    </span>
+                  </div>
                 </div>
               </div>
-            </Card.Body>
-          </Card>
-          <Card className="shadow-sm w-100">
-            <Card.Body className="d-flex flex-column gap-2">
-              <div className="d-flex flex-column gap-1">
-                <CommonFormInput
-                  type="simple-text"
-                  label={"GSTIN ( To be printed in the PO )"}
-                  placeholder={`Enter GSTIN here...`}
-                  disabled={status == 'pending_approval' || restrictModifyPO(status)}
-                  values={gstin || ""}
-                  onChange={(change) => {
-                    setGstin(change.target.value);
-                  }}
-                />
-                {!restrictModifyPO(status) || status == 'pending_approval' && (
-                  <button className="btn btn-dark p-2" onClick={handleSaveGST}>
-                    Save Changes
-                  </button>
-                )}
+            </div>
+
+            {(!documents || documents.length === 0) ? (
+              <p className="text-muted mb-0">
+                No documents uploaded yet for this Purchase Order.
+              </p>
+            ) : (
+              <div className="d-flex flex-column gap-2">
+                {documents.map((doc, idx) => {
+                  const uploadedAt = new Date(doc.created_at);
+                  const typeLabel =
+                    doc.document_type?.replace(/_/g, " ")?.toUpperCase() || "DOCUMENT";
+                  const uploadedByLabel =
+                    doc.uploaded_by === finalized_vendor_id
+                      ? "Vendor"
+                      : "Buyer / Internal User";
+
+                  return (
+                    <div
+                      key={doc.id}
+                      className="d-flex justify-content-between align-items-center border rounded px-3 py-2"
+                    >
+                      <div className="d-flex flex-column">
+                        <div className="d-flex align-items-center gap-2 mb-1">
+                          <span className="fw-semibold small">#{idx + 1}</span>
+                          <span className="badge bg-secondary text-uppercase small">
+                            {typeLabel}
+                          </span>
+                        </div>
+                        <div className="small text-muted">
+                          Uploaded by <strong>{uploadedByLabel}</strong>{" "}
+                          • {uploadedAt.toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div className="d-flex gap-2">
+                        <a
+                          href={doc.document_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-outline-dark btn-sm p-2 px-3"
+                        >
+                          View Document
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </Card.Body>
-          </Card>
-        </div>
-  
-        {/* Approval Timeline */}
-        <h5 className="mb-3">
-          <MdEventNote className="me-2" />
-          Approval Timeline
-        </h5>
-        <Card className="mb-4">
-          <Card.Body className="d-flex flex-column gap-3">
-            <TimelineItem
-              title={status == "draft" ? "Drafted" : "Initiated"}
-              name={initiated_by_name}
-              icon={
-                <BsCheckCircleFill
-                  className={
-                    status == "draft" ? "text-secondary" : "text-primary"
-                  }
-                  size={25}
-                />
-              }
-              time={formatIST(created_at)}
-            />
-            {approval_history.map((entry, index) => (
-              <TimelineItem
-                key={index}
-                title={
-                  entry.action === "approved"
-                    ? "Approved"
-                    : entry.action === "rejected"
-                    ? "Rejected"
-                    : entry.action === "cancelled"
-                    ? "Cancelled"
-                    : entry.action === "edited"
-                    ? "PO Edited" :
-                    "Action Taken"
-                }
-                name={entry.approved_by_name}
-                icon={
-                  entry.action === "approved" ? (
-                    <BsCheckCircleFill className="text-success" size={25} />
-                  ) : entry.action === "edited" ? (
-                    <MdHistory className="text-dark" size={25} />
-                  ) : (
-                    <BsXCircleFill className="text-danger" size={25} />
-                  )
-                }
-                time={formatIST(entry.created_at)}
-                remarks={entry.remarks}
-              />
-            ))}
-            {approval_status?.status == "pending" && (
-              <TimelineItem
-                title={"Action Pending"}
-                name={approval_status.current_approver_name}
-                icon={
-                  <BsExclamationCircleFill className="text-warning" size={25} />
-                }
-                time={formatIST(approval_status.created_at)}
-              />
             )}
           </Card.Body>
         </Card>
-  
-        {/* Payment Milestones */}
-        <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
-          <h5 className="mb-0">
-            <MdOutlineBusinessCenter className="me-2" />
-            Payment Milestones
-          </h5>
-  
-          <button
-            className="minimal-btn"
-            onClick={() => setShowMilestoneModal(true)}
-            id="add_milestone-payment_milestones-po_details"
-          >
-            Add Milestone
-          </button>
-        </div>
-  
-        <Card className="overflow-hidden mb-3">
-          <Card.Body className="table-responsive p-0">
-            <table className="table table-stripped align-middle m-0 text-center">
-              <thead className="table-light">
-                <tr>
-                  <th>Reminder</th>
-                  <th>PO No</th>
-                  <th>Name</th>
-                  <th>Status</th>
-                  <th>Milestone Summary</th>
-                  <th>Due Date</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payment_milestones && payment_milestones.length > 0 ? (
-                  payment_milestones.map((milestone) => (
-                    <tr key={milestone.id}>
-                      <td
-                        className={`fw-semibold ${
-                          milestone.is_reminded ? "text-success" : "text-warning"
-                        }`}
-                      >
-                        {milestone.status == "deleted"
-                          ? "Deleted"
-                          : milestone.is_reminded
-                          ? "Reminded"
-                          : "Pending"}
-                      </td>
-                      <td>
-                        #<strong>{po_number}</strong>
-                      </td>
-                      <td style={{ maxWidth: 140 }}>
-                        {milestone.milestone_name}
-                      </td>
-                      <td>
-                        <Badge
-                          bg={milestoneBadges[milestone.status]}
-                          className="text-capitalize"
-                        >
-                          {milestone.status}
-                        </Badge>
-                      </td>
-                      <td
-                        style={{ maxWidth: 200 }}
-                        title={milestone.milestone_description}
-                      >
-                        {elipsisToLimit(milestone.milestone_description, 45)}
-                      </td>
-                      {renderDueDateCell(
-                        new Date(milestone.due_date).toDateString()
-                      )}
-                      <td>
-                        {milestone.status != "deleted" ? (
-                          <>
-                            <button
-                              title="Edit this Milestone"
-                              className="minimal-btn"
-                              style={{
-                                backgroundColor: "#fdeceb",
-                                borderColor: "#f5b5b5",
-                                color: "#dc3545",
-                              }}
-                              onClick={() => handleMilestoneEdition(milestone)}
-                              id={`edit_milestone_${milestone.id}-milestone_actions-po_details`}
-                            >
-                              <HiPencil size={25} />
-                            </button>
-                            <button
-                              title="Delete this Milestone"
-                              className="minimal-btn ms-2"
-                              style={{
-                                backgroundColor: "#fdeceb",
-                                borderColor: "#f5b5b5",
-                                color: "#dc3545",
-                              }}
-                              onClick={() => {
-                                setDeleteMilestoneId(milestone.id);
-                                setShowDeleteMilestoneConfirmModal(true);
-                              }}
-                              id={`delete_milestone_${milestone.id}-milestone_actions-po_details`}
-                            >
-                              <HiOutlineTrash size={25} />
-                            </button>
-                          </>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="11" className="text-center text-muted">
-                      No payment milestones found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </Card.Body>
-        </Card>
-  
-        {/* Task Timelines */}
-        <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
-          <h5 className="mb-0">
-            <MdTimeline className="me-2" />
-            Status Timeline
-          </h5>
-  
-          <button
-            className="minimal-btn"
-            onClick={() => setShowTaskModal(true)}
-            id="add_task-status_timeline-po_details"
-          >
-            Add Task
-          </button>
-        </div>
-  
-        <Card className="overflow-hidden">
-          <Card.Body className="table-responsive p-0">
-            <table className="table table-stripped align-middle m-0 text-center">
-              <thead className="table-light">
-                <tr>
-                  <th>Completion Date</th>
-                  <th>PO No</th>
-                  <th>Name</th>
-                  <th>Status</th>
-                  <th>Task Summary</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks?.data && tasks.data.length > 0 ? (
-                  tasks.data.map((task) => (
-                    <tr key={task.id}>
-                      {renderDueDateCell(
-                        new Date(task.completion_date).toDateString(),
-                        true
-                      )}
-                      <td>
-                        #<strong>{po_number}</strong>
-                      </td>
-                      <td style={{ maxWidth: 140 }}>{task.task_name}</td>
-                      <td>
-                        <Badge
-                          bg={milestoneBadges[task.status]}
-                          className="text-capitalize"
-                        >
-                          {task.status}
-                        </Badge>
-                      </td>
-                      <td style={{ maxWidth: 200 }} title={task.task_description}>
-                        {elipsisToLimit(task.task_description, 45)}
-                      </td>
-                      <td>
-                        <button
-                          title="Edit this Task"
-                          className="minimal-btn"
-                          style={{
-                            backgroundColor: "#fdeceb",
-                            borderColor: "#f5b5b5",
-                            color: "#dc3545",
-                          }}
-                          onClick={() => handleTaskEdition(task)}
-                          id={`edit_task_${task.id}-task_actions-po_details`}
-                        >
-                          <HiPencil size={25} />
-                        </button>
-                        <button
-                          title="Delete this Task"
-                          className="minimal-btn ms-2"
-                          style={{
-                            backgroundColor: "#fdeceb",
-                            borderColor: "#f5b5b5",
-                            color: "#dc3545",
-                          }}
-                          onClick={() => {
-                            setDeleteTaskId(task.id);
-                            setShowDeleteTaskConfirmModal(true);
-                          }}
-                          id={`delete_task_${task.id}-task_actions-po_details`}
-                        >
-                          <HiOutlineTrash size={25} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="11" className="text-center text-muted">
-                      No tasks found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </Card.Body>
-          <Card.Footer className="pt-3">
-            {tasks?.data && (
-              <Pagination
-                page={filters.page}
-                setPage={(page) => setFilters((prev) => ({ ...prev, page }))}
-                limit={filters.limit}
-                setLimit={(limit) => setFilters((prev) => ({ ...prev, limit }))}
-                totalData={tasks.total}
-              />
-            )}
-          </Card.Footer>
-        </Card>
-  
-        <CreateMilestoneModal
-          show={showMilestoneModal}
-          selectedMilestone={selectedMilestone}
-          isEdit={selectedMilestone}
-          onClose={() => {
-            setShowMilestoneModal(false);
-            setSelectedMilestone(null);
-          }}
-          onSuccess={async () => await refetchPODetails()}
-          companyUsers={companyUsers}
-          rfqId={rfq_id}
-          poId={id}
-        />
-  
-        <CreateTaskModal
-          show={showTaskModal}
-          selectedTask={selectedTask}
-          isEdit={selectedTask}
-          onClose={() => {
-            setShowTaskModal(false);
-            setSelectedTask(null);
-          }}
-          onSuccess={async () => await handleFetchTasks()}
-          rfqId={rfq_id}
-          poId={id}
-        />
   
         <ConfirmationModal
-          isOpen={showApproveConfirmModal}
-          onClose={() => setShowApproveConfirmModal(false)}
+          isOpen={showRaiseInvoiceModal}
+          onClose={() => setShowRaiseInvoiceModal(false)}
           onConfirm={async () => {
-            await handlePODecision(id, { decision: "approved" });
+            await handlePODecision(id, { type: "invoice" });
             await refetchPODetails();
-            setShowApproveConfirmModal(false);
+            setShowRaiseInvoiceModal(false);
           }}
-          title={"Approve Purchase Order"}
-          description={`Are you sure you want to approve PO #${
+          title={"Raise Invoice for this PO"}
+          description={`Are you sure you want to raise invoice for PO #${
             po_number || "this purchase order"
-          }?\nThis action will approve the purchase order and notify relevant parties.`}
+          }?\nThis action will upload and send the invoice to the relevant parties.`}
           confirmButtonColor="success"
-          confirmButtonText="Approve"
-          cancelButtonText="Cancel"
+          confirmButtonText="Yes, Go Ahead"
+          cancelButtonText="No, Cancel It"
           customFooter={POReviewCompact(data)}
         />
-  
+
         <ConfirmationModal
-          isOpen={showRejectConfirmModal}
-          onClose={() => setShowRejectConfirmModal(false)}
+          isOpen={showMarkDispatchedModal}
+          onClose={() => setShowMarkDispatchedModal(false)}
           onConfirm={async () => {
-            await handlePODecision(id, { decision: "rejected" });
+            await handlePODecision(id, { type: "dispatch" });
             await refetchPODetails();
-            setShowRejectConfirmModal(false);
+            setShowMarkDispatchedModal(false);
           }}
-          title={"Reject Purchase Order"}
-          description={`Are you sure you want to reject PO #${
+          title="Mark Dispatched for this PO"
+          description={`Are you sure you want to mark Dispatched for PO #${
             po_number || "this purchase order"
-          }?\nThis action will reject the purchase order, de-finalize the vendors and notify relevant parties.`}
-          confirmButtonColor="danger"
-          confirmButtonText="Reject"
-          cancelButtonText="Cancel"
-        />
-  
-        <ConfirmationModal
-          isOpen={showDeleteMilestoneConfirmModal}
-          onClose={() => setShowDeleteMilestoneConfirmModal(false)}
-          onConfirm={async () => {
-            if (deleteMilestoneId) {
-              await handleMilestoneDeletion(deleteMilestoneId);
-            }
-            setDeleteMilestoneId(null);
-            setShowDeleteMilestoneConfirmModal(false);
-          }}
-          title={"Delete Milestone"}
-          description={"Are you sure you want to delete this milestone?"}
-          confirmButtonColor="danger"
-          confirmButtonText="Delete"
-          cancelButtonText="Cancel"
-        />
-  
-        <ConfirmationModal
-          isOpen={showDeleteTaskConfirmModal}
-          onClose={() => setShowDeleteTaskConfirmModal(false)}
-          onConfirm={async () => {
-            if (deleteTaskId) {
-              await handleTaskDeletion(deleteTaskId);
-            }
-            setDeleteTaskId(null);
-            setShowDeleteTaskConfirmModal(false);
-          }}
-          title={"Delete Task"}
-          description={"Are you sure you want to delete this task?"}
-          confirmButtonColor="danger"
-          confirmButtonText="Delete"
-          cancelButtonText="Cancel"
-        />
-  
-        <ConfirmationModal
-          isOpen={showEditConfirmModal}
-          onClose={() => setShowEditConfirmModal(false)}
-          onConfirm={async () => {
-            router.push(`/dashboard/buyer/purchase-order?rfq=${rfq_id}&po=${id}&edit=true`)
-            setShowEditConfirmModal(false);
-          }}
-          title={"Are you sure you want to edit this Purchase Order?"}
-          description={
-           `Any changes you make will
-              reset the approval flow for this PO. All existing
-              approvals will become Invalid, and the PO will need
-              to go through approval again from the beginning.`
-          }
-          confirmButtonColor="warning"
-          confirmButtonText="Yes, go ahead"
-          cancelButtonText="No, cancel it"
+          }?\nThis action will notify the relevant parties.`}
+          confirmButtonColor="success"
+          confirmButtonText="Yes, Go Ahead"
+          cancelButtonText="No, Cancel It"
         />
       </div>
     );
   }
-
-  // === EDIT VIEW (new) ===
-  return (
-    <PurchaseOrderEditView
-      data={data}
-      onCancel={() => {
-        setIsEditing(false);
-        router.push(`/dashboard/buyer/purchase-order?rfq=${rfq_id}&po=${id}`);
-      }}
-      onSaved={async () => {
-        setIsEditing(false);
-        await refetchPODetails?.(); // refresh data from backend
-        router.push(`/dashboard/buyer/purchase-order?rfq=${rfq_id}&po=${id}`)
-      }}
-      handleUpdatePO={handleUpdatePO} // or inline service call in child
-      handleBack={() => {
-        router.push(`/dashboard/buyer/purchase-order?rfq=${rfq_id}&po=${id}`)
-      }}
-    />
-  );
 };
 
 export default PurchaseOrderDetails;

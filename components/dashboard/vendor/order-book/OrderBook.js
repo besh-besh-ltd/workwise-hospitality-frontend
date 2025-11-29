@@ -2,15 +2,15 @@ import React, { useEffect, useState } from "react";
 import Select from "react-select";
 import Link from "next/link";
 import { getRfqs } from "@/services/rfq";
-import { getPoData, getPoDetails, handlePOApproval, handlePOInitialization, updatePODetails } from "@/services/po";
+import { getPoData, getPoDetails, handleMarkDispatched, handlePOApproval, handlePOInitialization, handleRaiseInvoice, updatePODetails } from "@/services/po";
 import { useRouter } from "next/router";
 import { getProjectList } from "@/services/project";
 import POListing from "./POListing";
 import PurchaseOrderDetails from "./PODetails";
 import { toast } from "react-toastify";
 import { getCompanyUsers } from "@/services/Auth";
-import RejectRemarksModal from "./RejectRemarksModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import RaiseInvoiceModal from "./RaiseInvoiceModal";
 
 const OrderBook = () => {
   const router = useRouter();
@@ -20,15 +20,13 @@ const OrderBook = () => {
   const [rfqLoading, setRFQLoading] = useState(false);
   const [myRFQs, setmyRFQs] = useState([]);
   const [rfqNo, setRfqNo] = useState(null);
-  const [projects, setProjects] = useState(null);
-  const [selectedproject, setSelectedproject] = useState(null);
   const [poData, setPOData] = useState(null);
   const [totalData, setTotalData] = useState(0);
   const [approvalLevel, setApprovalLevel] = useState(null);
   const [poDetails, setPODetails] = useState(null);
   const [companyUsers, setCompanyUsers] = useState([]);
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRaiseInvoiceModal, setShowRaiseInvoiceModal] = useState(false);
+  const [showMarkDispatchedModal, setShowMarkDispatchedModal] = useState(false);
   const [selectedPODetail, setSelectedPODetail] = useState({
     po_id: null,
     data: null,
@@ -65,7 +63,6 @@ const OrderBook = () => {
       po: true,
       page,
       limit,
-      project_id: selectedproject ? selectedproject : -1,
       rfq_no: rfqNo ? parseInt(rfqNo.replace("#", "")) : null,
       sort: "DESC",
     })
@@ -110,52 +107,41 @@ const OrderBook = () => {
     }).finally(() => setloading(false));
   };
 
-  const openRejectRemarksModal = (po_id, data, selectedPO) => {
+  const openRaiseInvoiceModal = (po_id, data, selectedPO) => {
     setSelectedPODetail({
       po_id,
       data,
       selectedPO,
     })
-    setShowRejectModal(true);
+    setShowRaiseInvoiceModal(true);
   }
 
-  const openApproveRemarksModal = (po_id, data) => {
-    setSelectedPODetail({
-      po_id,
-      data,
-    })
-    setShowApproveModal(true);
+  const handleConfirmRaiseInvoice = async (file) => {
+    await handleRaiseInvoice(selectedPODetail.po_id, file);
+    toast.success(`Invoice Raised for PO #${selectedPODetail.data.po_number}`);
+    setShowRaiseInvoiceModal(false);
+    getPOData();
   }
 
-  const rejectWithRemarks = async (remarks) => {
-    const res = await handlePOApproval(selectedPODetail.po_id, {...selectedPODetail.data, remarks});
-    if(res) {
-      toast.success(res.message);
-    } else {
-      throw new Error("Something went wrong while making a decision, please try again!")
+  const markAsDispatched = async (po_id, po_number) => {
+    try {
+      await handleMarkDispatched(po_id);
+      toast.success(`Marked as dispatched for PO #${po_number}`);
+      setShowRaiseInvoiceModal(false);
+      getPOData();
+    } catch (error) {
+      toast.warning("Something went wrong while marking this PO as dispatched!") 
     }
-    setShowRejectModal(false);
-  }
-
-  const approveWithRemarks = async (remarks) => {
-    const res = await handlePOApproval(selectedPODetail.po_id, {...selectedPODetail.data, remarks});
-    if(res) {
-      toast.success(res.message);
-    } else {
-      throw new Error("Something went wrong while making a decision, please try again!")
-    }
-    setShowApproveModal(false);
   }
 
   const handlePODecision = async (po_id, data, selectedPO) => {
     try {
       setloading(true);
-      if(data.decision == 'rejected') {
-        openRejectRemarksModal(po_id, data, selectedPO);
+      if(data.type == 'invoice') {
+        openRaiseInvoiceModal(po_id, data, selectedPO);
         return;
       } else {
-        openApproveRemarksModal(po_id, data);
-        return;
+        await markAsDispatched(po_id, data.po_number);
       }
     } catch (error) {
       console.error(error);
@@ -217,24 +203,6 @@ const OrderBook = () => {
     }
   }
 
-  const getAllProjects = () => {
-    getProjectList()
-      .then((res) => {
-        let d = [];
-        res.data.map((item) => {
-          d.push({ label: item.name, value: item.id });
-        });
-        setProjects(d);
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  };
-
-  useEffect(() => {
-    getAllRFQs(true);
-  }, [selectedproject]);
-
   useEffect(() => {
     getPOData();
   }, [rfq]);
@@ -259,10 +227,6 @@ const OrderBook = () => {
       clearTimeout(handler);
     };
   }, [rfqNo]);
-
-  useEffect(() => {
-      getAllProjects();
-    }, []);
 
   return (
     <>
@@ -301,21 +265,6 @@ const OrderBook = () => {
                     id="search_rfq_no-rfq_selection-purchase_order_page"
                   />
                 </div>
-                <div className="py-2">
-                  <label>Select Project</label>
-                  <Select
-                    options={projects}
-                    onChange={(selectedOption) =>
-                      setSelectedproject(
-                        selectedOption?.value ? selectedOption.value : -1
-                      )
-                    }
-                    name="project_id"
-                    placeholder="Select"
-                    isClearable
-                    id="select_project_filter-rfq_selection-purchase_order_page"
-                  />
-                </div>
                 {!rfqLoading && myRFQs && myRFQs.length === 0 ? (
                   <p style={{ textAlign: "center" }}>No RFQs yet!</p>
                 ) : !rfqLoading && myRFQs && myRFQs.length > 0 ? (
@@ -332,7 +281,7 @@ const OrderBook = () => {
                           }`}
                         >
                           <Link
-                            href={`/dashboard/buyer/purchase-order/?rfq=${item?.id}`}
+                            href={`/dashboard/vendor/order-book/?rfq=${item?.id}`}
                             className={`${
                               item.id == rfq ? "text-white" : "text-dark"
                             }`}
@@ -383,18 +332,18 @@ const OrderBook = () => {
                     <POListing
                       poList={poData}
                       totalData={totalData}
+                      handleProgressStatus={handlePODecision}
                       rfq_id={rfq}
                       refetchPOList={getPOData}
-                      handlePODecision={handlePODecision}
                       handleInitiatePO={handleInitiatePO}
                       onSelect={(po_id) =>
                         router.push(
-                          `/dashboard/buyer/purchase-order/?rfq=${rfq}&po=${po_id}`
+                          `/dashboard/vendor/order-book/?rfq=${rfq}&po=${po_id}`
                         )
                       }
                       onEdit={(po_id) =>
                         router.push(
-                          `/dashboard/buyer/purchase-order/?rfq=${rfq}&po=${po_id}&edit=true`
+                          `/dashboard/vendor/order-book/?rfq=${rfq}&po=${po_id}&edit=true`
                         )
                       }
                       companyUsers={companyUsers}
@@ -414,7 +363,7 @@ const OrderBook = () => {
                       handleBack={() => {
                         setPODetails(null);
                         router.push(
-                          `/dashboard/buyer/purchase-order/?rfq=${rfq}`,
+                          `/dashboard/vendor/order-book/?rfq=${rfq}`,
                           null,
                           { shallow: true }
                         );
@@ -435,8 +384,12 @@ const OrderBook = () => {
         </div>
       </section>
 
-      <RejectRemarksModal show={showRejectModal} poData={selectedPODetail.selectedPO} onClose={() => setShowRejectModal(false)} onAction={(remarks) => rejectWithRemarks(remarks)}/>
-      <RejectRemarksModal type="approve" show={showApproveModal} onClose={() => setShowApproveModal(false)} onAction={(remarks) => approveWithRemarks(remarks)}/>
+      <RaiseInvoiceModal 
+        show={showRaiseInvoiceModal} 
+        onClose={() => setShowRaiseInvoiceModal(false)} 
+        onAction={handleConfirmRaiseInvoice}
+      />
+
       <ConfirmationModal
         isOpen={initiatePOModal.showModal}
         onClose={() => setInitiatePOModal({

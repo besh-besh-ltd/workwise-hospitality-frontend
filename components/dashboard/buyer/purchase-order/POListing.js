@@ -7,8 +7,8 @@ import { MdNotificationsNone, MdEdit, MdCheck } from "react-icons/md";
 import { IoMdEye } from "react-icons/io";
 import { RxCross2 } from "react-icons/rx";
 import { BsFilePdf } from "react-icons/bs";
-import { FiDownload, FiExternalLink } from "react-icons/fi";
-import { toast } from "react-toastify";
+import { LiaShippingFastSolid } from "react-icons/lia";
+import { FiExternalLink } from "react-icons/fi";
 import Pagination from "@/components/shared/Pagination";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import POCard from "./POCard";
@@ -18,15 +18,18 @@ const statusVariants = {
   approved: "success",
   cancelled: "danger",
   rejected: "danger",
+  invoice_raised: "success",
+  dispatched: "success",
+  GRN: "success"
 };
 
 const baseStyle = {
   border: "1px solid",
   borderRadius: "8px",
-  padding: "8px 10px",
+  padding: "7px 14px",
   marginRight: "10px",
   cursor: "pointer",
-  fontSize: "1.25rem",
+  fontSize: "1.05rem",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -73,6 +76,7 @@ const POListing = ({
 }) => {
   const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
   const [showRejectConfirmModal, setShowRejectConfirmModal] = useState(false);
+  const [showGRNUpdateModal, setShowGRNUpdateModal] = useState(false);
   const [pendingPO, setPendingPO] = useState(null);
 
   const [filters, setFilters] = useState({
@@ -100,6 +104,7 @@ const POListing = ({
   const handleApproveConfirm = async () => {
     if (pendingPO) {
       await handlePODecision(pendingPO.id, {
+        type: "approval",
         decision: "approved",
       }, pendingPO);
       await refetchPOList({
@@ -114,6 +119,7 @@ const POListing = ({
   const handleRejectConfirm = async () => {
     if (pendingPO) {
       await handlePODecision(pendingPO.id, {
+        type: "approval",
         decision: "rejected",
       }, pendingPO);
       await refetchPOList({
@@ -125,6 +131,22 @@ const POListing = ({
     }
   };
 
+  const handleMarkGRNConfirm = async () => {
+    if (pendingPO) {
+      await handlePODecision(pendingPO.id, {
+        type: "grn_update",
+      }, pendingPO);
+      setShowGRNUpdateModal(false);
+      setPendingPO(null);
+      resetFilters();
+    }
+  };
+
+  const handleMarkGRNClick = (po) => {
+    setPendingPO(po);
+    setShowGRNUpdateModal(true);
+  };
+
   const handleApproveCancel = () => {
     setShowApproveConfirmModal(false);
     setPendingPO(null);
@@ -132,6 +154,11 @@ const POListing = ({
 
   const handleRejectCancel = () => {
     setShowRejectConfirmModal(false);
+    setPendingPO(null);
+  };
+
+  const handleMarkDispatchedCancel = () => {
+    setShowGRNUpdateModal(false);
     setPendingPO(null);
   };
 
@@ -420,6 +447,18 @@ const POListing = ({
                           >
                             View Quotes
                           </Link>
+                        ) : po.status == 'dispatched' ? (
+                          <div className="d-flex align-items-center justify-content-center">
+                            <button
+                              style={styles.approve}
+                              title="Update the status to GRN"
+                              id={`update_to_grn_po_${po.id}-po_actions-po_listing`}
+                              onClick={(e) => { e.stopPropagation(); handleMarkGRNClick(po); }}
+                            >
+                              <LiaShippingFastSolid />
+                              <small className="ms-1 fw-medium">Update to GRN</small>
+                            </button>
+                          </div>
                         ) : !isPending ? (
                           <div className="d-flex align-items-center justify-content-center">
                             <button
@@ -493,6 +532,22 @@ const POListing = ({
         confirmButtonColor="danger"
         confirmButtonText="Reject"
         cancelButtonText="Cancel"
+      />
+
+      {/* PO Update Status to GRN */}
+      <ConfirmationModal
+        isOpen={showGRNUpdateModal}
+        onClose={handleMarkDispatchedCancel}
+        onConfirm={handleMarkGRNConfirm}
+        title="Mark GRN for this PO"
+        description={`Are you sure you want to mark GRN for PO #${
+          pendingPO?.po_number || "this purchase order"
+        }?\nThis action will mark the status for this PO as GRN ( Goods Reciept Note ),
+        That will indicate that the goods has been delivered to the site.`}
+        customFooter={`This Action Cannot be Reversed!`}
+        confirmButtonColor="success"
+        confirmButtonText="Yes, Go Ahead"
+        cancelButtonText="No, Cancel It"
       />
     </div>
   );

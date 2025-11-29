@@ -1,7 +1,7 @@
 import OrderBook from "@/components/dashboard/vendor/order-book/OrderBook";
 import React from "react";
 
-const OrderBook = () => {
+const Vendor = () => {
   return (
     <>
       <OrderBook />
@@ -9,4 +9,4 @@ const OrderBook = () => {
   );
 };
 
-export default OrderBook;
+export default Vendor;
