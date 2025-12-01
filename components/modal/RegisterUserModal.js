@@ -20,8 +20,15 @@ export default function RegisterUserModal({
  
   // Use internal state if props not provided (for backwards compatibility)
   const [internalShowModal, setInternalShowModal] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
   const modalShow = showModal !== undefined ? showModal : internalShowModal;
   const setModalShow = setShowModal !== undefined ? setShowModal : setInternalShowModal;
+
+  const getStepSubtitle = () => {
+    if (currentStep === 1) return "Tell us about yourself";
+    if (currentStep === 2) return "Share where you operate";
+    return "Select hotels";
+  };
 
   return (
     <>
@@ -57,8 +64,28 @@ export default function RegisterUserModal({
         backdrop="static"
         style={{ backdropFilter: "blur(5px)" }}
       >
-        <Modal.Header closeButton>
-          <Modal.Title className="p-4">Register As Vendor</Modal.Title>
+        <Modal.Header 
+          closeButton
+          style={{
+            position: "sticky",
+            top: 0,
+            backgroundColor: "white",
+            zIndex: 10,
+            borderBottom: "1px solid #e9ecef",
+            padding: "1rem 1.5rem"
+          }}
+        >
+          <div className="d-flex justify-content-between align-items-start w-100 me-4">
+            <div>
+              <Modal.Title className="mb-1" style={{ fontSize: "1.25rem" }}>Register As Vendor</Modal.Title>
+              <p className="text-muted mb-0" style={{ fontSize: "0.875rem" }}>
+                {getStepSubtitle()}
+              </p>
+            </div>
+            <span className="badge bg-light text-dark px-3 py-2" style={{ marginTop: "0.25rem" }}>
+              Step {currentStep} of {isHospitality ? 3 : 2}
+            </span>
+          </div>
         </Modal.Header>
         <Modal.Body className="p-4">
           {console.log("Rendering Register component with onRegistrationSuccess:", typeof onRegistrationSuccess)}
@@ -69,6 +96,7 @@ export default function RegisterUserModal({
             isHospitality={isHospitality}
             source={source}
             subscription_plan={subscription_plan}
+            onStepChange={setCurrentStep}
           />
         </Modal.Body>
       </Modal>

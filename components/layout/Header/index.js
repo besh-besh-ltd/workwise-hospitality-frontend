@@ -614,6 +614,9 @@ const Header = () => {
     return baseMenu;
   }, [currentUserType, isHospitalityCompany]);
 
+  const showHospitalityScopeButton =
+    isHospitalityCompany && currentUserType !== "admin";
+
   return (
     <>
       <header
@@ -890,11 +893,12 @@ const Header = () => {
                                     <Link href={item.href}>{item.label}</Link>
                                   </li>
                                 ))}
-                              {isHospitalityCompany && (
+                              {showHospitalityScopeButton && (
                                 <li className="ms-3">
                                   <button
                                     type="button"
-                                    className="btn btn-outline-light btn-sm"
+                                    className="btn btn-outline-primary btn-sm fw-semibold"
+                                    style={{ color: "#0f6cff", borderColor: "#0f6cff", backgroundColor: "white" }}
                                     onClick={handleOpenContextModal}
                                   >
                                     {hospitalityContext
@@ -919,11 +923,12 @@ const Header = () => {
                 <div className="header-right align-items-center forLoggedIn hidemobile">
                   <nav className="main-menu">
                     <ul className="d-flex align-items-center">
-                      {isHospitalityCompany && (
+                      {showHospitalityScopeButton && (
                         <li className="me-3">
                           <button
                             type="button"
-                            className="btn btn-outline-light btn-sm"
+                            className="btn btn-outline-primary btn-sm fw-semibold"
+                            style={{ color: "#0f6cff", borderColor: "#0f6cff", backgroundColor: "white" }}
                             onClick={handleOpenContextModal}
                           >
                             {hospitalityContext
@@ -947,26 +952,6 @@ const Header = () => {
                   {popoverVisible && (
                     <div className="popover-account" ref={popoverRef}>
                       <ul className="vertical-links">
-                        {isHospitalityCompany && (
-                          <li className="mb-2">
-                            <button
-                              type="button"
-                              className="btn btn-outline-primary w-100"
-                              onClick={() => {
-                                setPopoverVisible(false);
-                                handleOpenContextModal();
-                              }}
-                            >
-                              {hospitalityContext
-                                ? `${hospitalityContext.companyName}${
-                                    hospitalityContext.hotelId
-                                      ? " / " + hospitalityContext.hotelName
-                                      : ""
-                                  }`
-                                : "Select Hospitality Scope"}
-                            </button>
-                          </li>
-                        )}
                         {currentRoleMenu
                           ?.filter((menuType) => menuType.targetMenu == "popup")
                           ?.map((item) => (

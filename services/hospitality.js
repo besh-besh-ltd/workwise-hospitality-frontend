@@ -201,4 +201,14 @@ export const getMyHospitalityContexts = () =>
     }
   });
 
+export const getAllHotels = () =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/public/hotels`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 

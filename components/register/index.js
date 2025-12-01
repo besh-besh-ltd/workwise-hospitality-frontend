@@ -9,6 +9,8 @@ import FullLoader from "../shared/FullLoader";
 import { useRouter } from "next/router";
 import { getCountryCodes, getCountries, getStates, getCities } from "@/services/cms";
 import { nestedCategoryData } from "@/services/products";
+import { getAllHotels } from "@/services/hospitality";
+import Select from "react-select";
 
 {
   /* registerAs = vendor or buyer valid values */
@@ -19,7 +21,8 @@ const Register = ({
   isPaidSubscription = false,
   isHospitality = false,
   source,
-  subscription_plan
+  subscription_plan,
+  onStepChange
 }) => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -34,6 +37,8 @@ const Register = ({
     cities: [],
   });
   const [categoryOptions, setCategoryOptions] = useState([]);
+  const [hotelOptions, setHotelOptions] = useState([]);
+  const [loadingHotels, setLoadingHotels] = useState(false);
 
   useEffect(() => {
     const fetchFormMeta = async () => {
@@ -53,6 +58,7 @@ const Register = ({
         const mappedCategories = Array.isArray(categoriesRes?.data)
           ? categoriesRes.data.map((item) => ({
               id: item.id,
+              value: item.id,
               label: item.title || item.name || "Category",
             }))
           : [];
@@ -64,6 +70,39 @@ const Register = ({
 
     fetchFormMeta();
   }, []);
+
+  useEffect(() => {
+    if (onStepChange) {
+      onStepChange(currentStep);
+    }
+  }, [currentStep, onStepChange]);
+
+  useEffect(() => {
+    const fetchHotels = async () => {
+      if (isHospitality && currentStep === 3 && hotelOptions.length === 0) {
+        try {
+          setLoadingHotels(true);
+          const response = await getAllHotels();
+          const hotelsData = response?.data || [];
+          const mappedHotels = Array.isArray(hotelsData)
+            ? hotelsData.map((hotel) => ({
+                id: hotel.id,
+                value: hotel.id,
+                label: `${hotel.name}${hotel.city ? ` - ${hotel.city}` : ""}`,
+              }))
+            : [];
+          setHotelOptions(mappedHotels);
+        } catch (error) {
+          console.error("Error fetching hotels:", error);
+          toast.error("Failed to load hotels. Please try again.");
+        } finally {
+          setLoadingHotels(false);
+        }
+      }
+    };
+
+    fetchHotels();
+  }, [isHospitality, currentStep]);
 
   const handleCountrySelect = async (countryId, setFieldValue) => {
     const parsedId = countryId ? Number(countryId) : "";
@@ -111,14 +150,6 @@ const Register = ({
     }
   };
 
-  const handleCategoryToggle = (categoryId, values, setFieldValue) => {
-    const currentSelection = values.categories || [];
-    const alreadySelected = currentSelection.includes(categoryId);
-    const updatedSelection = alreadySelected
-      ? currentSelection.filter((id) => id !== categoryId)
-      : [...currentSelection, categoryId];
-    setFieldValue("categories", updatedSelection);
-  };
 
   const stepOneFields = [
     "name",
@@ -129,17 +160,38 @@ const Register = ({
     "confirm_password",
   ];
 
-  const handleNextStep = async (validateForm, setTouched, touched) => {
+  const stepTwoFields = [
+    "country",
+    "state",
+    "city",
+    "categories",
+  ];
+
+  const handleNextStep = async (validateForm, setTouched, touched, step) => {
     const errors = await validateForm();
-    const stepErrors = stepOneFields.filter((field) => errors[field]);
+    let stepErrors = [];
+    let fieldsToTouch = [];
+
+    if (step === 1) {
+      stepErrors = stepOneFields.filter((field) => errors[field]);
+      fieldsToTouch = stepOneFields;
+    } else if (step === 2) {
+      stepErrors = stepTwoFields.filter((field) => errors[field]);
+      fieldsToTouch = stepTwoFields;
+    }
+
     const updatedTouched = { ...touched };
-    stepOneFields.forEach((field) => {
+    fieldsToTouch.forEach((field) => {
       updatedTouched[field] = true;
     });
     setTouched(updatedTouched);
 
     if (stepErrors.length === 0) {
-      setCurrentStep(2);
+      const newStep = step + 1;
+      setCurrentStep(newStep);
+      if (onStepChange) {
+        onStepChange(newStep);
+      }
     }
   };
 
@@ -150,6 +202,7 @@ const Register = ({
       state: values.state,
       city: values.city,
       categories: values.categories,
+      hotels: values.hotels,
     };
     try {
       window.localStorage.setItem(
@@ -176,9 +229,10 @@ const Register = ({
     state: "",
     city: "",
     categories: [],
+    hotels: [],
   };
   // Register Validation Schema builder
-  const buildValidationSchema = (includeLocationFields = false) => {
+  const buildValidationSchema = (includeLocationFields = false, includeHotels = false) => {
     const baseShape = {
       name: yup
         .string()
@@ -226,6 +280,13 @@ const Register = ({
         .array()
         .of(yup.number().nullable())
         .min(1, "Select at least one category");
+    }
+
+    if (includeHotels && isHospitality) {
+      baseShape.hotels = yup
+        .array()
+        .of(yup.number().nullable())
+        .min(1, "Select at least one hotel");
     }
 
     return yup.object().shape(baseShape);
@@ -342,7 +403,10 @@ const Register = ({
         {/* Add your registration form or content here */}
         <Formik
           initialValues={initialValues}
-          validationSchema={buildValidationSchema(currentStep === 2)}
+          validationSchema={buildValidationSchema(
+            currentStep === 2 || currentStep === 3,
+            currentStep === 3 && isHospitality
+          )}
           onSubmit={(values, { resetForm }) =>
             registerSubmitHandler(values, resetForm)
           }
@@ -356,20 +420,6 @@ const Register = ({
             setTouched,
           }) => (
             <Form>
-              <div className="d-flex justify-content-between align-items-start mb-4">
-                <div>
-                  <h3 className="tab-title mb-1">Register As Vendor</h3>
-                  <p className="text-muted mb-0">
-                    {currentStep === 1
-                      ? "Tell us about yourself"
-                      : "Share where you operate"}
-                  </p>
-                </div>
-                <span className="badge bg-light text-dark px-3 py-2">
-                  Step {currentStep} of 2
-                </span>
-              </div>
-
               {currentStep === 1 ? (
                 <>
                   <div className="form-group">
@@ -511,14 +561,14 @@ const Register = ({
                       type="button"
                       className="btn btn-primary"
                       onClick={() =>
-                        handleNextStep(validateForm, setTouched, touched)
+                        handleNextStep(validateForm, setTouched, touched, 1)
                       }
                     >
                       Next
                     </button>
                   </div>
                 </>
-              ) : (
+              ) : currentStep === 2 ? (
                 <>
                   <div className="form-group">
                     <label>
@@ -591,33 +641,118 @@ const Register = ({
                     <label>
                       Select Categories <sup>*</sup>
                     </label>
-                    <div className="d-flex flex-wrap gap-2">
-                      {categoryOptions.map((category) => {
-                        const isSelected = values.categories.includes(
-                          category.id
-                        );
-                        return (
-                          <button
-                            type="button"
-                            key={category.id}
-                            className={`btn btn-sm ${
-                              isSelected ? "btn-primary" : "btn-outline-secondary"
-                            }`}
-                            onClick={() =>
-                              handleCategoryToggle(
-                                category.id,
-                                values,
-                                setFieldValue
-                              )
-                            }
-                          >
-                            {category.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <Select
+                      isMulti
+                      name="categories"
+                      options={categoryOptions}
+                      value={categoryOptions.filter((option) =>
+                        values.categories?.includes(option.value)
+                      )}
+                      onChange={(selectedOptions) => {
+                        const ids = selectedOptions
+                          ? selectedOptions.map((opt) => opt.value)
+                          : [];
+                        setFieldValue("categories", ids);
+                      }}
+                      placeholder="Please select categories"
+                      isClearable
+                      isSearchable
+                      className={touched.categories && errors.categories ? "is-invalid" : ""}
+                    />
                     {touched.categories && errors.categories && (
                       <div className="form-error">{errors.categories}</div>
+                    )}
+                  </div>
+
+                  {!isHospitality && registerAs === "vendor" && (
+                    <div className="mt-3">
+                      <label className="d-flex align-items-start mb-2">
+                        <input
+                          type="checkbox"
+                          name="vendor_tnc"
+                          checked={tncCheckned}
+                          onChange={(e) => {
+                            setTncCheckned(e.target.checked);
+                          }}
+                          className="me-2 mt-1"
+                        />
+                        <span>
+                          I agree to respond within 24 hours with best quality
+                          and competitive pricing
+                        </span>
+                      </label>
+                      <a
+                        href="/for-vendors/tnc"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontWeight: 500 }}
+                      >
+                        Term and Conditions
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="d-flex justify-content-between align-items-center mt-4">
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => {
+                        setCurrentStep(1);
+                        if (onStepChange) {
+                          onStepChange(1);
+                        }
+                      }}
+                    >
+                      Back
+                    </button>
+                    {isHospitality ? (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() =>
+                          handleNextStep(validateForm, setTouched, touched, 2)
+                        }
+                      >
+                        Next
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="btn btn-secondary"
+                        disabled={registerAs === "vendor" ? !tncCheckned : false}
+                      >
+                        Register
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label>
+                      Select Hotels <sup>*</sup>
+                    </label>
+                    <Select
+                      isMulti
+                      name="hotels"
+                      options={hotelOptions}
+                      value={hotelOptions.filter((option) =>
+                        values.hotels?.includes(option.value)
+                      )}
+                      onChange={(selectedOptions) => {
+                        const ids = selectedOptions
+                          ? selectedOptions.map((opt) => opt.value)
+                          : [];
+                        setFieldValue("hotels", ids);
+                      }}
+                      placeholder="Please select hotels"
+                      isClearable
+                      isSearchable
+                      isLoading={loadingHotels}
+                      className={touched.hotels && errors.hotels ? "is-invalid" : ""}
+                    />
+                    {touched.hotels && errors.hotels && (
+                      <div className="form-error">{errors.hotels}</div>
                     )}
                   </div>
 
@@ -653,7 +788,12 @@ const Register = ({
                     <button
                       type="button"
                       className="btn btn-outline-secondary"
-                      onClick={() => setCurrentStep(1)}
+                      onClick={() => {
+                        setCurrentStep(2);
+                        if (onStepChange) {
+                          onStepChange(2);
+                        }
+                      }}
                     >
                       Back
                     </button>
