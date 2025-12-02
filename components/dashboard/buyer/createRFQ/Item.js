@@ -754,7 +754,7 @@ const Item = ({
             </div>
             {/*end: product spec */}
 
-            {/* start: qty and unit ocntainer */}
+            {/* start: qty and unit container */}
             <div className="d-flex  justify-content-start align-items-start gap-2">
               <div className="" style={{ width: "200px" }}>
                 <CommonFormInput
