@@ -88,7 +88,9 @@ const Register = ({
             ? hotelsData.map((hotel) => ({
                 id: hotel.id,
                 value: hotel.id,
-                label: `${hotel.name}${hotel.city ? ` - ${hotel.city}` : ""}`,
+                label: hotel.name,
+                company_name: hotel.company_name || "",
+                city: hotel.city || "",
               }))
             : [];
           setHotelOptions(mappedHotels);
@@ -296,6 +298,17 @@ const Register = ({
     setloading(true);
     persistLocationDraft(values);
 
+    const selectedCategories = values.categories || [];
+    const selectedHotels = values.hotels || [];
+
+    const selectedCategoryNames = categoryOptions
+      .filter((opt) => selectedCategories.includes(opt.value))
+      .map((opt) => opt.label);
+
+    const selectedHotelNames = hotelOptions
+      .filter((opt) => selectedHotels.includes(opt.value))
+      .map((opt) => opt.label);
+
     const cleanMobile = values.mobile
       .trim()
       .replace(/^0+/, "")
@@ -342,15 +355,35 @@ const Register = ({
 
           LoginService(loginData, false)
             .then((loginResponse) => {
-              // Call the success callback with user data and token
+              // Handle both normal login and hospitality-pending login
+              let userKey = loginResponse.user_key || null;
+              if (
+                !userKey &&
+                loginResponse.status === 5 &&
+                loginResponse.hospitality_user
+              ) {
+                userKey = loginResponse.hospitality_user.user_key;
+              }
+
               onRegistrationSuccess({
                 ...updatedValues,
+                categories: selectedCategories,
+                hotels: selectedHotels,
+                categoryNames: selectedCategoryNames,
+                hotelNames: selectedHotelNames,
                 token: loginResponse.token,
+                user_key: userKey,
               });
             })
-            .catch((loginError) => {
+            .catch(() => {
               // Even if auto-login fails, still call the callback
-              onRegistrationSuccess(updatedValues);
+              onRegistrationSuccess({
+                ...updatedValues,
+                categories: selectedCategories,
+                hotels: selectedHotels,
+                categoryNames: selectedCategoryNames,
+                hotelNames: selectedHotelNames,
+              });
             });
         } else {
           // Default behavior - redirect to home page
@@ -750,6 +783,18 @@ const Register = ({
                       isSearchable
                       isLoading={loadingHotels}
                       className={touched.hotels && errors.hotels ? "is-invalid" : ""}
+                      formatOptionLabel={(option) => (
+                        <div>
+                          <div className="fw-semibold">{option.label}</div>
+                          {(option.company_name || option.city) && (
+                            <div className="text-muted" style={{ fontSize: "0.8rem" }}>
+                              {option.company_name}
+                              {option.company_name && option.city ? " • " : ""}
+                              {option.city}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     />
                     {touched.hotels && errors.hotels && (
                       <div className="form-error">{errors.hotels}</div>

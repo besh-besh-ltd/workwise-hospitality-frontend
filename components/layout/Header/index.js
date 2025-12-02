@@ -25,6 +25,7 @@ const initialMainNavs = [
   "/contactus",
   "/for-vendors",
   "/vendor/all",
+  "/hotel-vendor",
   // "/IEW-2025",
   "/solutions",
   "/blogs",

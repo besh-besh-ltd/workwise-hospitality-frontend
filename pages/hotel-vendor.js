@@ -10,7 +10,8 @@ import { useRouter } from 'next/router';
 import { 
   proceedToSubscription, 
   loadScript, 
-  testRazorPayEndpoint 
+  testRazorPayEndpoint,
+  hospitalitySubscriptionPayment
 } from '../services/subscription';
 import storageInstance from '../utils/storageInstance';
 import { pricingData } from '../components/constants/pricingData';
@@ -133,7 +134,7 @@ const HotelVendor = () => {
         userData: userData
       }));
       
-      handleShowModal(selectedPlan);
+      handleShowModal(selectedPlan, userData);
     } else {
       toast.error("Registration successful but user data missing. Please try again.");
     }
@@ -145,7 +146,7 @@ const HotelVendor = () => {
     storageInstance.removeStorege("token");
   };
 
-  const handleShowModal = (plan) => {
+  const handleShowModal = (plan, userData) => {
     let subscriptionId;
     if (plan.name === "Silver") {
       subscriptionId = "21";
@@ -155,13 +156,20 @@ const HotelVendor = () => {
       subscriptionId = `plan_${plan.name.toLowerCase()}_${Date.now()}`;
     }
 
+    // For hospitality vendors, compute dynamic pricing based on selections
+    const numCategories = (userData?.categories || []).length;
+    const numHotels = (userData?.hotels || []).length;
+    const perCategoryFee = 500;
+    const perHotelFee = 500;
+    const totalAmount = numCategories * perCategoryFee + numHotels * perHotelFee || parseInt(plan.price.replace(/[^\d]/g, ''), 10);
+
     const billingCycle = {
       id: subscriptionId,
       duration: 12,
       label: "Yearly",
-      price: plan.price.replace(/[^\d]/g, ''),
+      price: totalAmount,
       currency: "INR",
-      discount_price: plan.price.replace(/[^\d]/g, ''),
+      discount_price: totalAmount,
       plan_type: plan.name === "Free" ? "f" : "p",
       Offers: [],
       active: false,
@@ -169,14 +177,25 @@ const HotelVendor = () => {
       end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
     };
 
-    setSelectedSubscription({
+    setSelectedSubscription((prev) => ({
+      ...prev,
       plan: {
         plan_name: plan.name,
         plan_type: plan.name === "Free" ? "f" : "p",
         feature: plan.features.map(f => ({ feature_name: f.name }))
       },
-      billingCycle: billingCycle
-    });
+      billingCycle: billingCycle,
+      costBreakdown: {
+        total: totalAmount,
+        numCategories,
+        numHotels,
+        perCategoryFee,
+        perHotelFee,
+        categoryNames: userData?.categoryNames || [],
+        hotelNames: userData?.hotelNames || []
+      },
+      userData: userData || prev?.userData || {}
+    }));
     setShowModal(true);
   };
 
@@ -215,30 +234,18 @@ const HotelVendor = () => {
   };
 
   const proceedToBuy = () => {
-    if (selectedSubscription.plan.plan_name === "Free") {
-      toast.success("Free plan activated! Redirecting to dashboard...");
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 2000);
-      setShowModal(false);
-      return;
-    }
+    const userData = selectedSubscription.userData || {};
     const payload = {
-      sub_id: (selectedSubscription.billingCycle?.id).toString(),
-      coupon_code: couponCode,
-      user_email: selectedSubscription.userData?.email,
-      user_name: selectedSubscription.userData?.name,
-      user_mobile: selectedSubscription.userData?.mobile,
-      organization_name: selectedSubscription.userData?.organization_name,
-      register_as: selectedSubscription.userData?.register_as
+      user_key: userData.user_key,
+      categories: userData.categories || [],
+      hotels: userData.hotels || []
     };
     
-    proceedToSubscription(payload)
+    hospitalitySubscriptionPayment(payload)
       .then(async (res) => {
         if (res?.status) {
           await payWithRazorPay(res?.data);
           setShowModal(false);
-          setCouponCode("");
         }
       })
       .catch((error) => {
@@ -256,6 +263,12 @@ const HotelVendor = () => {
     setSelectedPlan(silverPlan);
     setShowRegisterModal(true);
   };
+
+  // Automatically open registration modal on landing
+  useEffect(() => {
+    handleRegisterClick();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
@@ -345,6 +358,7 @@ const HotelVendor = () => {
         appliedCouponData={appliedCouponData}
         handleCpuponCode={handleCpuponCode}
         couponCode={couponCode}
+        isHospitality={true}
       />
 
       {/* Toast Container */}

@@ -62,6 +62,7 @@ export default function RegisterUserModal({
         }}
         centered
         backdrop="static"
+        size="lg"
         style={{ backdropFilter: "blur(5px)" }}
       >
         <Modal.Header 
