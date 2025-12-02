@@ -40,8 +40,8 @@ const LoginContainer = (props) => {
             setIsHospitalityPaymentLoading(true);
             const payload = {
                 user_key: hospitalityUser.user_key,
-                sub_id: 21,
-                coupon_code: ""
+                categories: hospitalityUser.categories || [],
+                hotels: hospitalityUser.hotels || []
             };
             const response = await hospitalitySubscriptionPayment(payload);
             if (response?.status) {
@@ -51,7 +51,7 @@ const LoginContainer = (props) => {
             }
         } catch (error) {
             console.error("Hospitality payment error:", error);
-            toast.error("Failed to start payment. Please try again.");
+            toast.error(error?.response?.data?.message || "Failed to start payment. Please try again.");
         } finally {
             setIsHospitalityPaymentLoading(false);
         }
