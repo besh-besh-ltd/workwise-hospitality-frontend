@@ -180,6 +180,34 @@ export const forgetPasswordValiationService = (values) => {
 	});
 };
 
+export const sendRegistrationOTP = (email) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.post(
+				`/users/registration-otp-send`,
+				{ email }
+			);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
+export const verifyRegistrationOTP = (otp, token) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.post(
+				`/users/registration-otp-verify`,
+				{ otp, token }
+			);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
 export const handleChangeProfilePicture = (file) => {
 	let payload = {};
 	payload.file = file;

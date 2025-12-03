@@ -1,4 +1,4 @@
-import { RegisterService, LoginService } from "@/services/Auth";
+import { RegisterService, LoginService, sendRegistrationOTP, verifyRegistrationOTP } from "@/services/Auth";
 import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Field, Form, Formik } from "formik";
@@ -39,6 +39,11 @@ const Register = ({
   const [categoryOptions, setCategoryOptions] = useState([]);
   const [hotelOptions, setHotelOptions] = useState([]);
   const [loadingHotels, setLoadingHotels] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [otpToken, setOtpToken] = useState(null);
+  const [otpValue, setOtpValue] = useState("");
+  const [sendingOTP, setSendingOTP] = useState(false);
+  const [verifyingOTP, setVerifyingOTP] = useState(false);
 
   useEffect(() => {
     const fetchFormMeta = async () => {
@@ -169,6 +174,59 @@ const Register = ({
     "categories",
   ];
 
+  const handleSendOTP = async (email) => {
+    if (!email || !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setSendingOTP(true);
+    try {
+      const response = await sendRegistrationOTP(email);
+      if (response?.status === 1) {
+        setOtpToken(response.token);
+        setEmailVerified(false);
+        setOtpValue("");
+        toast.success("OTP sent to your email");
+      } else {
+        toast.error(response?.message || "Failed to send OTP");
+      }
+    } catch (error) {
+      const errorMsg = error?.message?.response?.data?.message || "Failed to send OTP";
+      toast.error(errorMsg);
+    } finally {
+      setSendingOTP(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!otpValue || otpValue.length !== 6) {
+      toast.error("Please enter a valid 6-digit OTP");
+      return;
+    }
+
+    if (!otpToken) {
+      toast.error("Please request OTP first");
+      return;
+    }
+
+    setVerifyingOTP(true);
+    try {
+      const response = await verifyRegistrationOTP(otpValue, otpToken);
+      if (response?.status === 1) {
+        setEmailVerified(true);
+        toast.success("Email verified successfully");
+      } else {
+        toast.error(response?.message || "Invalid OTP");
+      }
+    } catch (error) {
+      const errorMsg = error?.message?.response?.data?.message || "Invalid OTP";
+      toast.error(errorMsg);
+    } finally {
+      setVerifyingOTP(false);
+    }
+  };
+
   const handleNextStep = async (validateForm, setTouched, touched, step) => {
     const errors = await validateForm();
     let stepErrors = [];
@@ -177,6 +235,12 @@ const Register = ({
     if (step === 1) {
       stepErrors = stepOneFields.filter((field) => errors[field]);
       fieldsToTouch = stepOneFields;
+      
+      // For hospitality vendors, check email verification
+      if (isHospitality && !emailVerified) {
+        toast.error("Please verify your email before proceeding");
+        return;
+      }
     } else if (step === 2) {
       stepErrors = stepTwoFields.filter((field) => errors[field]);
       fieldsToTouch = stepTwoFields;
@@ -473,14 +537,72 @@ const Register = ({
                     <label htmlFor="email">
                       Work Email <sup>*</sup>
                     </label>
-                    <Field
-                      type="email"
-                      id="email"
-                      name="email"
-                      placeholder="@example.com"
-                    />
+                    <div className="d-flex gap-2">
+                      <Field
+                        type="email"
+                        id="email"
+                        name="email"
+                        placeholder="@example.com"
+                        className="flex-grow-1"
+                        disabled={emailVerified && isHospitality}
+                        onChange={(e) => {
+                          setFieldValue("email", e.target.value);
+                          // Reset verification if email changes
+                          if (isHospitality && emailVerified) {
+                            setEmailVerified(false);
+                            setOtpToken(null);
+                            setOtpValue("");
+                          }
+                        }}
+                      />
+                      {isHospitality && !emailVerified && (
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary"
+                          onClick={() => handleSendOTP(values.email)}
+                          disabled={sendingOTP || !values.email || !!errors.email}
+                          style={{ whiteSpace: "nowrap" }}
+                        >
+                          {sendingOTP ? "Sending..." : "Send OTP"}
+                        </button>
+                      )}
+                      {isHospitality && emailVerified && (
+                        <span className="badge bg-success align-self-center" style={{ whiteSpace: "nowrap" }}>
+                          Verified
+                        </span>
+                      )}
+                    </div>
                     {touched.email && errors.email && (
                       <div className="form-error">{errors.email}</div>
+                    )}
+                    {isHospitality && otpToken && !emailVerified && (
+                      <div className="mt-2">
+                        <div className="d-flex gap-2">
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Enter 6-digit OTP"
+                            value={otpValue}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                              setOtpValue(val);
+                            }}
+                            maxLength={6}
+                            style={{ maxWidth: "200px" }}
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={handleVerifyOTP}
+                            disabled={verifyingOTP || otpValue.length !== 6}
+                          >
+                            {verifyingOTP ? "Verifying..." : "Verify"}
+                          </button>
+                        </div>
+                        <small className="text-muted d-block mt-1">
+                          Check your email for the OTP code
+                        </small>
+                      </div>
                     )}
                   </div>
                   <div className="form-group">
