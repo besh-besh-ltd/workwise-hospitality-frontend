@@ -512,11 +512,11 @@ const [userDocuments, setUserDocuments] = useState({
       if (res && res.length > 0) {
         setReviews(res);
       } else {
-        setReviewsToShow([]);
+        // setReviewsToShow([]);
       }
     } catch (error) {
       console.error("Error fetching profile reviews:", error);
-      setReviewsToShow([]);
+      // setReviewsToShow([]);
     }
   };
 

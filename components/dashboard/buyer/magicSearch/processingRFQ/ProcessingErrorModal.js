@@ -20,10 +20,10 @@ const ProcessingErrorsModal = ({
             if (typeof err === "object" && err.errors) {
               const errorMessages = Object.values(err.errors);
               for (const msg of errorMessages) {
-                if (msg.toLowerCase().includes("product not found")) {
+                if (msg.toLowerCase().includes("products to be added")) {
                   message = msg;
                   variant = "danger";
-                } else if (msg.toLowerCase().includes("no vendors found")) {
+                } else if (msg.toLowerCase().includes("vendors to be added")) {
                   message = msg;
                   variant = "warning";
                 }
@@ -105,8 +105,8 @@ const ProcessingErrorsModal = ({
     <Modal show={show} onHide={onClose} centered>
       <Modal.Header className="p-4 pb-1 pt-3" closeButton>
         <Modal.Title className="d-flex gap-3 align-items-center">
-          Processing Errors{" "}
-          <Badge
+          Pending Item List{" "}
+          {/* <Badge
             bg={
               errors.type === "ai-error"
                 ? "danger"
@@ -116,7 +116,7 @@ const ProcessingErrorsModal = ({
             }
           >
             {errors.type.toUpperCase()}
-          </Badge>
+          </Badge> */}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body className="px-4">{renderErrorsContent()}</Modal.Body>

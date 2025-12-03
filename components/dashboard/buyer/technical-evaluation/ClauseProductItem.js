@@ -15,7 +15,7 @@ import ConfirmationModal from '@/components/modal/ConfirmationModal';
 
 const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, currentRfq ,  vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors }) => {
     
-
+  const multipleVendorsSelected = selectedVendors && selectedVendors.length > 1;
   
     const [buyerClauses, setBuyerClauses] = useState(clauseInfo);
     const [vendorResponse, setVendorResponse] = useState(null);
@@ -266,14 +266,21 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     }, [_vendors])
     
     useEffect(() => {
-      if(_selectedVendor) {
-        fetchVendorResults();
-      } else {
+    if (multipleVendorsSelected) {
+        // MULTI-VENDOR MODE → clear single vendor data
         setVendorResponse(null);
         setChatMap(null);
-        // setBuyerClauses(clauseInfo);
-      }
-    }, [_selectedVendor])
+        return;
+    }
+
+    if (_selectedVendor) {
+        fetchVendorResults(); // SINGLE VENDOR MODE
+    } else {
+        setVendorResponse(null);
+        setChatMap(null);
+    }
+}, [_selectedVendor, selectedVendors]);
+
     return (
       <div
         className="col-12 text-sm mb-3 mt-2 hasFullLoader"
@@ -499,7 +506,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
         {responseLoading ?
                 <FullLoader />
                 :
-                vendorResponse && vendorResponse.length > 0 &&
+                vendorResponse && vendorResponse.length > 0 && !multipleVendorsSelected &&
                 <>
                     <div className="d-flex justify-content-between align-items-center mb-2">
                         <h3 className="fs-5 mb-0">

@@ -79,6 +79,23 @@ const SearchItem = ({
                         <b>About :</b> {data.about}
                       </p>
                     )}
+                    {/* {
+                      data.vendor_info && 
+                      <ul className="d-flex flex-wrap gap-4 mb-2 ps-0">
+                        { data.vendor_info.is_private === 1 &&
+                        <li className="list-none badge rounded-pill py-2 px-3 text-bg-primary">Private Vendor</li>
+                        }
+                        {data.vendor_info.is_linked_with_buyer === 1 &&
+                        <li className="list-none badge rounded-pill py-2 px-3 text-bg-success">Prefered Vendor</li>
+                        }
+                        { data.vendor_info.prev_finalized === 1 &&
+                        <li className="list-none badge rounded-pill py-2 px-3 text-bg-secondary">Previously Finalized</li>
+                        }
+                        {data.vendor_info.rfq_added === 1 &&
+                        <li className="list-none badge rounded-pill py-2 px-3 text-bg-warning">Already Added in RFQ</li>
+                        }
+                      </ul>
+                    } */}
                     {!data.about && <p>No information available</p>}
                     {data.website && (
                       <p>
