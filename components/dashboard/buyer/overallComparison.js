@@ -343,10 +343,6 @@ const openModalForVariant = (variantId) => {
 
     let cleaned = value.replace(/\D/g, '');
 
-    if(cleaned === "0"){
-      cleaned = "";
-    }
-
     cleaned = cleaned.replace(/^0+(?=[0-9.])/, ''); 
     const updatedData = [...data];
     updatedData[index].latest_target_price = cleaned // Remove non-numeric characters except dot
@@ -360,7 +356,7 @@ const openModalForVariant = (variantId) => {
     updateTargetPrice({
       productId : item.id,
       vendorIds : item.all_vendors.map((vendor)=>vendor.id),
-      targetPrice : item.latest_target_price,
+      targetPrice : item.latest_target_price ? item.latest_target_price : "0",
       rfq_id : item.rfq_id
     }).then((res)=>{
       toast.success(`Target Price for ${item.product_details[0]?.name} Updated Successfully`);
@@ -944,20 +940,22 @@ const openModalForVariant = (variantId) => {
                           }
                           
                           <td>
-                                  <label style={{display:'flex', gap:'10px', justifyContent :'space-between'}}>
+                                  <label style={{display:'flex', gap:'10px', justifyContent :'space-between',alignItems: 'center',width: '100%',gap: '10px',  }}>
+                                       <div style={{ flex: 1, minWidth: 0 }}>
                                       { item.latest_target_price > 0 || isEditing ?
-                                      <input 
-                                      type="text" 
+                                      <input
+                                      type="text"
                                       class="!outline-none !border-none !bg-none"
                                       style={{border : 'none', background : 'none'}}
-                                      onChange={(e)=>handleTargetChange(index, e.target.value)} 
+                                      onChange={(e)=>handleTargetChange(index, e.target.value)}
                                       value={`₹ ${addCommasToNumber(item.latest_target_price)}`}
                                       disabled={!isEditing}
                                       />
                                     :
-                                    <p>--</p>
+                                    <p className="text-left" >--</p>
                                     }
-
+                                    </div>
+<div style={{ flexShrink: 0 }}>
                                       {isEditing ?
                                         <OverlayTrigger
                                           placement={'bottom-end'}
@@ -980,7 +978,7 @@ const openModalForVariant = (variantId) => {
                                           placement={'bottom-end'}
                                           overlay={
                                               <Tooltip id={`tooltip-vendor-search`}>
-                                                  Edit Target Price 
+                                                {`${item.latest_target_price > 0 ? "Edit Target Price" : "Add Target Price"}`}
                                               </Tooltip>
                                           }
                                       >
@@ -989,12 +987,13 @@ const openModalForVariant = (variantId) => {
                                               bg="warning"
                                               // className="d-fle"
                                             >
-                                              <p  onClick={()=>toggleEditPrice(item.id)}>Edit</p>
+                                              <p  onClick={()=>toggleEditPrice(item.id)}>{`${item.latest_target_price > 0 ? "Edit" : "Add Target Price"}`}</p>
                                             </Badge>
                                       </OverlayTrigger>
                                       }
+                                      </div>
                                   </label>
-                          </td> 
+                          </td>
 
                           {item.quotations.length > 0 &&
                             item.quotations.map((quote_item, vIdx) => {
