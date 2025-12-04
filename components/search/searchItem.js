@@ -97,7 +97,7 @@ const SearchItem = ({
                         <b>About :</b> {data.about}
                       </p>
                     )}
-                    {
+                    {/* {
                       data.vendor_info && 
                       <ul className="d-flex flex-wrap gap-4 mb-2 ps-0">
                         { data.vendor_info.is_private === 1 &&
@@ -113,7 +113,7 @@ const SearchItem = ({
                         <li className="list-none badge rounded-pill py-2 px-3 text-bg-warning">Already Added in RFQ</li>
                         }
                       </ul>
-                    }
+                    } */}
                     {!data.about && <p>No information available</p>}
                     {data.website && (
                       <p>

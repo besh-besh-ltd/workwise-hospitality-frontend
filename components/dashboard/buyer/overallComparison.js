@@ -261,6 +261,14 @@ const openModalForVariant = (variantId) => {
     }
   }, [data]);
 
+  const hasSellingPrice = data?.some(item => {
+    const priceObj = item.product_specs.find(
+      spec => spec.title === "total_price"
+    );
+
+    const price = parseFloat(priceObj?.value);
+    return !isNaN(price) && price > 0;
+  });
 
   const addCommasToNumber = (number) => {
 
@@ -335,10 +343,6 @@ const openModalForVariant = (variantId) => {
 
     let cleaned = value.replace(/\D/g, '');
 
-    if(cleaned === "0"){
-      cleaned = "";
-    }
-
     cleaned = cleaned.replace(/^0+(?=[0-9.])/, ''); 
     const updatedData = [...data];
     updatedData[index].latest_target_price = cleaned // Remove non-numeric characters except dot
@@ -352,7 +356,7 @@ const openModalForVariant = (variantId) => {
     updateTargetPrice({
       productId : item.id,
       vendorIds : item.all_vendors.map((vendor)=>vendor.id),
-      targetPrice : item.latest_target_price,
+      targetPrice : item.latest_target_price ? item.latest_target_price : "0",
       rfq_id : item.rfq_id
     }).then((res)=>{
       toast.success(`Target Price for ${item.product_details[0]?.name} Updated Successfully`);
@@ -383,8 +387,7 @@ const openModalForVariant = (variantId) => {
                   <col style={{ width: "250px" }} />
                   <col style={{ width: "250px" }} />
                   <col style={{ width: "120px" }} />
-                  {data?.product_specs?.some((item)=>item.title) &&
-                    <col style={{ width: "250px" }} />}
+                  {hasSellingPrice && <col style={{ width: "250px" }} />}
                   <col style={{ width: "250px" }} />
                   <col style={{ width: "250px" }} />
                   {allvendors.length > 0 &&
@@ -452,12 +455,14 @@ const openModalForVariant = (variantId) => {
                         </div>
                       </div>
                     </th>
-                    {data?.product_specs?.some((item)=>item.title) &&
+                    { 
+                    hasSellingPrice && 
                       <th scope="col" className="all_vendors" rowSpan={2}>
                       <p>
                         Selling Price
                       </p>
-                    </th>}
+                    </th>
+                    }
                     <th scope="col" className="all_vendors" rowSpan={2}>
                       <p>
                         Target Price
@@ -501,6 +506,7 @@ const openModalForVariant = (variantId) => {
                       const size = item.product_specs.find(
                         (spec) => spec.title === "Size"
                       );
+
                       const spec = item.product_specs.find(
                         (spec) => spec.title === "Spec"
                       );
@@ -508,12 +514,21 @@ const openModalForVariant = (variantId) => {
                       const quantity = item.product_specs.find(
                         (spec) => spec.title === "Quantity"
                       );
+
                       const unit = item.product_specs.find(
                         (spec) => spec.title === "Unit"
                       );
-                      const selling_price = item.product_specs.find(
+
+                      const rawPrice = item.product_specs.find(
                         (spec) => spec.title === "total_price"
                       )?.value;
+                      const price = parseFloat(rawPrice);
+                      const selling_price = !isNaN(price) && price > 0 ? price : null;
+
+                      // const rawTargetPrice = item.last_purchase_rate;
+                      // const target_price = rawTargetPrice > 0;
+                      // console.log("target_price", target_price);
+
 
                       return (
                         <tr key={item.id}>
@@ -524,7 +539,7 @@ const openModalForVariant = (variantId) => {
                                 ? item.product_details[0]?.name
                                 : "-"}
                             </p>
-                            {selling_price && (
+                            {/* {selling_price && (
                               <div className="d-flex justify-content-center">
                                 <Badge
                                   bg="success"
@@ -536,7 +551,7 @@ const openModalForVariant = (variantId) => {
                                   </p>
                                 </Badge>
                               </div>
-                            )}
+                            )} */}
                           </td>
                           <td>
                             <div
@@ -918,33 +933,29 @@ const openModalForVariant = (variantId) => {
                             </td>
                           )}
 
-                          {selling_price && <td>
-                            <table className="w-100">
-                              {/* Selling Price Row */}
-                              {selling_price && (
-                                <tr>
-                                  <td
-                                    className="pe-2 fw-bold"
-                                    style={{ whiteSpace: "nowrap" }}
-                                  >
-                                    Selling Price:
-                                  </td>
-                                  <td>₹{addCommasToNumber(selling_price)}</td>
-                                </tr>
-                              )}
-                            </table>
-                          </td>}
+                          {/* Selling Price Row */}
+                          {
+                          hasSellingPrice && 
+                            <td>{selling_price ? `₹${addCommasToNumber(selling_price)}` : "--"}</td>
+                          }
                           
                           <td>
-                                  <label>
-                                      <input 
-                                      type="text" 
+                                  <label style={{display:'flex', gap:'10px', justifyContent :'space-between',alignItems: 'center',width: '100%',gap: '10px',  }}>
+                                       <div style={{ flex: 1, minWidth: 0 }}>
+                                      { item.latest_target_price > 0 || isEditing ?
+                                      <input
+                                      type="text"
                                       class="!outline-none !border-none !bg-none"
-                                      style={{border : 'none', outline : 'none', background : 'none'}}
-                                      onChange={(e)=>handleTargetChange(index, e.target.value)} 
+                                      style={{border : 'none', background : 'none'}}
+                                      onChange={(e)=>handleTargetChange(index, e.target.value)}
                                       value={`₹ ${addCommasToNumber(item.latest_target_price)}`}
                                       disabled={!isEditing}
                                       />
+                                    :
+                                    <p className="text-left" >--</p>
+                                    }
+                                    </div>
+<div style={{ flexShrink: 0 }}>
                                       {isEditing ?
                                         <OverlayTrigger
                                           placement={'bottom-end'}
@@ -954,22 +965,35 @@ const openModalForVariant = (variantId) => {
                                               </Tooltip>
                                           }
                                       >
-                                          <IoIosSave onClick={()=>saveTargetPrice(item)}/>
+                                        <Badge
+                                  bg="success"
+                                  // className="d-fle"
+                                >
+                                  <p  onClick={()=>saveTargetPrice(item)}>Save</p>
+                                </Badge>
+                                          {/* <IoIosSave/> */}
                                       </OverlayTrigger>
                                       :
                                        <OverlayTrigger
                                           placement={'bottom-end'}
                                           overlay={
                                               <Tooltip id={`tooltip-vendor-search`}>
-                                                  Edit Target Price 
+                                                {`${item.latest_target_price > 0 ? "Edit Target Price" : "Add Target Price"}`}
                                               </Tooltip>
                                           }
                                       >
-                                          <FaRegEdit onClick={()=>toggleEditPrice(item.id)}/>
+                                          {/* <FaRegEdit onClick={()=>toggleEditPrice(item.id)}/> */}
+                                            <Badge
+                                              bg="warning"
+                                              // className="d-fle"
+                                            >
+                                              <p  onClick={()=>toggleEditPrice(item.id)}>{`${item.latest_target_price > 0 ? "Edit" : "Add Target Price"}`}</p>
+                                            </Badge>
                                       </OverlayTrigger>
                                       }
+                                      </div>
                                   </label>
-                          </td> 
+                          </td>
 
                           {item.quotations.length > 0 &&
                             item.quotations.map((quote_item, vIdx) => {
@@ -1327,7 +1351,7 @@ const openModalForVariant = (variantId) => {
                     )}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col">
+                    <th colSpan={hasSellingPrice ? 7 : 6} scope="col">
                       TOTAL
                     </th>
 
@@ -1342,7 +1366,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col">
+                    <th colSpan={hasSellingPrice ? 7 : 6} scope="col">
                       FINALIZED VENDOR
                     </th>
 
@@ -1356,7 +1380,7 @@ const openModalForVariant = (variantId) => {
                   </tr>
 
                   <tr className="last_row">
-                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col" className="bggray">
+                    <th colSpan={hasSellingPrice ? 7 : 6} scope="col" className="bggray">
                       LOWEST TOTAL ( L1 Total )
                     </th>
 
@@ -1372,7 +1396,7 @@ const openModalForVariant = (variantId) => {
                   </tr>
 
                   <tr className="last_row">
-                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col">
+                    <th colSpan={hasSellingPrice ? 7 : 6} scope="col">
                       Delivery{" "}
                     </th>
 
@@ -1388,7 +1412,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col">
+                    <th colSpan={hasSellingPrice ? 7 : 6} scope="col">
                       Payment{" "}
                     </th>
 
@@ -1424,7 +1448,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col">
+                    <th colSpan={hasSellingPrice ? 7 : 6} scope="col">
                       Vendor comment{" "}
                     </th>
 
@@ -1445,7 +1469,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={data?.product_specs?.some((item)=>item.title) ? 7 : 6} scope="col">
+                    <th colSpan={hasSellingPrice ? 7 : 6} scope="col">
                       Attached Files{" "}
                     </th>
 

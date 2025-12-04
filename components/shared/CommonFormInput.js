@@ -143,14 +143,27 @@ const CommonFormInput = ({
   if (type === "simple-text") {
     //  this block state is used to handle the value of the textarea, this will fix the issue "user not able to edit the ionput from middle"
     const [value, setValue] = useState('');
-    const handelOnChahnge = (e) => {
+    const handelOnChange = (e) => {
+      const value = e.target.value;
+
+    if(value.length > 12){
+      return;
+    }
+
+    let cleaned = value.replace(/\D/g, '');
+
+    if(cleaned === "0"){
+      cleaned = "";
+    }
+
+    cleaned = cleaned.replace(/^0+(?=[0-9.])/, ''); 
       if(validation === "float_number"){
         const regex = /^\d*\.?\d*$/;
-        if (!regex.test(e.target.value)) {
+        if (!regex.test(cleaned)) {
           return; // Invalid input, do not update the value
         }
       }
-      setValue(e.target.value);
+      setValue(cleaned);
       onChange && onChange(e);
     };
 
@@ -169,7 +182,7 @@ const CommonFormInput = ({
           placeholder={placeholder || `Enter ${label}`}
           // defaultValue={defaultValue}
           value={value || values}
-          onChange={handelOnChahnge}
+          onChange={handelOnChange}
           // style={style ?? {}}
         />
         {isInvalid && <div className="invalid-feedback">{errors?.[name]}</div>}

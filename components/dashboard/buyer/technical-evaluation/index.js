@@ -355,10 +355,10 @@ useEffect(() => {
                                         <b>Product Specification</b>:{" "}
                                         {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
                                       </p>
-                                      <p className="sub-heading mb-0">
+                                      {/* <p className="sub-heading mb-0">
                                         <b>Displaying {vendorLabel}</b>:{" "}
                                         {displayedVendors.join(", ") || "N/A"}
-                                      </p>
+                                      </p> */}
                                     </div>
 
                                     {/* Vendor Selection */}
