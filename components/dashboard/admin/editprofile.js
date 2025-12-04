@@ -519,7 +519,7 @@ const handleCreateLocation = async (locationData) => {
                           disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
-                      <div className="col-md-6">
+                      {/* <div className="col-md-6">
                         <CommonFormInput
                           name="street_address"
                           label="Street Address"
@@ -538,10 +538,10 @@ const handleCreateLocation = async (locationData) => {
                           placeholder="e.g. 110001"
                           disabled={!isCompanyEditableForUserRef.current}
                         />
-                      </div>
+                      </div> */}
 
                       {/* Location Inputs */}
-                      <div className="col-md-4">
+                      {/* <div className="col-md-4">
                         <CommonFormInput
                           name="country"
                           label="Country"
@@ -556,8 +556,8 @@ const handleCreateLocation = async (locationData) => {
                           onChange={(option) => handleLocationChange("country", option, setFieldValue)}
                           disabled={!isCompanyEditableForUserRef.current}
                         />
-                      </div>
-                      <div className="col-md-4">
+                      </div> */}
+                      {/* <div className="col-md-4">
                         <CommonFormInput
                           name="state"
                           label="State"
@@ -572,8 +572,8 @@ const handleCreateLocation = async (locationData) => {
                           onChange={(option) => handleLocationChange("state", option, setFieldValue)}
                           disabled={!isCompanyEditableForUserRef.current}
                         />
-                      </div>
-                      <div className="col-md-4">
+                      </div> */}
+                      {/* <div className="col-md-4">
                         <CommonFormInput
                           name="city"
                           label="City"
@@ -588,7 +588,7 @@ const handleCreateLocation = async (locationData) => {
                           onChange={(option) => handleLocationChange("city", option, setFieldValue)}
                           disabled={!isCompanyEditableForUserRef.current}
                         />
-                      </div>
+                      </div> */}
                       {isCompanyEditableForUserRef.current && (
                         <div className="col-12 text-end">
                           <button type="submit" className="btn btn-secondary" id="save_company_details-company_details-edit_profile_page">
