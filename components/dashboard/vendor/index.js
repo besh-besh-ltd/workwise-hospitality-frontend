@@ -11,7 +11,7 @@ import {
   getProfile
 } from "@/services/Auth";
 import {
-  proceedToSubscription,
+  hospitalitySubscriptionPayment,
   loadScript,
   testRazorPayEndpoint
 } from "@/services/subscription";
@@ -27,6 +27,7 @@ const Vendor = () => {
   const [loading, setloading] = useState(false);
   const [hospitalityPaymentTriggered, setHospitalityPaymentTriggered] =
     useState(false);
+  const [hasValidSubscription, setHasValidSubscription] = useState(true);
 
 
   useEffect(() => {
@@ -38,71 +39,82 @@ const Vendor = () => {
         
         // Check if user is hospitality vendor
         if (userProfile.is_hospitality === 1 || userProfile.is_hospitality === '1') {
-          // Check if user has active subscription (payment made)
-          const hasSubscription = userProfile.subscription_plan_id && userProfile.subscription_plan_id !== null;
+          // Check if user has valid paid subscription
+          const hasValidSubscription = userProfile.has_valid_hospitality_subscription === true;
+          setHasValidSubscription(hasValidSubscription);
           
-          // If no subscription, redirect to payment
-          if (!hasSubscription) {
+          // If no valid subscription, block access and trigger payment
+          if (!hasValidSubscription) {
             if (!hospitalityPaymentTriggered) {
               await triggerHospitalityPayment(userProfile);
             }
             return;
           }
         }
+        
+        // Only load dashboard data if vendor has valid subscription or is not hospitality vendor
+        setloading(true);
+        getDashboardData({
+          project_id: -1,
+          rfq_type: "",
+          reverse_auction: "-1",
+          sort: "DESC",
+          page: 1
+        })
+          .then((res) => {
+            setloading(false);
+            setDashboardData(res.data);
+          })
+          .catch((err) => {
+            setloading(false);
+            console.error(err);
+          });
       } catch (error) {
         console.error('Error checking hospitality payment status:', error);
-        // Continue to load dashboard even if check fails
+        setloading(false);
       }
     };
 
     checkHospitalityPayment();
-
-    setloading(true);
-    getDashboardData({
-      project_id: -1,
-      rfq_type: "",
-      reverse_auction: "-1",
-      sort: "DESC",
-      page: 1
-    })
-      .then((res) => {
-        setloading(false);
-        setDashboardData(res.data);
-      })
-      .catch((err) => {
-        setloading(true);
-        console.error(err);
-      });
   }, [hospitalityPaymentTriggered]);
 
   const triggerHospitalityPayment = async (profile) => {
     try {
       setHospitalityPaymentTriggered(true);
+      setHasValidSubscription(false);
       toast.warning(
         'Payment required for hospitality vendors. Opening payment gateway...'
       );
 
+      // Get user_key from profile (added by backend)
+      const user_key = profile.user_key;
+      if (!user_key) {
+        throw new Error('User key not found');
+      }
+
+      // Use pending categories/hotels from profile, or empty arrays
+      const categories = profile.pending_hospitality_categories || [];
+      const hotels = profile.pending_hospitality_hotels || [];
+
       const payload = {
-        sub_id: '21',
-        coupon_code: '',
-        user_email: profile.email,
-        user_name: profile.name,
-        user_mobile: profile.mobile,
-        organization_name: profile.organization_name,
-        register_as: profile.user_type
+        user_key: user_key,
+        categories: categories,
+        hotels: hotels
       };
 
-      const response = await proceedToSubscription(payload);
-      if (response?.status) {
-        await payWithRazorPay(response?.data);
+      const response = await hospitalitySubscriptionPayment(payload);
+      if (response?.status === 1 && response?.data) {
+        await payWithRazorPay(response.data);
       } else {
         setHospitalityPaymentTriggered(false);
-        toast.error('Unable to initiate payment. Please try again.');
+        setHasValidSubscription(true);
+        toast.error(response?.message || 'Unable to initiate payment. Please try again.');
       }
     } catch (error) {
       setHospitalityPaymentTriggered(false);
+      setHasValidSubscription(true);
       console.error('Hospitality payment error:', error);
-      toast.error('Failed to start payment. Please try again.');
+      toast.error(error?.response?.data?.message || 'Failed to start payment. Please try again.');
     }
   };
 
@@ -124,13 +136,18 @@ const Vendor = () => {
       name: 'Workwise',
       description: 'Hospitality Vendor Subscription',
       image: '/assets/images/logo.png',
-      handler: function () {
+      handler: function (response) {
         const payload = {
-          order_id: orderId
+          order_id: orderId,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_signature: response.razorpay_signature
         };
         testRazorPayEndpoint(payload)
           .then((res) => {
             if (res.data) {
+              setHospitalityPaymentTriggered(false);
+              setHasValidSubscription(true);
               toast.success(
                 'Payment successful! Refreshing your dashboard...'
               );
@@ -140,9 +157,13 @@ const Vendor = () => {
             }
           })
           .catch(() => {
+            setHospitalityPaymentTriggered(false);
             toast.success(
               'Payment captured. Please refresh the page after a minute.'
             );
+            setTimeout(() => {
+              window.location.reload();
+            }, 60000);
           });
       },
       prefill: {
@@ -182,6 +203,34 @@ const Vendor = () => {
       }
     }
   };
+
+  if (!hasValidSubscription && hospitalityPaymentTriggered) {
+    return (
+      <>
+        <Head>
+          <title>Payment Required | Vendor</title>
+        </Head>
+        <section className="vendor-common-header sc-pt-80">
+          <div className="container-fluid">
+            <h1 className="heading">Payment Required</h1>
+          </div>
+        </section>
+        <section className="vendor-sec-1">
+          <div className="container-fluid">
+            <div className="row">
+              <div className="col-12">
+                <div className="alert alert-warning text-center" role="alert">
+                  <h4>Payment Required</h4>
+                  <p>You need to complete your hospitality subscription payment to access the vendor dashboard.</p>
+                  <p>Please complete the payment in the Razorpay popup window.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </>
+    );
+  }
 
   return (
     <>

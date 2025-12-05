@@ -616,7 +616,7 @@ const Header = () => {
   }, [currentUserType, isHospitalityCompany]);
 
   const showHospitalityScopeButton =
-    isHospitalityCompany && currentUserType !== "admin";
+    isHospitalityCompany && currentUserType !== "admin" && currentUserType !== "vendor";
 
   return (
     <>

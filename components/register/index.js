@@ -37,6 +37,8 @@ const Register = ({
     cities: [],
   });
   const [categoryOptions, setCategoryOptions] = useState([]);
+  const [subcategoryOptions, setSubcategoryOptions] = useState({});
+  const [loadingSubcategories, setLoadingSubcategories] = useState({});
   const [hotelOptions, setHotelOptions] = useState([]);
   const [loadingHotels, setLoadingHotels] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
@@ -44,6 +46,13 @@ const Register = ({
   const [otpValue, setOtpValue] = useState("");
   const [sendingOTP, setSendingOTP] = useState(false);
   const [verifyingOTP, setVerifyingOTP] = useState(false);
+  const [documentFiles, setDocumentFiles] = useState({
+    gst: null,
+    pan: null,
+    fssai: null,
+    msme: null,
+    other: null
+  });
 
   useEffect(() => {
     const fetchFormMeta = async () => {
@@ -174,6 +183,60 @@ const Register = ({
     "categories",
   ];
 
+  const fetchSubcategories = async (categoryId) => {
+    if (!categoryId || subcategoryOptions[categoryId]) {
+      return;
+    }
+    
+    setLoadingSubcategories(prev => ({ ...prev, [categoryId]: true }));
+    try {
+      const response = await nestedCategoryData(categoryId, '', true);
+      const subcategories = Array.isArray(response?.data) ? response.data : [];
+      setSubcategoryOptions(prev => ({
+        ...prev,
+        [categoryId]: subcategories.map(item => ({
+          id: item.id,
+          value: item.id,
+          label: item.title || item.name || "Subcategory"
+        }))
+      }));
+    } catch (error) {
+      console.error("Error fetching subcategories:", error);
+    } finally {
+      setLoadingSubcategories(prev => ({ ...prev, [categoryId]: false }));
+    }
+  };
+
+  const handleCategoryChange = (selectedOptions, setFieldValue, values) => {
+    const ids = selectedOptions ? selectedOptions.map((opt) => opt.value) : [];
+    setFieldValue("categories", ids);
+    
+    // Fetch subcategories for newly selected categories
+    ids.forEach(categoryId => {
+      if (!subcategoryOptions[categoryId]) {
+        fetchSubcategories(categoryId);
+      }
+    });
+    
+    // Clear subcategories for deselected categories
+    const currentSubcategories = values.subcategories || [];
+    const validSubcategories = currentSubcategories.filter(subId => {
+      // Check if this subcategory belongs to any selected category
+      return Object.values(subcategoryOptions).some(subs => 
+        subs.some(sub => sub.value === subId)
+      );
+    });
+    if (validSubcategories.length !== currentSubcategories.length) {
+      setFieldValue("subcategories", validSubcategories);
+    }
+  };
+
+  const handleDocumentUpload = (field, file) => {
+    if (file) {
+      setDocumentFiles(prev => ({ ...prev, [field]: file }));
+    }
+  };
+
   const handleSendOTP = async (email) => {
     if (!email || !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       toast.error("Please enter a valid email address");
@@ -295,7 +358,12 @@ const Register = ({
     state: "",
     city: "",
     categories: [],
+    subcategories: [],
     hotels: [],
+    gstin: "",
+    pan: "",
+    fssai: "",
+    msme: "",
   };
   // Register Validation Schema builder
   const buildValidationSchema = (includeLocationFields = false, includeHotels = false) => {
@@ -358,16 +426,26 @@ const Register = ({
     return yup.object().shape(baseShape);
   };
 
-  const registerSubmitHandler = (values, resetForm) => {
+  const registerSubmitHandler = async (values, resetForm) => {
     setloading(true);
     persistLocationDraft(values);
 
     const selectedCategories = values.categories || [];
+    const selectedSubcategories = values.subcategories || [];
     const selectedHotels = values.hotels || [];
 
     const selectedCategoryNames = categoryOptions
       .filter((opt) => selectedCategories.includes(opt.value))
       .map((opt) => opt.label);
+
+    const selectedSubcategoryNames = [];
+    Object.values(subcategoryOptions).forEach(subs => {
+      subs.forEach(sub => {
+        if (selectedSubcategories.includes(sub.value)) {
+          selectedSubcategoryNames.push(sub.label);
+        }
+      });
+    });
 
     const selectedHotelNames = hotelOptions
       .filter((opt) => selectedHotels.includes(opt.value))
@@ -386,6 +464,7 @@ const Register = ({
       state: _state,
       city: _city,
       categories: _categories,
+      subcategories: _subcategories,
       ...updatedValues
     } = {
       ...values,
@@ -396,7 +475,9 @@ const Register = ({
       // Add is_hospitality flag for hospitality vendors
       ...(isHospitality && { is_hospitality: 1 }),
       ...(source ? { source } : {source:"self"}),
-      ...(subscription_plan ? { subscription_plan } : {subscription_plan: 0})
+      ...(subscription_plan ? { subscription_plan } : {subscription_plan: 0}),
+      // Include subcategories for hospitality vendors
+      ...(isHospitality && selectedSubcategories.length > 0 && { subcategories: selectedSubcategories })
     };
     RegisterService(updatedValues)
       .then((response) => {
@@ -418,7 +499,7 @@ const Register = ({
           };
 
           LoginService(loginData, false)
-            .then((loginResponse) => {
+            .then(async (loginResponse) => {
               // Handle both normal login and hospitality-pending login
               let userKey = loginResponse.user_key || null;
               if (
@@ -429,23 +510,55 @@ const Register = ({
                 userKey = loginResponse.hospitality_user.user_key;
               }
 
-              onRegistrationSuccess({
+              const userData = {
                 ...updatedValues,
                 categories: selectedCategories,
+                subcategories: selectedSubcategories,
                 hotels: selectedHotels,
                 categoryNames: selectedCategoryNames,
+                subcategoryNames: selectedSubcategoryNames,
                 hotelNames: selectedHotelNames,
                 token: loginResponse.token,
                 user_key: userKey,
-              });
+              };
+
+              // Upload documents if any were selected (for hospitality vendors)
+              if (isHospitality && Object.values(documentFiles).some(file => file !== null)) {
+                try {
+                  const { handleUploadFiles } = await import('@/services/Auth');
+                  const uploadPromises = [];
+                  
+                  if (documentFiles.gst) {
+                    uploadPromises.push(handleUploadFiles([documentFiles.gst], 'gst_certificate'));
+                  }
+                  if (documentFiles.pan) {
+                    uploadPromises.push(handleUploadFiles([documentFiles.pan], 'pan_card'));
+                  }
+                  if (documentFiles.fssai) {
+                    uploadPromises.push(handleUploadFiles([documentFiles.fssai], 'fssai_license'));
+                  }
+                  if (documentFiles.msme) {
+                    uploadPromises.push(handleUploadFiles([documentFiles.msme], 'msme_certificate'));
+                  }
+                  
+                  await Promise.all(uploadPromises);
+                } catch (uploadError) {
+                  console.error('Error uploading documents:', uploadError);
+                  // Don't block registration if document upload fails
+                }
+              }
+
+              onRegistrationSuccess(userData);
             })
             .catch(() => {
               // Even if auto-login fails, still call the callback
               onRegistrationSuccess({
                 ...updatedValues,
                 categories: selectedCategories,
+                subcategories: selectedSubcategories,
                 hotels: selectedHotels,
                 categoryNames: selectedCategoryNames,
+                subcategoryNames: selectedSubcategoryNames,
                 hotelNames: selectedHotelNames,
               });
             });
@@ -804,10 +917,7 @@ const Register = ({
                         values.categories?.includes(option.value)
                       )}
                       onChange={(selectedOptions) => {
-                        const ids = selectedOptions
-                          ? selectedOptions.map((opt) => opt.value)
-                          : [];
-                        setFieldValue("categories", ids);
+                        handleCategoryChange(selectedOptions, setFieldValue, values);
                       }}
                       placeholder="Please select categories"
                       isClearable
@@ -818,6 +928,186 @@ const Register = ({
                       <div className="form-error">{errors.categories}</div>
                     )}
                   </div>
+
+                  {values.categories && values.categories.length > 0 && (
+                    <div className="form-group mt-3">
+                      <label>
+                        Select Subcategories <small className="text-muted">(Optional)</small>
+                      </label>
+                      {values.categories.map(categoryId => {
+                        const subs = subcategoryOptions[categoryId] || [];
+                        const isLoading = loadingSubcategories[categoryId];
+                        
+                        if (isLoading) {
+                          return (
+                            <div key={categoryId} className="mb-2">
+                              <small className="text-muted">Loading subcategories...</small>
+                            </div>
+                          );
+                        }
+                        
+                        if (subs.length === 0) {
+                          return null;
+                        }
+                        
+                        const categoryName = categoryOptions.find(opt => opt.value === categoryId)?.label || 'Category';
+                        const selectedSubs = (values.subcategories || []).filter(subId => 
+                          subs.some(sub => sub.value === subId)
+                        );
+                        
+                        return (
+                          <div key={categoryId} className="mb-3">
+                            <small className="text-muted d-block mb-1">{categoryName}</small>
+                            <Select
+                              isMulti
+                              options={subs}
+                              value={subs.filter(opt => selectedSubs.includes(opt.value))}
+                              onChange={(selectedOptions) => {
+                                const allSubs = values.subcategories || [];
+                                const otherSubs = allSubs.filter(subId => 
+                                  !subs.some(sub => sub.value === subId)
+                                );
+                                const newSubs = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+                                setFieldValue("subcategories", [...otherSubs, ...newSubs]);
+                              }}
+                              placeholder={`Select ${categoryName} subcategories`}
+                              isClearable
+                              isSearchable
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {isHospitality && (
+                    <>
+                      <div className="form-group mt-3">
+                        <label htmlFor="gstin">
+                          GSTIN <small className="text-muted">(Optional)</small>
+                        </label>
+                        <Field
+                          type="text"
+                          id="gstin"
+                          name="gstin"
+                          placeholder="Ex. 27AABCU9603R1ZX"
+                          maxLength="15"
+                        />
+                        {touched.gstin && errors.gstin && (
+                          <div className="form-error">{errors.gstin}</div>
+                        )}
+                      </div>
+
+                      <div className="form-group">
+                        <label htmlFor="pan">
+                          PAN <small className="text-muted">(Optional)</small>
+                        </label>
+                        <Field
+                          type="text"
+                          id="pan"
+                          name="pan"
+                          placeholder="Ex. ABCDE1234F"
+                          maxLength="10"
+                          style={{ textTransform: "uppercase" }}
+                        />
+                        {touched.pan && errors.pan && (
+                          <div className="form-error">{errors.pan}</div>
+                        )}
+                      </div>
+
+                      <div className="form-group">
+                        <label htmlFor="fssai">
+                          FSSAI License Number <small className="text-muted">(Optional, if applicable)</small>
+                        </label>
+                        <Field
+                          type="text"
+                          id="fssai"
+                          name="fssai"
+                          placeholder="Ex. 11234567000123"
+                        />
+                        {touched.fssai && errors.fssai && (
+                          <div className="form-error">{errors.fssai}</div>
+                        )}
+                      </div>
+
+                      <div className="form-group">
+                        <label htmlFor="msme">
+                          MSME Certificate Number <small className="text-muted">(Optional)</small>
+                        </label>
+                        <Field
+                          type="text"
+                          id="msme"
+                          name="msme"
+                          placeholder="Ex. UDYAM-XX-XXXXXX-XXXXX"
+                        />
+                        {touched.msme && errors.msme && (
+                          <div className="form-error">{errors.msme}</div>
+                        )}
+                      </div>
+
+                      <div className="form-group">
+                        <label>Business Documents <small className="text-muted">(Optional)</small></label>
+                        <div className="row g-2">
+                          <div className="col-md-6">
+                            <label className="small text-muted">GST Certificate</label>
+                            <input
+                              type="file"
+                              className="form-control form-control-sm"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleDocumentUpload('gst', e.target.files[0])}
+                            />
+                            {documentFiles.gst && (
+                              <small className="text-success d-block mt-1">
+                                {documentFiles.gst.name}
+                              </small>
+                            )}
+                          </div>
+                          <div className="col-md-6">
+                            <label className="small text-muted">PAN Card</label>
+                            <input
+                              type="file"
+                              className="form-control form-control-sm"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleDocumentUpload('pan', e.target.files[0])}
+                            />
+                            {documentFiles.pan && (
+                              <small className="text-success d-block mt-1">
+                                {documentFiles.pan.name}
+                              </small>
+                            )}
+                          </div>
+                          <div className="col-md-6">
+                            <label className="small text-muted">FSSAI License</label>
+                            <input
+                              type="file"
+                              className="form-control form-control-sm"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleDocumentUpload('fssai', e.target.files[0])}
+                            />
+                            {documentFiles.fssai && (
+                              <small className="text-success d-block mt-1">
+                                {documentFiles.fssai.name}
+                              </small>
+                            )}
+                          </div>
+                          <div className="col-md-6">
+                            <label className="small text-muted">MSME Certificate</label>
+                            <input
+                              type="file"
+                              className="form-control form-control-sm"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleDocumentUpload('msme', e.target.files[0])}
+                            />
+                            {documentFiles.msme && (
+                              <small className="text-success d-block mt-1">
+                                {documentFiles.msme.name}
+                              </small>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   {!isHospitality && registerAs === "vendor" && (
                     <div className="mt-3">
