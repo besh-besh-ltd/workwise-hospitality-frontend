@@ -157,7 +157,7 @@ const ViewVendorModal = ({
                         <thead>
                           <tr>
                             <th>Company Name</th>
-                            <th style={{ maxWidth: "300px" }}>Region</th>
+                            {/* <th style={{ maxWidth: "300px" }}>Region</th> */}
                             <th>Email</th>
                             <th>Mobile No.</th>
                             {/* <th>Industry</th> */}
@@ -187,12 +187,12 @@ const ViewVendorModal = ({
                               <>
                                 <tr key={`vendor-${item.name}`}>
                                   <td>{item.user_details.company_name}</td>
-                                  <td
+                                  {/* <td
                                     className="text-truncate"
                                     style={{ maxWidth: "300px" }}
                                   >
                                     {item.user_details.address}
-                                  </td>
+                                  </td> */}
                                   <td>{item.user_details.email}</td>
                                   <td>{item.user_details.mobile}</td>
                                   {/* <td>

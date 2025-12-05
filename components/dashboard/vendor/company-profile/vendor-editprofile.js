@@ -343,16 +343,22 @@ useEffect(() => {
                       <FontAwesomeIcon icon={faTimesCircle} /> Unverified
                     </p>
                   )}
-                  {vendorDetails?.address && (
-                    <p>
-                      <FontAwesomeIcon icon={faLocation} />{" "}
-                      {vendorDetails?.address}
-                      {vendorDetails?.city_name &&
-                        `, ${vendorDetails?.city_name}`}
-                      {vendorDetails?.state_name &&
-                        `, ${vendorDetails?.state_name}`}
-                    </p>
+                  {vendorDetails?.location?.length > 0 && (
+                    <div>
+                      {vendorDetails.location.map((loc, index) => (
+                        <p key={index}>
+                          <FontAwesomeIcon icon={faLocation} />{" "}
+                          {loc.address ? loc.address : ""}
+                          {loc.city_name ? `, ${loc.city_name}` : ""}
+                          {loc.state_name ? `, ${loc.state_name}` : ""}
+                          {loc.country_name ? `, ${loc.country_name}` : ""}
+                          {loc.postal_code ? ` - ${loc.postal_code}` : ""}
+                        </p>
+                      ))}
+                    </div>
                   )}
+
+                  {console.log("vendor details---->",vendorDetails)}
 
                   {(vendorDetails?.linkedin ||
                     vendorDetails?.facebook ||
