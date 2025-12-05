@@ -69,11 +69,29 @@ const SearchItem = ({
               {type == "vendors" && (
                 <>
                   <div className="mdl-con-text">
-                    {data.address && (
+                    {Array.isArray(data.location) && data.location.length > 0 && (
                       <p>
-                        <b>Location :</b> {data.city_name ? `${data.city_name}, ${data.state_name}` : data.state_name ? data.state_name : ''}
+                        <b>Location :</b>{" "}
+                        {[
+                          ...new Set(
+                            data.location.map((loc) => {
+                              const city = loc.city_name?.trim() ?? "";
+                              const state = loc.state_name?.trim() ?? "";
+                              const country = loc.country_name?.trim() ?? "";
+
+                              // If country is not India → include country
+                              if (country && country.toLowerCase() !== "india") {
+                                return [city, state, country].filter(Boolean).join(", ");
+                              }
+
+                              // Default: India → only city + state
+                              return [city, state].filter(Boolean).join(", ");
+                            })
+                          ),
+                        ].join(", ")}
                       </p>
                     )}
+
                     {data.about && (
                       <p className="truncate-text " style={{ maxHeight: "100px", WebkitLineClamp: 3 }}>
                         <b>About :</b> {data.about}

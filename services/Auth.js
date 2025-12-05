@@ -102,6 +102,58 @@ export const updateProfile = (values, user_id) => {
 	});
 };
 
+export const getVendorlocations = (company_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/users/get-buyer-vendor-location/${company_id}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject(error);
+    }
+  });
+}		
+export const updateVendorlocations = (values) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.put(
+				`/users/update-buyer-vendor-location`,
+				values
+			);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});	
+}
+export const createVendorLocation =(values) =>{
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.post(
+				`/users/add-buyer-vendor-location`,
+				values
+			);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}	
+	})
+}
+
+export const deleteVendorLocation = (id) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.delete(
+				`/users/delete-buyer-vendor-location/${id}`
+			);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+}
+
 export const getProfileReviews = () => {
   return new Promise(async (resolve, reject) => {
     try {
