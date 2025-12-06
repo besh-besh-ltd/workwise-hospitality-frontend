@@ -430,12 +430,59 @@ const Item = ({
           isError = selectedVendorCount === 0;
         }
 
+        // helper: read a spec field (check updatableData first, then local specs, then rfqProduct.spec array)
+        const getSpecValue = (fieldName) => {
+          const specsUp = updatableData?.products?.updatable?.specs?.[data.id];
+          if (specsUp) {
+            const candidates = [
+              fieldName,
+              fieldName.toLowerCase(),
+              fieldName.charAt(0).toUpperCase() + fieldName.slice(1),
+            ];
+            for (const k of candidates) {
+              if (Object.prototype.hasOwnProperty.call(specsUp, k)) return specsUp[k];
+            }
+            // case-insensitive fallback
+            for (const k of Object.keys(specsUp)) {
+              if (k.toLowerCase() === fieldName.toLowerCase()) return specsUp[k];
+            }
+          }
+
+          if (specs && Object.prototype.hasOwnProperty.call(specs, fieldName)) return specs[fieldName];
+
+          const pSpecs = rfqProduct?.spec || rfqProduct?.specs;
+          if (Array.isArray(pSpecs)) {
+            const found = pSpecs.find((s) => ((s.title || s.label || "").toLowerCase() === fieldName.toLowerCase()));
+            if (found) return found.value ?? found.val ?? "";
+          }
+
+          if (Object.prototype.hasOwnProperty.call(rfqProduct, fieldName)) return rfqProduct[fieldName];
+
+          return undefined;
+        };
+
+        const missing = [];
+        const qVal = getSpecValue("quantity");
+        const uVal = getSpecValue("unit");
+        if (qVal === undefined || qVal === null || qVal === "" || qVal <= 0 || qVal === '0') missing.push("Quantity");
+        if (uVal === undefined || uVal === null || uVal === "" || uVal === "N/A") missing.push("Unit");
+
         return (
-         (hasVendorError || isError) && (
-            <small className="text-danger fw-bold">
-              Select atleast one vendor
-            </small>
-          )
+          <>
+            {(hasVendorError || isError) && (
+              <small className="text-danger fw-bold">
+                Select atleast one vendor
+              </small>
+            )}
+
+            {missing.length > 0 && (
+              <small className="text-danger fw-bold d-block">
+                {missing.length === 1
+                  ? `${missing[0]} is required`
+                  : `${missing.join(" and ")} are required`}
+              </small>
+            )}
+          </>
         );
       })()}
 
@@ -707,7 +754,7 @@ const Item = ({
             </div>
             {/*end: product spec */}
 
-            {/* start: qty and unit ocntainer */}
+            {/* start: qty and unit container */}
             <div className="d-flex  justify-content-start align-items-start gap-2">
               <div className="" style={{ width: "200px" }}>
                 <CommonFormInput
@@ -719,6 +766,7 @@ const Item = ({
                   onChange={handleQuantityChange}
                   placeholder="Quantity"
                   className=" form-control"
+                  validation="float_number"
                 />
               </div>
 

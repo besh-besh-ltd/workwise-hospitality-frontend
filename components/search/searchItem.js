@@ -69,16 +69,51 @@ const SearchItem = ({
               {type == "vendors" && (
                 <>
                   <div className="mdl-con-text">
-                    {data.address && (
+                    {Array.isArray(data.location) && data.location.length > 0 && (
                       <p>
-                        <b>Location :</b> {data.city_name ? `${data.city_name}, ${data.state_name}` : data.state_name ? data.state_name : ''}
+                        <b>Location :</b>{" "}
+                        {[
+                          ...new Set(
+                            data.location.map((loc) => {
+                              const city = loc.city_name?.trim() ?? "";
+                              const state = loc.state_name?.trim() ?? "";
+                              const country = loc.country_name?.trim() ?? "";
+
+                              // If country is not India → include country
+                              if (country && country.toLowerCase() !== "india") {
+                                return [city, state, country].filter(Boolean).join(", ");
+                              }
+
+                              // Default: India → only city + state
+                              return [city, state].filter(Boolean).join(", ");
+                            })
+                          ),
+                        ].join(", ")}
                       </p>
                     )}
+
                     {data.about && (
                       <p className="truncate-text " style={{ maxHeight: "100px", WebkitLineClamp: 3 }}>
                         <b>About :</b> {data.about}
                       </p>
                     )}
+                    {/* {
+                      data.vendor_info && 
+                      <ul className="d-flex flex-wrap gap-4 mb-2 ps-0">
+                        { data.vendor_info.is_private === 1 &&
+                        <li className="list-none badge rounded-pill py-2 px-3 text-bg-primary">Private Vendor</li>
+                        }
+                        {data.vendor_info.is_linked_with_buyer === 1 &&
+                        <li className="list-none badge rounded-pill py-2 px-3 text-bg-success">Prefered Vendor</li>
+                        }
+                        { data.vendor_info.prev_finalized === 1 &&
+                        <li className="list-none badge rounded-pill py-2 px-3 text-bg-secondary">Previously Finalized</li>
+                        }
+                        {data.vendor_info.rfq_added === 1 &&
+                        <li className="list-none badge rounded-pill py-2 px-3 text-bg-warning">Already Added in RFQ</li>
+                        }
+                      </ul>
+                    } */}
                     {!data.about && <p>No information available</p>}
                     {data.website && (
                       <p>

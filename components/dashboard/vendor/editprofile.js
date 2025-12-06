@@ -15,7 +15,12 @@ import {
   uploadUserPaymentTerms,
   uploadVendorDocument,
   vendorProfileDocuments,
+  getVendorlocations,
+  createVendorLocation,
+  updateVendorlocations,
+  deleteVendorLocation,
 } from "@/services/Auth";
+import LocationModal from "@/components/modal/LocationModal";
 import { Field, Form, Formik } from "formik";
 import Image from "next/image";
 import React, { use, useEffect, useState } from "react";
@@ -84,6 +89,11 @@ const EditProfile = () => {
   const [onecountrycode , setonecountrycode] = useState("");
   const [extractedCountryCode , setextractedCountryCode] = useState("");
   const [userType, setUserType] = useState(null);
+  const [companyId, setCompanyId] = useState(null);
+  const [locations, setLocations] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingLocation, setEditingLocation] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
 
 
   const [selectedCertificationFiles, setSelectedCertificationFiles] = useState([]);
@@ -367,11 +377,28 @@ const [userDocuments, setUserDocuments] = useState({
       setselectedCountry(res.data?.country || "");
       setselectedState(res.data?.state || "");
       setselectedCity(res.data?.city || "");
+      // store company id for location APIs
+      setCompanyId(res.data?.company_id || null);
     } catch (error) {
       setMainLoading(false);
       console.error("Error fetching profile:", error);
     }
   };
+
+  const fetchVendorLocations = async () => {
+    if (!companyId) return;
+    try {
+      const res = await getVendorlocations(companyId);
+      setLocations(res.data || []);
+    } catch (err) {
+      console.error('Error fetching vendor locations', err);
+      setLocations([]);
+    }
+  }
+
+  useEffect(() => {
+    if (companyId) fetchVendorLocations();
+  }, [companyId]);
 
   const getVendorApproveLists = () => {
     getVendorApproveList().then((res) => {
@@ -512,11 +539,11 @@ const [userDocuments, setUserDocuments] = useState({
       if (res && res.length > 0) {
         setReviews(res);
       } else {
-        setReviewsToShow([]);
+        // setReviewsToShow([]);
       }
     } catch (error) {
       console.error("Error fetching profile reviews:", error);
-      setReviewsToShow([]);
+      // setReviewsToShow([]);
     }
   };
 
@@ -650,6 +677,99 @@ const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "")
         setCreateLoading(false);
         getProfileDetails();
       });
+  };
+
+  // --- Location handlers ---
+  const handleAddLocation = () => {
+    setEditingLocation(null);
+    setIsEditing(false);
+    setShowModal(true);
+  };
+
+  const handleEditLocation = (location) => {
+    setEditingLocation({
+      ...location,
+      street_address: location.address,
+      country: location.country_id ? { value: location.country_id, label: location.country_name } : null,
+      state: location.state_id ? { value: location.state_id, label: location.state_name } : null,
+      city: location.city_id ? { value: location.city_id, label: location.city_name } : null,
+    });
+    setIsEditing(true);
+    setShowModal(true);
+  };
+
+  const handleSaveLocation = async (locationData) => {
+    if (isEditing) {
+      await handleUpdateLocation(locationData);
+    } else {
+      await handleCreateLocation(locationData);
+    }
+  };
+
+  const handleUpdateLocation = async (locationData) => {
+    setMainLoading(true);
+    try {
+      const payload = {
+        id: editingLocation.id,
+        company_id: companyId,
+        address: locationData.street_address || "",
+        postal_code: Number(locationData.postal_code) || null,
+        city: locationData.city?.value || null,
+        state: locationData.state?.value || null,
+        country: locationData.country?.value || null,
+      };
+
+      const res = await updateVendorlocations(payload);
+      toast.success(res.message || "Location updated successfully!");
+      await fetchVendorLocations();
+      setShowModal(false);
+    } catch (error) {
+      console.error("Update Location Error:", error);
+      toast.error(error?.response?.data?.message || "Failed to update location");
+    } finally {
+      setMainLoading(false);
+    }
+  };
+
+  const handleCreateLocation = async (locationData) => {
+    setMainLoading(true);
+    try {
+      const payload = {
+        company_id: companyId,
+        address: locationData.street_address || "",
+        postal_code: Number(locationData.postal_code) || null,
+        city: locationData.city?.value || null,
+        state: locationData.state?.value || null,
+        country: locationData.country?.value || null,
+      };
+
+      const res = await createVendorLocation(payload);
+      toast.success(res.message || "Location added successfully!");
+      await fetchVendorLocations();
+      setShowModal(false);
+    } catch (error) {
+      console.error("Create Location Error:", error);
+      toast.error(error?.response?.data?.message || "Failed to add location");
+    } finally {
+      setMainLoading(false);
+    }
+  };
+
+  const handleDeleteLocation = (locationId) => {
+    deleteVendorLocation(locationId)
+      .then((res) => {
+        toast.success(res.message || "Location deleted");
+        fetchVendorLocations();
+      })
+      .catch((err) => {
+        console.error('Delete location error', err);
+        toast.error(err?.response?.data?.message || 'Failed to delete location');
+      });
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingLocation(null);
   };
 
 
@@ -962,7 +1082,7 @@ const fetchProfileDocuments = async () => {
                             </div>
                           </div>
 
-                          <div className="col-md-12">
+                          {/* <div className="col-md-12">
                             <div className="form-group">
                               <FormikField
                                 label="Registered Address"
@@ -1045,7 +1165,7 @@ const fetchProfileDocuments = async () => {
                                 </select>
                               </div>
                             </div>
-                          </div>
+                          </div> */}
 
                           <div className="col-md-6">
                             <div className="form-group">
@@ -1199,6 +1319,73 @@ const fetchProfileDocuments = async () => {
                     >
                       Save
                     </button>
+
+                    {/* Locations Section */}
+                    <div className="vendor-edit-sec-form">
+                      <div className="d-flex align-items-center justify-content-between mb-3">
+                        <span className="title">Manage Locations ({locations.length})</span>
+                        <button
+                          id="add_new_location-vendor_edit_profile_page"
+                          className="btn btn-primary"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleAddLocation();
+                          }}
+                        >
+                          Add Location
+                        </button>
+                      </div>
+
+                      <div className="contact-form">
+                        {locations && locations.length > 0 ? (
+                          <div className="table-responsive">
+                            <table className="table table-striped">
+                              <thead>
+                                <tr>
+                                  <th scope="col">S.R.</th>
+                                  <th scope="col">Address</th>
+                                  <th scope="col">City</th>
+                                  <th scope="col">State</th>
+                                  <th scope="col">Country</th>
+                                  <th scope="col">Postal Code</th>
+                                  <th scope="col">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {locations.map((loc, idx) => (
+                                  <tr key={loc.id || idx}>
+                                    <td>{idx + 1}</td>
+                                    <td style={{ maxWidth: 300 }}>{loc.address || loc.street_address || "-"}</td>
+                                    <td>{loc.city_name || loc.city || "-"}</td>
+                                    <td>{loc.state_name || loc.state || "-"}</td>
+                                    <td>{loc.country_name || "-"}</td>
+                                    <td>{loc.postal_code || "-"}</td>
+                                    <td>
+                                      <span
+                                        role="button"
+                                        className="cursor-pointer me-3"
+                                        onClick={() => handleEditLocation(loc)}
+                                      >
+                                        <FontAwesomeIcon icon={faEdit} />
+                                      </span>
+                                      <span
+                                        role="button"
+                                        className="cursor-pointer text-danger"
+                                        onClick={() => handleDeleteLocation(loc.id)}
+                                      >
+                                        <FontAwesomeIcon icon={faTrashAlt} />
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <p className="text-muted">No locations found.</p>
+                        )}
+                      </div>
+                    </div>
 
                     {/* Certifications Section */}
                     <div className="vendor-edit-sec-form">
@@ -1663,6 +1850,17 @@ const fetchProfileDocuments = async () => {
           handleSpoc={handleSpoc}
           handleEditSpoc={handleEditSpoc}
           countryCode={countryCode}
+        />
+      )}
+
+      {showModal && (
+        <LocationModal
+          show={showModal}
+          onClose={handleCloseModal}
+          onSave={handleSaveLocation}
+          initialData={editingLocation}
+          countries={countryList}
+          isEditing={isEditing}
         />
       )}
     </>

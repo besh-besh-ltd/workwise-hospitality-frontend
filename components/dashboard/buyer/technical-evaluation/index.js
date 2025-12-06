@@ -326,6 +326,20 @@ useEffect(() => {
                           const product = currentRfq.products.find(product => product.id == rfqProduct.rfq_product_id)
                           if(!product) return null;
                           const productSelectedVendors = selectedVendorsMap.get(product.id) || [];
+                          const allVendors = rfqProduct?.vendors || []; // ← ALL vendors from API
+                          let displayedVendors = [];
+                          // CASE 1: User selected vendors → show selected ones
+                          if (productSelectedVendors.length > 0) {
+                            displayedVendors = productSelectedVendors.map(v => v.label);
+                          }
+                          // CASE 2: Nothing selected → show ALL vendors
+                          else {
+                            displayedVendors = allVendors.map(v =>
+                              v.company_name || v.organization_name || v.vendor_name
+                            );
+                          }
+                          const vendorLabel = displayedVendors.length > 1 ? "Vendors" : "Vendor";
+
                           return (
                             <div className="quote-sec-table-sub pt-0" key={`product_${product.id}`}>
                               <div className="row">
@@ -341,6 +355,10 @@ useEffect(() => {
                                         <b>Product Specification</b>:{" "}
                                         {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
                                       </p>
+                                      {/* <p className="sub-heading mb-0">
+                                        <b>Displaying {vendorLabel}</b>:{" "}
+                                        {displayedVendors.join(", ") || "N/A"}
+                                      </p> */}
                                     </div>
 
                                     {/* Vendor Selection */}

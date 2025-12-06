@@ -17,6 +17,8 @@ const Register = ({
   registerAs,
   onRegistrationSuccess,
   isPaidSubscription = false,
+  source,
+  subscription_plan
 }) => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -108,6 +110,8 @@ const Register = ({
       mobile: fullMobile,
       // Set status to 1 (approved) for paid subscriptions to bypass admin approval
       ...(isPaidSubscription && { status: 1 }),
+      ...(source ? { source } : {source:"self"}),
+      ...(subscription_plan ? { subscription_plan } : {subscription_plan: 0})
     };
     RegisterService(updatedValues)
       .then((response) => {
