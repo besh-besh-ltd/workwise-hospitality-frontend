@@ -12,6 +12,7 @@ const SearchItem = ({
   addToRFQ,
   selectedProduct = false,
   handleRemoveCurrentSelected,
+  isLoggedIn
 }) => {
   const [openCommonModal, setOpenCommonModal] = useState(false);
   const vendorDisplayName = data?.company_name || data?.vendor_name || "";
@@ -153,7 +154,7 @@ const SearchItem = ({
                   className="btn btn-primary custom_primary_btn"
                   onClick={(e) => {
                     e.preventDefault();
-                    if (!vendorMetaData || !vendorMetaData.logged_In)
+                    if (!isLoggedIn)
                       setOpenAuthModal(true);
                     else
                       setOpenCommonModal(true);
