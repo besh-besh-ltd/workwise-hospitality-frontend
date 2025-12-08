@@ -20,7 +20,7 @@ import {
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { getProjectList, getProjectTableDataById } from "@/services/project";
+import { getProjectList, getProjectTableDataById, getRfqFilters } from "@/services/project";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
 import { extractfileName, handleFileUpload, formatISOToDateTimeLocal, getDataWithLoading } from "@/utils/sharedFunctions";
@@ -170,6 +170,7 @@ const CreateRFQ = () => {
 
   const [validationErrors, setValidationErrors] = useState({});
   const [errorProducts, setErrorProducts] = useState(new Set());
+  const [rfqFilters, setRfqFilters] = useState([]);
 
   const fetchVendorsForProduct = async (rfqProductId, refetch = false) => {
     try {
@@ -210,6 +211,24 @@ const CreateRFQ = () => {
       toast.error(error.message);
     }
   }
+  const fetchRfqFilters = async () =>{
+   getRfqFilters(draft_id)
+   .then((res=>{setRfqFilters(res.data)}))
+   .catch((error)=>{
+    toast.error(error.message);
+   })
+  }
+  
+ useEffect(() => {
+  if (rfqFilters?.length > 0) {
+    console.log("RFQ Filters updated:", rfqFilters);
+  }
+}, [rfqFilters]);
+
+  useEffect(() => {
+    fetchRfqFilters();
+    
+  }, [draft_id]);
 
   const fetchCountryCodes = () => {
       getCountryCodes()
@@ -1586,7 +1605,7 @@ useEffect(() => {
                   <div className="col-md-3">
                     <CommonFormInput
                       id={`country_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                  isMulti={true}
+                      isMulti={true}
                       type="multiselect"
                       options={initialFilterOptions.countries.map((item) => ({
                         label: item.country_name,
@@ -1686,7 +1705,7 @@ useEffect(() => {
                   <div className="col-md-3">
                     <CommonFormInput
                       id={`previously_worked_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                  type="multiselect"
+                      type="multiselect"
                       options={vendorConditions}
                       name="prev_worked_with"
                       label="Previously Worked With"
