@@ -17,6 +17,11 @@ const addCommasToNumber = (num) => {
 };
 
 const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilter, rfq_product_id, source }) => {
+  const getVendorCode = (vendor = {}) => {
+    if (vendor.rfq_product_vendor_id) return `VEN-${vendor.rfq_product_vendor_id}`;
+    return "VEN-NA";
+  };
+
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [originalProducts, setOriginalProducts] = useState([]); // Store original data before normalization
@@ -245,7 +250,7 @@ const columnSums = useMemo(() => {
                                 whiteSpace: "normal",
                               }}
                             >
-                              ({vendor?.organization_name || vendor?.name})
+                              ({getVendorCode(vendor)})
                             </div>
                           </div>
                           <div style={{ marginTop: 4 }}>

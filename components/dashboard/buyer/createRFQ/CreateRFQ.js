@@ -493,6 +493,10 @@ const CreateRFQ = () => {
       }
     }
 
+    if (name === "is_tender") {
+      value = parseInt(value);
+    }
+
     // Handle datetime-local inputs for auction dates
     if ((name === 'ra_start_date' || name === 'ra_end_date') && value) {
       // Changes by Agnij 2025-05-03 [Fixed timestamp format issue]
@@ -2252,6 +2256,7 @@ useEffect(() => {
                             rfq_type: rfqFormDataFromStore.rfq_type,
                             reverse_auction:
                               rfqFormDataFromStore.reverse_auction,
+                            is_tender: rfqFormDataFromStore.is_tender || 0,
                             location: rfqFormDataFromStore.location,
                             countryCode: "+91",
                           }}
@@ -2517,6 +2522,26 @@ useEffect(() => {
                                     ]}
                                     isRequired={true}
                                     name="reverse_auction"
+                                    touched={touched}
+                                    errors={errors}
+                                  />
+                                </div>
+
+                                <div className="col-md-4">
+                                  <FormikField
+                                    id="is_tender-toggle-rfq_details-create_rfq_page"
+                                    label="Is Tender"
+                                    value={rfqFormDataFromStore.is_tender || 0}
+                                    defaultValue={0}
+                                    enableHandleChange={true}
+                                    handleChange={handleFormFieldChange}
+                                    type="select"
+                                    selectOptions={[
+                                      { label: "Yes", value: 1 },
+                                      { label: "No", value: 0 },
+                                    ]}
+                                    isRequired={false}
+                                    name="is_tender"
                                     touched={touched}
                                     errors={errors}
                                   />

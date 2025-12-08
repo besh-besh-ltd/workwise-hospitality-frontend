@@ -163,7 +163,12 @@ const transformData = (data) => {
 };
 
 
-const getAvailableBudget = async (projectId) => {
+  const getVendorCode = (vendor = {}) => {
+    if (vendor.rfq_product_vendor_id) return `VEN-${vendor.rfq_product_vendor_id}`;
+    return 'VEN-NA';
+  };
+
+  const getAvailableBudget = async (projectId) => {
   try {
     const response = await getProjectAvailableBudget(projectId);
     return response
@@ -378,7 +383,7 @@ const generateExcelFile = (api_data) => {
   let filesArray = ["Attached Files", "", "", ""];
 
   allVendors.map((item) => {
-    heading_array[0].push(`${item.organization_name || item.name}`);
+    heading_array[0].push(getVendorCode(item));
     heading_array[0].push("");
     heading_array[0].push("");
     heading_array[0].push("");

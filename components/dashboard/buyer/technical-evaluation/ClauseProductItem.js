@@ -307,7 +307,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                               >
                                 <div className="d-flex justify-content-between gap-2 align-items-center">
                                   <div className="d-flex flex-column align-items-center w-100">
-                                    <span>{vendor.vendor_name}</span>
+                                    <span>{`VEN-${vendor.rfq_product_vendor_id}` || vendor.vendor_name}</span>
                                     <p
                                       className={`badge rounded-pill py-2 px-3 ${
                                         isCleared != null

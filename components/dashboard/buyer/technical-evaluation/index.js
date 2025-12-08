@@ -335,7 +335,7 @@ useEffect(() => {
                           // CASE 2: Nothing selected → show ALL vendors
                           else {
                             displayedVendors = allVendors.map(v =>
-                              v.company_name || v.organization_name || v.vendor_name
+                              v.rfq_product_vendor_id ? `VEN-${v.rfq_product_vendor_id}` : (v.company_name || v.organization_name || v.vendor_name)
                             );
                           }
                           const vendorLabel = displayedVendors.length > 1 ? "Vendors" : "Vendor";

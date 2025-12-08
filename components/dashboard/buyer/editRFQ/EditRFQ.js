@@ -749,6 +749,12 @@ const EditRFQ = () => {
         dataToSend.reverse_auction = parseInt(rfqData.reverse_auction);
       }
 
+      if (!isNaN(Number(formValues.is_tender))) {
+        dataToSend.is_tender = parseInt(formValues.is_tender);
+      } else if (rfqData.is_tender !== undefined) {
+        dataToSend.is_tender = parseInt(rfqData.is_tender);
+      }
+
       if(dataToSend.reverse_auction && (!formValues.ra_start_date || !formValues.ra_end_date)) {
         toast.error("Auction start and end date is required")
         return;
@@ -836,7 +842,8 @@ const EditRFQ = () => {
                 // Update auction dates in Redux store
                 ra_start_date: formValues.ra_start_date || rfqData.ra_start_date,
                 ra_end_date: formValues.ra_end_date || rfqData.ra_end_date,
-                reverse_auction: formValues.reverse_auction || rfqData.reverse_auction
+                reverse_auction: formValues.reverse_auction || rfqData.reverse_auction,
+                is_tender: formValues.is_tender !== undefined ? formValues.is_tender : (rfqData.is_tender || 0)
               })
             );
             
@@ -1639,6 +1646,7 @@ const EditRFQ = () => {
               bid_end_date: rfqFormDataFromStore.bid_end_date || "",
               comment: rfqFormDataFromStore.comment || "",
               rfq_type: rfqFormDataFromStore.rfq_type || "",
+              is_tender: rfqFormDataFromStore.is_tender || 0,
             }}
             validationSchema={EditRFQSchema}
             enableReinitialize={true}
@@ -1878,6 +1886,30 @@ const EditRFQ = () => {
                               setHasUnsavedChanges(true);
                             }}
                             placeholder="Select Reverse Auction"
+                            className="basic-select"
+                            classNamePrefix="select"
+                            isClearable={true}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="col-md-6">
+                        {/* Is Tender */}
+                        <div className="mb-3">
+                          <label className="form-label fw-medium">Is Tender</label>
+                          <Select
+                            options={binaryType}
+                            value={(() => {
+                              const isTender = parseInt(rfqFormDataFromStore.is_tender || 0);
+                              const match = binaryType.find(p => p.value == isTender);
+                              return match ?? null;
+                            })()}
+                            onChange={(selectedOption) => {
+                              const isTender = selectedOption ? parseInt(selectedOption.value) : 0;
+                              dispatch(setOtherFormFields({ is_tender: isTender }));
+                              setHasUnsavedChanges(true);
+                            }}
+                            placeholder="Select Is Tender"
                             className="basic-select"
                             classNamePrefix="select"
                             isClearable={true}

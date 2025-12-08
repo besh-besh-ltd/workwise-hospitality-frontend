@@ -476,6 +476,7 @@ const openModalForVariant = (variantId) => {
                     {allvendors &&
                       allvendors.length > 0 &&
                       allvendors.map((item) => {
+                        const vendorCode = `VEN-${item.rfq_product_vendor_id}`
                         return (
                           <th
                             key={`v_${item.id}`}
@@ -487,7 +488,7 @@ const openModalForVariant = (variantId) => {
                               color: "white"
                             }}
                           >
-                            {item.organization_name || item.name}
+                            {vendorCode}
                           </th>
                         );
                       })}

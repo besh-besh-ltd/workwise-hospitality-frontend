@@ -192,9 +192,7 @@ const QuoteCompareTable = ({
                           width: "100%"
                         }}
                       >
-                        {item?.quote_details?.vendor_details
-                          ?.organization_name ||
-                          item?.quote_details?.vendor_details?.name}
+                        {item?.quote_details?.vendor_details?.rfq_product_vendor_id}
                         {(() => {
                           // build dynamic missing note under the vendor header (non-regret only)
                           const orig = originalQuotations?.find(o => o.quote_id === item.quote_id);
