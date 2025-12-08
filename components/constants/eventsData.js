@@ -38,7 +38,7 @@ export const eventsData = {
       venue: "Bombay Exhibition Centre (NESCO), Goregaon",
       role: "Visitor",
       participationTypes: ["Delegate"],
-      description: "Attended by me and Siddharth; only 5-6 relevant leads, mostly vendors, with limited ROI despite some networking opportunities.",
+      description: "A major industry exhibition showcasing technologies, equipment, and solutions for the oil, gas, and power sectors. The event brought together companies, suppliers, and professionals for networking and industry learning",
       status: "Past",
       image: "https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755703063895-ca776cf5-1044-4dbf-a554-4d2558ead0f7.jpeg"
     },
