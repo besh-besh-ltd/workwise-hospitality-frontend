@@ -38,7 +38,7 @@ export const eventsData = {
       venue: "Bombay Exhibition Centre (NESCO), Goregaon",
       role: "Visitor",
       participationTypes: ["Delegate"],
-      description: "Attended by me and Siddharth; only 5-6 relevant leads, mostly vendors, with limited ROI despite some networking opportunities.",
+      description: "A major industry exhibition showcasing technologies, equipment, and solutions for the oil, gas, and power sectors. The event brought together companies, suppliers, and professionals for networking and industry learning",
       status: "Past",
       image: "https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755703063895-ca776cf5-1044-4dbf-a554-4d2558ead0f7.jpeg"
     },
@@ -140,15 +140,27 @@ export const eventsData = {
     },
     {
       id: 11,
-      name: "India Energy Week (IEW) 2026",
+      name: "India Energy Week 2026 (Goa)",
       date: "27-30 January 2026",
       location: "Goa",
-      venue: "Dr. Shyama Prasad Mukherjee Indoor Stadium Complex, Goa",
+      venue: "ONGC Advanced Training Institute, South Goa",
       role: "Exhibitor",
       participationTypes: ["Exhibitor"],
-      description: "India's premier energy exhibition and conference, IEW brings global energy leaders, EPC firms, and equipment suppliers together to showcase sustainable and future-ready energy solutions. Workwise will be exhibiting to connect with key stakeholders in procurement, project management, and energy infrastructure.",
+      description: "India Energy Week is India's largest energy event with 700+ exhibitors and 75,000+ attendees. Workwise (Stand 2C-01) will demonstrate how AI simplifies BOQ processing, cost estimation, RFQs, and PO tracking - helping buyers speed procurement and cut capex costs while suppliers join our premium network across India's fast-growing energy sector.",
       status: "Upcoming",
       image: "https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1762607888499-4e132240-ea6e-47c6-ad61-793e43098cf3.png"
+    },
+    {
+      id: 12,
+      name: "Intersec Dubai 2026",
+      date: "12-14 January 2026",
+      location: "Dubai",
+      venue: "Dubai World Trade Centre",
+      role: "Exhibitor",
+      participationTypes: ["Exhibitor"],
+      description: "Intersec Dubai brings together global EPCs, contractors, OEMs, and solution providers across safety, industrial, and infrastructure sectors. Workwise (Stand SR-D2) will showcase AI-led procurement that understands BOQs, tenders, and technical documents - featuring live demos of BOQ-to-RFQ automation, quote comparison, vendor discovery, and meetings with high-quality Middle East and China suppliers to expand our network.",
+      status: "Upcoming",
+      image: "https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1765196960663-71bd7953-be59-4ebb-ab31-280e6a83f3ad.jpg"
     }
   ],
   finalCta: {
