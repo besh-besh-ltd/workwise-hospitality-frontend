@@ -194,7 +194,8 @@ const QuoteCompareTable = ({
                         }}
                       >
                         {(() => {
-                          const vd = item?.quote_details?.vendor_details;
+                          const vdRaw = item?.quote_details?.vendor_details || item?.vendor_details;
+                          const vd = Array.isArray(vdRaw) ? vdRaw[0] : vdRaw;
                           const code = vd?.rfq_product_vendor_id
                             ? `VEN-${vd.rfq_product_vendor_id}`
                             : vd?.id && (vendorCodeMap?.[vd.id] || vendorCodeMap?.[String(vd.id)])

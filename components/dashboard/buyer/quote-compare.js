@@ -289,7 +289,10 @@ const handleCloseNormalizeModal = () => {
             if (v.id && v.rfq_product_vendor_id) setCode(v.id, v.rfq_product_vendor_id);
           });
           (product.quotations || []).forEach((q) => {
-            const vd = q.vendor_details && q.vendor_details[0];
+            const vdRaw =
+              q.vendor_details ||
+              (q.quote_details && q.quote_details.vendor_details);
+            const vd = Array.isArray(vdRaw) ? vdRaw[0] : vdRaw;
             if (vd?.id && vd.rfq_product_vendor_id) setCode(vd.id, vd.rfq_product_vendor_id);
           });
         });
