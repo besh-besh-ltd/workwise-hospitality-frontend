@@ -53,6 +53,7 @@ const QuoteCompare = () => {
   const [currentRFQ, setcurrentRFQ] = useState(null);
   const [quotes, setquotes] = useState([]);
   const [originalQuotes, setOriginalQuotes] = useState([]); // Store original data before normalization
+  const [vendorCodeMap, setVendorCodeMap] = useState({});
   const [l1total, setl1total] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
   const [TA_Filter, setTA_Filter] = useState(false);
@@ -275,6 +276,24 @@ const handleCloseNormalizeModal = () => {
         const data = normalizeFilter ? normalizeFlatQuotationData(res.data) : res.data;
 
         setquotes(data);
+
+        // Build vendorCodeMap from all_vendors and vendor_details
+        const codeMap = {};
+        const setCode = (id, val) => {
+          if (!id || !val) return;
+          codeMap[id] = val;
+          codeMap[String(id)] = val;
+        };
+        data.forEach((product) => {
+          (product.all_vendors || []).forEach((v) => {
+            if (v.id && v.rfq_product_vendor_id) setCode(v.id, v.rfq_product_vendor_id);
+          });
+          (product.quotations || []).forEach((q) => {
+            const vd = q.vendor_details && q.vendor_details[0];
+            if (vd?.id && vd.rfq_product_vendor_id) setCode(vd.id, vd.rfq_product_vendor_id);
+          });
+        });
+        setVendorCodeMap(codeMap);
       })
       .catch((err) => {
       })
@@ -1950,7 +1969,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                 {item?.quotations &&
                                   item?.quotations.length > 0 && (
                                     <>
-                                      <QuoteCompareTable
+                      <QuoteCompareTable
                                         proditem={item}
                                         handleFinalize={handleFinalize}
                                         quotations={item?.quotations}
@@ -1971,8 +1990,9 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                         availableBudget={availableBudget}
                                         targetPrice={item.latest_target_price}
                                         // targetHistory={targetPriceHistory}
-                                        normalizeFilter={normalizeFilter}
-                                        freightFilter={freightFilter}
+                        normalizeFilter={normalizeFilter}
+                        freightFilter={freightFilter}
+                        vendorCodeMap={vendorCodeMap}
                                       />
                                     </>
                                   )}

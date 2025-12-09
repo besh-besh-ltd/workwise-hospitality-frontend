@@ -21,7 +21,13 @@ import { toast } from "react-toastify";
  * @Updated Ayush Singh 22 JUNE 2025
  * @updated by mukul 08-08-2025 - normilize total
  */
-const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalizeFilter, rfq_product_id, source }) => {
+const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalizeFilter, rfq_product_id, source, vendorCodeMap = {} }) => {
+  const getVendorCode = (vendor = {}) => {
+    if (vendor.rfq_product_vendor_id) return `VEN-${vendor.rfq_product_vendor_id}`;
+    if (vendor.id && vendorCodeMap[vendor.id]) return `VEN-${vendorCodeMap[vendor.id]}`;
+    return "VEN-NA";
+  };
+
   const [loading, setloading] = useState(false);
   const [allvendors, setallvendors] = useState(null);
   const [data, setdata] = useState([]);
@@ -82,7 +88,16 @@ const openModalForVariant = (variantId) => {
         const data = normalizeFilter ? handleNormalize(res.data) : res.data;
 
         setdata(data);
-        setallvendors(data[0]?.all_vendors?.length > 0 ? data[0]?.all_vendors : null);
+        // Resolve vendors across products so we pick the first non-null rfq_product_vendor_id per vendor
+        const vendorMap = new Map();
+        data.forEach((prod) => {
+          (prod.all_vendors || []).forEach((v) => {
+            if (!v.id) return;
+            if (vendorMap.has(v.id) && vendorMap.get(v.id).rfq_product_vendor_id) return;
+            vendorMap.set(v.id, v);
+          });
+        });
+        setallvendors(vendorMap.size ? Array.from(vendorMap.values()) : null);
         let globalFiles = FilterOutGlobalTermsFiles(data);
         setAttachedFiles(globalFiles);
         getLowestBidAmount(data);
@@ -476,7 +491,7 @@ const openModalForVariant = (variantId) => {
                     {allvendors &&
                       allvendors.length > 0 &&
                       allvendors.map((item) => {
-                        const vendorCode = `VEN-${item.rfq_product_vendor_id}`;
+                        const vendorCode = getVendorCode(item);
                         return (
                           <th
                             key={`v_${item.id}`}

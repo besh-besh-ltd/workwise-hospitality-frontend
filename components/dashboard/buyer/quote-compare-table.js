@@ -26,7 +26,8 @@ const QuoteCompareTable = ({
   targetPrice,
   targetHistory,
   normalizeFilter,
-  freightFilter
+  freightFilter,
+  vendorCodeMap = {},
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
@@ -192,7 +193,15 @@ const QuoteCompareTable = ({
                           width: "100%"
                         }}
                       >
-                        {`VEN-${item.quote_details.vendor_details.rfq_product_vendor_id}`}
+                        {(() => {
+                          const vd = item?.quote_details?.vendor_details;
+                          const code = vd?.rfq_product_vendor_id
+                            ? `VEN-${vd.rfq_product_vendor_id}`
+                            : vd?.id && (vendorCodeMap?.[vd.id] || vendorCodeMap?.[String(vd.id)])
+                            ? `VEN-${vendorCodeMap[vd.id] || vendorCodeMap[String(vd.id)]}`
+                            : 'VEN-NA';
+                          return code;
+                        })()}
                         {(() => {
                           // build dynamic missing note under the vendor header (non-regret only)
                           const orig = originalQuotations?.find(o => o.quote_id === item.quote_id);
