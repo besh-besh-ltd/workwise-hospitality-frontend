@@ -851,7 +851,7 @@ const Header = () => {
               }}
             >
               <marquee className="pt-1">
-                <strong className=" " >
+                <strong className=" " style={{fontWeight: '600' }}>
                   Now expanding Internationally - meet us at Intersec Dubai 2026 from 12-14 January, Stand no. SR-D2, Dubai World Trade Centre
                 </strong>
               </marquee>
