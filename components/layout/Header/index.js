@@ -1005,8 +1005,8 @@ const Header = () => {
           </div>
         </div>
 
-        {/* Announcement bar for Chennai Event with marquee scroll */}
-        {/* {(mainNavs.includes(pathname) ||
+        {/* Announcement bar for marquee scroll */}
+        {(mainNavs.includes(pathname) ||
           pathname?.startsWith("/solutions") ||
           pathname?.startsWith("/insights") ||
           pathname?.startsWith("/ai-tools") ||
@@ -1031,11 +1031,11 @@ const Header = () => {
             >
               <div className="announcement-track">
                 <span className="announcement-text fw-semibold">
-                  We are exhibiting at IPVS & ICPE 2025 Chennai Trade Centre | 13–15 November | Booth No. L18 | Come visit us!
+                  Now expanding Internationally - meet us at Intersec Dubai 2026 from 12-14 January, Stand no. SR-D2, Dubai World Trade Centre
                 </span>
               </div>
             </div>
-          )} */}
+          )}
 
 
         {/* Mobile Menu */}
