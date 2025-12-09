@@ -27,6 +27,8 @@ export default function RegisterUserModal({
   const getStepSubtitle = () => {
     if (currentStep === 1) return "Tell us about yourself";
     if (currentStep === 2) return "Share where you operate";
+    if (currentStep === 3 && isHospitality) return "Select hotels";
+    if (currentStep === 4 && isHospitality) return "Bank details & documents";
     return "Select hotels";
   };
 
@@ -84,7 +86,7 @@ export default function RegisterUserModal({
               </p>
             </div>
             <span className="badge bg-light text-dark px-3 py-2" style={{ marginTop: "0.25rem" }}>
-              Step {currentStep} of {isHospitality ? 3 : 2}
+              Step {currentStep} of {isHospitality ? 4 : 2}
             </span>
           </div>
         </Modal.Header>

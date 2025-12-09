@@ -1,4 +1,5 @@
 import { RegisterService, LoginService, sendRegistrationOTP, verifyRegistrationOTP } from "@/services/Auth";
+import axiosFormData from "@/lib/axiosFormData";
 import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Field, Form, Formik } from "formik";
@@ -51,8 +52,23 @@ const Register = ({
     pan: null,
     fssai: null,
     msme: null,
+    cancelled_cheque: null,
     other: null
   });
+
+  const requiresFssaiForSelection = (categoryIds = []) => {
+    if (!isHospitality || !Array.isArray(categoryIds)) return false;
+    const lowered = categoryOptions
+      .filter((c) => categoryIds.includes(c.value))
+      .map((c) => (c.label || "").toLowerCase());
+    return lowered.some((lbl) =>
+      lbl.includes("f&b") ||
+      lbl.includes("fnb") ||
+      lbl.includes("food") ||
+      lbl.includes("beverage") ||
+      lbl.includes("f and b")
+    );
+  };
 
   useEffect(() => {
     const fetchFormMeta = async () => {
@@ -183,6 +199,18 @@ const Register = ({
     "categories",
   ];
 
+  const stepThreeFields = [
+    "hotels",
+  ];
+
+  const stepFourFields = [
+    "pan",
+    "bank_account_number",
+    "bank_name",
+    "ifsc_code",
+    "account_holder_name",
+  ];
+
   const fetchSubcategories = async (categoryId) => {
     if (!categoryId || subcategoryOptions[categoryId]) {
       return;
@@ -290,7 +318,7 @@ const Register = ({
     }
   };
 
-  const handleNextStep = async (validateForm, setTouched, touched, step) => {
+  const handleNextStep = async (validateForm, setTouched, touched, step, values) => {
     const errors = await validateForm();
     let stepErrors = [];
     let fieldsToTouch = [];
@@ -307,6 +335,34 @@ const Register = ({
     } else if (step === 2) {
       stepErrors = stepTwoFields.filter((field) => errors[field]);
       fieldsToTouch = stepTwoFields;
+      // PAN number and PAN document must be present before proceeding
+      if (isHospitality) {
+        if (!values.pan) {
+          toast.error("PAN number is required");
+          return;
+        }
+        if (!documentFiles.pan) {
+          toast.error("PAN card upload is required");
+          return;
+        }
+      }
+    } else if (step === 3) {
+      stepErrors = stepThreeFields.filter((field) => errors[field]);
+      fieldsToTouch = stepThreeFields;
+      const needsFssai = requiresFssaiForSelection(values?.categories || []);
+      if (isHospitality && needsFssai) {
+        if (!values.fssai) {
+          toast.error("FSSAI number is required for selected categories");
+          return;
+        }
+        if (!documentFiles.fssai) {
+          toast.error("FSSAI document upload is required");
+          return;
+        }
+      }
+    } else if (step === 4) {
+      stepErrors = stepFourFields.filter((field) => errors[field]);
+      fieldsToTouch = stepFourFields;
     }
 
     const updatedTouched = { ...touched };
@@ -364,6 +420,10 @@ const Register = ({
     pan: "",
     fssai: "",
     msme: "",
+    bank_account_number: "",
+    bank_name: "",
+    ifsc_code: "",
+    account_holder_name: "",
   };
   // Register Validation Schema builder
   const buildValidationSchema = (includeLocationFields = false, includeHotels = false) => {
@@ -414,6 +474,12 @@ const Register = ({
         .array()
         .of(yup.number().nullable())
         .min(1, "Select at least one category");
+      if (isHospitality) {
+        baseShape.subcategories = yup
+          .array()
+          .of(yup.number().nullable())
+          .min(1, "Select at least one subcategory");
+      }
     }
 
     if (includeHotels && isHospitality) {
@@ -421,6 +487,27 @@ const Register = ({
         .array()
         .of(yup.number().nullable())
         .min(1, "Select at least one hotel");
+    }
+
+    if (isHospitality) {
+      baseShape.pan = yup
+        .string()
+        .required("PAN number is required")
+        .matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Please enter a valid PAN number");
+      baseShape.bank_account_number = yup
+        .string()
+        .required("Bank account number is required")
+        .matches(/^[0-9]{9,18}$/, "Please enter a valid bank account number (9-18 digits)");
+      baseShape.bank_name = yup
+        .string()
+        .required("Bank name is required");
+      baseShape.ifsc_code = yup
+        .string()
+        .required("IFSC code is required")
+        .matches(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Please enter a valid IFSC code");
+      baseShape.account_holder_name = yup
+        .string()
+        .required("Account holder name is required");
     }
 
     return yup.object().shape(baseShape);
@@ -450,6 +537,7 @@ const Register = ({
     const selectedHotelNames = hotelOptions
       .filter((opt) => selectedHotels.includes(opt.value))
       .map((opt) => opt.label);
+    const needsFssai = requiresFssaiForSelection(selectedCategories);
 
     const cleanMobile = values.mobile
       .trim()
@@ -479,7 +567,54 @@ const Register = ({
       // Include subcategories for hospitality vendors
       ...(isHospitality && selectedSubcategories.length > 0 && { subcategories: selectedSubcategories })
     };
-    RegisterService(updatedValues)
+    // Document/bank presence checks
+    if (isHospitality) {
+      if (!documentFiles.pan) {
+        setloading(false);
+        return toast.error("PAN upload is required");
+      }
+      if (updatedValues.gstin && !documentFiles.gst) {
+        setloading(false);
+        return toast.error("GST certificate upload is required when GST number is provided");
+      }
+      if (updatedValues.msme && !documentFiles.msme) {
+        setloading(false);
+        return toast.error("MSME certificate upload is required when MSME number is provided");
+      }
+      if (needsFssai && (!updatedValues.fssai || !documentFiles.fssai)) {
+        setloading(false);
+        return toast.error("FSSAI number and document are required for selected categories");
+      }
+      if (!documentFiles.cancelled_cheque) {
+        setloading(false);
+        return toast.error("Cancelled cheque upload is required");
+      }
+    }
+    // Build multipart payload to send fields + files
+    const fd = new FormData();
+    Object.entries(updatedValues).forEach(([key, val]) => {
+      if (Array.isArray(val)) {
+        fd.append(key, JSON.stringify(val));
+      } else if (val !== undefined && val !== null) {
+        fd.append(key, val);
+      }
+    });
+    const regAs = (updatedValues.register_as || (registerAs == "vendor" ? "3" : "2")).toString();
+    fd.set("register_as", regAs);
+    fd.set("user_type", regAs);
+    fd.set("is_hospitality", isHospitality ? "1" : "0");
+    if (updatedValues.hotels) fd.set("hotels", JSON.stringify(values.hotels || []));
+    if (updatedValues.categories) fd.set("categories", JSON.stringify(values.categories || []));
+    if (updatedValues.subcategories) fd.set("subcategories", JSON.stringify(values.subcategories || []));
+    // Files
+    if (documentFiles.pan) fd.append("pan", documentFiles.pan);
+    if (documentFiles.gst) fd.append("gst", documentFiles.gst);
+    if (documentFiles.msme) fd.append("msme", documentFiles.msme);
+    if (documentFiles.fssai) fd.append("fssai", documentFiles.fssai);
+    if (documentFiles.cancelled_cheque) fd.append("cancelled_cheque", documentFiles.cancelled_cheque);
+
+    axiosFormData
+      .post(`/users/company-registration`, fd)
       .then((response) => {
         setloading(false);
         resetForm();
@@ -521,32 +656,6 @@ const Register = ({
                 token: loginResponse.token,
                 user_key: userKey,
               };
-
-              // Upload documents if any were selected (for hospitality vendors)
-              if (isHospitality && Object.values(documentFiles).some(file => file !== null)) {
-                try {
-                  const { handleUploadFiles } = await import('@/services/Auth');
-                  const uploadPromises = [];
-                  
-                  if (documentFiles.gst) {
-                    uploadPromises.push(handleUploadFiles([documentFiles.gst], 'gst_certificate'));
-                  }
-                  if (documentFiles.pan) {
-                    uploadPromises.push(handleUploadFiles([documentFiles.pan], 'pan_card'));
-                  }
-                  if (documentFiles.fssai) {
-                    uploadPromises.push(handleUploadFiles([documentFiles.fssai], 'fssai_license'));
-                  }
-                  if (documentFiles.msme) {
-                    uploadPromises.push(handleUploadFiles([documentFiles.msme], 'msme_certificate'));
-                  }
-                  
-                  await Promise.all(uploadPromises);
-                } catch (uploadError) {
-                  console.error('Error uploading documents:', uploadError);
-                  // Don't block registration if document upload fails
-                }
-              }
 
               onRegistrationSuccess(userData);
             })
@@ -614,7 +723,7 @@ const Register = ({
         <Formik
           initialValues={initialValues}
           validationSchema={buildValidationSchema(
-            currentStep === 2 || currentStep === 3,
+            currentStep === 2 || currentStep === 3 || currentStep === 4,
             currentStep === 3 && isHospitality
           )}
           onSubmit={(values, { resetForm }) =>
@@ -829,7 +938,7 @@ const Register = ({
                       type="button"
                       className="btn btn-primary"
                       onClick={() =>
-                        handleNextStep(validateForm, setTouched, touched, 1)
+                        handleNextStep(validateForm, setTouched, touched, 1, values)
                       }
                     >
                       Next
@@ -932,7 +1041,8 @@ const Register = ({
                   {values.categories && values.categories.length > 0 && (
                     <div className="form-group mt-3">
                       <label>
-                        Select Subcategories <small className="text-muted">(Optional)</small>
+                        Select Subcategories {isHospitality && <sup>*</sup>}
+                        {!isHospitality && <small className="text-muted">(Optional)</small>}
                       </label>
                       {values.categories.map(categoryId => {
                         const subs = subcategoryOptions[categoryId] || [];
@@ -999,9 +1109,9 @@ const Register = ({
                       </div>
 
                       <div className="form-group">
-                        <label htmlFor="pan">
-                          PAN <small className="text-muted">(Optional)</small>
-                        </label>
+                    <label htmlFor="pan">
+                      PAN <sup>*</sup>
+                    </label>
                         <Field
                           type="text"
                           id="pan"
@@ -1046,24 +1156,31 @@ const Register = ({
                       </div>
 
                       <div className="form-group">
-                        <label>Business Documents <small className="text-muted">(Optional)</small></label>
+                        <label>Business Documents <sup>*</sup></label>
                         <div className="row g-2">
+                          {values.gstin && (
+                            <div className="col-md-6">
+                              <label className="small text-muted">GST Certificate <sup>*</sup></label>
+                              <input
+                                type="file"
+                                className="form-control form-control-sm"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => handleDocumentUpload('gst', e.target.files[0])}
+                              />
+                              {documentFiles.gst && (
+                                <small className="text-success d-block mt-1">
+                                  {documentFiles.gst.name}
+                                </small>
+                              )}
+                              {!documentFiles.gst && (
+                                <small className="text-danger d-block mt-1">
+                                  GST certificate required when GSTIN is provided
+                                </small>
+                              )}
+                            </div>
+                          )}
                           <div className="col-md-6">
-                            <label className="small text-muted">GST Certificate</label>
-                            <input
-                              type="file"
-                              className="form-control form-control-sm"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => handleDocumentUpload('gst', e.target.files[0])}
-                            />
-                            {documentFiles.gst && (
-                              <small className="text-success d-block mt-1">
-                                {documentFiles.gst.name}
-                              </small>
-                            )}
-                          </div>
-                          <div className="col-md-6">
-                            <label className="small text-muted">PAN Card</label>
+                            <label className="small text-muted">PAN Card <sup>*</sup></label>
                             <input
                               type="file"
                               className="form-control form-control-sm"
@@ -1076,34 +1193,48 @@ const Register = ({
                               </small>
                             )}
                           </div>
-                          <div className="col-md-6">
-                            <label className="small text-muted">FSSAI License</label>
-                            <input
-                              type="file"
-                              className="form-control form-control-sm"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => handleDocumentUpload('fssai', e.target.files[0])}
-                            />
-                            {documentFiles.fssai && (
-                              <small className="text-success d-block mt-1">
-                                {documentFiles.fssai.name}
-                              </small>
-                            )}
-                          </div>
-                          <div className="col-md-6">
-                            <label className="small text-muted">MSME Certificate</label>
-                            <input
-                              type="file"
-                              className="form-control form-control-sm"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => handleDocumentUpload('msme', e.target.files[0])}
-                            />
-                            {documentFiles.msme && (
-                              <small className="text-success d-block mt-1">
-                                {documentFiles.msme.name}
-                              </small>
-                            )}
-                          </div>
+                          {(values.fssai || requiresFssaiForSelection(values.categories || [])) && (
+                            <div className="col-md-6">
+                              <label className="small text-muted">FSSAI License <sup>*</sup></label>
+                              <input
+                                type="file"
+                                className="form-control form-control-sm"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => handleDocumentUpload('fssai', e.target.files[0])}
+                              />
+                              {documentFiles.fssai && (
+                                <small className="text-success d-block mt-1">
+                                  {documentFiles.fssai.name}
+                                </small>
+                              )}
+                              {!documentFiles.fssai && (
+                                <small className="text-danger d-block mt-1">
+                                  FSSAI document required
+                                </small>
+                              )}
+                            </div>
+                          )}
+                          {values.msme && (
+                            <div className="col-md-6">
+                              <label className="small text-muted">MSME Certificate <sup>*</sup></label>
+                              <input
+                                type="file"
+                                className="form-control form-control-sm"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => handleDocumentUpload('msme', e.target.files[0])}
+                              />
+                              {documentFiles.msme && (
+                                <small className="text-success d-block mt-1">
+                                  {documentFiles.msme.name}
+                                </small>
+                              )}
+                              {!documentFiles.msme && (
+                                <small className="text-danger d-block mt-1">
+                                  MSME document required when MSME number is provided
+                                </small>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </>
@@ -1122,8 +1253,7 @@ const Register = ({
                           className="me-2 mt-1"
                         />
                         <span>
-                          I agree to respond within 24 hours with best quality
-                          and competitive pricing
+                          I agree to the following terms and conditions
                         </span>
                       </label>
                       <a
@@ -1155,7 +1285,7 @@ const Register = ({
                         type="button"
                         className="btn btn-primary"
                         onClick={() =>
-                          handleNextStep(validateForm, setTouched, touched, 2)
+                        handleNextStep(validateForm, setTouched, touched, 2, values)
                         }
                       >
                         Next
@@ -1171,7 +1301,7 @@ const Register = ({
                     )}
                   </div>
                 </>
-              ) : (
+              ) : currentStep === 3 ? (
                 <>
                   <div className="form-group">
                     <label>
@@ -1226,8 +1356,7 @@ const Register = ({
                           className="me-2 mt-1"
                         />
                         <span>
-                          I agree to respond within 24 hours with best quality
-                          and competitive pricing
+                          I agree to the following terms and conditions
                         </span>
                       </label>
                       <a
@@ -1255,9 +1384,122 @@ const Register = ({
                       Back
                     </button>
                     <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() =>
+                        handleNextStep(validateForm, setTouched, touched, 3, values)
+                      }
+                    >
+                      Next
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h4 className="mb-4">Bank Account Details</h4>
+                  
+                  <div className="form-group">
+                    <label htmlFor="account_holder_name">
+                      Account Holder Name <sup>*</sup>
+                    </label>
+                    <Field
+                      type="text"
+                      id="account_holder_name"
+                      name="account_holder_name"
+                      placeholder="Ex. John Doe"
+                    />
+                    {touched.account_holder_name && errors.account_holder_name && (
+                      <div className="form-error">{errors.account_holder_name}</div>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="bank_name">
+                      Bank Name <sup>*</sup>
+                    </label>
+                    <Field
+                      type="text"
+                      id="bank_name"
+                      name="bank_name"
+                      placeholder="Ex. State Bank of India"
+                    />
+                    {touched.bank_name && errors.bank_name && (
+                      <div className="form-error">{errors.bank_name}</div>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="bank_account_number">
+                      Bank Account Number <sup>*</sup>
+                    </label>
+                    <Field
+                      type="text"
+                      id="bank_account_number"
+                      name="bank_account_number"
+                      placeholder="Ex. 1234567890"
+                    />
+                    {touched.bank_account_number && errors.bank_account_number && (
+                      <div className="form-error">{errors.bank_account_number}</div>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="ifsc_code">
+                      IFSC Code <sup>*</sup>
+                    </label>
+                    <Field
+                      type="text"
+                      id="ifsc_code"
+                      name="ifsc_code"
+                      placeholder="Ex. SBIN0001234"
+                      style={{ textTransform: "uppercase" }}
+                      maxLength="11"
+                    />
+                    {touched.ifsc_code && errors.ifsc_code && (
+                      <div className="form-error">{errors.ifsc_code}</div>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="cancelled_cheque_upload">
+                      Cancelled Cheque Upload <sup>*</sup>
+                    </label>
+                    <input
+                      type="file"
+                      id="cancelled_cheque_upload"
+                      className="form-control form-control-sm"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => handleDocumentUpload('cancelled_cheque', e.target.files[0])}
+                    />
+                    {documentFiles.cancelled_cheque && (
+                      <small className="text-success d-block mt-1">
+                        {documentFiles.cancelled_cheque.name}
+                      </small>
+                    )}
+                    {!documentFiles.cancelled_cheque && (
+                      <small className="text-danger d-block mt-1">
+                        Cancelled cheque upload is required
+                      </small>
+                    )}
+                  </div>
+
+                  <div className="d-flex justify-content-between align-items-center mt-4">
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => {
+                        setCurrentStep(3);
+                        if (onStepChange) {
+                          onStepChange(3);
+                        }
+                      }}
+                    >
+                      Back
+                    </button>
+                    <button
                       type="submit"
                       className="btn btn-secondary"
-                      disabled={registerAs === "vendor" ? !tncCheckned : false}
+                      disabled={!documentFiles.cancelled_cheque || !documentFiles.pan}
                     >
                       Register
                     </button>

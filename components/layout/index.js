@@ -90,6 +90,8 @@ const Layout = (props) => {
   };
 
 
+  const isHotelVendorPage = router.pathname === '/hotel-vendor';
+
   return (
     <>
 
@@ -99,16 +101,10 @@ const Layout = (props) => {
       </Head>
 
       <div className="min-vh-100 d-flex flex-column" onClick={handleContainerClick}>
-        <Header />
+        {!isHotelVendorPage && <Header />}
         {/* Home-only announcement bar just below navbar */}
         <main className="flex-grow-1 ">{props.children}</main>
-        {/* <Footer
-          cmsdata={cmsdata}
-          showModal={showModal}
-          setshowModal={setshowModal}
-          fromType={fromType}
-        /> */}
-        <Footer />
+        {!isHotelVendorPage && <Footer />}
       </div>
     </>
   );
