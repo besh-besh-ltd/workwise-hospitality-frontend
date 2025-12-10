@@ -121,6 +121,7 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
   const [saving, setSaving] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState(null);
   const [showModal1, setShowModal1] = useState(false);
+  const [existingMappedSpocs, setExistingMappedSpocs] = useState([]);
 
 //Revies cards to be displayed
  const [reviews, setReviews] = useState([]);
@@ -710,10 +711,15 @@ const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "")
     }
   };
 
-  const handleMapSpoc = (locationId) => {
-    setSelectedLocationId(locationId);
-    setShowModal1(true);
-  };
+const handleMapSpoc = (location) => {
+  setSelectedLocationId(location.id);
+
+  const mappedSpocIds = location.spocs?.map(s => s.spoc_id) || [];
+  setExistingMappedSpocs(mappedSpocIds);
+
+  setShowModal1(true);
+};
+
 
   const handleMapSpocLocation = async (spoc_id,locationId) => {
     // Implement map SPOC location logic here
@@ -1386,7 +1392,7 @@ const fetchProfileDocuments = async () => {
                                     <td>{loc.state_name || loc.state || "-"}</td>
                                     <td>{loc.country_name || "-"}</td>
                                     <td>{loc.postal_code || "-"}</td>
-                                    <td> Spocs names will be displayed here</td>
+                                    <td> {loc.spocs && loc.spocs.length > 0 ? loc.spocs.map((spoc) => spoc.spoc_name).join(", ") : "-"}</td>
                                     <td>
                                       <span
                                         role="button"
@@ -1404,13 +1410,14 @@ const fetchProfileDocuments = async () => {
                                       </span>
                                     </td>
                                     <td>
-                                     <span
+                                      <span
                                         role="button"
                                         className="cursor-pointer text-danger"
-                                        onClick={() => handleMapSpoc(loc.id)}
+                                        onClick={() => handleMapSpoc(loc)}
                                       >
                                         <FontAwesomeIcon icon={faLocation} />
                                       </span>
+
                                     </td>
                                   </tr>
                                 ))}
@@ -1904,6 +1911,7 @@ const fetchProfileDocuments = async () => {
         onClose={() => setShowModal1(false)}
         locationId={selectedLocationId}
         vendorSpoc={vendorSpoc}
+        existingMappedSpocs={existingMappedSpocs}
         onSave={handleMapSpocLocation}
       />
     </>
