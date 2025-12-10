@@ -1180,7 +1180,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           isOpen={showApproveConfirmModal}
           onClose={() => setShowApproveConfirmModal(false)}
           onConfirm={async () => {
-            await handlePODecision(id, { decision: "approved" });
+            await handlePODecision(id, { decision: "approved", type: "approval" });
             await refetchPODetails();
             setShowApproveConfirmModal(false);
           }}
@@ -1198,7 +1198,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           isOpen={showRejectConfirmModal}
           onClose={() => setShowRejectConfirmModal(false)}
           onConfirm={async () => {
-            await handlePODecision(id, { decision: "rejected" });
+            await handlePODecision(id, { decision: "rejected", type: "approval" });
             await refetchPODetails();
             setShowRejectConfirmModal(false);
           }}
