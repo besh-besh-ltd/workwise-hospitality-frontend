@@ -146,6 +146,7 @@ const CommonFormInput = ({
     const handelOnChange = (e) => {
       const value = e.target.value;
 
+    if(name === "quantity"){
     if(value.length > 12){
       return;
     }
@@ -164,6 +165,10 @@ const CommonFormInput = ({
         }
       }
       setValue(cleaned);
+    }
+    else{
+      setValue(value);
+    }
       onChange && onChange(e);
     };
 
