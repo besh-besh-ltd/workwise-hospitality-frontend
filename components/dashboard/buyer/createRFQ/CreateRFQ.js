@@ -28,7 +28,7 @@ import { Accordion } from "react-bootstrap";
 import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import axiosInstance from "@/lib/axios";
 import ViewVendorModal from "../editRFQ/ViewVendorModal";
-import { vendorConditions } from "../../vendor/search";
+import { subscriptionTypes, vendorConditions } from "../../vendor/search";
 import { getProductMakeList } from "@/services/products";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import AddVendorModal from "../editRFQ/AddVendorModal";
@@ -1742,6 +1742,21 @@ useEffect(() => {
                       labelBold
                       placeholder="Select"
                       values={getFilterValue("vendor_approved_by")}
+                      onChange={(newVal, action) =>
+                        forwardFilterUpdate(newVal, action)
+                      }
+                    />
+                  </div>
+                  <div className="col-md-3">
+                    <CommonFormInput
+                     id={`subscription_type_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
+                      type="select"
+                      options={subscriptionTypes}
+                      name="subscription_type"
+                      label="Subscription Type"
+                      labelBold
+                      placeholder="Select"
+                      values={getFilterValue("subscription_type")}
                       onChange={(newVal, action) =>
                         forwardFilterUpdate(newVal, action)
                       }
