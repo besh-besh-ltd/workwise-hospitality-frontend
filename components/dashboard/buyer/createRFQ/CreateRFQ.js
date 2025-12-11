@@ -218,16 +218,12 @@ const CreateRFQ = () => {
     toast.error(error.message);
    })
   }
-  
- useEffect(() => {
-  if (rfqFilters?.length > 0) {
-    console.log("RFQ Filters updated:", rfqFilters);
-  }
-}, [rfqFilters]);
+
 
   useEffect(() => {
-    fetchRfqFilters();
-    
+    if(draft_id){
+      fetchRfqFilters();
+    }
   }, [draft_id]);
 
   const fetchCountryCodes = () => {
