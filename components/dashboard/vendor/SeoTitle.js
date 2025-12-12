@@ -1,45 +1,67 @@
-import React from 'react';
-import { textCapitalize } from '@/utils/sharedFunctions';
+import React from "react";
+import { textCapitalize } from "@/utils/sharedFunctions";
 
-const SeoTitle = ({ slug, search_key, currentSelectedProduct, selectedState, selectedCity }) => {
-  const slugStr = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
+const SeoTitle = ({ slug, currentSelectedProduct, address }) => {
+  const { selectedCity, selectedState } = address || {};
 
-  const getProductTitle = () => {
+  const slugStr = Array.isArray(slug)
+    ? slug.join("/")
+    : typeof slug === "string"
+    ? slug
+    : "";
+
+  // ————————————————————
+  // 1. Get product name (from selected product OR fallback to slug)
+  // ————————————————————
+  const getProductName = () => {
     if (currentSelectedProduct) {
-      const title = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '';
-      return title;
+      return (
+        currentSelectedProduct.variant_name ||
+        currentSelectedProduct.product_name ||
+        ""
+      );
     }
-    return '';
+
+    // Fallback: extract from slug (e.g. "flange-pipe-mumbai-maharashtra" → "flange pipe")
+    if (!slugStr || slugStr === "all") return "";
+
+    const clean = slugStr
+      .replace(/category\d*/gi, "")           // remove -category123
+      .replace(/\/+/g, " ")                   // slashes → space
+      .replace(/-[a-z]+(-[a-z]+)?$/gi, "")    // remove location suffix like -mumbai-maharashtra
+      .replace(/-/g, " ")                     // hyphens → space
+      .replace(/\d+/g, "")                    // remove numbers
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+    return clean || "";
   };
 
-  const rawProduct = getProductTitle() || search_key || slugStr;
+  const rawProductName = getProductName();
+  const productName = rawProductName
+    ? textCapitalize(rawProductName)
+    : "";
 
-  // Convert to safe string
-  const safeRawProduct = Array.isArray(rawProduct)
-    ? rawProduct.join(" ")
-    : String(rawProduct || "");
+  // ————————————————————
+  // 2. Location
+  // ————————————————————
+  const cityName = selectedCity?.name || "";
+  const stateName = selectedState?.name || "";
 
-  // ✅ Clean unwanted tokens: "category1234", numbers, slashes, etc.
-  const cleanedProduct = safeRawProduct
-    .replace(/category\d*/gi, "")  // remove words like "category3211"
-    .replace(/\/+/g, " ")          // replace slashes with spaces
-    .replace(/\d+/g, "")           // remove standalone numbers
-    .replace(/--+/g, "-")          // collapse multiple dashes
-    .replace(/\s{2,}/g, " ")       // collapse multiple spaces
-    .trim();
+  // ————————————————————
+  // 3. Build final SEO title
+  // ————————————————————
+  let title = "Discover Verified Vendors for Industrial Procurement";
 
-  // Capitalize the cleaned product name
-  const productName = textCapitalize(cleanedProduct.replace(/-/g, " ").trim());
-
-
-  const stateName = selectedState?.[0]?.name;
-  const cityName = selectedCity?.[0]?.name;
-
-  let title = 'Discover Verified Vendors for Industrial Procurement';
-  if (slugStr === 'all') title = 'Discover Verified Vendors for Industrial Procurement';
-  else if (productName && cityName && stateName) title = `Top ${productName} Vendors & Suppliers Near ${cityName},  ${stateName}`;
-  else if (productName && stateName) title = `Top ${productName} Vendors & Suppliers Near ${stateName}`;
-  else if (productName) title = `Top ${productName} Vendors & Suppliers`;
+  if (slugStr === "all") {
+    title = "All Industrial Product Vendors & Suppliers in India | Workwise";
+  } else if (productName && cityName && stateName) {
+    title = `${productName} Suppliers & Manufacturers in ${cityName}, ${stateName} | Workwise`;
+  } else if (productName && stateName) {
+    title = `${productName} Suppliers & Manufacturers in ${stateName} | Workwise`;
+  } else if (productName) {
+    title = `${productName} Suppliers & Manufacturers in India | Workwise`;
+  }
 
   return <h1 className="heading">{title}</h1>;
 };

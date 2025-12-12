@@ -98,12 +98,15 @@ export const searchProductsV2 = (values, type = "products") => {
               search_key: values.search_key
             });
             
+            // Replace the mutation with:
+            const finalVendors = [...response.data];
+
             if (variantVendorsResponse?.data?.length > 0) {
-              const existingVendorIds = new Set(response.data.map(v => v.id));
+              const existingVendorIds = new Set(finalVendors.map(v => v.id));
               const newVendors = variantVendorsResponse.data.filter(v => !existingVendorIds.has(v.vendor_id));
-              
+
               if (newVendors.length > 0) {
-                const formattedVariantVendors = newVendors.map(mapping => ({
+                const formatted = newVendors.map(mapping => ({
                   id: mapping.vendor_id,
                   name: mapping.vendor_name || mapping.vendor_display_name || "Unknown Vendor",
                   email: mapping.vendor_email || "",
@@ -114,10 +117,15 @@ export const searchProductsV2 = (values, type = "products") => {
                   variant_name: mapping.variant_name || "",
                   mapping_id: mapping.mapping_id || mapping.id
                 }));
-                
-                response.data = [...response.data, ...formattedVariantVendors];
+                finalVendors.push(...formatted);
               }
             }
+
+            resolve({
+              ...response,
+              data: finalVendors,
+              total: response.data?.total || finalVendors.length
+            });
           } catch (variantError) {
             console.error("Error fetching variant vendor data:", variantError);
           }

@@ -1,6 +1,7 @@
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { extractfileName } from "./sharedFunctions";
+import { useMemo } from "react";
 
 export const renderFileLink = (fileOrFiles , label = "View File") => {
     if (Array.isArray(fileOrFiles) && fileOrFiles.length > 0) {
@@ -41,3 +42,15 @@ export const renderFileBadge = (fileOrFiles) => {
     }
     return null;
 };
+
+// hook 
+export function useAvailableOptions(
+  allOptions,
+  selectedOptions,
+  key
+) {
+  return useMemo(() => {
+    const selectedValues = new Set(selectedOptions.map(item => item[key]));
+    return allOptions.filter(item => !selectedValues.has(item[key]));
+  }, [allOptions, selectedOptions, key]);
+}
