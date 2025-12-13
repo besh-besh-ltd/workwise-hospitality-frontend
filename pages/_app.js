@@ -24,7 +24,6 @@ import LogRocket from 'logrocket';
 import storageInstance from "@/utils/storageInstance";
 import Script from "next/script";
 import Head from "next/head";
-import * as Sentry from "@sentry/nextjs";
 
 
 // Tell Font Awesome to skip adding the CSS automatically
@@ -107,7 +106,7 @@ export default function App({ Component, pageProps }) {
 
 
   return (
-    <Sentry.ErrorBoundary fallback={<div>Something went wrong</div>}>
+    <>
       {/* Only load Google tag managerin production */}
       <Head />
 
@@ -152,6 +151,6 @@ export default function App({ Component, pageProps }) {
           </Layout>
         </GoogleOAuthProvider>
       </Providers>
-    </Sentry.ErrorBoundary>
+    </>
   );
 }
