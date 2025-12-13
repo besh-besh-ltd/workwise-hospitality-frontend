@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { extractQuotation, fetchQuoteHistory, getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
+import { extractQuotation, fetchQuoteHistory, getRFQById, sendQuotation, updateQuotation, createTenderPaymentOrder, verifyTenderPayment } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
 import Loader from "@/components/shared/Loader";
 import { toast } from "react-toastify";
@@ -93,6 +93,9 @@ const SendQuotePageComp = () => {
   const [extractingQuotes, setExtractingQuotes] = useState(false);
 const [quoteHistory, setQuoteHistory] = useState(null);
 const [showQuoteHistoryModal, setShowQuoteHistoryModal] = useState(false); //to fetch the quote hitory for a product for vendor page
+const [tenderPaymentPaid, setTenderPaymentPaid] = useState(false);
+const [tenderFees, setTenderFees] = useState(0);
+const [tenderPaymentLoading, setTenderPaymentLoading] = useState(false);
 
   // structured payment terms rows
 const [paymentTermsRows, setPaymentTermsRows] = useState([
@@ -231,6 +234,24 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
     return spec ? spec.value : "";
   }
 
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") {
+      resolve(false);
+      return;
+    }
+    if (document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
   const updatecurrentLowest = (products, rfqData) => {
     if (products && Array.isArray(products)) {
       // Extract technical evaluation status for each product
@@ -300,6 +321,9 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
     getRFQById(id, token)
       .then((res) => {
         setloading(false);
+
+        setTenderFees(res.data?.tender_fees || 0);
+        setTenderPaymentPaid(res.data?.has_paid_tender_fees === true);
 
         if (res.data.quote_details) {
           setglobalComment(res.data.quote_details.global_comment || ""); // Set globalComment from API or fallback to empty string
@@ -515,7 +539,77 @@ return { deletedTerms, createdTerms, updatedTerms };
 };
 
 
-  const handleSendQuote = () => {
+  const initiateTenderPayment = async () => {
+    try {
+      setTenderPaymentLoading(true);
+      const orderRes = await createTenderPaymentOrder(id, token);
+      const orderData = orderRes?.data?.data?.order;
+
+      if (orderRes?.data?.data?.already_paid) {
+        setTenderPaymentPaid(true);
+        toast.success("Tender fees already paid.");
+        return;
+      }
+
+      const sdkLoaded = await loadRazorpayScript();
+      if (!sdkLoaded) {
+        toast.error("Razorpay SDK failed to load. Please try again.");
+        return;
+      }
+
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
+        order_id: orderData?.id,
+        amount: orderData?.amount,
+        currency: orderData?.currency || "INR",
+        name: "Workwise",
+        description: "Tender Fees",
+        handler: async function (response) {
+          try {
+            await verifyTenderPayment(
+              {
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+                rfq_id: id
+              },
+              token
+            );
+            setTenderPaymentPaid(true);
+            getRFQdetails();
+            toast.success("Tender fees paid successfully.");
+          } catch (err) {
+            toast.error("Payment verification failed.");
+          }
+        },
+        prefill: {
+          name: "",
+          email: "",
+          contact: ""
+        },
+        notes: {
+          rfq: id
+        },
+        theme: {
+          color: "#158993"
+        }
+      };
+
+      const paymentObject = new window.Razorpay(options);
+      paymentObject.open();
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Unable to initiate payment";
+      toast.error(msg);
+    } finally {
+      setTenderPaymentLoading(false);
+    }
+  };
+
+  const handleSendQuote = async () => {
+    if (rfqDetails?.is_tender === 1 && (tenderFees || 0) > 0 && !tenderPaymentPaid) {
+      await initiateTenderPayment();
+      return;
+    }
     setShowSubmitQuoteConfirmModal(true);
   };
 
@@ -2391,7 +2485,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                           type="submit"
                           className="btn btn-secondary float-end"
                           onClick={handleSendQuote}
-                          disabled={!isAnyFieldFilled()}
+                          disabled={!isAnyFieldFilled() || tenderPaymentLoading}
                         >
                           Send Quote
                         </button>

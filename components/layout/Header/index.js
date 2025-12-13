@@ -876,47 +876,22 @@ const Header = () => {
                 {!mainNavs.includes(pathname) && (
                   <div className="header-right header-center align-items-center forLoggedIn">
                     <nav className="main-menu">
-                      {loggedinUser?.name && !mainNavs.includes(pathname) && (
-                        <div className="header-right header-center align-items-center forLoggedIn">
-                          <nav className="main-menu">
-                            <ul className="d-flex justify-content-start w-100">
-                              {currentRoleMenu
-                                ?.filter(
-                                  (menuType) => menuClass || menuType.targetMenu == "nav"
-                                )
-                                ?.map((item) => (
-                                  <li
-                                    key={item.href}
-                                    className={
-                                      pathname === item.href ? "active" : ""
-                                    }
-                                  >
-                                    <Link href={item.href}>{item.label}</Link>
-                                  </li>
-                                ))}
-                              {showHospitalityScopeButton && (
-                                <li className="ms-3">
-                                  <button
-                                    type="button"
-                                    className="btn btn-outline-primary btn-sm fw-semibold"
-                                    style={{ color: "#0f6cff", borderColor: "#0f6cff", backgroundColor: "white" }}
-                                    onClick={handleOpenContextModal}
-                                  >
-                                    {hospitalityContext
-                                      ? `${hospitalityContext.companyName}${
-                                          hospitalityContext.hotelId
-                                            ? " / " +
-                                              hospitalityContext.hotelName
-                                            : ""
-                                        }`
-                                      : "Select Hospitality Scope"}
-                                  </button>
-                                </li>
-                              )}
-                            </ul>
-                          </nav>
-                        </div>
-                      )}
+                      <ul className="d-flex justify-content-start w-100">
+                        {currentRoleMenu
+                          ?.filter(
+                            (menuType) => menuClass || menuType.targetMenu == "nav"
+                          )
+                          ?.map((item) => (
+                            <li
+                              key={item.href}
+                              className={
+                                pathname === item.href ? "active" : ""
+                              }
+                            >
+                              <Link href={item.href}>{item.label}</Link>
+                            </li>
+                          ))}
+                      </ul>
                     </nav>
                   </div>
                 )}

@@ -508,6 +508,20 @@ export const sendSelectiveReminder = (id, vendor_ids) => {
   });
 };
 
+export const createTenderPaymentOrder = (rfq_id, token = null) => {
+  return axiosInstance.post(
+    `/rfq/tender-payment/create-order${token ? `?token=${token}` : ''}`,
+    { rfq_id }
+  );
+};
+
+export const verifyTenderPayment = (payload, token = null) => {
+  return axiosInstance.post(
+    `/rfq/tender-payment/verify${token ? `?token=${token}` : ''}`,
+    payload
+  );
+};
+
 // export const sendFollowUpToBuyer = (payload) =>{
 //   return new Promise(async (resolve , reject) =>{
 //     try {

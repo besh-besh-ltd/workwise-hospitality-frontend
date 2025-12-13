@@ -495,7 +495,18 @@ const CreateRFQ = () => {
 
     if (name === "is_tender") {
       value = parseInt(value);
+    if (value === 0) {
+      dispatch(setOtherFormFields({ field_name: "tender_fees", value: 0 }));
     }
+    }
+
+  if (name === "tender_fees") {
+    const numericValue = parseFloat(value || 0);
+    const paise = isNaN(numericValue) ? 0 : Math.max(0, Math.round(numericValue * 100));
+    dispatch(setOtherFormFields({ field_name: "tender_fees", value: paise }));
+    setHasUnsavedChanges(true);
+    return;
+  }
 
     // Handle datetime-local inputs for auction dates
     if ((name === 'ra_start_date' || name === 'ra_end_date') && value) {
@@ -2257,6 +2268,10 @@ useEffect(() => {
                             reverse_auction:
                               rfqFormDataFromStore.reverse_auction,
                             is_tender: rfqFormDataFromStore.is_tender || 0,
+                            tender_fees:
+                              rfqFormDataFromStore.tender_fees
+                                ? Number(rfqFormDataFromStore.tender_fees) / 100
+                                : 0,
                             location: rfqFormDataFromStore.location,
                             countryCode: "+91",
                           }}
@@ -2546,6 +2561,28 @@ useEffect(() => {
                                     errors={errors}
                                   />
                                 </div>
+
+                                {rfqFormDataFromStore.is_tender === 1 && (
+                                  <div className="col-md-4">
+                                    <FormikField
+                                      id="tender_fees-input-rfq_details-create_rfq_page"
+                                      label="Tender Fees (INR)"
+                                      type="number"
+                                      value={
+                                        rfqFormDataFromStore.tender_fees
+                                          ? Number(rfqFormDataFromStore.tender_fees) / 100
+                                          : 0
+                                      }
+                                      enableHandleChange={true}
+                                      handleChange={handleFormFieldChange}
+                                      isRequired={true}
+                                      name="tender_fees"
+                                      placeholder="Enter fees in INR"
+                                      touched={touched}
+                                      errors={errors}
+                                    />
+                                  </div>
+                                )}
 
                                 {rfqFormDataFromStore.reverse_auction === 1 && (
                                   <>
