@@ -448,12 +448,13 @@ const addRfqIdParam = (rfq_id) => {
 
       // Get the rfq_id from the URL if it exists
       const { rfq_id, sheet_id } = queryMeta;
-
+      
       const payload = {
         variant_id: currentSelectedProduct.variant_id,
         vendors: bulkRFQVendors.map(vendor => ({
           vendor_id: vendor.id
-        }))
+        })),
+        filters: { ...filterSnapshot } // Include current filter snapshot
       };
       
       // Only include rfq_id in payload if it exists and is valid
