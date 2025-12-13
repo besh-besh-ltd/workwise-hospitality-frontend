@@ -119,8 +119,7 @@ const ConfirmationModal = ({
                         <div className='d-flex justify-content-center gap-3 mt-4'>
                             <button 
                                 onClick={onClose} 
-                                className="btn btn-outline-secondary px-4 py-2"
-                                style={{ minWidth: '100px' }}
+                                className="btn btn-outline-secondary p-2"
                                 id="cancel_confirmation_modal-modal_body-confirmation_modal"
                                 disabled={isProcessing}
                             >
@@ -128,8 +127,7 @@ const ConfirmationModal = ({
                             </button>
                             <button 
                                 onClick={handleConfirmClick} 
-                                className={`btn ${getButtonClass(confirmButtonColor)} px-4 py-2`}
-                                style={{ minWidth: '100px' }}
+                                className={`btn ${getButtonClass(confirmButtonColor)} p-2`}
                                 id="confirm_confirmation_modal-modal_body-confirmation_modal"
                                 disabled={isProcessing}
                             >
