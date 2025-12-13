@@ -47,6 +47,13 @@ export const vendorConditions = [
   },
 ]
 
+export const subscriptionTypes = [
+  {
+    label: "Premium",
+    value: "premium",
+  },
+]
+
   // Options for the dropdown
   const optionVendors = [
     { value: 'is_private', label: 'My Private Vendor' },
@@ -95,6 +102,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [prevWorkedWith, setPrevWorkedWith] = useState(null);
   const [makeList, setMakeList] = useState([]);
   const [selectedMakes, setSelectedMakes] = useState([]);
+  const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [allAvailableCities, setAllAvailableCities] = useState([]);
   const vendorRequestIdRef = useRef(0);
   const categoryCityCacheRef = useRef(new Map());
@@ -150,6 +158,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   myVendorType,
   vendorName: debouncedVendorName,
   turnOver,
+  subscriptionType: selectedSubscription,
 }), [
   selectedCountry,
   selectedState,
@@ -160,7 +169,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   prevWorkedWith,
   myVendorType,
   debouncedVendorName,
-  turnOver
+  turnOver,
+  selectedSubscription
 ]);
 
 
@@ -202,7 +212,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   }, [isCategorySlug, slugStr, search_key]);
 
   const handleRedirect = (e) => {
-    if (!vendorMetaData?.logged_In)
+    if (!isLoggedIn)
       setOpenAuthModal(true);
     else if (!vendorMetaData?.subscription)
       router.push('/dashboard/buyer/subscription');
@@ -378,7 +388,7 @@ useEffect(() => {
  
 
   const canAddItem = () => {
-    if (!vendorMetaData.logged_In) {
+    if (!isLoggedIn) {
       setOpenAuthModal(true);
       return false;
     } else if (!vendorMetaData.subscription) {
@@ -531,6 +541,7 @@ const addRfqIdParam = (rfq_id) => {
           vendor_name: vendorName,
           myVendorType,
           productMakes: selectedMakes,
+          subscriptionType: selectedSubscription?.value,
           page: 1,
           limit: 20
         });
@@ -572,8 +583,8 @@ const addRfqIdParam = (rfq_id) => {
         setVendorMetaData({
           data: vendors,
           total: response?.total || 0,
-          logged_In: response?.logged_In || false,
-          subscription: response?.subscription || false
+          logged_In: isLoggedIn,
+          subscription: response?.subscription ?? vendorMetaData.subscription ?? false
         });
         if(vendors.length > 0) {
           return;
@@ -675,7 +686,8 @@ const addRfqIdParam = (rfq_id) => {
           prevWorkedWith,
           vendor_name: vendorName,
           myVendorType,
-          selectedMakes
+          selectedMakes,
+          subscriptionType: selectedSubscription,
         },
         "vendors"
       )
@@ -899,11 +911,7 @@ const clearVendorFilters = () => {
     getProducts();
   };
   const handleBulkAllSelect = (e, items) => {
-    if (
-      !vendorMetaData ||
-      !vendorMetaData.logged_In
-    )
-      return setOpenAuthModal(true);
+    if (!isLoggedIn) return setOpenAuthModal(true);
 
     if (e.target.checked) {
       let d = items.map((item) => {
@@ -1227,7 +1235,7 @@ if (slugStr !== newSlug) {
     search_key,
     inputValue,
     stateList,
-    cityList
+    cityList,
   ]);
 
   useEffect(() => {
@@ -1641,9 +1649,7 @@ useEffect(() => {
                             selectedMakes.length > 0 ? selectedMakes[0].id : ""
                           }
                           onChange={(e) => {
-                            if (
-                              !vendorMetaData || !vendorMetaData.logged_In
-                            ) {
+                            if (!isLoggedIn) {
                               setOpenAuthModal(true);
                             } else {
                               const selectedId = e.target.value; // Get selected id from option
@@ -1725,11 +1731,7 @@ useEffect(() => {
                         id="my_vendors_filter-filters-vendor_search_page"
                         value={myVendorType ? myVendorType.value : ""}
                         onChange={(e) => {
-                          if (
-                            !vendorMetaData ||
-                            !vendorMetaData.logged_In 
-                          )
-                            setOpenAuthModal(true);
+                          if (!isLoggedIn) setOpenAuthModal(true);
                           else {
                             const selected = optionVendors.find(
                               (option) => option.value === e.target.value
@@ -1763,6 +1765,60 @@ useEffect(() => {
                     </div>
                   </div>
                   {/* END: my vendor filter */}
+
+                  <div className="search-con-right-1">
+                    <p className="fw-semibold mb-2 mt-3">Subscripion Type</p>
+                    <div>
+                      <select
+                        name="product_make"
+                        id="product_make_filter-filters-vendor_search_page"
+                        value={
+                          selectedSubscription?.value ?? ""
+                        }
+                        onChange={(e) => {
+                          if (
+                            !vendorMetaData || !vendorMetaData.logged_In
+                          ) {
+                            setOpenAuthModal(true);
+                          } else {
+                            const selectedValue = e.target.value; // Get selected id from option
+                            const selected = subscriptionTypes.find(
+                              (option) => option.value == selectedValue
+                            );
+                            if (selected) {
+                              // Check if already selected to avoid duplicates
+                              if (
+                                !(selectedSubscription?.value == selected.value)
+                              ) {
+                                setSelectedSubscription(selected);
+                              }
+                            }
+                          }
+                        }}
+                      >
+                        <option value="">Select Subscription Type</option>
+                        {subscriptionTypes.map(t => (
+                          <option value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Display clear link if any filter is active */}
+                      {selectedSubscription && (
+                        <Link
+                          href="#"
+                          className="clearFilter"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSelectedSubscription(null);
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faTimesCircle} /> clear
+                        </Link>
+                      )}
+                    </div>
+                  </div>
 
                   {/* START: Location filter */}
                   <div className="search-con-right-1">
@@ -1818,11 +1874,7 @@ useEffect(() => {
                             {type.label}
                             <button
                               onClick={() => {
-                                if (
-                                  !vendorMetaData ||
-                                  !vendorMetaData.logged_In
-                                )
-                                  return setOpenAuthModal(true);
+                                if (!isLoggedIn) return setOpenAuthModal(true);
 
                                 setSelectedVendorTypes((prev) =>
                                   prev.filter(
@@ -1849,11 +1901,7 @@ useEffect(() => {
                               <li
                                 key={type.value}
                                 onClick={() => {
-                                  if (
-                                    !vendorMetaData ||
-                                    !vendorMetaData.logged_In
-                                  )
-                                    return setOpenAuthModal(true);
+                                  if (!isLoggedIn) return setOpenAuthModal(true);
 
                                   setSelectedVendorTypes((prev) => [
                                     ...prev,
@@ -1884,9 +1932,7 @@ useEffect(() => {
                         id="previously_worked_filter-filters-vendor_search_page"
                         value={prevWorkedWith}
                         onChange={(e) => {
-                          if (
-                            !vendorMetaData || !vendorMetaData.logged_In 
-                          )
+                          if (!isLoggedIn)
                             setOpenAuthModal(true);
                           else {
                             setPrevWorkedWith(e.target.value);
@@ -1979,10 +2025,7 @@ useEffect(() => {
                                   <li
                                     key={approveBy.id}
                                     onClick={() => {
-                                      if (
-                                        !vendorMetaData || !vendorMetaData.logged_In
-                                      )
-                                        return setOpenAuthModal(true);
+                                      if (!isLoggedIn) return setOpenAuthModal(true);
                                       setSelectedApprovedBy((prev) => [
                                         ...prev,
                                         approveBy,
@@ -2134,6 +2177,7 @@ useEffect(() => {
                                 vendorMetaData={vendorMetaData}
                                 setOpenAuthModal={setOpenAuthModal}
                                 addToRFQ={addToRFQ}
+                                isLoggedIn={isLoggedIn}
                               />
                             );
                           })}

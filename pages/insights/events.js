@@ -113,7 +113,7 @@ const EventsPage = () => {
   const eventsWithComputedStatus = eventsData.events.map((event) => {
     const endDate = getEventEndDate(event.date);
     const computedStatus = endDate && endDate < todayStart ? 'Past' : 'Upcoming';
-    return { ...event, status: computedStatus };
+    return { ...event, status: computedStatus, _endDate: endDate };
   });
 
   // Filter events based on selected filters and search term
@@ -139,7 +139,16 @@ const EventsPage = () => {
 
   // Separate upcoming and past events
   const upcomingEvents = filteredEvents.filter(event => event.status === 'Upcoming');
-  const pastEvents = filteredEvents.filter(event => event.status === 'Past');
+  const pastEvents = filteredEvents
+    .filter(event => event.status === 'Past')
+    .sort((a, b) => {
+      const aDate = a._endDate || getEventEndDate(a.date);
+      const bDate = b._endDate || getEventEndDate(b.date);
+      if (!aDate && !bDate) return 0;
+      if (!aDate) return 1;
+      if (!bDate) return -1;
+      return bDate - aDate; // newest to oldest
+    });
 
 
 

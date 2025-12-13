@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from "next/link";
 import React, { useState } from "react";
 import CommonModal from "../modal/CommonModal";
+import { PiCrownSimpleFill } from "react-icons/pi";
 
 const SearchItem = ({
   type,
@@ -12,6 +13,7 @@ const SearchItem = ({
   addToRFQ,
   selectedProduct = false,
   handleRemoveCurrentSelected,
+  isLoggedIn
 }) => {
   const [openCommonModal, setOpenCommonModal] = useState(false);
   const vendorDisplayName = data?.company_name || data?.vendor_name || "";
@@ -64,7 +66,27 @@ const SearchItem = ({
             }}
             // title={data.company_name}   // tooltip on hover
           >
-            {vendorDisplayName}
+            <div className="d-flex flex-column gap-2">
+              {vendorDisplayName}
+              {(data?.is_premium ?? 0) == 1 && (
+                <span
+                  className="badge d-inline-flex align-items-center"
+                  style={{
+                    background: "linear-gradient(135deg, #FFD700 0%, #FFEA8A 50%, #E6C200 100%)",
+                    color: "#7A5A00",
+                    padding: "6px 12px",
+                    borderRadius: "10px",
+                    fontWeight: 700,
+                    fontSize: "0.8rem",
+                    border: "1px solid #D4AF37",
+                    width: "fit-content"
+                  }}
+                >
+                  <PiCrownSimpleFill size={16} style={{ marginRight: "6px" }} />
+                  Premium Vendor
+                </span>
+              )}
+            </div>
           </h4>
               {type == "vendors" && (
                 <>
@@ -171,7 +193,7 @@ const SearchItem = ({
                   className="btn btn-primary custom_primary_btn"
                   onClick={(e) => {
                     e.preventDefault();
-                    if (!vendorMetaData || !vendorMetaData.logged_In)
+                    if (!isLoggedIn)
                       setOpenAuthModal(true);
                     else
                       setOpenCommonModal(true);
