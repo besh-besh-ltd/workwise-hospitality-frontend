@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye } from "@fortawesome/free-regular-svg-icons";
 import { faTrash, faTrashRestore } from "@fortawesome/free-solid-svg-icons";
 import Fuse from "fuse.js";
+import { PiCrownSimpleFill } from "react-icons/pi";
 
 const ViewVendorModal = ({
   productData,
@@ -157,7 +158,7 @@ const ViewVendorModal = ({
                         <thead>
                           <tr>
                             <th>Company Name</th>
-                            <th style={{ maxWidth: "300px" }}>Region</th>
+                            {/* <th style={{ maxWidth: "300px" }}>Region</th> */}
                             <th>Email</th>
                             <th>Mobile No.</th>
                             {/* <th>Industry</th> */}
@@ -186,13 +187,29 @@ const ViewVendorModal = ({
                             return (
                               <>
                                 <tr key={`vendor-${item.name}`}>
-                                  <td>{item.user_details.company_name}</td>
-                                  <td
+                                  <td>
+                                    <div className="d-flex flex-column gap-1">
+                                      {item.user_details.company_name}
+                                      {item.is_premium == 1 && (
+                                        <span
+                                          style={{
+                                            color: "#bd921cff",
+                                            fontWeight: 700,
+                                            fontSize: "0.7rem",
+                                          }}
+                                        >
+                                          <PiCrownSimpleFill size={16} style={{ marginRight: "6px" }} />
+                                          Premium Vendor
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  {/* <td
                                     className="text-truncate"
                                     style={{ maxWidth: "300px" }}
                                   >
                                     {item.user_details.address}
-                                  </td>
+                                  </td> */}
                                   <td>{item.user_details.email}</td>
                                   <td>{item.user_details.mobile}</td>
                                   {/* <td>

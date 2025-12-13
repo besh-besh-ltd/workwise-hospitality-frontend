@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from "next/link";
 import React, { useState } from "react";
 import CommonModal from "../modal/CommonModal";
+import { PiCrownSimpleFill } from "react-icons/pi";
 
 const SearchItem = ({
   type,
@@ -65,16 +66,54 @@ const SearchItem = ({
             }}
             // title={data.company_name}   // tooltip on hover
           >
-            {vendorDisplayName}
+            <div className="d-flex flex-column gap-2">
+              {vendorDisplayName}
+              {(data?.is_premium ?? 0) == 1 && (
+                <span
+                  className="badge d-inline-flex align-items-center"
+                  style={{
+                    background: "linear-gradient(135deg, #FFD700 0%, #FFEA8A 50%, #E6C200 100%)",
+                    color: "#7A5A00",
+                    padding: "6px 12px",
+                    borderRadius: "10px",
+                    fontWeight: 700,
+                    fontSize: "0.8rem",
+                    border: "1px solid #D4AF37",
+                    width: "fit-content"
+                  }}
+                >
+                  <PiCrownSimpleFill size={16} style={{ marginRight: "6px" }} />
+                  Premium Vendor
+                </span>
+              )}
+            </div>
           </h4>
               {type == "vendors" && (
                 <>
                   <div className="mdl-con-text">
-                    {data.address && (
+                    {Array.isArray(data.location) && data.location.length > 0 && (
                       <p>
-                        <b>Location :</b> {data.city_name ? `${data.city_name}, ${data.state_name}` : data.state_name ? data.state_name : ''}
+                        <b>Location :</b>{" "}
+                        {[
+                          ...new Set(
+                            data.location.map((loc) => {
+                              const city = loc.city_name?.trim() ?? "";
+                              const state = loc.state_name?.trim() ?? "";
+                              const country = loc.country_name?.trim() ?? "";
+
+                              // If country is not India → include country
+                              if (country && country.toLowerCase() !== "india") {
+                                return [city, state, country].filter(Boolean).join(", ");
+                              }
+
+                              // Default: India → only city + state
+                              return [city, state].filter(Boolean).join(", ");
+                            })
+                          ),
+                        ].join(", ")}
                       </p>
                     )}
+
                     {data.about && (
                       <p className="truncate-text " style={{ maxHeight: "100px", WebkitLineClamp: 3 }}>
                         <b>About :</b> {data.about}

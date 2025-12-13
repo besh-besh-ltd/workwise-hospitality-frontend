@@ -158,7 +158,7 @@ const RfqManagementVendorPage = () => {
                         <thead>
                           <tr>
                             <th>Company Name</th>
-                            <th>Region</th>
+                            {/* <th>Region</th> */}
                             <th>Email</th>
                             <th>Mobile No.</th>
                             <th>View Status</th>
@@ -171,7 +171,7 @@ const RfqManagementVendorPage = () => {
                               <>
                                 <tr key={`vendor-${item.name}`}>
                                   <td>{item.company_name}</td>
-                                  <td>{item.address}</td>
+                                  {/* <td>{item.address}</td> */}
                                   <td>{item.email}</td>
                                   <td>{item.mobile}</td>
                                   <td>

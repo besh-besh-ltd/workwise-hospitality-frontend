@@ -23,6 +23,7 @@ import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
 import { addSpoc } from "@/services/Auth";
 import { getCountryCodes } from "@/services/cms";
 import MediaRender from "@/components/shared/MediaRender";
+import { PiCrownSimpleFill } from "react-icons/pi";
 
 
 const VendorProfile = () => {
@@ -138,7 +139,7 @@ useEffect(() => {
       getVendorDetailsByID(id)
         .then((res) => {
           setloading(false);
-          setVendorDetails(res.data);
+          setVendorDetails({...res.data, subscription: res.subscription});
           const approvedList = res.data.product_list?.filter((prod) => prod?.approved_by.length > 0);
           setApprovedProducts(approvedList);
           setIsLoggedIn(res.logged_In);
@@ -334,7 +335,24 @@ useEffect(() => {
                 {/* Vendor Basic Details */}
                 <div className="user-details hasFullLoader mb-4">
                   <h2 className="mb-1">{vendorDetails?.company_name}</h2>
-                  {vendorDetails?.status == 1 ? (
+                  {vendorDetails?.subscription ? (
+                    <span
+                      className="badge d-inline-flex align-items-center mt-1 mb-4"
+                      style={{
+                        background: "linear-gradient(135deg, #FFD700 0%, #FFEA8A 50%, #E6C200 100%)",
+                        color: "#7A5A00",
+                        padding: "6px 12px",
+                        borderRadius: "10px",
+                        fontWeight: 700,
+                        fontSize: "0.8rem",
+                        border: "1px solid #D4AF37",
+                        width: "fit-content"
+                      }}
+                    >
+                      <PiCrownSimpleFill size={16} style={{ marginRight: "6px" }} />
+                      Premium Vendor
+                    </span>
+                  ) : vendorDetails?.status == 1 ? (
                     <p>
                       <FontAwesomeIcon icon={faCheckCircle} /> Verified
                     </p>
@@ -343,16 +361,22 @@ useEffect(() => {
                       <FontAwesomeIcon icon={faTimesCircle} /> Unverified
                     </p>
                   )}
-                  {vendorDetails?.address && (
-                    <p>
-                      <FontAwesomeIcon icon={faLocation} />{" "}
-                      {vendorDetails?.address}
-                      {vendorDetails?.city_name &&
-                        `, ${vendorDetails?.city_name}`}
-                      {vendorDetails?.state_name &&
-                        `, ${vendorDetails?.state_name}`}
-                    </p>
+                  {vendorDetails?.location?.length > 0 && (
+                    <div>
+                      {vendorDetails.location.map((loc, index) => (
+                        <p key={index}>
+                          <FontAwesomeIcon icon={faLocation} />{" "}
+                          {loc.address ? loc.address : ""}
+                          {loc.city_name ? `, ${loc.city_name}` : ""}
+                          {loc.state_name ? `, ${loc.state_name}` : ""}
+                          {loc.country_name ? `, ${loc.country_name}` : ""}
+                          {loc.postal_code ? ` - ${loc.postal_code}` : ""}
+                        </p>
+                      ))}
+                    </div>
                   )}
+
+                  {console.log("vendor details---->", vendorDetails)}
 
                   {(vendorDetails?.linkedin ||
                     vendorDetails?.facebook ||
@@ -631,7 +655,7 @@ useEffect(() => {
 
                       // 🧠 Handle Payment Terms separately
                       if (type === "payment_terms") {
-                        const terms =   paymentTermsRows || [];
+                        const terms = paymentTermsRows || [];
                         // console.log("Rendering payment terms:", terms);
 
                         if (terms.length === 0) return null;
@@ -641,7 +665,9 @@ useEffect(() => {
                             {/* Section Header */}
                             <div className="d-flex justify-content-between align-items-center mb-3">
                               <h5 className="text-dark fw-semibold mb-0">
-                                <i className={`${sectionIcons[type]} me-2 text-primary`}></i>
+                                <i
+                                  className={`${sectionIcons[type]} me-2 text-primary`}
+                                ></i>
                                 {sectionTitles[type]}
                               </h5>
                               <span className="badge bg-primary rounded-pill">
@@ -654,9 +680,13 @@ useEffect(() => {
                               <table className="table table-bordered align-middle mb-0">
                                 <thead className="table-light">
                                   <tr>
-                                    <th style={{ width: "15%" }}>% of Amount</th>
+                                    <th style={{ width: "15%" }}>
+                                      % of Amount
+                                    </th>
                                     <th style={{ width: "20%" }}>Type</th>
-                                    <th style={{ width: "15%" }}>Credit Days</th>
+                                    <th style={{ width: "15%" }}>
+                                      Credit Days
+                                    </th>
                                     <th>Comment / Notes</th>
                                   </tr>
                                 </thead>
@@ -664,8 +694,14 @@ useEffect(() => {
                                   {terms.map((term, index) => (
                                     <tr key={index}>
                                       <td>{term.value || "-"}</td>
-                                      <td className="text-capitalize">{term.type || "-"}</td>
-                                      <td>{term.type === "credit" ? term.days || "-" : "-"}</td>
+                                      <td className="text-capitalize">
+                                        {term.type || "-"}
+                                      </td>
+                                      <td>
+                                        {term.type === "credit"
+                                          ? term.days || "-"
+                                          : "-"}
+                                      </td>
                                       <td>{term.comment || "-"}</td>
                                     </tr>
                                   ))}
@@ -681,7 +717,9 @@ useEffect(() => {
                         <div key={type} className="mb-5">
                           <div className="d-flex justify-content-between align-items-center mb-3">
                             <h5 className="text-dark fw-semibold mb-0">
-                              <i className={`${sectionIcons[type]} me-2 text-primary`}></i>
+                              <i
+                                className={`${sectionIcons[type]} me-2 text-primary`}
+                              ></i>
                               {sectionTitles[type]}
                             </h5>
                             <span className="badge bg-primary rounded-pill">
@@ -702,7 +740,9 @@ useEffect(() => {
                                     <div className="mt-2">
                                       <small className="text-muted">
                                         Uploaded:{" "}
-                                        {new Date(doc.created_at).toLocaleDateString()}
+                                        {new Date(
+                                          doc.created_at
+                                        ).toLocaleDateString()}
                                       </small>
                                       {doc.is_approved && (
                                         <span className="badge bg-success ms-2">
@@ -719,7 +759,6 @@ useEffect(() => {
                         </div>
                       );
                     })}
-
                   </div>
                 )}
 
@@ -733,37 +772,42 @@ useEffect(() => {
                       {/* Product Carousel is ready whenever Product Image will be available uncomment this */}
                       {/* <ProductCarousel data={vendorDetails?.product_list} /> */}
 
-                    {vendorDetails?.product_list && vendorDetails?.product_list.length > 0 ? (
-                      <div className="row">
-                        {vendorDetails?.product_list?.map((prodItem, index) => {
-                          return (
-                            <div
-                              key={`prod_${index}`}
-                              className="col-sm-6 col-md-4 col-lg-3 mb-3"
-                            >
-                              <div className="card shadow-sm border-light h-100">
-                                <div className="card-body">
-                                  <p className="card-title fw-semibold mb-1">
-                                    {prodItem.product_name}
-                                  </p>
+                      {vendorDetails?.product_list &&
+                      vendorDetails?.product_list.length > 0 ? (
+                        <div className="row">
+                          {vendorDetails?.product_list?.map(
+                            (prodItem, index) => {
+                              return (
+                                <div
+                                  key={`prod_${index}`}
+                                  className="col-sm-6 col-md-4 col-lg-3 mb-3"
+                                >
+                                  <div className="card shadow-sm border-light h-100">
+                                    <div className="card-body">
+                                      <p className="card-title fw-semibold mb-1">
+                                        {prodItem.product_name}
+                                      </p>
 
-                                   {prodItem.product_make && (
-                              <p className="text-muted small mb-0">
-                                <span className="fw-semibold">Product-Make:</span>{" "}
-                                {Array.isArray(prodItem.product_make)
-                                  ? prodItem.product_make.join(", ")
-                                  : prodItem.product_make}
-                              </p>
-                            )}
+                                      {prodItem.product_make && (
+                                        <p className="text-muted small mb-0">
+                                          <span className="fw-semibold">
+                                            Product-Make:
+                                          </span>{" "}
+                                          {Array.isArray(prodItem.product_make)
+                                            ? prodItem.product_make.join(", ")
+                                            : prodItem.product_make}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p>No product list available.</p>
-                    )}
+                              );
+                            }
+                          )}
+                        </div>
+                      ) : (
+                        <p>No product list available.</p>
+                      )}
 
                       <hr />
                     </div>

@@ -850,9 +850,10 @@ const Header = () => {
                 borderBottom: '1px solid rgba(0,0,0,0.06)'
               }}
             >
+
               <marquee className="pt-1">
                 <strong className=" " style={{fontWeight: '600' }}>
-                  Now expanding Internationally - meet us at Intersec Dubai 2026 from 12-14 January, Stand no. SR-D2, Dubai World Trade Centre
+                  Now expanding Internationally - meet us at Intersec Dubai 2026 from 12-14 January, Stand no. SR-D24, Dubai World Trade Centre
                 </strong>
               </marquee>
             </div>
