@@ -103,6 +103,17 @@ export const getProjectList = ()=> {
       }
     });
 }
+
+export const getRfqFilters = (rfq_id)=>{
+ return new Promise(async (resolve, reject) => {
+  try {
+    let response = await axiosInstance.get(`rfq/fetch-rfq-filters/${rfq_id}`);
+    resolve(response);
+  } catch (error) {
+    reject({ message: error });
+  }
+});
+}
 export const getProjectAvailableBudget = (projectId) => {
   return new Promise(async (resolve, reject) => {
     try { 

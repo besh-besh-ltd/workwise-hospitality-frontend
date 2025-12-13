@@ -20,7 +20,7 @@ import {
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { getProjectList, getProjectTableDataById } from "@/services/project";
+import { getProjectList, getProjectTableDataById, getRfqFilters } from "@/services/project";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
 import { extractfileName, handleFileUpload, formatISOToDateTimeLocal, getDataWithLoading } from "@/utils/sharedFunctions";
@@ -28,7 +28,7 @@ import { Accordion } from "react-bootstrap";
 import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import axiosInstance from "@/lib/axios";
 import ViewVendorModal from "../editRFQ/ViewVendorModal";
-import { vendorConditions } from "../../vendor/search";
+import { subscriptionTypes, vendorConditions } from "../../vendor/search";
 import { getProductMakeList } from "@/services/products";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import AddVendorModal from "../editRFQ/AddVendorModal";
@@ -170,6 +170,7 @@ const CreateRFQ = () => {
 
   const [validationErrors, setValidationErrors] = useState({});
   const [errorProducts, setErrorProducts] = useState(new Set());
+  const [rfqFilters, setRfqFilters] = useState([]);
 
   const fetchVendorsForProduct = async (rfqProductId, refetch = false) => {
     try {
@@ -210,6 +211,20 @@ const CreateRFQ = () => {
       toast.error(error.message);
     }
   }
+  const fetchRfqFilters = async () =>{
+   getRfqFilters(draft_id)
+   .then((res=>{setRfqFilters(res.data)}))
+   .catch((error)=>{
+    toast.error(error.message);
+   })
+  }
+
+
+  useEffect(() => {
+    if(draft_id){
+      fetchRfqFilters();
+    }
+  }, [draft_id]);
 
   const fetchCountryCodes = () => {
       getCountryCodes()
@@ -570,35 +585,48 @@ useEffect(() => {
   };
 
   const validateVendors = () => {
-    const productsWithoutVendors = [];
-    
+    const productsWithoutVendors = new Set();
+
     rfqProducts.forEach((product) => {
       if (updatableData.products.deletable.includes(product.id)) return;
-      
+
       const key = `${product.id}`;
-      const currentVendors = vendors?.[key] || product.vendors || [];
-      const currentVendorIds = currentVendors.map(v => v.user_id || v.id);
       
+      // Improved fallback: Use fetched vendors → original product.vendors → assume at least 1 if not loaded (prevents false errors)
+      let currentVendors = vendors?.[key];
+      if (!currentVendors || currentVendors.length === 0) {
+        currentVendors = product.vendors ?? [];
+      }
+      
+      // If still no vendors and not yet fetched, don't count as error (user hasn't opened accordion yet)
+      if (currentVendors.length === 0 && !vendors.hasOwnProperty(key)) {
+        return; // Skip validation for this product – treat as "not checked yet"
+      }
+
+      const currentVendorIds = currentVendors.map(v => v.user_id || v.id || v);
+
       const addableVendors = updatableData.vendors?.[product.id]?.addable ?? [];
       const deletableVendors = (updatableData.vendors?.[product.id]?.deletable ?? []).filter(
         id => currentVendorIds.includes(id)
       );
-      
+
       const totalVendors = currentVendors.length + addableVendors.length - deletableVendors.length;
-      
+
       if (totalVendors <= 0) {
-        productsWithoutVendors.push(product.id);
+        productsWithoutVendors.add(product.id);
       }
     });
-    
-    if (productsWithoutVendors.length > 0) {
-      setErrorProducts(new Set(productsWithoutVendors));
-      toast.error("At least one vendor is required for each product. Please add vendors or remove products with no vendors.");
+
+    if (productsWithoutVendors.size > 0) {
+      setErrorProducts(productsWithoutVendors);
+      toast.error("At least one vendor is required for each product. Please open the product accordion and add/select vendors.");
       return false;
     }
-    
+
+    // Always clear errors when all good
+    setErrorProducts(new Set());
     return true;
-  }
+  };
 
   const validateRFQFields = (values) => {
     // Deep clone the form data to avoid direct mutation
@@ -636,7 +664,7 @@ useEffect(() => {
       setMainLoading(false);
       return;
     }
-
+    setErrorProducts(new Set());
     setMainLoading(true);
     setHasUnsavedChanges(false);
 
@@ -722,6 +750,7 @@ useEffect(() => {
           },
           vendors: {},
         })
+        setErrorProducts(new Set()); // Ensure cleared after create
         setHasUnsavedChanges(false);
         rfqProductsRef.current = [];
         rfqFormDataRef.current = {};
@@ -923,6 +952,7 @@ useEffect(() => {
         </h6>,
         { position: "top-right" }
       );
+      setErrorProducts(new Set());
       setHasUnsavedChanges(false);
       
       // Don't reload or redirect, just update the local state if needed
@@ -1586,7 +1616,7 @@ useEffect(() => {
                   <div className="col-md-3">
                     <CommonFormInput
                       id={`country_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                  isMulti={true}
+                      isMulti={true}
                       type="multiselect"
                       options={initialFilterOptions.countries.map((item) => ({
                         label: item.country_name,
@@ -1686,7 +1716,7 @@ useEffect(() => {
                   <div className="col-md-3">
                     <CommonFormInput
                       id={`previously_worked_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                  type="multiselect"
+                      type="multiselect"
                       options={vendorConditions}
                       name="prev_worked_with"
                       label="Previously Worked With"
@@ -1712,6 +1742,21 @@ useEffect(() => {
                       labelBold
                       placeholder="Select"
                       values={getFilterValue("vendor_approved_by")}
+                      onChange={(newVal, action) =>
+                        forwardFilterUpdate(newVal, action)
+                      }
+                    />
+                  </div>
+                  <div className="col-md-3">
+                    <CommonFormInput
+                     id={`subscription_type_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
+                      type="select"
+                      options={subscriptionTypes}
+                      name="subscription_type"
+                      label="Subscription Type"
+                      labelBold
+                      placeholder="Select"
+                      values={getFilterValue("subscription_type")}
                       onChange={(newVal, action) =>
                         forwardFilterUpdate(newVal, action)
                       }

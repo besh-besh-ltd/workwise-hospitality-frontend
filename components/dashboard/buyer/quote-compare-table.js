@@ -13,6 +13,9 @@ import { useRouter } from "next/router";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import FinalizeVendorModal from "./FinalizeVendorModal";
 import FinalizeHistoryModal from "./FinalizeHistoryModal";
+import { toast } from "react-toastify";
+import { getAvailableHierarchies } from "@/services/general";
+import HierarchySelectionModal from "./HierarchySelectionModal";
 
 const QuoteCompareTable = ({
   quotations,
@@ -22,6 +25,7 @@ const QuoteCompareTable = ({
   proditem,
   alreadyFinalized,
   isRfqClosed = false,
+  projectId,
   availableBudget,
   targetPrice,
   targetHistory,
@@ -56,8 +60,21 @@ const QuoteCompareTable = ({
     product_details:[],
     previous_quotes:[]
   });
+  const [existingPOId, setExistingPOId] = useState(null)
+  const [availableHierarchies, setAvailableHierarchies] = useState([]);
+
+  const fetchAvailableHierarchies = async () => {
+    try {
+      const result = await getAvailableHierarchies('po', projectId);
+      setAvailableHierarchies(result.data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   useEffect(() => {
     calculateLowestQuote();
+    fetchAvailableHierarchies();
   }, []);
 //  console.log("logging the quotations recived ", quotations);
   const calculateLowestQuote = () => {
@@ -543,6 +560,8 @@ const QuoteCompareTable = ({
                     setCurrentItem(lowestQuote);
                     // handleFinalize(lowestQuote, proditem)
                   }}
+                  title={availableHierarchies.length <= 0 ? "You cannot finalize as you dont belong to the company's hierarchy" : ""}
+                  disabled={availableHierarchies.length <= 0}
                   id="finalize_vendor-quote_actions-quote_compare_table"
                 >
                   Finalize
@@ -655,9 +674,14 @@ const QuoteCompareTable = ({
       <FinalizeVendorModal
         show={activeModal == 'finalize'}
         onHide={() => setActiveModal(null)}
-        onConfirm={(existingPOId) => {
-          handleFinalize(currentItem, proditem, existingPOId);
-          setActiveModal(null)
+        onConfirm={(selectedPOId) => {
+          if(availableHierarchies.length <= 0) {
+            toast.error("You cannot finalize a vendor, as you don't belong to the company's PO approval hierarchy");
+            return;
+          }
+
+          setExistingPOId(selectedPOId)
+          setActiveModal('hierarchy')
         }}
         vendorName={
           currentItem?.quote_details?.vendor_details?.organization_name ||
@@ -669,6 +693,15 @@ const QuoteCompareTable = ({
         productDetails={proditem?.product_details}
         alreadyFinalized={alreadyFinalized}
         availableBudget={availableBudget}
+      />
+      <HierarchySelectionModal
+        show={activeModal == 'hierarchy'}
+        onHide={() => setActiveModal(null)}
+        hierarchies={availableHierarchies}
+        onConfirm={(selectedHierarchy) => {
+          handleFinalize(currentItem, proditem, existingPOId, selectedHierarchy);
+          setActiveModal(null)
+        }}
       />
       <FinalizeHistoryModal
         show={proditem.finalization_history.length > 0 && activeModal == 'finalize_history'}

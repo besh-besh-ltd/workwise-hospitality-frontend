@@ -38,6 +38,14 @@ export const vendorConditions = [
 ]
 
   // Options for the vendor type dropdown
+export const subscriptionTypes = [
+  {
+    label: "Premium",
+    value: "premium",
+  },
+]
+
+  // Options for the dropdown
   const optionVendors = [
     { value: 'is_private', label: 'My Private Vendor' },
     { value: 'is_public', label: 'My Public Vendor' },
@@ -89,6 +97,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [prevWorkedWith, setPrevWorkedWith] = useState('');
   const [makeList, setMakeList] = useState([]);
   const [selectedMakes, setSelectedMakes] = useState([]);
+  const [selectedSubscription, setSelectedSubscription] = useState(null);
+  const [allAvailableCities, setAllAvailableCities] = useState([]);
+  const vendorRequestIdRef = useRef(0);
+  const categoryCityCacheRef = useRef(new Map());
+  const categoryCityFetchRef = useRef(new Set());
+
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -114,13 +128,22 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
 
-  // -----------------------------
-  // Global Variable and Function Section
-  // -----------------------------
-  const categoriesLoaded = Array.isArray(categories) && categories.length > 0;
-
-  const availableVendorTypes = useAvailableOptions(
-  vendorTypeList || "Nothing was Found!",
+  const filterSnapshot = useMemo(() => ({
+  country: selectedCountry,
+  state: selectedState,
+  city: selectedCity,
+  vendorTypes: selectedVendorTypes,
+  approvedBy: selectedApprovedBy,
+  makes: selectedMakes,
+  prevWorkedWith,
+  myVendorType,
+  vendorName: debouncedVendorName,
+  turnOver,
+  subscriptionType: selectedSubscription,
+}), [
+  selectedCountry,
+  selectedState,
+  selectedCity,
   selectedVendorTypes,
   "value"
   );
@@ -188,6 +211,10 @@ const filterSnapshot = useMemo(() => {
   vendorName,
   turnOver.from,
   turnOver.to,
+  myVendorType,
+  debouncedVendorName,
+  turnOver,
+  selectedSubscription
 ]);
 
 const slugStr = useMemo(() => {
@@ -587,12 +614,13 @@ const addRfqIdParam = (rfq_id) => {
 
       // Get the rfq_id from the URL if it exists
       const { rfq_id, sheet_id } = queryMeta;
-
+      
       const payload = {
         variant_id: currentSelectedProduct.variant_id,
         vendors: bulkRFQVendors.map(vendor => ({
           vendor_id: vendor.id
-        }))
+        })),
+        filters: { ...filterSnapshot } // Include current filter snapshot
       };
       
       // Only include rfq_id in payload if it exists and is valid
@@ -749,26 +777,23 @@ const addRfqIdParam = (rfq_id) => {
   setIsLoading(true);
   const requestId = ++vendorRequestIdRef.current;
 
-  try {
-    const response = await searchProductsV2(
-      {
-        null: effectiveCatId,
-        search_key: searchTerm,
-        approved_by: selectedApprovedBy,
-        state: address?.selectedState?.length > 0 ? address.selectedState : [],
-        city: address?.selectedCity?.length > 0 ? address.selectedCity : [],
-        country: address.selectedCountry ? [address.selectedCountry] : [],
-        turnOver,
-        vendorType: selectedVendorTypes,
-        prevWorkedWith,
-        vendor_name: vendorName,
-        myVendorType: myVendorType?.value || null,
-        selectedMakes: selectedMakes,
-        page,                   
-        limit: LIMIT
-      },
-      "vendors"
-    );
+      try {
+        const response = await bulkSearchVendorsByCategory({
+          category_id: effectiveCatId,
+          approved_by_id: selectedApprovedBy,
+          state: selectedState?.length > 0 ? selectedState : [],
+          city: selectedCity?.length > 0 ? selectedCity : [],
+          country: selectedCountry?.length > 0 ? selectedCountry : [],
+          turnOver,
+          vendorType: selectedVendorTypes,
+          prevWorkedWith,
+          vendor_name: vendorName,
+          myVendorType,
+          productMakes: selectedMakes,
+          subscriptionType: selectedSubscription?.value,
+          page: 1,
+          limit: 20
+        });
 
     if (requestId !== vendorRequestIdRef.current) return;
 
@@ -1664,6 +1689,60 @@ const clearLocationFilter = () => {
                     </div>
                   </div>
                   {/* END: my vendor filter */}
+
+                  <div className="search-con-right-1">
+                    <p className="fw-semibold mb-2 mt-3">Subscripion Type</p>
+                    <div>
+                      <select
+                        name="product_make"
+                        id="product_make_filter-filters-vendor_search_page"
+                        value={
+                          selectedSubscription?.value ?? ""
+                        }
+                        onChange={(e) => {
+                          if (
+                            !vendorMetaData || !vendorMetaData.logged_In
+                          ) {
+                            setOpenAuthModal(true);
+                          } else {
+                            const selectedValue = e.target.value; // Get selected id from option
+                            const selected = subscriptionTypes.find(
+                              (option) => option.value == selectedValue
+                            );
+                            if (selected) {
+                              // Check if already selected to avoid duplicates
+                              if (
+                                !(selectedSubscription?.value == selected.value)
+                              ) {
+                                setSelectedSubscription(selected);
+                              }
+                            }
+                          }
+                        }}
+                      >
+                        <option value="">Select Subscription Type</option>
+                        {subscriptionTypes.map(t => (
+                          <option value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Display clear link if any filter is active */}
+                      {selectedSubscription && (
+                        <Link
+                          href="#"
+                          className="clearFilter"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSelectedSubscription(null);
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faTimesCircle} /> clear
+                        </Link>
+                      )}
+                    </div>
+                  </div>
 
                   {/* START: Location filter */}
                   <div className="search-con-right-1">

@@ -8940,3 +8940,7 @@ html, body {
   .main-header .extra-buttons { margin-left: 6px; }
 }
 
+.outline-badge {
+  border: 1px solid var(--bs-dark); /* Use Bootstrap's primary color variable for consistency */
+  color: var(--bs-dark) !important; /* Ensure the text color matches the border */
+}
