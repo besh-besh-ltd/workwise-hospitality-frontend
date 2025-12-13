@@ -29,14 +29,11 @@ const nextConfig = {
     ],
   },
   async rewrites() {
-    const base = await (async () => {
-      return [
-        { source: '/sitemap.xml', destination: '/api/sitemap.xml' },
-        { source: '/sitemap-website.xml', destination: '/api/sitemap-website.xml' },
-        { source: '/sitemap-vendors.xml', destination: '/api/sitemap-vendors.xml' },
-      ]
-    })();
-
+    return [
+      { source: '/sitemap.xml', destination: '/api/sitemap.xml' },
+      { source: '/sitemap-website.xml', destination: '/api/sitemap-website.xml' },
+      { source: '/sitemap-vendors.xml', destination: '/api/sitemap-vendors.xml' },
+    ];
   },
 };
 
