@@ -852,7 +852,7 @@ const Header = () => {
             >
               <div className="announcement-track">
                 <span className="announcement-text fw-semibold">
-                  Now expanding Internationally - meet us at Intersec Dubai 2026 from 12-14 January, Stand no. SR-D2, Dubai World Trade Centre
+                  Now expanding Internationally - meet us at Intersec Dubai 2026 from 12-14 January, Stand no. SR-D24, Dubai World Trade Centre
                 </span>
               </div>
             </div>
