@@ -50,6 +50,7 @@ export const vendorConditions = [
 export const subscriptionTypes = [
   {
     label: "Premium",
+    subLabel: "(guaranteed response in 24hrs)",
     value: "premium",
   },
 ]
@@ -1767,44 +1768,49 @@ useEffect(() => {
                   {/* END: my vendor filter */}
 
                   <div className="search-con-right-1">
-                    <p className="fw-semibold mb-2 mt-3">Subscripion Type</p>
+                    <p className="fw-semibold mb-2 mt-3">Subscription Type</p>
+
                     <div>
-                      <select
-                        name="product_make"
-                        id="product_make_filter-filters-vendor_search_page"
-                        value={
-                          selectedSubscription?.value ?? ""
-                        }
-                        onChange={(e) => {
-                          if (
-                            !vendorMetaData || !vendorMetaData.logged_In
-                          ) {
-                            setOpenAuthModal(true);
-                          } else {
-                            const selectedValue = e.target.value; // Get selected id from option
-                            const selected = subscriptionTypes.find(
-                              (option) => option.value == selectedValue
-                            );
-                            if (selected) {
-                              // Check if already selected to avoid duplicates
-                              if (
-                                !(selectedSubscription?.value == selected.value)
-                              ) {
+                      {subscriptionTypes.map((t) => (
+                        <div key={t.value} className="d-flex gap-1">
+                          <input
+                            type="radio"
+                            style={{width: "fit-content", height: "fit-content", marginRight: "4px", marginTop: "4px"}}
+                            name="subscriptionType"
+                            id={`subscription-${t.value}`}
+                            value={t.value}
+                            checked={selectedSubscription?.value == t.value}
+                            onChange={(e) => {
+                              if (!vendorMetaData || !vendorMetaData.logged_In) {
+                                setOpenAuthModal(true);
+                                return;
+                              }
+
+                              const selectedValue = e.target.value;
+                              const selected = subscriptionTypes.find(
+                                (option) => option.value == selectedValue
+                              );
+
+                              if (selected) {
                                 setSelectedSubscription(selected);
                               }
-                            }
-                          }
-                        }}
-                      >
-                        <option value="">Select Subscription Type</option>
-                        {subscriptionTypes.map(t => (
-                          <option value={t.value}>
-                            {t.label}
-                          </option>
-                        ))}
-                      </select>
+                            }}
+                          />
+                          <div className="d-flex flex-column">
+                            <label
+                              className="form-check-label"
+                              htmlFor={`subscription-${t.value}`}
+                            >
+                              {t.label}
+                            </label>
+                            {t.subLabel && (
+                                <small className="text-muted">{t.subLabel}</small>
+                              )}
+                          </div>
+                        </div>
+                      ))}
 
-                      {/* Display clear link if any filter is active */}
+                      {/* Clear filter */}
                       {selectedSubscription && (
                         <Link
                           href="#"

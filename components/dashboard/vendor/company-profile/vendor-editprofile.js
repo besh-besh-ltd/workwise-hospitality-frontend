@@ -335,7 +335,7 @@ useEffect(() => {
                 {/* Vendor Basic Details */}
                 <div className="user-details hasFullLoader mb-4">
                   <h2 className="mb-1">{vendorDetails?.company_name}</h2>
-                  {vendorDetails?.subscription ? (
+                  {vendorDetails?.subscription_plan_id ? (
                     <span
                       className="badge d-inline-flex align-items-center mt-1 mb-4"
                       style={{
