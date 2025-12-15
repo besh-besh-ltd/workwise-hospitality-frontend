@@ -158,9 +158,9 @@ export const eventsData = {
       venue: "Dubai World Trade Centre",
       role: "Exhibitor",
       participationTypes: ["Exhibitor"],
-      description: "Intersec Dubai brings together global EPCs, contractors, OEMs, and solution providers across safety, industrial, and infrastructure sectors. Workwise (Stand SR-D2) will showcase AI-led procurement that understands BOQs, tenders, and technical documents - featuring live demos of BOQ-to-RFQ automation, quote comparison, vendor discovery, and meetings with high-quality Middle East and China suppliers to expand our network.",
+      description: "Intersec Dubai brings together global EPCs, contractors, OEMs, and solution providers across safety, industrial, and infrastructure sectors. Workwise (Stand SR-D24) will showcase AI-led procurement that understands BOQs, tenders, and technical documents - featuring live demos of BOQ-to-RFQ automation, quote comparison, vendor discovery, and meetings with high-quality Middle East and China suppliers to expand our network.",
       status: "Upcoming",
-      image: "https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1765196960663-71bd7953-be59-4ebb-ab31-280e6a83f3ad.jpg"
+      image: "https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1765783726025-f5dea295-5a1a-4699-b645-00470929034a.jpeg"
     }
   ],
   finalCta: {
