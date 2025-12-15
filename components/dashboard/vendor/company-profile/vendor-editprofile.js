@@ -311,7 +311,7 @@ useEffect(() => {
                 <div className="user-img">
                   {vendorDetails?.profile_image_url ||
                   vendorDetails?.profile_image ? (
-                    <Image
+                    <img
                       src={
                         vendorDetails?.profile_image_url ||
                         vendorDetails?.profile_image
@@ -322,7 +322,7 @@ useEffect(() => {
                       priority={true}
                     />
                   ) : (
-                    <Image
+                    <img
                       src="/assets/images/vendor.png"
                       alt="Workwise"
                       width={164}

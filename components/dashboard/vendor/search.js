@@ -1624,6 +1624,63 @@ useEffect(() => {
                     Filters
                   </h4>
 
+                  <div className="search-con-right-1">
+                    <div>
+                      {subscriptionTypes.map((t) => (
+                        <div key={t.value} className="d-flex gap-1">
+                          <input
+                            type="radio"
+                            style={{width: "fit-content", height: "fit-content", marginRight: "4px", marginTop: "4px"}}
+                            name="subscriptionType"
+                            id={`subscription-${t.value}`}
+                            value={t.value}
+                            checked={selectedSubscription?.value == t.value}
+                            onChange={(e) => {
+                              if (!vendorMetaData || !vendorMetaData.logged_In) {
+                                setOpenAuthModal(true);
+                                return;
+                              }
+
+                              const selectedValue = e.target.value;
+                              const selected = subscriptionTypes.find(
+                                (option) => option.value == selectedValue
+                              );
+
+                              if (selected) {
+                                setSelectedSubscription(selected);
+                              }
+                            }}
+                          />
+                          <div className="d-flex flex-column">
+                            <label
+                              className="form-check-label"
+                              htmlFor={`subscription-${t.value}`}
+                            >
+                              {t.label}
+                            </label>
+                            {t.subLabel && (
+                                <small className="text-muted">{t.subLabel}</small>
+                              )}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Clear filter */}
+                      {selectedSubscription && (
+                        <Link
+                          href="#"
+                          className="clearFilter"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSelectedSubscription(null);
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faTimesCircle} /> clear
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+
                   {/* START: Vender search by name */}
                   <div className="search-con-right-1">
                     <input
@@ -1766,65 +1823,6 @@ useEffect(() => {
                     </div>
                   </div>
                   {/* END: my vendor filter */}
-
-                  <div className="search-con-right-1">
-                    <p className="fw-semibold mb-2 mt-3">Subscription Type</p>
-
-                    <div>
-                      {subscriptionTypes.map((t) => (
-                        <div key={t.value} className="d-flex gap-1">
-                          <input
-                            type="radio"
-                            style={{width: "fit-content", height: "fit-content", marginRight: "4px", marginTop: "4px"}}
-                            name="subscriptionType"
-                            id={`subscription-${t.value}`}
-                            value={t.value}
-                            checked={selectedSubscription?.value == t.value}
-                            onChange={(e) => {
-                              if (!vendorMetaData || !vendorMetaData.logged_In) {
-                                setOpenAuthModal(true);
-                                return;
-                              }
-
-                              const selectedValue = e.target.value;
-                              const selected = subscriptionTypes.find(
-                                (option) => option.value == selectedValue
-                              );
-
-                              if (selected) {
-                                setSelectedSubscription(selected);
-                              }
-                            }}
-                          />
-                          <div className="d-flex flex-column">
-                            <label
-                              className="form-check-label"
-                              htmlFor={`subscription-${t.value}`}
-                            >
-                              {t.label}
-                            </label>
-                            {t.subLabel && (
-                                <small className="text-muted">{t.subLabel}</small>
-                              )}
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Clear filter */}
-                      {selectedSubscription && (
-                        <Link
-                          href="#"
-                          className="clearFilter"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setSelectedSubscription(null);
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faTimesCircle} /> clear
-                        </Link>
-                      )}
-                    </div>
-                  </div>
 
                   {/* START: Location filter */}
                   <div className="search-con-right-1">
