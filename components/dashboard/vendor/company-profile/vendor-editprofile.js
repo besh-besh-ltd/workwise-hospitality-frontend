@@ -311,7 +311,7 @@ useEffect(() => {
                 <div className="user-img">
                   {vendorDetails?.profile_image_url ||
                   vendorDetails?.profile_image ? (
-                    <Image
+                    <img
                       src={
                         vendorDetails?.profile_image_url ||
                         vendorDetails?.profile_image
@@ -322,7 +322,7 @@ useEffect(() => {
                       priority={true}
                     />
                   ) : (
-                    <Image
+                    <img
                       src="/assets/images/vendor.png"
                       alt="Workwise"
                       width={164}
@@ -335,7 +335,7 @@ useEffect(() => {
                 {/* Vendor Basic Details */}
                 <div className="user-details hasFullLoader mb-4">
                   <h2 className="mb-1">{vendorDetails?.company_name}</h2>
-                  {vendorDetails?.subscription ? (
+                  {vendorDetails?.subscription_plan_id ? (
                     <span
                       className="badge d-inline-flex align-items-center mt-1 mb-4"
                       style={{
