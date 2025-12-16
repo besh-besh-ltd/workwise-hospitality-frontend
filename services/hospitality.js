@@ -10,12 +10,32 @@ export const getHospitalityCompanies = () =>
     }
   });
 
-export const createHospitalityCompany = (payload) =>
+export const createHospitalityCompany = (payload, files = {}) =>
   new Promise(async (resolve, reject) => {
     try {
+      const formData = new FormData();
+      
+      // Add all form fields
+      Object.keys(payload).forEach((key) => {
+        if (payload[key] !== null && payload[key] !== undefined && payload[key] !== '') {
+          formData.append(key, payload[key]);
+        }
+      });
+      
+      // Add files
+      if (files.gst) formData.append('gst', files.gst);
+      if (files.pan) formData.append('pan', files.pan);
+      if (files.cancelled_cheque) formData.append('cancelled_cheque', files.cancelled_cheque);
+      if (files.msme) formData.append('msme', files.msme);
+      
       const response = await axiosInstance.post(
         `/hospitality/company`,
-        payload
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
       );
       resolve(response);
     } catch (error) {
@@ -48,12 +68,32 @@ export const getHospitalityHotels = (companyId) =>
     }
   });
 
-export const createHospitalityHotel = (companyId, payload) =>
+export const createHospitalityHotel = (companyId, payload, files = {}) =>
   new Promise(async (resolve, reject) => {
     try {
+      const formData = new FormData();
+      
+      // Add all form fields
+      Object.keys(payload).forEach((key) => {
+        if (payload[key] !== null && payload[key] !== undefined && payload[key] !== '') {
+          formData.append(key, payload[key]);
+        }
+      });
+      
+      // Add files
+      if (files.gst) formData.append('gst', files.gst);
+      if (files.pan) formData.append('pan', files.pan);
+      if (files.cancelled_cheque) formData.append('cancelled_cheque', files.cancelled_cheque);
+      if (files.msme) formData.append('msme', files.msme);
+      
       const response = await axiosInstance.post(
         `/hospitality/company/${companyId}/hotels`,
-        payload
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
       );
       resolve(response);
     } catch (error) {
