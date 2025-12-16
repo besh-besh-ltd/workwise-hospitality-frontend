@@ -349,3 +349,65 @@ export const getUserProjectsByUserId = (userId) => {
     }
   });
 };
+
+// Get projects filtered by hospitality company or hotel
+export const getProjectsByHospitalityContext = (hospitalityCompanyId, hotelId = null) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const timestamp = new Date().getTime();
+      const params = new URLSearchParams({ t: timestamp });
+      if (hospitalityCompanyId) params.append('hospitality_company_id', hospitalityCompanyId);
+      if (hotelId) params.append('hotel_id', hotelId);
+      
+      let response = await axiosInstance.get(`project/by-hospitality-context?${params.toString()}`);
+      
+      // Ensure consistent response format
+      if (response && response.data) {
+        if (!response.data.hasOwnProperty('status')) {
+          response.data = {
+            status: true,
+            data: response.data
+          };
+        }
+        if (!Array.isArray(response.data.data)) {
+          response.data.data = response.data.data ? [response.data.data] : [];
+        }
+      } else {
+        response = {
+          data: {
+            status: true,
+            data: []
+          }
+        };
+      }
+      
+      resolve(response);
+    } catch (error) {
+      console.error("Error fetching projects by hospitality context:", error);
+      reject({ 
+        message: error,
+        response: {
+          data: error.response?.data || { message: "Failed to fetch projects" }
+        }
+      });
+    }
+  });
+};
+
+// Get hospitality context (company/hotel) for a project
+export const getProjectHospitalityContext = (projectId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`project/${projectId}/hospitality-context`);
+      resolve(response);
+    } catch (error) {
+      console.error("Error fetching project hospitality context:", error);
+      reject({ 
+        message: error,
+        response: {
+          data: error.response?.data || { message: "Failed to fetch hospitality context" }
+        }
+      });
+    }
+  });
+};

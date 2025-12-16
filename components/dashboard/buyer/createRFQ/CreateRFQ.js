@@ -20,7 +20,8 @@ import {
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { getProjectList, getProjectTableDataById, getRfqFilters } from "@/services/project";
+import { getProjectList, getProjectTableDataById, getProjectsByHospitalityContext, getProjectHospitalityContext, getRfqFilters } from "@/services/project";
+import { getMyHospitalityContexts } from "@/services/hospitality";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
 import { extractfileName, handleFileUpload, formatISOToDateTimeLocal, getDataWithLoading } from "@/utils/sharedFunctions";
@@ -111,6 +112,10 @@ const CreateRFQ = () => {
   const [sheetNameList, setSheetNameList] = useState([]);
   const [selectedSheet, setSelectedSheet] = useState(null);
   const [selectedSheetsForRFQ, setSelectedSheetsForRFQ] = useState([]);
+  
+  // Hospitality context states
+  const [hospitalityContexts, setHospitalityContexts] = useState([]);
+  const [allProjects, setAllProjects] = useState([]);
 
   const storeLoading = useSelector((data) => data.storeLoading);
   const rfqDetails = useSelector((data) => data.rfq_id);
@@ -213,7 +218,7 @@ const CreateRFQ = () => {
   }
   const fetchRfqFilters = async () =>{
    getRfqFilters(draft_id)
-   .then((res=>{setRfqFilters(res.data)}))
+   .then((res=>{setRfqFilters(res.data.data || [])}))
    .catch((error)=>{
     toast.error(error.message);
    })
@@ -245,14 +250,88 @@ const CreateRFQ = () => {
     getProjectList()
       .then((res) => {
         let d = [];
-        res.data.map((item) => {
-          d.push({ label: item.name, value: item.id });
+        (res.data.data || []).map((item) => {
+          d.push({ label: item.name, value: item.id, hospitality_company_id: item.hospitality_company_id, hotel_id: item.hotel_id });
         });
         setProjects(d);
+        setAllProjects(d);
       })
       .catch((error) => {
         toast.error(error.message);
       })
+  }
+
+  const fetchHospitalityContexts = async () => {
+    try {
+      const res = await getMyHospitalityContexts();
+      if (res?.data?.data) {
+        const contexts = [];
+        res.data.data.forEach((company) => {
+          contexts.push({ 
+            label: company.name, 
+            value: `company_${company.id}`, 
+            type: 'company', 
+            id: company.id 
+          });
+          if (company.hotels && company.hotels.length > 0) {
+            company.hotels.forEach((hotel) => {
+              contexts.push({ 
+                label: `  └ ${hotel.name}`, 
+                value: `hotel_${hotel.id}`, 
+                type: 'hotel', 
+                id: hotel.id,
+                company_id: company.id 
+              });
+            });
+          }
+        });
+        setHospitalityContexts(contexts);
+      }
+    } catch (error) {
+      console.error("Error fetching hospitality contexts:", error);
+    }
+  }
+
+  const handleHospitalityContextChange = (selectedOption) => {
+    if (!selectedOption) {
+      dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: null }));
+      dispatch(setOtherFormFields({ field_name: "hotel_id", value: null }));
+      setProjects(allProjects);
+      return;
+    }
+    if (selectedOption.type === 'company') {
+      dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: selectedOption.id }));
+      dispatch(setOtherFormFields({ field_name: "hotel_id", value: null }));
+      const filtered = allProjects.filter(p => p.hospitality_company_id === selectedOption.id);
+      setProjects(filtered);
+    } else if (selectedOption.type === 'hotel') {
+      dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: selectedOption.company_id }));
+      dispatch(setOtherFormFields({ field_name: "hotel_id", value: selectedOption.id }));
+      const filtered = allProjects.filter(p => p.hotel_id === selectedOption.id);
+      setProjects(filtered);
+    }
+    dispatch(setOtherFormFields({ field_name: "project_id", value: -1 }));
+    setHasUnsavedChanges(true);
+  }
+
+  const handleProjectChangeWithContext = async (selectedOption, actionMeta) => {
+    const projectId = selectedOption?.value;
+    if (projectId && projectId !== -1) {
+      const selectedProject = allProjects.find(p => p.value === projectId);
+      if (selectedProject) {
+        if (selectedProject.hotel_id) {
+          dispatch(setOtherFormFields({ field_name: "hotel_id", value: selectedProject.hotel_id }));
+          const hotel = hospitalityContexts.find(c => c.type === 'hotel' && c.id === selectedProject.hotel_id);
+          if (hotel) {
+            dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: hotel.company_id }));
+          }
+        } else if (selectedProject.hospitality_company_id) {
+          dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: selectedProject.hospitality_company_id }));
+          dispatch(setOtherFormFields({ field_name: "hotel_id", value: null }));
+        }
+      }
+    }
+    handleFormFieldChange(null, selectedOption, actionMeta);
   }
 
   const getVendorApproveList = async () => {
@@ -1830,6 +1909,7 @@ useEffect(() => {
       getAllCities();
       getAllProjects();
       fetchCountryCodes();
+      fetchHospitalityContexts();
     } catch (error) {
       console.log("SOMETHING WENT WRONG DURING INITIAL FETCHING");
       toast.error(error.message)
@@ -2059,9 +2139,48 @@ useEffect(() => {
                 </div>
               ) : (
                 <>
-                  <div className="d-flex justify-content-between align-items-end mb-3">
+                  {/* Is Tender Toggle Section */}
+                  <div className="row mb-3">
                     <div className="col-md-3">
-                      <h4>Select Project</h4>
+                      <label className="form-label fw-medium">Is Tender</label>
+                      <Select
+                        id="is_tender-toggle-top-create_rfq_page"
+                        options={[
+                          { label: "Yes", value: 1 },
+                          { label: "No", value: 0 },
+                        ]}
+                        value={rfqFormDataFromStore.is_tender === 1 ? { label: "Yes", value: 1 } : { label: "No", value: 0 }}
+                        onChange={(selectedOption) => {
+                          const value = selectedOption?.value || 0;
+                          dispatch(setOtherFormFields({ field_name: "is_tender", value }));
+                          if (value === 0) {
+                            dispatch(setOtherFormFields({ field_name: "tender_fees", value: 0 }));
+                            dispatch(setOtherFormFields({ field_name: "vendor_clarification_date", value: "" }));
+                            dispatch(setOtherFormFields({ field_name: "tender_publish_date", value: "" }));
+                          }
+                          setHasUnsavedChanges(true);
+                        }}
+                        placeholder="Select"
+                      />
+                    </div>
+                    {hospitalityContexts.length > 0 && (
+                      <div className="col-md-3">
+                        <label className="form-label fw-medium">Select Hotel/Company</label>
+                        <Select
+                          id="select_hospitality_context-create_rfq_page"
+                          options={hospitalityContexts}
+                          value={hospitalityContexts.find(c => 
+                            (c.type === 'hotel' && c.id === rfqFormDataFromStore.hotel_id) ||
+                            (c.type === 'company' && c.id === rfqFormDataFromStore.hospitality_company_id && !rfqFormDataFromStore.hotel_id)
+                          )}
+                          onChange={handleHospitalityContextChange}
+                          placeholder="Select Hotel/Company"
+                          isClearable
+                        />
+                      </div>
+                    )}
+                    <div className="col-md-3">
+                      <label className="form-label fw-medium">Select Project</label>
                       <Select
                         id="select_project-create_rfq_page"
                         options={projects}
@@ -2070,23 +2189,15 @@ useEffect(() => {
                             project.value === rfqFormDataFromStore.project_id
                         )}
                         defaultValue={-1}
-                        onChange={(selectedOption, actionMeta) =>
-                          handleFormFieldChange(
-                            null,
-                            selectedOption,
-                            actionMeta
-                          )
-                        }
+                        onChange={handleProjectChangeWithContext}
                         name="project_id"
                         placeholder="Select"
                         isClearable
                       />
                     </div>
-
-                    {/* Changes by Agnij 2025-08-08 [Simplified sheet selector UI] */}
                     {isMagicRfq && sheetNameList.length > 0 && (
                       <div className="col-md-3">
-                        <h4>Select Sheet</h4>
+                        <label className="form-label fw-medium">Select Sheet</label>
                         <Select
                           id="select_sheet-create_rfq_page"
                           name="sheetName"
@@ -2309,7 +2420,6 @@ useEffect(() => {
                               userProfile?.company_name ||
                               "",
                             bid_end_date: rfqFormDataFromStore.bid_end_date,
-                            rfq_type: rfqFormDataFromStore.rfq_type,
                             reverse_auction:
                               rfqFormDataFromStore.reverse_auction,
                             is_tender: rfqFormDataFromStore.is_tender || 0,
@@ -2317,6 +2427,8 @@ useEffect(() => {
                               rfqFormDataFromStore.tender_fees
                                 ? Number(rfqFormDataFromStore.tender_fees) / 100
                                 : 0,
+                            tender_publish_date: rfqFormDataFromStore.tender_publish_date,
+                            vendor_clarification_date: rfqFormDataFromStore.vendor_clarification_date,
                             location: rfqFormDataFromStore.location,
                             countryCode: "+91",
                           }}
@@ -2531,29 +2643,6 @@ useEffect(() => {
                               <div className="row mb-2">
                                 <div className="col-md-4">
                                   <FormikField
-                                    id="rfq_type-dropdown-rfq_details-create_rfq_page"
-                                    label="RFQ Type"
-                                    value={rfqFormDataFromStore.rfq_type}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
-                                    type="select"
-                                    selectOptions={[
-                                      { label: "Select RFQ Type", value: "" },
-                                      {
-                                        label: "Budgetary",
-                                        value: "budgetary",
-                                      },
-                                      { label: "Firm", value: "firm" },
-                                    ]}
-                                    isRequired={false}
-                                    name="rfq_type"
-                                    touched={touched}
-                                    errors={errors}
-                                  />
-                                </div>
-
-                                <div className="col-md-4">
-                                  <FormikField
                                     id="procurement_end_date-rfq_details-create_rfq_page"
                                     label="Procurement end date"
                                     value={rfqFormDataFromStore.bid_end_date}
@@ -2587,46 +2676,62 @@ useEffect(() => {
                                   />
                                 </div>
 
-                                <div className="col-md-4">
-                                  <FormikField
-                                    id="is_tender-toggle-rfq_details-create_rfq_page"
-                                    label="Is Tender"
-                                    value={rfqFormDataFromStore.is_tender || 0}
-                                    defaultValue={0}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
-                                    type="select"
-                                    selectOptions={[
-                                      { label: "Yes", value: 1 },
-                                      { label: "No", value: 0 },
-                                    ]}
-                                    isRequired={false}
-                                    name="is_tender"
-                                    touched={touched}
-                                    errors={errors}
-                                  />
-                                </div>
-
                                 {rfqFormDataFromStore.is_tender === 1 && (
-                                  <div className="col-md-4">
-                                    <FormikField
-                                      id="tender_fees-input-rfq_details-create_rfq_page"
-                                      label="Tender Fees (INR)"
-                                      type="number"
-                                      value={
-                                        rfqFormDataFromStore.tender_fees
-                                          ? Number(rfqFormDataFromStore.tender_fees) / 100
-                                          : 0
-                                      }
-                                      enableHandleChange={true}
-                                      handleChange={handleFormFieldChange}
-                                      isRequired={true}
-                                      name="tender_fees"
-                                      placeholder="Enter fees in INR"
-                                      touched={touched}
-                                      errors={errors}
-                                    />
-                                  </div>
+                                  <>
+                                    <div className="col-md-4">
+                                      <label className="form-label">
+                                        Vendor Clarification Deadline
+                                      </label>
+                                      <input
+                                        id="vendor_clarification_date-rfq_details-create_rfq_page"
+                                        type="datetime-local"
+                                        name="vendor_clarification_date"
+                                        className="form-control"
+                                        value={
+                                          rfqFormDataFromStore.vendor_clarification_date
+                                            ? formatISOToDateTimeLocal(rfqFormDataFromStore.vendor_clarification_date)
+                                            : ""
+                                        }
+                                        onChange={handleFormFieldChange}
+                                      />
+                                    </div>
+
+                                    <div className="col-md-4">
+                                      <label className="form-label">
+                                        Tender Publish Date & Time
+                                      </label>
+                                      <input
+                                        id="tender_publish_date-rfq_details-create_rfq_page"
+                                        type="datetime-local"
+                                        name="tender_publish_date"
+                                        className="form-control"
+                                        value={
+                                          rfqFormDataFromStore.tender_publish_date
+                                            ? formatISOToDateTimeLocal(rfqFormDataFromStore.tender_publish_date)
+                                            : ""
+                                        }
+                                        onChange={handleFormFieldChange}
+                                      />
+                                    </div>
+
+                                    <div className="col-md-4">
+                                      <label className="form-label fw-medium">Tender Fees (INR)</label>
+                                      <input
+                                        id="tender_fees-input-rfq_details-create_rfq_page"
+                                        type="number"
+                                        className="form-control"
+                                        value={rfqFormDataFromStore.tender_fees ? Number(rfqFormDataFromStore.tender_fees) / 100 : 0}
+                                        onChange={(e) => {
+                                          const numericValue = parseFloat(e.target.value || 0);
+                                          const paise = isNaN(numericValue) ? 0 : Math.max(0, Math.round(numericValue * 100));
+                                          dispatch(setOtherFormFields({ field_name: "tender_fees", value: paise }));
+                                          setHasUnsavedChanges(true);
+                                        }}
+                                        placeholder="Enter fees in INR"
+                                        min="0"
+                                      />
+                                    </div>
+                                  </>
                                 )}
 
                                 {rfqFormDataFromStore.reverse_auction === 1 && (
@@ -2717,7 +2822,7 @@ useEffect(() => {
                                 disabled={!isValid}
                                 id="create_rfq-rfq_actions-create_rfq_page"
                               >
-                                Create RFQ
+                                Submit
                               </button>
 
                               <button
@@ -2925,15 +3030,15 @@ useEffect(() => {
         setSelectedSheets={setSelectedSheetsForRFQ}
       />
 
-      {/* Create RFQ Confirmation Modal */}
+      {/* Submit RFQ Confirmation Modal */}
       <ConfirmationModal
         isOpen={showCreateConfirmModal}
         onClose={handleCreateCancel}
         onConfirm={handleCreateConfirm}
-        title="Create RFQ"
-        description="Are you sure you want to create this RFQ?\nThis action will send the RFQ to selected vendors."
+        title="Submit RFQ"
+        description="Are you sure you want to submit this RFQ?\nThis action will send the RFQ to selected vendors."
         confirmButtonColor="success"
-        confirmButtonText="Create RFQ"
+        confirmButtonText="Submit"
         cancelButtonText="Cancel"
       />
 

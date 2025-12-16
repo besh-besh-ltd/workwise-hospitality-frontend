@@ -103,10 +103,10 @@ export const categoryListById = (values) => {
   });
 };
 
-export const bulkSearchVendorsByCategory = (payload) => {
+export const bulkSearchVendorsByCategory = (payload, axiosConfig = {}) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/bulk-search-vendors-by-category`, payload);
+      let response = await axiosInstance.post(`/rfq/bulk-search-vendors-by-category`, payload, axiosConfig);
       resolve(response);
     } catch (error) {
       reject({ message: error });

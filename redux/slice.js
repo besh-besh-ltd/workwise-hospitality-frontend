@@ -27,6 +27,17 @@ const initialState = {
     ra_end_date: getFuturedate(), // Initialize with the same as bid_end_date
     project_id: -1,
     location: "",
+    // Tender specific fields
+    is_tender: 0,
+    tender_fees: 0,
+    tender_publish_date: "",
+    vendor_clarification_date: "",
+    spoc_name: "",
+    spoc_email: "",
+    spoc_mobile: "",
+    // Hotel/Company selection
+    hospitality_company_id: null,
+    hotel_id: null,
   }
 };
 

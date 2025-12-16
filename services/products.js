@@ -41,7 +41,7 @@ export const searchProducts = (values, type = "products") => {
   }
 };
 
-export const searchProductsV2 = (values, type = "products") => {
+export const searchProductsV2 = (values, type = "products", axiosConfig = {}) => {
   if (type == "products") {
     let payload = {
       // category_id: values.cat_id,
@@ -52,7 +52,7 @@ export const searchProductsV2 = (values, type = "products") => {
 
     return new Promise(async (resolve, reject) => {
       try {
-        let response = await axiosInstance.post(`/rfq/search-product`, payload);
+        let response = await axiosInstance.post(`/rfq/search-product`, payload, axiosConfig);
         // Prioritize exact matches at the top
         if (response && response.data && Array.isArray(response.data)) {
           const searchKeyLower = (values.search_key || '').toLowerCase();
@@ -92,7 +92,7 @@ export const searchProductsV2 = (values, type = "products") => {
     
     return new Promise(async (resolve, reject) => {
       try {
-        let response = await axiosInstance.post(`/rfq/search-vendor`, payload);
+        let response = await axiosInstance.post(`/rfq/search-vendor`, payload, axiosConfig);
         
         if (values.search_key && (!response?.data?.length || response?.data?.length < 3)) {
           try {
