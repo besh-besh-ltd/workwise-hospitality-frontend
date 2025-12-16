@@ -52,13 +52,13 @@ const initializeCompanyDetails = {
   company_name: "",
   about_company: "",
   street_address: "",
-  postal_code: "",
+  // postal_code: "",
   established_year: "",
   gstin: "",
   website: "",
-  country: null,
-  state: null,
-  city: null,
+  // country: null,
+  // state: null,
+  // city: null,
 };
 
 const initializeLocation = {
@@ -160,14 +160,14 @@ const EditProfile = () => {
         company_id: data.company_id,
         company_name: data?.company_name || "",
         about_company: data?.profile || "",
-        street_address: data?.address || "",
-        postal_code: data?.postal_code || "",
+        // street_address: data?.address || "",
+        // postal_code: data?.postal_code || "",
         established_year: data?.established_year || "",
         gstin: data?.gstin || "",
         website: data?.website || "",
-        country: { value: data?.country || null, label: data?.country_name || "India" },
-        state: { value: data?.state || null, label: data?.state_name || "" },
-        city: { value: data?.city || null, label: data?.city_name || "" }
+        // country: { value: data?.country || null, label: data?.country_name || "India" },
+        // state: { value: data?.state || null, label: data?.state_name || "" },
+        // city: { value: data?.city || null, label: data?.city_name || "" }
       });
 
     } catch (error) {
@@ -215,10 +215,10 @@ const EditProfile = () => {
     setMainLoading(true);
 
     const payload = {
-      ...values,
-      country: values?.country?.value || null,
-      state: values?.state?.value || null,
-      city: values?.city?.value || null,
+      ...values
+      // country: values?.country?.value || null,
+      // state: values?.state?.value || null,
+      // city: values?.city?.value || null,
     };
     updatecompany(payload)
       .then((res) => {

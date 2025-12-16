@@ -19,6 +19,7 @@ import {
   createVendorLocation,
   updateVendorlocations,
   deleteVendorLocation,
+  mapSpoclocation,
 } from "@/services/Auth";
 import LocationModal from "@/components/modal/LocationModal";
 import { Field, Form, Formik } from "formik";
@@ -31,7 +32,7 @@ import UploadFiles from "@/components/shared/ImagesUpload";
 import FullLoader from "@/components/shared/FullLoader";
 import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faFolderPlus, faPlus, faTrash, faTrashCanArrowUp } from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faFolderPlus, faLocation, faPlus, faTrash, faTrashCanArrowUp } from "@fortawesome/free-solid-svg-icons";
 import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
 import { addSpoc, editSpoc } from "@/services/Auth";
 import { faSave, faTrashAlt, faTrashCan } from "@fortawesome/free-regular-svg-icons";
@@ -39,6 +40,7 @@ import Select from "react-select";
 import SmartButton from "@/components/shared/SmartButton";
 import { FaSave } from "react-icons/fa";
 import HospitalityContextBadge from "@/components/shared/HospitalityContextBadge";
+import MapSpocModal from "@/components/modal/MapSpocModal";
 
 
 const EditProfile = () => {
@@ -118,6 +120,9 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
 ]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedLocationId, setSelectedLocationId] = useState(null);
+  const [showModal1, setShowModal1] = useState(false);
+  const [existingMappedSpocs, setExistingMappedSpocs] = useState([]);
 
 //Revies cards to be displayed
  const [reviews, setReviews] = useState([]);
@@ -705,6 +710,30 @@ const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "")
     } else {
       await handleCreateLocation(locationData);
     }
+  };
+
+const handleMapSpoc = (location) => {
+  setSelectedLocationId(location.id);
+
+  const mappedSpocIds = location.spocs?.map(s => s.spoc_id) || [];
+  setExistingMappedSpocs(mappedSpocIds);
+
+  setShowModal1(true);
+};
+
+
+  const handleMapSpocLocation = async (spoc_id,locationId) => {
+    // Implement map SPOC location logic here
+   if(spoc_id && locationId){ 
+    console.log("Map SPOC ID:", spoc_id, "to location ID:", locationId);
+    const result = await mapSpoclocation(spoc_id,locationId);
+    if(result){
+      toast.success("SPOC mapped to location successfully");
+      fetchVendorLocations();
+    } else {
+      toast.error("Failed to map SPOC to location");
+    }  
+  }
   };
 
   const handleUpdateLocation = async (locationData) => {
@@ -1350,7 +1379,10 @@ const fetchProfileDocuments = async () => {
                                   <th scope="col">State</th>
                                   <th scope="col">Country</th>
                                   <th scope="col">Postal Code</th>
+                                  <th scope ="col">Assigned Spocs</th>
                                   <th scope="col">Actions</th>
+                                  <th scope="col">Map</th>
+
                                 </tr>
                               </thead>
                               <tbody>
@@ -1362,6 +1394,7 @@ const fetchProfileDocuments = async () => {
                                     <td>{loc.state_name || loc.state || "-"}</td>
                                     <td>{loc.country_name || "-"}</td>
                                     <td>{loc.postal_code || "-"}</td>
+                                    <td> {loc.spocs && loc.spocs.length > 0 ? loc.spocs.map((spoc) => spoc.spoc_name).join(", ") : "-"}</td>
                                     <td>
                                       <span
                                         role="button"
@@ -1377,6 +1410,16 @@ const fetchProfileDocuments = async () => {
                                       >
                                         <FontAwesomeIcon icon={faTrashAlt} />
                                       </span>
+                                    </td>
+                                    <td>
+                                      <span
+                                        role="button"
+                                        className="cursor-pointer text-danger"
+                                        onClick={() => handleMapSpoc(loc)}
+                                      >
+                                        <FontAwesomeIcon icon={faLocation} />
+                                      </span>
+
                                     </td>
                                   </tr>
                                 ))}
@@ -1865,6 +1908,14 @@ const fetchProfileDocuments = async () => {
           isEditing={isEditing}
         />
       )}
+    <MapSpocModal
+        show={showModal1}
+        onClose={() => setShowModal1(false)}
+        locationId={selectedLocationId}
+        vendorSpoc={vendorSpoc}
+        existingMappedSpocs={existingMappedSpocs}
+        onSave={handleMapSpocLocation}
+      />
     </>
   );
 };

@@ -47,6 +47,13 @@ export const vendorConditions = [
   },
 ]
 
+export const subscriptionTypes = [
+  {
+    label: "Premium",
+    value: "premium",
+  },
+]
+
   // Options for the dropdown
   const optionVendors = [
     { value: 'is_private', label: 'My Private Vendor' },
@@ -95,6 +102,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [prevWorkedWith, setPrevWorkedWith] = useState(null);
   const [makeList, setMakeList] = useState([]);
   const [selectedMakes, setSelectedMakes] = useState([]);
+  const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [allAvailableCities, setAllAvailableCities] = useState([]);
   const vendorRequestIdRef = useRef(0);
   const categoryCityCacheRef = useRef(new Map());
@@ -150,6 +158,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   myVendorType,
   vendorName: debouncedVendorName,
   turnOver,
+  subscriptionType: selectedSubscription,
 }), [
   selectedCountry,
   selectedState,
@@ -160,7 +169,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   prevWorkedWith,
   myVendorType,
   debouncedVendorName,
-  turnOver
+  turnOver,
+  selectedSubscription
 ]);
 
 
@@ -438,12 +448,13 @@ const addRfqIdParam = (rfq_id) => {
 
       // Get the rfq_id from the URL if it exists
       const { rfq_id, sheet_id } = queryMeta;
-
+      
       const payload = {
         variant_id: currentSelectedProduct.variant_id,
         vendors: bulkRFQVendors.map(vendor => ({
           vendor_id: vendor.id
-        }))
+        })),
+        filters: { ...filterSnapshot } // Include current filter snapshot
       };
       
       // Only include rfq_id in payload if it exists and is valid
@@ -531,6 +542,7 @@ const addRfqIdParam = (rfq_id) => {
           vendor_name: vendorName,
           myVendorType,
           productMakes: selectedMakes,
+          subscriptionType: selectedSubscription?.value,
           page: 1,
           limit: 20
         });
@@ -675,7 +687,8 @@ const addRfqIdParam = (rfq_id) => {
           prevWorkedWith,
           vendor_name: vendorName,
           myVendorType,
-          selectedMakes
+          selectedMakes,
+          subscriptionType: selectedSubscription,
         },
         "vendors"
       )
@@ -1223,7 +1236,7 @@ if (slugStr !== newSlug) {
     search_key,
     inputValue,
     stateList,
-    cityList
+    cityList,
   ]);
 
   useEffect(() => {
@@ -1753,6 +1766,60 @@ useEffect(() => {
                     </div>
                   </div>
                   {/* END: my vendor filter */}
+
+                  <div className="search-con-right-1">
+                    <p className="fw-semibold mb-2 mt-3">Subscripion Type</p>
+                    <div>
+                      <select
+                        name="product_make"
+                        id="product_make_filter-filters-vendor_search_page"
+                        value={
+                          selectedSubscription?.value ?? ""
+                        }
+                        onChange={(e) => {
+                          if (
+                            !vendorMetaData || !vendorMetaData.logged_In
+                          ) {
+                            setOpenAuthModal(true);
+                          } else {
+                            const selectedValue = e.target.value; // Get selected id from option
+                            const selected = subscriptionTypes.find(
+                              (option) => option.value == selectedValue
+                            );
+                            if (selected) {
+                              // Check if already selected to avoid duplicates
+                              if (
+                                !(selectedSubscription?.value == selected.value)
+                              ) {
+                                setSelectedSubscription(selected);
+                              }
+                            }
+                          }
+                        }}
+                      >
+                        <option value="">Select Subscription Type</option>
+                        {subscriptionTypes.map(t => (
+                          <option value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Display clear link if any filter is active */}
+                      {selectedSubscription && (
+                        <Link
+                          href="#"
+                          className="clearFilter"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSelectedSubscription(null);
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faTimesCircle} /> clear
+                        </Link>
+                      )}
+                    </div>
+                  </div>
 
                   {/* START: Location filter */}
                   <div className="search-con-right-1">

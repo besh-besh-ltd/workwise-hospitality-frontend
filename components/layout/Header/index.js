@@ -98,7 +98,7 @@ const roleMenus = {
     },
     {
       href: "/dashboard/admin/approval-management",
-      label: "PO Approval Hierarchy",
+      label: "Approval Hierarchy",
       targetMenu: "nav",
     },
     {
@@ -238,6 +238,11 @@ const roleMenus = {
     {
       href: "/dashboard/vendor/reviews-ratings",
       label: "Reviews & Ratings",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/vendor/order-book",
+      label: "Order Book",
       targetMenu: "nav",
     },
   ],
@@ -1004,11 +1009,12 @@ const Header = () => {
                 borderBottom: '1px solid rgba(0,0,0,0.06)'
               }}
             >
-              <div className="announcement-track">
-                <span className="announcement-text fw-semibold">
-                  Now expanding Internationally - meet us at Intersec Dubai 2026 from 12-14 January, Stand no. SR-D2, Dubai World Trade Centre
-                </span>
-              </div>
+
+              <marquee className="pt-1">
+                <strong className=" " style={{fontWeight: '600' }}>
+                  Now expanding Internationally - meet us at Intersec Dubai 2026 from 12-14 January, Stand no. SR-D24, Dubai World Trade Centre
+                </strong>
+              </marquee>
             </div>
           )}
 

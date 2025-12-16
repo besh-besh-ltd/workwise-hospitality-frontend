@@ -473,6 +473,17 @@ export const editSpoc = (payload,spocId) => {
     })
   }
 
+  export const mapSpoclocation  = (spoc_id , location_id) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.post(`users/map-spoc-location`, { spoc_id, location_id });
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+  }
+
   export const deleteSpoc = (spocId) => {
 	return new Promise(async (resolve, reject) => {
 		try {

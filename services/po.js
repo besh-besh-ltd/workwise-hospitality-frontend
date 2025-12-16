@@ -5,8 +5,13 @@ export const getPoData = async (rfq_id, params) => {
   return res;
 };
 
-export const getPoDetails = async (po_id) => {
-  const res = await axiosInstance.get(`/po/${po_id}`);
+export const getPoDetails = async (po_id, token) => {
+  const res = await axiosInstance.get(`/po/${po_id}`, { params: { token } });
+  return res.data; 
+};
+
+export const updatePODetails = async (po_id, payload) => {
+  const res = await axiosInstance.put(`/po/${po_id}`, payload);
   return res.data;
 };
 
@@ -62,5 +67,25 @@ export const handleUpdateHSN = async (id, hsn_codes) => {
 
 export const handleUpdateGST = async (id, value) => {
   const res = await axiosInstance.post(`/po/updateGST/${id}`, { value });
+  return res;
+}
+
+export const handleRaiseInvoice = async (po_id, invoice_url) => {
+  const res = await axiosInstance.post(`/po/raiseInvoice`, { po_id, invoice_url });
+  return res;
+}
+
+export const handleMarkGRN = async (payload, token) => {
+  const res = await axiosInstance.post(`/po/markGRN`, payload, { params: { token }});
+  return res;
+}
+
+export const handleMarkDispatched = async (po_id) => {
+  const res = await axiosInstance.post(`/po/markDispatched`, { po_id });
+  return res;
+}
+
+export const handleAddSiteRep = async (payload) => {
+  const res = await axiosInstance.post(`/po/addSiteRepresentative`, payload);
   return res;
 }

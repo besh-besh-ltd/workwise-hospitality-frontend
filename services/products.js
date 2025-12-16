@@ -83,8 +83,10 @@ export const searchProductsV2 = (values, type = "products") => {
       prevWorkedWith: values.prevWorkedWith,
       vendor_name: values.vendor_name,
       myVendorType: values?.myVendorType?.value ?? "",
+      subscriptionType: values?.subscriptionType?.value ?? null,
       include_variants: true,
       productMakes: values?.selectedMakes?.map((item) => item.make_name),
+
     };
 
     
