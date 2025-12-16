@@ -99,9 +99,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [selectedMakes, setSelectedMakes] = useState([]);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [allAvailableCities, setAllAvailableCities] = useState([]);
-  const vendorRequestIdRef = useRef(0);
-  const categoryCityCacheRef = useRef(new Map());
-  const categoryCityFetchRef = useRef(new Set());
+  // const vendorRequestIdRef = useRef(0);
+  // const categoryCityCacheRef = useRef(new Map());
+  // const categoryCityFetchRef = useRef(new Set());
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -120,7 +120,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     rfq_id: null,
     sheet_id: null,
   });
-  const [allAvailableCities, setAllAvailableCities] = useState([]);
+  // const [allAvailableCities, setAllAvailableCities] = useState([]);
   const [vendorFirstSearch, setVendorFirstSearch] = useState(false);
   const [locationResetKey, setLocationResetKey] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -128,25 +128,25 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
 
-  const filterSnapshot = useMemo(() => ({
-  country: selectedCountry,
-  state: selectedState,
-  city: selectedCity,
-  vendorTypes: selectedVendorTypes,
-  approvedBy: selectedApprovedBy,
-  makes: selectedMakes,
-  prevWorkedWith,
-  myVendorType,
-  vendorName: debouncedVendorName,
-  turnOver,
-  subscriptionType: selectedSubscription,
-}), [
-  selectedCountry,
-  selectedState,
-  selectedCity,
-  selectedVendorTypes,
-  "value"
-  );
+//   const filterSnapshot = useMemo(() => ({
+//   country: selectedCountry,
+//   state: selectedState,
+//   city: selectedCity,
+//   vendorTypes: selectedVendorTypes,
+//   approvedBy: selectedApprovedBy,
+//   makes: selectedMakes,
+//   prevWorkedWith,
+//   myVendorType,
+//   vendorName: debouncedVendorName,
+//   turnOver,
+//   subscriptionType: selectedSubscription,
+// }), [
+//   selectedCountry,
+//   selectedState,
+//   selectedCity,
+//   selectedVendorTypes,
+//   "value"
+//   );
 
   const availableApprovedBy = useAvailableOptions(
   approvedByList,
@@ -212,7 +212,7 @@ const filterSnapshot = useMemo(() => {
   turnOver.from,
   turnOver.to,
   myVendorType,
-  debouncedVendorName,
+  // debouncedVendorName,
   turnOver,
   selectedSubscription
 ]);
@@ -230,16 +230,16 @@ const slugStr = useMemo(() => {
 
   const isCategorySlug = useMemo(() => !!categoryIdFromSlug, [categoryIdFromSlug]);
 
-  const topLevelCategoryIds = useMemo(
-    () => (categoriesLoaded ? categories.map((cat) => cat.id) : []),
-    [categoriesLoaded, categories]
-  );
+  // const topLevelCategoryIds = useMemo(
+  //   () => (categoriesLoaded ? categories.map((cat) => cat.id) : []),
+  //   [categoriesLoaded, categories]
+  // );
 
-  const isTopLevelCategory = useMemo(() => {
-    if (!categoryIdFromSlug) return false;
-    if (!categoriesLoaded) return true;
-    return topLevelCategoryIds.includes(categoryIdFromSlug);
-  }, [categoryIdFromSlug, topLevelCategoryIds, categoriesLoaded]);
+  // const isTopLevelCategory = useMemo(() => {
+  //   if (!categoryIdFromSlug) return false;
+  //   if (!categoriesLoaded) return true;
+  //   return topLevelCategoryIds.includes(categoryIdFromSlug);
+  // }, [categoryIdFromSlug, topLevelCategoryIds, categoriesLoaded]);
 
   const showCategoryBrowser = useMemo(() => {
   // Show browser when:
@@ -253,7 +253,7 @@ const slugStr = useMemo(() => {
   if (currentSelectedProduct?.name) return false;
 
   return false;
-}, [slugStr, isCategorySlug, isTopLevelCategory, currentSelectedProduct]);
+}, [slugStr, isCategorySlug, currentSelectedProduct]);
 
 const locationBaseSlug = useMemo(() => {
   if (currentSelectedProduct?.slug) {
