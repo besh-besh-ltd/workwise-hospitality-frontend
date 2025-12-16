@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -7,34 +7,24 @@ import {
   faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 import {  getProductMakeList, parentCategoryList, searchProductsV2, nestedCategoryData, getRandomProducts } from "@/services/products";
-import Slider from 'react-slick';
 import RandomProductsCarousel from '@/components/dashboard/vendor/RandomProductsCarousel';
 import SeoTitle from '@/components/dashboard/vendor/SeoTitle';
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
-import { categoryList, categoryListById, vendorApproveList, addProductToDraft, bulkSearchVendorsByCategory } from "@/services/rfq";
-import { useDispatch } from "react-redux";
-import {
-  setDefaultVAB,
-} from "@/redux/slice";
+import { categoryList, categoryListById, vendorApproveList, addProductToDraft, bulkSearchVendorsByCategory, vendorTypes } from "@/services/rfq";
 import { toast } from "react-toastify";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
 import { useRouter } from "next/router";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import LocationFilter from "@/components/shared/LocationFilter";
 import storageInstance from "@/utils/storageInstance";
-import Head from "next/head";
 import { textCapitalize } from "@/utils/sharedFunctions";
 import { debounce } from "lodash";
-import Select from 'react-select';
-import axiosInstance from "@/lib/axios";
-import { BusinessTypes } from "@/utils/constants";
 import { getCountries, getStates, getCities } from "@/services/cms";
-import { AllCategoriesSection } from "@/components/products/utils/AllCategoriesSection";
 import { SecurityFeatures } from "@/pages/why-workwise/TrustSecurity";
 import NestedCategoryBrowser from "./NestedCategoryBrowser";
 import FeatureSEOSection from "./FeatureSEOsection";
-
+import {useAvailableOptions} from "@/utils/elementFunctions"
 
 export const vendorConditions = [
   {
@@ -47,6 +37,7 @@ export const vendorConditions = [
   },
 ]
 
+  // Options for the vendor type dropdown
 export const subscriptionTypes = [
   {
     label: "Premium",
@@ -62,44 +53,48 @@ export const subscriptionTypes = [
   ];
 
 const Search = ({ title = "Preffered Vendors", type }) => {
+
+  // -----------------------------
+  // Props and Library
+  // -----------------------------
   const router = useRouter();
   const { slug, s, loggedin } = router.query;
 
-  const vendor_area_ref = useRef();
-  const id = Date.now().toString();
-  const [isOpen, setIsOpen] = useState(false);
-  const [vendorTypeOpen, setVendorTypeOpen] = useState(false);
-  const [approvedByOpen, setApprovedByOpen] = useState(false);
-  const [internalVendorTypes, setInternalVendorTypes] = useState(BusinessTypes)
-  const [internalApprovedBy, setInternalApprovedBy] = useState([])
-  const searchRef = useRef(null);
-  const searchLabelRef = useRef(null);
-  const dispatch = useDispatch();
-  const [cat_id, setCat_id] = useState(null);
-  const [search_key, setSearch_key] = useState("");
-  const [approved_by, setApproved_by] = useState([]);
-  const [products, setProducts] = useState([]);
+  // -----------------------------
+  // useState Section
+  // -----------------------------
+
+  const [open, setOpen] = useState({
+    input: false,
+    vendorType: false,
+    approvedBy: false,
+  });
   const [categories, setCategories] = useState([]);
-  const [loading, setloading] = useState(false);
-  const [selectedVbaa, setselectedVbaa] = useState("");
-  const [catloading, setcatloading] = useState(false);
-  const [vabloading, setvabloading] = useState(false);
   const [bulkRFQVendors, setbulkRFQVendors] = useState([]);
   const [currentSelectedProduct, setcurrentSelectedProduct] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [vendorMetaData, setVendorMetaData] = useState({});
-  const [vendorTypes, setVendorTypes] = useState(BusinessTypes);
-
-  const [selectedCountry, setselectedCountry] = useState([]);
-  const [selectedState, setselectedState] = useState([]);
-  const [selectedCity, setselectedCity] = useState([]);
+  const [address, setAddress] = useState({
+  selectedCountry: null,
+  selectedState: null,
+  selectedCity: null,
+  countryList: [],
+  stateList: [],
+  cityList: []
+  });
+  const [vendorTypeList, setVendorTypeList] = useState([]);
+  const [vendorTypeFilter, setVendorTypeFilter] = useState("");
   const [selectedVendorTypes, setSelectedVendorTypes] = useState([]);
+
+  const [approvedByList, setApprovedByList] = useState([]);
   const [selectedApprovedBy, setSelectedApprovedBy] = useState([]);
+  const [approvedByFilter, setApprovedByFilter] = useState("");
+
   const [turnOver, setTurnOver] = useState({
     from: -1,
     to: -1
   })
-  const [prevWorkedWith, setPrevWorkedWith] = useState(null);
+  const [prevWorkedWith, setPrevWorkedWith] = useState('');
   const [makeList, setMakeList] = useState([]);
   const [selectedMakes, setSelectedMakes] = useState([]);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
@@ -112,40 +107,26 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
-  const tempProdRef = useRef(null);
   const [searchCategories, setSearchCategories] = useState([]);
   const [searchSubCategories, setSearchSubCategories] = useState([]);
-  // Nested categories state for dynamic rendering from backend
-  const [nestedCategories, setNestedCategories] = useState([]);
-  // Nested category browsing moved to NestedCategoryBrowser component
-  // fetchNestedCategories logic moved to NestedCategoryBrowser
   const [productsList, setProductsList] = useState([]);
-  // random products carousel state moved to RandomProductsCarousel component
-  const categoryLvlRef = useRef(new Map());
-  const [firstVisit, setFirstVisit] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [vendorName, setVendorName] = useState("");
-  const [debouncedVendorName, setDebouncedVendorName] = useState(vendorName);
-  const [is_private, setIs_private] = useState(false);
   const [myVendorType, setMyVendorType] = useState(null);
-  const [preferred_vendor, setPreferred_vendor] = useState(false);
-  const [inputValue, setInputValue] = useState(""); // For what user is typing
+  const [searchProduct, setSearchProduct] = useState(""); // For what user is typing
   const [suggestionLoading, setSuggestionLoading] = useState(false); // For suggestion fetch
   const [suggestions, setSuggestions] = useState([]); // Product name suggestions
-    const [showBrowser, setShowBrowser] = useState(true);
-    const [vendorFirstSearch, setVendorFirstSearch] = useState(false);
-
   const [queryMeta, setQueryMeta] = useState({
     rfq_id: null,
     sheet_id: null,
-  })
-  
-  const fromRef = useRef(null);
-  const toRef = useRef(null);
-  const vendorTypeRef = useRef(null);
-  const vendorApprovedByRef = useRef(null);
+  });
+  const [allAvailableCities, setAllAvailableCities] = useState([]);
+  const [vendorFirstSearch, setVendorFirstSearch] = useState(false);
+  const [locationResetKey, setLocationResetKey] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const prevFiltersRef = useRef(null);
 
   const filterSnapshot = useMemo(() => ({
   country: selectedCountry,
@@ -164,210 +145,22 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   selectedState,
   selectedCity,
   selectedVendorTypes,
+  "value"
+  );
+
+  const availableApprovedBy = useAvailableOptions(
+  approvedByList,
   selectedApprovedBy,
-  selectedMakes,
-  prevWorkedWith,
-  myVendorType,
-  debouncedVendorName,
-  turnOver,
-  selectedSubscription
-]);
+  "id"
+);
 
+const LIMIT = 20;
 
-  const slugStr = useMemo(() => {
-    if (Array.isArray(slug)) return slug.join("/");
-    return typeof slug === "string" ? slug : "";
-  }, [slug]);
-  const categoryIdFromSlug = useMemo(() => {
-    if (!slugStr) return null;
-    const match = slugStr.match(/-category(\d+)/i);
-    return match ? parseInt(match[1], 10) : null;
-  }, [slugStr]);
-  const isCategorySlug = useMemo(() => !!categoryIdFromSlug, [categoryIdFromSlug]);
-  const categoriesLoaded = Array.isArray(categories) && categories.length > 0;
-  const topLevelCategoryIds = useMemo(
-    () => (categoriesLoaded ? categories.map((cat) => cat.id) : []),
-    [categoriesLoaded, categories]
-  );
-  const isTopLevelCategory = useMemo(() => {
-    if (!categoryIdFromSlug) return false;
-    if (!categoriesLoaded) return true;
-    return topLevelCategoryIds.includes(categoryIdFromSlug);
-  }, [categoryIdFromSlug, topLevelCategoryIds, categoriesLoaded]);
-
-  useEffect(() => {
-    if (categoryIdFromSlug && categoryIdFromSlug !== cat_id) {
-      setCat_id(categoryIdFromSlug);
-      setcurrentSelectedProduct(null);
-    }
-  }, [categoryIdFromSlug, cat_id]);
-
-  useEffect(() => {
-    if (!isCategorySlug) return;
-    const label = removeCategorySuffix(slugStr || "").replace(/-/g, " ").trim();
-    if (label && label !== search_key) {
-      setSearch_key(label);
-      setInputValue(label);
-    }
-  }, [isCategorySlug, slugStr, search_key]);
-
-  const handleRedirect = (e) => {
-    if (!isLoggedIn)
-      setOpenAuthModal(true);
-    else if (!vendorMetaData?.subscription)
-      router.push('/dashboard/buyer/subscription');
-  }
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedVendorName(vendorName);
-    }, 1000);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [vendorName]);
-
-  useEffect(() => {
-    const { rfq_id, sheet_id } = router.query;
-    setQueryMeta({
-      rfq_id,
-      sheet_id,
-    })
-  }, [router.query])
-
-  useEffect(() => {
-    if (s && s != "") {
-      setSearch_key(s.split("+").join(" "));
-      setTimeout(() => {
-        searchRef.current.focus();
-        searchLabelRef.current.click();
-      }, 1000);
-
-      getProducts();
-    }
-    if (localStorage.getItem("token")) {
-      setIsLoggedIn(true);
-    }
-    if (redirectAfterLogin) {
-      const url = redirectAfterLogin;
-      router.push(url);
-    }
-    setRedirectAfterLogin(null);
-  }, [router, loggedin]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-      if(vendorTypeRef.current && !vendorTypeRef.current.contains(event.target)) {
-        setVendorTypeOpen(false);
-      }
-      if(vendorApprovedByRef.current && !vendorApprovedByRef.current.contains(event.target)) {
-        setApprovedByOpen(false);
-      }
-    };
-
-    // axiosInstance.get('/rfq/vendor-types/').then(res => {
-    //   const {data} = res;
-    //   setVendorTypes(data)
-    //   setInternalVendorTypes(data)
-    // }).catch((e) => {
-    //   console.error(e)
-    // })
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
- useEffect(() => {
-  setInternalVendorTypes(
-    vendorTypes.filter(type => !selectedVendorTypes.some(t => t.value === type.value))
-  );
-}, [selectedVendorTypes, vendorTypes]);
-
-
-  useEffect(() => {
-    setInternalApprovedBy(approved_by)
-  }, [approved_by])
-
-  useEffect(() => {
-    setInternalApprovedBy(approved_by?.filter(approveBy => !selectedApprovedBy.some(_approvedBy => approveBy.vendor_approve == _approvedBy.vendor_approve)))
-  }, [selectedApprovedBy])
-
-useEffect(() => {
-  if (categoryIdFromSlug && categoryIdFromSlug !== cat_id) {
-    setCat_id(categoryIdFromSlug);
-    setcurrentSelectedProduct(null);
-  }
-}, [categoryIdFromSlug]);
-
-useEffect(() => {
- if (!slugStr || slugStr === 'all') {
-   setcurrentSelectedProduct(null);
-   setVendors([]);
-   setApproved_by([]);
-   setAllAvailableCities([]);
-   setShowBrowser(true);
-   return;
- }
-
- if (!isCategorySlug) {
-   getVendorApprovedby();
-   getVendors();
-   setShowBrowser(false);
-   return;
- }
-
- if (!categoriesLoaded) {
-   return;
- }
-
- setcurrentSelectedProduct(null);
- setApproved_by([]);
- setAllAvailableCities([]);
- if (!isTopLevelCategory && categoryIdFromSlug) {
-   const label = removeCategorySuffix(slugStr || '').replace(/-/g, ' ').trim();
-   if (label && label !== search_key) {
-     setSearch_key(label);
-     setInputValue(label);
-   }
-   getVendors('', categoryIdFromSlug);
- }
- setShowBrowser(true);
-}, [
-  slugStr,
-  isCategorySlug,
-  isTopLevelCategory,
-  categoryIdFromSlug,
-  categoriesLoaded,
-  search_key
-]);
-
-
-  // When a new product is selected, update the search bar value
-  useEffect(() => {
-    if (currentSelectedProduct) {
-      const productName = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '';
-      if (search_key !== productName) {
-        setSearch_key(productName);
-      }
-    }
-  }, [currentSelectedProduct]);
-
-  useEffect(() => {
-    if (currentSelectedProduct) {
-      dispatch(
-        setDefaultVAB({
-          product_id: currentSelectedProduct.product_id,
-          selectedVbaa: selectedVbaa,
-        })
-      );
-    }
-  }, [selectedVbaa]);
+const stripLocationSuffix = (slug) => {
+  if (!slug) return slug;
+  // Remove category<ID> + EVERYTHING after it
+  return slug.replace(/(-category\d+)(.*)$/i, '$1');
+};
 
   const cleanAndAddHyphen = (input) => {
     let lowerCaseString = input.toLowerCase();
@@ -382,10 +175,373 @@ useEffect(() => {
 
   const removeCategorySuffix = (str) => {
     if (!str) return str;
-    return str.replace(/-category\d+/gi, '');
+    return str.replace(/-category\d+.*$/i, '');
   }
 
- 
+
+
+  // -----------------------------
+  // useMemo Section
+  // -----------------------------
+
+  // 1. Create a STABLE snapshot using only primitive values (ids/strings)
+const filterSnapshot = useMemo(() => {
+  return JSON.stringify({
+    country: address?.selectedCountry ?? null,
+    state: (address?.selectedState || []),
+    city: (address?.selectedCity || []),
+    vendorTypes: selectedVendorTypes,
+    approvedBy: selectedApprovedBy,
+    makes: selectedMakes,
+    prevWorkedWith: prevWorkedWith || null,
+    myVendorType: myVendorType?.value || null,
+    vendorName: vendorName.trim(),
+    turnoverFrom: turnOver.from,
+    turnoverTo: turnOver.to,
+  });
+}, [
+  address?.selectedCountry?.id,
+  JSON.stringify(address?.selectedState),
+  JSON.stringify(address?.selectedCity),
+  selectedVendorTypes,
+  JSON.stringify(selectedApprovedBy),
+  JSON.stringify(selectedMakes),
+  prevWorkedWith,
+  myVendorType?.value,
+  vendorName,
+  turnOver.from,
+  turnOver.to,
+  myVendorType,
+  debouncedVendorName,
+  turnOver,
+  selectedSubscription
+]);
+
+const slugStr = useMemo(() => {
+    if (Array.isArray(slug)) return slug.join("/");
+    return typeof slug === "string" ? slug : "";
+  }, [slug]);
+
+  const categoryIdFromSlug = useMemo(() => {
+    if (!slugStr) return null;
+    const match = slugStr.match(/-category(\d+)/i);
+    return match ? parseInt(match[1], 10) : null;
+  }, [slugStr]);
+
+  const isCategorySlug = useMemo(() => !!categoryIdFromSlug, [categoryIdFromSlug]);
+
+  const topLevelCategoryIds = useMemo(
+    () => (categoriesLoaded ? categories.map((cat) => cat.id) : []),
+    [categoriesLoaded, categories]
+  );
+
+  const isTopLevelCategory = useMemo(() => {
+    if (!categoryIdFromSlug) return false;
+    if (!categoriesLoaded) return true;
+    return topLevelCategoryIds.includes(categoryIdFromSlug);
+  }, [categoryIdFromSlug, topLevelCategoryIds, categoriesLoaded]);
+
+  const showCategoryBrowser = useMemo(() => {
+  // Show browser when:
+  // - We are on /vendor/all
+  if (slugStr === 'all') return true;
+  
+  // - OR we are on any category page (top-level or nested)
+  if (isCategorySlug) return true; // ✅ Show for all categories
+  
+  // - OR we have a product selected (for showing related categories)
+  if (currentSelectedProduct?.name) return false;
+
+  return false;
+}, [slugStr, isCategorySlug, isTopLevelCategory, currentSelectedProduct]);
+
+const locationBaseSlug = useMemo(() => {
+  if (currentSelectedProduct?.slug) {
+    return stripLocationSuffix(currentSelectedProduct.slug);
+  }
+  if (isCategorySlug && slugStr) {
+    return stripLocationSuffix(removeCategorySuffix(slugStr));
+  }
+
+  // On first render (SSR + first client render), selectedProduct is null → fallback
+  if (!currentSelectedProduct) return "all";
+
+  return stripLocationSuffix(cleanAndAddHyphen(currentSelectedProduct.name || ""));
+}, [
+  currentSelectedProduct?.slug,
+  isCategorySlug,
+  slugStr,
+  currentSelectedProduct
+]);
+
+
+  // -----------------------------
+  // useRef Section
+  // -----------------------------
+
+  const vendor_area_ref = useRef();
+  const searchRef = useRef(null);
+  const searchLabelRef = useRef(null);
+  const categoryCityCacheRef = useRef(new Map());
+  const categoryCityFetchRef = useRef(new Set());
+  const vendorRequestIdRef = useRef(0);
+  const tempProdRef = useRef(null);
+  const categoryLvlRef = useRef(new Map());
+  const vendorTypeRef = useRef(null);
+  const vendorApprovedByRef = useRef(null);
+  const hasRedirected = useRef(false);
+  const prevFiltersRef = useRef(null);
+  const debouncedFetchSuggestions = useRef(
+  debounce(async (val) => {
+    const trimmed = val.trim();
+
+    setSuggestionLoading(true);
+    try {
+      const rsp = await searchProductsV2({ search_key: trimmed }, "products");
+      setSuggestions(rsp.data || []);
+      setSearchCategories(rsp.categoryData || []);
+    } catch (error) {
+      console.error("Suggestion fetch failed:", error);
+      setSuggestions([]);
+      setSearchCategories([]);
+    } finally {
+      setSuggestionLoading(false);
+    }
+  }, 300)
+).current;
+
+
+  // -----------------------------
+  // useEffect Section
+  // -----------------------------
+
+  // Only read localStorage and set the currentselectedProduct on mount, when slug changes.
+  useEffect(() => {
+
+    // If slug is "all" do nothing, and clear all fields.
+  if (slugStr === "all") {
+    storageInstance.removeStorege("search-key");
+    localStorage.removeItem("location_filter_city");
+    setcurrentSelectedProduct(null);
+    setSearchProduct('');
+    return;
+  }
+
+  const extractId = (slug = "") => {
+  const match = slug.match(/category(\d+)/i);
+  return match ? match[1] : null;
+}
+
+const category_id = extractId(slugStr);
+
+  // If slug is of category set category_id, else set product name, varient id.
+  if(category_id){
+    setcurrentSelectedProduct({category_id : category_id});
+  }
+  else{
+  const raw = storageInstance.getStorageObj("search-key");
+    if (!raw || raw === "" || raw === "null" || raw === "undefined") {
+      setcurrentSelectedProduct(null);
+      return;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+      if (parsed) {
+        setcurrentSelectedProduct(parsed);
+      }
+    } catch (error) {
+      console.error("Failed to parse search-key, clearing...", error);
+      storageInstance.removeStorege("search-key");
+      router.push('/vendor/all');
+    }
+  }
+}, [slugStr]);
+
+
+  useEffect(() => {
+    const { rfq_id, sheet_id } = router.query;
+    setQueryMeta({
+      rfq_id,
+      sheet_id,
+    });
+  }, [router.query]);
+
+  function useClickOutside(ref, handler, active = true) {
+  useEffect(() => {
+    if (!active) return;
+
+    const listener = (event) => {
+      if (!ref.current || ref.current.contains(event.target)) return;
+      handler(event);
+    };
+
+    document.addEventListener("mousedown", listener);
+    return () => document.removeEventListener("mousedown", listener);
+  }, [ref, handler, active]);
+}
+
+
+  // Initially load countries, then states & cities based on selection of country and state respectively
+    useEffect(() => {
+
+      const { selectedCountry, selectedState } = address;
+
+      // Load countries on first mount
+      if (!selectedCountry && !!currentSelectedProduct) {
+        getCountries().then(res =>
+          setAddress(prev => ({
+            ...prev,
+            countryList: res.data || []
+          }))
+        );
+        return;
+      }
+
+      // Load states when country is chosen
+      if (selectedCountry && !selectedState?.length) {
+        getStates(selectedCountry.id).then(res =>
+          setAddress(prev => ({
+            ...prev,
+            stateList: res.data || []
+          }))
+        );
+        return;
+      }
+
+      // Load cities when state is chosen
+      if (!!selectedState?.length) {
+        getCities(selectedState.id).then(res =>
+          setAddress(prev => ({
+            ...prev,
+            cityList: res.data || []
+          }))
+        );
+      }
+    }, [address.selectedCountry, address.selectedState]);
+
+
+useEffect(() => {
+
+  const filters = JSON.parse(filterSnapshot);
+
+  if (!currentSelectedProduct) {
+    setVendors([]);
+    setVendorFirstSearch(false);
+    setAllAvailableCities([]);
+    return;
+  }
+
+  setCurrentPage(1);
+  setIsLoading(true);
+
+  // If user is browsing category only
+  if (currentSelectedProduct.category_id) {
+    getVendors('', currentSelectedProduct.category_id);
+    return;
+  }
+
+  const productName = stripLocationSuffix(
+    removeCategorySuffix(currentSelectedProduct.name)
+  );
+
+  const catId = categoryIdFromSlug || null;
+
+  //---------------------------------------------------
+  // ⭐ Use FILTERS from the decoded filterSnapshot
+  //---------------------------------------------------
+  searchProductsV2(
+    {
+      null: catId,
+      search_key: productName,
+      approved_by: filters.approvedBy || [],
+      state: filters.state || [],                   // now IDs only
+      city: filters.city || [],                     // now IDs only
+      country: filters.country ? [filters.country] : [],
+      turnOver: {
+        from: filters.turnoverFrom,
+        to: filters.turnoverTo
+      },
+      vendorType: filters.vendorTypes || [],
+      prevWorkedWith: filters.prevWorkedWith,
+      vendor_name: filters.vendorName,
+      myVendorType: filters.myVendorType,
+      selectedMakes: filters.makes || []
+    },
+    "vendors"
+  )
+    .then((rsp) => {
+      if (rsp?.data?.length > 0) {
+        setVendorFirstSearch(true);
+      }
+
+      const vendorsWithSelected = (rsp.data || []).map((item) => ({
+        ...item,
+        selected: bulkRFQVendors.some((v) => v.id === item.id),
+      }));
+
+      setVendors(vendorsWithSelected);
+      setVendorMetaData(rsp);
+
+      const cities = buildCityListFromVendors(vendorsWithSelected);
+      setAllAvailableCities(cities);
+    })
+    .catch(() => {
+      setVendors([]);
+      setAllAvailableCities([]);
+    })
+    .finally(() => {
+      setIsLoading(false);
+    });
+}, [filterSnapshot, currentSelectedProduct, categoryIdFromSlug]);
+
+
+// ADD THIS — dedicated effect for makes only
+useEffect(() => {
+  if (currentSelectedProduct?.variant_id) {
+    getMakeList(currentSelectedProduct.variant_id);
+  } else {
+    setMakeList([]);
+    setSelectedMakes([]);
+  }
+}, [currentSelectedProduct?.variant_id]);
+
+
+    useEffect(() => {
+    if (localStorage.getItem("token")) {
+      setIsLoggedIn(true);
+    }
+    if (redirectAfterLogin) {
+      const url = redirectAfterLogin;
+      router.push(url);
+    }
+    setRedirectAfterLogin(null);
+  }, [router, loggedin]);
+
+
+  // -----------------------------
+  // Component Function Section
+  // -----------------------------
+
+useClickOutside(searchRef, () => setOpen({...open, input : false}), open.input);
+useClickOutside(vendorTypeRef, () => setOpen({...open, vendorType : false}), open.vendorType);
+useClickOutside(vendorApprovedByRef, () => setOpen({...open, approvedBy : false}), open.approvedBy);
+
+
+//some issue in this function, need to check again.
+const updateCitiesFromVendors = (vendorsList) => {
+  console.log("Updating cities from vendors list:", vendorsList); // Debug log
+  const cities = buildCityListFromVendors(vendorsList);
+  console.log("Updating cities:", cities); // Debug log
+  setAllAvailableCities(cities);
+};
+
+const handleRedirect = (e) => {
+    if (!isLoggedIn)
+      setOpenAuthModal(true);
+    else if (!vendorMetaData?.subscription)
+      router.push('/dashboard/buyer/subscription');
+  }
 
   const canAddItem = () => {
     if (!isLoggedIn) {
@@ -398,6 +554,16 @@ useEffect(() => {
     return true;
   }
 
+  const handleOpenApprovedBy =()=>{
+    setOpen({...open, approvedBy : true});
+    setApprovedByFilter(""); // reset search when opening
+    getVendorApprovedby();
+  }
+
+  const handleOpenVendorTypes = () => {
+    getVendorTypeList();
+    setOpen(prev => ({ ...prev, vendorType: true }))
+  }
 
   const addToRFQ = async (selected, item) => {
     if (!canAddItem()) return;
@@ -496,38 +662,120 @@ const addRfqIdParam = (rfq_id) => {
     }
   };
 
-  const getVendors = async (overrideSearchKey = null, overrideCatId = null) => {
-    const effectiveCatId =
-      currentSelectedProduct?.category_id ??
-      overrideCatId ??
-      cat_id ??
-      categoryIdFromSlug ??
-      null;
+  const getVendors = async (overrideSearchKey = null, overrideCatId = null, page = 1) => {
+  const effectiveCatId = 
+  overrideCatId ||
+  currentSelectedProduct?.category_id ||
+  overrideCatId ||
+  categoryIdFromSlug ||
+  null;
 
-    if (isCategorySlug && (isTopLevelCategory || !effectiveCatId)) {
-      setloading(false);
+  // If we're on a top-level category page with no product → just show category browser, no vendors
+  if (!effectiveCatId) {
+    setVendors([]);
+    setIsLoading(false);
+    return;
+  }
+
+  // Preload city list for pure category pages
+  // if (effectiveCatId) {
+  //   ensureCategoryCityList(effectiveCatId);
+  // }
+
+  // const shouldUseCategoryVendors =
+  //   currentSelectedProduct?.category_id &&
+  //   effectiveCatId &&
+  //   (isCategorySlug || overrideCatId !== null);
+
+  // ——————————————————————————————————
+  // CASE 1: Pure category search (no product selected)
+  // ——————————————————————————————————
+  if (!!effectiveCatId && (!currentSelectedProduct?.name || overrideCatId !== null)) {
+    if (page === 1) {
+      setIsLoading(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+    const requestId = ++vendorRequestIdRef.current;
+
+    try {
+      const response = await bulkSearchVendorsByCategory({
+        category_id: effectiveCatId,
+        approved_by_id: selectedApprovedBy.map(x => x.id),
+        state: !!address?.selectedState?.length ? address.selectedState : [],
+        city: !!address?.selectedCity?.length ? address.selectedCity : [],
+        country: address.selectedCountry ? [address.selectedCountry.id] : [],
+        turnOver,
+        vendorType: selectedVendorTypes,
+        prevWorkedWith,
+        vendor_name: vendorName,
+        myVendorType: myVendorType?.value || null,
+        productMakes: selectedMakes,
+        page,
+        limit: LIMIT
+      });
+
+      if (requestId !== vendorRequestIdRef.current) return;
+
+      const bulkRFQVendorIds = new Set(bulkRFQVendors.map(v => v.id));
+      const vendorsWithSelected = (response?.data || []).map(vendor => ({
+        ...vendor,
+        selected: bulkRFQVendorIds.has(vendor.id)
+      }));
+
+      setVendors(prev => page === 1 ? (vendorsWithSelected || []) : [...prev, ...(vendorsWithSelected || [])]);
+      setVendorFirstSearch(true);
+      const totalVendors = response?.total || 0;
+      setHasNextPage((page * LIMIT) < totalVendors);
+      
+      setVendorMetaData({
+        data: vendorsWithSelected,
+        total: response?.total || 0,
+        logged_In: isLoggedIn,
+        subscription: response?.subscription ?? vendorMetaData.subscription ?? false
+      });
+
+      // Cache cities for location filter
+     const cities = buildCityListFromVendors(vendorsWithSelected);
+      setAllAvailableCities(cities);
+
+    } catch (error) {
+      if (requestId !== vendorRequestIdRef.current) return;
+      console.error("Error fetching category vendors:", error);
       setVendors([]);
-      return;
+    } finally {
+      setIsLoading(false);
+    }
+    return;
+  }
+
+  // ——————————————————————————————————
+  // CASE 2: Product-specific search (or free text with searchProduct)
+  // ——————————————————————————————————
+  const getSearchTerm = () => {
+    if (overrideSearchKey !== null) return overrideSearchKey;
+    if (!!currentSelectedProduct?.name) {
+      return currentSelectedProduct.name || currentSelectedProduct.product_name || "";
     }
 
-    if (!currentSelectedProduct && effectiveCatId) {
-      ensureCategoryCityList(effectiveCatId);
+    if (searchProduct.trim()) return searchProduct.trim();
+    if (isCategorySlug && slugStr) {
+      return removeCategorySuffix(stripLocationSuffix(slugStr));
     }
+    return "";
+  };
 
-    const hasCategoryIdOverride = overrideCatId !== null;
-    const shouldUseCategoryVendors =
-      !currentSelectedProduct &&
-      effectiveCatId &&
-      (isCategorySlug || hasCategoryIdOverride);
+  const searchTerm = getSearchTerm();
 
-    if (shouldUseCategoryVendors) {
-      setloading(true);
-      const requestId = ++vendorRequestIdRef.current;
+  // Nothing to search for → clear results
+  if (!searchTerm && !effectiveCatId) {
+    setVendors([]);
+    setIsLoading(false);
+    return;
+  }
 
-      if(!vendorFirstSearch){
-        setVendorFirstSearch(true)
-      }
-
+  setIsLoading(true);
+  const requestId = ++vendorRequestIdRef.current;
 
       try {
         const response = await bulkSearchVendorsByCategory({
@@ -547,215 +795,76 @@ const addRfqIdParam = (rfq_id) => {
           limit: 20
         });
 
-        if (requestId !== vendorRequestIdRef.current) return;
+    if (requestId !== vendorRequestIdRef.current) return;
 
-        const bulkRFQVendorIds = new Set(bulkRFQVendors.map(item => item.id));
-        const vendors = (response?.data || []).map(vendor => ({
-          ...vendor,
-          selected: bulkRFQVendorIds.has(vendor.id)
-        }));
+    const vendorsWithSelected = (response.data || []).map(item => ({
+      ...item,
+      selected: bulkRFQVendors.some(v => v.id === item.id)
+    }));
 
-        const cityMap = new Map();
-        vendors.forEach(vendor => {
-          if (vendor.city_name && vendor.state_name) {
-            const cityKey = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
-            if (!cityMap.has(cityKey)) {
-              cityMap.set(cityKey, {
-                city_name: vendor.city_name,
-                state_name: vendor.state_name,
-                city_id: vendor.city_id,
-                state_id: vendor.state_id
-              });
-            }
-          }
-        });
+    setVendors(prev => page === 1 ? vendorsWithSelected : [...prev, ...vendorsWithSelected]);
 
-        const cachedCities = categoryCityCacheRef.current.get(effectiveCatId);
-        if (cachedCities) {
-          setAllAvailableCities(cachedCities);
-        } else {
-          const cities = buildCityListFromVendors(vendors);
-          categoryCityCacheRef.current.set(effectiveCatId, cities);
-          setAllAvailableCities(cities);
-        }
+    const totalVendors = response?.total || 0;
+    setHasNextPage((page * ITEMS_PER_PAGE) < totalVendors);
 
-        setloading(false);
-        setVendors(vendors);
-        setVendorMetaData({
-          data: vendors,
-          total: response?.total || 0,
-          logged_In: isLoggedIn,
-          subscription: response?.subscription ?? vendorMetaData.subscription ?? false
-        });
-        if(vendors.length > 0) {
-          return;
-        }
-      } catch (error) {
-        if (requestId !== vendorRequestIdRef.current) return;
-        console.error("Error fetching category vendors:", error);
-        setloading(false);
-        setVendors([]);
-        setAllAvailableCities([]);
-      }
-    }
+    // updateCitiesFromVendors(vendorsWithSelected);
+    setVendorMetaData(response);
 
-    let canonicalSearchKey = overrideSearchKey !== null ? overrideSearchKey : search_key;
-    
-    if (currentSelectedProduct && !hasCategoryIdOverride) {
-      canonicalSearchKey = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || search_key;
-    } else if (!canonicalSearchKey && !hasCategoryIdOverride && products && products.length > 0) {
-      canonicalSearchKey = products[0].variant_name || products[0].product_name || search_key;
-    }
+    const cities = buildCityListFromVendors(vendorsWithSelected);
+    setAllAvailableCities(cities);
 
-    if (!canonicalSearchKey && isCategorySlug && effectiveCatId) {
-      try {
-        const fallbackRes = await categoryListById({ category_id: effectiveCatId });
-        const fallbackProduct = fallbackRes?.productList?.[0];
-        if (fallbackProduct) {
-          canonicalSearchKey =
-            fallbackProduct.variant_name ||
-            fallbackProduct.product_name ||
-            removeCategorySuffix(slugStr || '').replace(/-/g, ' ');
-        }
-      } catch (err) {
-        console.error("Error fetching fallback product for category:", err);
-      }
-    }
 
-    if (!canonicalSearchKey && isCategorySlug) {
-      canonicalSearchKey = removeCategorySuffix(slugStr || '').replace(/-/g, ' ');
-    }
+  } catch (error) {
+    if (requestId !== vendorRequestIdRef.current) return;
+    console.error("Error fetching vendors:", error);
+    setVendors([]);
+    setVendorMetaData(error?.response?.data || {});
+  } finally {
+    setIsLoading(false);
+    setIsLoadingMore(false);
+  }
+};
 
-    if (canonicalSearchKey !== "" || effectiveCatId) {
-      setloading(true);
-
-      if(!vendorFirstSearch){
-        setVendorFirstSearch(true)
-      }
-
-      const stateFilter = selectedState?.length > 0 ? selectedState : [];
-      const cityFilter = selectedCity?.length > 0 ? selectedCity : [];
-      const countryFilter = selectedCountry?.length > 0 ? selectedCountry : [];
-      const requestId = ++vendorRequestIdRef.current;
-
-      // searchProductsV2(
-      //   {
-      //     cat_id: effectiveCatId,
-      //     search_key: canonicalSearchKey,
-      //     approved_by: [],
-      //     state: [],
-      //     city: [],
-      //     country: [],
-      //     turnOver: { from: -1, to: -1 },
-      //     vendorType: [],
-      //     prevWorkedWith: null,
-      //     vendor_name: "",
-      //     myVendorType: null,
-      //     selectedMakes: []
-      //   },
-      //   "vendors"
-      // )
-      //   .then((allRsp) => {
-      //     const cityMap = new Map();
-      //     allRsp.data.forEach(vendor => {
-      //       if (vendor.city_name && vendor.state_name) {
-      //         const key = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
-      //         if (!cityMap.has(key)) {
-      //           cityMap.set(key, {
-      //             city_name: vendor.city_name,
-      //             state_name: vendor.state_name,
-      //             city_id: vendor.city_id,
-      //             state_id: vendor.state_id
-      //           });
-      //         }
-      //       }
-      //     });
-      //     setAllAvailableCities(Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name)));
-      //   })
-      //   .catch((error) => console.error("Error fetching cities:", error));
-      
-      searchProductsV2(
-        {
-          cat_id: effectiveCatId,
-          search_key: canonicalSearchKey,
-          approved_by: selectedApprovedBy,
-          state: stateFilter,
-          city: cityFilter,
-          country: countryFilter,
-          turnOver,
-          vendorType: selectedVendorTypes,
-          prevWorkedWith,
-          vendor_name: vendorName,
-          myVendorType,
-          selectedMakes,
-          subscriptionType: selectedSubscription,
-        },
-        "vendors"
-      )
-        .then((rsp) => {
-          if (requestId !== vendorRequestIdRef.current) return;
-          setloading(false);
-          const vendors = rsp.data.map((item) => ({
-            ...item,
-            selected: bulkRFQVendors.some(vendor => vendor.id === item.id)
-          }));
-          setVendors(vendors);
-          setVendorMetaData(rsp);
-          currentSelectedProduct ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" }) : null;
-        })
-        .catch((error) => {
-          if (requestId !== vendorRequestIdRef.current) return;
-          setVendors([]);
-          setloading(false);
-          setVendorMetaData(error?.response?.data);
-        });
-    }
-  };
-  const getProducts = (s_key = search_key) => {
-    setloading(true);
+const getProducts = async (s_key = searchProduct.trim()) => {
+    setIsLoading(true);
     categoryLvlRef.current = new Map();
     return searchProductsV2(
       {
-        cat_id,
         search_key: s_key,
         vendor_name: vendorName,
-        is_private: is_private,
-        preferred_vendor: preferred_vendor,
-        // approved_by: selectedVbaa,
+        // is_private: is_private,
+        // preferred_vendor: preferred_vendor,
       },
       type
     )
       .then((rsp) => {
-        setloading(false);
+        setIsLoading(false);
         let d = rsp.data.map((item) => {
           item.selected = false;
           return item;
         });
-        setProducts(d);
         setSearchCategories(rsp.categoryData);
         // Only set currentSelectedProduct if this is not a "category result"
         // If rsp.isCategoryResult is true, do NOT set currentSelectedProduct
-        if (d.length > 0 && !rsp.isCategoryResult) {
-          setcurrentSelectedProduct(d[0]);
-        } else {
-          setcurrentSelectedProduct(null);
-        }
         return rsp;
       })
       .catch((error) => {
-        setloading(false);
+        setIsLoading(false);
         throw error;
       });
   };
 
   const getCategoriesById = (category_id, category_name) => {
-    setloading(true);
+    setIsLoading(true);
     categoryLvlRef.current.set(category_id, category_name);
 
     categoryListById({ category_id })
       .then((res) => {
         setProductsList(res.productList);
-        setcurrentSelectedProduct(null);
+        // Keep product selection ONLY if user is navigating categories without picking a product
+        // if (!currentSelectedProduct?.variant_id) {
+        //   setcurrentSelectedProduct(null);
+        // }
         setSearchSubCategories(res.subCategoryList);
         
         // Fetch vendors for this category
@@ -767,8 +876,8 @@ const addRfqIdParam = (rfq_id) => {
         console.error(error);
       })
       .finally(() => {
-        setloading(false);
-        setIsOpen(false);
+        setIsLoading(false);
+        setOpen({...open, input : false});
 
         // Get the rfq_id from the URL if it exists
         const { rfq_id, sheet_id } = router.query;
@@ -787,12 +896,12 @@ const addRfqIdParam = (rfq_id) => {
   
 
  const getParentCategories = () => {
-  setloading(true)
+  setIsLoading(true)
   parentCategoryList()
     .then((res) => {
       setCategories(res.data.parentCategories);
       setProductsList([]);
-      setloading(false)
+      setIsLoading(false)
       
       // ONLY redirect to /vendor/all if current path is exactly /vendor
       // and we don't have a specific product slug
@@ -800,23 +909,26 @@ const addRfqIdParam = (rfq_id) => {
       const isRootVendorPath = currentPath === '/vendor' || currentPath === '/vendor/';
       const hasSpecificSlug = slug && slug !== 'all';
       
-      if (isRootVendorPath && !hasSpecificSlug) {
+      if (!hasRedirected.current && isRootVendorPath && !hasSpecificSlug) {
+        hasRedirected.current = true;
+        localStorage.removeItem("search-key");
+        setSearchKey(false);
         router.push("/vendor/all");
       }
       
-      setIsOpen(false);
+      setOpen({ ...open, input: false });
     })
     .catch((error) => {
-      setloading(false)
+      setIsLoading(false)
       console.error("Error fetching categories:", error);
     });
 };
 
   const getCategories = () => {
-    setcatloading(true);
+    // setcatloading(true);
     categoryList()
       .then((rsp) => {
-        setcatloading(false);
+        // setcatloading(false);
         let options = [];
         let parentOptions = [];
         rsp.data.map((item) => {
@@ -829,31 +941,18 @@ const addRfqIdParam = (rfq_id) => {
         // setParentCategories(parentOptions);
       })
       .catch((error) => {
-        setcatloading(false);
+        // setcatloading(false);
       });
   };
-  useEffect(()=>{
-    getParentCategories();
-  },[])
 
   // Random products carousel logic extracted to RandomProductsCarousel component
   const getVendorApprovedby = () => {
-    // For product-level categories, we might not have a variant_id
-    // Only fetch if we have a variant_id
-    if (!currentSelectedProduct?.variant_id) {
-      setApproved_by([]);
-      return;
-    }
-    
-    setvabloading(true);
-  
-    vendorApproveList(currentSelectedProduct.variant_id)
+    vendorApproveList(currentSelectedProduct?.variant_id)
       .then((rsp) => {
-        setvabloading(false);
-        setApproved_by(rsp.data);
+        setApprovedByList(rsp.data);
       })
       .catch((error) => {
-        setvabloading(false);
+        toast.error("Can't get the Approved List!");
         // Optionally handle the error here (e.g., show a toast)
       });
   };
@@ -862,7 +961,12 @@ const clearVendorFilters = () => {
   setMyVendorType(null);
 };
 
-
+const getVendorTypeList = () => {
+  vendorTypes()
+  .then((res)=>{
+    setVendorTypeList(res.data)
+  })
+}
 
   // get product make list for filters
   const getMakeList = (variant_id) => {
@@ -876,41 +980,22 @@ const clearVendorFilters = () => {
     });
 };
 
-  // Debounced suggestion fetcher
-  const debouncedFetchSuggestions = useRef(
-    debounce(async (val) => {
-      setSuggestionLoading(true);
-      // Lightweight API call for product name suggestions (not full search)
-      // You may want to replace this with a dedicated endpoint if available
-      try {
-        const rsp = await searchProductsV2({ search_key: val }, type);
-        setSuggestions(rsp.data || []);
-        setSearchCategories(rsp.categoryData || []); // Also set category data
-      } catch (e) {
-        setSuggestions([]);
-        setSearchCategories([]); // Clear categories on error
-      } finally {
-        setSuggestionLoading(false);
-      }
-    }, 300)
-  ).current;
-
+  // Handle search input changes
   const handleSearchChange = (e) => {
-    const val = e.target.value;
-    setInputValue(val);
-    setIsOpen(!!val);
+  const val = e.target.value;
+  setSearchProduct(val);                    // User is typing → update input instantly
+
+  // Fetch suggestions only if length > 2
+  if (val.length > 2) {
+    debouncedFetchSuggestions(val);
+    setOpen({ ...open, input: true });     // Show dropdown
+  } else {
+    debouncedFetchSuggestions.cancel();
     setSuggestions([]);
-    setSearchCategories([]); // Also clear category data
-    if (val.length > 2) {
-      debouncedFetchSuggestions(val);
-    } else {
-      debouncedFetchSuggestions.cancel();
-    }
-  };
-  const handleSearch = (e) => {
-    e.preventDefault();
-    getProducts();
-  };
+    setSearchCategories([]);
+  }
+};
+
   const handleBulkAllSelect = (e, items) => {
     if (!isLoggedIn) return setOpenAuthModal(true);
 
@@ -933,193 +1018,99 @@ const clearVendorFilters = () => {
     }
   };
 
-  const handleAutocompleteClick = (item) => {
-    setIsOpen(false);
-    // Check if the clicked product is already selected
-    if (item.variant_name === currentSelectedProduct?.variant_name) return;
+ const handleAutocompleteClick = (item) => {
+  setOpen(prev => ({ ...prev, input: false }));
+  setVendorFirstSearch(false);
 
-    // Set the search key and update the selected product
-    getMakeList(item?.variant_id)
-    const productName = item.variant_name || item.product_name || '';
-    setSearch_key(productName);
-    setCat_id(item.category_id);
-    setcurrentSelectedProduct(item);
-    setbulkRFQVendors([]);
-    getVendorApprovedby();
+  const displayName = item.variant_name || item.product_name || "";
 
-    tempProdRef.current = null;
-
-    // Get the rfq_id from the URL if it exists
-    const { rfq_id, sheet_id } = router.query;
-
-    // Update the URL to include the selected product's slug and preserve rfq_id if it exists
-    const productSlug = item.slug || cleanAndAddHyphen(productName);
-    const newUrl = rfq_id && sheet_id
-      ? `/vendor/${productSlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}`
-      : rfq_id && !sheet_id ? `/vendor/${productSlug}?rfq_id=${rfq_id}` 
-      : `/vendor/${productSlug}`;
-
-    router.push(newUrl);
-    storageInstance.setStorage("product_name", productSlug);
-  };
-
-
-  // --- Location lists for dropdowns ---
-  const [countryList, setCountryList] = useState([]);
-  const [stateList, setStateList] = useState([]);
-  const [cityList, setCityList] = useState([]);
-
-  // Fetch country/state/city lists for dropdowns (unchanged)
-  useEffect(() => { getCountries().then(res => setCountryList(res.data || [])); }, []);
-  useEffect(() => { getStates().then(res => setStateList(res.data || [])); }, []);
-  useEffect(() => { getCities().then(res => setCityList(res.data || [])); }, []);
-
-  useEffect(() => {
-    let slugValue = Array.isArray(slug) ? slug.join('/') : typeof slug === 'string' ? slug : '';
-    if (!slugValue || slugValue === 'all') {
-      setselectedState([]);
-      setselectedCity([]);
-      setselectedCountry([]);
-      return;
-    }
-
-    const slugForParsing = removeCategorySuffix(slugValue);
-
-    if (!stateList.length || !cityList.length) {
-      setSearch_key(slugForParsing);
-      return;
-    }
-
-    const normalize = (s) => (s || '').toLowerCase().replace(/[\s-]+/g, '');
-    const segments = slugForParsing.split('-');
-    let foundState = null, foundCity = null, productSegments = [];
-
-    // Parse from right to left to find state and city
-    for (let i = segments.length - 1; i >= 0; i--) {
-      const segment = normalize(segments[i]);
-      
-      if (!foundState) {
-        const stateMatch = stateList.find(state => normalize(state.state_name) === segment);
-        if (stateMatch) { 
-          foundState = stateMatch;
-          continue; 
-        }
-      }
-      
-      if (!foundCity && foundState) {
-        const cityMatch = cityList.find(city => 
-          normalize(city.city_name) === segment && city.state_id === foundState.id
-        );
-        if (cityMatch) { 
-          foundCity = cityMatch;
-          continue; 
-        }
-      }
-      
-      productSegments.unshift(segments[i]);
-    }
-    
-    // Set state after parsing to avoid flickering
-    if (foundState) {
-      setselectedState([{ id: foundState.id, name: foundState.state_name }]);
-      const country = countryList.find(c => c.id === foundState.country_id);
-      if (country) setselectedCountry([{ id: country.id, name: country.country_name }]);
-    } else {
-      setselectedState([]);
-      setselectedCountry([]);
-    }
-    
-    if (foundCity) {
-      setselectedCity([{ id: foundCity.id, name: foundCity.city_name }]);
-    } else {
-      setselectedCity([]);
-    }
-    
-    const finalSearchKey = productSegments.join('-').replace(/-/g, ' ');
-    if (finalSearchKey) {
-      setSearch_key(finalSearchKey);
-    }
-  }, [slug, stateList, cityList, countryList]);
-
-  // When slug changes (including 'all'), fetch nested categories.
-  // Nested category handling delegated to NestedCategoryBrowser
-
-  // --- Trigger product search automatically ---
-// ✅ Add a ref to track if products were already loaded
-const productsLoadedRef = useRef(false);
-
-useEffect(() => {
-  if (
-    search_key &&
-    // slugStr &&
-    // slugStr !== 'all' &&
-    // !slugStr.includes('-category') &&
-    !currentSelectedProduct &&
-    !productsLoadedRef.current
-  ) {
-    productsLoadedRef.current = true;
-    getProducts(search_key).finally(() => {
-      setTimeout(() => {
-        productsLoadedRef.current = false;
-      }, 1000);
-    });
+  if (!displayName) {
+    toast.error("Invalid product selected");
+    return;
   }
-}, [search_key, slugStr, currentSelectedProduct]);
 
-
-useEffect(() => {
-  if (slugStr === 'all') {
-    productsLoadedRef.current = false;
+  // Store the name and varient_id in Localstorage for future vendor & Product-Make list.
+  const store = {
+    name : displayName,
+    variant_id : item.variant_id || null
   }
-}, [slugStr]);
+  // Save via storageInstance
+  storageInstance.setStorageObj("search-key", JSON.stringify(store));
 
+  setVendorName("");
+  setSelectedMakes([]);
+  setSelectedVendorTypes([]);
+  setSelectedApprovedBy([]);
+  setPrevWorkedWith(null);
+  setMyVendorType(null);
+  setTurnOver({ from: -1, to: -1 });
+  clearLocationFilter();
 
- useEffect(() => {
-  if (!currentSelectedProduct) return;
-  if (!selectedCity.length || !selectedState.length) return;
+  const baseSlug = item.slug || cleanAndAddHyphen(displayName);
 
-  // Build new slug
-  const baseSlug = stripLocationSuffix(
-    currentSelectedProduct.slug ||
-    cleanAndAddHyphen(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || "")
-  );
+  let locationSuffix = "";
 
-  const newSlug = `${baseSlug}-${createLocationSlug(selectedCity[0].name)}-${createLocationSlug(selectedState[0].name)}`;
+if (address.selectedCity || address.selectedState) {
+  const parts = [];
 
-  // If slug already matches, do nothing
-  if (slugStr === newSlug) return;
+  if (address.selectedCity?.name) {
+    parts.push(createLocationSlug(address.selectedCity.name));
+  }
 
-  // Prevent loops
-  if (router.asPath.includes(newSlug)) return;
+  if (address.selectedState?.name) {
+    parts.push(createLocationSlug(address.selectedState.name));
+  }
 
-if (slugStr !== newSlug) {
-  router.replace(`/vendor/${newSlug}`, undefined, { shallow: true });
+  locationSuffix = parts.length ? `-${parts.join("-")}` : "";
 }
 
-}, [selectedCity, selectedState]);
 
+  const newSlug = `${baseSlug}${locationSuffix}`;
 
-  const clearLocationFilter = () => {
-    setselectedState([]);
-    setselectedCity([]);
-    setselectedCountry([]);
-    if (currentSelectedProduct) {
-      const baseSlug = stripLocationSuffix(
-        currentSelectedProduct.slug ||
-          cleanAndAddHyphen(
-            currentSelectedProduct.variant_name || currentSelectedProduct.product_name || ""
-          )
-      );
-      const { rfq_id, sheet_id } = router.query;
-      const queryStr = rfq_id && sheet_id ? `?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id ? `?rfq_id=${rfq_id}` : '';
-      router.replace(`/vendor/${baseSlug}${queryStr}`, undefined, { shallow: true });
-    }
+  const { rfq_id, sheet_id } = router.query;
+
+  router.push(
+    {
+      pathname: `/vendor/${newSlug}`,
+      query: {
+        ...(rfq_id && { rfq_id }),
+        ...(sheet_id && { sheet_id }),
+      },
+    },
+    undefined,
+    { shallow: false }
+  );
+};
+
+const clearLocationFilter = () => {
+  setAddress({
+    selectedCountry: null,
+    selectedState: [],
+    selectedCity: [],
+    countryList: address.countryList,
+    stateList: [],
+    cityList: []
+  });
+
+  setLocationResetKey(prev => prev + 1); // 🔥 triggers reset in child
+
+    // if (currentSelectedProduct) {
+    //   const baseSlug = stripLocationSuffix(
+    //     currentSelectedProduct.slug ||
+    //       cleanAndAddHyphen(
+    //         currentSelectedProduct.variant_name || currentSelectedProduct.product_name || ""
+    //       )
+    //   );
+    //   const { rfq_id, sheet_id } = router.query;
+    //   const queryStr = rfq_id && sheet_id ? `?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id ? `?rfq_id=${rfq_id}` : '';
+    //   router.replace(`/vendor/${baseSlug}${queryStr}`, undefined, { shallow: true });
+    // }
   };
 
   // --- Search bar: always editable ---
   const getProductTitle = () => {
     if (currentSelectedProduct) {
-      const title = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '';
+      const title = currentSelectedProduct.name || null;
       return title;
     }
     return '';
@@ -1128,14 +1119,14 @@ if (slugStr !== newSlug) {
   const buildCityListFromVendors = (vendorsList = []) => {
     const cityMap = new Map();
     vendorsList.forEach(vendor => {
-      if (vendor.city_name && vendor.state_name) {
-        const cityKey = `${vendor.city_name.toLowerCase()}-${vendor.state_name.toLowerCase()}`;
+        if(!!vendor?.location?.length && vendor?.location[0]?.city_name && vendor.location[0]?.state_name) {
+        const cityKey = `${vendor.location[0]?.city_name.toLowerCase()}-${vendor.location[0]?.state_name.toLowerCase()}`;
         if (!cityMap.has(cityKey)) {
           cityMap.set(cityKey, {
-            city_name: vendor.city_name,
-            state_name: vendor.state_name,
-            city_id: vendor.city_id,
-            state_id: vendor.state_id
+            city_name: vendor.location[0]?.city_name,
+            city_id: vendor.location[0]?.city_id,
+            state_name: vendor.location[0]?.state_name,
+            state_id: vendor.location[0]?.state_id
           });
         }
       }
@@ -1168,38 +1159,18 @@ if (slugStr !== newSlug) {
         page: 1,
         limit: 20
       });
-      const cities = buildCityListFromVendors(response?.data || []);
-      categoryCityCacheRef.current.set(categoryId, cities);
+
+      setVendorFirstSearch(true);
+      setVendors(response?.data);
+      setcurrentSelectedProduct({category_id : categoryId});
+      const cities = buildCityListFromVendors(vendorsWithSelected);
       setAllAvailableCities(cities);
+      setVendorFirstSearch(true);
     } catch (error) {
       console.error("Error preloading category cities:", error);
     } finally {
       categoryCityFetchRef.current.delete(categoryId);
     }
-  };
-
-  const stripLocationSuffix = (slugValue) => {
-    if (!slugValue) return slugValue;
-    const parts = slugValue.split('-');
-    if (parts.length < 3) return slugValue;
-
-    const statePart = normalizeLocationValue(parts[parts.length - 1]);
-    const cityPart = normalizeLocationValue(parts[parts.length - 2]);
-
-    const matchedState = stateList.find(
-      (state) => normalizeLocationValue(state.state_name) === statePart
-    );
-    if (!matchedState) return slugValue;
-
-    const matchedCity = cityList.find(
-      (city) =>
-        city.state_id === matchedState.id &&
-        normalizeLocationValue(city.city_name) === cityPart
-    );
-
-    if (!matchedCity) return slugValue;
-
-    return parts.slice(0, -2).join('-');
   };
 
   const getCategoryTitle = () => {
@@ -1208,104 +1179,46 @@ if (slugStr !== newSlug) {
     return baseSlug.replace(/-/g, ' ');
   };
 
-  useEffect(() => {
-    if (!isCategorySlug || currentSelectedProduct) return;
-    const rawSlug = removeCategorySuffix(slugStr || '').replace(/-/g, ' ').trim();
-    const baseSlug = stripLocationSuffix(removeCategorySuffix(slugStr || '')).replace(/-/g, ' ').trim();
-    if (!baseSlug) return;
-
-    const shouldUpdateSearch =
-      !search_key ||
-      search_key.toLowerCase() === rawSlug.toLowerCase();
-
-    if (shouldUpdateSearch && search_key !== baseSlug) {
-      setSearch_key(baseSlug);
-    }
-
-    const shouldUpdateInput =
-      !inputValue ||
-      inputValue.toLowerCase() === rawSlug.toLowerCase();
-
-    if (shouldUpdateInput && inputValue !== baseSlug) {
-      setInputValue(baseSlug);
-    }
-  }, [
-    isCategorySlug,
-    slugStr,
-    currentSelectedProduct,
-    search_key,
-    inputValue,
-    stateList,
-    cityList,
-  ]);
-
-  useEffect(() => {
-    if (!isCategorySlug || currentSelectedProduct) return;
-    const targetCategoryId =
-      currentSelectedProduct?.category_id ??
-      cat_id ??
-      categoryIdFromSlug ??
-      null;
-    if (!targetCategoryId) return;
-    ensureCategoryCityList(targetCategoryId);
-  }, [
-    isCategorySlug,
-    currentSelectedProduct,
-    cat_id,
-    categoryIdFromSlug
-  ]);
-
-
-  const getLocationBaseSlug = () => {
+  const getLocationBaseSlug = (city) => {
     let baseSlug = "";
     if (currentSelectedProduct?.slug) baseSlug = currentSelectedProduct.slug;
     else if (isCategorySlug) baseSlug = slugStr || "";
-    else baseSlug = cleanAndAddHyphen(removeCategorySuffix(search_key || ""));
+    else {
+      const localObject = localStorage.getItem("search-key");
+    let search_key = '';
+    let variant_id = '';
+    if(localObject){
+      search_key = JSON.parse(localObject).name;
+      variant_id = JSON.parse(localObject).variant_id;
+    }
+      baseSlug = cleanAndAddHyphen(removeCategorySuffix(search_key || ""));}
     return stripLocationSuffix(baseSlug);
   };
 
-useEffect(() => {
-
-  const prev = prevFiltersRef.current;
-
-  // 🔥 Skip if filters did not change deeply
-  if (prev && JSON.stringify(prev) === JSON.stringify(filterSnapshot)) {
-    return;
+  const handleLoadMore = useCallback(() => {
+  if (!isLoadingMore && hasNextPage) {
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    // getVendors(null, null, nextPage);
   }
+  return Promise.resolve();
+}, [isLoadingMore, hasNextPage, currentPage]);
 
-  // Save new snapshot
-  prevFiltersRef.current = filterSnapshot;
-
-  // Finally call API
-  getVendors();
-
-}, [filterSnapshot]);
-
-
-
-  useEffect(() => {
-    // Update inputValue when a product is selected (after fetch or navigation)
-    if (currentSelectedProduct) {
-      setInputValue(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || "");
-    }
-  }, [currentSelectedProduct]);
-
-  useEffect(() => {
-    if ( search_key) {
-      setInputValue(search_key);
-    }
-  }, [search_key]);
+  // -----------------------------
+  // UI
+  // -----------------------------
 
   return (
     <>
+    {/* -----------------------------
+         HERO section with Generate RFQ button
+       ----------------------------- */}
       <section className="vendor-common-header sc-pt-80" aria-label="header">
         <div className="container-fluid  text-center">
           <SeoTitle
             slug={slug}
-            search_key={search_key}
             currentSelectedProduct={currentSelectedProduct}
-            selectedState={selectedState}
-            selectedCity={selectedCity}
+            address={address}
           />
           <div className="d-flex justify-content-end">
             <Link
@@ -1332,12 +1245,14 @@ useEffect(() => {
         </div>
       </section>
 
+      {/* -----------------------------
+         Search bar with Product Dropdown
+       ----------------------------- */}
       <section className="search-sec-1" aria-label="search-box">
         <div className="container-fluid product-search">
           <div className="row">
             <div className="col-md-12">
               <div className="vendor-mngt-con">
-                <form onSubmit={handleSearch}>
                   <div className="row filter">
                     <div className="col-md-1"></div>
                     <div className="col-md-10 searchbox " ref={searchRef}>
@@ -1356,43 +1271,44 @@ useEffect(() => {
                         onChange={handleSearchChange}
                         onFocus={handleSearchChange}
                         autoComplete="off"
-                        value={inputValue}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            if (suggestions.length > 0) {
-                              handleAutocompleteClick(suggestions[0]);
-                            } else {
-                              getProducts(inputValue);
-                            }
-                          }
-                        }}
+                        value={searchProduct}
                       />
 
-                      {isOpen && (
+                    {/* Product Dropdown opens on typing */}
+                      {open.input && (
                         <div className="search_results_autocomplete">
                           {suggestionLoading && (
-                            <p>
+                            <div>
                               {" "}
                               <div
                                 className="spinner-border text-primary spinner-border-sm mr-4"
                                 role="status"
                               ></div>{" "}
                               Fetching..
-                            </p>
+                            </div>
                           )}
-                          {!suggestionLoading && inputValue === "" && (
+                          {!suggestionLoading && searchProduct === "" && (
                             <p className="mb-0">Start Typing Product Name...</p>
                           )}
                           {!suggestionLoading &&
-                            inputValue.length < 3 &&
-                            inputValue.length > 0 && (
+                            searchProduct.length < 3 &&
+                            searchProduct.length > 0 && (
                               <p className="mb-0">
                                 Please enter at least 3 characters...
                               </p>
                             )}
+                            {
+                            !suggestionLoading &&
+                            searchProduct !== "" &&
+                            searchProduct.length >= 3 &&
+                            suggestions.length == 0 && (
+                               <p className="mb-0">
+                                Nothing was Found!
+                              </p>
+                            )
+                            }
                           {!suggestionLoading &&
-                            inputValue !== "" &&
+                            searchProduct !== "" &&
                             (suggestions.length > 0 || searchCategories.length > 0) && (
                               <>
                                 <p
@@ -1402,15 +1318,16 @@ useEffect(() => {
                                   Select an option from dropdown
                                 </p>
                                 <div className="row">
+                                  {/* Product List Column */}
                                   <div className="col-7">
                                     <div className="container">
-                                      <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">
+                                      <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2 bg-black" >
                                         Product List
                                       </h2>
                                       <ul>
                                         {suggestions.map((item, index) => {
                                           return (
-                                                                                    <li
+                                        <li
                                           key={`mp_${index}`}
                                           className="ps-2"
                                           onClick={() =>
@@ -1443,6 +1360,7 @@ useEffect(() => {
                                       </ul>
                                     </div>
                                   </div>
+                                  {/* Category List Column */}
                                   <div className="col-5">
                                     <div className="container">
                                       <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">
@@ -1490,34 +1408,34 @@ useEffect(() => {
                             )}
                         </div>
                       )}
-                      {isOpen && (
+                      {open.input && (
                         <div
                           className="blur-overlay"
                           onClick={() => {
-                            setIsOpen(false);
+                            setOpen({ ...open, input: false });
                           }}
                         />
                       )}
                     </div>
                   </div>
-                </form>
               </div>
             </div>
           </div>
         </div>
       </section>
 
+       {/* -----------------------------
+         Vendor List with Filter Section
+       ----------------------------- */}
       <section className="search-sec-2" aria-label="product-categories-section">
         <div className="container-fluid">
           {/* Nested categories fetched dynamically from backend (now in NestedCategoryBrowser) */}
-          {showBrowser && (
-        <NestedCategoryBrowser
-          onGetProducts={getProducts}
-          onGetVendors={getVendors}
-          setSearchKey={setSearch_key}
-          onHide={() => setShowBrowser(false)} // ✅ Pass a callback to hide
-        />
-      )}
+          {showCategoryBrowser && 
+            <NestedCategoryBrowser
+              onGetProducts={getProducts}
+              onGetVendors={getVendors}
+            />}
+          
           {/* Search Categories Section */}
           {searchSubCategories.length > 0 && (
             <div className=" col-md-12 bg-white rounded-5 p-4">
@@ -1539,8 +1457,6 @@ useEffect(() => {
                                 categoryLvlRef.current = new Map(
                                   entries.slice(0, index + 1)
                                 );
-                                setVendors([]);
-                                setAllAvailableCities([]);
                                 getCategoriesById(category_id, category_name);
                               }}
                             >
@@ -1553,8 +1469,8 @@ useEffect(() => {
                         }
                       )}
                     </div>
-                    {loading && !currentSelectedProduct && <FullLoader />}
-                    {!loading &&
+                    {isLoading && !currentSelectedProduct && <FullLoader />}
+                    {!isLoading &&
                     searchSubCategories.length <= 1 &&
                     productsList.length == 0 ? (
                       <p className="text-center my-4">
@@ -1612,9 +1528,15 @@ useEffect(() => {
               </div>
             </div>
           )}
-
-          {/* vendor List Section */}
-         {vendorFirstSearch && (
+          
+ 
+          {/* Vendor List Section */}
+         {(!!currentSelectedProduct) &&
+         (
+          (isLoading && !vendorFirstSearch ) ? 
+         <FullLoader/>
+         :
+         vendorFirstSearch ? (
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {/* START : Filter side bar */}
 
@@ -1639,7 +1561,7 @@ useEffect(() => {
                   {/* END: Vender search by name */}
 
                   {/* START: product make filter */}
-                  {currentSelectedProduct && makeList?.length > 0 && (
+                  {makeList?.length > 0 && (
                     <div className="search-con-right-1">
                       <p className="fw-semibold mb-2 mt-3">Product Make</p>
                       <div>
@@ -1732,7 +1654,8 @@ useEffect(() => {
                         id="my_vendors_filter-filters-vendor_search_page"
                         value={myVendorType ? myVendorType.value : ""}
                         onChange={(e) => {
-                          if (!isLoggedIn) setOpenAuthModal(true);
+                          if (!isLoggedIn)
+                            setOpenAuthModal(true);
                           else {
                             const selected = optionVendors.find(
                               (option) => option.value === e.target.value
@@ -1824,9 +1747,8 @@ useEffect(() => {
                   {/* START: Location filter */}
                   <div className="search-con-right-1">
                     <p className="fw-semibold  mb-2">Location</p>
-                    {selectedCountry != 0 && (
-                      <Link
-                        href="#"
+                    {address.selectedCountry && (
+                      <p
                         className="clearFilter"
                         onClick={(e) => {
                           e.preventDefault();
@@ -1834,53 +1756,43 @@ useEffect(() => {
                         }}
                       >
                         <FontAwesomeIcon icon={faTimesCircle} /> clear
-                      </Link>
+                      </p>
                     )}
 
                     <div className="hasFullLoader">
                       <LocationFilter
-                        selectedCountry={selectedCountry}
-                        setselectedCountry={setselectedCountry}
-                        selectedState={selectedState}
-                        setselectedState={setselectedState}
-                        selectedCity={selectedCity}
-                        setselectedCity={setselectedCity}
-                        vendorMetaData={vendorMetaData}
+                        address={address}
+                        setAddress={setAddress}
+                        resetKey={locationResetKey}
                       />
                     </div>
                   </div>
                   {/* END: Location filter */}
 
                   {/* START: Vendor Type */}
-                  <div className="search-con-right-1">
+                 <div className="search-con-right-1">
                     <p className="fw-semibold mb-2">Vendor Type</p>
                     <div ref={vendorTypeRef} className="selection-dropdown">
+                      {/* Search Input */}
                       <input
                         type="text"
-                        onChange={(e) => {
-                          setInternalVendorTypes(
-                            vendorTypes.filter((type) => 
-                              type.value
-                                .toLowerCase()
-                                .includes(e.target.value.toLowerCase())
-                            )
-                          );
-                        }}
-                        placeholder="Select vendor types"
-                        onFocus={() => setVendorTypeOpen(true)}
+                        value={vendorTypeFilter} 
+                        onChange={(e) => setVendorTypeFilter(e.target.value)}
+                        onFocus={handleOpenVendorTypes}
+                        placeholder="Search vendor types..."
+                        className="mb-2"
                       />
+
+                      {/* Selected Tags */}
                       <div className="d-flex gap-2 flex-wrap mt-2">
                         {selectedVendorTypes.map((type) => (
-                          <div className="selected-country">
+                          <div key={type.value} className="selected-country">
                             {type.label}
                             <button
                               onClick={() => {
                                 if (!isLoggedIn) return setOpenAuthModal(true);
-
-                                setSelectedVendorTypes((prev) =>
-                                  prev.filter(
-                                    (_type) => !(_type.value == type.value)
-                                  )
+                                setSelectedVendorTypes(prev =>
+                                  prev.filter(t => t.value !== type.value)
                                 );
                               }}
                             >
@@ -1889,34 +1801,42 @@ useEffect(() => {
                           </div>
                         ))}
                       </div>
-                      {vendorTypeOpen && (
-                        <ul
-                          className="dropdown"
-                          style={{
-                            maxWidth: 315,
-                          }}
-                        >
-                          {internalVendorTypes &&
-                          internalVendorTypes.length > 0 ? (
-                            internalVendorTypes.map((type) => (
+
+                      {/* Dropdown with Live Search */}
+                      {open.vendorType && (
+                        <ul className="dropdown" style={{ maxWidth: 315, maxHeight: 200, overflowY: "auto" }}>
+                          {availableVendorTypes
+                            .filter(type =>
+                              type.label.toLowerCase().includes(vendorTypeFilter.toLowerCase())
+                            )
+                            .map((type) => (
                               <li
                                 key={type.value}
                                 onClick={() => {
                                   if (!isLoggedIn) return setOpenAuthModal(true);
 
-                                  setSelectedVendorTypes((prev) => [
-                                    ...prev,
-                                    type,
-                                  ]);
-                                  setVendorTypeOpen(false);
+                                  // Prevent duplicates
+                                  if (selectedVendorTypes.some(t => t.value === type.value)) return;
+
+                                  setSelectedVendorTypes(prev => [...prev, type]);
                                 }}
-                                className="dropdown-item"
+                                style={{
+                                  fontWeight: selectedVendorTypes.some(t => t.value === type.value)
+                                    ? "bold"
+                                    : "normal",
+                                  color: selectedVendorTypes.some(t => t.value === type.value)
+                                    ? "var(--primary-color)"
+                                    : "inherit"
+                                }}
                               >
                                 {type.label}
                               </li>
-                            ))
-                          ) : (
-                            <li className="dropdown-item">No results found</li>
+                            ))}
+
+                          {availableVendorTypes.filter(type =>
+                            type.label.toLowerCase().includes(vendorTypeFilter.toLowerCase())
+                          ).length === 0 && (
+                            <li className="text-muted text-center">No vendor types found</li>
                           )}
                         </ul>
                       )}
@@ -1954,7 +1874,7 @@ useEffect(() => {
                           href="#"
                           onClick={(e) => {
                             e.preventDefault();
-                            setPrevWorkedWith("");
+                            setPrevWorkedWith(null);
                           }}
                         >
                           <FontAwesomeIcon icon={faTimesCircle} /> clear
@@ -1965,7 +1885,7 @@ useEffect(() => {
                   {/* END: Previously Worked With */}
 
                   {/* START: Vendor Approved By */}
-                  {currentSelectedProduct && (
+                  {(currentSelectedProduct || !!vendors.length) && (
                     <div className="search-con-right-1">
                       <p className="fw-semibold mb-2">Vendor Approved By</p>
                       <div
@@ -1973,20 +1893,13 @@ useEffect(() => {
                         className="selection-dropdown"
                       >
                         <input
-                          // ref={citySelectionRef}
                           type="text"
-                          onChange={(e) => {
-                            setInternalApprovedBy(
-                              approved_by.filter((_) =>
-                                _.vendor_approve
-                                  .toLowerCase()
-                                  .includes(e.target.value)
-                              )
-                            );
-                          }}
-                          placeholder="Select vendor types"
-                          onFocus={() => setApprovedByOpen(true)}
+                          value={approvedByFilter}
+                          onChange={(e) => setApprovedByFilter( e.target.value)}
+                          placeholder="Search Approved Vendors"
+                          onFocus={handleOpenApprovedBy}
                         />
+                        {/* Selected tags */}
                         <div className="d-flex gap-2 flex-wrap mt-2">
                           {selectedApprovedBy.map((approvedBy) => (
                             <div className="selected-country">
@@ -2006,43 +1919,46 @@ useEffect(() => {
                             </div>
                           ))}
                         </div>
-                        {approvedByOpen && (
-                          <ul
-                            className="dropdown"
-                            style={{
-                              maxWidth: 315,
-                            }}
-                          >
-                            {internalApprovedBy.length > 0 ? (
-                              internalApprovedBy
-                                .filter((item) => {
-                                  return (
-                                    item.show_in_website == 1 &&
-                                    item.vendor_approve &&
-                                    item.vendor_approve != "null"
-                                  );
-                                })
-                                .map((approveBy) => (
+
+                        {/* Dropdown — LIVE FILTER + EXCLUDE SELECTED */}
+                        {open.approvedBy && (
+                            <ul className="dropdown" style={{ maxWidth: 315 }}>
+                              {(() => {
+                                const filteredList = availableApprovedBy.filter(item =>
+                                  item.vendor_approve &&
+                                  item.vendor_approve.toLowerCase().includes(approvedByFilter.toLowerCase())
+                                );
+
+                                // Case 1 — NOTHING matches search text
+                                if (filteredList.length === 0) {
+                                  return <li className="text-muted text-center">Nothing was found</li>;
+                                }
+
+                                // Case 2 — All matches are already selected
+                                const unselectedList = filteredList.filter(
+                                  item => !selectedApprovedBy.some(sel => sel.id === item.id)
+                                );
+
+                                if (unselectedList.length === 0) {
+                                  return <li className="text-muted text-center">Already added</li>;
+                                }
+
+                                // Case 3 — Normal: Show unselected items
+                                return unselectedList.map(approveBy => (
                                   <li
                                     key={approveBy.id}
                                     onClick={() => {
                                       if (!isLoggedIn) return setOpenAuthModal(true);
-                                      setSelectedApprovedBy((prev) => [
-                                        ...prev,
-                                        approveBy,
-                                      ]);
-                                      setApprovedByOpen(false);
+                                      setSelectedApprovedBy(prev => [...prev, approveBy]);
                                     }}
-                                    className="dropdown-item"
                                   >
                                     {approveBy.vendor_approve}
                                   </li>
-                                ))
-                            ) : (
-                              <li className="dropdown-item">No results found</li>
-                            )}
-                          </ul>
-                        )}
+                                ));
+                              })()}
+                            </ul>
+                          )}
+
                       </div>
                     </div>
                   )}
@@ -2051,13 +1967,15 @@ useEffect(() => {
             </div>  
             {/* END: Filter side bar */}
 
-        {loading && <p className=" col-md-9 text-center ">  <FullLoader /> </p>}
+        {isLoading && vendorFirstSearch && <div className=" col-md-9 text-center ">  <FullLoader /> </div>} 
 
-                {!loading && vendors.length == 0 && (
+                 {!isLoading && vendorFirstSearch && vendors.length === 0 && (
                     <div className=" col-md-9">
-                      <h2 className="fs-5 text-center">
-                        <b>Vendors Not Found</b>
-                      </h2>
+                            <h2 className="fs-5 text-center text-muted">
+                              <b>No Vendors Found</b>
+                              <br />
+                              <small>Try adjusting filters or searching for a vendor name</small>
+                            </h2>
                     </div>
                   )
                 }
@@ -2065,24 +1983,27 @@ useEffect(() => {
 
 
             {/* START:  vendor list*/}
-            <div className={vendors && vendors.length > 0 ? `col-md-9` : `col-md-12`}>
+            {
+            !isLoading && !!vendors.length &&
+            <div className={vendors && !!vendors.length ? `col-md-9` : `col-md-12`}>
             
               <div className="row">
-                { !loading && vendors && vendors.length > 0 && (
+                { !isLoading && !!vendors?.length && (
                   <div className="col-md-12">
                     <h2 className="fs-5">
                       Available Vendors for{" "}
                       <span style={{ fontWeight: "500" }}>
-                        {currentSelectedProduct
+                        {currentSelectedProduct?.name
                           ? getProductTitle()
                           : textCapitalize(getCategoryTitle())}
                       </span>
                     </h2>
 
-                    {currentSelectedProduct && (
-                    <div className="row search-sec-3-top">
-                      <div className="col-md-3">
-                        {vendors && vendors.length > 0 && (
+                    {vendors && !!vendors.length && (
+                      <div className="row search-sec-3-top">
+                        {
+                        !!currentSelectedProduct?.name &&
+                        <div className="col-md-3">
                           <label>
                             <input
                               type="checkbox"
@@ -2091,100 +2012,89 @@ useEffect(() => {
                             />
                             <span>Select all vendors</span>
                           </label>
-                        )}
-                      </div>
+                        </div>
+                        }
 
-                      <div className="col-md-9">
-                        <div className="actions">
-                          {/* Add Vendors to RFQ Button */}
-                          {bulkRFQVendors.length > 0 && (
-                            <Link
-                              id="add_vendors_to_rfq-vendor_actions-vendor_search_page"
-                              style={{ minWidth: "230px" }}
-                              href="#"
-                              className={`btn btn-primary ${
-                                isLoading ? "disabled" : ""
-                              }`}
-                              onClick={handleBulkAddToRFQ}
-                            >
-                              {isLoading
-                                ? "Adding..."
-                                : `Add ${bulkRFQVendors.length} Vendors To RFQ`}
-                            </Link>
-                          )}
+                        <div className={`col-md-9 ${!!currentSelectedProduct?.name ? '' : "w-100"}`}>
+                          <div className="actions">
+                            {bulkRFQVendors.length > 0 && !!currentSelectedProduct?.name && (
+                              <Link
+                                id="add_vendors_to_rfq-vendor_actions-vendor_search_page"
+                                style={{ minWidth: "230px" }}
+                                href="#"
+                                className={`btn btn-primary ${isLoading ? "disabled" : ""}`}
+                                onClick={handleBulkAddToRFQ}
+                              >
+                                {isLoading
+                                  ? "Adding..."
+                                  : `Add ${bulkRFQVendors.length} Vendors To RFQ`}
+                              </Link>
+                            )}
 
-                          {/* View Current RFQ Button (Always Renders) */}
-                          {!!vendorMetaData &&
-                            vendorMetaData.logged_In &&
-                            vendorMetaData.subscription && (
+                            {isLoggedIn && vendorMetaData?.subscription && (
                               <Link
                                 id="view_current_rfq-vendor_actions-vendor_search_page"
                                 href={
                                   !!queryMeta.rfq_id && queryMeta.rfq_id != null
-                                    ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${
-                                        queryMeta.rfq_id
-                                      }${
-                                        queryMeta.sheet_id
-                                          ? `&sheet_id=${queryMeta.sheet_id}`
-                                          : ""
+                                    ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${queryMeta.rfq_id}${
+                                        queryMeta.sheet_id ? `&sheet_id=${queryMeta.sheet_id}` : ""
                                       }`
                                     : "/dashboard/buyer/rfq-management?tab=draft-rfq"
                                 }
-                                className={`btn btn-primary ${
-                                  isLoading ? "disabled" : ""
-                                }`}
-                                role="button"
-                                aria-disabled={isLoading}
+                                className={`btn btn-primary ${isLoading ? "disabled" : ""}`}
                               >
                                 {!!queryMeta.rfq_id && queryMeta.rfq_id != null
                                   ? `View Current Draft`
                                   : "View My Drafts"}
                               </Link>
                             )}
+                          </div>
                         </div>
                       </div>
-                    </div>
                     )}
 
                     <hr />
 
-                    {loading && <FullLoader />}
+                    {isLoading && <FullLoader />}
 
                     <div className="search-sec-3-mdl hasFullLoader">
                       <div className="search-sec-3-mdl-con all-products-wrap hasFullLoader">
-                        {loading && <FullLoader />}
-                        {!loading &&
-                          vendors.length == 0 &&
-                          (debouncedVendorName ? (
-                            <a
-                              className="text-center pt-4"
-                              href="/dashboard/buyer/vendor-management/?newVendor=true"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              {`Add "${debouncedVendorName}" to your vendor list Immediately`}
-                            </a>
-                          ) : (
-                            <h2 className="fs-5">
-                              <b>No Vendors Found</b>
-                            </h2>
+                        {isLoading && <FullLoader />}
+                        <div 
+                          style={{ height: '800px', overflowY: 'auto' }}
+                          onScroll={(e) => {
+                            const { scrollTop, scrollHeight, clientHeight } = e.target;
+                            if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasNextPage && !isLoadingMore) {
+                              handleLoadMore();
+                            }
+                          }}
+                          className="search-sec-3-mdl-con all-products-wrap"
+                        >
+                          {vendors.map((item) => (
+                            <SearchItem
+                              key={item.id}
+                              type={"vendors"}
+                              data={item}
+                              vendorMetaData={vendorMetaData}
+                              setOpenAuthModal={setOpenAuthModal}
+                              addToRFQ={addToRFQ}
+                              selectedProduct={currentSelectedProduct}
+                              handleRemoveCurrentSelected={()=>{}}
+                              isLoggedIn={isLoggedIn}
+                            />
                           ))}
-                        {vendors &&
-                          vendors.map((item) => {
-                            return (
-                              <SearchItem
-                                type={"vendors"}
-                                data={item}
-                                vendorMetaData={vendorMetaData}
-                                setOpenAuthModal={setOpenAuthModal}
-                                addToRFQ={addToRFQ}
-                                isLoggedIn={isLoggedIn}
-                              />
-                            );
-                          })}
+                          {/* Need to stop loader when no vendor is left */}
+                          {/* {hasNextPage && (
+                            <div className="text-center py-4">
+                              <div className="spinner-border text-primary" role="status">
+                                <span className="visually-hidden">Loading more...</span>
+                              </div>
+                            </div>
+                          )} */}
+                        </div>
                       </div>
 
-                      {!loading &&
+                      {!isLoading &&
                         (!vendorMetaData?.logged_In ||
                           !vendorMetaData?.subscription) && (
                           <div className="container text-center my-4 ">
@@ -2211,26 +2121,34 @@ useEffect(() => {
                     </div>
                   </div>
                 )}
-
-                {/* {!currentSelectedProduct &&  && (
-                  <div className="col-md-12 hasblankpadding">
-                    <h2 className="fs-5 text-center">
-                      <b>Search & Select a product</b>
-                      <br /> to see the available vendors!
-                    </h2>
-                  </div>
-                )} */}
               </div>
             </div>
-            {/* END:  vendor list*/}
+            }
           </div>
+        )
+        :
+          (
+            <div className="text-center pt-4">
+              <p className="mb-3 text-muted">
+                No vendors found for "<strong>{searchProduct.trim().toUpperCase()}</strong>"
+              </p>
+              <a
+                className="btn btn-outline-primary"
+                href="/dashboard/buyer/vendor-management/?newVendor=true"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Add "{searchProduct.trim()}" to your vendor list now
+              </a>
+            </div>
+          )
         )}
         </div>
 
         {/* ------------- Auth Modal ------------- */}
         <LoginContainer
-          loading={loading}
-          setloading={setloading}
+          loading={isLoading}
+          setIsLoading={setIsLoading}
           openAuthModal={openAuthModal}
           setOpenAuthModal={setOpenAuthModal}
           activeAuthTab={activeAuthTab}
@@ -2243,24 +2161,38 @@ useEffect(() => {
         <RandomProductsCarousel className="" />
       </div>
 
-      {/* {allAvailableCities.length > 0 && vendors && vendors.length > 0 && (
+      {!!allAvailableCities?.length && (
         <div className="container my-4">
           <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
-            {currentSelectedProduct ? getProductTitle() : textCapitalize(getCategoryTitle())} Vendors by City
+            {currentSelectedProduct ? getProductTitle() : textCapitalize(getCategoryTitle())}{" "}
+            Vendors by City
           </h3>
-          <div className="row">
-            {allAvailableCities.map((city, index) => {
-              const productSlug = getLocationBaseSlug();
+
+          <div className="row g-3">
+            {allAvailableCities.map((city) => {
+              const productSlug = getLocationBaseSlug(city);
               const citySlug = createLocationSlug(city.city_name);
               const stateSlug = createLocationSlug(city.state_name);
-              const cityUrl = `/vendor/${productSlug}-${citySlug}-${stateSlug}`;
-              
+              const url = `/vendor/${[productSlug, citySlug, stateSlug]
+                .filter(Boolean)
+                .join('-')}`;
+
               return (
-                <div key={`city_${city.city_id || index}_${city.city_name}_${city.state_name}`} className="col-md-3 col-sm-4 col-6 mb-3">
+                <div key={`${city.city_name}-${city.state_name}`} className="col-md-3 col-sm-4 col-6">
                   <button
-                    className="btn btn-outline-primary w-100"
-                    onClick={() => router.push(cityUrl)}
-                    style={{ minHeight: '50px' }}
+                    className="btn btn-outline-primary w-100 text-capitalize"
+                    style={{ minHeight: "50px" }}
+                    onClick={() => {
+
+                      localStorage.setItem('location_filter_city', JSON.stringify({
+                        city_id: city.city_id,
+                        city_name: city.city_name,
+                        state_id: city.state_id,
+                        state_name: city.state_name
+                      }));
+
+                      router.push(url, undefined, { shallow: true });
+                    }}
                   >
                     {city.city_name}
                   </button>
@@ -2269,20 +2201,15 @@ useEffect(() => {
             })}
           </div>
         </div>
-      )} */}
+        )}
 
       <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
   Why Trust Us
 </h3>
 <SecurityFeatures />
-
 <FeatureSEOSection/>
-
-
-
     </>
   );
 };
 
 export default Search;
-

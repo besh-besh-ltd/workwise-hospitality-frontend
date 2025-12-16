@@ -11,7 +11,7 @@ const SearchItem = ({
   vendorMetaData,
   setOpenAuthModal,
   addToRFQ,
-  selectedProduct = false,
+  selectedProduct,
   handleRemoveCurrentSelected,
   isLoggedIn
 }) => {
@@ -22,19 +22,21 @@ const SearchItem = ({
     <>
       <div className={`list_item item-${type}`}>
         <div className="mdl-con-top">
-          {selectedProduct && <h2 className="fs-5">Selected Product</h2>}
-          {!selectedProduct && (
-            <label>
+          {/* {!!selectedProduct?.name && <h2 className="fs-5">Selected Product</h2>} */}
+          {!!selectedProduct?.name && (
+            <label className="cursor-pointer">
               <input
                 type="checkbox"
-                onClick={(e) => addToRFQ(e.target.checked, data)}
-                checked={data.selected}
+                checked={!!data.selected}           // always boolean
+                onChange={(e) => addToRFQ(e.target.checked, data)}
                 id={`select_vendor_${data.id}-vendor_card-vendor_search_page`}
               />
-              {type == "products"
-                ? <span>By {data?.user_detail[0]?.name}</span>
-                : <span>{`By ${vendorDisplayName}`}</span>
-              }
+              <span className="ms-2">
+                {type === "products"
+                  ? `By ${data?.user_detail?.[0]?.name || 'Unknown'}`
+                  : `By ${vendorDisplayName}`
+                }
+              </span>
             </label>
           )}
         </div>
@@ -45,7 +47,7 @@ const SearchItem = ({
               <span>You need to purchase subscription to view this vendor</span>
             </div>
           )}
-          {selectedProduct && (
+          {/* {!!selectedProduct?.name && (
             <button
               id={`remove_selected_${data?.id}-search_item`}
               onClick={() => handleRemoveCurrentSelected()}
@@ -53,7 +55,7 @@ const SearchItem = ({
             >
               <FontAwesomeIcon icon={faTimes} />{" "}
             </button>
-          )}
+          )} */}
           <div className="row">
             <div className="ps-5 col-md-9 ">
           <h4
@@ -91,29 +93,11 @@ const SearchItem = ({
               {type == "vendors" && (
                 <>
                   <div className="mdl-con-text">
-                    {Array.isArray(data.location) && data.location.length > 0 && (
+                    {data?.location?.length && data.location[0]?.city_name && data.location[0]?.state_name &&(
                       <p>
-                        <b>Location :</b>{" "}
-                        {[
-                          ...new Set(
-                            data.location.map((loc) => {
-                              const city = loc.city_name?.trim() ?? "";
-                              const state = loc.state_name?.trim() ?? "";
-                              const country = loc.country_name?.trim() ?? "";
-
-                              // If country is not India → include country
-                              if (country && country.toLowerCase() !== "india") {
-                                return [city, state, country].filter(Boolean).join(", ");
-                              }
-
-                              // Default: India → only city + state
-                              return [city, state].filter(Boolean).join(", ");
-                            })
-                          ),
-                        ].join(", ")}
+                        <b>Location :</b> {data.location[0]?.city_name ? `${data.location[0]?.city_name}, ${data.location[0]?.state_name}` : data.location[0]?.state_name ? data.location[0]?.state_name : ''}
                       </p>
                     )}
-
                     {data.about && (
                       <p className="truncate-text " style={{ maxHeight: "100px", WebkitLineClamp: 3 }}>
                         <b>About :</b> {data.about}
@@ -168,7 +152,7 @@ const SearchItem = ({
                 </>
               )}
             </div>
-            {!selectedProduct && (
+            {!selectedProduct?.name && (
               <div className="col-md-3 d-flex flex-column gap-3 my-auto pe-5">
                 <Link
                   href={`/vendor/vendor-profile?id=${data.id}`}
