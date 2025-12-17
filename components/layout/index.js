@@ -90,7 +90,37 @@ const Layout = (props) => {
   };
 
 
-  const isHotelVendorPage = router.pathname === '/hotel-vendor';
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const checkLoginStatus = () => {
+      const token = localStorage.getItem('token');
+      setIsLoggedIn(!!token);
+    };
+
+    checkLoginStatus();
+
+    const handleStorageChange = (e) => {
+      if (e.key === 'token' || e.key === null) {
+        checkLoginStatus();
+      }
+    };
+
+    const handleLoginEvent = () => {
+      checkLoginStatus();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('loginStatusChanged', handleLoginEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('loginStatusChanged', handleLoginEvent);
+    };
+  }, [router]);
+
+  const isStaticPage = router.pathname === '/hotel-vendor' || router.pathname === '/';
+  const shouldHideNavbarFooter = isStaticPage && !isLoggedIn;
 
   return (
     <>
@@ -101,10 +131,10 @@ const Layout = (props) => {
       </Head>
 
       <div className="min-vh-100 d-flex flex-column" onClick={handleContainerClick}>
-        {!isHotelVendorPage && <Header />}
+        {!shouldHideNavbarFooter && <Header />}
         {/* Home-only announcement bar just below navbar */}
         <main className="flex-grow-1 ">{props.children}</main>
-        {!isHotelVendorPage && <Footer />}
+        {!shouldHideNavbarFooter && <Footer />}
       </div>
     </>
   );

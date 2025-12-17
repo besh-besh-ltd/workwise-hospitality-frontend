@@ -21,7 +21,6 @@ import storageInstance from "@/utils/storageInstance";
 import { textCapitalize } from "@/utils/sharedFunctions";
 import { debounce } from "lodash";
 import { getCountries, getStates, getCities } from "@/services/cms";
-import { SecurityFeatures } from "@/pages/why-workwise/TrustSecurity";
 import NestedCategoryBrowser from "./NestedCategoryBrowser";
 import FeatureSEOSection from "./FeatureSEOsection";
 import {useAvailableOptions} from "@/utils/elementFunctions"
@@ -2210,7 +2209,6 @@ const clearLocationFilter = () => {
       <h3 className="fw-bold text-center text-uppercase my-4 text-primary">
   Why Trust Us
 </h3>
-<SecurityFeatures />
 <FeatureSEOSection/>
     </>
   );
