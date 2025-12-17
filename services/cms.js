@@ -121,10 +121,10 @@ export const getStates = (country_id) => {
 	});
 };
 
-export const getCities = (id) => {  
+export const getCities = (state_id) => {  
 	return new Promise(async (resolve, reject) => {
 		try {
-			let response = await axiosInstance.get(`general/cities/${id ? id : ""}`);
+			let response = await axiosInstance.get(`general/cities/${state_id ? state_id : ""}`);
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
