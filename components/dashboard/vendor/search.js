@@ -6,7 +6,7 @@ import {
   faPlus,
   faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
-import {  getProductMakeList, parentCategoryList, searchProductsV2, nestedCategoryData, getRandomProducts } from "@/services/products";
+import {  getProductMakeList, searchProductsV2 } from "@/services/products";
 import RandomProductsCarousel from '@/components/dashboard/vendor/RandomProductsCarousel';
 import SeoTitle from '@/components/dashboard/vendor/SeoTitle';
 import SearchItem from "@/components/search/searchItem";
@@ -24,6 +24,7 @@ import { getCountries, getStates, getCities } from "@/services/cms";
 import NestedCategoryBrowser from "./NestedCategoryBrowser";
 import FeatureSEOSection from "./FeatureSEOsection";
 import {useAvailableOptions} from "@/utils/elementFunctions"
+import { Button, Modal } from "react-bootstrap";
 
 export const vendorConditions = [
   {
@@ -58,7 +59,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   // Props and Library
   // -----------------------------
   const router = useRouter();
-  const { slug, s, loggedin } = router.query;
+  const { slug, s, loggedin, orderType } = router.query;
 
   // -----------------------------
   // useState Section
@@ -99,9 +100,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [selectedMakes, setSelectedMakes] = useState([]);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [allAvailableCities, setAllAvailableCities] = useState([]);
-  // const vendorRequestIdRef = useRef(0);
-  // const categoryCityCacheRef = useRef(new Map());
-  // const categoryCityFetchRef = useRef(new Set());
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -127,32 +125,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [hasNextPage, setHasNextPage] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-
-//   const filterSnapshot = useMemo(() => ({
-//   country: selectedCountry,
-//   state: selectedState,
-//   city: selectedCity,
-//   vendorTypes: selectedVendorTypes,
-//   approvedBy: selectedApprovedBy,
-//   makes: selectedMakes,
-//   prevWorkedWith,
-//   myVendorType,
-//   vendorName: debouncedVendorName,
-//   turnOver,
-//   subscriptionType: selectedSubscription,
-// }), [
-//   selectedCountry,
-//   selectedState,
-//   selectedCity,
-//   selectedVendorTypes,
-//   "value"
-//   );
-
-  const availableApprovedBy = useAvailableOptions(
-  approvedByList,
-  selectedApprovedBy,
-  "id"
-);
+  const [orderTypeValue, setOrderTypeValue] = useState('');
 
 const LIMIT = 20;
 
@@ -230,16 +203,6 @@ const slugStr = useMemo(() => {
 
   const isCategorySlug = useMemo(() => !!categoryIdFromSlug, [categoryIdFromSlug]);
 
-  // const topLevelCategoryIds = useMemo(
-  //   () => (categoriesLoaded ? categories.map((cat) => cat.id) : []),
-  //   [categoriesLoaded, categories]
-  // );
-
-  // const isTopLevelCategory = useMemo(() => {
-  //   if (!categoryIdFromSlug) return false;
-  //   if (!categoriesLoaded) return true;
-  //   return topLevelCategoryIds.includes(categoryIdFromSlug);
-  // }, [categoryIdFromSlug, topLevelCategoryIds, categoriesLoaded]);
 
   const showCategoryBrowser = useMemo(() => {
   // Show browser when:
@@ -309,6 +272,23 @@ const locationBaseSlug = useMemo(() => {
     }
   }, 300)
 ).current;
+
+
+const handleOrderTypeSelect = (type) => {
+  router.replace(
+    {
+      pathname: router.pathname,
+      query: {
+        ...router.query,
+        orderType: type,
+      },
+    },
+    undefined,
+    { shallow: true }
+  );
+
+  setOrderTypeValue(type);
+};
 
 
   // -----------------------------
@@ -528,14 +508,6 @@ useClickOutside(vendorTypeRef, () => setOpen({...open, vendorType : false}), ope
 useClickOutside(vendorApprovedByRef, () => setOpen({...open, approvedBy : false}), open.approvedBy);
 
 
-//some issue in this function, need to check again.
-const updateCitiesFromVendors = (vendorsList) => {
-  console.log("Updating cities from vendors list:", vendorsList); // Debug log
-  const cities = buildCityListFromVendors(vendorsList);
-  console.log("Updating cities:", cities); // Debug log
-  setAllAvailableCities(cities);
-};
-
 const handleRedirect = (e) => {
     if (!isLoggedIn)
       setOpenAuthModal(true);
@@ -616,6 +588,7 @@ const addRfqIdParam = (rfq_id) => {
       const { rfq_id, sheet_id } = queryMeta;
       
       const payload = {
+        is_tender: orderTypeValue === 'tender' ? 1 : 0, // options tender / rfq
         variant_id: currentSelectedProduct.variant_id,
         vendors: bulkRFQVendors.map(vendor => ({
           vendor_id: vendor.id
@@ -677,15 +650,6 @@ const addRfqIdParam = (rfq_id) => {
     return;
   }
 
-  // Preload city list for pure category pages
-  // if (effectiveCatId) {
-  //   ensureCategoryCityList(effectiveCatId);
-  // }
-
-  // const shouldUseCategoryVendors =
-  //   currentSelectedProduct?.category_id &&
-  //   effectiveCatId &&
-  //   (isCategorySlug || overrideCatId !== null);
 
   // ——————————————————————————————————
   // CASE 1: Pure category search (no product selected)
@@ -807,7 +771,6 @@ const addRfqIdParam = (rfq_id) => {
     const totalVendors = response?.total || 0;
     setHasNextPage((page * ITEMS_PER_PAGE) < totalVendors);
 
-    // updateCitiesFromVendors(vendorsWithSelected);
     setVendorMetaData(response);
 
     const cities = buildCityListFromVendors(vendorsWithSelected);
@@ -861,10 +824,6 @@ const getProducts = async (s_key = searchProduct.trim()) => {
     categoryListById({ category_id })
       .then((res) => {
         setProductsList(res.productList);
-        // Keep product selection ONLY if user is navigating categories without picking a product
-        // if (!currentSelectedProduct?.variant_id) {
-        //   setcurrentSelectedProduct(null);
-        // }
         setSearchSubCategories(res.subCategoryList);
         
         // Fetch vendors for this category
@@ -894,56 +853,6 @@ const getProducts = async (s_key = searchProduct.trim()) => {
       });
   };
   
-
- const getParentCategories = () => {
-  setIsLoading(true)
-  parentCategoryList()
-    .then((res) => {
-      setCategories(res.data.parentCategories);
-      setProductsList([]);
-      setIsLoading(false)
-      
-      // ONLY redirect to /vendor/all if current path is exactly /vendor
-      // and we don't have a specific product slug
-      const currentPath = router?.asPath || "";
-      const isRootVendorPath = currentPath === '/vendor' || currentPath === '/vendor/';
-      const hasSpecificSlug = slug && slug !== 'all';
-      
-      if (!hasRedirected.current && isRootVendorPath && !hasSpecificSlug) {
-        hasRedirected.current = true;
-        localStorage.removeItem("search-key");
-        setSearchKey(false);
-        router.push("/vendor/all");
-      }
-      
-      setOpen({ ...open, input: false });
-    })
-    .catch((error) => {
-      setIsLoading(false)
-      console.error("Error fetching categories:", error);
-    });
-};
-
-  const getCategories = () => {
-    // setcatloading(true);
-    categoryList()
-      .then((rsp) => {
-        // setcatloading(false);
-        let options = [];
-        let parentOptions = [];
-        rsp.data.map((item) => {
-          options.push({ value: item?.id, label: item?.title });
-          if (item.parent_id == 0) {
-            parentOptions.push({ value: item?.id, label: item?.title });
-          }
-        });
-        setCategories(rsp.data);
-        // setParentCategories(parentOptions);
-      })
-      .catch((error) => {
-        // setcatloading(false);
-      });
-  };
 
   // Random products carousel logic extracted to RandomProductsCarousel component
   const getVendorApprovedby = () => {
@@ -1094,17 +1003,6 @@ const clearLocationFilter = () => {
 
   setLocationResetKey(prev => prev + 1); // 🔥 triggers reset in child
 
-    // if (currentSelectedProduct) {
-    //   const baseSlug = stripLocationSuffix(
-    //     currentSelectedProduct.slug ||
-    //       cleanAndAddHyphen(
-    //         currentSelectedProduct.variant_name || currentSelectedProduct.product_name || ""
-    //       )
-    //   );
-    //   const { rfq_id, sheet_id } = router.query;
-    //   const queryStr = rfq_id && sheet_id ? `?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id ? `?rfq_id=${rfq_id}` : '';
-    //   router.replace(`/vendor/${baseSlug}${queryStr}`, undefined, { shallow: true });
-    // }
   };
 
   // --- Search bar: always editable ---
@@ -1134,44 +1032,6 @@ const clearLocationFilter = () => {
     return Array.from(cityMap.values()).sort((a, b) => a.city_name.localeCompare(b.city_name));
   };
 
-  const ensureCategoryCityList = async (categoryId) => {
-    if (!categoryId) return;
-    if (categoryCityCacheRef.current.has(categoryId)) {
-      setAllAvailableCities(categoryCityCacheRef.current.get(categoryId));
-      return;
-    }
-    if (categoryCityFetchRef.current.has(categoryId)) return;
-
-    categoryCityFetchRef.current.add(categoryId);
-    try {
-      const response = await bulkSearchVendorsByCategory({
-        category_id: categoryId,
-        approved_by_id: [],
-        state: [],
-        city: [],
-        country: [],
-        turnOver: { from: -1, to: -1 },
-        vendorType: [],
-        prevWorkedWith: null,
-        vendor_name: "",
-        myVendorType: null,
-        productMakes: [],
-        page: 1,
-        limit: 20
-      });
-
-      setVendorFirstSearch(true);
-      setVendors(response?.data);
-      setcurrentSelectedProduct({category_id : categoryId});
-      const cities = buildCityListFromVendors(vendorsWithSelected);
-      setAllAvailableCities(cities);
-      setVendorFirstSearch(true);
-    } catch (error) {
-      console.error("Error preloading category cities:", error);
-    } finally {
-      categoryCityFetchRef.current.delete(categoryId);
-    }
-  };
 
   const getCategoryTitle = () => {
     if (!slugStr) return '';
@@ -1210,6 +1070,58 @@ const clearLocationFilter = () => {
 
   return (
     <>
+
+
+{/* select order type modal - tender/rfq */}
+{ orderTypeValue === '' && (
+  <div
+    className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+    style={{
+      zIndex: 1055,
+      backgroundColor: "rgba(0,0,0,0.6)",
+    }}
+  >
+    <div
+      className="bg-white shadow-lg p-5 text-center"
+      style={{
+        width: "100%",
+        height: "100%",
+        maxWidth: "100%",
+        maxHeight: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div>
+        <h2 className="fw-bold mb-4">
+          Select Procurement Type
+        </h2>
+
+        <div className="d-flex gap-4 justify-content-center">
+          <button
+            className="btn btn-primary btn-lg px-5"
+            onClick={() => handleOrderTypeSelect("tender")}
+          >
+            Tender
+          </button>
+
+          <button
+            className="btn btn-outline-primary btn-lg px-5"
+            onClick={() => handleOrderTypeSelect("rfq")}
+          >
+            RFQ
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+
+
+
+
     {/* -----------------------------
          HERO section with Generate RFQ button
        ----------------------------- */}
@@ -1424,6 +1336,10 @@ const clearLocationFilter = () => {
         </div>
       </section>
 
+
+{/* display this section only for rfq */}
+ {orderType !== 'tender' && (
+  <>
        {/* -----------------------------
          Vendor List with Filter Section
        ----------------------------- */}
@@ -2086,14 +2002,6 @@ const clearLocationFilter = () => {
                               isLoggedIn={isLoggedIn}
                             />
                           ))}
-                          {/* Need to stop loader when no vendor is left */}
-                          {/* {hasNextPage && (
-                            <div className="text-center py-4">
-                              <div className="spinner-border text-primary" role="status">
-                                <span className="visually-hidden">Loading more...</span>
-                              </div>
-                            </div>
-                          )} */}
                         </div>
                       </div>
 
@@ -2210,6 +2118,10 @@ const clearLocationFilter = () => {
   Why Trust Us
 </h3>
 <FeatureSEOSection/>
+</> ) }
+
+
+  
     </>
   );
 };
