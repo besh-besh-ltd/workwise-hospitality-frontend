@@ -539,7 +539,7 @@ const Header = () => {
         if (!isMounted) return;
         const profile = response?.data;
         const hospitalityEnabled =
-          profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
+          profile?.is_hospitality == 1;
         setIsHospitalityCompany(!!hospitalityEnabled);
         if (!hospitalityEnabled) {
           setHospitalityContexts([]);
