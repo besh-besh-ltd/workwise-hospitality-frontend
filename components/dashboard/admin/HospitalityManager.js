@@ -143,6 +143,10 @@ const HospitalityManager = () => {
   const [hotelUserMappings, setHotelUserMappings] = useState({});
   const [isLoadingCompanyMappingList, setIsLoadingCompanyMappingList] = useState(false);
   const [hotelUserLoadingMap, setHotelUserLoadingMap] = useState({});
+  const [allProjectMappings, setAllProjectMappings] = useState([]);
+  const [userMappingFilter, setUserMappingFilter] = useState("all");
+  const [projectMappingFilter, setProjectMappingFilter] = useState("all");
+  const [projectMappingsData, setProjectMappingsData] = useState([]);
 
   const [activeTab, setActiveTab] = useState("hotels");
 
@@ -152,6 +156,46 @@ const HospitalityManager = () => {
   );
 
   const selectedCompanyHotels = hotels;
+
+  const filteredUserMappings = useMemo(() => {
+    if (userMappingFilter === "all") {
+      return companyUserMappings;
+    }
+    const filterType = userMappingFilter === "company" ? 0 : 1;
+    return companyUserMappings.filter((user) => user.mapping_type === filterType);
+  }, [companyUserMappings, userMappingFilter]);
+
+  const filteredProjectMappings = useMemo(() => {
+    if (projectMappingFilter === "all") {
+      return allProjectMappings;
+    }
+    const filterType = projectMappingFilter === "company" ? 0 : 1;
+    const filteredProjectIds = new Set(
+      projectMappingsData
+        .filter((mapping) => mapping.mapping_type === filterType)
+        .map((mapping) => mapping.project_id)
+    );
+    return allProjectMappings.filter((project) => filteredProjectIds.has(project.id));
+  }, [allProjectMappings, projectMappingsData, projectMappingFilter]);
+
+  const getProjectMappingInfo = (projectId) => {
+    const mappings = projectMappingsData.filter((mapping) => mapping.project_id === projectId);
+    if (mappings.length === 0) return null;
+    
+    // If filtering by specific type, show only that type
+    if (projectMappingFilter !== "all") {
+      const filterType = projectMappingFilter === "company" ? 0 : 1;
+      const filteredMappings = mappings.filter((m) => m.mapping_type === filterType);
+      return filteredMappings.length > 0 ? filteredMappings[0] : mappings[0];
+    }
+    
+    // If project is mapped at company level, show that (it has access to all hotels)
+    const companyMapping = mappings.find((m) => m.mapping_type === 0);
+    if (companyMapping) return companyMapping;
+    
+    // Otherwise, return the first hotel mapping
+    return mappings[0];
+  };
 
   const loadCompanies = async () => {
     try {
@@ -272,7 +316,8 @@ const HospitalityManager = () => {
     }
     try {
       setIsLoadingCompanyMappingList(true);
-      const response = await getCompanyUserMappings(selectedCompanyId, { mappingType: 0 });
+      // Fetch all user mappings (both company and hotel level)
+      const response = await getCompanyUserMappings(selectedCompanyId, {});
       const data = response?.data?.data || response?.data || [];
       setCompanyUserMappings(dedupeHospitalityMappings(data));
     } catch (error) {
@@ -280,6 +325,65 @@ const HospitalityManager = () => {
       setCompanyUserMappings([]);
     } finally {
       setIsLoadingCompanyMappingList(false);
+    }
+  };
+
+  const loadAllProjectMappings = async () => {
+    if (!selectedCompanyId) {
+      setAllProjectMappings([]);
+      setProjectMappingsData([]);
+      return;
+    }
+    try {
+      // Fetch company-level project mappings
+      const companyResponse = await getMappedProjectIds(selectedCompanyId, 0, null);
+      const companyProjectIds = companyResponse?.data?.data || companyResponse?.data || [];
+      
+      // Fetch hotel-level project mappings for all hotels
+      const hotelProjectPromises = hotels.map((hotel) =>
+        getMappedProjectIds(selectedCompanyId, 1, hotel.id)
+      );
+      const hotelResponses = await Promise.all(hotelProjectPromises);
+      
+      // Store mapping data with hotel info
+      const hotelMappingsData = [];
+      hotels.forEach((hotel, index) => {
+        const hotelProjectIds = hotelResponses[index]?.data?.data || hotelResponses[index]?.data || [];
+        hotelProjectIds.forEach((projectId) => {
+          hotelMappingsData.push({
+            project_id: projectId,
+            mapping_type: 1,
+            hotel_id: hotel.id,
+            hotel_name: hotel.name,
+          });
+        });
+      });
+      
+      const hotelProjectIds = hotelResponses.flatMap(
+        (response) => response?.data?.data || response?.data || []
+      );
+      
+      // Store company-level mappings
+      const companyMappingsData = companyProjectIds.map((projectId) => ({
+        project_id: projectId,
+        mapping_type: 0,
+        hotel_id: null,
+        hotel_name: null,
+      }));
+      
+      // Combine all mapping data
+      setProjectMappingsData([...companyMappingsData, ...hotelMappingsData]);
+      
+      // Combine and deduplicate project IDs
+      const allProjectIds = [...new Set([...companyProjectIds, ...hotelProjectIds])];
+      
+      // Get project details for mapped projects
+      const mappedProjects = projects.filter((project) => allProjectIds.includes(project.id));
+      setAllProjectMappings(mappedProjects);
+    } catch (error) {
+      console.error(error);
+      setAllProjectMappings([]);
+      setProjectMappingsData([]);
     }
   };
 
@@ -329,6 +433,7 @@ const HospitalityManager = () => {
       toast.success("Mapping removed");
       await loadMappedUserIds();
       await loadCompanyUserMappings();
+      await loadAllProjectMappings();
       if (mapping.mapping_type === 1 && mapping.hospitality_hotel_id) {
         await loadHotelUserMappings(mapping.hospitality_hotel_id);
       } else {
@@ -355,8 +460,16 @@ const HospitalityManager = () => {
       setProjectMappingForm(defaultProjectMappingForm);
       loadCompanyUserMappings();
       setHotelUserMappings({});
+      setUserMappingFilter("all");
+      setProjectMappingFilter("all");
     }
   }, [selectedCompanyId]);
+
+  useEffect(() => {
+    if (selectedCompanyId && hotels.length >= 0 && projects.length > 0) {
+      loadAllProjectMappings();
+    }
+  }, [selectedCompanyId, hotels, projects]);
 
   useEffect(() => {
     loadMappedUserIds();
@@ -549,6 +662,7 @@ const HospitalityManager = () => {
       setShowUserMappingModal(false);
       await loadMappedUserIds();
       await loadCompanyUserMappings();
+      await loadAllProjectMappings();
       if (mappingLevel === "hotel" && targetHotelId) {
         await loadHotelUserMappings(targetHotelId);
       } else {
@@ -592,6 +706,7 @@ const HospitalityManager = () => {
       setProjectMappingForm(defaultProjectMappingForm);
       setShowProjectMappingModal(false);
       await loadMappedProjectIds();
+      await loadAllProjectMappings();
     } catch (error) {
       console.error(error);
       toast.error(error?.message?.response?.data?.message || "Failed to map projects");
@@ -1604,7 +1719,7 @@ const HospitalityManager = () => {
                               <div>
                                 <div className="text-muted" style={{ fontSize: "12px" }}>Projects</div>
                                 <div className="fw-bold" style={{ fontSize: "24px", color: "#8b5cf6" }}>
-                                  {mappedProjectIds.length}
+                                  {allProjectMappings.length}
                                 </div>
                               </div>
                             </div>
@@ -1646,6 +1761,22 @@ const HospitalityManager = () => {
                       >
                         <i className="bi bi-people me-2"></i>
                         People ({companyUserMappings.length})
+                      </button>
+                    </li>
+                    <li className="nav-item">
+                      <button
+                        className={`nav-link px-4 ${activeTab === "projects" ? "active" : ""}`}
+                        onClick={() => setActiveTab("projects")}
+                        style={{
+                          border: "none",
+                          borderBottom: activeTab === "projects" ? "2px solid #158993" : "2px solid transparent",
+                          color: activeTab === "projects" ? "#158993" : "#6b7280",
+                          fontWeight: activeTab === "projects" ? 600 : 400,
+                          marginBottom: "-2px",
+                        }}
+                      >
+                        <i className="bi bi-folder me-2"></i>
+                        Projects ({allProjectMappings.length})
                       </button>
                     </li>
                   </ul>
@@ -1759,15 +1890,27 @@ const HospitalityManager = () => {
                           <h5 className="mb-0">People</h5>
                           <small className="text-muted">Users mapped at company level have access to all business units</small>
                         </div>
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-sm"
-                          onClick={() => setShowUserMappingModal(true)}
-                          style={{ backgroundColor: "#158993", borderColor: "#158993" }}
-                        >
-                          <i className="bi bi-plus-lg me-1"></i>
-                          Add Users
-                        </button>
+                        <div className="d-flex align-items-center gap-2">
+                          <select
+                            className="form-select form-select-sm"
+                            value={userMappingFilter}
+                            onChange={(e) => setUserMappingFilter(e.target.value)}
+                            style={{ width: "auto", minWidth: "150px" }}
+                          >
+                            <option value="all">All Mappings</option>
+                            <option value="company">Company Level</option>
+                            <option value="hotel">Business Unit Level</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => setShowUserMappingModal(true)}
+                            style={{ backgroundColor: "#158993", borderColor: "#158993" }}
+                          >
+                            <i className="bi bi-plus-lg me-1"></i>
+                            Add Users
+                          </button>
+                        </div>
                       </div>
                       <div className="card-body p-0">
                         {isLoadingCompanyMappingList ? (
@@ -1776,23 +1919,33 @@ const HospitalityManager = () => {
                               <span className="visually-hidden">Loading...</span>
                             </div>
                           </div>
-                        ) : companyUserMappings.length === 0 ? (
+                        ) : filteredUserMappings.length === 0 ? (
                           <div className="text-center py-5">
                             <div className="mb-3">
                               <i className="bi bi-people text-muted" style={{ fontSize: "48px" }}></i>
                             </div>
-                            <h6 className="text-muted">No people added yet</h6>
+                            <h6 className="text-muted">
+                              {userMappingFilter === "all"
+                                ? "No people added yet"
+                                : userMappingFilter === "company"
+                                ? "No company-level users found"
+                                : "No business unit-level users found"}
+                            </h6>
                             <p className="text-muted mb-3" style={{ fontSize: "14px" }}>
-                              Map users to give them access to this hospitality company and its business units
+                              {userMappingFilter === "all"
+                                ? "Map users to give them access to this hospitality company and its business units"
+                                : "Try changing the filter or map users at this level"}
                             </p>
-                            <button
-                              type="button"
-                              className="btn btn-outline-primary btn-sm"
-                              onClick={() => setShowUserMappingModal(true)}
-                            >
-                              <i className="bi bi-plus-lg me-1"></i>
-                              Add First User
-                            </button>
+                            {userMappingFilter === "all" && (
+                              <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm"
+                                onClick={() => setShowUserMappingModal(true)}
+                              >
+                                <i className="bi bi-plus-lg me-1"></i>
+                                Add First User
+                              </button>
+                            )}
                           </div>
                         ) : (
                           <div className="table-responsive">
@@ -1800,13 +1953,14 @@ const HospitalityManager = () => {
                               <thead style={{ backgroundColor: "#f9fafb" }}>
                                 <tr>
                                   <th className="border-0 py-3 ps-4">User</th>
+                                  <th className="border-0 py-3">Mapping Level</th>
                                   <th className="border-0 py-3">Auto Map Projects</th>
                                   <th className="border-0 py-3 text-end pe-4">Action</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {companyUserMappings.map((user) => (
-                                  <tr key={`${user.user_id}-company`}>
+                                {filteredUserMappings.map((user) => (
+                                  <tr key={`${user.user_id}-${user.mapping_type}-${user.hospitality_hotel_id || 'company'}`}>
                                     <td className="py-3 ps-4">
                                       <div className="d-flex align-items-center gap-3">
                                         <div
@@ -1825,6 +1979,18 @@ const HospitalityManager = () => {
                                           <small className="text-muted">{user.email || "No email"}</small>
                                         </div>
                                       </div>
+                                    </td>
+                                    <td className="py-3">
+                                      {user.mapping_type === 0 ? (
+                                        <span className="badge bg-primary">Company Level</span>
+                                      ) : (
+                                        <div className="d-flex flex-column gap-1">
+                                          <span className="badge bg-success">Business Unit Level</span>
+                                          {user.hotel_name && (
+                                            <small className="text-muted">{user.hotel_name}</small>
+                                          )}
+                                        </div>
+                                      )}
                                     </td>
                                     <td className="py-3">
                                       <span
@@ -1846,6 +2012,123 @@ const HospitalityManager = () => {
                                     </td>
                                   </tr>
                                 ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Projects Tab Content */}
+                  {activeTab === "projects" && (
+                    <div className="card buyer-card border-0 shadow-sm">
+                      <div className="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
+                        <div>
+                          <h5 className="mb-0">Mapped Projects</h5>
+                          <small className="text-muted">Projects mapped to this hospitality company and its business units</small>
+                        </div>
+                        <div className="d-flex align-items-center gap-2">
+                          <select
+                            className="form-select form-select-sm"
+                            value={projectMappingFilter}
+                            onChange={(e) => setProjectMappingFilter(e.target.value)}
+                            style={{ width: "auto", minWidth: "150px" }}
+                          >
+                            <option value="all">All Mappings</option>
+                            <option value="company">Company Level</option>
+                            <option value="hotel">Business Unit Level</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => setShowProjectMappingModal(true)}
+                            style={{ backgroundColor: "#158993", borderColor: "#158993" }}
+                          >
+                            <i className="bi bi-plus-lg me-1"></i>
+                            Map Projects
+                          </button>
+                        </div>
+                      </div>
+                      <div className="card-body p-0">
+                        {filteredProjectMappings.length === 0 ? (
+                          <div className="text-center py-5">
+                            <div className="mb-3">
+                              <i className="bi bi-folder text-muted" style={{ fontSize: "48px" }}></i>
+                            </div>
+                            <h6 className="text-muted">
+                              {projectMappingFilter === "all"
+                                ? "No projects mapped yet"
+                                : projectMappingFilter === "company"
+                                ? "No company-level projects found"
+                                : "No business unit-level projects found"}
+                            </h6>
+                            <p className="text-muted mb-3" style={{ fontSize: "14px" }}>
+                              {projectMappingFilter === "all"
+                                ? "Map projects to make them available to users in this hospitality company"
+                                : "Try changing the filter or map projects at this level"}
+                            </p>
+                            {projectMappingFilter === "all" && (
+                              <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm"
+                                onClick={() => setShowProjectMappingModal(true)}
+                              >
+                                <i className="bi bi-plus-lg me-1"></i>
+                                Map First Project
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="table-responsive">
+                            <table className="table table-hover mb-0">
+                              <thead style={{ backgroundColor: "#f9fafb" }}>
+                                <tr>
+                                  <th className="border-0 py-3 ps-4">Project Name</th>
+                                  <th className="border-0 py-3">Mapping Level</th>
+                                  <th className="border-0 py-3">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {filteredProjectMappings.map((project) => {
+                                  const projectMapping = getProjectMappingInfo(project.id);
+                                  return (
+                                    <tr key={project.id}>
+                                      <td className="py-3 ps-4">
+                                        <div className="fw-semibold">{project.name || "N/A"}</div>
+                                      </td>
+                                      <td className="py-3">
+                                        {projectMapping ? (
+                                          projectMapping.mapping_type === 0 ? (
+                                            <span className="badge bg-primary">Company Level</span>
+                                          ) : (
+                                            <div className="d-flex flex-column gap-1">
+                                              <span className="badge bg-success">Business Unit Level</span>
+                                              {projectMapping.hotel_name && (
+                                                <small className="text-muted">{projectMapping.hotel_name}</small>
+                                              )}
+                                            </div>
+                                          )
+                                        ) : (
+                                          <span className="text-muted">—</span>
+                                        )}
+                                      </td>
+                                      <td className="py-3">
+                                        <span
+                                          className={`badge ${
+                                            project.status === "Active"
+                                              ? "bg-success"
+                                              : project.status === "Completed"
+                                              ? "bg-info"
+                                              : "bg-secondary"
+                                          }`}
+                                        >
+                                          {project.status || "N/A"}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>
