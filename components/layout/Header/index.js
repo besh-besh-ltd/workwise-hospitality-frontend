@@ -59,18 +59,6 @@ const initialMainNavs = [
   "/work-with-us",
   "/work-with-us/TeamTimeline",
   "/work-with-us/careers",
-  "/who-we-serve",
-  "/who-we-serve/stakeholders",
-  "/who-we-serve/industries",
-  "/why-workwise",
-  "/why-workwise/TrustSecurity",
-  "/why-workwise/our-story",
-  "/why-workwise/success-stories",
-  "/earn-with-us",
-  "/earn-with-us/EarnWithUs",
-  "/pricing",
-  "/pricing/pilot",
-  "/pilot-project",
 ];
 
 const roleMenus = {
@@ -302,15 +290,6 @@ const websiteMenu = [
           { label: "Chemical", href: "/solutions/chemical" },
         ]
       },
-    ]
-  },
-  { 
-    label: "Why Workwise", 
-    type: "dropdown",
-    options: [
-      { label: "Customer Success Stories", href: "/why-workwise/success-stories" },
-      { label: "Trust & Security", href: "/why-workwise/TrustSecurity" },
-      { label: "Our Story", href: "/why-workwise/our-story" },
     ]
   },
   { 
@@ -676,10 +655,6 @@ const Header = () => {
               pathname?.startsWith("/ai-tools") ||
               pathname?.startsWith("/modules") ||
               pathname?.startsWith("/work-with-us") ||
-              pathname?.startsWith("/who-we-serve") ||
-              pathname?.startsWith("/why-workwise") ||
-              pathname?.startsWith("/earn-with-us") ||
-              pathname?.startsWith("/pricing") ||
               pathname?.startsWith("/blogs") ||
               pathname?.startsWith("/for-vendors") ||
               pathname?.startsWith("/contactus") ||
@@ -992,10 +967,6 @@ const Header = () => {
           pathname?.startsWith("/ai-tools") ||
           pathname?.startsWith("/modules") ||
           pathname?.startsWith("/work-with-us") ||
-          pathname?.startsWith("/who-we-serve") ||
-          pathname?.startsWith("/why-workwise") ||
-          pathname?.startsWith("/earn-with-us") ||
-          pathname?.startsWith("/pricing") ||
           pathname?.startsWith("/blogs") ||
           pathname?.startsWith("/for-vendors") ||
           pathname?.startsWith("/contactus") ||
@@ -1026,10 +997,6 @@ const Header = () => {
             pathname?.startsWith("/insights") ||
             pathname?.startsWith("/modules") ||
             pathname?.startsWith("/work-with-us") ||
-            pathname?.startsWith("/who-we-serve") ||
-            pathname?.startsWith("/why-workwise") ||
-            pathname?.startsWith("/earn-with-us") ||
-            pathname?.startsWith("/pricing") ||
             pathname?.startsWith("/blogs") ||
             pathname?.startsWith("/for-vendors") ||
             pathname?.startsWith("/contactus") ||

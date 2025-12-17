@@ -5,6 +5,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import RegisterUserModal from '../components/modal/RegisterUserModal';
 import SubscriptionModal from '../components/modal/SubscriptionModal';
 import AuthModal from '../components/modal/AuthModal';
+import LoginWithOtherDeviceModal from '../components/modal/LoginWithOtherDeviceModal';
 import {
   loadScript,
   testRazorPayEndpoint,
@@ -12,10 +13,14 @@ import {
 } from '../services/subscription';
 import storageInstance from '../utils/storageInstance';
 import { pricingData } from '../components/constants/pricingData';
+import { LoginService, SWSubscribe, handleSocialLogin } from '../services/Auth';
+import { useGoogleLogin } from '@react-oauth/google';
+import { useSelector } from 'react-redux';
 
 const HotelVendor = () => {
   const router = useRouter();
   const { register, login } = router.query;
+  const swSubscription = useSelector((data) => data.swSubscription);
 
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -29,6 +34,11 @@ const HotelVendor = () => {
   });
   const [appliedCouponData, setAppliedCouponData] = useState([]);
   const [couponCode, setCouponCode] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showOtherDeviceModal, setShowOtherDeviceModal] = useState(false);
+  const [loginWith, setLoginWith] = useState('');
 
   // Query param auto-open
   useEffect(() => {
@@ -227,6 +237,187 @@ const HotelVendor = () => {
     setShowRegisterModal(true);
   };
 
+  const loginSubmitHandler = (values, isFromOtherModal = false) => {
+    setLoading(true);
+    LoginService(values, isFromOtherModal)
+      .then((response) => {
+        setLoading(false);
+        if (response?.status === 5 && response?.hospitality_user) {
+          toast.warning('Payment required for hospitality vendors. Please complete the payment to activate your account.');
+          const payload = {
+            user_key: response.hospitality_user.user_key,
+            categories: response.hospitality_user.categories || [],
+            hotels: response.hospitality_user.hotels || [],
+          };
+          hospitalitySubscriptionPayment(payload)
+            .then(async (res) => {
+              if (res?.status) {
+                await payWithRazorPay(res?.data);
+                setShowLoginModal(false);
+              }
+            })
+            .catch((error) => {
+              toast.error(error?.response?.data?.message || 'Payment failed');
+            });
+          return;
+        }
+        if (response?.token) {
+          SWSubscribe({ subscription: swSubscription, token: response.token })
+            .catch(() => {});
+        }
+
+        const userDetail = response?.user_detail?.[0];
+        if (!userDetail) {
+          toast.error('Unable to fetch user details. Please try again.');
+          setLoading(false);
+          return;
+        }
+        let userType = '';
+        if (userDetail.user_type == 2) {
+          userType = 'buyer';
+        } else if (userDetail.user_type == 3) {
+          userType = 'vendor';
+        } else if (userDetail.user_type == 4) {
+          userType = 'other';
+        } else if (userDetail.user_type == 7) {
+          userType = 'admin';
+        } else if (userDetail.user_type == 8) {
+          userType = 'management';
+        } else if (userDetail.user_type == 9) {
+          userType = 'engineering';
+        } else if (userDetail.user_type == 10) {
+          userType = 'finance';
+        }
+        
+        if (!userType) {
+          toast.error('Unknown user type. Please contact support.');
+          setLoading(false);
+          return;
+        }
+        
+        storageInstance.setStorage('current-user-type', userType);
+        setShowLoginModal(false);
+        
+        toast.success(response.message, {
+          position: 'top-right',
+        });
+        
+        window.dispatchEvent(new Event('loginStatusChanged'));
+        
+        setTimeout(() => {
+          window.location.href = `/dashboard/${userType}`;
+        }, 300);
+      })
+      .catch((error) => {
+        setLoading(false);
+        if (
+          error?.message?.response?.status === 400 &&
+          error?.message?.response?.data?.status === 4
+        ) {
+          setTimeout(() => {
+            setShowLoginModal(false);
+          }, 1000);
+
+          setTimeout(() => {
+            setLoginWith('email');
+            setShowOtherDeviceModal(true);
+          }, 1000);
+        } else if (error?.message?.response?.data) {
+          toast.error(error?.message?.response?.data?.message, {
+            position: 'top-right',
+          });
+        } else {
+          toast.error(error?.message || 'Login failed. Please try again.', {
+            position: 'top-right',
+          });
+        }
+      });
+  };
+
+  const loginWithGoogle = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      setLoading(true);
+      handleSocialLogin(
+        {
+          login_type: 'google',
+          access_token: tokenResponse.access_token,
+        },
+        false
+      )
+        .then((response) => {
+          if (response?.token) {
+            SWSubscribe({ subscription: swSubscription, token: response.token })
+              .catch(() => {});
+          }
+
+          let userType = '';
+          if (response?.profile?.user_type == 2) {
+            userType = 'buyer';
+          } else if (response?.profile?.user_type == 3) {
+            userType = 'vendor';
+          } else if (response?.profile?.user_type == 7) {
+            userType = 'admin';
+          } else if (response?.profile?.user_type == 8) {
+            userType = 'management';
+          } else if (response?.profile?.user_type == 9) {
+            userType = 'engineering';
+          } else if (response?.profile?.user_type == 10) {
+            userType = 'finance';
+          }
+          
+          if (!userType) {
+            toast.error('Unknown user type. Please contact support.');
+            setLoading(false);
+            return;
+          }
+          
+          storageInstance.setStorage('current-user-type', userType);
+          setLoading(false);
+          setShowLoginModal(false);
+
+          toast.success(response.message, {
+            position: 'top-right',
+          });
+          
+          window.dispatchEvent(new Event('loginStatusChanged'));
+          
+          setTimeout(() => {
+            window.location.href = `/dashboard/${userType}`;
+          }, 300);
+        })
+        .catch((error) => {
+          setLoading(false);
+          if (
+            error?.message?.response?.status === 400 &&
+            error?.message?.response?.data?.status === 4
+          ) {
+            setTimeout(() => {
+              setShowLoginModal(false);
+            }, 2000);
+
+            setTimeout(() => {
+              setLoginWith('google');
+              setShowOtherDeviceModal(true);
+            }, 1000);
+          } else if (error?.message?.response?.data) {
+            toast.error(error?.message?.response?.data?.message, {
+              position: 'top-right',
+            });
+          } else {
+            toast.error(error?.message || 'Google login failed. Please try again.', {
+              position: 'top-right',
+            });
+          }
+        });
+    },
+    onError: (error) => {
+      setLoading(false);
+      toast.error('Google login failed. Please try again.', {
+        position: 'top-right',
+      });
+    },
+  });
+
   return (
     <>
       <Head>
@@ -366,12 +557,25 @@ const HotelVendor = () => {
         setActiveTab={setActiveTab}
         openAuthModal={showLoginModal}
         setOpenAuthModal={setShowLoginModal}
-        setEmail={() => {}}
-        setPassword={() => {}}
-        loading={false}
-        setloading={() => {}}
-        loginSubmitHandler={() => {}}
-        loginWithGoogle={() => {}}
+        setEmail={setEmail}
+        setPassword={setPassword}
+        loading={loading}
+        setloading={setLoading}
+        loginSubmitHandler={loginSubmitHandler}
+        loginWithGoogle={loginWithGoogle}
+      />
+
+      <LoginWithOtherDeviceModal
+        show={showOtherDeviceModal}
+        onHide={() => {
+          setShowOtherDeviceModal(false);
+          setLoginWith('');
+        }}
+        email={email}
+        password={password}
+        loginSubmitHandler={loginSubmitHandler}
+        loginWithGoogle={loginWithGoogle}
+        loginWith={loginWith}
       />
 
       <ToastContainer />
