@@ -38,6 +38,8 @@ import { BusinessTypes } from "@/utils/constants";
 import CreateRFQModal from "./CreateRFQModal";
 import ValidationErrorsDisplay from "./ValidationErrorsDisplay";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import { IoIosCloseCircleOutline } from "react-icons/io";
+import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
 
 
 const myVendorOptions = [
@@ -1748,7 +1750,58 @@ useEffect(() => {
                     />
                   </div>
                   <div className="col-md-3">
-                    <CommonFormInput
+                    <div className="form-group mb-3">
+                      <div className="d-flex gap-2">
+                        <label
+                          htmlFor="subscriptionType"
+                          className="form-label"
+                          style={{
+                            fontWeight: 500
+                          }}
+                          >
+                          Premium Vendors
+                        </label>
+                        {getFilterValue("subscription_type") != null && (
+                          <Link
+                            href="#"
+                            className="clearFilter"
+                            onClick={(e) => {e.preventDefault(); forwardFilterUpdate(null, { name: "subscription_type" })}}
+                          >
+                            <FontAwesomeIcon icon={faTimesCircle} /> clear
+                          </Link>
+                        )}
+                      </div>
+                      <div className="d-flex gap-1">
+                        <input
+                          type="radio"
+                          style={{width: "fit-content", height: "fit-content", marginRight: "4px", marginTop: "4px"}}
+                          name="subscriptionType"
+                          id={`subscription-premium`}
+                          value={"premium"}
+                          checked={getFilterValue("subscription_type")?.value == "premium"}
+                          onChange={(e) => {
+                            const selectedValue = e.target.value;
+                            const selected = subscriptionTypes.find(
+                              (option) => option.value == selectedValue
+                            );
+
+                            if (selected) {
+                              forwardFilterUpdate(selected, { name: "subscription_type" })
+                            }
+                          }}
+                        />
+                        <div className="d-flex flex-column">
+                          <label
+                            className="form-check-label"
+                            htmlFor={`subscription-permium`}
+                          >
+                            Get Guaranteed Quote in 24 Hours
+                          </label>
+                          {/* <small className="text-muted">(in 24 Hours)</small> */}
+                        </div>
+                      </div>
+                    </div>
+                    {/* <CommonFormInput
                      id={`subscription_type_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
                       type="select"
                       options={subscriptionTypes}
@@ -1760,7 +1813,7 @@ useEffect(() => {
                       onChange={(newVal, action) =>
                         forwardFilterUpdate(newVal, action)
                       }
-                    />
+                    /> */}
                   </div>
                   {!isGlobalFilter && (
                     <div className="col-md-3">
@@ -2044,30 +2097,7 @@ useEffect(() => {
                 </div>
               ) : (
                 <>
-                  <div className="d-flex justify-content-between align-items-end mb-3">
-                    <div className="col-md-3">
-                      <h4>Select Project</h4>
-                      <Select
-                        id="select_project-create_rfq_page"
-                        options={projects}
-                        value={projects.find(
-                          (project) =>
-                            project.value === rfqFormDataFromStore.project_id
-                        )}
-                        defaultValue={-1}
-                        onChange={(selectedOption, actionMeta) =>
-                          handleFormFieldChange(
-                            null,
-                            selectedOption,
-                            actionMeta
-                          )
-                        }
-                        name="project_id"
-                        placeholder="Select"
-                        isClearable
-                      />
-                    </div>
-
+                  <div className="d-flex align-items-end mb-4">
                     {/* Changes by Agnij 2025-08-08 [Simplified sheet selector UI] */}
                     {isMagicRfq && sheetNameList.length > 0 && (
                       <div className="col-md-3">
@@ -2327,6 +2357,31 @@ useEffect(() => {
                                 handleChange={handleFormFieldChange}
                               />
 
+                              <div className="mt-2 mb-3">
+                                <label className="form-label fs-6 mb-1 fw-medium">
+                                  Select Project
+                                </label>
+                                <Select
+                                  id="select_project-create_rfq_page"
+                                  options={projects}
+                                  value={projects.find(
+                                    (project) =>
+                                      project.value === rfqFormDataFromStore.project_id
+                                  )}
+                                  defaultValue={-1}
+                                  onChange={(selectedOption, actionMeta) =>
+                                    handleFormFieldChange(
+                                      null,
+                                      selectedOption,
+                                      actionMeta
+                                    )
+                                  }
+                                  name="project_id"
+                                  placeholder="Select"
+                                  isClearable
+                                />
+                              </div>
+
                               <div className="row mt-2">
                                 <div className="custom-file">
                                   <label
@@ -2410,6 +2465,7 @@ useEffect(() => {
                                     errors={errors}
                                   />
                                 </div>
+                                
                                 <div className="col-md-6">
                                   <label className="form-label">
                                     Contact Number{" "}
