@@ -41,6 +41,20 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
       ]
     }
   ]);
+  const [departments, setDepartments] = useState([
+    {
+        id: 1,
+        title: "Dairy"
+    },
+    {
+        id: 2,
+        title: "Meat"
+    },
+    {
+        id: 3,
+        title: "Spices"
+    },
+  ])
 
   const rolePermissionsMap = {
     1: {
@@ -61,6 +75,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
   const [selectedRole, setSelectedRole] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedHotel, setSelectedHotel] = useState(null);
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [permissions, setPermissions] = useState({});
 
   /* ---------------- Effects ---------------- */
@@ -95,6 +110,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
       role_title: selectedRole.title,
       company_id: selectedCompany.id,
       hotel_id: selectedHotel?.id || null,
+      department_id: selectedDepartment?.id || null,
       permissions
     });
 
@@ -175,13 +191,14 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
             className="form-select"
             disabled={!selectedCompany}
             value={selectedHotel?.id || ""}
-            onChange={e =>
-              setSelectedHotel(
-                selectedCompany?.hotels.find(
-                  h => h.id === Number(e.target.value)
-                ) || null
-              )
-            }
+            onChange={e => {
+                setSelectedHotel(
+                    selectedCompany?.hotels.find(
+                    h => h.id === Number(e.target.value)
+                    ) || null
+                );
+                setSelectedDepartment(null);
+            }}
           >
             <option value="">All Hotels</option>
             {selectedCompany?.hotels.map(h => (
@@ -191,7 +208,31 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
             ))}
           </select>
         </div>
+
       </div>
+
+        <div className="mb-4">
+            <label className="form-label">Select Department (optional)</label>
+            <select
+            className="form-select"
+            disabled={!selectedHotel}
+            value={selectedDepartment?.id || ""}
+            onChange={e =>
+                setSelectedDepartment(
+                departments.find(
+                    d => d.id === Number(e.target.value)
+                ) || null
+                )
+            }
+            >
+            <option value={null}>All Departments</option>
+            {departments.map(h => (
+                <option key={h.id} value={h.id}>
+                {h.title}
+                </option>
+            ))}
+            </select>
+        </div>
 
       {/* Permissions */}
       {selectedRole && (
