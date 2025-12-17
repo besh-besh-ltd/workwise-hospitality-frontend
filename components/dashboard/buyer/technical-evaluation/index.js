@@ -406,6 +406,7 @@ useEffect(() => {
                                     refetch={listProducts}
                                     selectedVendor={vendorMap.get(product.id)}
                                     selectedVendors={productSelectedVendors.map(vendor => vendor.value)}
+                                    minimumPassingScore={rfqProduct?.minimum_passing_score}
                                   />
 
                                 </div>

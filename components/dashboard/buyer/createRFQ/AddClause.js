@@ -6,7 +6,7 @@ import { faCloudArrowUp, faDownload, faPaperclip, faTrash, faFilePdf } from "@fo
 import { handleFileUpload } from "@/utils/sharedFunctions";
 import FileLink from "@/components/shared/FileLink";
 import { faEdit } from "@fortawesome/free-regular-svg-icons";
-import { addClause, addClauseUsingFile, getClausesByRfqProductId, removeClause, updateClause } from "@/services/rfq";
+import { addClause, addClauseUsingFile, getClausesByRfqProductId, removeClause, updateClause, updateMinimumPassingScore } from "@/services/rfq";
 import FullLoader from "@/components/shared/FullLoader";
 
 
@@ -25,6 +25,10 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
     const [fileName, setFileName] = useState('');
     const [clauseErrors, setClauseErrors] = useState([]);
     const [extractedClauses, setExtractedClauses] = useState([]);
+    const [weightage, setWeightage] = useState("");
+    const [minimumPassingScore, setMinimumPassingScore] = useState(null);
+    const [showMinimumScoreInput, setShowMinimumScoreInput] = useState(false);
+    const [tempMinimumScore, setTempMinimumScore] = useState("");
 
     const handleAttachFileClick = () => {
         fileInputRef.current.click(); // Trigger the file input when the "Attach file" button is clicked
@@ -49,16 +53,30 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             // rfq_id,
             rfq_product_id: product.id
         }
-        if (active === 'clause') setLoading(true);
+        if (active === 'clause' || active === 'sampling') setLoading(true);
         try {
             const res = await getClausesByRfqProductId(payload);
-            if (res.data)
-                setPreviousClauses(res.data);
+            // Response structure: res.data contains the backend response object
+            // Backend returns: { success, vendor_response, minimum_passing_score, data: [...] }
+            if (res.data && res.data.data) {
+                // Filter clauses based on active tab
+                if (active === 'clause') {
+                    setPreviousClauses(res.data.data.filter(c => c.clause_type !== 'sampling'));
+                } else if (active === 'sampling') {
+                    setPreviousClauses(res.data.data.filter(c => c.clause_type === 'sampling'));
+                } else {
+                    setPreviousClauses(res.data.data);
+                }
+            }
+            // Fetch minimum passing score from response
+            if (res.data && res.data.minimum_passing_score !== undefined && res.data.minimum_passing_score !== null) {
+                setMinimumPassingScore(res.data.minimum_passing_score);
+            }
         } catch (error) {
             toast.error("Failed to load clauses. Please try again.");
         } finally {
-            if (active === 'clause') setLoading(false);
-            if (!loading || active === 'clause') {
+            if (active === 'clause' || active === 'sampling') setLoading(false);
+            if (!loading || active === 'clause' || active === 'sampling') {
             setClauseFile(null);
             setFileName('');
             }
@@ -71,11 +89,18 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             return;
         }
 
+        if (active === 'sampling' && (!weightage || weightage === "")) {
+            toast.error("Weightage is required for sampling questions");
+            return;
+        }
+
         const payload = {
             rfq_id,
             rfq_product_id: product.id,
             clause_text: message,
-            file_url: files
+            file_url: files,
+            clause_type: active === 'sampling' ? 'sampling' : 'clause',
+            weightage: active === 'sampling' ? parseInt(weightage) : null
         }
 
         setLoading(true);
@@ -98,14 +123,22 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             setLoading(false);
             setMessage("");
             setFiles([]);
+            setWeightage("");
         }
     };
 
     const handleUpdateClause = async () => {
+        if (active === 'sampling' && (!weightage || weightage === "")) {
+            toast.error("Weightage is required for sampling questions");
+            return;
+        }
+
         const payload = {
             clause_id: currentClause.clause_id,
             clause_text: message,
-            file_url: files
+            file_url: files,
+            clause_type: active === 'sampling' ? 'sampling' : 'clause',
+            weightage: active === 'sampling' ? parseInt(weightage) : (currentClause.weightage || null)
         }
         setLoading(true);
         try {
@@ -128,6 +161,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             setLoading(false);
             setMessage("");
             setFiles([]);
+            setWeightage("");
             setCurrentClause(null);
             setUpdate(false);
         }
@@ -161,8 +195,47 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         setPreviousClauses(updatedClauses);
         setMessage(clause.clause_text);
         setFiles(clause.files);
+        setWeightage(clause.weightage || "");
         setUpdate(true);
         setCurrentClause(clause);
+    }
+
+    const handleUpdateMinimumScore = async () => {
+        if (!tempMinimumScore || tempMinimumScore === "") {
+            toast.error("Please enter minimum passing score");
+            return;
+        }
+
+        const payload = {
+            rfq_id,
+            rfq_product_id: product.id,
+            minimum_passing_score: parseInt(tempMinimumScore)
+        }
+
+        setLoading(true);
+        try {
+            const res = await updateMinimumPassingScore(payload);
+            toast.success(res.message || "Minimum passing score updated successfully");
+            setMinimumPassingScore(parseInt(tempMinimumScore));
+            setShowMinimumScoreInput(false);
+            setTempMinimumScore("");
+        } catch (error) {
+            toast.error(error.message || "Failed to update minimum passing score");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const handleCancelMinimumScore = () => {
+        setShowMinimumScoreInput(false);
+        setTempMinimumScore("");
+        // Ensure we're on the sampling tab
+        setActive('sampling');
+    }
+
+    const handleOpenMinimumScoreInput = () => {
+        setTempMinimumScore(minimumPassingScore || "");
+        setShowMinimumScoreInput(true);
     }
 
     const handleRemoveFile = (fileType, file) => {
@@ -175,7 +248,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         getPreviousClauses();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [show, product.id])
+    }, [show, product.id, active])
 
 
     const handleMagicFileUpload = (event) => {
@@ -253,21 +326,95 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
 
     return (
 
-        <Modal show={show} onHide={onClose} centered size="lg">
+        <Modal show={show} onHide={() => {
+            setShowMinimumScoreInput(false);
+            setTempMinimumScore("");
+            onClose();
+        }} centered size="lg">
             <Modal.Header closeButton>
-                <Modal.Title className="text-right w-100 p-3">
-                    Technical Clause for - {product.name}
+                <Modal.Title className="text-right w-100 p-3 d-flex justify-content-between align-items-center">
+                    <span>Technical and Sampling Clause for - {product.name}</span>
+                    {active === 'sampling' && !showMinimumScoreInput && (
+                        <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={handleOpenMinimumScoreInput}
+                        >
+                            {minimumPassingScore !== null && minimumPassingScore !== undefined 
+                                ? `Edit minimum score (${minimumPassingScore})` 
+                                : "Set minimum score"}
+                        </button>
+                    )}
                 </Modal.Title>
             </Modal.Header>
             <Modal.Body style={{ minHeight: "200px" }}>
-                <Tab.Container defaultActiveKey="clause">
+                {showMinimumScoreInput && active === 'sampling' ? (
+                    <div className="d-flex flex-column gap-3 p-3">
+                        <h5 className="mb-0">Set minimum score</h5>
+                        <Form.Control
+                            type="number"
+                            placeholder="Enter minimum score required"
+                            min="0"
+                            max="100"
+                            value={tempMinimumScore}
+                            onChange={(e) => setTempMinimumScore(e.target.value)}
+                        />
+                        <div className="d-flex gap-2 justify-content-end">
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={handleCancelMinimumScore}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={handleUpdateMinimumScore}
+                                disabled={loading || !tempMinimumScore || tempMinimumScore === ""}
+                            >
+                                {loading ? "Saving..." : "Save"}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                <Tab.Container activeKey={active} onSelect={(k) => {
+                    if (k) {
+                        if (k === 'clause') {
+                            setActive('clause'); 
+                            setMessage(""); 
+                            setFiles([]); 
+                            setWeightage("");
+                            setUpdate(false);
+                            setCurrentClause(null);
+                            setShowMinimumScoreInput(false);
+                        } else if (k === 'sampling') {
+                            setActive('sampling'); 
+                            setMessage(""); 
+                            setFiles([]); 
+                            setWeightage("");
+                            setUpdate(false);
+                            setCurrentClause(null);
+                            setShowMinimumScoreInput(false);
+                        } else if (k === 'bulkclause') {
+                            setActive('bulkclause');
+                            setUpdate(false);
+                            setCurrentClause(null);
+                            setShowMinimumScoreInput(false);
+                        }
+                    }
+                }}>
                     <Nav variant="tabs">
                         <Nav.Item>
-                            <Nav.Link onClick={()=>setActive('clause')} eventKey="clause">Clauses</Nav.Link>
+                            <Nav.Link eventKey="clause">Clauses</Nav.Link>
                         </Nav.Item>
 
                         <Nav.Item>
-                            <Nav.Link onClick={()=>setActive('bulkclause')} eventKey="bulkclause">Add Bulk Clauses</Nav.Link>
+                            <Nav.Link eventKey="sampling">Sampling</Nav.Link>
+                        </Nav.Item>
+
+                        <Nav.Item>
+                            <Nav.Link eventKey="bulkclause">Add Bulk Clauses</Nav.Link>
                         </Nav.Item>
                     </Nav>
 
@@ -365,7 +512,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                                                         type="button"
                                                         className="btn btn-warning p-1 me-2"
                                                         style={{ width: "110px", fontSize: "12px" }}
-                                                        onClick={() => openUpdateField(clause)}
+                                                        onClick={() => openUpdateField(clause, index)}
                                                     >
                                                         <FontAwesomeIcon icon={faEdit} className="me-2" />
                                                         Update
@@ -387,7 +534,134 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                             </div>
                         </Tab.Pane>
 
-                        {/* Technical Evaluation Tab */}
+                        {/* Sampling Tab */}
+                        <Tab.Pane eventKey="sampling">
+                            <div className="d-flex flex-column mb-3 mt-2">
+                                <Form.Control
+                                    as="textarea"
+                                    placeholder="Sampling Question"
+                                    rows={2}
+                                    className="me-2 mb-2"
+                                    value={message}
+                                    onChange={(e) => setMessage(e.target.value)}
+                                />
+                                <Form.Control
+                                    type="number"
+                                    placeholder="Weightage"
+                                    className="me-2 mb-2"
+                                    min="0"
+                                    max="100"
+                                    value={weightage}
+                                    onChange={(e) => setWeightage(e.target.value)}
+                                />
+                                <div className="d-flex justify-content-between align-items-start mt-2">
+                                    <div role="button" onClick={handleAttachFileClick} className="text-sm" style={{ maxWidth: "80%" }}>
+                                        <FontAwesomeIcon icon={faPaperclip} className="opacity-75 me-2" />
+                                        Attach File
+                                        {fileLoading && (
+                                            <div className="spinner-border spinner-border-sm text-primary ms-2" role="status">
+                                                <span className="visually-hidden">Loading...</span>
+                                            </div>
+                                        )}
+                                        {files.length > 0 && (
+                                            <FileLink
+                                                Files={files}
+                                                ColumnClass="col-md-6"
+                                                Style={{ fontSize: "12px" }}
+                                                showDownload={false}
+                                                RemoveFile={handleRemoveFile}
+                                            />
+                                        )}
+                                    </div>
+
+                                    {update ? (
+                                        <button
+                                            type="button"
+                                            className="btn btn-warning p-1"
+                                            style={{ width: "100px" }}
+                                            onClick={handleUpdateClause}
+                                            disabled={!message || message.length === 0 || !weightage || weightage === ""}
+                                        >
+                                            Update
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="btn btn-primary p-1"
+                                            style={{ width: "100px" }}
+                                            onClick={handleAddClause}
+                                            disabled={!message || message.length === 0 || !weightage || weightage === ""}
+                                        >
+                                            Add
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Hidden file input field triggered by the "Attach file" button */}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".pdf"
+                                style={{ display: 'none' }}
+                                onChange={(e) => uploadToServer(e)}
+                            />
+
+                            {/* Show Previous Sampling Clauses */}
+                            <strong className="text-primary">List of Clauses</strong>
+                            {loading && <FullLoader />}
+                            <div className="mt-2">
+                                {!loading && previousClauses && previousClauses.length > 0 && (
+                                    <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                                        {previousClauses.map((clause, index) => (
+                                            <li key={index} className="list-group-item ">
+                                                <p className="text-sm mb-1">
+                                                    <strong>Message:</strong> {clause.clause_text}
+                                                </p>
+                                                <p className="text-sm mb-1">
+                                                    <strong>Weightage:</strong> {clause.weightage || 0}
+                                                </p>
+                                                {clause.files.length > 0 && (
+                                                    <div className="d-flex gap-2 align-items-start text-sm mb-1">
+                                                        <strong className="text-nowrap my-1">Files :</strong>
+                                                        <div style={{ width: "90%" }}>
+                                                            <FileLink
+                                                                Files={clause.files}
+                                                                ColumnClass="col-md-5"
+                                                                Style={{ fontSize: "12px" }}
+                                                                showDownload={true}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <div className="d-flex justify-content-end">
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-warning p-1 me-2"
+                                                        style={{ width: "110px", fontSize: "12px" }}
+                                                        onClick={() => openUpdateField(clause, index)}
+                                                    >
+                                                        <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                                        Update
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-danger p-1"
+                                                        style={{ width: "110px", fontSize: "12px" }}
+                                                        onClick={() => handleDeleteClause(clause.clause_id)}
+                                                    >
+                                                        <FontAwesomeIcon icon={faTrash} className="me-2" />
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </Tab.Pane>
+
+                        {/* Add Bulk Clauses Tab */}
                         <Tab.Pane eventKey="bulkclause">                            
 
                             <div className="col-md-10 mx-auto mt-2">
@@ -485,66 +759,9 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
 
                         </Tab.Pane>
 
-                        <Tab.Pane eventKey="file">
-                            <div className="d-flex flex-column mb-3 mt-2">
-
-                                <div className="d-flex align-items-center justify-content-center m-3">
-                                    <label htmlFor="formFile" className="form-label d-flex align-items-center gap-2 mb-0">
-                                        <div className="btn btn-light px-3 py-2">
-                                            <FontAwesomeIcon icon={faFilePdf} className="me-2" /> Select File
-                            </div>
-                                        <input
-                                            type="file"
-                                            id="formFile"
-                                            accept=".pdf"
-                                            style={{ display: 'none' }}
-                                            onChange={handleMagicFileUpload}
-                                        />
-                                        {fileName && <div className="file-name text-primary-emphasis">{fileName}</div>}
-                                    </label>
-                                </div>
-                                <div className="d-flex align-items-center justify-content-center text-center text-muted mb-3">
-                                    <small>(PDF files only)</small>
-                                </div>
-
-                                {/* Changes by Agnij May 13, 2025 [Added upload loading indicator] */}
-                                {uploadLoading && (
-                                    <div className="text-center">
-                                        <div className="spinner-border text-primary mb-3" role="status">
-                                            <span className="visually-hidden">Loading...</span>
-                                                        </div>
-                                        <p>Processing your document. Please wait...</p>
-                                                    </div>
-                                                )}
-
-                                {clauseErrors && clauseErrors.length > 0 && (
-                                    <div className="alert alert-danger mt-3">
-                                        <h6>
-                                          <i className="fas fa-exclamation-triangle me-2"></i>
-                                          Document Processing Error:
-                                        </h6>
-                                        <ul className="mb-0">
-                                          {clauseErrors.map((error, index) => (
-                                            <li key={index} className="mb-1">{error.error}</li>
-                                          ))}
-                                        </ul>
-                                        
-                                        {/* Changes by Agnij 2025-05-14 [Improved error guidance] */}
-                                        <div className="border-top mt-3 pt-2 text-muted small">
-                                          <p className="mb-1"><strong>Common issues:</strong></p>
-                                          <ul>
-                                            <li>Make sure the document contains information about the selected product</li>
-                                            <li>Check if the product name appears in the document</li>
-                                            <li>Try a document with more specific technical specifications</li>
-                                          </ul>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </Tab.Pane>
-
                     </Tab.Content>
                 </Tab.Container>
+                )}
             </Modal.Body>
 
             <Modal.Footer>

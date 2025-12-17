@@ -886,6 +886,28 @@ export const removeClause = (clause_id) => {
   });
 };
 
+export const updateMinimumPassingScore = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/update-minimum-passing-score`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const updateBuyerMarks = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/update-buyer-marks`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const fetchChatData = (payload , token) => {
   return new Promise(async (resolve, reject) => {
     try {

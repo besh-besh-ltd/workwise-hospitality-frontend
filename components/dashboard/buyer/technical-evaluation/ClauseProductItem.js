@@ -1,5 +1,5 @@
 import FileLink from '@/components/shared/FileLink';
-import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getSummarisedDeviation, getTechClearedVendorsResult } from '@/services/rfq';
+import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getSummarisedDeviation, getTechClearedVendorsResult, updateBuyerMarks } from '@/services/rfq';
 import { faMessage } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import React, { useEffect, useRef, useState } from 'react'
@@ -8,12 +8,12 @@ import FullLoader from '@/components/shared/FullLoader';
 import TE_Modal from './TE_Modal';
 import { toast } from 'react-toastify';
 import ReadMore from '@/components/shared/ReadMore';
-import { Dropdown } from 'react-bootstrap';
+import { Dropdown, Tab, Nav, Modal, Form } from 'react-bootstrap';
 import Image from 'next/image';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
 
 
-const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, currentRfq ,  vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors }) => {
+const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, currentRfq ,  vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors, minimumPassingScore: _minimumPassingScore }) => {
     
   const multipleVendorsSelected = selectedVendors && selectedVendors.length > 1;
   
@@ -29,6 +29,13 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     const [selectedVendor, setSelectedVendor] = useState(null);
     const [showAcceptConfirmModal, setShowAcceptConfirmModal] = useState(false);
     const [showRejectConfirmModal, setShowRejectConfirmModal] = useState(false);
+    const [activeTab, setActiveTab] = useState('clauses');
+    const [showRemarkModal, setShowRemarkModal] = useState(false);
+    const [selectedClauseForRemark, setSelectedClauseForRemark] = useState(null);
+    const [selectedVendorForRemark, setSelectedVendorForRemark] = useState(null);
+    const [buyerRemark, setBuyerRemark] = useState("");
+    const [buyerMarks, setBuyerMarks] = useState("");
+    const [minimumPassingScore, setMinimumPassingScore] = useState(null);
     // const [summarisedDeviation , setSummarisedDeviation] = useState();
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
@@ -149,6 +156,47 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
             setLoading(false);
         }
     }
+
+    const handleSaveBuyerMarks = async () => {
+        if (!selectedClauseForRemark || !selectedVendorForRemark) {
+            toast.error("Missing clause or vendor information");
+            return;
+        }
+
+        const payload = {
+            clause_id: selectedClauseForRemark.clause_id,
+            vendor_id: selectedVendorForRemark.vendor_id || selectedVendorForRemark.value,
+            buyer_marks: buyerMarks ? parseInt(buyerMarks) : null,
+            buyer_remark: buyerRemark || null
+        }
+
+        setLoading(true);
+        try {
+            const res = await updateBuyerMarks(payload);
+            toast.success(res.message || "Marks and remark saved successfully");
+            setShowRemarkModal(false);
+            setBuyerRemark("");
+            setBuyerMarks("");
+            setSelectedClauseForRemark(null);
+            setSelectedVendorForRemark(null);
+            if (refetch) {
+                refetch();
+            }
+        } catch (error) {
+            toast.error(error.message || "Failed to save marks and remark");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const openRemarkModal = (clause, vendor) => {
+        const response = clause.vendor_responses?.find(r => r.vendor_id == (vendor.vendor_id || vendor.value));
+        setSelectedClauseForRemark(clause);
+        setSelectedVendorForRemark(vendor);
+        setBuyerRemark(response?.buyer_remark ?? "");
+        setBuyerMarks(response?.buyer_marks !== undefined && response?.buyer_marks !== null ? response.buyer_marks : "");
+        setShowRemarkModal(true);
+    }
     
     const getVendorResponse = async () => {
         const payload = {
@@ -264,6 +312,12 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
             setVendors(_vendors);
         }
     }, [_vendors])
+
+    useEffect(() => {
+        if (_minimumPassingScore !== undefined && _minimumPassingScore !== null) {
+            setMinimumPassingScore(_minimumPassingScore);
+        }
+    }, [_minimumPassingScore])
     
     useEffect(() => {
     if (multipleVendorsSelected) {
@@ -293,114 +347,131 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
           <>
             {!vendorResponse && (
               <div style={{ maxWidth: "100%", overflow: "auto" }}>
-                <table className="table table-bordered table-striped">
-                  <thead>
-                    <tr className="table-dark">
-                      <th className="col-4 align-middle">Clause And Files</th>
-                      {vendors && vendors.length > 0 &&
-                        vendors.filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id)).map((vendor) => {
-                            const isCleared = vendor.is_cleared;
-                            return (
-                              <th
-                                key={vendor.vendor_id}
-                                className="col-3 align-middle"
-                              >
-                                <div className="d-flex justify-content-between gap-2 align-items-center">
-                                  <div className="d-flex flex-column align-items-center w-100">
-                                    <span>{`VEN-${vendor.rfq_product_vendor_id}` || vendor.vendor_name}</span>
-                                    <p
-                                      className={`badge rounded-pill py-2 px-3 ${
-                                        isCleared != null
-                                          ? isCleared == 1
-                                            ? "text-bg-success"
-                                            : "text-bg-danger"
-                                          : ""
-                                      }`}
-                                      style={{
-                                        marginTop: 5,
-                                        marginBottom: 0,
-                                        width: "fit-content",
-                                      }}
-                                    >
-                                      {isCleared != null
-                                        ? isCleared == 1
-                                          ? "Technically Accepted"
-                                          : "Technically Not Accepted"
-                                        : ""}
-                                    </p>
-                                    {isCleared != null && vendor?.evaluated_by && (
-                                      <div className="text-light mt-2 fw-normal">
-                                        <strong>Evaluated by: </strong> {vendor?.evaluated_by}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <Dropdown className="dots-nav-anchor">
-                                    <Dropdown.Toggle
-                                      as="button"
-                                      className="dots-nav p-0 border-0 bg-transparent"
-                                    >
-                                      <Image
-                                        src="/assets/images/3-dots-nav.svg"
-                                        width={4}
-                                        height={18}
-                                        alt="Nav"
-                                      />
-                                    </Dropdown.Toggle>
-                                    <Dropdown.Menu>
-                                      <Dropdown.Item
-                                        href={`/dashboard/buyer/query?rfq_id=${rfq_id}&role=buyer`}
-                                        id={`talk_with_vendor_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
-                                      >
-                                        Talk with vendor
-                                      </Dropdown.Item>
-                                      <Dropdown.Item
-                                        target="_blank"
-                                        href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.vendor_id}`}
-                                        id={`view_vendor_profile_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
-                                      >
-                                        View Profile
-                                      </Dropdown.Item>
-                                      {isCleared == null && (
-                                        <>
-                                          <Dropdown.Item
-                                            href="#"
-                                            onClick={() =>
-                                              addToTechnicallyAccepted(vendor)
-                                            }
-                                            id={`accept_vendor_${vendor.vendor_id}-vendor_evaluation-technical_evaluation_page`}
-                                          >
-                                            Accept
-                                          </Dropdown.Item>
-
-                                          <Dropdown.Item
-                                            href="#"
-                                            onClick={() => {
-                                              setSelectedVendor({
-                                                label: vendor.vendor_name,
-                                                value: vendor.vendor_id,
-                                              });
-                                              setOpenModal(true);
-                                            }}
-                                            id={`reject_vendor_${vendor.vendor_id}-vendor_evaluation-technical_evaluation_page`}
-                                          >
-                                            Reject
-                                          </Dropdown.Item>
-                                        </>
-                                      )}
-                                    </Dropdown.Menu>
-                                  </Dropdown>
-                                </div>
-                              </th>
-                            );
-                        }
+                <Tab.Container activeKey={activeTab} onSelect={(k) => setActiveTab(k || 'clauses')}>
+                  <Nav variant="tabs">
+                    <Nav.Item>
+                      <Nav.Link eventKey="clauses">Clauses</Nav.Link>
+                    </Nav.Item>
+                    <Nav.Item>
+                      <Nav.Link eventKey="sampling">Sampling</Nav.Link>
+                    </Nav.Item>
+                  </Nav>
+                  <Tab.Content>
+                    <Tab.Pane eventKey="clauses">
+                      <div className="mt-3">
+                        {minimumPassingScore !== null && (
+                          <p className="mb-2">
+                            <strong>Minimum Score Required:</strong> {minimumPassingScore}
+                          </p>
                         )}
-                    </tr>
-                  </thead>
+                        <table className="table table-bordered table-striped">
+                          <thead>
+                            <tr className="table-dark">
+                              <th className="col-4 align-middle">Clause And Files</th>
+                              {vendors && vendors.length > 0 &&
+                                vendors.filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id)).map((vendor) => {
+                                    const isCleared = vendor.is_cleared;
+                                    return (
+                                      <th
+                                        key={vendor.vendor_id}
+                                        className="col-3 align-middle"
+                                      >
+                                        <div className="d-flex justify-content-between gap-2 align-items-center">
+                                          <div className="d-flex flex-column align-items-center w-100">
+                                            <span>{`VEN-${vendor.rfq_product_vendor_id}` || vendor.vendor_name}</span>
+                                            <p
+                                              className={`badge rounded-pill py-2 px-3 ${
+                                                isCleared != null
+                                                  ? isCleared == 1
+                                                    ? "text-bg-success"
+                                                    : "text-bg-danger"
+                                                  : ""
+                                              }`}
+                                              style={{
+                                                marginTop: 5,
+                                                marginBottom: 0,
+                                                width: "fit-content",
+                                              }}
+                                            >
+                                              {isCleared != null
+                                                ? isCleared == 1
+                                                  ? "Technically Accepted"
+                                                  : "Technically Not Accepted"
+                                                : ""}
+                                            </p>
+                                            {isCleared != null && vendor?.evaluated_by && (
+                                              <div className="text-light mt-2 fw-normal">
+                                                <strong>Evaluated by: </strong> {vendor?.evaluated_by}
+                                              </div>
+                                            )}
+                                          </div>
+                                          <Dropdown className="dots-nav-anchor">
+                                            <Dropdown.Toggle
+                                              as="button"
+                                              className="dots-nav p-0 border-0 bg-transparent"
+                                            >
+                                              <Image
+                                                src="/assets/images/3-dots-nav.svg"
+                                                width={4}
+                                                height={18}
+                                                alt="Nav"
+                                              />
+                                            </Dropdown.Toggle>
+                                            <Dropdown.Menu>
+                                              <Dropdown.Item
+                                                href={`/dashboard/buyer/query?rfq_id=${rfq_id}&role=buyer`}
+                                                id={`talk_with_vendor_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
+                                              >
+                                                Talk with vendor
+                                              </Dropdown.Item>
+                                              <Dropdown.Item
+                                                target="_blank"
+                                                href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.vendor_id}`}
+                                                id={`view_vendor_profile_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
+                                              >
+                                                View Profile
+                                              </Dropdown.Item>
+                                              {isCleared == null && (
+                                                <>
+                                                  <Dropdown.Item
+                                                    href="#"
+                                                    onClick={() =>
+                                                      addToTechnicallyAccepted(vendor)
+                                                    }
+                                                    id={`accept_vendor_${vendor.vendor_id}-vendor_evaluation-technical_evaluation_page`}
+                                                  >
+                                                    Accept
+                                                  </Dropdown.Item>
 
-                  <tbody style={{ overflowX: "auto" }}>
-                    {clauseInfo &&
-                      clauseInfo.length > 0 &&
-                      clauseInfo.map((clauseItem, index) => (
+                                                  <Dropdown.Item
+                                                    href="#"
+                                                    onClick={() => {
+                                                      setSelectedVendor({
+                                                        label: vendor.vendor_name,
+                                                        value: vendor.vendor_id,
+                                                      });
+                                                      setOpenModal(true);
+                                                    }}
+                                                    id={`reject_vendor_${vendor.vendor_id}-vendor_evaluation-technical_evaluation_page`}
+                                                  >
+                                                    Reject
+                                                  </Dropdown.Item>
+                                                </>
+                                              )}
+                                            </Dropdown.Menu>
+                                          </Dropdown>
+                                        </div>
+                                      </th>
+                                    );
+                                }
+                                )}
+                            </tr>
+                          </thead>
+
+                          <tbody style={{ overflowX: "auto" }}>
+                            {clauseInfo &&
+                              clauseInfo.length > 0 &&
+                              clauseInfo.filter(c => c.clause_type !== 'sampling').map((clauseItem, index) => (
                         <>
                         <tr key={`rfq_prod_clause_${clauseItem.clause_id}`}>
                           {console.log("chcking th e clause id ", clauseItem.clause_id)}
@@ -427,7 +498,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                               );
                               console.log("checking the console for vendor", vendor);
                               return (
-                                <td key={vendor.value} className="col-3">
+                                <td key={vendor.vendor_id} className="col-3">
                                   <div
                                     style={{
                                       display: "flex",
@@ -494,10 +565,147 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                             rfq_no = {currentRfq}
                           />
                         )}
-                        </>
-                      ))}
-                  </tbody>
-                </table>
+                              </>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Tab.Pane>
+                    <Tab.Pane eventKey="sampling">
+                      <div className="mt-3">
+                        {minimumPassingScore !== null && (
+                          <p className="mb-2">
+                            <strong>Minimum Score Required:</strong> {minimumPassingScore}
+                          </p>
+                        )}
+                        <table className="table table-bordered table-striped">
+                          <thead>
+                            <tr className="table-dark">
+                              <th className="col-4 align-middle">Clause And Files</th>
+                              {vendors && vendors.length > 0 &&
+                                vendors.filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id)).map((vendor) => {
+                                    const isCleared = vendor.is_cleared;
+                                    return (
+                                      <th
+                                        key={vendor.vendor_id}
+                                        className="col-3 align-middle"
+                                      >
+                                        <div className="d-flex justify-content-between gap-2 align-items-center">
+                                          <div className="d-flex flex-column align-items-center w-100">
+                                            <span>{`VEN-${vendor.rfq_product_vendor_id}` || vendor.vendor_name}</span>
+                                            <p
+                                              className={`badge rounded-pill py-2 px-3 ${
+                                                isCleared != null
+                                                  ? isCleared == 1
+                                                    ? "text-bg-success"
+                                                    : "text-bg-danger"
+                                                  : ""
+                                              }`}
+                                              style={{
+                                                marginTop: 5,
+                                                marginBottom: 0,
+                                                width: "fit-content",
+                                              }}
+                                            >
+                                              {isCleared != null
+                                                ? isCleared == 1
+                                                  ? "Technically Accepted"
+                                                  : "Technically Not Accepted"
+                                                : ""}
+                                            </p>
+                                            {isCleared != null && vendor?.evaluated_by && (
+                                              <div className="text-light mt-2 fw-normal">
+                                                <strong>Evaluated by: </strong> {vendor?.evaluated_by}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </th>
+                                    );
+                                }
+                                )}
+                            </tr>
+                          </thead>
+
+                          <tbody style={{ overflowX: "auto" }}>
+                            {clauseInfo &&
+                              clauseInfo.length > 0 &&
+                              clauseInfo.filter(c => c.clause_type === 'sampling').map((clauseItem, index) => {
+                                const totalWeightage = clauseInfo.filter(c => c.clause_type === 'sampling').reduce((sum, c) => sum + (c.weightage || 0), 0);
+                                return (
+                                  <>
+                                    <tr key={`rfq_prod_clause_${clauseItem.clause_id}`}>
+                                      <td className="col-4">
+                                        <ReadMore
+                                          content={`${index + 1}. ${
+                                            clauseItem.clause_text
+                                          }`}
+                                          maxLines={4}
+                                        />
+                                        <p className="text-sm mt-1">
+                                          <strong>Weightage:</strong> {clauseItem.weightage || 0}
+                                        </p>
+                                        {clauseItem.files && clauseItem.files.length > 0 ? (
+                                          <FileLink
+                                            key={clauseItem.clause_id}
+                                            Files={clauseItem.files}
+                                            ColumnClass="col-md-6"
+                                          />
+                                        ) : null}
+                                      </td>
+                                      {vendors && vendors.length > 0 &&
+                                        vendors.filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id)).map((vendor) => {
+                                          const response = clauseItem.vendor_responses?.find(
+                                            (response) =>
+                                              vendor.vendor_id == response.vendor_id
+                                          );
+                                          return (
+                                            <td key={vendor.vendor_id} className="col-3">
+                                              <div
+                                                style={{
+                                                  display: "flex",
+                                                  flexDirection: "column",
+                                                  gap: 2,
+                                                }}
+                                              >
+                                                {response?.buyer_marks !== null && response?.buyer_marks !== undefined && (
+                                                  <p className="mb-1">
+                                                    <strong>Points:</strong> {response.buyer_marks}
+                                                  </p>
+                                                )}
+                                                {response?.buyer_remark && (
+                                                  <p className="mb-1">
+                                                    <strong>Remark:</strong> {response.buyer_remark}
+                                                  </p>
+                                                )}
+                                                <button
+                                                  type="button"
+                                                  className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
+                                                  style={{
+                                                    maxWidth: "120px",
+                                                    backgroundColor: "var(--primary-color)",
+                                                    color: "#ffffff",
+                                                    fontSize: "13px",
+                                                  }}
+                                                  onClick={() => openRemarkModal(clauseItem, vendor)}
+                                                  id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-sampling_actions-technical_evaluation_page`}
+                                                >
+                                                  Add Remark
+                                                </button>
+                                              </div>
+                                            </td>
+                                          );
+                                        })}
+                                    </tr>
+                                  </>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Tab.Pane>
+                  </Tab.Content>
+                </Tab.Container>
               </div>
             )}
           </>
@@ -668,6 +876,65 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
           confirmButtonText="Reject"
           cancelButtonText="Cancel"
         />
+
+        {/* Add Remark Modal */}
+        <Modal show={showRemarkModal} onHide={() => {
+          setShowRemarkModal(false);
+          setBuyerRemark("");
+          setBuyerMarks("");
+          setSelectedClauseForRemark(null);
+          setSelectedVendorForRemark(null);
+        }} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>Add Remark and Score</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <div className="mb-3">
+              <label className="form-label">Give Score</label>
+              <Form.Control
+                type="number"
+                placeholder="Enter score"
+                min="0"
+                max="100"
+                value={buyerMarks}
+                onChange={(e) => setBuyerMarks(e.target.value)}
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Add Remark</label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Enter remark"
+                value={buyerRemark}
+                onChange={(e) => setBuyerRemark(e.target.value)}
+              />
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setShowRemarkModal(false);
+                setBuyerRemark("");
+                setBuyerMarks("");
+                setSelectedClauseForRemark(null);
+                setSelectedVendorForRemark(null);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleSaveBuyerMarks}
+              disabled={loading}
+            >
+              {loading ? "Saving..." : "Save"}
+            </button>
+          </Modal.Footer>
+        </Modal>
 
         <hr />
       </div>
