@@ -21,6 +21,7 @@ import CommonFormInput from "@/components/shared/CommonFormInput";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 const Item = ({
+  is_tender,
   rfq_id,
   data,
   setHasUnsavedChanges,
@@ -527,14 +528,14 @@ const Item = ({
       </Accordion.Header>
 
       <Accordion.Body>
-        {header && (
+        { is_tender && header ? (
           <div
             className="d-flex flex-wrap justify-content-between align-items-start"
             style={{ height: "fit-content" }}
           >
             {header(data)}
           </div>
-        )}
+        ):""}
         <div
           className="d-flex flex-wrap   justify-content-between align-items-start "
           style={{ height: "fit-content" }}
@@ -829,6 +830,8 @@ const Item = ({
 
               {/* <div>
               <span> Vendors </span> */}
+
+              {is_tender? (
               <div
                 className="d-flex flex-column gap-2 "
                 style={{
@@ -869,6 +872,7 @@ const Item = ({
                     })()}
                   </strong>{" "}
                 </span>
+
                 {!handleViewVendorInEdit ? (
                   <Link
                     href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}&id=${rfq_id}&rfq_product_id=${data.id}`}
@@ -899,7 +903,11 @@ const Item = ({
                     Add Vendors
                   </button>
                 )}
+
+
               </div>
+              ):""}
+              
             </div>
 
             <div className="mt-4">

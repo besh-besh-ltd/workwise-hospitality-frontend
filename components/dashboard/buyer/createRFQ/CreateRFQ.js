@@ -2232,6 +2232,9 @@ useEffect(() => {
                         />
                       </div>
                     )}
+
+{/* 
+                    { rfqFormDataFromStore.is_tender? (
                     <div className="col-md-3">
                       <label className="form-label fw-medium">Select Project</label>
                       <Select
@@ -2247,7 +2250,11 @@ useEffect(() => {
                         placeholder="Select"
                         isClearable
                       />
-                    </div>
+                      </div>
+                    ):""} */}
+
+
+
                     {isMagicRfq && sheetNameList.length > 0 && (
                       <div className="col-md-3">
                         <label className="form-label fw-medium">Select Sheet</label>
@@ -2264,12 +2271,17 @@ useEffect(() => {
                     )}
                   </div>
 
-                  <div
+
+                  { rfqFormDataFromStore.is_tender? (
+                    <div
                     className="d-flex flex-wrap justify-content-between align-items-start"
                     style={{ height: "fit-content" }}
                   >
                     {generateDynamicFilter()}
-                  </div>
+                   </div>
+                ):""}
+                 
+
 
                   {/* RFQ Products Table */}
                   <h4>Review Products</h4>
@@ -2317,6 +2329,7 @@ useEffect(() => {
                           }
                           return (
                             <Item
+                            is_tender={rfqFormDataFromStore?.is_tender}
                               activeKey={activeKey}
                               vendors={vendors?.[product.id] ?? []}
                               fetchVendors={async () =>
@@ -2512,6 +2525,7 @@ useEffect(() => {
                                 handleChange={handleFormFieldChange}
                               />
 
+                          { rfqFormDataFromStore.is_tender? (
                               <div className="mt-2 mb-3">
                                 <label className="form-label fs-6 mb-1 fw-medium">
                                   Select Project
@@ -2536,6 +2550,7 @@ useEffect(() => {
                                   isClearable
                                 />
                               </div>
+                           ):""}
 
                               <div className="row mt-2">
                                 <div className="custom-file">
