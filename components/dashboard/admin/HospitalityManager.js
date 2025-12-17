@@ -1429,7 +1429,6 @@ const HospitalityManager = () => {
           <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
             <div>
               <h1 className="heading mb-1">Hospitality Network</h1>
-              <p className="text-muted mb-0">Manage your hospitality companies, business units, and team access</p>
             </div>
             <button
               type="button"
