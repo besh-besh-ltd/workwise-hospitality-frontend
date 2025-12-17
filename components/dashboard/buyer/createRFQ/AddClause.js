@@ -56,23 +56,43 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         if (active === 'clause' || active === 'sampling') setLoading(true);
         try {
             const res = await getClausesByRfqProductId(payload);
-            // Response structure: res.data contains the backend response object
-            // Backend returns: { success, vendor_response, minimum_passing_score, data: [...] }
-            if (res.data && res.data.data) {
-                // Filter clauses based on active tab
-                if (active === 'clause') {
-                    setPreviousClauses(res.data.data.filter(c => c.clause_type !== 'sampling'));
-                } else if (active === 'sampling') {
-                    setPreviousClauses(res.data.data.filter(c => c.clause_type === 'sampling'));
-                } else {
-                    setPreviousClauses(res.data.data);
+            // Response structure: 
+            // Service returns axios response: { data: { success, vendor_response, minimum_passing_score, data: [...] } }
+            // So res.data is the backend response object
+            let clausesData = [];
+            if (res && res.data) {
+                // Backend returns: { success, vendor_response, minimum_passing_score, data: [...] }
+                if (res.data.data && Array.isArray(res.data.data)) {
+                    clausesData = res.data.data;
+                } else if (Array.isArray(res.data)) {
+                    clausesData = res.data;
                 }
             }
+            
+            // Filter clauses based on active tab
+            // Treat null/undefined clause_type as 'clause' for backward compatibility
+            if (active === 'clause') {
+                const filtered = clausesData.filter(c => {
+                    const clauseType = c.clause_type || 'clause';
+                    return clauseType !== 'sampling';
+                });
+                setPreviousClauses(filtered);
+            } else if (active === 'sampling') {
+                const filtered = clausesData.filter(c => {
+                    const clauseType = c.clause_type || 'clause';
+                    return clauseType === 'sampling';
+                });
+                setPreviousClauses(filtered);
+            } else {
+                setPreviousClauses(clausesData);
+            }
+            
             // Fetch minimum passing score from response
-            if (res.data && res.data.minimum_passing_score !== undefined && res.data.minimum_passing_score !== null) {
+            if (res && res.data && res.data.minimum_passing_score !== undefined && res.data.minimum_passing_score !== null) {
                 setMinimumPassingScore(res.data.minimum_passing_score);
             }
         } catch (error) {
+            console.error("Error fetching clauses:", error);
             toast.error("Failed to load clauses. Please try again.");
         } finally {
             if (active === 'clause' || active === 'sampling') setLoading(false);
@@ -94,6 +114,19 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             return;
         }
 
+        // Validate weightage sum for sampling questions
+        if (active === 'sampling') {
+            const newWeightage = parseInt(weightage);
+            const existingSamplingClauses = previousClauses?.filter(c => c.clause_type === 'sampling') || [];
+            const currentTotalWeightage = existingSamplingClauses.reduce((sum, c) => sum + (c.weightage || 0), 0);
+            const newTotalWeightage = currentTotalWeightage + newWeightage;
+            
+            if (newTotalWeightage > 100) {
+                toast.error(`Total weightage cannot exceed 100. Current total: ${currentTotalWeightage}, Adding: ${newWeightage}, New total would be: ${newTotalWeightage}`);
+                return;
+            }
+        }
+
         const payload = {
             rfq_id,
             rfq_product_id: product.id,
@@ -106,8 +139,11 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         setLoading(true);
         try {
             const res = await addClause(payload);
-            toast.success(res.message)
-            getPreviousClauses();
+            toast.success(res.message || res.data?.message || "Clause added successfully");
+            // Wait a bit to ensure database has updated, then refresh clauses
+            setTimeout(() => {
+                getPreviousClauses();
+            }, 100);
             onClauseChange && onClauseChange({
                 action: 'add',
                 payload: {
@@ -131,6 +167,21 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         if (active === 'sampling' && (!weightage || weightage === "")) {
             toast.error("Weightage is required for sampling questions");
             return;
+        }
+
+        // Validate weightage sum for sampling questions
+        if (active === 'sampling') {
+            const newWeightage = parseInt(weightage);
+            const existingSamplingClauses = previousClauses?.filter(c => 
+                c.clause_type === 'sampling' && c.clause_id !== currentClause.clause_id
+            ) || [];
+            const currentTotalWeightage = existingSamplingClauses.reduce((sum, c) => sum + (c.weightage || 0), 0);
+            const newTotalWeightage = currentTotalWeightage + newWeightage;
+            
+            if (newTotalWeightage > 100) {
+                toast.error(`Total weightage cannot exceed 100. Current total (excluding this clause): ${currentTotalWeightage}, New weightage: ${newWeightage}, New total would be: ${newTotalWeightage}`);
+                return;
+            }
         }
 
         const payload = {
@@ -206,10 +257,25 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             return;
         }
 
+        // Validate minimum score against total weightage
+        const samplingClauses = previousClauses?.filter(c => c.clause_type === 'sampling') || [];
+        const totalWeightage = samplingClauses.reduce((sum, c) => sum + (c.weightage || 0), 0);
+        const newMinimumScore = parseInt(tempMinimumScore);
+        
+        if (totalWeightage === 0) {
+            toast.error("Please add sampling questions with weightage before setting minimum score");
+            return;
+        }
+        
+        if (newMinimumScore > totalWeightage) {
+            toast.error(`Minimum score (${newMinimumScore}) cannot exceed total weightage of all sampling questions (${totalWeightage})`);
+            return;
+        }
+
         const payload = {
             rfq_id,
             rfq_product_id: product.id,
-            minimum_passing_score: parseInt(tempMinimumScore)
+            minimum_passing_score: newMinimumScore
         }
 
         setLoading(true);
@@ -351,14 +417,42 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                 {showMinimumScoreInput && active === 'sampling' ? (
                     <div className="d-flex flex-column gap-3 p-3">
                         <h5 className="mb-0">Set minimum score</h5>
-                        <Form.Control
-                            type="number"
-                            placeholder="Enter minimum score required"
-                            min="0"
-                            max="100"
-                            value={tempMinimumScore}
-                            onChange={(e) => setTempMinimumScore(e.target.value)}
-                        />
+                        {(() => {
+                            const samplingClauses = previousClauses?.filter(c => c.clause_type === 'sampling') || [];
+                            const totalWeightage = samplingClauses.reduce((sum, c) => sum + (c.weightage || 0), 0);
+                            const maxAllowed = totalWeightage;
+                            
+                            return (
+                                <>
+                                    {totalWeightage > 0 && (
+                                        <div className="alert alert-info p-2" style={{ fontSize: "12px" }}>
+                                            <strong>Total Weightage of Sampling Questions:</strong> {totalWeightage}
+                                            <br />
+                                            <strong>Maximum Allowed Minimum Score:</strong> {maxAllowed}
+                                        </div>
+                                    )}
+                                    {totalWeightage === 0 && (
+                                        <div className="alert alert-warning p-2" style={{ fontSize: "12px" }}>
+                                            Please add sampling questions with weightage before setting minimum score.
+                                        </div>
+                                    )}
+                                    <Form.Control
+                                        type="number"
+                                        placeholder="Enter minimum score required"
+                                        min="0"
+                                        max={maxAllowed || 100}
+                                        value={tempMinimumScore}
+                                        onChange={(e) => setTempMinimumScore(e.target.value)}
+                                        disabled={totalWeightage === 0}
+                                    />
+                                    {totalWeightage > 0 && tempMinimumScore && !isNaN(parseInt(tempMinimumScore)) && parseInt(tempMinimumScore) > maxAllowed && (
+                                        <small className="text-danger">
+                                            Minimum score cannot exceed total weightage ({maxAllowed})
+                                        </small>
+                                    )}
+                                </>
+                            );
+                        })()}
                         <div className="d-flex gap-2 justify-content-end">
                             <button
                                 type="button"
@@ -536,24 +630,55 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
 
                         {/* Sampling Tab */}
                         <Tab.Pane eventKey="sampling">
-                            <div className="d-flex flex-column mb-3 mt-2">
-                                <Form.Control
-                                    as="textarea"
-                                    placeholder="Sampling Question"
-                                    rows={2}
-                                    className="me-2 mb-2"
-                                    value={message}
-                                    onChange={(e) => setMessage(e.target.value)}
-                                />
-                                <Form.Control
-                                    type="number"
-                                    placeholder="Weightage"
-                                    className="me-2 mb-2"
-                                    min="0"
-                                    max="100"
-                                    value={weightage}
-                                    onChange={(e) => setWeightage(e.target.value)}
-                                />
+                            {(() => {
+                                const existingSamplingClauses = previousClauses?.filter(c => 
+                                    c.clause_type === 'sampling' && (!update || c.clause_id !== currentClause?.clause_id)
+                                ) || [];
+                                const currentTotalWeightage = existingSamplingClauses.reduce((sum, c) => sum + (c.weightage || 0), 0);
+                                const remainingWeightage = 100 - currentTotalWeightage;
+                                const newWeightageValue = weightage ? parseInt(weightage) : 0;
+                                const wouldExceed = currentTotalWeightage + newWeightageValue > 100;
+                                
+                                return (
+                                    <>
+                                        {currentTotalWeightage > 0 && (
+                                            <div className="alert alert-info mb-2 p-2" style={{ fontSize: "12px" }}>
+                                                <strong>Current Total Weightage:</strong> {currentTotalWeightage}/100
+                                                {remainingWeightage >= 0 && (
+                                                    <span className="ms-2">(Remaining: {remainingWeightage})</span>
+                                                )}
+                                                {wouldExceed && (
+                                                    <span className="text-danger ms-2">⚠ Would exceed 100!</span>
+                                                )}
+                                            </div>
+                                        )}
+                                        <div className="d-flex flex-column mb-3 mt-2">
+                                            <Form.Control
+                                                as="textarea"
+                                                placeholder="Sampling Question"
+                                                rows={2}
+                                                className="me-2 mb-2"
+                                                value={message}
+                                                onChange={(e) => setMessage(e.target.value)}
+                                            />
+                                            <Form.Control
+                                                type="number"
+                                                placeholder="Weightage"
+                                                className={`me-2 mb-2 ${wouldExceed ? 'border-danger' : ''}`}
+                                                min="0"
+                                                max={Math.min(100, remainingWeightage + newWeightageValue)}
+                                                value={weightage}
+                                                onChange={(e) => setWeightage(e.target.value)}
+                                            />
+                                            {wouldExceed && (
+                                                <small className="text-danger mb-2">
+                                                    Total weightage cannot exceed 100. Maximum allowed: {Math.max(0, remainingWeightage)}
+                                                </small>
+                                            )}
+                                        </div>
+                                    </>
+                                );
+                            })()}
                                 <div className="d-flex justify-content-between align-items-start mt-2">
                                     <div role="button" onClick={handleAttachFileClick} className="text-sm" style={{ maxWidth: "80%" }}>
                                         <FontAwesomeIcon icon={faPaperclip} className="opacity-75 me-2" />
@@ -596,7 +721,6 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                                         </button>
                                     )}
                                 </div>
-                            </div>
 
                             {/* Hidden file input field triggered by the "Attach file" button */}
                             <input

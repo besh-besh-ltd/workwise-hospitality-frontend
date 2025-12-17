@@ -163,6 +163,17 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
             return;
         }
 
+        // Validate marks against weightage for sampling questions
+        if (selectedClauseForRemark.clause_type === 'sampling' && buyerMarks) {
+            const marksValue = parseInt(buyerMarks);
+            const weightage = selectedClauseForRemark.weightage || 0;
+            
+            if (marksValue > weightage) {
+                toast.error(`Marks (${marksValue}) cannot exceed the weightage (${weightage}) for this sampling question`);
+                return;
+            }
+        }
+
         const payload = {
             clause_id: selectedClauseForRemark.clause_id,
             vendor_id: selectedVendorForRemark.vendor_id || selectedVendorForRemark.value,
@@ -889,16 +900,36 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
             <Modal.Title>Add Remark and Score</Modal.Title>
           </Modal.Header>
           <Modal.Body>
+            {selectedClauseForRemark?.clause_type === 'sampling' && selectedClauseForRemark?.weightage && (
+              <div className="alert alert-info mb-3 p-2" style={{ fontSize: "12px" }}>
+                <strong>Question Weightage:</strong> {selectedClauseForRemark.weightage}
+                <br />
+                <small>Maximum marks allowed: {selectedClauseForRemark.weightage}</small>
+              </div>
+            )}
             <div className="mb-3">
               <label className="form-label">Give Score</label>
               <Form.Control
                 type="number"
                 placeholder="Enter score"
                 min="0"
-                max="100"
+                max={selectedClauseForRemark?.clause_type === 'sampling' && selectedClauseForRemark?.weightage 
+                  ? selectedClauseForRemark.weightage 
+                  : 100}
                 value={buyerMarks}
-                onChange={(e) => setBuyerMarks(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setBuyerMarks(value);
+                }}
+                className={selectedClauseForRemark?.clause_type === 'sampling' && buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0) 
+                  ? 'border-danger' 
+                  : ''}
               />
+              {selectedClauseForRemark?.clause_type === 'sampling' && buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0) && (
+                <small className="text-danger">
+                  Marks ({buyerMarks}) cannot exceed weightage ({selectedClauseForRemark.weightage})
+                </small>
+              )}
             </div>
             <div className="mb-3">
               <label className="form-label">Add Remark</label>
