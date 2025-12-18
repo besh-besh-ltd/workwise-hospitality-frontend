@@ -11,7 +11,7 @@ import RandomProductsCarousel from '@/components/dashboard/vendor/RandomProducts
 import SeoTitle from '@/components/dashboard/vendor/SeoTitle';
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
-import { categoryList, categoryListById, vendorApproveList, addProductToDraft, bulkSearchVendorsByCategory, vendorTypes } from "@/services/rfq";
+import {  categoryListById, vendorApproveList, addProductToDraft, bulkSearchVendorsByCategory, vendorTypes } from "@/services/rfq";
 import { toast } from "react-toastify";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
 import { useRouter } from "next/router";
@@ -23,8 +23,10 @@ import { debounce } from "lodash";
 import { getCountries, getStates, getCities } from "@/services/cms";
 import NestedCategoryBrowser from "./NestedCategoryBrowser";
 import FeatureSEOSection from "./FeatureSEOsection";
-import {useAvailableOptions} from "@/utils/elementFunctions"
-import { Button, Modal } from "react-bootstrap";
+import { getUserMappings } from "@/services/hospitality";
+import Select from "react-select";
+import AddTenderItemModal from "@/components/modal/AddTenderItemModal";
+
 
 export const vendorConditions = [
   {
@@ -117,6 +119,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [queryMeta, setQueryMeta] = useState({
     rfq_id: null,
     sheet_id: null,
+    orderType:null
   });
   // const [allAvailableCities, setAllAvailableCities] = useState([]);
   const [vendorFirstSearch, setVendorFirstSearch] = useState(false);
@@ -124,8 +127,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-  const [orderTypeValue, setOrderTypeValue] = useState('');
+  const [userHotelMappings, setUserHotelMappings] = useState([]);
+  const [selectedHotelIds, setSelectedHotelIds] = useState([]);
+  const [openTenderItemModal, setOpenTenderItemModal] = useState(false);
+  const [tenderProduct, setTenderProduct] = useState(null);
 
 const LIMIT = 20;
 
@@ -287,7 +292,10 @@ const handleOrderTypeSelect = (type) => {
     { shallow: true }
   );
 
-  setOrderTypeValue(type);
+  setQueryMeta(prev => ({
+    ...prev,
+    orderType: type
+  }));
 };
 
 
@@ -340,10 +348,11 @@ const category_id = extractId(slugStr);
 
 
   useEffect(() => {
-    const { rfq_id, sheet_id } = router.query;
+    const { rfq_id, sheet_id, orderType  } = router.query;
     setQueryMeta({
       rfq_id,
       sheet_id,
+      orderType 
     });
   }, [router.query]);
 
@@ -404,6 +413,11 @@ const category_id = extractId(slugStr);
 useEffect(() => {
 
   const filters = JSON.parse(filterSnapshot);
+
+   // No vendor/product API calls in tender
+    if (queryMeta.orderType === 'tender') {
+    return;
+  }
 
   if (!currentSelectedProduct) {
     setVendors([]);
@@ -490,6 +504,7 @@ useEffect(() => {
     useEffect(() => {
     if (localStorage.getItem("token")) {
       setIsLoggedIn(true);
+      getUSerMappedHotelsAndCompanies();
     }
     if (redirectAfterLogin) {
       const url = redirectAfterLogin;
@@ -499,13 +514,27 @@ useEffect(() => {
   }, [router, loggedin]);
 
 
-  // -----------------------------
+  // ----------------------------- 3198afc49da97f8915adc1a64dc828be-96164d60-676f7cdd
   // Component Function Section
   // -----------------------------
 
 useClickOutside(searchRef, () => setOpen({...open, input : false}), open.input);
 useClickOutside(vendorTypeRef, () => setOpen({...open, vendorType : false}), open.vendorType);
 useClickOutside(vendorApprovedByRef, () => setOpen({...open, approvedBy : false}), open.approvedBy);
+
+//  get list of hotels in which user is mapped and their companies
+const getUSerMappedHotelsAndCompanies = async () => {
+  try {
+    const response = await getUserMappings();
+
+    const mappings = response?.data || [];
+    setUserHotelMappings(mappings);
+
+  } catch (error) {
+    console.error("Error fetching user mappings", error);
+  }
+};
+
 
 
 const handleRedirect = (e) => {
@@ -588,8 +617,9 @@ const addRfqIdParam = (rfq_id) => {
       const { rfq_id, sheet_id } = queryMeta;
       
       const payload = {
-        is_tender: orderTypeValue === 'tender' ? 1 : 0, // options tender / rfq
+        is_tender: queryMeta.orderType === 'tender' ? 1 : 0, // options tender / rfq
         variant_id: currentSelectedProduct.variant_id,
+         hotel_ids: selectedHotelIds,
         vendors: bulkRFQVendors.map(vendor => ({
           vendor_id: vendor.id
         })),
@@ -928,6 +958,17 @@ const getVendorTypeList = () => {
   };
 
  const handleAutocompleteClick = (item) => {
+
+  //  if tender then open tender modal and set product
+  if (queryMeta.orderType === "tender") {
+    setTenderProduct({
+      name: item.variant_name || item.product_name,
+      variant_id: item.variant_id,
+    });
+    setOpenTenderItemModal(true);
+    return; // ⛔ no vendor search, no API here
+  }
+
   setOpen(prev => ({ ...prev, input: false }));
   setVendorFirstSearch(false);
 
@@ -976,7 +1017,7 @@ if (address.selectedCity || address.selectedState) {
 
   const newSlug = `${baseSlug}${locationSuffix}`;
 
-  const { rfq_id, sheet_id } = router.query;
+  const { rfq_id, sheet_id, orderType } = router.query;
 
   router.push(
     {
@@ -984,6 +1025,7 @@ if (address.selectedCity || address.selectedState) {
       query: {
         ...(rfq_id && { rfq_id }),
         ...(sheet_id && { sheet_id }),
+        ...(orderType && { orderType })
       },
     },
     undefined,
@@ -1072,8 +1114,8 @@ const clearLocationFilter = () => {
     <>
 
 
-{/* select order type modal - tender/rfq */}
-{ orderTypeValue === '' && (
+{/*START:  select order type modal - tender/rfq */}
+{ !queryMeta.orderType && (
   <div
     className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
     style={{
@@ -1117,9 +1159,7 @@ const clearLocationFilter = () => {
     </div>
   </div>
 )}
-
-
-
+{/* END: select order type modal - tender/rfq */}
 
 
     {/* -----------------------------
@@ -1132,7 +1172,38 @@ const clearLocationFilter = () => {
             currentSelectedProduct={currentSelectedProduct}
             address={address}
           />
-          <div className="d-flex justify-content-end">
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mt-3">
+
+{/* START: Select Hotels Dropdown */}
+          <div className=" ">
+  {/* <strong className=" text-white  ">Select Hotels</strong> */}
+
+  <Select
+    isMulti
+    options={userHotelMappings}
+    value={userHotelMappings.filter(opt =>
+      selectedHotelIds.includes(opt.hospitality_hotel_id)
+    )}
+    onChange={(selectedOptions) => {
+      const ids = selectedOptions
+        ? selectedOptions.map(opt => opt.hospitality_hotel_id)
+        : [];
+      setSelectedHotelIds(ids);
+    }}
+    placeholder="Select hotels..."
+    closeMenuOnSelect={false}
+    classNamePrefix="react-select"
+    formatOptionLabel={(option) => (
+      <div>
+        <span className="">{option.hotel_name}</span>
+        {/* <div className="text-muted small">{option.company_name}</div> */}
+      </div>
+    )}
+  />
+</div>
+{/* END: Select Hotels Dropdown */}
+
+ {queryMeta.orderType !== 'tender' && (
             <Link
               href="/dashboard/buyer/boq-automation"
               id="generate_rfq_from_boq-vendor_header-vendor_search_page"
@@ -1152,13 +1223,17 @@ const clearLocationFilter = () => {
                 className="me-2"
               />{" "}
               Generate RFQ from BOQ
-            </Link>
+            </Link>)}
+
           </div>
         </div>
+
       </section>
+      {/* END: HERO section */}
+
 
       {/* -----------------------------
-         Search bar with Product Dropdown
+         START: Search bar with Product Dropdown
        ----------------------------- */}
       <section className="search-sec-1" aria-label="search-box">
         <div className="container-fluid product-search">
@@ -1335,10 +1410,11 @@ const clearLocationFilter = () => {
           </div>
         </div>
       </section>
+      {/* END: SEARCHBAR */}
 
 
 {/* display this section only for rfq */}
- {orderType !== 'tender' && (
+ {queryMeta.orderType !== 'tender' && (
   <>
        {/* -----------------------------
          Vendor List with Filter Section
@@ -2120,6 +2196,15 @@ const clearLocationFilter = () => {
 <FeatureSEOSection/>
 </> ) }
 
+
+<AddTenderItemModal
+  open={openTenderItemModal}
+  onClose={() => setOpenTenderItemModal(false)}
+  product={tenderProduct}
+  rfqId={queryMeta.rfq_id}
+  sheetId={queryMeta.sheet_id}
+  hotelIds={selectedHotelIds}
+/>
 
   
     </>

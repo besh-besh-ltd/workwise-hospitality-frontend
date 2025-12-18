@@ -207,13 +207,17 @@ export const getUserMappings = (userId) =>
   new Promise(async (resolve, reject) => {
     try {
       const response = await axiosInstance.get(
-        `/hospitality/user/${userId}/mappings`
+        `/hospitality/user/mappings`,
+        {
+          params: { userId }
+        }
       );
       resolve(response);
     } catch (error) {
       reject({ message: error });
     }
   });
+
 
 export const deleteProjectMapping = (projectId, payload) =>
   new Promise(async (resolve, reject) => {
