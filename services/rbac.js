@@ -1,0 +1,35 @@
+import axiosInstance from "@/lib/axios";
+
+export const getDepartments = () =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/rbac/departments`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const getRoles = () =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/rbac/roles`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const getRolePermissions = (roleId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/rbac/roles/${roleId}/permissions`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+

@@ -17,6 +17,7 @@ import {
     dynamicAccountEditSchema, 
     dynamicTeamMemberSchema 
 } from '@/utils/schema';
+import RoleScopeSelector from "@/components/hospitality/RoleScopeSelector";
 import CommonFormInput from '@/components/shared/CommonFormInput';
 
 // Custom styles for Product Select Component
@@ -131,6 +132,7 @@ const DynamicFormModal = ({
     const [selectedApprovedBy, setSelectedApprovedBy] = useState([]);
     const [currentProduct, setCurrentProduct] = useState(null);
     const [vendorProductDetails, setProductDetails] = useState([]);
+    const [roleScopes, setRoleScopes] = useState([]);
 
     // Function to fetch vendor approved-by list
     const getVendorApproveList = () => {
@@ -319,13 +321,23 @@ const DynamicFormModal = ({
                 statusValue = 1; // Default fallback
             }
             
+            const departmentIds = Array.from(
+              new Set(
+                (roleScopes || [])
+                  .map((r) => r.department_id)
+                  .filter((id) => id !== null && id !== undefined)
+              )
+            );
+
             // Create account data object
             const accountData = {
                 id: values.id,
                 name: values.name,
                 email: values.email,
                 mobile: formattedMobile,
-                status: statusValue // Send as number directly
+                status: statusValue, // Send as number directly
+                roles: roleScopes,
+                department_ids: departmentIds
             };
             // Call the parent function to save the data
             handleEditAccount(accountData, resetForm);
@@ -1182,6 +1194,27 @@ Example:
                                             Create a hospitality company to start mapping users.
                                           </p>
                                         )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {showHospitalitySection && (
+                                  <div className="mt-4">
+                                    <div className="card border-0 shadow-sm">
+                                      <div className="card-body">
+                                        <div className="d-flex justify-content-between align-items-center mb-3">
+                                          <h5 className="mb-0">RBAC Role & Scope</h5>
+                                          <span className="text-muted small">
+                                            Assign roles with company / hotel scope
+                                          </span>
+                                        </div>
+                                        <RoleScopeSelector
+                                          onAddRole={(scope) =>
+                                            setRoleScopes((prev) => [...prev, scope])
+                                          }
+                                          existingRoles={roleScopes}
+                                        />
                                       </div>
                                     </div>
                                   </div>

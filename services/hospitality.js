@@ -10,6 +10,16 @@ export const getHospitalityCompanies = () =>
     }
   });
 
+export const getHospitalityEntities = () =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/hospitality/entities`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 export const createHospitalityCompany = (payload, files = {}) =>
   new Promise(async (resolve, reject) => {
     try {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Badge } from "react-bootstrap";
+import { getDepartments, getRoles, getRolePermissions } from "@/services/rbac";
+import { getHospitalityEntities } from "@/services/hospitality";
 
 /**
  * RoleScopeSelector (Bootstrap-friendly)
@@ -24,51 +25,12 @@ import { Badge } from "react-bootstrap";
  */
 
 export default function RoleScopeSelector({ onAddRole, existingRoles }) {
-  /* ---------------- Dummy API Data ---------------- */
-
-  const [roles, setRoles] = useState([
-    { id: 1, title: "CEO" },
-    { id: 2, title: "Technical Approver" },
-    { id: 3, title: "Negotiator P1" }
-  ]);
-  const [companies, setCompanies] = useState([
-    {
-      id: 10,
-      name: "ABC Hospitality",
-      hotels: [
-        { id: 101, name: "Hotel Taj Central" },
-        { id: 102, name: "Hotel Taj Airport" }
-      ]
-    }
-  ]);
-  const [departments, setDepartments] = useState([
-    {
-        id: 1,
-        title: "Dairy"
-    },
-    {
-        id: 2,
-        title: "Meat"
-    },
-    {
-        id: 3,
-        title: "Spices"
-    },
-  ])
-
-  const rolePermissionsMap = {
-    1: {
-      tender: ["read", "create", "update", "delete"],
-      negotiation: ["read", "write", "update", "delete"]
-    },
-    2: {
-      tender: ["read", "approve"],
-      negotiation: ["read"]
-    },
-    3: {
-      negotiation: ["read", "write", "update", "delete"]
-    }
-  };
+  const [roles, setRoles] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [permissions, setPermissions] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   /* ---------------- State ---------------- */
 
@@ -76,16 +38,73 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedHotel, setSelectedHotel] = useState(null);
   const [selectedDepartment, setSelectedDepartment] = useState(null);
-  const [permissions, setPermissions] = useState({});
 
   /* ---------------- Effects ---------------- */
 
   useEffect(() => {
-    if (selectedRole) {
-      setPermissions(rolePermissionsMap[selectedRole.id] || {});
-    } else {
+    const loadMasters = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const [rolesRes, departmentsRes, entitiesRes] = await Promise.all([
+          getRoles(),
+          getDepartments(),
+          getHospitalityEntities()
+        ]);
+
+        const rolesData = rolesRes?.data?.data || rolesRes?.data || [];
+        const departmentsData =
+          departmentsRes?.data?.data || departmentsRes?.data || [];
+        const entities = entitiesRes?.data?.data || entitiesRes?.data || [];
+
+        setRoles(rolesData);
+        setDepartments(departmentsData);
+        setCompanies(
+          entities.map((c) => ({
+            id: c.company_id,
+            name: c.company_name,
+            hotels: (c.hotels || []).map((h) => ({
+              id: h.hotel_id,
+              name: h.hotel_name
+            }))
+          }))
+        );
+      } catch {
+        setError("Failed to load role & hospitality data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMasters();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedRole) {
       setPermissions({});
+      return;
     }
+
+    let cancelled = false;
+
+    const loadPermissions = async () => {
+      try {
+        const res = await getRolePermissions(selectedRole.id);
+        if (cancelled) return;
+        const data = res?.data?.data || res?.data || {};
+        setPermissions(data || {});
+      } catch {
+        if (!cancelled) {
+          setPermissions({});
+        }
+      }
+    };
+
+    loadPermissions();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedRole]);
 
   /* ---------------- Handlers ---------------- */
@@ -124,7 +143,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
   /* ---------------- UI ---------------- */
 
   return (
-    <div className="container-sm p-0" style={{maxWidth: "500px"}}>
+    <div className="w-100 border rounded-3 bg-light p-3">
 
       {/* Header */}
       <div className="mb-3">
@@ -132,38 +151,49 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
         <small className="text-muted">Choose as many as you want</small>
       </div>
 
+      {loading && (
+        <p className="text-muted mb-2">Loading role & scope data…</p>
+      )}
+      {error && !loading && (
+        <p className="text-danger mb-2">{error}</p>
+      )}
+
       {existingRoles && Array.isArray(existingRoles) && existingRoles.length > 0 && (
-        <div className="d-flex gap-2">
-            {existingRoles.map(role => (
-                <div className="alert alert-success text-sm px-2.5 py-2">{role.title}</div>
-            ))}
+        <div className="d-flex flex-wrap gap-2 mb-2">
+          {existingRoles.map((role, index) => (
+            <div
+              key={index}
+              className="alert alert-success text-sm px-2.5 py-2 mb-0"
+            >
+              {role.role_title || role.title}
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Selected Role */}
-      <div className="mb-3">
-        <label className="form-label">Select Role</label>
-        <select
-          className="form-select"
-          value={selectedRole?.id || ""}
-          onChange={e =>
-            setSelectedRole(
-              roles.find(r => r.id === Number(e.target.value)) || null
-            )
-          }
-        >
-          <option value="">Select a role</option>
-          {roles.map(role => (
-            <option key={role.id} value={role.id}>
-              {role.title}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Role & Scope selectors */}
+      <div className="row g-3 mb-3">
+        <div className="col-md-4">
+          <label className="form-label">Select Role</label>
+          <select
+            className="form-select"
+            value={selectedRole?.id || ""}
+            onChange={e =>
+              setSelectedRole(
+                roles.find(r => r.id === Number(e.target.value)) || null
+              )
+            }
+          >
+            <option value="">Select a role</option>
+            {roles.map(role => (
+              <option key={role.id} value={role.id}>
+                {role.title}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      {/* Scope */}
-      <div className="row mb-3">
-        <div className="col-md-6">
+        <div className="col-md-4">
           <label className="form-label">Select Company *</label>
           <select
             className="form-select"
@@ -185,7 +215,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
           </select>
         </div>
 
-        <div className="col-md-6">
+        <div className="col-md-4">
           <label className="form-label">Select Hotel (optional)</label>
           <select
             className="form-select"
@@ -208,31 +238,32 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
             ))}
           </select>
         </div>
-
       </div>
 
-        <div className="mb-4">
-            <label className="form-label">Select Department (optional)</label>
-            <select
+      <div className="row g-3 mb-3">
+        <div className="col-md-4">
+          <label className="form-label">Select Department (optional)</label>
+          <select
             className="form-select"
             disabled={!selectedHotel}
             value={selectedDepartment?.id || ""}
             onChange={e =>
-                setSelectedDepartment(
+              setSelectedDepartment(
                 departments.find(
-                    d => d.id === Number(e.target.value)
+                  d => d.id === Number(e.target.value)
                 ) || null
-                )
+              )
             }
-            >
+          >
             <option value={null}>All Departments</option>
             {departments.map(h => (
-                <option key={h.id} value={h.id}>
+              <option key={h.id} value={h.id}>
                 {h.title}
-                </option>
+              </option>
             ))}
-            </select>
+          </select>
         </div>
+      </div>
 
       {/* Permissions */}
       {selectedRole && (

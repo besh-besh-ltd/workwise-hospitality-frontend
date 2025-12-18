@@ -559,6 +559,12 @@ export const updateUserAccount = (userId, accountData) => {
                 mobile: accountData.mobile,
                 status: statusValue
             };
+            if (Array.isArray(accountData.roles)) {
+                payload.roles = accountData.roles;
+            }
+            if (Array.isArray(accountData.department_ids)) {
+                payload.department_ids = accountData.department_ids;
+            }
             
             let response = await axiosInstance.put(`users/update-user-detail`, payload);
             resolve(response);

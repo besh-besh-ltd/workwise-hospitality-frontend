@@ -7,6 +7,8 @@ import { createBuyerCompanyUser } from "@/services/Auth";
 import { getCountryCodes } from "@/services/cms";
 import { createAccountSchema } from "@/utils/schema";
 import CommonFormInput from "@/components/shared/CommonFormInput";
+import { getProfile } from "@/services/Auth";
+import RoleScopeSelector from "@/components/hospitality/RoleScopeSelector";
 
 const roleOptions = [
   { value: 8, label: "Management", color: "#2E5BA8" },
@@ -23,6 +25,9 @@ const initialValues = {
   password: "",
   confirmPassword: "",
   role: null,
+  employee_type: "",
+  employee_code: "",
+  payroll_company_id: ""
 };
 
 const CreateAccountPage = () => {
@@ -32,7 +37,10 @@ const CreateAccountPage = () => {
     loading: false,
     countryCodes: [],
     selectedCountryCode: "+91",
+    isHospitalityCompany: false
   });
+
+  const [roleScopes, setRoleScopes] = useState([]);
 
   const handleSubmit = async (values, { resetForm, setSubmitting }) => {
 
@@ -46,6 +54,20 @@ const CreateAccountPage = () => {
         user_type: values.role.value.toString(),
         password: values.password,
       };
+      if (appState.isHospitalityCompany) {
+        const deptIds = Array.from(
+          new Set(
+            (roleScopes || [])
+              .map((r) => r.department_id)
+              .filter((id) => id !== null && id !== undefined)
+          )
+        );
+        apiData.employee_type = values.employee_type || null;
+        apiData.employee_code = values.employee_code || null;
+        apiData.payroll_company_id = values.payroll_company_id || null;
+        apiData.roles = roleScopes;
+        apiData.department_ids = deptIds;
+      }
       const response = await createBuyerCompanyUser(apiData);
       if (response.status) {
         toast.success("Account created successfully!");
@@ -72,6 +94,16 @@ const CreateAccountPage = () => {
         const response = await getCountryCodes();
         if (response?.data) {
           setAppState((prev) => ({ ...prev, countryCodes: response.data }));
+        }
+        const profileRes = await getProfile();
+        const profile = profileRes?.data;
+        const hospitalityEnabled =
+          profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
+        if (hospitalityEnabled) {
+          setAppState((prev) => ({
+            ...prev,
+            isHospitalityCompany: true
+          }));
         }
       } catch (error) {
         console.error("Error fetching country codes:", error);
@@ -167,6 +199,35 @@ const CreateAccountPage = () => {
                             </div>
                           </div>
 
+                          {appState.isHospitalityCompany && (
+                            <div className="row mb-3">
+                              <div className="col-md-4">
+                                <CommonFormInput
+                                  name="employee_type"
+                                  label="Employee Type"
+                                  touched={touched}
+                                  errors={errors}
+                                />
+                              </div>
+                              <div className="col-md-4">
+                                <CommonFormInput
+                                  name="employee_code"
+                                  label="Employee Code"
+                                  touched={touched}
+                                  errors={errors}
+                                />
+                              </div>
+                              <div className="col-md-4">
+                                <CommonFormInput
+                                  name="payroll_company_id"
+                                  label="Payroll Company Id"
+                                  touched={touched}
+                                  errors={errors}
+                                />
+                              </div>
+                            </div>
+                          )}
+
                           <div className="row mb-4">
                             <div className="col-md-6">
                               <CommonFormInput
@@ -189,6 +250,24 @@ const CreateAccountPage = () => {
                               />
                             </div>
                           </div>
+
+                          {appState.isHospitalityCompany && (
+                            <div className="row mb-4">
+                              <div className="col-md-12">
+                                <div className="card border-0 shadow-sm">
+                                  <div className="card-body">
+                                    <h5 className="mb-3">Role & Scope</h5>
+                                    <RoleScopeSelector
+                                      onAddRole={(scope) =>
+                                        setRoleScopes((prev) => [...prev, scope])
+                                      }
+                                      existingRoles={roleScopes}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           <div className="row">
                             <div className="col-md-12 d-flex justify-content-end">
