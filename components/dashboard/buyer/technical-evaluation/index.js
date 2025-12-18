@@ -101,7 +101,10 @@ useEffect(() => {
   };
 
   const listProducts = async () => {
+    if (!rfq_id) return;
+    
     try {
+      setLoading(true);
       const res = await getAllClauses(rfq_id,"tech_evaluation");
       setClauseInfo(res?.data ?? null);
 
@@ -112,6 +115,8 @@ useEffect(() => {
 
       if (!selectedRfq) {
         console.error('No RFQ found for ID:', rfq_id);
+        setcurrentRfq(null);
+        setLoading(false);
         return;
       }
       const vMap = new Map();
@@ -133,7 +138,10 @@ useEffect(() => {
 
     } catch (error) {
       console.log(error)
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to load RFQ details');
+      setcurrentRfq(null);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -145,12 +153,12 @@ useEffect(() => {
 
 
   useEffect(() => {
-    if (rfq_id && rfqList.length > 0) {
+    if (rfq_id) {
       listProducts();
     } else {
       setcurrentRfq(null);
     }
-  }, [rfq_id, rfqList]);
+  }, [rfq_id]);
 
 
   return (
