@@ -796,6 +796,13 @@ useEffect(() => {
       formDataCopy.ra_end_date = null;
     }
     
+    // Handle tender fields - clear them if is_tender is 0
+    if (formDataCopy.is_tender === 0 || !formDataCopy.is_tender) {
+      formDataCopy.tender_fees = 0;
+      formDataCopy.tender_publish_date = null;
+      formDataCopy.vendor_clarification_date = null;
+    }
+    
     // IMPORTANT: Normalize terms to ensure proper format for backend
     if (formDataCopy.terms && Array.isArray(formDataCopy.terms)) {
       formDataCopy.terms = formDataCopy.terms.map(term => ({
