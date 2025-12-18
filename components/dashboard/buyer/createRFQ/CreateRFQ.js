@@ -21,7 +21,8 @@ import {
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { getProjectList, getProjectTableDataById, getProjectsByHospitalityContext, getProjectHospitalityContext, getRfqFilters } from "@/services/project";
-import { getMyHospitalityContexts } from "@/services/hospitality";
+import { getMyHospitalityContexts, getUserMappings } from "@/services/hospitality";
+import HotelFilter from "@/components/shared/HotelFilter";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
 import { extractfileName, handleFileUpload, formatISOToDateTimeLocal, getDataWithLoading } from "@/utils/sharedFunctions";
@@ -118,6 +119,8 @@ const CreateRFQ = () => {
   // Hospitality context states
   const [hospitalityContexts, setHospitalityContexts] = useState([]);
   const [allProjects, setAllProjects] = useState([]);
+  const [userHotelMappings, setUserHotelMappings] = useState([]);
+  const [selectedHotelIds, setSelectedHotelIds] = useState([]);
 
   const storeLoading = useSelector((data) => data.storeLoading);
   const rfqDetails = useSelector((data) => data.rfq_id);
@@ -265,6 +268,12 @@ const CreateRFQ = () => {
 
   const fetchHospitalityContexts = async () => {
     try {
+      // Fetch user hotel mappings for the multi-select dropdown
+      const mappingsRes = await getUserMappings();
+      const mappings = mappingsRes?.data || [];
+      setUserHotelMappings(mappings);
+
+      // Also fetch contexts for backward compatibility
       const res = await getMyHospitalityContexts();
       if (res?.data?.data) {
         const contexts = [];
@@ -292,6 +301,33 @@ const CreateRFQ = () => {
     } catch (error) {
       console.error("Error fetching hospitality contexts:", error);
     }
+  }
+
+  const handleHotelSelectionChange = (hotelIds) => {
+    setSelectedHotelIds(hotelIds);
+    
+    // Filter projects based on selected hotels
+    if (!hotelIds || hotelIds.length === 0) {
+      setProjects(allProjects);
+      dispatch(setOtherFormFields({ field_name: "hotel_id", value: null }));
+      dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: null }));
+    } else {
+      const filtered = allProjects.filter(p => hotelIds.includes(p.hotel_id));
+      setProjects(filtered);
+      
+      // If single hotel selected, set the hotel_id and company_id
+      if (hotelIds.length === 1) {
+        const selectedHotel = userHotelMappings.find(h => h.hospitality_hotel_id === hotelIds[0]);
+        if (selectedHotel) {
+          dispatch(setOtherFormFields({ field_name: "hotel_id", value: selectedHotel.hospitality_hotel_id }));
+          dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: selectedHotel.hospitality_company_id }));
+        }
+      }
+    }
+    
+    // Reset project selection when hotels change
+    dispatch(setOtherFormFields({ field_name: "project_id", value: -1 }));
+    setHasUnsavedChanges(true);
   }
 
   const handleHospitalityContextChange = (selectedOption) => {
@@ -2223,19 +2259,32 @@ useEffect(() => {
                         placeholder="Select"
                       />
                     </div>
-                    {hospitalityContexts.length > 0 && (
+                    {rfqFormDataFromStore.is_tender === 1 && userHotelMappings.length > 0 && (
                       <div className="col-md-3">
-                        <label className="form-label fw-medium">Select Hotel/Company</label>
+                        <label className="form-label fw-medium">Select Hotels</label>
                         <Select
-                          id="select_hospitality_context-create_rfq_page"
-                          options={hospitalityContexts}
-                          value={hospitalityContexts.find(c => 
-                            (c.type === 'hotel' && c.id === rfqFormDataFromStore.hotel_id) ||
-                            (c.type === 'company' && c.id === rfqFormDataFromStore.hospitality_company_id && !rfqFormDataFromStore.hotel_id)
+                          id="select_hotels-create_rfq_page"
+                          isMulti
+                          options={userHotelMappings}
+                          value={userHotelMappings.filter(opt => 
+                            selectedHotelIds.includes(opt.hospitality_hotel_id)
                           )}
-                          onChange={handleHospitalityContextChange}
-                          placeholder="Select Hotel/Company"
+                          onChange={(selectedOptions) => {
+                            const ids = selectedOptions 
+                              ? selectedOptions.map(opt => opt.hospitality_hotel_id)
+                              : [];
+                            handleHotelSelectionChange(ids);
+                          }}
+                          placeholder="Select Hotels..."
+                          closeMenuOnSelect={false}
+                          classNamePrefix="react-select"
                           isClearable
+                          formatOptionLabel={(option) => (
+                            <div>
+                              <span>{option.hotel_name}</span>
+                            </div>
+                          )}
+                          getOptionValue={(option) => option.hospitality_hotel_id}
                         />
                       </div>
                     )}
@@ -2272,12 +2321,14 @@ useEffect(() => {
                   </div>
 
 
-                  <div
-                    className="d-flex flex-wrap justify-content-between align-items-start"
-                    style={{ height: "fit-content" }}
-                  >
-                    {generateDynamicFilter()}
-                  </div>
+                  {rfqFormDataFromStore.is_tender !== 1 && (
+                    <div
+                      className="d-flex flex-wrap justify-content-between align-items-start"
+                      style={{ height: "fit-content" }}
+                    >
+                      {generateDynamicFilter()}
+                    </div>
+                  )}
                   {/* RFQ Products Table */}
                   <h4>Review Products</h4>
                   <div

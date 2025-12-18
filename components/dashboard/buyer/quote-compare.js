@@ -21,6 +21,7 @@ import { addCommasToNumber, calculateTotal, formatPrice, handleNormalize, normal
 import PlaceholderLoading from "react-placeholder-loading";
 import { toast } from "react-toastify";
 import { getProjectAvailableBudget, getProjectList } from '@/services/project';
+import { getUserMappings } from '@/services/hospitality';
 import Select from 'react-select';
 import LPRModal from "@/components/shared/LPRModal";
 import { Button } from "react-bootstrap";
@@ -61,7 +62,10 @@ const QuoteCompare = () => {
   const [normalizeFilter, setNormalizeFilter] = useState(false);
   const [rfqNo, setRfqNo] =useState(null);
   const [projects, setProjects] = useState(null);
+  const [allProjects, setAllProjects] = useState(null);
   const [selectedproject, setSelectedproject] = useState(null);
+  const [userHotelMappings, setUserHotelMappings] = useState([]);
+  const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [openModals, setOpenModals] = useState({});
   const [availableBudget, setAvailableBudget] = useState(null);
   // Add new state for active tab
@@ -94,6 +98,7 @@ const QuoteCompare = () => {
   
   useEffect(() => {
     getAllProjects();
+    fetchUserHotelMappings();
     // getPricehistory();
   }, [rfq]);
 
@@ -186,15 +191,41 @@ const openModalForVariant = (variantId) => {
     getProjectList()
         .then((res) => {
             let d = [];
-            res.data.map((item) => {
-                d.push({ label: item.name, value: item.id });
+            (res.data.data || res.data || []).map((item) => {
+                d.push({ label: item.name, value: item.id, hospitality_company_id: item.hospitality_company_id, hotel_id: item.hotel_id });
             });
             setProjects(d);
+            setAllProjects(d);
         })
         .catch((error) => {
             console.error(error)
         })
-}
+  }
+
+  const fetchUserHotelMappings = async () => {
+    try {
+      const response = await getUserMappings();
+      const mappings = response?.data || [];
+      setUserHotelMappings(mappings);
+    } catch (error) {
+      console.error("Error fetching user hotel mappings", error);
+    }
+  }
+
+  const handleHotelSelectionChange = (hotelIds) => {
+    setSelectedHotelIds(hotelIds);
+    
+    // Filter projects based on selected hotels
+    if (!hotelIds || hotelIds.length === 0) {
+      setProjects(allProjects);
+    } else {
+      const filtered = allProjects.filter(p => hotelIds.includes(p.hotel_id));
+      setProjects(filtered);
+    }
+    
+    // Reset project selection when hotels change
+    setSelectedproject(null);
+  }
 
   const handleTAFilterChange = (e) => {
     setTA_Filter(e.target.checked);
@@ -1318,6 +1349,35 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     id="search_rfq_no-quotes_received-compare_quotes_page"
                   />
                 </div>
+                {userHotelMappings.length > 0 && (
+                  <div className="py-2">
+                    <label>Select Hotels</label>
+                    <Select
+                      isMulti
+                      options={userHotelMappings}
+                      value={userHotelMappings.filter(opt => 
+                        selectedHotelIds.includes(opt.hospitality_hotel_id)
+                      )}
+                      onChange={(selectedOptions) => {
+                        const ids = selectedOptions 
+                          ? selectedOptions.map(opt => opt.hospitality_hotel_id)
+                          : [];
+                        handleHotelSelectionChange(ids);
+                      }}
+                      placeholder="Select Hotels..."
+                      closeMenuOnSelect={false}
+                      classNamePrefix="react-select"
+                      isClearable
+                      formatOptionLabel={(option) => (
+                        <div>
+                          <span>{option.hotel_name}</span>
+                        </div>
+                      )}
+                      getOptionValue={(option) => option.hospitality_hotel_id}
+                      id="select_hotels_filter-quotes_received-compare_quotes_page"
+                    />
+                  </div>
+                )}
                 <div className="py-2">
                   <label>Select Project</label>
                   <Select

@@ -544,42 +544,14 @@ const Header = () => {
     };
   }, [loggedinUser, currentUserType]);
 
+  // Hospitality scope selection via global modal is now disabled.
+  // Hotel / scope is selected via per-page filters instead.
   useEffect(() => {
-    if (!isHospitalityCompany) {
-      return;
-    }
-    loadHospitalityContextData();
+    // no-op: keep hook to avoid removing existing logic structure
   }, [isHospitalityCompany]);
 
   useEffect(() => {
-    if (!hospitalityContexts.length) {
-      return;
-    }
-    if (!hospitalityContext) {
-      const hasOpened =
-        typeof window !== "undefined" &&
-        window.sessionStorage.getItem("hospitalityScopeSelected") === "1";
-      if (!hasOpened) {
-        setContextModalOpen(true);
-      }
-      return;
-    }
-    const stillValid = hospitalityContexts.some((ctx) => {
-      if (ctx.hospitality_company_id !== hospitalityContext.companyId) {
-        return false;
-      }
-      if (!hospitalityContext.hotelId) {
-        return ctx.mapping_type === 0;
-      }
-      return (
-        ctx.mapping_type === 1 &&
-        ctx.hospitality_hotel_id === hospitalityContext.hotelId
-      );
-    });
-    if (!stillValid) {
-      setStoredHospitalityContext(null);
-      setHospitalityContextState(null);
-    }
+    // no-op: prevent auto-opening hospitality context modal
   }, [hospitalityContexts, hospitalityContext]);
 
   useEffect(() => {
@@ -599,8 +571,8 @@ const Header = () => {
     return baseMenu;
   }, [currentUserType, isHospitalityCompany]);
 
-  const showHospitalityScopeButton =
-    isHospitalityCompany && currentUserType !== "admin" && currentUserType !== "vendor";
+  // Hospitality scope button removed - hotel selection is now done via filters on each page
+  const showHospitalityScopeButton = false;
 
   return (
     <>

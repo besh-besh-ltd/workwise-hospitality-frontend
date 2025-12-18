@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import Select from 'react-select';
 import { getProjectList } from '@/services/project';
+import { getUserMappings } from '@/services/hospitality';
 
 
 const FilterSection = ({ title, setFilterData }) => {
     const [projects, setProjects] = useState(null);
+    const [allProjects, setAllProjects] = useState(null);
     const [rfqNo, setRfqNo] =useState(null);
+    const [userHotelMappings, setUserHotelMappings] = useState([]);
+    const [selectedHotelIds, setSelectedHotelIds] = useState([]);
 
     useEffect(() => {
         const handler = setTimeout(() => {
@@ -36,18 +40,48 @@ const FilterSection = ({ title, setFilterData }) => {
         getProjectList()
             .then((res) => {
                 let d = [];
-                res.data.map((item) => {
-                    d.push({ label: item.name, value: item.id });
+                (res.data.data || res.data || []).map((item) => {
+                    d.push({ label: item.name, value: item.id, hospitality_company_id: item.hospitality_company_id, hotel_id: item.hotel_id });
                 });
                 setProjects(d);
+                setAllProjects(d);
             })
             .catch((error) => {
                 console.log(error)
             })
     }
 
+    const fetchUserHotelMappings = async () => {
+        try {
+            const response = await getUserMappings();
+            const mappings = response?.data || [];
+            setUserHotelMappings(mappings);
+        } catch (error) {
+            console.error("Error fetching user hotel mappings", error);
+        }
+    }
+
+    const handleHotelSelectionChange = (hotelIds) => {
+        setSelectedHotelIds(hotelIds);
+        
+        // Filter projects based on selected hotels
+        if (!hotelIds || hotelIds.length === 0) {
+            setProjects(allProjects);
+        } else {
+            const filtered = allProjects.filter(p => hotelIds.includes(p.hotel_id));
+            setProjects(filtered);
+        }
+        
+        // Reset project filter
+        setFilterData((prevState) => ({
+            ...prevState,
+            project_id: -1,
+        }));
+    }
+
     useEffect(() => {
         getAllProjects();
+        fetchUserHotelMappings();
     }, []);
 
     return (
@@ -70,7 +104,35 @@ const FilterSection = ({ title, setFilterData }) => {
                     />
                 </div>
 
-                <div className="col-lg-2"></div>
+                {userHotelMappings.length > 0 && (
+                    <div className="col-md-2 col-lg-2">
+                        <label>Select Hotels</label>
+                        <Select
+                            id="select_hotels_filter-filter_section-manage_rfq_page"
+                            isMulti
+                            options={userHotelMappings}
+                            value={userHotelMappings.filter(opt => 
+                                selectedHotelIds.includes(opt.hospitality_hotel_id)
+                            )}
+                            onChange={(selectedOptions) => {
+                                const ids = selectedOptions 
+                                    ? selectedOptions.map(opt => opt.hospitality_hotel_id)
+                                    : [];
+                                handleHotelSelectionChange(ids);
+                            }}
+                            placeholder="Select Hotels..."
+                            closeMenuOnSelect={false}
+                            classNamePrefix="react-select"
+                            isClearable
+                            formatOptionLabel={(option) => (
+                                <div>
+                                    <span>{option.hotel_name}</span>
+                                </div>
+                            )}
+                            getOptionValue={(option) => option.hospitality_hotel_id}
+                        />
+                    </div>
+                )}
 
 
                 <div className="col-md-3 col-lg-2">
