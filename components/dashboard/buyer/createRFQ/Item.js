@@ -831,7 +831,7 @@ const Item = ({
               {/* <div>
               <span> Vendors </span> */}
 
-              {is_tender? (
+              {is_tender !== 1 ? (
               <div
                 className="d-flex flex-column gap-2 "
                 style={{

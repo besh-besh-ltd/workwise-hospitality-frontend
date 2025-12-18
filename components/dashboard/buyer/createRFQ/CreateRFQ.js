@@ -2279,7 +2279,7 @@ useEffect(() => {
                   </div>
 
 
-                  { rfqFormDataFromStore.is_tender? (
+                  { rfqFormDataFromStore.is_tender !== 1 ? (
                     <div
                     className="d-flex flex-wrap justify-content-between align-items-start"
                     style={{ height: "fit-content" }}
