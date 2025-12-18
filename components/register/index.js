@@ -564,7 +564,8 @@ const Register = ({
       ...(isHospitality && { is_hospitality: 1 }),
       ...(source ? { source } : {source:"self"}),
       ...(subscription_plan ? { subscription_plan } : {subscription_plan: 0}),
-      // Include subcategories for hospitality vendors
+      // Include categories and subcategories for hospitality vendors
+      ...(isHospitality && selectedCategories.length > 0 && { categories: selectedCategories }),
       ...(isHospitality && selectedSubcategories.length > 0 && { subcategories: selectedSubcategories })
     };
     // Document/bank presence checks
@@ -603,9 +604,16 @@ const Register = ({
     fd.set("register_as", regAs);
     fd.set("user_type", regAs);
     fd.set("is_hospitality", isHospitality ? "1" : "0");
-    if (updatedValues.hotels) fd.set("hotels", JSON.stringify(values.hotels || []));
-    if (updatedValues.categories) fd.set("categories", JSON.stringify(values.categories || []));
-    if (updatedValues.subcategories) fd.set("subcategories", JSON.stringify(values.subcategories || []));
+    // Always send hotels, categories, and subcategories for hospitality vendors
+    if (isHospitality) {
+      fd.set("hotels", JSON.stringify(selectedHotels || []));
+      fd.set("categories", JSON.stringify(selectedCategories || []));
+      fd.set("subcategories", JSON.stringify(selectedSubcategories || []));
+    } else {
+      if (updatedValues.hotels) fd.set("hotels", JSON.stringify(values.hotels || []));
+      if (updatedValues.categories) fd.set("categories", JSON.stringify(values.categories || []));
+      if (updatedValues.subcategories) fd.set("subcategories", JSON.stringify(values.subcategories || []));
+    }
     // Files
     if (documentFiles.pan) fd.append("pan", documentFiles.pan);
     if (documentFiles.gst) fd.append("gst", documentFiles.gst);

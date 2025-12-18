@@ -58,7 +58,7 @@ const HotelVendor = () => {
     };
   }, []);
 
-  const payWithRazorPay = async (orderId) => {
+  const payWithRazorPay = async (orderId, userCredentials = null) => {
     const res = await loadScript('https://checkout.razorpay.com/v1/checkout.js');
     if (!res) {
       toast.error('Razorpay SDK failed to load. Are you online?');
@@ -72,16 +72,42 @@ const HotelVendor = () => {
       name: 'Phileein',
       description: 'Hospitality Vendor Registration',
       image: '/assets/images/logo.png',
-      handler: function () {
-        const payload = { order_id: orderId };
-        testRazorPayEndpoint(payload).then((res) => {
-          if (res.data) {
-            toast.success('Payment successful! Your account will be approved shortly.');
-            setTimeout(() => {
-              router.push('/dashboard');
-            }, 2000);
-          }
-        });
+      handler: function (response) {
+        const payload = {
+          order_id: orderId,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_signature: response.razorpay_signature,
+        };
+        testRazorPayEndpoint(payload)
+          .then(async (res) => {
+            if (res && res.status === 1) {
+              // Auto-login after successful payment
+              if (userCredentials?.email && userCredentials?.password) {
+                try {
+                  const loginResponse = await LoginService(userCredentials, false);
+                  if (loginResponse?.token) {
+                    storageInstance.setStorage('token', loginResponse.token);
+                    SWSubscribe({ subscription: swSubscription, token: loginResponse.token })
+                      .catch(() => {});
+                    toast.success('Payment successful! Redirecting to dashboard...');
+                    router.push('/dashboard/vendor');
+                    return;
+                  }
+                } catch (loginError) {
+                  console.error('Auto-login error:', loginError);
+                }
+              }
+              // Fallback: redirect to login if auto-login fails or no credentials
+              // toast.success('Payment successful! Please log in to continue.');
+              // router.push('/hotel-vendor?login=true');
+            } else {
+              toast.error('Payment processed but could not verify status. Please try logging in again.');
+            }
+          })
+          .catch(() => {
+            toast.error('Payment verification failed. Please contact support if your amount was debited.');
+          });
       },
       prefill: { name: '', email: '', contact: '' },
       notes: { address: 'India' },
@@ -113,11 +139,13 @@ const HotelVendor = () => {
     }
 
     const numCategories = (userData.categories || []).length;
+    const numSubcategories = (userData.subcategories || []).length;
     const numHotels = (userData.hotels || []).length;
     const perCategoryFee = 500;
+    const perSubcategoryFee = 300;
     const perHotelFee = 500;
     const totalAmount =
-      (numCategories * perCategoryFee + numHotels * perHotelFee) ||
+      (numCategories * perCategoryFee + numSubcategories * perSubcategoryFee + numHotels * perHotelFee) ||
       parseInt(plan.price.replace(/[^\d]/g, ''), 10) ||
       0;
 
@@ -153,13 +181,21 @@ const HotelVendor = () => {
       costBreakdown: {
         total: totalAmount,
         numCategories,
+        numSubcategories,
         numHotels,
         perCategoryFee,
+        perSubcategoryFee,
         perHotelFee,
         categoryNames: userData?.categoryNames || [],
+        subcategoryNames: userData?.subcategoryNames || [],
         hotelNames: userData?.hotelNames || [],
       },
-      userData: userData || prev?.userData || {},
+      userData: {
+        ...(userData || prev?.userData || {}),
+        // Ensure email and password are available for auto-login after payment
+        email: userData?.email || prev?.userData?.email,
+        password: userData?.password || prev?.userData?.password,
+      },
     }));
 
     setShowSubscriptionModal(true);
@@ -212,13 +248,18 @@ const HotelVendor = () => {
     const payload = {
       user_key: userData.user_key,
       categories: userData.categories || [],
+      subcategories: userData.subcategories || [],
       hotels: userData.hotels || [],
     };
 
     hospitalitySubscriptionPayment(payload)
       .then(async (res) => {
         if (res?.status) {
-          await payWithRazorPay(res?.data);
+          // Pass user credentials for auto-login after payment
+          const userCredentials = userData.email && userData.password 
+            ? { email: userData.email, password: userData.password }
+            : null;
+          await payWithRazorPay(res?.data, userCredentials);
           setShowSubscriptionModal(false);
         }
       })
@@ -247,12 +288,14 @@ const HotelVendor = () => {
           const payload = {
             user_key: response.hospitality_user.user_key,
             categories: response.hospitality_user.categories || [],
+            subcategories: response.hospitality_user.subcategories || [],
             hotels: response.hospitality_user.hotels || [],
           };
           hospitalitySubscriptionPayment(payload)
             .then(async (res) => {
               if (res?.status) {
-                await payWithRazorPay(res?.data);
+                // Pass login credentials for auto-login after payment
+                await payWithRazorPay(res?.data, { email: values.email, password: values.password });
                 setShowLoginModal(false);
               }
             })

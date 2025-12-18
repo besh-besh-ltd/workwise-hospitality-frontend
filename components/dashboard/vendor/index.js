@@ -92,13 +92,15 @@ const Vendor = () => {
         throw new Error('User key not found');
       }
 
-      // Use pending categories/hotels from profile, or empty arrays
+      // Use pending categories/subcategories/hotels from profile, or empty arrays
       const categories = profile.pending_hospitality_categories || [];
+      const subcategories = profile.pending_hospitality_subcategories || [];
       const hotels = profile.pending_hospitality_hotels || [];
 
       const payload = {
         user_key: user_key,
         categories: categories,
+        subcategories: subcategories,
         hotels: hotels
       };
 
@@ -144,17 +146,15 @@ const Vendor = () => {
           razorpay_signature: response.razorpay_signature
         };
         testRazorPayEndpoint(payload)
-          .then((res) => {
-            if (res.data) {
-              setHospitalityPaymentTriggered(false);
-              setHasValidSubscription(true);
-              toast.success(
-                'Payment successful! Refreshing your dashboard...'
-              );
-              setTimeout(() => {
-                window.location.reload();
-              }, 2000);
-            }
+          .then(() => {
+            setHospitalityPaymentTriggered(false);
+            setHasValidSubscription(true);
+            toast.success(
+              'Payment successful! Refreshing your dashboard...'
+            );
+            setTimeout(() => {
+              window.location.reload();
+            }, 2000);
           })
           .catch(() => {
             setHospitalityPaymentTriggered(false);

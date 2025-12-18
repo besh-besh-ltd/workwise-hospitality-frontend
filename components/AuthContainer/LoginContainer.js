@@ -41,6 +41,7 @@ const LoginContainer = (props) => {
             const payload = {
                 user_key: hospitalityUser.user_key,
                 categories: hospitalityUser.categories || [],
+                subcategories: hospitalityUser.subcategories || [],
                 hotels: hospitalityUser.hotels || []
             };
             const response = await hospitalitySubscriptionPayment(payload);

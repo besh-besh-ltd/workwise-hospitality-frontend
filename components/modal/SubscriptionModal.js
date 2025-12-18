@@ -89,6 +89,15 @@ const SubscriptionModal = (props) => {
                               </li>
                             )
                           )}
+                          {selectedSubscription.costBreakdown.subcategoryNames?.map(
+                            (name, idx) => (
+                              <li key={`subcat-${idx}`}>
+                                <span className="text-muted me-1">Subcategory:</span>
+                                {name} – ₹{" "}
+                                {selectedSubscription.costBreakdown.perSubcategoryFee}
+                              </li>
+                            )
+                          )}
                           {selectedSubscription.costBreakdown.hotelNames?.map(
                             (name, idx) => (
                               <li key={`hotel-${idx}`}>
