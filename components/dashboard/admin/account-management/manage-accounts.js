@@ -6,6 +6,7 @@ import Pagination from "@/components/shared/Pagination";
 import FullLoader from "@/components/shared/FullLoader";
 import Select from "react-select";
 import DynamicFormModal from "@/components/modal/DynamicFormModal";
+import CustomRolePermissionsModal from "@/components/modal/CustomRolePermissionsModal";
 import { getCompanyUsers, updateUserAccount, getProfile } from "@/services/Auth";
 import { getCountryCodes } from "@/services/cms";
 import { toast } from "react-toastify";
@@ -52,7 +53,11 @@ const ManageAccountsPage = () => {
   const [uiState, setUiState] = useState({
     loading: false,
     pagination: { page: 1, limit: 10, totalData: 0 },
-    modals: { showEditModal: false, selectedAccount: null },
+    modals: {
+      showEditModal: false,
+      selectedAccount: null,
+      showCustomRolesModal: false,
+    },
   });
 
   const [filters, setFilters] = useState({
@@ -516,6 +521,22 @@ const ManageAccountsPage = () => {
 
                     <div className="col-md-6 d-flex align-items-end justify-content-end">
                       <SmartButton
+                        label="Custom Roles & Permissions"
+                        theme="primary"
+                        width="fit-content"
+                        className="p-3 me-3"
+                        onClick={() =>
+                          setUiState((prev) => ({
+                            ...prev,
+                            modals: {
+                              ...prev.modals,
+                              showCustomRolesModal: true,
+                            },
+                          }))
+                        }
+                        id="open_custom_roles_modal-account_actions-manage_accounts_page"
+                      />
+                      <SmartButton
                         href="/dashboard/admin/account-management/create-account"
                         label=" Create New Account"
                         theme="secondary"
@@ -639,6 +660,18 @@ const ManageAccountsPage = () => {
           roleOptions={roleOptions}
           hospitalityProps={hospitalityModalProps}
           initialRoleScopes={userRoleScopes[selectedAccountId] || []}
+        />
+      )}
+
+      {uiState.modals.showCustomRolesModal && (
+        <CustomRolePermissionsModal
+          isOpen={uiState.modals.showCustomRolesModal}
+          onClose={() =>
+            setUiState((prev) => ({
+              ...prev,
+              modals: { ...prev.modals, showCustomRolesModal: false },
+            }))
+          }
         />
       )}
     </>

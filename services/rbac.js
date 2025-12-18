@@ -42,4 +42,24 @@ export const getUserRoleScopes = (userId) =>
     }
   });
 
+export const getAllPermissions = () =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/rbac/permissions`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const createCustomRole = (payload) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(`/rbac/roles`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 
