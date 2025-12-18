@@ -32,4 +32,14 @@ export const getRolePermissions = (roleId) =>
     }
   });
 
+export const getUserRoleScopes = (userId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/rbac/users/${userId}/roles`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 

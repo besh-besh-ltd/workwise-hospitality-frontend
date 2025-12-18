@@ -47,6 +47,16 @@ const CreateAccountPage = () => {
     setAppState((prev) => ({ ...prev, loading: true }));
     try {
       const formattedMobile = `${values.countryCode}-${values.mobile}`;
+      const normalizeEmployeeType = (raw) => {
+        if (!raw) return null;
+        const value = String(raw).trim().toLowerCase();
+        if (value === "full time" || value === "full-time") return "full-time";
+        if (value === "part time" || value === "part-time") return "part-time";
+        if (value === "freelance") return "freelance";
+        if (value === "contract" || value === "contracted") return "contracted";
+        if (value === "other") return "other";
+        return "other";
+      };
       const apiData = {
         name: values.name,
         email: values.email,
@@ -62,9 +72,25 @@ const CreateAccountPage = () => {
               .filter((id) => id !== null && id !== undefined)
           )
         );
-        apiData.employee_type = values.employee_type || null;
+        apiData.employee_type = normalizeEmployeeType(values.employee_type);
         apiData.employee_code = values.employee_code || null;
-        apiData.payroll_company_id = values.payroll_company_id || null;
+
+        const rawPayrollId = values.payroll_company_id;
+        if (rawPayrollId && String(rawPayrollId).trim() !== "") {
+          const parsedPayrollId = parseInt(String(rawPayrollId).trim(), 10);
+          if (Number.isNaN(parsedPayrollId)) {
+            throw {
+              response: {
+                data: {
+                  message: "Payroll Company Id must be a numeric value.",
+                },
+              },
+            };
+          }
+          apiData.payroll_company_id = parsedPayrollId;
+        } else {
+          apiData.payroll_company_id = null;
+        }
         apiData.roles = roleScopes;
         apiData.department_ids = deptIds;
       }

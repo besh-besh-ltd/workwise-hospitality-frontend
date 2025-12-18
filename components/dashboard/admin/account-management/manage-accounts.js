@@ -18,6 +18,7 @@ import {
   mapHospitalityUsers,
   deleteUserMapping,
 } from "@/services/hospitality";
+import { getUserRoleScopes } from "@/services/rbac";
 
 const dedupeHospitalityMappings = (list = []) => {
   const seen = new Set();
@@ -76,6 +77,7 @@ const ManageAccountsPage = () => {
     autoMapProjects: true,
     submitting: false,
   });
+  const [userRoleScopes, setUserRoleScopes] = useState({});
 
   const fetchUsers = async () => {
     setUiState((prev) => ({ ...prev, loading: true }));
@@ -95,6 +97,7 @@ const ManageAccountsPage = () => {
       }));
       if (isHospitalityCompany) {
         fetchAllUserHospitalityMappings(users);
+        fetchAllUserRoleScopes(users);
       }
     } catch {
       toast.error("Error fetching users");
@@ -194,6 +197,31 @@ const ManageAccountsPage = () => {
     }
   };
 
+  const fetchUserRoleScopes = async (userId) => {
+    if (!userId) return;
+    try {
+      const response = await getUserRoleScopes(userId);
+      const scopes = response?.data?.data || response?.data || [];
+      setUserRoleScopes((prev) => ({
+        ...prev,
+        [userId]: scopes,
+      }));
+    } catch (error) {
+      setUserRoleScopes((prev) => ({
+        ...prev,
+        [userId]: [],
+      }));
+    }
+  };
+
+  const fetchAllUserRoleScopes = async (users = []) => {
+    if (!users.length) {
+      setUserRoleScopes({});
+      return;
+    }
+    await Promise.all(users.map((user) => fetchUserRoleScopes(user.id)));
+  };
+
   const getPaginatedData = () => {
     const start = (uiState.pagination.page - 1) * uiState.pagination.limit;
     return data.filteredAccounts.slice(start, start + uiState.pagination.limit);
@@ -230,6 +258,7 @@ const ManageAccountsPage = () => {
         loadCompanyHotels(fallbackCompanyId);
       }
       fetchUserMapping(account.id);
+      fetchUserRoleScopes(account.id);
     }
     setUiState((prev) => ({
       ...prev,
@@ -376,8 +405,28 @@ const ManageAccountsPage = () => {
   useEffect(() => {
     if (isHospitalityCompany && data.accounts.length) {
       fetchAllUserHospitalityMappings(data.accounts);
+      fetchAllUserRoleScopes(data.accounts);
     }
   }, [isHospitalityCompany, data.accounts]);
+
+  const renderUserWorkflowRoles = (userId) => {
+    const scopes = userRoleScopes[userId] || [];
+    if (!scopes.length) {
+      return <span className="text-muted">No workflow roles</span>;
+    }
+    const uniqueTitles = Array.from(
+      new Set(scopes.map((s) => s.role_title).filter(Boolean))
+    );
+    return (
+      <div className="d-flex flex-wrap gap-1">
+        {uniqueTitles.map((title) => (
+          <span key={title} className="badge bg-secondary">
+            {title}
+          </span>
+        ))}
+      </div>
+    );
+  };
 
   const selectedAccount = uiState.modals.selectedAccount;
   const selectedAccountId = selectedAccount?.id;
@@ -493,7 +542,8 @@ const ManageAccountsPage = () => {
                             <th>Name</th>
                             <th>Email</th>
                             <th>Mobile</th>
-                            <th>Role</th>
+                            <th>Account Type</th>
+                            {isHospitalityCompany && <th>Workflow Roles</th>}
                             <th>Created</th>
                             {isHospitalityCompany && <th>Hospitality Scope</th>}
                             <th>Actions</th>
@@ -521,6 +571,9 @@ const ManageAccountsPage = () => {
                                     {roleInfo.label}
                                   </span>
                                 </td>
+                                {isHospitalityCompany && (
+                                  <td>{renderUserWorkflowRoles(account.id)}</td>
+                                )}
                                 <td>{formatDate(account.created_at)}</td>
                                 {isHospitalityCompany && (
                                   <td>{renderUserHospitalitySummary(account.id)}</td>
@@ -585,6 +638,7 @@ const ManageAccountsPage = () => {
           countryCodes={data.countryCodes}
           roleOptions={roleOptions}
           hospitalityProps={hospitalityModalProps}
+          initialRoleScopes={userRoleScopes[selectedAccountId] || []}
         />
       )}
     </>

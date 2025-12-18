@@ -2199,7 +2199,7 @@ useEffect(() => {
                 </div>
               ) : (
                 <>
-                  {/* Is Tender Toggle Section */}
+                  {/* Is Tender & Project Selection Section */}
                   <div className="row mb-3">
                     <div className="col-md-3">
                       <label className="form-label fw-medium">Is Tender</label>
@@ -2239,9 +2239,6 @@ useEffect(() => {
                         />
                       </div>
                     )}
-
-{/* 
-                    { rfqFormDataFromStore.is_tender? (
                     <div className="col-md-3">
                       <label className="form-label fw-medium">Select Project</label>
                       <Select
@@ -2257,11 +2254,7 @@ useEffect(() => {
                         placeholder="Select"
                         isClearable
                       />
-                      </div>
-                    ):""} */}
-
-
-
+                    </div>
                     {isMagicRfq && sheetNameList.length > 0 && (
                       <div className="col-md-3">
                         <label className="form-label fw-medium">Select Sheet</label>
@@ -2279,17 +2272,12 @@ useEffect(() => {
                   </div>
 
 
-                  { rfqFormDataFromStore.is_tender !== 1 ? (
-                    <div
+                  <div
                     className="d-flex flex-wrap justify-content-between align-items-start"
                     style={{ height: "fit-content" }}
                   >
                     {generateDynamicFilter()}
-                   </div>
-                ):""}
-                 
-
-
+                  </div>
                   {/* RFQ Products Table */}
                   <h4>Review Products</h4>
                   <div
@@ -2531,34 +2519,6 @@ useEffect(() => {
                                 enableHandleChange={true}
                                 handleChange={handleFormFieldChange}
                               />
-
-                          { rfqFormDataFromStore.is_tender? (
-                              <div className="mt-2 mb-3">
-                                <label className="form-label fs-6 mb-1 fw-medium">
-                                  Select Project
-                                </label>
-                                <Select
-                                  id="select_project-create_rfq_page"
-                                  options={projects}
-                                  value={projects.find(
-                                    (project) =>
-                                      project.value === rfqFormDataFromStore.project_id
-                                  )}
-                                  defaultValue={-1}
-                                  onChange={(selectedOption, actionMeta) =>
-                                    handleFormFieldChange(
-                                      null,
-                                      selectedOption,
-                                      actionMeta
-                                    )
-                                  }
-                                  name="project_id"
-                                  placeholder="Select"
-                                  isClearable
-                                />
-                              </div>
-                           ):""}
-
                               <div className="row mt-2">
                                 <div className="custom-file">
                                   <label

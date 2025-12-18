@@ -42,22 +42,23 @@ const CustomSelectOption = (props) => (
 );
 
 const DynamicFormModal = ({
-    type,
-    projectData,
-    accountData,
-    teamMemberUsers,
-    currentTeamMembers,
-    openModal,
-    closeModal,
-    handleAddVendor,
-    handleCreateProject,
-    handleEditProject,
-    handleEditAccount,
-    handleAddTeamMember,
-    countryCodes,
-    roleOptions,
-    projectOptions,
-    hospitalityProps
+  type,
+  projectData,
+  accountData,
+  teamMemberUsers,
+  currentTeamMembers,
+  openModal,
+  closeModal,
+  handleAddVendor,
+  handleCreateProject,
+  handleEditProject,
+  handleEditAccount,
+  handleAddTeamMember,
+  countryCodes,
+  roleOptions,
+  projectOptions,
+  hospitalityProps,
+  initialRoleScopes = []
 }) => {
 
     const initialVendorValues = {
@@ -132,7 +133,7 @@ const DynamicFormModal = ({
     const [selectedApprovedBy, setSelectedApprovedBy] = useState([]);
     const [currentProduct, setCurrentProduct] = useState(null);
     const [vendorProductDetails, setProductDetails] = useState([]);
-    const [roleScopes, setRoleScopes] = useState([]);
+    const [roleScopes, setRoleScopes] = useState(initialRoleScopes || []);
 
     // Function to fetch vendor approved-by list
     const getVendorApproveList = () => {
@@ -307,6 +308,12 @@ const DynamicFormModal = ({
             closeModal();
         }
         // Handle account edit form submission
+        useEffect(() => {
+          if (type === "edit-account") {
+            setRoleScopes(initialRoleScopes || []);
+          }
+        }, [initialRoleScopes, type]);
+
         const processAccountEdit = (values, resetForm) => {
             // Format mobile with country code
             const formattedMobile = `${values.countryCode}-${values.mobile}`;
@@ -458,10 +465,10 @@ Example:
               width: "80vw", // Set to 'auto' or a specific value based on your design
               border: "none",
               background: "transparent",
-              overflow: "hidden",
+              overflow: "hidden", // Prevent outer scroll; inner body will scroll
               padding: "50px",
-              maxHeight: "100vh", // Adjust this value as needed\
-              height: "90vh", // Adjust this value as needed
+              maxHeight: "100vh", // Total modal height
+              height: "90vh", // Visible height
             },
           }}
         >
@@ -474,7 +481,14 @@ Example:
             ></button>
           </div>
 
-          <div className="modal-body contact-sec-modal" style={{}}>
+          <div
+            className="modal-body contact-sec-modal"
+            style={{
+              maxHeight: "calc(90vh - 80px)", // subtract approximate header height
+              overflowY: "auto",
+              paddingRight: "10px",
+            }}
+          >
             <div className="contact-sec-3">
               <div className="contact-sec-3-form">
                 <div className="contact-form">
@@ -708,6 +722,27 @@ Example:
                                   onChange={setFieldValue}
                                   required={true}
                                 />
+
+                                {showHospitalitySection && (
+                                  <div className="mt-4">
+                                    <div className="card border-0 shadow-sm">
+                                      <div className="card-body">
+                                        <div className="d-flex justify-content-between align-items-center mb-3">
+                                          <h5 className="mb-0">RBAC Role &amp; Scope</h5>
+                                          <span className="text-muted small">
+                                            Assign roles with company / hotel scope
+                                          </span>
+                                        </div>
+                                        <RoleScopeSelector
+                                          onAddRole={(scope) =>
+                                            setRoleScopes((prev) => [...prev, scope])
+                                          }
+                                          existingRoles={roleScopes}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </>
                             ) : type === "add-team-member" ? (
                               <>
@@ -1199,26 +1234,6 @@ Example:
                                   </div>
                                 )}
 
-                                {showHospitalitySection && (
-                                  <div className="mt-4">
-                                    <div className="card border-0 shadow-sm">
-                                      <div className="card-body">
-                                        <div className="d-flex justify-content-between align-items-center mb-3">
-                                          <h5 className="mb-0">RBAC Role & Scope</h5>
-                                          <span className="text-muted small">
-                                            Assign roles with company / hotel scope
-                                          </span>
-                                        </div>
-                                        <RoleScopeSelector
-                                          onAddRole={(scope) =>
-                                            setRoleScopes((prev) => [...prev, scope])
-                                          }
-                                          existingRoles={roleScopes}
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
                               </>
                             ) : type === "add-team-member" ? (
                               // Empty right column for team member modal
