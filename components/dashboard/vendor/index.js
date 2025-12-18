@@ -43,11 +43,14 @@ const Vendor = () => {
           const hasValidSubscription = userProfile.has_valid_hospitality_subscription === true;
           setHasValidSubscription(hasValidSubscription);
           
-          // If no valid subscription, block access and trigger payment
+          // If no valid subscription, block access and trigger payment (only once)
+          if (!hasValidSubscription && !hospitalityPaymentTriggered) {
+            await triggerHospitalityPayment(userProfile);
+            return;
+          }
+          
+          // If payment was triggered but still no valid subscription, don't reload
           if (!hasValidSubscription) {
-            if (!hospitalityPaymentTriggered) {
-              await triggerHospitalityPayment(userProfile);
-            }
             return;
           }
         }
@@ -76,7 +79,7 @@ const Vendor = () => {
     };
 
     checkHospitalityPayment();
-  }, [hospitalityPaymentTriggered]);
+  }, []);
 
   const triggerHospitalityPayment = async (profile) => {
     try {
@@ -108,13 +111,11 @@ const Vendor = () => {
       if (response?.status === 1 && response?.data) {
         await payWithRazorPay(response.data);
       } else {
-        setHospitalityPaymentTriggered(false);
-        setHasValidSubscription(true);
+        // Don't reset flag to prevent loop - keep it true so payment isn't triggered again
         toast.error(response?.message || 'Unable to initiate payment. Please try again.');
       }
     } catch (error) {
-      setHospitalityPaymentTriggered(false);
-      setHasValidSubscription(true);
+      // Don't reset flag to prevent loop - keep it true so payment isn't triggered again
       console.error('Hospitality payment error:', error);
       toast.error(error?.response?.data?.message || 'Failed to start payment. Please try again.');
     }
@@ -147,23 +148,12 @@ const Vendor = () => {
         };
         testRazorPayEndpoint(payload)
           .then(() => {
-            setHospitalityPaymentTriggered(false);
-            setHasValidSubscription(true);
-            toast.success(
-              'Payment successful! Refreshing your dashboard...'
-            );
-            setTimeout(() => {
-              window.location.reload();
-            }, 2000);
+            toast.success('Payment successful! Refreshing your dashboard...');
+            window.location.reload();
           })
           .catch(() => {
-            setHospitalityPaymentTriggered(false);
-            toast.success(
-              'Payment captured. Please refresh the page after a minute.'
-            );
-            setTimeout(() => {
-              window.location.reload();
-            }, 60000);
+            toast.success('Payment captured. Refreshing page...');
+            window.location.reload();
           });
       },
       prefill: {
