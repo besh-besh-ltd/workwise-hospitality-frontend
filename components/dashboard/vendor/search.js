@@ -2202,7 +2202,7 @@ const clearLocationFilter = () => {
   onClose={() => setOpenTenderItemModal(false)}
   product={tenderProduct}
   rfqId={queryMeta.rfq_id}
-  sheetId={queryMeta.sheet_id}
+  addRfqIdParam={addRfqIdParam}
   hotelIds={selectedHotelIds}
 />
 

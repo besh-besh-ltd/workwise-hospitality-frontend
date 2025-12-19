@@ -2288,22 +2288,7 @@ useEffect(() => {
                         />
                       </div>
                     )}
-                    <div className="col-md-3">
-                      <label className="form-label fw-medium">Select Project</label>
-                      <Select
-                        id="select_project-create_rfq_page"
-                        options={projects}
-                        value={projects.find(
-                          (project) =>
-                            project.value === rfqFormDataFromStore.project_id
-                        )}
-                        defaultValue={-1}
-                        onChange={handleProjectChangeWithContext}
-                        name="project_id"
-                        placeholder="Select"
-                        isClearable
-                      />
-                    </div>
+
                     {isMagicRfq && sheetNameList.length > 0 && (
                       <div className="col-md-3">
                         <label className="form-label fw-medium">Select Sheet</label>
@@ -2624,6 +2609,7 @@ useEffect(() => {
                                 </div>
                               </div>
 
+
                               <div className="row mt-2">
                                 <div className="col-md-6">
                                   <FormikField
@@ -2752,7 +2738,27 @@ useEffect(() => {
                                 </div>
                               </div>
 
+
                               <div className="row mb-2">
+
+                                    <div className="col-md-4">
+                                      <label className="form-label">
+                                        Tender Publish Date & Time
+                                      </label>
+                                      <input
+                                        id="tender_publish_date-rfq_details-create_rfq_page"
+                                        type="datetime-local"
+                                        name="tender_publish_date"
+                                        className="form-control"
+                                        value={
+                                          rfqFormDataFromStore.tender_publish_date
+                                            ? formatISOToDateTimeLocal(rfqFormDataFromStore.tender_publish_date)
+                                            : ""
+                                        }
+                                        onChange={handleFormFieldChange}
+                                      />
+                                    </div>
+
                                 <div className="col-md-4">
                                   <FormikField
                                     id="procurement_end_date-rfq_details-create_rfq_page"
@@ -2767,6 +2773,76 @@ useEffect(() => {
                                     errors={errors}
                                   />
                                 </div>
+
+                                    <div className="col-md-4">
+                                      <label className="form-label">
+                                        Vendor Clarification Deadline
+                                      </label>
+                                      <input
+                                        id="vendor_clarification_date-rfq_details-create_rfq_page"
+                                        type="datetime-local"
+                                        name="vendor_clarification_date"
+                                        className="form-control"
+                                        value={
+                                          rfqFormDataFromStore.vendor_clarification_date
+                                            ? formatISOToDateTimeLocal(rfqFormDataFromStore.vendor_clarification_date)
+                                            : ""
+                                        }
+                                        onChange={handleFormFieldChange}
+                                      />
+                                    </div>
+
+
+                                {rfqFormDataFromStore.is_tender === 1 && (
+                                  <>
+                                    <div className="col-md-4">
+                                      <label className="form-label fw-medium">Tender Fees (INR)</label>
+                                      <input
+                                        id="tender_fees-input-rfq_details-create_rfq_page"
+                                        type="number"
+                                        className="form-control"
+                                        value={rfqFormDataFromStore.tender_fees ? Number(rfqFormDataFromStore.tender_fees) / 100 : 0}
+                                        onChange={(e) => {
+                                          const numericValue = parseFloat(e.target.value || 0);
+                                          const paise = isNaN(numericValue) ? 0 : Math.max(0, Math.round(numericValue * 100));
+                                          dispatch(setOtherFormFields({ field_name: "tender_fees", value: paise }));
+                                          setHasUnsavedChanges(true);
+                                        }}
+                                        placeholder="Enter fees in INR"
+                                        min="0"
+                                      />
+                                    </div>
+                                  </>
+                                )}
+
+                                {rfqFormDataFromStore.is_tender === 0 && (
+                                  <>
+
+
+                                
+<div className="col-md-4">
+  <FormikField
+    id="select_project-create_rfq_page"
+    label="Select Project"
+    value={rfqFormDataFromStore.project_id}
+    enableHandleChange={true}
+    handleChange={handleFormFieldChange}
+    type="select"
+    selectOptions={[
+      { label: "Select Project", value: "" },
+      ...projects.map((project) => ({
+        label: project.label,
+        value: project.value,
+      })),
+    ]}
+    isRequired={true}
+    name="project_id"
+    touched={touched}
+    errors={errors}
+  />
+</div>
+                                  </>)}
+
 
                                 <div className="col-md-4">
                                   <FormikField
@@ -2788,63 +2864,6 @@ useEffect(() => {
                                   />
                                 </div>
 
-                                {rfqFormDataFromStore.is_tender === 1 && (
-                                  <>
-                                    <div className="col-md-4">
-                                      <label className="form-label">
-                                        Vendor Clarification Deadline
-                                      </label>
-                                      <input
-                                        id="vendor_clarification_date-rfq_details-create_rfq_page"
-                                        type="datetime-local"
-                                        name="vendor_clarification_date"
-                                        className="form-control"
-                                        value={
-                                          rfqFormDataFromStore.vendor_clarification_date
-                                            ? formatISOToDateTimeLocal(rfqFormDataFromStore.vendor_clarification_date)
-                                            : ""
-                                        }
-                                        onChange={handleFormFieldChange}
-                                      />
-                                    </div>
-
-                                    <div className="col-md-4">
-                                      <label className="form-label">
-                                        Tender Publish Date & Time
-                                      </label>
-                                      <input
-                                        id="tender_publish_date-rfq_details-create_rfq_page"
-                                        type="datetime-local"
-                                        name="tender_publish_date"
-                                        className="form-control"
-                                        value={
-                                          rfqFormDataFromStore.tender_publish_date
-                                            ? formatISOToDateTimeLocal(rfqFormDataFromStore.tender_publish_date)
-                                            : ""
-                                        }
-                                        onChange={handleFormFieldChange}
-                                      />
-                                    </div>
-
-                                    <div className="col-md-4">
-                                      <label className="form-label fw-medium">Tender Fees (INR)</label>
-                                      <input
-                                        id="tender_fees-input-rfq_details-create_rfq_page"
-                                        type="number"
-                                        className="form-control"
-                                        value={rfqFormDataFromStore.tender_fees ? Number(rfqFormDataFromStore.tender_fees) / 100 : 0}
-                                        onChange={(e) => {
-                                          const numericValue = parseFloat(e.target.value || 0);
-                                          const paise = isNaN(numericValue) ? 0 : Math.max(0, Math.round(numericValue * 100));
-                                          dispatch(setOtherFormFields({ field_name: "tender_fees", value: paise }));
-                                          setHasUnsavedChanges(true);
-                                        }}
-                                        placeholder="Enter fees in INR"
-                                        min="0"
-                                      />
-                                    </div>
-                                  </>
-                                )}
 
                                 {rfqFormDataFromStore.reverse_auction === 1 && (
                                   <>

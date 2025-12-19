@@ -7,7 +7,7 @@ const AddTenderItemModal = ({
   onClose,
   product,          // { name, variant_id }
   rfqId,
-  sheetId,
+  addRfqIdParam,
   hotelIds = [],
   onSuccess,        // optional callback
 }) => {
@@ -27,9 +27,13 @@ const AddTenderItemModal = ({
       };
 
       if (rfqId) payload.rfq_id = parseInt(rfqId);
-      if (sheetId) payload.sheet_id = parseInt(sheetId);
 
-      await addProductToDraft(payload);
+      const response = await addProductToDraft(payload);
+
+      const rfqResponse = response.data;
+      if(rfqResponse && rfqResponse.isNew) {
+        addRfqIdParam(rfqResponse.rfq_id)
+      }
 
       toast.success(
         <h6>
@@ -40,7 +44,8 @@ const AddTenderItemModal = ({
       onClose();
       onSuccess?.();
     } catch (error) {
-      toast.error(
+      console.log(" error adding item to tender: ", error); 
+        toast.error(
         <h6>Failed to add item to tender. Please try again.</h6>
       );
     } finally {
