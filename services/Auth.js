@@ -88,6 +88,17 @@ export const getProfile = (token=null) => {
 	});
 };
 
+export const getAllCompanies = () => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.get(`/admin/rfq/companies-list`);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
 export const updateProfile = (values, user_id) => {
 	return new Promise(async (resolve, reject) => {
 		try {

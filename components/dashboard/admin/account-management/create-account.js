@@ -3,19 +3,13 @@ import { Formik, Form, Field } from "formik";
 import { toast } from "react-toastify";
 import { useRouter } from "next/router";
 import FullLoader from "@/components/shared/FullLoader";
-import { createBuyerCompanyUser } from "@/services/Auth";
+import { createBuyerCompanyUser, getProfile } from "@/services/Auth";
 import { getCountryCodes } from "@/services/cms";
 import { createAccountSchema } from "@/utils/schema";
 import CommonFormInput from "@/components/shared/CommonFormInput";
-import { getProfile } from "@/services/Auth";
 import RoleScopeSelector from "@/components/hospitality/RoleScopeSelector";
-
-const roleOptions = [
-  { value: 8, label: "Management", color: "#2E5BA8" },
-  { value: 2, label: "Procurement", color: "#428B41" },
-  { value: 9, label: "Engineering", color: "#FFE600" },
-  { value: 10, label: "Finance", color: "#5b5b5b" },
-];
+import { getDepartments } from "@/services/rbac";
+import { getHospitalityCompanies } from "@/services/hospitality";
 
 const initialValues = {
   name: "",
@@ -24,10 +18,10 @@ const initialValues = {
   countryCode: "+91",
   password: "",
   confirmPassword: "",
-  role: null,
   employee_type: "",
   employee_code: "",
-  payroll_company_id: ""
+  payroll_company_id: "",
+  department_id: ""
 };
 
 const CreateAccountPage = () => {
@@ -37,7 +31,9 @@ const CreateAccountPage = () => {
     loading: false,
     countryCodes: [],
     selectedCountryCode: "+91",
-    isHospitalityCompany: false
+    isHospitalityCompany: false,
+    hospitalityCompanies: [],
+    departments: []
   });
 
   const [roleScopes, setRoleScopes] = useState([]);
@@ -61,7 +57,7 @@ const CreateAccountPage = () => {
         name: values.name,
         email: values.email,
         mobile: formattedMobile,
-        user_type: values.role.value.toString(),
+        user_type: "2", // Hardcoded as Procurement (2)
         password: values.password,
       };
       if (appState.isHospitalityCompany) {
@@ -82,7 +78,7 @@ const CreateAccountPage = () => {
             throw {
               response: {
                 data: {
-                  message: "Payroll Company Id must be a numeric value.",
+                  message: "Payroll Company must be selected.",
                 },
               },
             };
@@ -90,6 +86,10 @@ const CreateAccountPage = () => {
           apiData.payroll_company_id = parsedPayrollId;
         } else {
           apiData.payroll_company_id = null;
+        }
+        
+        if (values.department_id) {
+          apiData.department_ids = [parseInt(values.department_id, 10)];
         }
         apiData.roles = roleScopes;
         apiData.department_ids = deptIds;
@@ -117,11 +117,16 @@ const CreateAccountPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await getCountryCodes();
-        if (response?.data) {
-          setAppState((prev) => ({ ...prev, countryCodes: response.data }));
+        const [countryCodesRes, profileRes, departmentsRes] = await Promise.all([
+          getCountryCodes(),
+          getProfile(),
+          getDepartments()
+        ]);
+        
+        if (countryCodesRes?.data) {
+          setAppState((prev) => ({ ...prev, countryCodes: countryCodesRes.data }));
         }
-        const profileRes = await getProfile();
+        
         const profile = profileRes?.data;
         const hospitalityEnabled =
           profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
@@ -130,10 +135,30 @@ const CreateAccountPage = () => {
             ...prev,
             isHospitalityCompany: true
           }));
+          
+          // Fetch hospitality companies for payroll company dropdown
+          try {
+            const hospitalityCompaniesRes = await getHospitalityCompanies();
+            const companies = (hospitalityCompaniesRes?.data ?? hospitalityCompaniesRes ?? []).map((c) => ({
+              value: c.id,
+              label: c.name || c.company_name
+            }));
+            setAppState((prev) => ({ ...prev, hospitalityCompanies: companies }));
+          } catch (error) {
+            console.error("Error fetching hospitality companies:", error);
+          }
+        }
+        
+        if (departmentsRes?.data?.data || departmentsRes?.data) {
+          const departments = (departmentsRes?.data?.data || departmentsRes?.data || []).map((d) => ({
+            value: d.id,
+            label: d.title
+          }));
+          setAppState((prev) => ({ ...prev, departments }));
         }
       } catch (error) {
-        console.error("Error fetching country codes:", error);
-        toast.error("Failed to load country codes");
+        console.error("Error fetching data:", error);
+        toast.error("Failed to load data");
       }
     };
     fetchData();
@@ -215,13 +240,15 @@ const CreateAccountPage = () => {
                             </div>
                             <div className="col-md-6">
                               <CommonFormInput
-                                name="role"
-                                label="Role"
+                                name="department_id"
+                                label="Department"
                                 type="select"
                                 required= {true}
-                                options={roleOptions}
+                                options={appState.departments}
+                                touched={touched}
+                                errors={errors}
+                                values={values.department_id}
                               />
-
                             </div>
                           </div>
 
@@ -246,9 +273,12 @@ const CreateAccountPage = () => {
                               <div className="col-md-4">
                                 <CommonFormInput
                                   name="payroll_company_id"
-                                  label="Payroll Company Id"
+                                  label="Payroll Company"
+                                  type="select"
+                                  options={appState.hospitalityCompanies}
                                   touched={touched}
                                   errors={errors}
+                                  values={values.payroll_company_id}
                                 />
                               </div>
                             </div>
@@ -288,6 +318,12 @@ const CreateAccountPage = () => {
                                         setRoleScopes((prev) => [...prev, scope])
                                       }
                                       existingRoles={roleScopes}
+                                      selectedDepartment={values.department_id ? (() => {
+                                        const dept = appState.departments.find(d => d.value === parseInt(values.department_id, 10));
+                                        // Convert to format expected by RoleScopeSelector (id, title)
+                                        return dept ? { id: dept.value, value: dept.value, title: dept.label, label: dept.label } : null;
+                                      })() : null}
+                                      isEditMode={false}
                                     />
                                   </div>
                                 </div>

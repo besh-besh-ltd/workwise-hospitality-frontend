@@ -234,7 +234,7 @@ export const createAccountSchema = yup.object().shape({
     .max(15, "Mobile number cannot exceed 15 digits")
     .required("Mobile number is required"),
   countryCode: yup.string().required("Country code is required"),
-  role: yup.object().required("Role is required"),
+  department_id: yup.string().required("Department is required"),
   password: yup
     .string()
     .required("Password is required")

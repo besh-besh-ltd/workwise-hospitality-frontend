@@ -62,4 +62,14 @@ export const createCustomRole = (payload) =>
     }
   });
 
+export const updateCustomRole = (roleId, payload) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.put(`/rbac/roles/${roleId}`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 

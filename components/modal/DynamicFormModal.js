@@ -738,6 +738,10 @@ Example:
                                             setRoleScopes((prev) => [...prev, scope])
                                           }
                                           existingRoles={roleScopes}
+                                          onRemoveRole={(index) =>
+                                            setRoleScopes((prev) => prev.filter((_, i) => i !== index))
+                                          }
+                                          isEditMode={true}
                                         />
                                       </div>
                                     </div>

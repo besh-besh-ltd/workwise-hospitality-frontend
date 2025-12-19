@@ -24,7 +24,7 @@ import { getHospitalityEntities } from "@/services/hospitality";
  * }
  */
 
-export default function RoleScopeSelector({ onAddRole, existingRoles }) {
+export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDepartment: propSelectedDepartment, isEditMode = true, onRemoveRole }) {
   const [roles, setRoles] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -37,7 +37,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
   const [selectedRole, setSelectedRole] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedHotel, setSelectedHotel] = useState(null);
-  const [selectedDepartment, setSelectedDepartment] = useState(null);
+  const [selectedDepartment, setSelectedDepartment] = useState(propSelectedDepartment || null);
 
   /* ---------------- Effects ---------------- */
 
@@ -78,6 +78,24 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
 
     loadMasters();
   }, []);
+
+  useEffect(() => {
+    if (propSelectedDepartment && !isEditMode) {
+      // If propSelectedDepartment is an object with id/value, use it directly
+      // Otherwise, find it in departments list
+      if (propSelectedDepartment.id || propSelectedDepartment.value) {
+        const deptId = propSelectedDepartment.id || propSelectedDepartment.value;
+        const foundDept = departments.find(d => d.id === deptId || d.value === deptId);
+        if (foundDept) {
+          setSelectedDepartment(foundDept);
+        } else {
+          setSelectedDepartment(propSelectedDepartment);
+        }
+      } else {
+        setSelectedDepartment(propSelectedDepartment);
+      }
+    }
+  }, [propSelectedDepartment, isEditMode, departments]);
 
   useEffect(() => {
     if (!selectedRole) {
@@ -163,9 +181,17 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
           {existingRoles.map((role, index) => (
             <div
               key={index}
-              className="alert alert-success text-sm px-2.5 py-2 mb-0"
+              className="alert alert-success text-sm px-2.5 py-2 mb-0 d-flex align-items-center gap-2"
             >
-              {role.role_title || role.title}
+              <span>{role.role_title || role.title}</span>
+              {isEditMode && onRemoveRole && (
+                <button
+                  type="button"
+                  className="btn-close btn-close-sm"
+                  onClick={() => onRemoveRole(index)}
+                  aria-label="Remove role"
+                />
+              )}
             </div>
           ))}
         </div>
@@ -242,11 +268,11 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
 
       <div className="row g-3 mb-3">
         <div className="col-md-4">
-          <label className="form-label">Select Department (optional)</label>
+          <label className="form-label">Select Department {propSelectedDepartment && !isEditMode ? "(Auto-selected)" : "(optional)"}</label>
           <select
             className="form-select"
-            disabled={!selectedHotel}
-            value={selectedDepartment?.id || ""}
+            disabled={propSelectedDepartment && !isEditMode ? true : false}
+            value={selectedDepartment?.id || selectedDepartment?.value || ""}
             onChange={e =>
               setSelectedDepartment(
                 departments.find(
@@ -255,13 +281,16 @@ export default function RoleScopeSelector({ onAddRole, existingRoles }) {
               )
             }
           >
-            <option value={null}>All Departments</option>
+            <option value="">All Departments</option>
             {departments.map(h => (
               <option key={h.id} value={h.id}>
                 {h.title}
               </option>
             ))}
           </select>
+          {propSelectedDepartment && !isEditMode && (
+            <small className="text-muted">Department is set from account creation and cannot be changed here</small>
+          )}
         </div>
       </div>
 

@@ -633,50 +633,51 @@ const HospitalityManager = () => {
     }
   };
 
-  const handleUserMappingSubmit = async (event) => {
-    event.preventDefault();
-    if (!selectedCompanyId) {
-      toast.error("Select a company");
-      return;
-    }
-    if (!userMappingForm.users.length) {
-      toast.error("Select at least one user");
-      return;
-    }
-    if (userMappingForm.mappingLevel === "hotel" && !userMappingForm.hotelId) {
-      toast.error("Select a business unit for unit-level mapping");
-      return;
-    }
-    try {
-      setIsMappingUsers(true);
-      const mappingLevel = userMappingForm.mappingLevel;
-      const targetHotelId = mappingLevel === "hotel" ? parseInt(userMappingForm.hotelId, 10) : null;
-      await mapHospitalityUsers(selectedCompanyId, {
-        mapping_type: mappingLevel === "company" ? 0 : 1,
-        hotel_id: targetHotelId,
-        user_ids: userMappingForm.users.map((user) => parseInt(user.value, 10)),
-        auto_map_projects: userMappingForm.autoMapProjects,
-      });
-      toast.success("Users mapped successfully!");
-      setUserMappingForm(defaultUserMappingForm);
-      setShowUserMappingModal(false);
-      await loadMappedUserIds();
-      await loadCompanyUserMappings();
-      await loadAllProjectMappings();
-      if (mappingLevel === "hotel" && targetHotelId) {
-        await loadHotelUserMappings(targetHotelId);
-      } else {
-        selectedCompanyHotels.forEach((hotel) => {
-          loadHotelUserMappings(hotel.id);
-        });
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error(error?.message?.response?.data?.message || "Failed to map users");
-    } finally {
-      setIsMappingUsers(false);
-    }
-  };
+  // Commented out - Map Users functionality temporarily disabled
+  // const handleUserMappingSubmit = async (event) => {
+  //   event.preventDefault();
+  //   if (!selectedCompanyId) {
+  //     toast.error("Select a company");
+  //     return;
+  //   }
+  //   if (!userMappingForm.users.length) {
+  //     toast.error("Select at least one user");
+  //     return;
+  //   }
+  //   if (userMappingForm.mappingLevel === "hotel" && !userMappingForm.hotelId) {
+  //     toast.error("Select a business unit for unit-level mapping");
+  //     return;
+  //   }
+  //   try {
+  //     setIsMappingUsers(true);
+  //     const mappingLevel = userMappingForm.mappingLevel;
+  //     const targetHotelId = mappingLevel === "hotel" ? parseInt(userMappingForm.hotelId, 10) : null;
+  //     await mapHospitalityUsers(selectedCompanyId, {
+  //       mapping_type: mappingLevel === "company" ? 0 : 1,
+  //       hotel_id: targetHotelId,
+  //       user_ids: userMappingForm.users.map((user) => parseInt(user.value, 10)),
+  //       auto_map_projects: userMappingForm.autoMapProjects,
+  //     });
+  //     toast.success("Users mapped successfully!");
+  //     setUserMappingForm(defaultUserMappingForm);
+  //     setShowUserMappingModal(false);
+  //     await loadMappedUserIds();
+  //     await loadCompanyUserMappings();
+  //     await loadAllProjectMappings();
+  //     if (mappingLevel === "hotel" && targetHotelId) {
+  //       await loadHotelUserMappings(targetHotelId);
+  //     } else {
+  //       selectedCompanyHotels.forEach((hotel) => {
+  //         loadHotelUserMappings(hotel.id);
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error(error);
+  //     toast.error(error?.message?.response?.data?.message || "Failed to map users");
+  //   } finally {
+  //     setIsMappingUsers(false);
+  //   }
+  // };
 
   const handleProjectMappingSubmit = async (event) => {
     event.preventDefault();
@@ -1650,14 +1651,15 @@ const HospitalityManager = () => {
                           </div>
                         </div>
                         <div className="d-flex gap-2">
-                          <button
+                          {/* Commented out - Map Users button temporarily disabled */}
+                          {/* <button
                             type="button"
                             className="btn btn-outline-primary btn-sm"
                             onClick={() => setShowUserMappingModal(true)}
                           >
                             <i className="bi bi-people me-1"></i>
                             Map Users
-                          </button>
+                          </button> */}
                           <button
                             type="button"
                             className="btn btn-outline-primary btn-sm"
@@ -1901,7 +1903,8 @@ const HospitalityManager = () => {
                             <option value="company">Company Level</option>
                             <option value="hotel">Business Unit Level</option>
                           </select>
-                          <button
+                          {/* Commented out - Add Users button temporarily disabled */}
+                          {/* <button
                             type="button"
                             className="btn btn-primary btn-sm"
                             onClick={() => setShowUserMappingModal(true)}
@@ -1909,7 +1912,7 @@ const HospitalityManager = () => {
                           >
                             <i className="bi bi-plus-lg me-1"></i>
                             Add Users
-                          </button>
+                          </button> */}
                         </div>
                       </div>
                       <div className="card-body p-0">
@@ -2156,7 +2159,8 @@ const HospitalityManager = () => {
       {/* Modals */}
       {renderCompanyModal()}
       {renderHotelModal()}
-      {renderUserMappingModal()}
+      {/* Commented out - Map Users modal temporarily disabled */}
+      {/* {renderUserMappingModal()} */}
       {renderProjectMappingModal()}
     </>
   );
