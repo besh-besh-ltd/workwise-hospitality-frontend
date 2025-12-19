@@ -21,7 +21,7 @@ const initialValues = {
   employee_type: "",
   employee_code: "",
   payroll_company_id: "",
-  department_id: ""
+  department_id: []
 };
 
 const CreateAccountPage = () => {
@@ -88,11 +88,20 @@ const CreateAccountPage = () => {
           apiData.payroll_company_id = null;
         }
         
-        if (values.department_id) {
+        // Handle department_ids from multi-select
+        if (values.department_id && Array.isArray(values.department_id) && values.department_id.length > 0) {
+          apiData.department_ids = values.department_id.map(dept => 
+            typeof dept === 'object' ? parseInt(dept.value, 10) : parseInt(dept, 10)
+          );
+        } else if (values.department_id && !Array.isArray(values.department_id)) {
+          // Fallback for single value
           apiData.department_ids = [parseInt(values.department_id, 10)];
         }
         apiData.roles = roleScopes;
-        apiData.department_ids = deptIds;
+        // Merge with department IDs from role scopes if any
+        if (deptIds.length > 0) {
+          apiData.department_ids = Array.from(new Set([...(apiData.department_ids || []), ...deptIds]));
+        }
       }
       const response = await createBuyerCompanyUser(apiData);
       if (response.status) {
@@ -243,6 +252,7 @@ const CreateAccountPage = () => {
                                 name="department_id"
                                 label="Department"
                                 type="select"
+                                isMulti={true}
                                 required= {true}
                                 options={appState.departments}
                                 touched={touched}
@@ -318,10 +328,12 @@ const CreateAccountPage = () => {
                                         setRoleScopes((prev) => [...prev, scope])
                                       }
                                       existingRoles={roleScopes}
-                                      selectedDepartment={values.department_id ? (() => {
-                                        const dept = appState.departments.find(d => d.value === parseInt(values.department_id, 10));
-                                        // Convert to format expected by RoleScopeSelector (id, title)
-                                        return dept ? { id: dept.value, value: dept.value, title: dept.label, label: dept.label } : null;
+                                      selectedDepartment={values.department_id && Array.isArray(values.department_id) && values.department_id.length > 0 ? (() => {
+                                        // Use first department for RoleScopeSelector (it handles single department)
+                                        // All selected departments will be included in the final submission
+                                        const firstDeptValue = typeof values.department_id[0] === 'object' ? values.department_id[0].value : values.department_id[0];
+                                        const deptObj = appState.departments.find(d => d.value === parseInt(firstDeptValue, 10));
+                                        return deptObj ? { id: deptObj.value, value: deptObj.value, title: deptObj.label, label: deptObj.label } : null;
                                       })() : null}
                                       isEditMode={false}
                                     />
