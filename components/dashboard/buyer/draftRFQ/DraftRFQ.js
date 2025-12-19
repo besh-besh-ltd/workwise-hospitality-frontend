@@ -12,6 +12,7 @@ const initialFilterData = {
   reverse_auction: "-1",
   sort: "DESC",
   rfq_no: null,
+  is_tender: null,
 }
 
 const DraftRFQ = () => {

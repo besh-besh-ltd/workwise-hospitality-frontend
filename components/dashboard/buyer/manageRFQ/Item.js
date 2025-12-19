@@ -1,5 +1,5 @@
 import { getVendorsForReminder, sendSelectiveReminder } from "@/services/rfq";
-import { textCapitalize } from "@/utils/sharedFunctions";
+import { textCapitalize, formatRFQNumber } from "@/utils/sharedFunctions";
 import moment from "moment";
 import Link from "next/link";
 import React, { useState } from "react";
@@ -87,7 +87,7 @@ const RFQItem = ({ data }) => {
     <>
       <tr>
         <td>
-          <span className="d-block fw-semibold">{data?.rfq_no}</span>
+          <span className="d-block fw-semibold">{formatRFQNumber(data?.rfq_no, data?.is_tender)}</span>
           <span className="text-truncate">{data?.project_name}</span>
         </td>
         <td>{list_products()}</td>

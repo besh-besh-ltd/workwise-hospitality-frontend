@@ -28,7 +28,21 @@ const FilterSection = ({ title, setFilterData }) => {
 
     const handleFilterChange = (selectedOption, actionMeta) => {
         const { name } = actionMeta;
-        const { value } = selectedOption || { value: name === "reverse_auction" ? "-1" : name === "project_id" ? -1 : ""}; 
+        let value;
+        if (selectedOption === null) {
+            // Handle clear action
+            if (name === "reverse_auction") {
+                value = "-1";
+            } else if (name === "project_id") {
+                value = -1;
+            } else if (name === "is_tender") {
+                value = null;
+            } else {
+                value = "";
+            }
+        } else {
+            value = selectedOption.value;
+        }
 
         setFilterData((prevState) => ({
             ...prevState,
@@ -172,6 +186,21 @@ const FilterSection = ({ title, setFilterData }) => {
                         options={projects}
                         onChange={handleFilterChange}
                         name="project_id"
+                        placeholder="Select"
+                        isClearable
+                    />
+                </div>
+
+                <div className="col-md-3 col-lg-2">
+                    <label>Type</label>
+                    <Select
+                        id="is_tender_filter-filter_section-manage_rfq_page"
+                        options={[
+                            { label: "RFQ", value: "0" },
+                            { label: "Tender", value: "1" }
+                        ]}
+                        onChange={handleFilterChange}
+                        name="is_tender"
                         placeholder="Select"
                         isClearable
                     />

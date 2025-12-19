@@ -5,6 +5,7 @@ import { Button } from "react-bootstrap";
 import { deleteDraft } from "@/services/rfq";
 import { toast } from "react-toastify";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import { formatRFQNumber } from "@/utils/sharedFunctions";
 
 const DraftRFQItem = ({ data , refetch }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -83,7 +84,7 @@ const DraftRFQItem = ({ data , refetch }) => {
     <>
       <tr>
         <td>
-          <span className="d-block fw-semibold">{data?.rfq_no}</span>
+          <span className="d-block fw-semibold">{formatRFQNumber(data?.rfq_no, data?.is_tender)}</span>
           <span className="text-truncate">{data?.project_name}</span>
         </td>
         <td>{list_products()}</td>
@@ -141,7 +142,7 @@ const DraftRFQItem = ({ data , refetch }) => {
         onClose={closeDeleteModal}
         onConfirm={confirmDelete}
         title="Delete Draft RFQ"
-        description={`Are you sure you want to delete draft RFQ #${data?.rfq_no || 'this draft'}?\nOnce deleted, you won't be able to recover it.`}
+        description={`Are you sure you want to delete draft ${data?.is_tender === 1 ? 'Tender' : 'RFQ'} #${data?.rfq_no || 'this draft'}?\nOnce deleted, you won't be able to recover it.`}
         confirmButtonColor="danger"
         confirmButtonText="Delete"
         cancelButtonText="Cancel"

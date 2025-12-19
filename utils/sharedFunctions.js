@@ -44,6 +44,18 @@ export const textCapitalize = (str) => {
         .join(' ');                               // Join them back with spaces
 }
 
+/**
+ * Formats RFQ number display based on is_tender flag
+ * @param {number|string} rfq_no - The RFQ number
+ * @param {boolean|number} is_tender - Whether this is a tender (1/true) or RFQ (0/false)
+ * @returns {string} Formatted string like "RFQ #123" or "Tender #123"
+ */
+export const formatRFQNumber = (rfq_no, is_tender) => {
+    if (!rfq_no) return '';
+    const isTender = is_tender === 1 || is_tender === true;
+    return isTender ? `Tender #${rfq_no}` : `RFQ #${rfq_no}`;
+}
+
 export const getFuturedate = (days = 30) => {
     const date = new Date();
     date.setDate(date.getDate() + days);

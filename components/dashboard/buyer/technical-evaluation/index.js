@@ -10,6 +10,7 @@ import { toast } from "react-toastify";
 import { getProjectList } from '@/services/project';
 import { getUserMappings } from '@/services/hospitality';
 import Select from 'react-select';
+import { formatRFQNumber } from "@/utils/sharedFunctions";
 
 
 
@@ -30,6 +31,7 @@ const BuyerTechnicalEvaluation = () => {
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [clauseInfo, setClauseInfo] = useState(null);
   const [selectedVendorsMap, setSelectedVendorsMap] = useState(new Map());
+  const [isTenderFilter, setIsTenderFilter] = useState(null);
 
   const getAllProjects = () => {
     getProjectList()
@@ -79,7 +81,7 @@ useEffect(() => {
   return () => {
     clearTimeout(handler);
   };
-}, [rfqNo,selectedproject]);
+}, [rfqNo,selectedproject, isTenderFilter]);
 
   const getUserDetails = async () => {
     try {
@@ -99,7 +101,8 @@ useEffect(() => {
         limit: 100,
         project_id: selectedproject ? selectedproject : -1,
         rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
-        sort: 'DESC'
+        sort: 'DESC',
+        is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null
       });
       const newData = Array.isArray(res) ? res : [];
       setRfqList(newData);
@@ -269,6 +272,20 @@ useEffect(() => {
                         id="select_project_filter-rfq_list-technical_evaluation_page"
                     />
                 </div>
+                <div className="py-2">
+                    <label>Type</label>
+                    <Select
+                        options={[
+                            { label: "RFQ", value: "0" },
+                            { label: "Tender", value: "1" }
+                        ]}
+                        onChange={(selectedOption) => setIsTenderFilter(selectedOption?.value || null)}
+                        value={isTenderFilter !== null ? { label: isTenderFilter === '1' || isTenderFilter === 1 ? "Tender" : "RFQ", value: isTenderFilter } : null}
+                        placeholder="Select"
+                        isClearable
+                        id="is_tender_filter-rfq_list-technical_evaluation_page"
+                    />
+                </div>
 
                 {!loading && rfqList.length === 0 ? (
                   <p style={{ textAlign: "center" }}>No RFQs yet!</p>
@@ -286,7 +303,7 @@ useEffect(() => {
                           }
                           id={`rfq_${item.rfq_no}-rfq_list-technical_evaluation_page`}
                         >
-                          RFQ #{item.rfq_no}
+                          {formatRFQNumber(item.rfq_no, item.is_tender)}
                           {item.project_name && item.project_name != "" &&
                             <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
                               {item.project_name}
@@ -307,7 +324,7 @@ useEffect(() => {
                 {!loading && currentRfq &&
                   <div className="mb-3">
                     <h3 className="fs-5 mb-1">
-                      <span className="fw-semibold">RFQ No : </span>{currentRfq.rfq_no}
+                      <span className="fw-semibold">{currentRfq.is_tender === 1 ? 'Tender' : 'RFQ'} No : </span>{currentRfq.rfq_no}
                     </h3>
                     {currentRfq.project_name && currentRfq.project_name != "" &&
                       <p className="sub-heading fs-6 mb-2">

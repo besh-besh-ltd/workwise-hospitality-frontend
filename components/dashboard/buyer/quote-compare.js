@@ -17,7 +17,7 @@ import * as XLSX from "xlsx-js-style";
 import QuoteCompareTable from "@/components/dashboard/buyer/quote-compare-table";
 import Loader from "@/components/shared/Loader";
 import OverallComparison from "./overallComparison";
-import { addCommasToNumber, calculateTotal, formatPrice, handleNormalize, normalizeFlatQuotationData } from "@/utils/sharedFunctions";
+import { addCommasToNumber, calculateTotal, formatPrice, handleNormalize, normalizeFlatQuotationData, formatRFQNumber } from "@/utils/sharedFunctions";
 import PlaceholderLoading from "react-placeholder-loading";
 import { toast } from "react-toastify";
 import { getProjectAvailableBudget, getProjectList } from '@/services/project';
@@ -70,6 +70,7 @@ const QuoteCompare = () => {
   const [availableBudget, setAvailableBudget] = useState(null);
   // Add new state for active tab
   const [activeTab, setActiveTab] = useState(tab);
+  const [isTenderFilter, setIsTenderFilter] = useState(null);
   // const [targetPrice , setTargetPrice] = useState(null);
   // const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
 
@@ -94,7 +95,7 @@ const QuoteCompare = () => {
 
   useEffect(() => {
     getAllRFQs();
-  }, [page]);
+  }, [page, selectedproject, isTenderFilter]);
   
   useEffect(() => {
     getAllProjects();
@@ -125,7 +126,7 @@ const QuoteCompare = () => {
     return () => {
       clearTimeout(handler);
     };
-  }, [rfqNo,selectedproject]);
+  }, [rfqNo,selectedproject, isTenderFilter]);
 
 
   const closeModalForVariant = (variantId) => {
@@ -259,7 +260,7 @@ const handleCloseNormalizeModal = () => {
  
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
-    getRfqs({ tech_eval: false, page, limit, project_id: selectedproject ? selectedproject : -1, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC" })
+    getRfqs({ tech_eval: false, page, limit, project_id: selectedproject ? selectedproject : -1, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null })
       .then((res) => {
         setloading(false);
         const newData = Array.isArray(res) ? res : [];
@@ -777,7 +778,7 @@ const generateExcelFile = (api_data) => {
     return r;
   };
 
-  const titleText = `RFQ #${currentRFQ?.rfq_no ?? "-"}`;
+  const titleText = formatRFQNumber(currentRFQ?.rfq_no, currentRFQ?.is_tender) || "-";
   const infoRow1 = padToCols([
     "Project",
     currentRFQ?.project_name ?? "-",
@@ -1251,7 +1252,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
   useEffect(() => {
     getAllRFQs();
-  }, [page]);
+  }, [page, selectedproject, isTenderFilter]);
   
 // useEffect(()=>{
 //   if(quotes)
@@ -1394,6 +1395,23 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     id="select_project_filter-quotes_received-compare_quotes_page"
                   />
                 </div>
+                <div className="py-2">
+                  <label>Type</label>
+                  <Select
+                    options={[
+                        { label: "RFQ", value: "0" },
+                        { label: "Tender", value: "1" }
+                    ]}
+                    onChange={(selectedOption) => {
+                      setIsTenderFilter(selectedOption?.value || null);
+                      setpage(1);
+                    }}
+                    value={isTenderFilter !== null ? { label: isTenderFilter === '1' || isTenderFilter === 1 ? "Tender" : "RFQ", value: isTenderFilter } : null}
+                    placeholder="Select"
+                    isClearable
+                    id="is_tender_filter-quotes_received-compare_quotes_page"
+                  />
+                </div>
                 {!loading && myRFQs && myRFQs.length === 0 ? (
                   <p style={{ textAlign: "center" }}>No RFQs yet!</p>
                 ) : !loading && myRFQs && myRFQs.length > 0 ? (
@@ -1416,7 +1434,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             }`}
                             id={`rfq_item_${item.rfq_no}-quotes_received-compare_quotes_page`}
                           >
-                            RFQ #{item?.rfq_no}
+                            {formatRFQNumber(item?.rfq_no, item?.is_tender)}
                             {item.project_name && item.project_name != "" && (
                               <b
                                 className="d-block fw-semibold"
@@ -1461,7 +1479,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 {!quotesLoading && currentRFQ && (
                   <div className="mb-3">
                     <h3 className="fs-5 mb-1">
-                      <span className="fw-semibold">RFQ No : </span>
+                      <span className="fw-semibold">{currentRFQ?.is_tender === 1 ? 'Tender' : 'RFQ'} No : </span>
                       {currentRFQ?.rfq_no}
                     </h3>
                     {currentRFQ.project_name &&
@@ -2119,7 +2137,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         onClose={handleCloseCancel}
         onConfirm={handleCloseConfirm}
         title="Close RFQ"
-        description={`Are you sure you want to close RFQ #${quotes[0]?.rfq[0]?.rfq_no || 'this RFQ'}?\nOnce closed, vendors will no longer be able to submit quotes.`}
+        description={`Are you sure you want to close ${quotes[0]?.rfq[0]?.is_tender === 1 ? 'Tender' : 'RFQ'} #${quotes[0]?.rfq[0]?.rfq_no || 'this RFQ'}?\nOnce closed, vendors will no longer be able to submit quotes.`}
         confirmButtonColor="warning"
         confirmButtonText="Close RFQ"
         cancelButtonText="Cancel"

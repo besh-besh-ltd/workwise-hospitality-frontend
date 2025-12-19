@@ -13,6 +13,7 @@ const ManageRFQ = () => {
     reverse_auction: "-1",
     sort: "DESC",
     rfq_no: null,
+    is_tender: null,
     page: 1,
     limit: 10,
   });

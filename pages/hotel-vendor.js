@@ -82,6 +82,8 @@ const HotelVendor = () => {
         testRazorPayEndpoint(payload)
           .then(async (res) => {
             if (res && res.status === 1) {
+              const summary = res.data?.payment_summary || {};
+
               // Auto-login after successful payment
               if (userCredentials?.email && userCredentials?.password) {
                 try {
@@ -90,17 +92,26 @@ const HotelVendor = () => {
                     storageInstance.setStorage('token', loginResponse.token);
                     SWSubscribe({ subscription: swSubscription, token: loginResponse.token })
                       .catch(() => {});
-                    toast.success('Payment successful! Redirecting to dashboard...');
-                    router.push('/dashboard/vendor');
-                    return;
                   }
                 } catch (loginError) {
                   console.error('Auto-login error:', loginError);
                 }
               }
-              // Fallback: redirect to login if auto-login fails or no credentials
-              // toast.success('Payment successful! Please log in to continue.');
-              // router.push('/hotel-vendor?login=true');
+
+              toast.success('Payment successful!');
+              // Redirect to generic payment success page with summary and invoice link
+              router.push({
+                pathname: '/payment-success',
+                query: {
+                  type: 'hospitality_vendor',
+                  order_id: orderId,
+                  amount: summary.amount || '',
+                  currency: 'INR',
+                  description: 'Hospitality Vendor Registration',
+                  expiry_date: summary.expiry_date || '',
+                  invoice_url: summary.invoice_url || ''
+                }
+              });
             } else {
               toast.error('Payment processed but could not verify status. Please try logging in again.');
             }
