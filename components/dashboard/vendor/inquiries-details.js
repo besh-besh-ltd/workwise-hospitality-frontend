@@ -665,9 +665,7 @@ const RfqManagementPreview = () => {
             <div className="container-fluid">
               <div className="d-flex justify-content-between align-items-center flex-wrap">
                 <div>
-                  {enableBuyerView ? (
-                    <h1 className="heading mb-0">RFQ Management</h1>
-                  ) : (
+                  {!enableBuyerView && (
                     <h1 className="heading mb-0">
                       Inquiry from {rfqDetails.company_name} (RFQ #
                       {rfqDetails.rfq_no})
@@ -1481,6 +1479,7 @@ const RfqManagementPreview = () => {
           </section>
         </>
       )}
+      
       {!loading && rfqDetails && !rfqDetails.id && (
         <section className="buyer-common-header sc-pt-80">
           <div className="container-fluid">
