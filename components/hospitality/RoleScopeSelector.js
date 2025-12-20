@@ -24,9 +24,10 @@ import { getHospitalityEntities } from "@/services/hospitality";
  * }
  */
 
-export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDepartment: propSelectedDepartment, isEditMode = true, onRemoveRole }) {
+export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDepartment: propSelectedDepartment, isEditMode = true, onRemoveRole, userDepartments = [] }) {
   const [roles, setRoles] = useState([]);
   const [companies, setCompanies] = useState([]);
+  const [allDepartments, setAllDepartments] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [permissions, setPermissions] = useState({});
   const [loading, setLoading] = useState(false);
@@ -58,6 +59,8 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
         const entities = entitiesRes?.data?.data || entitiesRes?.data || [];
 
         setRoles(rolesData);
+        setAllDepartments(departmentsData);
+        // Initially set departments - will be filtered by second useEffect if needed
         setDepartments(departmentsData);
         setCompanies(
           entities.map((c) => ({
@@ -78,6 +81,55 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
 
     loadMasters();
   }, []);
+
+  // Filter departments based on userDepartments in edit mode
+  useEffect(() => {
+    if (allDepartments.length === 0) return;
+    
+    // In edit mode, only show user's departments if userDepartments is provided and not empty
+    if (isEditMode) {
+      // If userDepartments is undefined, show all departments (data still loading)
+      if (userDepartments === undefined) {
+        setDepartments(allDepartments);
+        return;
+      }
+      
+      // If userDepartments is provided
+      if (Array.isArray(userDepartments)) {
+        if (userDepartments.length > 0) {
+          // Extract department IDs from userDepartments (handle both object and id formats)
+          const userDeptIds = userDepartments.map(d => {
+            if (typeof d === 'number') return Number(d);
+            if (typeof d === 'object' && d !== null) {
+              const id = d.id || d.value || d.department_id;
+              return id ? Number(id) : null;
+            }
+            return null;
+          }).filter(id => id !== null && id !== undefined);
+          
+          if (userDeptIds.length > 0) {
+            const filteredDepts = allDepartments.filter(d => {
+              const deptId = Number(d.id || d.value);
+              return userDeptIds.includes(deptId);
+            });
+            setDepartments(filteredDepts);
+          } else {
+            // If userDepartments is empty array, show no departments
+            setDepartments([]);
+          }
+        } else {
+          // If userDepartments is empty array, show no departments
+          setDepartments([]);
+        }
+      } else {
+        // If userDepartments is not an array, show all departments
+        setDepartments(allDepartments);
+      }
+    } else {
+      // Not in edit mode, show all departments
+      setDepartments(allDepartments);
+    }
+  }, [isEditMode, userDepartments, allDepartments]);
 
   useEffect(() => {
     if (propSelectedDepartment && !isEditMode) {

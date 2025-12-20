@@ -7,7 +7,6 @@ import { createBuyerCompanyUser, getProfile } from "@/services/Auth";
 import { getCountryCodes } from "@/services/cms";
 import { createAccountSchema } from "@/utils/schema";
 import CommonFormInput from "@/components/shared/CommonFormInput";
-import RoleScopeSelector from "@/components/hospitality/RoleScopeSelector";
 import { getDepartments } from "@/services/rbac";
 import { getHospitalityCompanies } from "@/services/hospitality";
 
@@ -36,7 +35,6 @@ const CreateAccountPage = () => {
     departments: []
   });
 
-  const [roleScopes, setRoleScopes] = useState([]);
 
   const handleSubmit = async (values, { resetForm, setSubmitting }) => {
 
@@ -61,13 +59,6 @@ const CreateAccountPage = () => {
         password: values.password,
       };
       if (appState.isHospitalityCompany) {
-        const deptIds = Array.from(
-          new Set(
-            (roleScopes || [])
-              .map((r) => r.department_id)
-              .filter((id) => id !== null && id !== undefined)
-          )
-        );
         apiData.employee_type = normalizeEmployeeType(values.employee_type);
         apiData.employee_code = values.employee_code || null;
 
@@ -96,11 +87,6 @@ const CreateAccountPage = () => {
         } else if (values.department_id && !Array.isArray(values.department_id)) {
           // Fallback for single value
           apiData.department_ids = [parseInt(values.department_id, 10)];
-        }
-        apiData.roles = roleScopes;
-        // Merge with department IDs from role scopes if any
-        if (deptIds.length > 0) {
-          apiData.department_ids = Array.from(new Set([...(apiData.department_ids || []), ...deptIds]));
         }
       }
       const response = await createBuyerCompanyUser(apiData);
@@ -270,6 +256,7 @@ const CreateAccountPage = () => {
                                   label="Employee Type"
                                   touched={touched}
                                   errors={errors}
+                                  required={true}
                                 />
                               </div>
                               <div className="col-md-4">
@@ -278,6 +265,7 @@ const CreateAccountPage = () => {
                                   label="Employee Code"
                                   touched={touched}
                                   errors={errors}
+                                  required={true}
                                 />
                               </div>
                               <div className="col-md-4">
@@ -317,31 +305,6 @@ const CreateAccountPage = () => {
                             </div>
                           </div>
 
-                          {appState.isHospitalityCompany && (
-                            <div className="row mb-4">
-                              <div className="col-md-12">
-                                <div className="card border-0 shadow-sm">
-                                  <div className="card-body">
-                                    <h5 className="mb-3">Role & Scope</h5>
-                                    <RoleScopeSelector
-                                      onAddRole={(scope) =>
-                                        setRoleScopes((prev) => [...prev, scope])
-                                      }
-                                      existingRoles={roleScopes}
-                                      selectedDepartment={values.department_id && Array.isArray(values.department_id) && values.department_id.length > 0 ? (() => {
-                                        // Use first department for RoleScopeSelector (it handles single department)
-                                        // All selected departments will be included in the final submission
-                                        const firstDeptValue = typeof values.department_id[0] === 'object' ? values.department_id[0].value : values.department_id[0];
-                                        const deptObj = appState.departments.find(d => d.value === parseInt(firstDeptValue, 10));
-                                        return deptObj ? { id: deptObj.value, value: deptObj.value, title: deptObj.label, label: deptObj.label } : null;
-                                      })() : null}
-                                      isEditMode={false}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
 
                           <div className="row">
                             <div className="col-md-12 d-flex justify-content-end">

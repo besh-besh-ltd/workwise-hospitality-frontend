@@ -7,7 +7,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import Select from "react-select";
 import DynamicFormModal from "@/components/modal/DynamicFormModal";
 import CustomRolePermissionsModal from "@/components/modal/CustomRolePermissionsModal";
-import { getCompanyUsers, updateUserAccount, getProfile } from "@/services/Auth";
+import { getCompanyUsers, updateUserAccount, getProfile, getMyDepartments } from "@/services/Auth";
 import { getCountryCodes } from "@/services/cms";
 import { toast } from "react-toastify";
 import { faUserPlus } from "@fortawesome/free-solid-svg-icons";
@@ -19,7 +19,7 @@ import {
   mapHospitalityUsers,
   deleteUserMapping,
 } from "@/services/hospitality";
-import { getUserRoleScopes } from "@/services/rbac";
+import { getUserRoleScopes, getUserDepartments } from "@/services/rbac";
 
 const dedupeHospitalityMappings = (list = []) => {
   const seen = new Set();
@@ -83,6 +83,7 @@ const ManageAccountsPage = () => {
     submitting: false,
   });
   const [userRoleScopes, setUserRoleScopes] = useState({});
+  const [userDepartments, setUserDepartments] = useState({});
 
   const fetchUsers = async () => {
     setUiState((prev) => ({ ...prev, loading: true }));
@@ -101,8 +102,14 @@ const ManageAccountsPage = () => {
         pagination: { ...prev.pagination, totalData: users.length },
       }));
       if (isHospitalityCompany) {
-        fetchAllUserHospitalityMappings(users);
-        fetchAllUserRoleScopes(users);
+        await Promise.all([
+          fetchAllUserHospitalityMappings(users),
+          fetchAllUserRoleScopes(users),
+          ...users.map((user) => fetchUserDepartments(user.id))
+        ]);
+      } else {
+        // Fetch departments for all users even if not hospitality company
+        await Promise.all(users.map((user) => fetchUserDepartments(user.id)));
       }
     } catch {
       toast.error("Error fetching users");
@@ -219,6 +226,23 @@ const ManageAccountsPage = () => {
     }
   };
 
+  const fetchUserDepartments = async (userId) => {
+    if (!userId) return;
+    try {
+      const response = await getUserDepartments(userId);
+      const depts = response?.data?.data || response?.data || [];
+      setUserDepartments((prev) => ({
+        ...prev,
+        [userId]: depts,
+      }));
+    } catch (error) {
+      setUserDepartments((prev) => ({
+        ...prev,
+        [userId]: [],
+      }));
+    }
+  };
+
   const fetchAllUserRoleScopes = async (users = []) => {
     if (!users.length) {
       setUserRoleScopes({});
@@ -265,6 +289,8 @@ const ManageAccountsPage = () => {
       fetchUserMapping(account.id);
       fetchUserRoleScopes(account.id);
     }
+    // Always fetch user departments for edit modal
+    fetchUserDepartments(account.id);
     setUiState((prev) => ({
       ...prev,
       modals: { showEditModal: true, selectedAccount: account },
@@ -408,9 +434,13 @@ const ManageAccountsPage = () => {
   }, [filters, data.accounts]);
 
   useEffect(() => {
-    if (isHospitalityCompany && data.accounts.length) {
-      fetchAllUserHospitalityMappings(data.accounts);
-      fetchAllUserRoleScopes(data.accounts);
+    if (data.accounts.length) {
+      if (isHospitalityCompany) {
+        fetchAllUserHospitalityMappings(data.accounts);
+        fetchAllUserRoleScopes(data.accounts);
+      }
+      // Always fetch departments for all users
+      Promise.all(data.accounts.map((user) => fetchUserDepartments(user.id)));
     }
   }, [isHospitalityCompany, data.accounts]);
 
@@ -427,6 +457,22 @@ const ManageAccountsPage = () => {
         {uniqueTitles.map((title) => (
           <span key={title} className="badge bg-secondary">
             {title}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  const renderUserDepartments = (userId) => {
+    const depts = userDepartments[userId] || [];
+    if (!depts.length) {
+      return <span className="text-muted">—</span>;
+    }
+    return (
+      <div className="d-flex flex-wrap gap-1">
+        {depts.map((dept) => (
+          <span key={dept.id} className="badge bg-info">
+            {dept.title}
           </span>
         ))}
       </div>
@@ -565,6 +611,7 @@ const ManageAccountsPage = () => {
                             <th>Mobile</th>
                             <th>Account Type</th>
                             {isHospitalityCompany && <th>Workflow Roles</th>}
+                            <th>Department</th>
                             <th>Created</th>
                             {isHospitalityCompany && <th>Hospitality Scope</th>}
                             <th>Actions</th>
@@ -595,6 +642,7 @@ const ManageAccountsPage = () => {
                                 {isHospitalityCompany && (
                                   <td>{renderUserWorkflowRoles(account.id)}</td>
                                 )}
+                                <td>{renderUserDepartments(account.id)}</td>
                                 <td>{formatDate(account.created_at)}</td>
                                 {isHospitalityCompany && (
                                   <td>{renderUserHospitalitySummary(account.id)}</td>
@@ -660,6 +708,7 @@ const ManageAccountsPage = () => {
           roleOptions={roleOptions}
           hospitalityProps={hospitalityModalProps}
           initialRoleScopes={userRoleScopes[selectedAccountId] || []}
+          userDepartments={userDepartments[selectedAccountId]}
         />
       )}
 

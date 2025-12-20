@@ -596,4 +596,15 @@ export const getProfileById = (id) => {
   });
 };
 
+export const getMyDepartments = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/users/me/departments`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 

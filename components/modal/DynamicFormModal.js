@@ -58,7 +58,8 @@ const DynamicFormModal = ({
   roleOptions,
   projectOptions,
   hospitalityProps,
-  initialRoleScopes = []
+  initialRoleScopes = [],
+  userDepartments = []
 }) => {
 
     const initialVendorValues = {
@@ -119,7 +120,10 @@ const DynamicFormModal = ({
         mobile: mobileNumber || "",
         countryCode: countryCode || "+91",
         role: accountData?.role ? roleOptions?.find(r => r.value === accountData.role) : null,
-        status: statusValue
+        status: statusValue,
+        employee_type: accountData?.employee_type || "",
+        employee_code: accountData?.employee_code || "",
+        payroll_company_id: accountData?.payroll_company_id || null
     };
 
     const initialTeamMemberValues = {
@@ -344,7 +348,10 @@ const DynamicFormModal = ({
                 mobile: formattedMobile,
                 status: statusValue, // Send as number directly
                 roles: roleScopes,
-                department_ids: departmentIds
+                department_ids: departmentIds,
+                employee_type: values.employee_type,
+                employee_code: values.employee_code,
+                payroll_company_id: values.payroll_company_id
             };
             // Call the parent function to save the data
             handleEditAccount(accountData, resetForm);
@@ -458,17 +465,17 @@ Example:
             },
             content: {
               position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              maxWidth: "90vw", // Adjust this value as needed
-              width: "80vw", // Set to 'auto' or a specific value based on your design
+              top: type === "edit-account" ? "0" : "50%",
+              left: type === "edit-account" ? "0" : "50%",
+              transform: type === "edit-account" ? "none" : "translate(-50%, -50%)",
+              maxWidth: type === "edit-account" ? "100vw" : "90vw",
+              width: type === "edit-account" ? "100vw" : "80vw",
               border: "none",
               background: "transparent",
-              overflow: "hidden", // Prevent outer scroll; inner body will scroll
-              padding: "50px",
-              maxHeight: "100vh", // Total modal height
-              height: "90vh", // Visible height
+              overflow: "hidden",
+              padding: type === "edit-account" ? "20px" : "50px",
+              maxHeight: "100vh",
+              height: type === "edit-account" ? "100vh" : "90vh",
             },
           }}
         >
@@ -484,7 +491,7 @@ Example:
           <div
             className="modal-body contact-sec-modal"
             style={{
-              maxHeight: "calc(90vh - 80px)", // subtract approximate header height
+              maxHeight: type === "edit-account" ? "calc(100vh - 80px)" : "calc(90vh - 80px)",
               overflowY: "auto",
               paddingRight: "10px",
             }}
@@ -724,6 +731,29 @@ Example:
                                 />
 
                                 {showHospitalitySection && (
+                                  <>
+                                    <CommonFormInput
+                                      name="employee_type"
+                                      label="Employee Type"
+                                      touched={touched}
+                                      errors={errors}
+                                      values={values.employee_type}
+                                      onChange={setFieldValue}
+                                      required={true}
+                                    />
+                                    <CommonFormInput
+                                      name="employee_code"
+                                      label="Employee Code"
+                                      touched={touched}
+                                      errors={errors}
+                                      values={values.employee_code}
+                                      onChange={setFieldValue}
+                                      required={true}
+                                    />
+                                  </>
+                                )}
+
+                                {showHospitalitySection && (
                                   <div className="mt-4">
                                     <div className="card border-0 shadow-sm">
                                       <div className="card-body">
@@ -742,6 +772,7 @@ Example:
                                             setRoleScopes((prev) => prev.filter((_, i) => i !== index))
                                           }
                                           isEditMode={true}
+                                          userDepartments={userDepartments}
                                         />
                                       </div>
                                     </div>

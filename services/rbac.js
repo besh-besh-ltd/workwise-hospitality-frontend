@@ -42,6 +42,16 @@ export const getUserRoleScopes = (userId) =>
     }
   });
 
+export const getUserDepartments = (userId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/rbac/users/${userId}/departments`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 export const getAllPermissions = () =>
   new Promise(async (resolve, reject) => {
     try {

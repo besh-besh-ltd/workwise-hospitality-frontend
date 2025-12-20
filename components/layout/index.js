@@ -120,7 +120,8 @@ const Layout = (props) => {
   }, [router]);
 
   const isStaticPage = router.pathname === '/hotel-vendor' || router.pathname === '/';
-  const shouldHideNavbarFooter = isStaticPage && !isLoggedIn;
+  const isVendorCoCPage = router.pathname === '/vendor-coc';
+  const shouldHideNavbarFooter = (isStaticPage && !isLoggedIn) || isVendorCoCPage;
 
   return (
     <>

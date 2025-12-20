@@ -108,6 +108,40 @@ const Register = ({
   }, [currentStep, onStepChange]);
 
   useEffect(() => {
+    const checkCocAccepted = () => {
+      const cocAccepted = localStorage.getItem('vendor_coc_accepted') === 'true';
+      if (cocAccepted) {
+        setTncCheckned(true);
+      } else {
+        setTncCheckned(false);
+      }
+    };
+
+    checkCocAccepted();
+
+    const handleStorageChange = () => {
+      checkCocAccepted();
+    };
+
+    const handleCocAccepted = () => {
+      checkCocAccepted();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', checkCocAccepted);
+    window.addEventListener('vendorCocAccepted', handleCocAccepted);
+
+    const interval = setInterval(checkCocAccepted, 1000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', checkCocAccepted);
+      window.removeEventListener('vendorCocAccepted', handleCocAccepted);
+      clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
     const fetchHotels = async () => {
       if (isHospitality && currentStep === 3 && hotelOptions.length === 0) {
         try {
@@ -1255,23 +1289,34 @@ const Register = ({
                           type="checkbox"
                           name="vendor_tnc"
                           checked={tncCheckned}
-                          onChange={(e) => {
-                            setTncCheckned(e.target.checked);
-                          }}
+                          disabled
+                          readOnly
                           className="me-2 mt-1"
+                          style={{ cursor: 'not-allowed', pointerEvents: 'none' }}
                         />
                         <span>
                           I agree to the following terms and conditions
                         </span>
                       </label>
-                      <a
-                        href="/for-vendors/tnc"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontWeight: 500 }}
-                      >
-                        Term and Conditions
-                      </a>
+                      <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                        <a
+                          href="/vendor-tnc"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontWeight: 500 }}
+                        >
+                          Terms & Conditions
+                        </a>
+                        <span style={{ color: '#666' }}>|</span>
+                        <a
+                          href="/vendor-coc"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontWeight: 500 }}
+                        >
+                          Ethical Code of Conduct
+                        </a>
+                      </div>
                     </div>
                   )}
 
@@ -1358,23 +1403,34 @@ const Register = ({
                           type="checkbox"
                           name="vendor_tnc"
                           checked={tncCheckned}
-                          onChange={(e) => {
-                            setTncCheckned(e.target.checked);
-                          }}
+                          disabled
+                          readOnly
                           className="me-2 mt-1"
+                          style={{ cursor: 'not-allowed', pointerEvents: 'none' }}
                         />
                         <span>
                           I agree to the following terms and conditions
                         </span>
                       </label>
-                      <a
-                        href="/for-vendors/tnc"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontWeight: 500 }}
-                      >
-                        Term and Conditions
-                      </a>
+                      <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                        <a
+                          href="/vendor-tnc"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontWeight: 500 }}
+                        >
+                          Terms & Conditions
+                        </a>
+                        <span style={{ color: '#666' }}>|</span>
+                        <a
+                          href="/vendor-coc"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontWeight: 500 }}
+                        >
+                          Ethical Code of Conduct
+                        </a>
+                      </div>
                     </div>
                   )}
 
