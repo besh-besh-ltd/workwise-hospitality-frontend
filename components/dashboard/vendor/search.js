@@ -2026,21 +2026,16 @@ const clearLocationFilter = () => {
                               </Link>
                             )}
 
-                            {isLoggedIn && vendorMetaData?.subscription && (
+                            {/* Changes by Agnij [Show View Draft Tender button only when draft exists and is a tender] */}
+                            {isLoggedIn && vendorMetaData?.subscription && queryMeta.orderType === 'tender' && !!queryMeta.rfq_id && queryMeta.rfq_id != null && (
                               <Link
-                                id="view_current_rfq-vendor_actions-vendor_search_page"
-                                href={
-                                  !!queryMeta.rfq_id && queryMeta.rfq_id != null
-                                    ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${queryMeta.rfq_id}${
-                                        queryMeta.sheet_id ? `&sheet_id=${queryMeta.sheet_id}` : ""
-                                      }`
-                                    : "/dashboard/buyer/rfq-management?tab=draft-rfq"
-                                }
+                                id="view_draft_tender-vendor_actions-vendor_search_page"
+                                href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${queryMeta.rfq_id}${
+                                  queryMeta.sheet_id ? `&sheet_id=${queryMeta.sheet_id}` : ""
+                                }`}
                                 className={`btn btn-primary ${isLoading ? "disabled" : ""}`}
                               >
-                                {!!queryMeta.rfq_id && queryMeta.rfq_id != null
-                                  ? `View Current Draft`
-                                  : "View My Drafts"}
+                                View Draft Tender
                               </Link>
                             )}
                           </div>

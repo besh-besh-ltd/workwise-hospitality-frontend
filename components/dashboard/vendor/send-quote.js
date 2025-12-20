@@ -96,6 +96,9 @@ const [showQuoteHistoryModal, setShowQuoteHistoryModal] = useState(false); //to 
 const [tenderPaymentPaid, setTenderPaymentPaid] = useState(false);
 const [tenderFees, setTenderFees] = useState(0);
 const [tenderPaymentLoading, setTenderPaymentLoading] = useState(false);
+// Changes by Agnij [Preserve form state when Razorpay modal opens]
+const formStateRef = useRef(null);
+const shouldAutoSendQuoteRef = useRef(false);
 
   // structured payment terms rows
 const [paymentTermsRows, setPaymentTermsRows] = useState([
@@ -539,28 +542,109 @@ return { deletedTerms, createdTerms, updatedTerms };
 };
 
 
+  // Changes by Agnij [Save form state before opening payment modal]
+  const saveFormState = () => {
+    formStateRef.current = {
+      quoteProducts: JSON.parse(JSON.stringify(quoteProducts)),
+      globalFreight,
+      globalPackaging,
+      globalTax,
+      globalPaymentTerms,
+      globalComment,
+      globalDocumentFiles: [...globalDocumentFiles],
+      paymentTermsRows: JSON.parse(JSON.stringify(paymentTermsRows)),
+      vendorGSTIN,
+      chargesMode: JSON.parse(JSON.stringify(chargesMode))
+    };
+  };
+
+  // Changes by Agnij [Restore form state after payment modal closes]
+  const restoreFormState = () => {
+    if (formStateRef.current) {
+      setquoteProducts(formStateRef.current.quoteProducts);
+      setglobalFreight(formStateRef.current.globalFreight);
+      setglobalPackaging(formStateRef.current.globalPackaging);
+      setglobalTax(formStateRef.current.globalTax);
+      setglobalPaymentTerms(formStateRef.current.globalPaymentTerms);
+      setglobalComment(formStateRef.current.globalComment);
+      setGlobalDocumentFiles(formStateRef.current.globalDocumentFiles);
+      setPaymentTermsRows(formStateRef.current.paymentTermsRows);
+      setVendorGSTIN(formStateRef.current.vendorGSTIN);
+      setChargesMode(formStateRef.current.chargesMode);
+      formStateRef.current = null;
+    }
+  };
+
   const initiateTenderPayment = async () => {
     try {
       setTenderPaymentLoading(true);
-      const orderRes = await createTenderPaymentOrder(id, token);
-      const orderData = orderRes?.data?.data?.order;
+      
+      // Changes by Agnij [Save form state before opening payment modal]
+      saveFormState();
+      shouldAutoSendQuoteRef.current = true;
 
-      if (orderRes?.data?.data?.already_paid) {
+      const orderRes = await createTenderPaymentOrder(id, token);
+      
+      // Changes by Agnij [Axios interceptor returns response.data, so orderRes is already the data object]
+      // Backend returns: { status: 1, data: { order: {...}, payment_id: 20 } }
+      // After axios interceptor: orderRes = { status: 1, data: { order: {...}, payment_id: 20 } }
+      // So orderData = orderRes.data.order (not orderRes.data.data.order)
+      console.log('=== Razorpay Order Data Debug ===');
+      console.log('Full API response (after axios interceptor):', orderRes);
+      console.log('Response.data:', orderRes?.data);
+      
+      const orderData = orderRes?.data?.order;
+      console.log('Order data extracted:', orderData);
+      console.log('Order ID:', orderData?.id);
+      console.log('Order amount (paise):', orderData?.amount);
+      console.log('Order amount (rupees):', orderData?.amount ? orderData.amount / 100 : 0);
+      console.log('Order currency:', orderData?.currency);
+      console.log('===================================');
+
+      if (orderRes?.data?.already_paid) {
         setTenderPaymentPaid(true);
         toast.success("Tender fees already paid.");
+        shouldAutoSendQuoteRef.current = false;
+        setTenderPaymentLoading(false);
+        // Changes by Agnij [Allow quote update even if tender fees are already paid]
+        // Continue to show the submit confirmation modal so user can update quote
+        setShowSubmitQuoteConfirmModal(true);
+        return;
+      }
+
+      if (!orderData || !orderData.id) {
+        console.error('Order data validation failed:', { orderData, orderRes });
+        toast.error("Failed to create payment order. Please try again.");
+        shouldAutoSendQuoteRef.current = false;
+        restoreFormState();
+        setTenderPaymentLoading(false);
         return;
       }
 
       const sdkLoaded = await loadRazorpayScript();
       if (!sdkLoaded) {
         toast.error("Razorpay SDK failed to load. Please try again.");
+        shouldAutoSendQuoteRef.current = false;
+        restoreFormState();
+        setTenderPaymentLoading(false);
         return;
       }
 
+      // Changes by Agnij [When using order_id, Razorpay fetches order details automatically]
+      // Don't pass amount field - Razorpay will use the amount from the order
+      // This matches the pattern used in subscription payments
+      console.log('=== Razorpay Options Debug ===');
+      console.log('Order ID being used:', orderData.id);
+      console.log('Order amount from backend (paise):', orderData.amount);
+      console.log('Order amount from backend (rupees):', orderData.amount / 100);
+      console.log('Note: Not passing amount field - Razorpay will fetch from order');
+      console.log('===================================');
+      
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
         order_id: orderData?.id,
-        amount: orderData?.amount,
+        // Changes by Agnij [Don't pass amount - Razorpay fetches it from the order when order_id is provided]
+        // This matches the subscription payment pattern
         currency: orderData?.currency || "INR",
         name: "Workwise",
         description: "Tender Fees",
@@ -576,10 +660,35 @@ return { deletedTerms, createdTerms, updatedTerms };
               token
             );
             setTenderPaymentPaid(true);
-            getRFQdetails();
             toast.success("Tender fees paid successfully.");
+            
+            // Changes by Agnij [Auto-send quote after successful payment]
+            // Don't restore state on success - we want to submit with current form data
+            if (shouldAutoSendQuoteRef.current) {
+              shouldAutoSendQuoteRef.current = false;
+              // Clear the saved state since payment was successful
+              formStateRef.current = null;
+              // Small delay to ensure payment status is updated
+              setTimeout(() => {
+                handleSubmitQuoteConfirm();
+              }, 300);
+            } else {
+              // If auto-send wasn't intended, just refresh RFQ details
+              await getRFQdetails();
+            }
           } catch (err) {
             toast.error("Payment verification failed.");
+            shouldAutoSendQuoteRef.current = false;
+            restoreFormState();
+            setTenderPaymentLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: function() {
+            // Changes by Agnij [Restore form state when payment modal is closed without payment]
+            shouldAutoSendQuoteRef.current = false;
+            restoreFormState();
+            setTenderPaymentLoading(false);
           }
         },
         prefill: {
@@ -596,16 +705,27 @@ return { deletedTerms, createdTerms, updatedTerms };
       };
 
       const paymentObject = new window.Razorpay(options);
+      
+      // Changes by Agnij [Handle payment failure]
+      paymentObject.on('payment.failed', function(response) {
+        toast.error("Payment failed. Please try again.");
+        shouldAutoSendQuoteRef.current = false;
+        restoreFormState();
+        setTenderPaymentLoading(false);
+      });
+
       paymentObject.open();
     } catch (err) {
       const msg = err?.response?.data?.message || "Unable to initiate payment";
       toast.error(msg);
-    } finally {
+      shouldAutoSendQuoteRef.current = false;
+      restoreFormState();
       setTenderPaymentLoading(false);
     }
   };
 
   const handleSendQuote = async () => {
+    // Changes by Agnij [Only check payment if not already paid - payment should only be asked once]
     if (rfqDetails?.is_tender === 1 && (tenderFees || 0) > 0 && !tenderPaymentPaid) {
       await initiateTenderPayment();
       return;
