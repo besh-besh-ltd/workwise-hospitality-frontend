@@ -791,76 +791,115 @@ const RfqManagementPreview = () => {
               <div className="row">
                 <div className="col-md-12">
                   {/* RFQ Details Section */}
-                 {!enableBuyerView && <div className="bg-light p-3 rounded-2">
-                    <h5 className="fw-bold text-dark mb-3">Company Details</h5>
+                  <div className="bg-light p-3 rounded-2">
                     <div className="row g-3">
                       {rfqDetails?.company_name && (
-                        <div className="col-md-3 col-sm-6">
+                        <div className="col-md-2 col-sm-6">
                           <strong>Company Name:</strong>
                           <div>{rfqDetails.company_name}</div>
                         </div>
                       )}
+                      
+                      {/* hotel list : currently usiing only company data here to display, need to change */}
+                      {rfqDetails?.company_name && (
+                        <div className="  col-md-2 col-sm-6"> 
+                          <strong>Hotels:</strong>
+                          <div>{rfqDetails.company_name}</div>
+                        </div>
+                      )}
 
+                      {rfqDetails?.contact_name && (
+                        <div className="  col-md-2 col-sm-6"> 
+                          <strong>Contact Persone:</strong>
+                          <div>{rfqDetails.contact_name}</div>
+                        </div>
+                      )}
                       {rfqDetails?.response_email && (
-                        <div className="col-md-3 col-sm-6">
+                        <div className="  col-md-2 col-sm-6"> 
                           <strong>Email:</strong>
                           <div>{rfqDetails.response_email}</div>
                         </div>
                       )}
 
                       {rfqDetails?.contact_number && (
-                        <div className="col-md-3 col-sm-6">
+                        <div className="  col-md-2 col-sm-6"> 
                           <strong>Contact Number:</strong>
                           <div>{rfqDetails.contact_number}</div>
                         </div>
                       )}
 
-                      {rfqDetails.reverse_auction == 1 && (
-                        <div className="col-md-3 col-sm-6">
-                          <strong>Reverse Auction:</strong>
+                        <div className="  col-md-2 col-sm-6"> 
+                          <strong>Type:</strong>
                           <div>
-                            {rfqDetails.reverse_auction == 1
-                              ? "Enabled"
-                              : "Disabled"}
+                            {Number(rfqDetails.is_tender) == 1 ? "Tender" : `RFQ ${ rfqDetails?.rfq_type ||"" } `}
                           </div>
                         </div>
-                      )}
 
-                      {rfqDetails?.ra_start_date && (
-                        <div className="col-md-3 col-sm-6">
-                          <strong>Reverse Auction Start:</strong>
-                          <div>
-                            {new Date(
-                              rfqDetails.ra_start_date
-                            ).toLocaleString()}
-                          </div>
-                        </div>
-                      )}
 
-                      {rfqDetails?.ra_end_date && (
-                        <div className="col-md-3 col-sm-6">
-                          <strong>Reverse Auction End:</strong>
-                          <div>
-                            {new Date(rfqDetails.ra_end_date).toLocaleString()}
-                          </div>
-                        </div>
-                      )}
-
-                      {rfqDetails?.bid_end_date && (
-                        <div className="col-md-3 col-sm-6">
+                {rfqDetails?.bid_end_date && (
+                        <div className=" col-md-2 col-sm-6 ">
                           <strong>Procurement End Date:</strong>
                           <div>{rfqDetails.bid_end_date}</div>
                         </div>
                       )}
 
+                {rfqDetails?.tender_publish_date && (
+                        <div className=" col-md-2 col-sm-6 ">
+                          <strong>Tender Publish Date:</strong>
+                          <div>{rfqDetails.tender_publish_date}</div>
+                        </div>
+                      )}
+
+                {rfqDetails?.vendor_clarification_date && (
+                        <div className=" col-md-2 col-sm-6 ">
+                          <strong>Clarification Date:</strong>
+                          <div>{rfqDetails.vendor_clarification_date}</div>
+                        </div>
+                      )}
+                      
+                      {rfqDetails?.tender_fees && rfqDetails?.is_tender   ? (
+                        <div className=" col-md-2 col-sm-6 ">
+                          <strong>Tender Fees:</strong>
+                          <div>{rfqDetails.tender_fees}</div>
+                        </div>
+                      ):""}
+                              
+                      {rfqDetails?.ra_start_date && (
+                        <div className="  col-md-4 col-sm-6 ">
+                          <strong>Reverse Auction:</strong>
+                          <div>
+                         {new Date(rfqDetails.ra_start_date).toLocaleString("en-GB", {
+                           day: "numeric",
+                           month: "short",
+                           year: "numeric",
+                           hour: "numeric",
+                           minute: "2-digit",
+                           hour12: true,
+                         })}
+                         
+                         <strong className="mx-1" > to </strong>
+
+                         {new Date(rfqDetails.ra_end_date).toLocaleString("en-GB", {
+                           day: "numeric",
+                           month: "short",
+                           year: "numeric",
+                           hour: "numeric",
+                           minute: "2-digit",
+                           hour12: true,
+                         })}
+                          </div>
+                        </div>
+                      )}
+
+
                       {rfqDetails?.location && (
-                        <div className="col-md-3 col-sm-6">
+                        <div className="col-md-4 col-sm-6 ">
                           <strong>Delivery Location:</strong>
                           <div>{rfqDetails.location}</div>
                         </div>
                       )}
                     </div>
-                  </div>}
+                  </div>
 
                   <div className="manage-rfq-con">
                     {/* Content for Manage RFQs tab */}
@@ -931,7 +970,7 @@ const RfqManagementPreview = () => {
                                 <th>Finalization Status</th>
                               )}
                               <th>Comments</th>
-                              {type == "buyer-view" ? (
+                              {type == "buyer-view" && !rfqDetails.is_tender ? (
                                 <th>Selected vendors</th>
                               ) : null}
                               {<th>Technical Evaluation</th>}
@@ -1089,7 +1128,7 @@ const RfqManagementPreview = () => {
                                     )}
                                   </td>
 
-                                  {type == "buyer-view" && (
+                                  {type == "buyer-view" && !rfqDetails.is_tender && (
                                     <td>
                                       <span>
                                         <Link
@@ -1171,77 +1210,6 @@ const RfqManagementPreview = () => {
                         <div className="row">
                           <div className="col-md-12">
                             <div className="row wacomnamepp">
-                              {/* <div className="col-md-3">
-                                <div className="form-group mb-2">
-                                  <label
-                                    htmlFor="comname"
-                                    className="form-label"
-                                  >
-                                    Company Name
-                                  </label>
-                                  <input
-                                    type="text"
-                                    id="wacomnamepp"
-                                    className="form-control"
-                                    name="comname"
-                                    placeholder="lorem ipsum"
-                                    disabled
-                                    value={rfqDetails?.company_name}
-                                  />
-                                </div>
-                              </div>
-                              <div className="col-md-3 ">
-                                <div className="form-group mb-2">
-                                  <label
-                                    htmlFor="cperson"
-                                    className="form-label"
-                                  >
-                                    Contact person
-                                  </label>
-                                  <input
-                                    type="text"
-                                    id="cperson"
-                                    className="form-control"
-                                    name="cperson"
-                                    placeholder="John Doe"
-                                    disabled
-                                    value={rfqDetails?.contact_name}
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="col-md-3 ">
-                                <div className="form-group mb-2">
-                                  <label htmlFor="email" className="form-label">
-                                    Email
-                                  </label>
-                                  <input
-                                    type="text"
-                                    id="email"
-                                    className="form-control"
-                                    name="email"
-                                    placeholder="lorem@ipsum.com"
-                                    disabled
-                                    value={rfqDetails?.response_email}
-                                  />
-                                </div>
-                              </div>
-                              <div className="col-md-3 ">
-                                <div className="form-group mb-2">
-                                  <label htmlFor="wapp" className="form-label">
-                                    Contact Number
-                                  </label>
-                                  <input
-                                    type="text"
-                                    id="wapp"
-                                    className="form-control"
-                                    name="wapp"
-                                    placeholder="1234567890"
-                                    disabled
-                                    value={`${rfqDetails?.contact_number}`}
-                                  />
-                                </div>
-                              </div> */}
 
                               {type == "buyer-view" &&
                                 rfqDetails?.project_name &&
@@ -1265,319 +1233,6 @@ const RfqManagementPreview = () => {
                                     </div>
                                   </div>
                                 )}
-
-                              {/* {rfqDetails?.rfq_type &&
-                                rfqDetails?.rfq_type != "" && (
-                                  <div className="col-md-3">
-                                    <div className="form-group ">
-                                      <label
-                                        htmlFor="rfq_type"
-                                        className="form-label"
-                                      >
-                                        RFQ Type
-                                      </label>
-                                      <input
-                                        type="text"
-                                        id="rfq_type"
-                                        className="form-control"
-                                        name="rfq_type"
-                                        disabled
-                                        value={`${rfqDetails?.rfq_type}`}
-                                      />
-                                    </div>
-                                  </div>
-                                )} */}
-
-                              {/* Changes by Agnij 2025-05-06 [Add Last Purchase Details with proper null handling] */}
-                              {/* {rfqDetails?.last_purchase && (
-                                <div className="col-md-12 mt-3">
-                                  <h4>Last Purchase Details :</h4>
-                                  <div className="last-purchase-details p-3 bg-light rounded mb-3">
-                                    <div className="row">
-                                      <div className="col-md-2">
-                                        <p className="mb-1">
-                                          <strong>Base Price</strong>
-                                        </p>
-                                        <p>
-                                          ₹
-                                          {rfqDetails.last_purchase
-                                            .base_price || "0.00"}
-                                        </p>
-                                      </div>
-                                      <div className="col-md-2">
-                                        <p className="mb-1">
-                                          <strong>Freight Rate</strong>
-                                        </p>
-                                        <p>
-                                          {rfqDetails.last_purchase
-                                            .freight_rate !== null
-                                            ? `${rfqDetails.last_purchase.freight_rate}%`
-                                            : "0%"}
-                                        </p>
-                                      </div>
-                                      <div className="col-md-2">
-                                        <p className="mb-1">
-                                          <strong>Packaging Rate</strong>
-                                        </p>
-                                        <p>
-                                          {rfqDetails.last_purchase
-                                            .packaging_rate !== null
-                                            ? `${rfqDetails.last_purchase.packaging_rate}%`
-                                            : "0%"}
-                                        </p>
-                                      </div>
-                                      <div className="col-md-2">
-                                        <p className="mb-1">
-                                          <strong>Tax</strong>
-                                        </p>
-                                        <p>
-                                          {rfqDetails.last_purchase.tax !== null
-                                            ? `${rfqDetails.last_purchase.tax}%`
-                                            : "0%"}
-                                        </p>
-                                      </div>
-                                      <div className="col-md-2">
-                                        <p className="mb-1">
-                                          <strong>Quantity</strong>
-                                        </p>
-                                        <p>
-                                          {rfqDetails.last_purchase.quantity ||
-                                            "0"}
-                                        </p>
-                                      </div>
-                                      <div className="col-md-2">
-                                        <p className="mb-1">
-                                          <strong>Total Price</strong>
-                                        </p>
-                                        <p>
-                                          ₹
-                                          {rfqDetails.last_purchase
-                                            .total_price || "0.00"}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              )} */}
-
-                              {/* {rfqDetails?.reverse_auction &&
-                              rfqDetails?.reverse_auction !== "" ? (
-                                <div className="col-9">
-                                  <div className="form-group mt-0">
-                                    <div className="row">
-                                      <div className="col-md-4">
-                                        <div className="form-group">
-                                          <label className="form-label">
-                                            Reverse Auction
-                                          </label>
-                                          <input
-                                            type="text"
-                                            className="form-control"
-                                            disabled
-                                            value={
-                                              rfqDetails.reverse_auction == 1
-                                                ? "Enabled"
-                                                : "Disabled"
-                                            }
-                                          />
-                                        </div>
-                                      </div>
-
-                                      {rfqDetails.reverse_auction == 1 && (
-                                        <>
-                                          <div className="col-md-4">
-                                            <div className="form-group">
-                                              <label className="form-label">
-                                                Reverse Auction Start Time
-                                              </label>
-                                              <input
-                                                type="text"
-                                                className="form-control"
-                                                disabled
-                                                value={
-                                                  rfqDetails.ra_start_date
-                                                    ? (() => {
-                                                        try {
-                                                          // Parse the date string - support both formats
-                                                          let dateObj;
-                                                          if (
-                                                            rfqDetails.ra_start_date.includes(
-                                                              "T"
-                                                            )
-                                                          ) {
-                                                            // ISO format
-                                                            dateObj = new Date(
-                                                              rfqDetails.ra_start_date
-                                                            );
-                                                          } else if (
-                                                            rfqDetails.ra_start_date.includes(
-                                                              " "
-                                                            )
-                                                          ) {
-                                                            // YYYY-MM-DD HH:MM:SS format
-                                                            const [
-                                                              datePart,
-                                                              timePart,
-                                                            ] =
-                                                              rfqDetails.ra_start_date.split(
-                                                                " "
-                                                              );
-                                                            dateObj = new Date(
-                                                              `${datePart}T${timePart}`
-                                                            );
-                                                          } else {
-                                                            // Just date
-                                                            dateObj = new Date(
-                                                              rfqDetails.ra_start_date
-                                                            );
-                                                          }
-
-                                                          // Use local date to avoid timezone issues
-                                                          const localDateString = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-                                                          return `${localDateString}, ${dateObj.toLocaleTimeString(
-                                                            [],
-                                                            {
-                                                              hour: "numeric",
-                                                              minute: "2-digit",
-                                                              hour12: true,
-                                                            }
-                                                          )}`;
-                                                        } catch (e) {
-                                                          console.error(
-                                                            "Error formatting start date:",
-                                                            e
-                                                          );
-                                                          return rfqDetails.ra_start_date; // Fallback to raw value
-                                                        }
-                                                      })()
-                                                    : "Not specified"
-                                                }
-                                              />
-                                            </div>
-                                          </div>
-
-                                          <div className="col-md-4">
-                                            <div className="form-group">
-                                              <label className="form-label">
-                                                Reverse Auction End Time
-                                              </label>
-                                              <input
-                                                type="text"
-                                                className="form-control"
-                                                disabled
-                                                value={
-                                                  rfqDetails.ra_end_date
-                                                    ? (() => {
-                                                        try {
-                                                          // Parse the date string - support both formats
-                                                          let dateObj;
-                                                          if (
-                                                            rfqDetails.ra_end_date.includes(
-                                                              "T"
-                                                            )
-                                                          ) {
-                                                            // ISO format
-                                                            dateObj = new Date(
-                                                              rfqDetails.ra_end_date
-                                                            );
-                                                          } else if (
-                                                            rfqDetails.ra_end_date.includes(
-                                                              " "
-                                                            )
-                                                          ) {
-                                                            // YYYY-MM-DD HH:MM:SS format
-                                                            const [
-                                                              datePart,
-                                                              timePart,
-                                                            ] =
-                                                              rfqDetails.ra_end_date.split(
-                                                                " "
-                                                              );
-                                                            dateObj = new Date(
-                                                              `${datePart}T${timePart}`
-                                                            );
-                                                          } else {
-                                                            // Just date
-                                                            dateObj = new Date(
-                                                              rfqDetails.ra_end_date
-                                                            );
-                                                          }
-
-                                                          // Use local date to avoid timezone issues
-                                                          const localDateString = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-                                                          return `${localDateString}, ${dateObj.toLocaleTimeString(
-                                                            [],
-                                                            {
-                                                              hour: "numeric",
-                                                              minute: "2-digit",
-                                                              hour12: true,
-                                                            }
-                                                          )}`;
-                                                        } catch (e) {
-                                                          console.error(
-                                                            "Error formatting end date:",
-                                                            e
-                                                          );
-                                                          return rfqDetails.ra_end_date; // Fallback to raw value
-                                                        }
-                                                      })()
-                                                    : "Not specified"
-                                                }
-                                              />
-                                            </div>
-                                          </div>
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : (
-                                ""
-                              )} */}
-
-                              {/* {rfqDetails?.bid_end_date &&
-                                rfqDetails?.bid_end_date != "" && (
-                                  <div className="col-md-3">
-                                    <div className="form-group">
-                                      <label
-                                        htmlFor="bid_end_date"
-                                        className="form-label"
-                                      >
-                                        Procurement End Date
-                                      </label>
-                                      <input
-                                        type="text"
-                                        id="bid_end_date"
-                                        className="form-control"
-                                        name="bid_end_date"
-                                        disabled
-                                        value={`${rfqDetails?.bid_end_date}`}
-                                      />
-                                    </div>
-                                  </div>
-                                )} */}
-
-                              {/* {rfqDetails?.location &&
-                                rfqDetails?.location != "" && (
-                                  <div className="col-md-6">
-                                    <div className="form-group mt-0">
-                                      <label
-                                        htmlFor="location"
-                                        className="form-label"
-                                      >
-                                        Delivery Location
-                                      </label>
-                                      <input
-                                        type="text"
-                                        id="location"
-                                        className="form-control"
-                                        name="location"
-                                        disabled
-                                        value={`${rfqDetails?.location}`}
-                                      />
-                                    </div>
-                                  </div>
-                                )} */}
                             </div>
                           </div>
 
@@ -1816,141 +1471,6 @@ const RfqManagementPreview = () => {
                               )}
                             </>
                           )}
-                          {/* {!enableBuyerView && (
-                            <>
-                              {quoteDisabled &&
-                              statusMessage === "RFQ is Closed" ? (
-                                // Show a single disabled button saying "RFQ is Closed"
-                                <div className="row w-50">
-                                  <div className="col-12">
-                                    <button
-                                      type="button"
-                                      className="btn btn-danger w-100"
-                                      disabled
-                                    >
-                                      <FontAwesomeIcon
-                                        icon={faCircleExclamation}
-                                        className="me-2"
-                                      />
-                                      RFQ is Closed
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : !productleftforbid ? (
-                                // Show a single disabled button saying "All Products are Finalized"
-                                <div className="row w-50">
-                                  <div className="col-12">
-                                    <button
-                                      type="button"
-                                      className="btn btn-secondary w-100"
-                                      disabled
-                                    >
-                                      <FontAwesomeIcon
-                                        icon={faCircleExclamation}
-                                        className="me-2"
-                                      />
-                                      All Products are Finalized
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                // Show the two buttons if neither condition is met
-                                rfqDetails.quotations.length <= 0 && (
-                                  <div className="row w-50">
-                                    <div className="col-md-6 ps-4">
-                                      <button
-                                        type="submit"
-                                        className="btn btn-primary"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          setregretModal(true);
-                                        }}
-                                        disabled={
-                                          (quoteDisabled &&
-                                            statusMessage !==
-                                              "Reverse Auction is Active") ||
-                                          rfqDetails.status == 2 ||
-                                          rfqDetails.products?.some(
-                                            (item) =>
-                                              item.finalization_status ===
-                                                "Another vendor is finalized" ||
-                                              item.finalization_status ===
-                                                "You are finalized"
-                                          )
-                                        }
-                                      >
-                                        Regret Quote
-                                      </button>
-                                    </div>
-                                    <div className="col-md-6 d-flex justify-content-end p-0">
-                                      {rfqDetails?.quotations?.length === 0 && (
-                                        <>
-                                          {(quoteDisabled &&
-                                            statusMessage !==
-                                              "Reverse Auction is Active") ||
-                                          rfqDetails.status == 2 ||
-                                          rfqDetails.products?.some(
-                                            (item) =>
-                                              item.finalization_status ===
-                                                "Another vendor is finalized" ||
-                                              item.finalization_status ===
-                                                "You are finalized"
-                                          ) ? (
-                                            <button
-                                              type="button"
-                                              className={`btn ${
-                                                rfqDetails.status == 2
-                                                  ? "btn-danger"
-                                                  : "btn-secondary"
-                                              }`}
-                                              style={{ opacity: "0.5" }}
-                                              disabled
-                                            >
-                                              <FontAwesomeIcon
-                                                icon={faCircleExclamation}
-                                                className="me-2"
-                                              />
-                                              {rfqDetails.status == 2
-                                                ? "RFQ is Closed"
-                                                : rfqDetails.products?.some(
-                                                    (item) =>
-                                                      item.finalization_status ===
-                                                        "Another vendor is finalized" ||
-                                                      item.finalization_status ===
-                                                        "You are finalized"
-                                                  )
-                                                ? rfqDetails.products?.some(
-                                                    (item) =>
-                                                      item.finalization_status ===
-                                                      "You are finalized"
-                                                  )
-                                                  ? "You are finalized"
-                                                  : "Another vendor is finalized"
-                                                : statusMessage}
-                                            </button>
-                                          ) : (
-                                            <button
-                                              type="button"
-                                              className={`btn ${
-                                                isReverseAuctionActive
-                                                  ? "btn-success"
-                                                  : "btn-secondary"
-                                              }`}
-                                              onClick={goToQuoteCreation}
-                                            >
-                                              {isReverseAuctionActive
-                                                ? "Send Quote"
-                                                : "Send Quote"}
-                                            </button>
-                                          )}
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
-                                )
-                              )}
-                            </>
-                          )} */}
                         </div>
                       </form>
                     </div>
