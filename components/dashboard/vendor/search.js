@@ -23,7 +23,7 @@ import { debounce } from "lodash";
 import { getCountries, getStates, getCities } from "@/services/cms";
 import NestedCategoryBrowser from "./NestedCategoryBrowser";
 import FeatureSEOSection from "./FeatureSEOsection";
-import { getUserMappings } from "@/services/hospitality";
+import { getRFQHotels, getUserMappings } from "@/services/hospitality";
 import Select from "react-select";
 import AddTenderItemModal from "@/components/modal/AddTenderItemModal";
 
@@ -354,6 +354,12 @@ const category_id = extractId(slugStr);
       sheet_id,
       orderType 
     });
+
+     //  fetch rfq mapped hotels 
+    if (rfq_id) {
+        getRfqMappedHotels(rfq_id);   //  RFQ specific hotels
+    }
+
   }, [router.query]);
 
   function useClickOutside(ref, handler, active = true) {
@@ -535,6 +541,23 @@ const getUSerMappedHotelsAndCompanies = async () => {
   }
 };
 
+//  get list of hotels in which rfq is mapped 
+const getRfqMappedHotels = async (rfq_id) => {
+  try {
+    const response = await getRFQHotels(rfq_id);
+
+    const mappings = response?.data || [];
+
+    setUserHotelMappings(mappings);
+
+    // ✅ Extract hotel_ids and auto-select them
+    const hotelIds = mappings.map(item => item.hotel_id);
+    setSelectedHotelIds(hotelIds);
+
+  } catch (error) {
+    console.error("Error fetching RFQ hotels", error);
+  }
+};
 
 
 const handleRedirect = (e) => {
@@ -959,6 +982,15 @@ const getVendorTypeList = () => {
 
  const handleAutocompleteClick = (item) => {
 
+    if (
+    queryMeta.orderType &&
+    !queryMeta.rfq_id &&
+    selectedHotelIds.length === 0
+  ) {
+    toast.info("Please select hotel(s) before choosing products.");
+    return;
+  }
+
   //  if tender then open tender modal and set product
   if (queryMeta.orderType === "tender") {
     setTenderProduct({
@@ -1202,6 +1234,23 @@ const clearLocationFilter = () => {
   />
 </div>
 {/* END: Select Hotels Dropdown */}
+
+
+                              <Link
+                                id="view_current_rfq-vendor_actions-vendor_search_page"
+                                href={
+                                  !!queryMeta.rfq_id && queryMeta.rfq_id != null
+                                    ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${queryMeta.rfq_id}${
+                                        queryMeta.sheet_id ? `&sheet_id=${queryMeta.sheet_id}` : ""
+                                      }`
+                                    : "/dashboard/buyer/rfq-management?tab=draft-rfq"
+                                }
+                                className={`btn btn-primary ${isLoading ? "disabled" : ""}`}
+                              >
+                                {!!queryMeta.rfq_id && queryMeta.rfq_id != null
+                                  ? `View Current Draft`
+                                  : "View My Drafts"}
+                              </Link>
 
  {queryMeta.orderType !== 'tender' && (
             <Link

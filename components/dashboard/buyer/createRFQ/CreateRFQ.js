@@ -1124,12 +1124,6 @@ useEffect(() => {
 
   };
 
-//   useEffect(()=>{
-
-//         console.log(" ->>>>>>>>>>>>> ", errorProducts )
-// alert(" => >>>>>>>>>>>>> "+ Array.from( errorProducts ) )
-//   },[errorProducts])
-
   const loadDraft = async (id, sheet_id = queryMeta.sheet_id) => {
     dispatch(setStoreLoading(true));
     try {
@@ -1196,6 +1190,10 @@ useEffect(() => {
     
           draftRes.data.rfq_form_data.contact_number = extractedContactNumber;
           draftRes.data.rfq_form_data.country_code = extractedCountryCode;
+
+          //  set selected hotel ids 
+          const getSelectedHotelIds = draftRes?.data?.mappedHotels.map((item)=> item.hotel_id);
+          setSelectedHotelIds(getSelectedHotelIds);
       
           setonecountrycode(extractedCountryCode);
         }
