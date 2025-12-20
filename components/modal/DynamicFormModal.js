@@ -752,32 +752,6 @@ Example:
                                     />
                                   </>
                                 )}
-
-                                {showHospitalitySection && (
-                                  <div className="mt-4">
-                                    <div className="card border-0 shadow-sm">
-                                      <div className="card-body">
-                                        <div className="d-flex justify-content-between align-items-center mb-3">
-                                          <h5 className="mb-0">RBAC Role &amp; Scope</h5>
-                                          <span className="text-muted small">
-                                            Assign roles with company / hotel scope
-                                          </span>
-                                        </div>
-                                        <RoleScopeSelector
-                                          onAddRole={(scope) =>
-                                            setRoleScopes((prev) => [...prev, scope])
-                                          }
-                                          existingRoles={roleScopes}
-                                          onRemoveRole={(index) =>
-                                            setRoleScopes((prev) => prev.filter((_, i) => i !== index))
-                                          }
-                                          isEditMode={true}
-                                          userDepartments={userDepartments}
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
                               </>
                             ) : type === "add-team-member" ? (
                               <>
@@ -1349,6 +1323,31 @@ Example:
                               </>
                             )}
                           </div>
+                          {type === "edit-account" && showHospitalitySection && (
+                            <div className="col-12 mt-5">
+                              <div className="card border-0 shadow-sm">
+                                <div className="card-body">
+                                  <div className="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 className="mb-0">RBAC Role &amp; Scope</h5>
+                                    <span className="text-muted small">
+                                      Assign roles with company / hotel scope
+                                    </span>
+                                  </div>
+                                  <RoleScopeSelector
+                                    onAddRole={(scope) =>
+                                      setRoleScopes((prev) => [...prev, scope])
+                                    }
+                                    existingRoles={roleScopes}
+                                    onRemoveRole={(index) =>
+                                      setRoleScopes((prev) => prev.filter((_, i) => i !== index))
+                                    }
+                                    isEditMode={true}
+                                    userDepartments={userDepartments}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
                           <div className="d-flex justify-content-end">
                             <button
                               disabled={!isValid}

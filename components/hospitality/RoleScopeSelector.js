@@ -213,7 +213,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   /* ---------------- UI ---------------- */
 
   return (
-    <div className="w-100 border rounded-3 bg-light p-3">
+    <div className="w-100 border rounded-3 bg-light p-3" style={{ width: "100%" }}>
 
       {/* Header */}
       <div className="mb-3">
