@@ -1496,6 +1496,9 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                           <b>Company Name</b> : {currentRFQ.company_name}
                         </p>
                         <p className="sub-heading mb-0">
+                          <b>Company Name</b> : {currentRFQ?.hotel_name || ''}
+                        </p>
+                        <p className="sub-heading mb-0">
                           <b>Contact Person Name</b> : {currentRFQ.contact_name}
                         </p>
                         <p className="sub-heading mb-0">

@@ -799,7 +799,7 @@ const RfqManagementPreview = () => {
                       )}
                       
                       {/* hotel list : currently usiing only company data here to display, need to change */}
-                      {rfqDetails?.company_name && (
+                      {rfqDetails?.hotel_name && (
                         <div className="  col-md-2 col-sm-6"> 
                           <strong>Hotels:</strong>
                           <div>{rfqDetails.hotel_name}</div>

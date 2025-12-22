@@ -384,6 +384,14 @@ useEffect(() => {
                           <b>Bid End Date</b> :{" "}
                           {currentRfq.bid_end_date}
                         </p>
+
+                       {currentRfq?.hotel_name && (
+                        <p className="sub-heading mb-0  "> 
+                          <strong  >Hotels : quote-compare</strong> {" "}
+                          {currentRfq.hotel_name}
+                        </p>
+                      )}
+
                         {currentRfq.comment && currentRfq.comment != "" &&
                           <p className="sub-heading mb-0">
                             <b>Comment</b> :{" "}
