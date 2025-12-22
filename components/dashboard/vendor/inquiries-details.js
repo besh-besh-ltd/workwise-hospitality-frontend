@@ -802,7 +802,7 @@ const RfqManagementPreview = () => {
                       {rfqDetails?.company_name && (
                         <div className="  col-md-2 col-sm-6"> 
                           <strong>Hotels:</strong>
-                          <div>{rfqDetails.company_name}</div>
+                          <div>{rfqDetails.hotel_name}</div>
                         </div>
                       )}
 
