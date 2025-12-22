@@ -859,6 +859,7 @@ useEffect(() => {
       filters,
       termsChanged,
       termFilesChanged,
+      hotel_ids: selectedHotelIds,
     };
 
     // Remove country_code if it exists
@@ -1061,6 +1062,7 @@ useEffect(() => {
       termsChanged,
       termFilesChanged,
       selectedSheets: selectedSheetsForRFQ,
+      hotel_ids:selectedHotelIds || [],
     };
     const affectedVendorProductIds = Object.keys(
       updatableData?.vendors || {}

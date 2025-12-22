@@ -1207,31 +1207,36 @@ const clearLocationFilter = () => {
           <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mt-3">
 
 {/* START: Select Hotels Dropdown */}
-          <div className=" ">
+          <div style={{ maxWidth: "400px", zIndex:"999" }}>
   {/* <strong className=" text-white  ">Select Hotels</strong> */}
 
-  <Select
-    isMulti
-    options={userHotelMappings}
-    value={userHotelMappings.filter(opt =>
-      selectedHotelIds.includes(opt.hospitality_hotel_id)
-    )}
-    onChange={(selectedOptions) => {
-      const ids = selectedOptions
-        ? selectedOptions.map(opt => opt.hospitality_hotel_id)
-        : [];
-      setSelectedHotelIds(ids);
-    }}
-    placeholder="Select hotels..."
-    closeMenuOnSelect={false}
-    classNamePrefix="react-select"
-    formatOptionLabel={(option) => (
-      <div>
-        <span className="">{option.hotel_name}</span>
-        {/* <div className="text-muted small">{option.company_name}</div> */}
-      </div>
-    )}
-  />
+<Select
+  isMulti
+  options={userHotelMappings}
+  value={userHotelMappings.filter(opt =>
+    selectedHotelIds.includes(opt.hospitality_hotel_id)
+  )}
+  onChange={(selectedOptions) => {
+    const ids = selectedOptions
+      ? selectedOptions.map(opt => opt.hospitality_hotel_id)
+      : [];
+    setSelectedHotelIds(ids);
+  }}
+  placeholder="Select hotels..."
+  closeMenuOnSelect={false}
+  classNamePrefix="react-select"
+
+  /* ✅ ADD THESE TWO LINES */
+  getOptionValue={(option) => option.hospitality_hotel_id}
+  getOptionLabel={(option) => option.hotel_name}
+
+  formatOptionLabel={(option) => (
+    <div>
+      <span>{option.hotel_name}</span>
+    </div>
+  )}
+/>
+
 </div>
 {/* END: Select Hotels Dropdown */}
 
