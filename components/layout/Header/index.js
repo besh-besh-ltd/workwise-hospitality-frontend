@@ -1,5 +1,6 @@
 "use client";
 import { getProfile, getUserDetails } from "@/services/Auth";
+import { getMyPermissions } from "@/services/rbac";
 import storageInstance from "@/utils/storageInstance";
 import { faBell, faUser, faMessage } from "@fortawesome/free-regular-svg-icons";
 import { faGear, faSignOut } from "@fortawesome/free-solid-svg-icons";
@@ -415,6 +416,7 @@ const Header = () => {
     e.preventDefault();
     storageInstance.removeStorege("token");
     storageInstance.removeStorege("current-user-type");
+    storageInstance.removeStorege("user-permissions");
     setStoredHospitalityContext(null);
     setPopoverVisible(false);
     setLoggedinUser(null);
@@ -523,6 +525,18 @@ const Header = () => {
         if (!hospitalityEnabled) {
           setHospitalityContexts([]);
           setStoredHospitalityContext(null);
+        }
+
+        // Fetch and store user permissions after profile is fetched
+        try {
+          const permissionsResponse = await getMyPermissions();
+          if (!isMounted) return;
+          if (permissionsResponse?.data?.data) {
+            storageInstance.setStorageObj("user-permissions", permissionsResponse.data.data);
+          }
+        } catch (permissionsError) {
+          // Silently fail if permissions fetch fails
+          console.error("Failed to fetch user permissions:", permissionsError);
         }
       } catch (error) {
         if (isMounted) {

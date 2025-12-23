@@ -82,4 +82,14 @@ export const updateCustomRole = (roleId, payload) =>
     }
   });
 
+export const getMyPermissions = () =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/rbac/me/permissions`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 
