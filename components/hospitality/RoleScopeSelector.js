@@ -212,13 +212,53 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
 
   /* ---------------- UI ---------------- */
 
+  const buildRoleTooltip = (scope) => {
+    if (!scope) return "";
+
+    const roleMeta =
+      roles.find((r) => r.id === (scope.role_id || scope.id)) || null;
+    const companyMeta = companies.find((c) => c.id === scope.company_id) || null;
+    const deptMeta =
+      allDepartments.find((d) => d.id === scope.department_id) || null;
+    const hotelMeta =
+      companyMeta?.hotels?.find((h) => h.id === scope.hotel_id) || null;
+
+    const lines = [];
+
+    const roleTitle = roleMeta?.title || scope.role_title || scope.title;
+    if (roleTitle) {
+      lines.push(`Role: ${roleTitle}`);
+    }
+    if (roleMeta?.description) {
+      lines.push(`Description: ${roleMeta.description}`);
+    }
+    if (companyMeta?.name) {
+      lines.push(`Company: ${companyMeta.name}`);
+    }
+    if (deptMeta?.title) {
+      lines.push(`Department: ${deptMeta.title}`);
+    } else if (scope.department_id === null || scope.department_id === undefined) {
+      lines.push(`Department: All Departments`);
+    }
+    if (hotelMeta?.name) {
+      lines.push(`Hotel: ${hotelMeta.name}`);
+    } else if (!scope.hotel_id) {
+      lines.push(`Hotel: All Hotels`);
+    }
+
+    return lines.join("\n");
+  };
+
   return (
     <div className="w-100 border rounded-3 bg-light p-3" style={{ width: "100%" }}>
 
       {/* Header */}
       <div className="mb-3">
         <h5 className="fw-semibold mb-0">Roles</h5>
-        <small className="text-muted">Choose as many as you want</small>
+        <div className="d-flex flex-column">
+          <small className="text-muted">Choose as many as you want</small>
+          <small className="text-muted">Hover over a role to view its details</small>
+        </div>
       </div>
 
       {loading && (
@@ -233,6 +273,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
           {existingRoles.map((role, index) => (
             <div
               key={index}
+              title={buildRoleTooltip(role)}
               className="alert alert-success text-sm px-2.5 py-2 mb-0 d-flex align-items-center gap-2"
             >
               <span>{role.role_title || role.title}</span>

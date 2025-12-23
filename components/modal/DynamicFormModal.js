@@ -730,6 +730,25 @@ Example:
                                   required={true}
                                 />
 
+                                {Array.isArray(userDepartments) &&
+                                  userDepartments.length > 0 && (
+                                    <div className="mb-3">
+                                      <label className="form-label">
+                                        Departments
+                                      </label>
+                                      <div className="d-flex flex-wrap gap-2">
+                                        {userDepartments.map((dept) => (
+                                          <span
+                                            key={dept.id}
+                                            className="badge bg-info text-dark"
+                                          >
+                                            {dept.title}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
                                 {showHospitalitySection && (
                                   <>
                                     <CommonFormInput
