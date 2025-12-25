@@ -8,7 +8,7 @@ import FullLoader from '@/components/shared/FullLoader';
 import TE_Modal from './TE_Modal';
 import { toast } from 'react-toastify';
 import ReadMore from '@/components/shared/ReadMore';
-import { Dropdown, Tab, Nav, Modal, Form } from 'react-bootstrap';
+import { Dropdown, Modal, Form } from 'react-bootstrap';
 import Image from 'next/image';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
 
@@ -29,7 +29,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     const [selectedVendor, setSelectedVendor] = useState(null);
     const [showAcceptConfirmModal, setShowAcceptConfirmModal] = useState(false);
     const [showRejectConfirmModal, setShowRejectConfirmModal] = useState(false);
-    const [activeTab, setActiveTab] = useState('clauses');
+    const [vendorScores, setVendorScores] = useState({});
     const [showRemarkModal, setShowRemarkModal] = useState(false);
     const [selectedClauseForRemark, setSelectedClauseForRemark] = useState(null);
     const [selectedVendorForRemark, setSelectedVendorForRemark] = useState(null);
@@ -163,13 +163,13 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
             return;
         }
 
-        // Validate marks against weightage for sampling questions
-        if (selectedClauseForRemark.clause_type === 'sampling' && buyerMarks) {
+        // Validate marks against weightage
+        if (buyerMarks) {
             const marksValue = parseInt(buyerMarks);
             const weightage = selectedClauseForRemark.weightage || 0;
             
             if (marksValue > weightage) {
-                toast.error(`Marks (${marksValue}) cannot exceed the weightage (${weightage}) for this sampling question`);
+                toast.error(`Marks (${marksValue}) cannot exceed the weightage (${weightage}) for this clause`);
                 return;
             }
         }
@@ -358,21 +358,10 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
           <>
             {!vendorResponse && (
               <div style={{ maxWidth: "100%", overflow: "auto" }}>
-                <Tab.Container activeKey={activeTab} onSelect={(k) => setActiveTab(k || 'clauses')}>
-                  <Nav variant="tabs">
-                    <Nav.Item>
-                      <Nav.Link eventKey="clauses">Clauses</Nav.Link>
-                    </Nav.Item>
-                    <Nav.Item>
-                      <Nav.Link eventKey="sampling">Sampling</Nav.Link>
-                    </Nav.Item>
-                  </Nav>
-                  <Tab.Content>
-                    <Tab.Pane eventKey="clauses">
                       <div className="mt-3">
                         {minimumPassingScore !== null && (
                           <p className="mb-2">
-                            <strong>Minimum Score Required:</strong> {minimumPassingScore}
+                            <strong>Minimum Passing Score (out of 100):</strong> {minimumPassingScore}
                           </p>
                         )}
                         <table className="table table-bordered table-striped">
@@ -390,6 +379,27 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         <div className="d-flex justify-content-between gap-2 align-items-center">
                                           <div className="d-flex flex-column align-items-center w-100">
                                             <span>{`VEN-${vendor.rfq_product_vendor_id}` || vendor.vendor_name}</span>
+                                            {vendor.calculated_score !== undefined && vendor.calculated_score !== null && (
+                                              <p className="mb-1 mt-1">
+                                                <strong>Score:</strong> {vendor.calculated_score}%
+                                              </p>
+                                            )}
+                                            {vendor.is_passed !== undefined && vendor.is_passed !== null && (
+                                              <p
+                                                className={`badge rounded-pill py-2 px-3 ${
+                                                  vendor.is_passed
+                                                    ? "text-bg-success"
+                                                    : "text-bg-danger"
+                                                }`}
+                                                style={{
+                                                  marginTop: 5,
+                                                  marginBottom: 0,
+                                                  width: "fit-content",
+                                                }}
+                                              >
+                                                {vendor.is_passed ? "Pass" : "Fail"}
+                                              </p>
+                                            )}
                                             <p
                                               className={`badge rounded-pill py-2 px-3 ${
                                                 isCleared != null
@@ -482,7 +492,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                           <tbody style={{ overflowX: "auto" }}>
                             {clauseInfo &&
                               clauseInfo.length > 0 &&
-                              clauseInfo.filter(c => c.clause_type !== 'sampling').map((clauseItem, index) => (
+                              clauseInfo.map((clauseItem, index) => (
                         <>
                         <tr key={`rfq_prod_clause_${clauseItem.clause_id}`}>
                           {console.log("chcking th e clause id ", clauseItem.clause_id)}
@@ -493,6 +503,9 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                               }`}
                               maxLines={4}
                             />
+                            <p className="text-sm mt-1">
+                              <strong>Weightage:</strong> {clauseItem.weightage || 0}
+                            </p>
                             {clauseItem.files && clauseItem.files.length > 0 ? (
                               <FileLink
                                 key={clauseItem.clause_id}
@@ -538,9 +551,17 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         ColumnClass="col-md-6"
                                       />
                                     )}
-                                    
-
-<button
+                                    {(response?.buyer_marks !== null && response?.buyer_marks !== undefined) && (
+                                      <p className="mb-1 mt-1">
+                                        <strong>Marks:</strong> {response.buyer_marks} / {clauseItem.weightage || 0}
+                                      </p>
+                                    )}
+                                    {response?.buyer_remark && (
+                                      <p className="mb-1">
+                                        <strong>Remark:</strong> {response.buyer_remark}
+                                      </p>
+                                    )}
+                                    <button
                                       type="button"
                                       className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
                                       style={{
@@ -556,6 +577,20 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                       id={`view_deviation_${clauseItem.clause_id}_${vendor.vendor_id}-deviation_actions-technical_evaluation_page`}
                                     >
                                      Deviation
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
+                                      style={{
+                                        maxWidth: "120px",
+                                        backgroundColor: "var(--primary-color)",
+                                        color: "#ffffff",
+                                        fontSize: "13px",
+                                      }}
+                                      onClick={() => openRemarkModal(clauseItem, vendor)}
+                                      id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-clause_actions-technical_evaluation_page`}
+                                    >
+                                      Add Marks/Remark
                                     </button>
 
                                   </div>
@@ -581,142 +616,6 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                           </tbody>
                         </table>
                       </div>
-                    </Tab.Pane>
-                    <Tab.Pane eventKey="sampling">
-                      <div className="mt-3">
-                        {minimumPassingScore !== null && (
-                          <p className="mb-2">
-                            <strong>Minimum Score Required:</strong> {minimumPassingScore}
-                          </p>
-                        )}
-                        <table className="table table-bordered table-striped">
-                          <thead>
-                            <tr className="table-dark">
-                              <th className="col-4 align-middle">Clause And Files</th>
-                              {vendors && vendors.length > 0 &&
-                                vendors.filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id)).map((vendor) => {
-                                    const isCleared = vendor.is_cleared;
-                                    return (
-                                      <th
-                                        key={vendor.vendor_id}
-                                        className="col-3 align-middle"
-                                      >
-                                        <div className="d-flex justify-content-between gap-2 align-items-center">
-                                          <div className="d-flex flex-column align-items-center w-100">
-                                            <span>{`VEN-${vendor.rfq_product_vendor_id}` || vendor.vendor_name}</span>
-                                            <p
-                                              className={`badge rounded-pill py-2 px-3 ${
-                                                isCleared != null
-                                                  ? isCleared == 1
-                                                    ? "text-bg-success"
-                                                    : "text-bg-danger"
-                                                  : ""
-                                              }`}
-                                              style={{
-                                                marginTop: 5,
-                                                marginBottom: 0,
-                                                width: "fit-content",
-                                              }}
-                                            >
-                                              {isCleared != null
-                                                ? isCleared == 1
-                                                  ? "Technically Accepted"
-                                                  : "Technically Not Accepted"
-                                                : ""}
-                                            </p>
-                                            {isCleared != null && vendor?.evaluated_by && (
-                                              <div className="text-light mt-2 fw-normal">
-                                                <strong>Evaluated by: </strong> {vendor?.evaluated_by}
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </th>
-                                    );
-                                }
-                                )}
-                            </tr>
-                          </thead>
-
-                          <tbody style={{ overflowX: "auto" }}>
-                            {clauseInfo &&
-                              clauseInfo.length > 0 &&
-                              clauseInfo.filter(c => c.clause_type === 'sampling').map((clauseItem, index) => {
-                                const totalWeightage = clauseInfo.filter(c => c.clause_type === 'sampling').reduce((sum, c) => sum + (c.weightage || 0), 0);
-                                return (
-                                  <>
-                                    <tr key={`rfq_prod_clause_${clauseItem.clause_id}`}>
-                                      <td className="col-4">
-                                        <ReadMore
-                                          content={`${index + 1}. ${
-                                            clauseItem.clause_text
-                                          }`}
-                                          maxLines={4}
-                                        />
-                                        <p className="text-sm mt-1">
-                                          <strong>Weightage:</strong> {clauseItem.weightage || 0}
-                                        </p>
-                                        {clauseItem.files && clauseItem.files.length > 0 ? (
-                                          <FileLink
-                                            key={clauseItem.clause_id}
-                                            Files={clauseItem.files}
-                                            ColumnClass="col-md-6"
-                                          />
-                                        ) : null}
-                                      </td>
-                                      {vendors && vendors.length > 0 &&
-                                        vendors.filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id)).map((vendor) => {
-                                          const response = clauseItem.vendor_responses?.find(
-                                            (response) =>
-                                              vendor.vendor_id == response.vendor_id
-                                          );
-                                          return (
-                                            <td key={vendor.vendor_id} className="col-3">
-                                              <div
-                                                style={{
-                                                  display: "flex",
-                                                  flexDirection: "column",
-                                                  gap: 2,
-                                                }}
-                                              >
-                                                {response?.buyer_marks !== null && response?.buyer_marks !== undefined && (
-                                                  <p className="mb-1">
-                                                    <strong>Points:</strong> {response.buyer_marks}
-                                                  </p>
-                                                )}
-                                                {response?.buyer_remark && (
-                                                  <p className="mb-1">
-                                                    <strong>Remark:</strong> {response.buyer_remark}
-                                                  </p>
-                                                )}
-                                                <button
-                                                  type="button"
-                                                  className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
-                                                  style={{
-                                                    maxWidth: "120px",
-                                                    backgroundColor: "var(--primary-color)",
-                                                    color: "#ffffff",
-                                                    fontSize: "13px",
-                                                  }}
-                                                  onClick={() => openRemarkModal(clauseItem, vendor)}
-                                                  id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-sampling_actions-technical_evaluation_page`}
-                                                >
-                                                  Add Remark
-                                                </button>
-                                              </div>
-                                            </td>
-                                          );
-                                        })}
-                                    </tr>
-                                  </>
-                                );
-                              })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </Tab.Pane>
-                  </Tab.Content>
-                </Tab.Container>
               </div>
             )}
           </>
@@ -900,34 +799,32 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
             <Modal.Title>Add Remark and Score</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            {selectedClauseForRemark?.clause_type === 'sampling' && selectedClauseForRemark?.weightage && (
-              <div className="alert alert-info mb-3 p-2" style={{ fontSize: "12px" }}>
-                <strong>Question Weightage:</strong> {selectedClauseForRemark.weightage}
-                <br />
-                <small>Maximum marks allowed: {selectedClauseForRemark.weightage}</small>
-              </div>
-            )}
             <div className="mb-3">
               <label className="form-label">Give Score</label>
+              {selectedClauseForRemark?.weightage && (
+                <div className="alert alert-info mb-2 p-2" style={{ fontSize: "12px" }}>
+                  <strong>Clause Weightage:</strong> {selectedClauseForRemark.weightage}
+                  <br />
+                  <small>Maximum marks allowed: {selectedClauseForRemark.weightage}</small>
+                </div>
+              )}
               <Form.Control
                 type="number"
                 placeholder="Enter score"
                 min="0"
-                max={selectedClauseForRemark?.clause_type === 'sampling' && selectedClauseForRemark?.weightage 
-                  ? selectedClauseForRemark.weightage 
-                  : 100}
+                max={selectedClauseForRemark?.weightage || 100}
                 value={buyerMarks}
                 onChange={(e) => {
                   const value = e.target.value;
                   setBuyerMarks(value);
                 }}
-                className={selectedClauseForRemark?.clause_type === 'sampling' && buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0) 
+                className={buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0) 
                   ? 'border-danger' 
                   : ''}
               />
-              {selectedClauseForRemark?.clause_type === 'sampling' && buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0) && (
+              {buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0) && (
                 <small className="text-danger">
-                  Marks ({buyerMarks}) cannot exceed weightage ({selectedClauseForRemark.weightage})
+                  Marks ({buyerMarks}) cannot exceed weightage ({selectedClauseForRemark?.weightage || 0})
                 </small>
               )}
             </div>

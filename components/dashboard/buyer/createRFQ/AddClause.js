@@ -13,6 +13,7 @@ import FullLoader from "@/components/shared/FullLoader";
 function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
     const [clauseFile, setClauseFile] = useState(null);
     const [active, setActive] = useState('clause');
+    const [isSampling, setIsSampling] = useState(false);
     const [message, setMessage] = useState("");
     const [files, setFiles] = useState([]);
     const [fileLoading, setFileLoading] = useState(false);
@@ -53,7 +54,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             // rfq_id,
             rfq_product_id: product.id
         }
-        if (active === 'clause' || active === 'sampling') setLoading(true);
+        setLoading(true);
         try {
             const res = await getClausesByRfqProductId(payload);
             // Response structure: 
@@ -69,23 +70,8 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                 }
             }
             
-            // Filter clauses based on active tab
-            // Treat null/undefined clause_type as 'clause' for backward compatibility
-            if (active === 'clause') {
-                const filtered = clausesData.filter(c => {
-                    const clauseType = c.clause_type || 'clause';
-                    return clauseType !== 'sampling';
-                });
-                setPreviousClauses(filtered);
-            } else if (active === 'sampling') {
-                const filtered = clausesData.filter(c => {
-                    const clauseType = c.clause_type || 'clause';
-                    return clauseType === 'sampling';
-                });
-                setPreviousClauses(filtered);
-            } else {
-                setPreviousClauses(clausesData);
-            }
+            // Show all clauses (both regular and sampling)
+            setPreviousClauses(clausesData);
             
             // Fetch minimum passing score from response
             if (res && res.data && res.data.minimum_passing_score !== undefined && res.data.minimum_passing_score !== null) {
@@ -95,11 +81,9 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             console.error("Error fetching clauses:", error);
             toast.error("Failed to load clauses. Please try again.");
         } finally {
-            if (active === 'clause' || active === 'sampling') setLoading(false);
-            if (!loading || active === 'clause' || active === 'sampling') {
+            setLoading(false);
             setClauseFile(null);
             setFileName('');
-            }
         }
     }
 
@@ -109,31 +93,18 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             return;
         }
 
-        if (active === 'sampling' && (!weightage || weightage === "")) {
-            toast.error("Weightage is required for sampling questions");
+        if (!weightage || weightage === "") {
+            toast.error("Weightage is required");
             return;
-        }
-
-        // Validate weightage sum for sampling questions
-        if (active === 'sampling') {
-            const newWeightage = parseInt(weightage);
-            const existingSamplingClauses = previousClauses?.filter(c => c.clause_type === 'sampling') || [];
-            const currentTotalWeightage = existingSamplingClauses.reduce((sum, c) => sum + (c.weightage || 0), 0);
-            const newTotalWeightage = currentTotalWeightage + newWeightage;
-            
-            if (newTotalWeightage > 100) {
-                toast.error(`Total weightage cannot exceed 100. Current total: ${currentTotalWeightage}, Adding: ${newWeightage}, New total would be: ${newTotalWeightage}`);
-                return;
-            }
         }
 
         const payload = {
             rfq_id,
             rfq_product_id: product.id,
-            clause_text: message,
+            clause_text: isSampling ? (message || "Sampling") : message,
             file_url: files,
-            clause_type: active === 'sampling' ? 'sampling' : 'clause',
-            weightage: active === 'sampling' ? parseInt(weightage) : null
+            clause_type: isSampling ? 'sampling' : 'clause',
+            weightage: parseInt(weightage)
         }
 
         setLoading(true);
@@ -160,36 +131,22 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             setMessage("");
             setFiles([]);
             setWeightage("");
+            setIsSampling(false);
         }
     };
 
     const handleUpdateClause = async () => {
-        if (active === 'sampling' && (!weightage || weightage === "")) {
-            toast.error("Weightage is required for sampling questions");
+        if (!weightage || weightage === "") {
+            toast.error("Weightage is required");
             return;
-        }
-
-        // Validate weightage sum for sampling questions
-        if (active === 'sampling') {
-            const newWeightage = parseInt(weightage);
-            const existingSamplingClauses = previousClauses?.filter(c => 
-                c.clause_type === 'sampling' && c.clause_id !== currentClause.clause_id
-            ) || [];
-            const currentTotalWeightage = existingSamplingClauses.reduce((sum, c) => sum + (c.weightage || 0), 0);
-            const newTotalWeightage = currentTotalWeightage + newWeightage;
-            
-            if (newTotalWeightage > 100) {
-                toast.error(`Total weightage cannot exceed 100. Current total (excluding this clause): ${currentTotalWeightage}, New weightage: ${newWeightage}, New total would be: ${newTotalWeightage}`);
-                return;
-            }
         }
 
         const payload = {
             clause_id: currentClause.clause_id,
             clause_text: message,
             file_url: files,
-            clause_type: active === 'sampling' ? 'sampling' : 'clause',
-            weightage: active === 'sampling' ? parseInt(weightage) : (currentClause.weightage || null)
+            clause_type: currentClause.clause_type || 'clause',
+            weightage: parseInt(weightage)
         }
         setLoading(true);
         try {
@@ -215,6 +172,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             setWeightage("");
             setCurrentClause(null);
             setUpdate(false);
+            setIsSampling(false);
         }
     }
 
@@ -249,6 +207,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         setWeightage(clause.weightage || "");
         setUpdate(true);
         setCurrentClause(clause);
+        setIsSampling(clause.clause_type === 'sampling');
     }
 
     const handleUpdateMinimumScore = async () => {
@@ -257,18 +216,10 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             return;
         }
 
-        // Validate minimum score against total weightage
-        const samplingClauses = previousClauses?.filter(c => c.clause_type === 'sampling') || [];
-        const totalWeightage = samplingClauses.reduce((sum, c) => sum + (c.weightage || 0), 0);
         const newMinimumScore = parseInt(tempMinimumScore);
         
-        if (totalWeightage === 0) {
-            toast.error("Please add sampling questions with weightage before setting minimum score");
-            return;
-        }
-        
-        if (newMinimumScore > totalWeightage) {
-            toast.error(`Minimum score (${newMinimumScore}) cannot exceed total weightage of all sampling questions (${totalWeightage})`);
+        if (newMinimumScore < 0 || newMinimumScore > 100) {
+            toast.error("Minimum passing score must be between 0 and 100");
             return;
         }
 
@@ -295,8 +246,6 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
     const handleCancelMinimumScore = () => {
         setShowMinimumScoreInput(false);
         setTempMinimumScore("");
-        // Ensure we're on the sampling tab
-        setActive('sampling');
     }
 
     const handleOpenMinimumScoreInput = () => {
@@ -314,7 +263,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         getPreviousClauses();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [show, product.id, active])
+    }, [show, product.id])
 
 
     const handleMagicFileUpload = (event) => {
@@ -395,12 +344,13 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         <Modal show={show} onHide={() => {
             setShowMinimumScoreInput(false);
             setTempMinimumScore("");
+            setIsSampling(false);
             onClose();
         }} centered size="lg">
             <Modal.Header closeButton>
                 <Modal.Title className="text-right w-100 p-3 d-flex justify-content-between align-items-center">
                     <span>Technical and Sampling Clause for - {product.name}</span>
-                    {active === 'sampling' && !showMinimumScoreInput && (
+                    {!showMinimumScoreInput && (
                         <button
                             type="button"
                             className="btn btn-primary btn-sm"
@@ -414,45 +364,27 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                 </Modal.Title>
             </Modal.Header>
             <Modal.Body style={{ minHeight: "200px" }}>
-                {showMinimumScoreInput && active === 'sampling' ? (
+                {showMinimumScoreInput ? (
                     <div className="d-flex flex-column gap-3 p-3">
-                        <h5 className="mb-0">Set minimum score</h5>
-                        {(() => {
-                            const samplingClauses = previousClauses?.filter(c => c.clause_type === 'sampling') || [];
-                            const totalWeightage = samplingClauses.reduce((sum, c) => sum + (c.weightage || 0), 0);
-                            const maxAllowed = totalWeightage;
-                            
-                            return (
-                                <>
-                                    {totalWeightage > 0 && (
-                                        <div className="alert alert-info p-2" style={{ fontSize: "12px" }}>
-                                            <strong>Total Weightage of Sampling Questions:</strong> {totalWeightage}
-                                            <br />
-                                            <strong>Maximum Allowed Minimum Score:</strong> {maxAllowed}
-                                        </div>
-                                    )}
-                                    {totalWeightage === 0 && (
-                                        <div className="alert alert-warning p-2" style={{ fontSize: "12px" }}>
-                                            Please add sampling questions with weightage before setting minimum score.
-                                        </div>
-                                    )}
-                                    <Form.Control
-                                        type="number"
-                                        placeholder="Enter minimum score required"
-                                        min="0"
-                                        max={maxAllowed || 100}
-                                        value={tempMinimumScore}
-                                        onChange={(e) => setTempMinimumScore(e.target.value)}
-                                        disabled={totalWeightage === 0}
-                                    />
-                                    {totalWeightage > 0 && tempMinimumScore && !isNaN(parseInt(tempMinimumScore)) && parseInt(tempMinimumScore) > maxAllowed && (
-                                        <small className="text-danger">
-                                            Minimum score cannot exceed total weightage ({maxAllowed})
-                                        </small>
-                                    )}
-                                </>
-                            );
-                        })()}
+                        <h5 className="mb-0">Set minimum passing score (out of 100)</h5>
+                        <div className="alert alert-info p-2" style={{ fontSize: "12px" }}>
+                            <strong>Minimum passing score:</strong> Enter a value between 0 and 100
+                            <br />
+                            <small>This score will be used to determine if vendors pass the technical evaluation.</small>
+                        </div>
+                        <Form.Control
+                            type="number"
+                            placeholder="Enter minimum passing score (0-100)"
+                            min="0"
+                            max="100"
+                            value={tempMinimumScore}
+                            onChange={(e) => setTempMinimumScore(e.target.value)}
+                        />
+                        {tempMinimumScore && !isNaN(parseInt(tempMinimumScore)) && (parseInt(tempMinimumScore) < 0 || parseInt(tempMinimumScore) > 100) && (
+                            <small className="text-danger">
+                                Minimum passing score must be between 0 and 100
+                            </small>
+                        )}
                         <div className="d-flex gap-2 justify-content-end">
                             <button
                                 type="button"
@@ -482,29 +414,19 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                             setUpdate(false);
                             setCurrentClause(null);
                             setShowMinimumScoreInput(false);
-                        } else if (k === 'sampling') {
-                            setActive('sampling'); 
-                            setMessage(""); 
-                            setFiles([]); 
-                            setWeightage("");
-                            setUpdate(false);
-                            setCurrentClause(null);
-                            setShowMinimumScoreInput(false);
+                            setIsSampling(false);
                         } else if (k === 'bulkclause') {
                             setActive('bulkclause');
                             setUpdate(false);
                             setCurrentClause(null);
                             setShowMinimumScoreInput(false);
+                            setIsSampling(false);
                         }
                     }
                 }}>
                     <Nav variant="tabs">
                         <Nav.Item>
                             <Nav.Link eventKey="clause">Clauses</Nav.Link>
-                        </Nav.Item>
-
-                        <Nav.Item>
-                            <Nav.Link eventKey="sampling">Sampling</Nav.Link>
                         </Nav.Item>
 
                         <Nav.Item>
@@ -515,14 +437,39 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                     <Tab.Content>
                         {/* Clauses Tab */}
                         <Tab.Pane eventKey="clause">
+                            <div className="d-flex justify-content-end mb-2">
+                                <button
+                                    type="button"
+                                    className={`btn btn-sm ${isSampling ? 'btn-success' : 'btn-outline-primary'}`}
+                                    onClick={() => {
+                                        setIsSampling(!isSampling);
+                                        if (!isSampling) {
+                                            setMessage("Sampling");
+                                        } else {
+                                            setMessage("");
+                                        }
+                                    }}
+                                >
+                                    {isSampling ? '✓ Sampling Mode' : '+ Add Sampling'}
+                                </button>
+                            </div>
                             <div className="d-flex flex-column mb-3 mt-2">
                                 <Form.Control
                                     as="textarea"
-                                    placeholder="Message"
+                                    placeholder={isSampling ? "Sampling" : "Message"}
                                     rows={2}
-                                    className="me-2"
+                                    className="me-2 mb-2"
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
+                                    disabled={isSampling}
+                                />
+                                <Form.Control
+                                    type="number"
+                                    placeholder="Weightage"
+                                    className="me-2"
+                                    min="0"
+                                    value={weightage}
+                                    onChange={(e) => setWeightage(e.target.value)}
                                 />
                                 <div className="d-flex justify-content-between align-items-start mt-2">
                                     <div role="button" onClick={handleAttachFileClick} className="text-sm" style={{ maxWidth: "80%" }}>
@@ -550,7 +497,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                                             className="btn btn-warning p-1"
                                             style={{ width: "100px" }}
                                             onClick={handleUpdateClause}
-                                            disabled={!message || message.length === 0}
+                                            disabled={!message || message.length === 0 || !weightage || weightage === ""}
                                         >
                                             Update
                                         </button>
@@ -560,7 +507,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                                             className="btn btn-primary p-1"
                                             style={{ width: "100px" }}
                                             onClick={handleAddClause}
-                                            disabled={!message || message.length === 0}
+                                            disabled={!message || message.length === 0 || !weightage || weightage === ""}
                                         >
                                             Add
                                         </button>
@@ -586,159 +533,8 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                                         {previousClauses.map((clause, index) => (
                                             <li key={index} className="list-group-item ">
                                                 <p className="text-sm mb-1">
-                                                    <strong>Message:</strong> {clause.clause_text}
+                                                    <strong>Type:</strong> {clause.clause_type === 'sampling' ? 'Sampling' : 'Clause'}
                                                 </p>
-                                                {clause.files.length > 0 && (
-                                                    <div className="d-flex gap-2 align-items-start text-sm mb-1">
-                                                        <strong className="text-nowrap my-1">Files :</strong>
-                                                        <div style={{ width: "90%" }}>
-                                                            <FileLink
-                                                                Files={clause.files}
-                                                                ColumnClass="col-md-5"
-                                                                Style={{ fontSize: "12px" }}
-                                                                showDownload={true}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                <div className="d-flex justify-content-end">
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-warning p-1 me-2"
-                                                        style={{ width: "110px", fontSize: "12px" }}
-                                                        onClick={() => openUpdateField(clause, index)}
-                                                    >
-                                                        <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                                        Update
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-danger p-1"
-                                                        style={{ width: "110px", fontSize: "12px" }}
-                                                        onClick={() => handleDeleteClause(clause.clause_id)}
-                                                    >
-                                                        <FontAwesomeIcon icon={faTrash} className="me-2" />
-                                                        Remove
-                                                    </button>
-                                                </div>
-                                            </li>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </Tab.Pane>
-
-                        {/* Sampling Tab */}
-                        <Tab.Pane eventKey="sampling">
-                            {(() => {
-                                const existingSamplingClauses = previousClauses?.filter(c => 
-                                    c.clause_type === 'sampling' && (!update || c.clause_id !== currentClause?.clause_id)
-                                ) || [];
-                                const currentTotalWeightage = existingSamplingClauses.reduce((sum, c) => sum + (c.weightage || 0), 0);
-                                const remainingWeightage = 100 - currentTotalWeightage;
-                                const newWeightageValue = weightage ? parseInt(weightage) : 0;
-                                const wouldExceed = currentTotalWeightage + newWeightageValue > 100;
-                                
-                                return (
-                                    <>
-                                        {currentTotalWeightage > 0 && (
-                                            <div className="alert alert-info mb-2 p-2" style={{ fontSize: "12px" }}>
-                                                <strong>Current Total Weightage:</strong> {currentTotalWeightage}/100
-                                                {remainingWeightage >= 0 && (
-                                                    <span className="ms-2">(Remaining: {remainingWeightage})</span>
-                                                )}
-                                                {wouldExceed && (
-                                                    <span className="text-danger ms-2">⚠ Would exceed 100!</span>
-                                                )}
-                                            </div>
-                                        )}
-                                        <div className="d-flex flex-column mb-3 mt-2">
-                                            <Form.Control
-                                                as="textarea"
-                                                placeholder="Sampling Question"
-                                                rows={2}
-                                                className="me-2 mb-2"
-                                                value={message}
-                                                onChange={(e) => setMessage(e.target.value)}
-                                            />
-                                            <Form.Control
-                                                type="number"
-                                                placeholder="Weightage"
-                                                className={`me-2 mb-2 ${wouldExceed ? 'border-danger' : ''}`}
-                                                min="0"
-                                                max={Math.min(100, remainingWeightage + newWeightageValue)}
-                                                value={weightage}
-                                                onChange={(e) => setWeightage(e.target.value)}
-                                            />
-                                            {wouldExceed && (
-                                                <small className="text-danger mb-2">
-                                                    Total weightage cannot exceed 100. Maximum allowed: {Math.max(0, remainingWeightage)}
-                                                </small>
-                                            )}
-                                        </div>
-                                    </>
-                                );
-                            })()}
-                                <div className="d-flex justify-content-between align-items-start mt-2">
-                                    <div role="button" onClick={handleAttachFileClick} className="text-sm" style={{ maxWidth: "80%" }}>
-                                        <FontAwesomeIcon icon={faPaperclip} className="opacity-75 me-2" />
-                                        Attach File
-                                        {fileLoading && (
-                                            <div className="spinner-border spinner-border-sm text-primary ms-2" role="status">
-                                                <span className="visually-hidden">Loading...</span>
-                                            </div>
-                                        )}
-                                        {files.length > 0 && (
-                                            <FileLink
-                                                Files={files}
-                                                ColumnClass="col-md-6"
-                                                Style={{ fontSize: "12px" }}
-                                                showDownload={false}
-                                                RemoveFile={handleRemoveFile}
-                                            />
-                                        )}
-                                    </div>
-
-                                    {update ? (
-                                        <button
-                                            type="button"
-                                            className="btn btn-warning p-1"
-                                            style={{ width: "100px" }}
-                                            onClick={handleUpdateClause}
-                                            disabled={!message || message.length === 0 || !weightage || weightage === ""}
-                                        >
-                                            Update
-                                        </button>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            className="btn btn-primary p-1"
-                                            style={{ width: "100px" }}
-                                            onClick={handleAddClause}
-                                            disabled={!message || message.length === 0 || !weightage || weightage === ""}
-                                        >
-                                            Add
-                                        </button>
-                                    )}
-                                </div>
-
-                            {/* Hidden file input field triggered by the "Attach file" button */}
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept=".pdf"
-                                style={{ display: 'none' }}
-                                onChange={(e) => uploadToServer(e)}
-                            />
-
-                            {/* Show Previous Sampling Clauses */}
-                            <strong className="text-primary">List of Clauses</strong>
-                            {loading && <FullLoader />}
-                            <div className="mt-2">
-                                {!loading && previousClauses && previousClauses.length > 0 && (
-                                    <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                                        {previousClauses.map((clause, index) => (
-                                            <li key={index} className="list-group-item ">
                                                 <p className="text-sm mb-1">
                                                     <strong>Message:</strong> {clause.clause_text}
                                                 </p>
@@ -989,7 +785,10 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                     <button
                         type="button"
                         className="btn btn-secondary p-2"
-                        onClick={onClose}
+                        onClick={() => {
+                            setIsSampling(false);
+                            onClose();
+                        }}
                     >
                         Close
             </button>
