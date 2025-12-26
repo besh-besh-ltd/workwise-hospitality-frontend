@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import Modal from "react-modal";
 import { toast } from "react-toastify";
 import Select from "react-select";
@@ -100,6 +101,7 @@ const modalStyles = {
 };
 
 const HospitalityManager = () => {
+  const router = useRouter();
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [hotels, setHotels] = useState([]);
@@ -1833,6 +1835,7 @@ const HospitalityManager = () => {
                                   <th className="border-0 py-3">Keys</th>
                                   <th className="border-0 py-3">Status</th>
                                   <th className="border-0 py-3">Users</th>
+                                  <th className="border-0 py-3 text-end pe-4">Action</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1872,6 +1875,21 @@ const HospitalityManager = () => {
                                       </td>
                                       <td className="py-3">
                                         <span className="text-muted">{hotelUsers.length} users</span>
+                                      </td>
+                                      <td className="py-3 text-end pe-4">
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-primary"
+                                          onClick={() => {
+                                            router.push(
+                                              `/dashboard/admin/hospitality-manager/approval-hierarchy?companyId=${selectedCompanyId}&hotelId=${hotel.id}`
+                                            );
+                                          }}
+                                          style={{ backgroundColor: "#158993", borderColor: "#158993", color: "#fff" }}
+                                        >
+                                          <i className="bi bi-diagram-3 me-1"></i>
+                                          Set Hierarchy
+                                        </button>
                                       </td>
                                     </tr>
                                   );
