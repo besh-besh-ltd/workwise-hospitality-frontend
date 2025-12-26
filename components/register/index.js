@@ -1148,12 +1148,33 @@ const Register = ({
                         {touched.gstin && errors.gstin && (
                           <div className="form-error">{errors.gstin}</div>
                         )}
+                        {values.gstin && (
+                          <div className="mt-2">
+                            <label className="small text-muted">GST Certificate <sup>*</sup></label>
+                            <input
+                              type="file"
+                              className="form-control form-control-sm"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleDocumentUpload('gst', e.target.files[0])}
+                            />
+                            {documentFiles.gst && (
+                              <small className="text-success d-block mt-1">
+                                {documentFiles.gst.name}
+                              </small>
+                            )}
+                            {!documentFiles.gst && (
+                              <small className="text-danger d-block mt-1">
+                                GST certificate required when GSTIN is provided
+                              </small>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="form-group">
-                    <label htmlFor="pan">
-                      PAN <sup>*</sup>
-                    </label>
+                        <label htmlFor="pan">
+                          PAN <sup>*</sup>
+                        </label>
                         <Field
                           type="text"
                           id="pan"
@@ -1165,6 +1186,20 @@ const Register = ({
                         {touched.pan && errors.pan && (
                           <div className="form-error">{errors.pan}</div>
                         )}
+                        <div className="mt-2">
+                          <label className="small text-muted">PAN Card <sup>*</sup></label>
+                          <input
+                            type="file"
+                            className="form-control form-control-sm"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={(e) => handleDocumentUpload('pan', e.target.files[0])}
+                          />
+                          {documentFiles.pan && (
+                            <small className="text-success d-block mt-1">
+                              {documentFiles.pan.name}
+                            </small>
+                          )}
+                        </div>
                       </div>
 
                       <div className="form-group">
@@ -1179,6 +1214,27 @@ const Register = ({
                         />
                         {touched.fssai && errors.fssai && (
                           <div className="form-error">{errors.fssai}</div>
+                        )}
+                        {(values.fssai || requiresFssaiForSelection(values.categories || [])) && (
+                          <div className="mt-2">
+                            <label className="small text-muted">FSSAI License <sup>*</sup></label>
+                            <input
+                              type="file"
+                              className="form-control form-control-sm"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleDocumentUpload('fssai', e.target.files[0])}
+                            />
+                            {documentFiles.fssai && (
+                              <small className="text-success d-block mt-1">
+                                {documentFiles.fssai.name}
+                              </small>
+                            )}
+                            {!documentFiles.fssai && (
+                              <small className="text-danger d-block mt-1">
+                                FSSAI document required
+                              </small>
+                            )}
+                          </div>
                         )}
                       </div>
 
@@ -1195,89 +1251,27 @@ const Register = ({
                         {touched.msme && errors.msme && (
                           <div className="form-error">{errors.msme}</div>
                         )}
-                      </div>
-
-                      <div className="form-group">
-                        <label>Business Documents <sup>*</sup></label>
-                        <div className="row g-2">
-                          {values.gstin && (
-                            <div className="col-md-6">
-                              <label className="small text-muted">GST Certificate <sup>*</sup></label>
-                              <input
-                                type="file"
-                                className="form-control form-control-sm"
-                                accept=".pdf,.jpg,.jpeg,.png"
-                                onChange={(e) => handleDocumentUpload('gst', e.target.files[0])}
-                              />
-                              {documentFiles.gst && (
-                                <small className="text-success d-block mt-1">
-                                  {documentFiles.gst.name}
-                                </small>
-                              )}
-                              {!documentFiles.gst && (
-                                <small className="text-danger d-block mt-1">
-                                  GST certificate required when GSTIN is provided
-                                </small>
-                              )}
-                            </div>
-                          )}
-                          <div className="col-md-6">
-                            <label className="small text-muted">PAN Card <sup>*</sup></label>
+                        {values.msme && (
+                          <div className="mt-2">
+                            <label className="small text-muted">MSME Certificate <sup>*</sup></label>
                             <input
                               type="file"
                               className="form-control form-control-sm"
                               accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => handleDocumentUpload('pan', e.target.files[0])}
+                              onChange={(e) => handleDocumentUpload('msme', e.target.files[0])}
                             />
-                            {documentFiles.pan && (
+                            {documentFiles.msme && (
                               <small className="text-success d-block mt-1">
-                                {documentFiles.pan.name}
+                                {documentFiles.msme.name}
+                              </small>
+                            )}
+                            {!documentFiles.msme && (
+                              <small className="text-danger d-block mt-1">
+                                MSME document required when MSME number is provided
                               </small>
                             )}
                           </div>
-                          {(values.fssai || requiresFssaiForSelection(values.categories || [])) && (
-                            <div className="col-md-6">
-                              <label className="small text-muted">FSSAI License <sup>*</sup></label>
-                              <input
-                                type="file"
-                                className="form-control form-control-sm"
-                                accept=".pdf,.jpg,.jpeg,.png"
-                                onChange={(e) => handleDocumentUpload('fssai', e.target.files[0])}
-                              />
-                              {documentFiles.fssai && (
-                                <small className="text-success d-block mt-1">
-                                  {documentFiles.fssai.name}
-                                </small>
-                              )}
-                              {!documentFiles.fssai && (
-                                <small className="text-danger d-block mt-1">
-                                  FSSAI document required
-                                </small>
-                              )}
-                            </div>
-                          )}
-                          {values.msme && (
-                            <div className="col-md-6">
-                              <label className="small text-muted">MSME Certificate <sup>*</sup></label>
-                              <input
-                                type="file"
-                                className="form-control form-control-sm"
-                                accept=".pdf,.jpg,.jpeg,.png"
-                                onChange={(e) => handleDocumentUpload('msme', e.target.files[0])}
-                              />
-                              {documentFiles.msme && (
-                                <small className="text-success d-block mt-1">
-                                  {documentFiles.msme.name}
-                                </small>
-                              )}
-                              {!documentFiles.msme && (
-                                <small className="text-danger d-block mt-1">
-                                  MSME document required when MSME number is provided
-                                </small>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </>
                   )}
