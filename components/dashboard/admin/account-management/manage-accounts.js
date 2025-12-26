@@ -61,7 +61,7 @@ const ManageAccountsPage = () => {
   });
 
   const [filters, setFilters] = useState({
-    role: null,
+    workflowRole: null,
     status: null,
   });
 
@@ -421,8 +421,12 @@ const ManageAccountsPage = () => {
 
   useEffect(() => {
     let filtered = data.accounts;
-    if (filters.role)
-      filtered = filtered.filter((u) => u.role === filters.role.value);
+    if (filters.workflowRole) {
+      filtered = filtered.filter((u) => {
+        const userScopes = userRoleScopes[u.id] || [];
+        return userScopes.some((scope) => scope.role_title === filters.workflowRole.value);
+      });
+    }
     if (filters.status)
       filtered = filtered.filter((u) => u.status === filters.status.value);
 
@@ -431,7 +435,7 @@ const ManageAccountsPage = () => {
       ...prev,
       pagination: { ...prev.pagination, totalData: filtered.length },
     }));
-  }, [filters, data.accounts]);
+  }, [filters, data.accounts, userRoleScopes]);
 
   useEffect(() => {
     if (data.accounts.length) {
@@ -540,15 +544,27 @@ const ManageAccountsPage = () => {
                   <div className="row mb-4 text-sm">
                   
                     <div className="col-md-3">
-                      <label>Filter by Role</label>
+                      <label>Filter by Workflow Role</label>
                       <Select
-                        options={roleOptions}
-                        onChange={(role) =>
-                          setFilters((prev) => ({ ...prev, role }))
+                        options={(() => {
+                          const allWorkflowRoles = new Set();
+                          Object.values(userRoleScopes).forEach((scopes) => {
+                            scopes.forEach((scope) => {
+                              if (scope.role_title) {
+                                allWorkflowRoles.add(scope.role_title);
+                              }
+                            });
+                          });
+                          return Array.from(allWorkflowRoles)
+                            .sort()
+                            .map((title) => ({ value: title, label: title }));
+                        })()}
+                        onChange={(workflowRole) =>
+                          setFilters((prev) => ({ ...prev, workflowRole }))
                         }
-                        placeholder="Select Role"
+                        placeholder="Select Workflow Role"
                         isClearable
-                        id="filter_by_role-account_filters-manage_accounts_page"
+                        id="filter_by_workflow_role-account_filters-manage_accounts_page"
                       />
                     </div>
 

@@ -233,10 +233,12 @@ const CustomRolePermissionsModal = ({ isOpen, onClose }) => {
           width: "95%",
           border: "none",
           background: "transparent",
-          overflow: "visible",
+          overflow: "hidden",
           padding: "24px",
           maxHeight: "90vh",
-          height: "auto",
+          height: "90vh",
+          display: "flex",
+          flexDirection: "column",
         },
       }}
     >
@@ -251,9 +253,9 @@ const CustomRolePermissionsModal = ({ isOpen, onClose }) => {
         />
       </div>
 
-      <div className="modal-body">
-        <div className="card shadow-sm border-0">
-          <div className="card-body d-flex flex-column" style={{ maxHeight: "70vh" }}>
+      <div className="modal-body" style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0 }}>
+        <div className="card shadow-sm border-0 d-flex flex-column" style={{ height: "100%", margin: 0 }}>
+          <div className="card-body d-flex flex-column" style={{ flex: "1 1 auto", minHeight: 0, overflow: "hidden", padding: "1.5rem" }}>
             {mode === "list" ? (
               <>
                 <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
@@ -319,8 +321,8 @@ const CustomRolePermissionsModal = ({ isOpen, onClose }) => {
                 )}
               </>
             ) : (
-              <>
-                <div className="d-flex justify-content-between align-items-center mb-4">
+              <div className="d-flex flex-column h-100" style={{ minHeight: 0 }}>
+                <div className="d-flex justify-content-between align-items-center mb-3" style={{ flexShrink: 0 }}>
                   <h6 className="mb-0">
                     {mode === "edit" ? "Edit Role Permissions" : "Create New Role"}
                   </h6>
@@ -339,14 +341,14 @@ const CustomRolePermissionsModal = ({ isOpen, onClose }) => {
                   </button>
                 </div>
 
-                <p className="text-muted mb-4">
+                <p className="text-muted mb-3" style={{ flexShrink: 0 }}>
                   {mode === "edit"
                     ? "Update the permissions for this custom role."
                     : "Define a custom role for your company users. This will create a backend role with the selected permissions."}
                 </p>
 
-                <div className="row flex-grow-1">
-                  <div className="col-md-4 border-end mb-3 mb-md-0">
+                <div className="row flex-grow-1 mb-3" style={{ minHeight: 0, overflow: "hidden" }}>
+                  <div className="col-md-4 border-end pe-3" style={{ overflowY: "auto", height: "100%" }}>
                     <div className="mb-3">
                       <label className="form-label fw-semibold">Role Name</label>
                       <input
@@ -382,8 +384,8 @@ const CustomRolePermissionsModal = ({ isOpen, onClose }) => {
                     </div>
                   </div>
 
-                  <div className="col-md-8">
-                    <div className="mb-2 d-flex justify-content-between align-items-center">
+                  <div className="col-md-8 d-flex flex-column ps-3" style={{ minHeight: 0, height: "100%" }}>
+                    <div className="mb-2 d-flex justify-content-between align-items-center" style={{ flexShrink: 0 }}>
                       <label className="form-label fw-semibold mb-0">
                         Permissions for this role
                       </label>
@@ -405,30 +407,45 @@ const CustomRolePermissionsModal = ({ isOpen, onClose }) => {
                     )}
                     {!isLoading && permissions.length > 0 && (
                       <div
-                        className="border rounded p-3 bg-light"
-                        style={{ maxHeight: "360px", overflowY: "auto" }}
+                        className="border rounded p-4 bg-white"
+                        style={{ 
+                          overflowY: "auto", 
+                          flex: "1 1 auto",
+                          minHeight: 0
+                        }}
                       >
-                        {permissions.map((group) => (
-                          <div key={group.resource} className="mb-3">
-                            <div className="d-flex align-items-center mb-2">
-                              <span className="badge bg-secondary text-uppercase me-2">
+                        {permissions.map((group, groupIdx) => (
+                          <div 
+                            key={group.resource} 
+                            className={`mb-4 ${groupIdx !== permissions.length - 1 ? "border-bottom pb-3" : ""}`}
+                          >
+                            <div className="d-flex align-items-center mb-3">
+                              <span className="badge bg-primary text-uppercase px-3 py-2 me-2" style={{ fontSize: "0.75rem", letterSpacing: "0.5px" }}>
                                 {group.resource}
                               </span>
+                              <small className="text-muted">
+                                {group.items.filter(p => p.enabled).length} of {group.items.length} selected
+                              </small>
                             </div>
-                            <div className="row">
+                            <div className="row g-2">
                               {group.items.map((perm) => (
-                                <div className="col-md-6 mb-2" key={perm.id}>
-                                  <div className="form-check">
+                                <div className="col-md-6 col-lg-4" key={perm.id}>
+                                  <div className="form-check p-2 rounded" style={{ 
+                                    backgroundColor: perm.enabled ? "#e7f3ff" : "#f8f9fa",
+                                    transition: "background-color 0.2s"
+                                  }}>
                                     <input
                                       className="form-check-input"
                                       type="checkbox"
                                       id={`permission_${group.resource}_${perm.id}-checkbox-custom_roles_permissions_modal`}
                                       checked={perm.enabled}
                                       onChange={() => handleTogglePermission(perm.id)}
+                                      style={{ cursor: "pointer" }}
                                     />
                                     <label
-                                      className="form-check-label text-capitalize"
+                                      className="form-check-label text-capitalize ms-2"
                                       htmlFor={`permission_${group.resource}_${perm.id}-checkbox-custom_roles_permissions_modal`}
+                                      style={{ cursor: "pointer", userSelect: "none" }}
                                     >
                                       {perm.action}
                                     </label>
@@ -442,7 +459,7 @@ const CustomRolePermissionsModal = ({ isOpen, onClose }) => {
                     )}
                   </div>
                 </div>
-                <div className="d-flex justify-content-end gap-2 pt-3 mt-3 border-top">
+                <div className="d-flex justify-content-end gap-2 pt-3 border-top" style={{ flexShrink: 0, marginTop: "auto" }}>
                   <button
                     type="button"
                     className="btn btn-outline-secondary"
@@ -474,7 +491,7 @@ const CustomRolePermissionsModal = ({ isOpen, onClose }) => {
                     {mode === "edit" ? "Update Role" : "Save Role"}
                   </button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDepartments, getRoles, getRolePermissions } from "@/services/rbac";
-import { getHospitalityEntities } from "@/services/hospitality";
+import { getHospitalityEntities, getUserMappings } from "@/services/hospitality";
 
 /**
  * RoleScopeSelector (Bootstrap-friendly)
@@ -24,14 +24,16 @@ import { getHospitalityEntities } from "@/services/hospitality";
  * }
  */
 
-export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDepartment: propSelectedDepartment, isEditMode = true, onRemoveRole, userDepartments = [] }) {
+export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDepartment: propSelectedDepartment, isEditMode = true, onRemoveRole, userDepartments = [], userId = null }) {
   const [roles, setRoles] = useState([]);
   const [companies, setCompanies] = useState([]);
+  const [allCompanies, setAllCompanies] = useState([]);
   const [allDepartments, setAllDepartments] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [permissions, setPermissions] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [userMappings, setUserMappings] = useState([]);
 
   /* ---------------- State ---------------- */
 
@@ -62,16 +64,18 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
         setAllDepartments(departmentsData);
         // Initially set departments - will be filtered by second useEffect if needed
         setDepartments(departmentsData);
-        setCompanies(
-          entities.map((c) => ({
-            id: c.company_id,
-            name: c.company_name,
-            hotels: (c.hotels || []).map((h) => ({
-              id: h.hotel_id,
-              name: h.hotel_name
-            }))
+        
+        const allCompaniesData = entities.map((c) => ({
+          id: c.company_id,
+          name: c.company_name,
+          hotels: (c.hotels || []).map((h) => ({
+            id: h.hotel_id,
+            name: h.hotel_name
           }))
-        );
+        }));
+        
+        setAllCompanies(allCompaniesData);
+        setCompanies(allCompaniesData);
       } catch {
         setError("Failed to load role & hospitality data.");
       } finally {
@@ -81,6 +85,67 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
 
     loadMasters();
   }, []);
+
+  // Load user mappings if userId is provided
+  useEffect(() => {
+    if (!userId || !isEditMode) {
+      setUserMappings([]);
+      return;
+    }
+
+    const loadUserMappings = async () => {
+      try {
+        const response = await getUserMappings(userId);
+        const mappings = response?.data?.data || response?.data || [];
+        setUserMappings(mappings);
+      } catch (error) {
+        console.error("Error loading user mappings:", error);
+        setUserMappings([]);
+      }
+    };
+
+    loadUserMappings();
+  }, [userId, isEditMode]);
+
+  // Filter companies and hotels based on user mappings
+  useEffect(() => {
+    if (!isEditMode || userMappings.length === 0) {
+      // If not in edit mode or no mappings, show all companies
+      setCompanies(allCompanies);
+      return;
+    }
+
+    // Extract unique company IDs and hotel IDs from mappings
+    const mappedCompanyIds = new Set();
+    const mappedHotelIds = new Set();
+    
+    userMappings.forEach((mapping) => {
+      mappedCompanyIds.add(mapping.hospitality_company_id);
+      if (mapping.mapping_type === 1 && mapping.hospitality_hotel_id) {
+        mappedHotelIds.add(mapping.hospitality_hotel_id);
+      }
+    });
+
+    // Filter companies to only show mapped ones
+    const filteredCompanies = allCompanies
+      .filter((company) => mappedCompanyIds.has(company.id))
+      .map((company) => {
+        // If user has company-level mapping, show all hotels
+        // Otherwise, only show mapped hotels
+        const hasCompanyMapping = userMappings.some(
+          (m) => m.hospitality_company_id === company.id && m.mapping_type === 0
+        );
+
+        return {
+          ...company,
+          hotels: hasCompanyMapping
+            ? company.hotels
+            : company.hotels.filter((hotel) => mappedHotelIds.has(hotel.id))
+        };
+      });
+
+    setCompanies(filteredCompanies);
+  }, [userMappings, allCompanies, isEditMode]);
 
   // Filter departments based on userDepartments in edit mode
   useEffect(() => {
@@ -192,14 +257,19 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   };
 
   const handleAddRole = () => {
-    if (!selectedRole || !selectedCompany) return;
+    if (!selectedRole || !selectedCompany || !selectedDepartment) {
+      if (!selectedDepartment) {
+        setError("Please select a department");
+      }
+      return;
+    }
 
     onAddRole({
       role_id: selectedRole.id,
       role_title: selectedRole.title,
       company_id: selectedCompany.id,
       hotel_id: selectedHotel?.id || null,
-      department_id: selectedDepartment?.id || null,
+      department_id: selectedDepartment.id,
       permissions
     });
 
@@ -207,7 +277,9 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     setSelectedRole(null);
     setSelectedCompany(null);
     setSelectedHotel(null);
+    setSelectedDepartment(null);
     setPermissions({});
+    setError(null);
   };
 
   /* ---------------- UI ---------------- */
@@ -361,26 +433,31 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
 
       <div className="row g-3 mb-3">
         <div className="col-md-4">
-          <label className="form-label">Select Department {propSelectedDepartment && !isEditMode ? "(Auto-selected)" : "(optional)"}</label>
+          <label className="form-label">
+            Select Department <sup className="text-danger">*</sup>
+            {propSelectedDepartment && !isEditMode && " (Auto-selected)"}
+          </label>
           <select
-            className="form-select"
+            className={`form-select ${!selectedDepartment && error ? "is-invalid" : ""}`}
             disabled={propSelectedDepartment && !isEditMode ? true : false}
             value={selectedDepartment?.id || selectedDepartment?.value || ""}
-            onChange={e =>
-              setSelectedDepartment(
-                departments.find(
-                  d => d.id === Number(e.target.value)
-                ) || null
-              )
-            }
+            onChange={e => {
+              const dept = departments.find(d => d.id === Number(e.target.value)) || null;
+              setSelectedDepartment(dept);
+              if (dept) setError(null);
+            }}
+            required
           >
-            <option value="">All Departments</option>
+            <option value="">Select Department</option>
             {departments.map(h => (
               <option key={h.id} value={h.id}>
                 {h.title}
               </option>
             ))}
           </select>
+          {!selectedDepartment && error && (
+            <div className="invalid-feedback d-block">{error}</div>
+          )}
           {propSelectedDepartment && !isEditMode && (
             <small className="text-muted">Department is set from account creation and cannot be changed here</small>
           )}
@@ -421,7 +498,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       <div className="d-flex justify-content-end">
         <button
           className="btn btn-primary p-2"
-          disabled={!selectedRole || !selectedCompany}
+          disabled={!selectedRole || !selectedCompany || !selectedDepartment}
           onClick={handleAddRole}
         >
           Add Role Scope

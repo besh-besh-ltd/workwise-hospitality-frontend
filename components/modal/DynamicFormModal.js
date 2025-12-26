@@ -1159,64 +1159,132 @@ Example:
                                             This user is not mapped to any hospitality scope yet.
                                           </p>
                                         ) : (
-                                          <div className="table-responsive mb-3">
-                                            <table className="table table-striped align-middle">
-                                              <thead>
-                                                <tr>
-                                                  <th>Scope</th>
-                                                  <th>Company / Hotel</th>
-                                                  <th>Auto Map Projects</th>
-                                                  <th className="text-end">Action</th>
-                                                </tr>
-                                              </thead>
-                                              <tbody>
-                                                {hospitalityProps.mappings.map((mapping) => (
-                                                  <tr key={`user-mapping-${mapping.id}`}>
-                                                    <td>
-                                                      <span
-                                                        className={`badge ${
-                                                          mapping.mapping_type === 0
-                                                            ? "bg-primary"
-                                                            : "bg-success"
-                                                        }`}
-                                                      >
-                                                        {mapping.mapping_type === 0
-                                                          ? "Company"
-                                                          : "Hotel"}
-                                                      </span>
-                                                    </td>
-                                                    <td>
-                                                      {mapping.mapping_type === 0
-                                                        ? mapping.company_name || "N/A"
-                                                        : mapping.hotel_name || "N/A"}
-                                                    </td>
-                                                    <td>
-                                                      <span
-                                                        className={`badge ${
-                                                          mapping.auto_map_projects
-                                                            ? "bg-success-subtle text-success"
-                                                            : "bg-light text-muted"
-                                                        }`}
-                                                      >
-                                                        {mapping.auto_map_projects ? "Yes" : "No"}
-                                                      </span>
-                                                    </td>
-                                                    <td className="text-end">
-                                                      <button
-                                                        type="button"
-                                                        className="btn btn-outline-danger btn-sm"
-                                                        onClick={() =>
-                                                          hospitalityProps.onRemoveMapping(mapping)
-                                                        }
-                                                      >
-                                                        Remove
-                                                      </button>
-                                                    </td>
-                                                  </tr>
-                                                ))}
-                                              </tbody>
-                                            </table>
-                                          </div>
+                                          (() => {
+                                            // Group mappings by company
+                                            const groupedByCompany = {};
+                                            hospitalityProps.mappings.forEach((mapping) => {
+                                              const companyId = mapping.hospitality_company_id;
+                                              const companyName = mapping.company_name || "Unknown Company";
+                                              
+                                              if (!groupedByCompany[companyId]) {
+                                                groupedByCompany[companyId] = {
+                                                  companyName,
+                                                  companyMappings: [],
+                                                  hotelMappings: []
+                                                };
+                                              }
+                                              
+                                              if (mapping.mapping_type === 0) {
+                                                groupedByCompany[companyId].companyMappings.push(mapping);
+                                              } else {
+                                                groupedByCompany[companyId].hotelMappings.push(mapping);
+                                              }
+                                            });
+                                            
+                                            return (
+                                              <div className="table-responsive mb-3">
+                                                <table className="table table-striped align-middle">
+                                                  <thead>
+                                                    <tr>
+                                                      <th>Company</th>
+                                                      <th>Scope</th>
+                                                      <th>Hotel / Company Level</th>
+                                                      <th>Auto Map Projects</th>
+                                                      <th className="text-end">Action</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody>
+                                                    {Object.entries(groupedByCompany).map(([companyId, group]) => (
+                                                      <React.Fragment key={companyId}>
+                                                        {/* Company-level mapping row */}
+                                                        {group.companyMappings.length > 0 && (
+                                                          <tr>
+                                                            <td rowSpan={group.hotelMappings.length > 0 ? group.hotelMappings.length + 1 : 1}>
+                                                              <strong>{group.companyName}</strong>
+                                                              <br />
+                                                              <small className="text-muted">
+                                                                {group.hotelMappings.length} hotel{group.hotelMappings.length !== 1 ? 's' : ''}
+                                                              </small>
+                                                            </td>
+                                                            <td>
+                                                              <span className="badge bg-primary">Company</span>
+                                                            </td>
+                                                            <td>
+                                                              <span className="text-muted">All Hotels</span>
+                                                            </td>
+                                                            <td>
+                                                              <span
+                                                                className={`badge ${
+                                                                  group.companyMappings[0].auto_map_projects
+                                                                    ? "bg-success-subtle text-success"
+                                                                    : "bg-light text-muted"
+                                                                }`}
+                                                              >
+                                                                {group.companyMappings[0].auto_map_projects ? "Yes" : "No"}
+                                                              </span>
+                                                            </td>
+                                                            <td className="text-end">
+                                                              <button
+                                                                type="button"
+                                                                className="btn btn-outline-danger btn-sm"
+                                                                onClick={() =>
+                                                                  hospitalityProps.onRemoveMapping(group.companyMappings[0])
+                                                                }
+                                                              >
+                                                                Remove
+                                                              </button>
+                                                            </td>
+                                                          </tr>
+                                                        )}
+                                                        {/* Hotel-level mapping rows */}
+                                                        {group.hotelMappings.map((mapping, idx) => (
+                                                          <tr key={`hotel-mapping-${mapping.id}`}>
+                                                            {idx === 0 && group.companyMappings.length === 0 && (
+                                                              <td rowSpan={group.hotelMappings.length}>
+                                                                <strong>{group.companyName}</strong>
+                                                                <br />
+                                                                <small className="text-muted">
+                                                                  {group.hotelMappings.length} hotel{group.hotelMappings.length !== 1 ? 's' : ''}
+                                                                </small>
+                                                              </td>
+                                                            )}
+                                                            <td>
+                                                              <span className="badge bg-success">Hotel</span>
+                                                            </td>
+                                                            <td>
+                                                              {mapping.hotel_name || "N/A"}
+                                                            </td>
+                                                            <td>
+                                                              <span
+                                                                className={`badge ${
+                                                                  mapping.auto_map_projects
+                                                                    ? "bg-success-subtle text-success"
+                                                                    : "bg-light text-muted"
+                                                                }`}
+                                                              >
+                                                                {mapping.auto_map_projects ? "Yes" : "No"}
+                                                              </span>
+                                                            </td>
+                                                            <td className="text-end">
+                                                              <button
+                                                                type="button"
+                                                                className="btn btn-outline-danger btn-sm"
+                                                                onClick={() =>
+                                                                  hospitalityProps.onRemoveMapping(mapping)
+                                                                }
+                                                              >
+                                                                Remove
+                                                              </button>
+                                                            </td>
+                                                          </tr>
+                                                        ))}
+                                                      </React.Fragment>
+                                                    ))}
+                                                  </tbody>
+                                                </table>
+                                              </div>
+                                            );
+                                          })()
                                         )}
 
                                         {hospitalityProps.companies?.length ? (
@@ -1428,6 +1496,7 @@ Example:
                                     }
                                     isEditMode={true}
                                     userDepartments={userDepartments}
+                                    userId={accountData?.id}
                                   />
                                 </div>
                               </div>
