@@ -178,7 +178,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
             clause_id: selectedClauseForRemark.clause_id,
             vendor_id: selectedVendorForRemark.vendor_id || selectedVendorForRemark.value,
             buyer_marks: buyerMarks ? parseInt(buyerMarks) : null,
-            buyer_remark: buyerRemark || null
+            buyer_remark: selectedClauseForRemark.clause_type === 'sampling' ? (buyerRemark || null) : null
         }
 
         setLoading(true);
@@ -204,7 +204,8 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
         const response = clause.vendor_responses?.find(r => r.vendor_id == (vendor.vendor_id || vendor.value));
         setSelectedClauseForRemark(clause);
         setSelectedVendorForRemark(vendor);
-        setBuyerRemark(response?.buyer_remark ?? "");
+        // Only set remark for sampling clauses
+        setBuyerRemark(clause.clause_type === 'sampling' ? (response?.buyer_remark ?? "") : "");
         setBuyerMarks(response?.buyer_marks !== undefined && response?.buyer_marks !== null ? response.buyer_marks : "");
         setShowRemarkModal(true);
     }
@@ -556,7 +557,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         <strong>Marks:</strong> {response.buyer_marks} / {clauseItem.weightage || 0}
                                       </p>
                                     )}
-                                    {response?.buyer_remark && (
+                                    {clauseItem.clause_type === 'sampling' && response?.buyer_remark && (
                                       <p className="mb-1">
                                         <strong>Remark:</strong> {response.buyer_remark}
                                       </p>
@@ -796,7 +797,9 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
           setSelectedVendorForRemark(null);
         }} centered>
           <Modal.Header closeButton>
-            <Modal.Title>Add Remark and Score</Modal.Title>
+            <Modal.Title>
+              {selectedClauseForRemark?.clause_type === 'sampling' ? 'Add Remark and Score' : 'Add Score'}
+            </Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <div className="mb-3">
@@ -828,16 +831,18 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                 </small>
               )}
             </div>
-            <div className="mb-3">
-              <label className="form-label">Add Remark</label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                placeholder="Enter remark"
-                value={buyerRemark}
-                onChange={(e) => setBuyerRemark(e.target.value)}
-              />
-            </div>
+            {selectedClauseForRemark?.clause_type === 'sampling' && (
+              <div className="mb-3">
+                <label className="form-label">Add Remark</label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  placeholder="Enter remark"
+                  value={buyerRemark}
+                  onChange={(e) => setBuyerRemark(e.target.value)}
+                />
+              </div>
+            )}
           </Modal.Body>
           <Modal.Footer>
             <button
