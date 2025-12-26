@@ -58,50 +58,79 @@ const CreateAccountPage = () => {
         user_type: "2", // Hardcoded as Procurement (2)
         password: values.password,
       };
+      
+      // Handle department_ids from multi-select (for all companies)
+      if (values.department_id && Array.isArray(values.department_id) && values.department_id.length > 0) {
+        apiData.department_ids = values.department_id.map(dept => 
+          typeof dept === 'object' ? parseInt(dept.value, 10) : parseInt(dept, 10)
+        );
+      } else if (values.department_id && !Array.isArray(values.department_id)) {
+        // Fallback for single value
+        apiData.department_ids = [parseInt(values.department_id, 10)];
+      } else {
+        apiData.department_ids = [];
+      }
+      
       if (appState.isHospitalityCompany) {
         apiData.employee_type = normalizeEmployeeType(values.employee_type);
         apiData.employee_code = values.employee_code || null;
 
+        // Handle payroll_company_id from select (can be object or value)
         const rawPayrollId = values.payroll_company_id;
-        if (rawPayrollId && String(rawPayrollId).trim() !== "") {
-          const parsedPayrollId = parseInt(String(rawPayrollId).trim(), 10);
-          if (Number.isNaN(parsedPayrollId)) {
-            throw {
-              response: {
-                data: {
-                  message: "Payroll Company must be selected.",
+        if (rawPayrollId) {
+          // Extract value if it's an object (from react-select)
+          const payrollIdValue = typeof rawPayrollId === 'object' && rawPayrollId !== null 
+            ? rawPayrollId.value 
+            : rawPayrollId;
+          
+          if (payrollIdValue && String(payrollIdValue).trim() !== "") {
+            const parsedPayrollId = parseInt(String(payrollIdValue).trim(), 10);
+            if (Number.isNaN(parsedPayrollId)) {
+              throw {
+                response: {
+                  data: {
+                    message: "Payroll Company must be selected.",
+                  },
                 },
-              },
-            };
+              };
+            }
+            apiData.payroll_company_id = parsedPayrollId;
+          } else {
+            apiData.payroll_company_id = null;
           }
-          apiData.payroll_company_id = parsedPayrollId;
         } else {
           apiData.payroll_company_id = null;
         }
-        
-        // Handle department_ids from multi-select
-        if (values.department_id && Array.isArray(values.department_id) && values.department_id.length > 0) {
-          apiData.department_ids = values.department_id.map(dept => 
-            typeof dept === 'object' ? parseInt(dept.value, 10) : parseInt(dept, 10)
-          );
-        } else if (values.department_id && !Array.isArray(values.department_id)) {
-          // Fallback for single value
-          apiData.department_ids = [parseInt(values.department_id, 10)];
-        }
       }
       const response = await createBuyerCompanyUser(apiData);
-      if (response.status) {
+      if (response?.status) {
         toast.success("Account created successfully!");
         resetForm();
         router.push(
           "/dashboard/admin/account-management/manage-accounts?refresh=true"
         );
+      } else {
+        throw new Error(response?.message || "Failed to create account");
       }
     } catch (error) {
-
-      const apiError = error?.message?.response;
-     const message = apiError?.errors || apiError?.data?.message || "Failed to create account. Please try again.";
-     toast.error(message);
+      console.error("Create account error:", error);
+      const apiError = error?.message?.response || error?.response;
+      let message = "Failed to create account. Please try again.";
+      
+      if (apiError?.data?.message) {
+        message = apiError.data.message;
+      } else if (apiError?.data?.errors) {
+        // Handle validation errors object
+        const errorMessages = Object.values(apiError.data.errors).flat();
+        message = errorMessages.length > 0 ? errorMessages[0] : message;
+      } else if (apiError?.errors) {
+        const errorMessages = Object.values(apiError.errors).flat();
+        message = errorMessages.length > 0 ? errorMessages[0] : message;
+      } else if (error?.message) {
+        message = error.message;
+      }
+      
+      toast.error(message);
 
     } finally {
       setAppState((prev) => ({ ...prev, loading: false }));

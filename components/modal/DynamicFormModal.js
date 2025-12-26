@@ -10,6 +10,7 @@ import {
 import { faClose } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { toast } from 'react-toastify';
+import { getDepartments } from "@/services/rbac";
 import { 
     addVendorSchema, 
     dynamicProjectSchema, 
@@ -113,6 +114,14 @@ const DynamicFormModal = ({
         statusValue = { value: "inactive", label: "Inactive" };
     }
     
+    // Convert userDepartments to select format for initial values
+    const initialDepartmentValues = Array.isArray(userDepartments) && userDepartments.length > 0
+        ? userDepartments.map(dept => ({
+            value: dept.id,
+            label: dept.title
+        }))
+        : [];
+
     const initialAccountValues = {
         id: accountData?.id || "",
         name: accountData?.name || "",
@@ -123,7 +132,8 @@ const DynamicFormModal = ({
         status: statusValue,
         employee_type: accountData?.employee_type || "",
         employee_code: accountData?.employee_code || "",
-        payroll_company_id: accountData?.payroll_company_id || null
+        payroll_company_id: accountData?.payroll_company_id || null,
+        department_id: initialDepartmentValues
     };
 
     const initialTeamMemberValues = {
@@ -138,6 +148,7 @@ const DynamicFormModal = ({
     const [currentProduct, setCurrentProduct] = useState(null);
     const [vendorProductDetails, setProductDetails] = useState([]);
     const [roleScopes, setRoleScopes] = useState(initialRoleScopes || []);
+    const [departments, setDepartments] = useState([]);
 
     // Function to fetch vendor approved-by list
     const getVendorApproveList = () => {
@@ -292,6 +303,24 @@ const DynamicFormModal = ({
             // getVendorProductList();
         }, [])
 
+        // Fetch departments when editing account
+        useEffect(() => {
+            if (type === "edit-account" && openModal) {
+                getDepartments()
+                    .then((res) => {
+                        const depts = (res?.data?.data || res?.data || []).map((d) => ({
+                            value: d.id,
+                            label: d.title
+                        }));
+                        setDepartments(depts);
+                    })
+                    .catch((error) => {
+                        console.error("Error fetching departments:", error);
+                        setDepartments([]);
+                    });
+            }
+        }, [type, openModal]);
+
         const processVendorCreate = (values, resetForm) => {
             const fullMobile = `${values.countryCode || '+91'}-${values.phone.trim().replace(/^0+/, '')}`;
 
@@ -332,13 +361,37 @@ const DynamicFormModal = ({
                 statusValue = 1; // Default fallback
             }
             
-            const departmentIds = Array.from(
+            // Get department IDs from form values (multi-select)
+            let departmentIds = [];
+            if (values.department_id && Array.isArray(values.department_id)) {
+                departmentIds = values.department_id.map(dept => 
+                    typeof dept === 'object' ? dept.value : dept
+                );
+            } else if (values.department_id && !Array.isArray(values.department_id)) {
+                departmentIds = [typeof values.department_id === 'object' ? values.department_id.value : values.department_id];
+            }
+            
+            // Also include department IDs from role scopes if any
+            const roleScopeDeptIds = Array.from(
               new Set(
                 (roleScopes || [])
                   .map((r) => r.department_id)
                   .filter((id) => id !== null && id !== undefined)
               )
             );
+            
+            // Merge both sources and remove duplicates
+            departmentIds = Array.from(new Set([...departmentIds, ...roleScopeDeptIds]));
+
+            // Filter roles to only include allowed fields (remove id and user_id)
+            const filteredRoles = (roleScopes || []).map((role) => ({
+                role_id: role.role_id,
+                role_title: role.role_title || null,
+                company_id: role.company_id || null,
+                hotel_id: role.hotel_id || null,
+                department_id: role.department_id || null,
+                permissions: role.permissions || {}
+            }));
 
             // Create account data object
             const accountData = {
@@ -347,7 +400,7 @@ const DynamicFormModal = ({
                 email: values.email,
                 mobile: formattedMobile,
                 status: statusValue, // Send as number directly
-                roles: roleScopes,
+                roles: filteredRoles,
                 department_ids: departmentIds,
                 employee_type: values.employee_type,
                 employee_code: values.employee_code,
@@ -771,6 +824,19 @@ Example:
                                     />
                                   </>
                                 )}
+                                
+                                <CommonFormInput
+                                  name="department_id"
+                                  label="Department"
+                                  type="select"
+                                  isMulti={true}
+                                  options={departments}
+                                  touched={touched}
+                                  errors={errors}
+                                  values={values.department_id}
+                                  onChange={setFieldValue}
+                                  required={true}
+                                />
                               </>
                             ) : type === "add-team-member" ? (
                               <>
