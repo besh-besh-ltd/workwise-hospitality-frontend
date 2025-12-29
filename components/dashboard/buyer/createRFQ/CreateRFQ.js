@@ -2240,7 +2240,7 @@ useEffect(() => {
     return (
       <AccessDeniedPage
         title="Access Denied"
-        message="You do not have permission to create or edit RFQs/Tenders for the selected hotels."
+        message="You do not have permission to create or edit this for the selected hotels."
         backUrl="/dashboard/buyer/rfq-management"
         backLabel="Back to RFQ Management"
       />

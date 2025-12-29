@@ -30,13 +30,15 @@ const AccessDeniedPage = ({
         <Alert variant="danger" className="text-center py-5">
           <MdBlock size={64} className="mb-3 text-danger" />
           <Alert.Heading className="h4">{title}</Alert.Heading>
-          <p className="mb-3">{message}</p>
+          <p className="mb-1">{message}</p>
           <p className="text-muted small mb-4">
             If you believe this is an error, please contact your administrator
             to request access.
           </p>
           {showBackButton && (
             <Button
+              className="btn-sm p-2"
+              style={{ width: "250px" }}
               variant="outline-danger"
               onClick={handleBack}
               id="back_button-access_denied_page"
