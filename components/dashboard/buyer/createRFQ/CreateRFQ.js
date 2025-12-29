@@ -42,6 +42,9 @@ import ValidationErrorsDisplay from "./ValidationErrorsDisplay";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { IoIosCloseCircleOutline } from "react-icons/io";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
+import useModulePermissions from "@/hooks/useModulePermissions";
+import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
+import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 
 
 const myVendorOptions = [
@@ -181,6 +184,20 @@ const CreateRFQ = () => {
   const [validationErrors, setValidationErrors] = useState({});
   const [errorProducts, setErrorProducts] = useState(new Set());
   const [rfqFilters, setRfqFilters] = useState([]);
+
+  // Permission management - fetch permissions based on selected hotels
+  // Dynamic module key based on is_tender field (1 = tender, 0 = rfq)
+  const moduleKey = rfqFormDataFromStore?.is_tender === 1 ? "tender" : "rfq";
+  const {
+    canRead,
+    canUpdate,
+    canCreate,
+    loading: permissionsLoading,
+  } = useModulePermissions({
+    moduleKey: moduleKey,
+    hotelIds: selectedHotelIds,
+    enabled: selectedHotelIds.length > 0,
+  });
 
   const fetchVendorsForProduct = async (rfqProductId, refetch = false) => {
     try {
@@ -1734,7 +1751,7 @@ useEffect(() => {
     return (
       <>
         <div className="w-100 d-flex flex-column gap-2 align-items-end mb-3">
-          {product && (
+          {product && rfqFormDataFromStore?.is_tender !== 1 && (
             <button
               className="minimal-btn"
               style={{ width: "fit-content" }}
@@ -2206,9 +2223,42 @@ useEffect(() => {
     if (selectedSheet) setSelectedSheetsForRFQ([selectedSheet.value]);
   }, [selectedSheet]);
 
+  // Handle permission loading state
+  if (permissionsLoading && selectedHotelIds.length > 0) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ height: "80vh" }}>
+        <Loader size="lg" />
+        <span className="ms-2">Checking permissions...</span>
+      </div>
+    );
+  }
+
+  // Handle access denied (no create/update permission for drafts)
+  // For new RFQs we check canCreate, for existing drafts we check canUpdate
+  const hasPermission = draft_id ? (canUpdate || canCreate) : canCreate;
+  if (selectedHotelIds.length > 0 && !permissionsLoading && !hasPermission && !canRead) {
+    return (
+      <AccessDeniedPage
+        title="Access Denied"
+        message="You do not have permission to create or edit RFQs/Tenders for the selected hotels."
+        backUrl="/dashboard/buyer/rfq-management"
+        backLabel="Back to RFQ Management"
+      />
+    );
+  }
+
   return (
     <>
       {(mainLoading || storeLoading) && <Loader />}
+
+      {/* Read-only banner - Show when user has read but not create/update permission */}
+      {selectedHotelIds.length > 0 && !hasPermission && canRead && (
+        <ReadOnlyBanner
+          title="View Only Mode"
+          message="You don't have create/edit permissions for the selected hotels. Contact your administrator to request access."
+        />
+      )}
+
       <div className="create-rfq-con">
         {/* If no active subscription is found */}
         {userProfile && !userProfile?.subscription_plan_id ? (
@@ -2415,6 +2465,7 @@ useEffect(() => {
                               // Header
                               header={generateDynamicFilter}
                               hasVendorError={errorProducts.has(product.id)}
+                              readOnly={selectedHotelIds.length > 0 && !hasPermission}
                             />
                           );
                         })}
@@ -2544,6 +2595,7 @@ useEffect(() => {
                         >
                           {({ errors, touched, isValid }) => (
                             <Form className="add-your-term-form">
+                              <fieldset disabled={selectedHotelIds.length > 0 && !hasPermission}>
                               <FormikField
                                 label="Add your own terms"
                                 placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
@@ -2946,12 +2998,15 @@ useEffect(() => {
                                   />
                                 </div>
                               </div>
+                              </fieldset>
 
+                              {/* Action buttons - disabled if user doesn't have permission */}
                               <button
                                 type="submit"
                                 className="btn btn-secondary mt-2 me-3"
-                                disabled={!isValid}
+                                disabled={!isValid || (selectedHotelIds.length > 0 && !hasPermission)}
                                 id="create_rfq-rfq_actions-create_rfq_page"
+                                title={selectedHotelIds.length > 0 && !hasPermission ? "You don't have permission to create RFQ/Tender" : ""}
                               >
                                 Submit
                               </button>
@@ -2960,19 +3015,25 @@ useEffect(() => {
                                 type="button"
                                 className="btn btn-secondary mt-2"
                                 onClick={handleSaveDraft}
-                                // fix here
-                                // disabled={!isValid}
+                                disabled={selectedHotelIds.length > 0 && !hasPermission}
                                 id="save_draft-rfq_actions-create_rfq_page"
+                                title={selectedHotelIds.length > 0 && !hasPermission ? "You don't have permission to save changes" : ""}
                               >
                                 Save Changes
                               </button>
                             </Form>
                           )}
                         </Formik>
-                        <p className="mt-2">
-                          This action will send RFQs to all selected vendors for
-                          the relevant product.
-                        </p>
+                        {selectedHotelIds.length > 0 && !hasPermission ? (
+                          <p className="mt-2 text-danger fw-medium">
+                            This is a Read-Only {rfqFormDataFromStore?.is_tender === 1 ? "Tender" : "RFQ"}. You do not have permission to make changes.
+                          </p>
+                        ) : (
+                          <p className="mt-2">
+                            This action will send RFQs to all selected vendors for
+                            the relevant product.
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>

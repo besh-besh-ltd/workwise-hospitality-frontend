@@ -31,6 +31,9 @@ import { editRfqSchema } from "@/utils/schema";
 import { cleanUpdatableData } from "../createRFQ/CreateRFQ";
 import AddSpecModal from "./AddSpecModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import useModulePermissions from "@/hooks/useModulePermissions";
+import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
+import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -160,6 +163,20 @@ const EditRFQ = () => {
 
   // Add a ref to track if terms have been initialized
   const termsInitializedRef = useRef(false);
+
+  // Permission management - fetch permissions based on mapped hotels
+  // Dynamic module key based on is_tender field (1 = tender, 0 = rfq)
+  const hotelIds = rfqData?.mappedHotels?.map(h => h.hotel_id) || [];
+  const moduleKey = rfqData?.is_tender === 1 ? "tender" : "rfq";
+  const {
+    canRead,
+    canUpdate,
+    loading: permissionsLoading,
+  } = useModulePermissions({
+    moduleKey: moduleKey,
+    hotelIds: hotelIds,
+    enabled: !!rfqData && hotelIds.length > 0,
+  });
 
   const fetchCountryCodes = () => {
     getCountryCodes()
@@ -1359,8 +1376,8 @@ const EditRFQ = () => {
       <div className="container-fluid">
         <div className="alert alert-warning">
           <p>Unable to load RFQ data. Please try again.</p>
-          <button 
-            className="btn btn-primary" 
+          <button
+            className="btn btn-primary"
             onClick={() => window.location.reload()}
             id="reload_page_loading-error_actions-edit_rfq_page"
           >
@@ -1371,6 +1388,26 @@ const EditRFQ = () => {
     );
   }
 
+  // Handle permission loading state
+  if (permissionsLoading && hotelIds.length > 0) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ height: "80vh" }}>
+        <Loader size="lg" />
+        <span className="ms-2">Checking permissions...</span>
+      </div>
+    );
+  }
+
+  // Handle access denied (no read permission)
+  if (hotelIds.length > 0 && !permissionsLoading && !canRead) {
+    return (
+      <AccessDeniedPage
+        title="Access Denied"
+        message="You do not have permission to view this RFQ. This may be because you are not assigned to the hotels associated with this tender."
+      />
+    );
+  }
+
   return (
     <>
       <div className="bg-dark-blue text-white p-3 mb-4">
@@ -1378,6 +1415,14 @@ const EditRFQ = () => {
           <h1 className="fs-4 m-0">Edit RFQ #{rfqData?.rfq_no}</h1>
         </div>
       </div>
+
+      {/* Read-only banner - Show when user has read but not update permission */}
+      {hotelIds.length > 0 && !canUpdate && canRead && (
+        <ReadOnlyBanner
+          title="View Only Mode"
+          message="You don't have edit permissions for this tender. Contact your administrator to request access."
+        />
+      )}
 
       <div className="container-fluid mb-4">
         <div className="d-flex">
@@ -1618,6 +1663,7 @@ const EditRFQ = () => {
                         }));
                       }}
                       type="edit"
+                      readOnly={hotelIds.length > 0 && !canUpdate}
                     />
                   );
                 })}
@@ -1625,11 +1671,15 @@ const EditRFQ = () => {
           </div>
           {renderDeletedProductsTable()}
         </div>
+        {/* Add Product button - disabled if user doesn't have permission */}
         <div className="mb-4 d-flex justify-content-end">
           <button
             onClick={() => setShowAddProductModal(true)}
             className="btn btn-primary btn-sm"
-            id="add_product-product_actions-edit_rfq_page">
+            id="add_product-product_actions-edit_rfq_page"
+            disabled={hotelIds.length > 0 && !canUpdate}
+            title={hotelIds.length > 0 && !canUpdate ? "You don't have permission to add products" : ""}
+          >
             Add A Product
           </button>
         </div>
@@ -1665,6 +1715,7 @@ const EditRFQ = () => {
           >
             {({ values, errors, touched, handleChange, handleBlur, handleSubmit, setFieldValue }) => (
               <Form onSubmit={handleSubmit}>
+                <fieldset disabled={hotelIds.length > 0 && !canUpdate}>
                 <div className="card mb-4">
                   <div className="card-header bg-light">
                     <h5 className="mb-0">RFQ Information</h5>
@@ -2095,13 +2146,15 @@ const EditRFQ = () => {
                     )}
                   </div>
                 </div>
+                </fieldset>
 
                 <div className="d-flex justify-content-between mb-4">
+                  {/* Update button - disabled if user doesn't have permission */}
                   <div className="d-flex flex-column">
                     <button
-                      type="submit" 
-                      className="btn btn-success px-4" 
-                      disabled={storeLoading || loading}
+                      type="submit"
+                      className="btn btn-success px-4"
+                      disabled={storeLoading || loading || (hotelIds.length > 0 && !canUpdate)}
                       onClick={(e) => {
                         // Ensure form validation is triggered
                         if (Object.keys(errors).length > 0) {
@@ -2117,6 +2170,7 @@ const EditRFQ = () => {
                         }
                       }}
                       id="update_rfq-rfq_actions-edit_rfq_page"
+                      title={hotelIds.length > 0 && !canUpdate ? "You don't have permission to update this RFQ" : ""}
                     >
                       {storeLoading || loading ? "Updating..." : "Update RFQ"}
                     </button>
@@ -2124,15 +2178,15 @@ const EditRFQ = () => {
                       <span className="text-danger mt-2">Updation have deletable products,<br/>click again to confirm.</span>
                     )}
                   </div>
-                    <button
-                      type="button"
-                      style={{ height: "fit-content" }} 
+                  <button
+                    type="button"
+                    style={{ height: "fit-content" }}
                     className="btn btn-danger px-4"
                     onClick={() => router.push("/dashboard/buyer/rfq-management")}
                     id="cancel_edit-rfq_actions-edit_rfq_page"
                   >
-                    Cancel
-                    </button>
+                    {(hotelIds.length === 0 || canUpdate) ? "Cancel" : "Go Back"}
+                  </button>
                 </div>
               </Form>
             )}

@@ -46,6 +46,7 @@ const Item = ({
   header,
   footer,
   hasVendorError,
+  readOnly = false, // Permission-based read-only mode
 }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
@@ -491,24 +492,27 @@ const Item = ({
 
           {/* start: remove and add variant button container */}
           <div className="d-flex gap-3 mr-4 ">
-            {/* start: add variant button container */}
+            {/* start: remove button container */}
             <button
               id={`remove_product_${rfqProduct?.id}-product_actions-${pageRoute}`}
               className="upload btn btn-danger pt-2 btn-sm"
               style={{ height: "40px", width: "120px" }}
               onClick={handleRemoveProduct}
+              disabled={readOnly}
+              title={readOnly ? "You don't have permission to remove products" : ""}
             >
               <FontAwesomeIcon icon={faTrash} /> Remove
             </button>
-            {/* end: add variant button container */}
+            {/* end: remove button container */}
 
-            {/* start: remove button container */}
+            {/* start: add variant button container */}
             <button
               id={`add_variant_${rfqProduct?.id}-product_actions-${pageRoute}`}
               className="upload  btn btn-primary  pt-2 btn-sm"
               style={{ height: "40px", width: "150px" }}
               onClick={handleAddVarient}
-              disabled={loading}
+              disabled={loading || readOnly}
+              title={readOnly ? "You don't have permission to add variants" : ""}
             >
               {loading ? (
                 "Adding..."
@@ -553,6 +557,7 @@ const Item = ({
                 placeholder="Size"
                 className=" form-control"
                 style={{ height: "40px" }}
+                disabled={readOnly}
               />
             </div>
             {/*end: prodiuct spec */}
@@ -580,8 +585,8 @@ const Item = ({
                   {
                     <label
                       id={`upload_tds_${rfqProduct?.id}-file_uploads-${pageRoute}`}
-                      className="upload uploadInlineFile d-flex align-items-center"
-                      style={{ maxWidth: "100%" }}
+                      className={`upload uploadInlineFile d-flex align-items-center ${readOnly ? 'disabled' : ''}`}
+                      style={{ maxWidth: "100%", opacity: readOnly ? 0.6 : 1, pointerEvents: readOnly ? 'none' : 'auto' }}
                     >
                       {/* <FontAwesomeIcon icon={faFile} className="me-2" />  */}
                       Upload TDS
@@ -590,6 +595,7 @@ const Item = ({
                         accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
                         onChange={(e) => uploadToServer(e, "datasheet_file")}
                         multiple={true}
+                        disabled={readOnly}
                       />
                     </label>
                   }
@@ -609,17 +615,19 @@ const Item = ({
                           >
                             {extractfileName(datasheet_file)}
                           </a>
-                          <span
-                            className="btn-close btn-close-sm"
-                            aria-label="Close"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleRemoveFile(
-                                datasheet_file,
-                                "datasheet_file"
-                              );
-                            }}
-                          ></span>
+                          {!readOnly && (
+                            <span
+                              className="btn-close btn-close-sm"
+                              aria-label="Close"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleRemoveFile(
+                                  datasheet_file,
+                                  "datasheet_file"
+                                );
+                              }}
+                            ></span>
+                          )}
                         </div>
                       );
                     })}
@@ -637,8 +645,8 @@ const Item = ({
                   {
                                                             <label
                         id={`upload_qap_${rfqProduct?.id}-file_uploads-${pageRoute}`}
-                        className="upload uploadInlineFile "
-                        style={{ maxWidth: "100%" }}
+                        className={`upload uploadInlineFile ${readOnly ? 'disabled' : ''}`}
+                        style={{ maxWidth: "100%", opacity: readOnly ? 0.6 : 1, pointerEvents: readOnly ? 'none' : 'auto' }}
                         // style={{ borderBottom: "1px solid rgba(45, 92, 167, 0.59)" }}
                       >
                         {/* <FontAwesomeIcon icon={faQAP" */}
@@ -648,6 +656,7 @@ const Item = ({
                           accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
                           onChange={(e) => uploadToServer(e, "qap_file")}
                           multiple={true}
+                          disabled={readOnly}
                         />
                       </label>
                   }
@@ -667,14 +676,16 @@ const Item = ({
                           >
                             {extractfileName(qap_file)}
                           </a>
-                          <span
-                            className="btn-close btn-close-sm"
-                            aria-label="Close"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleRemoveFile(qap_file, "qap_file");
-                            }}
-                          ></span>
+                          {!readOnly && (
+                            <span
+                              className="btn-close btn-close-sm"
+                              aria-label="Close"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleRemoveFile(qap_file, "qap_file");
+                              }}
+                            ></span>
+                          )}
                         </div>
                       );
                     })}
@@ -691,8 +702,8 @@ const Item = ({
                 >
                                       <label
                       id={`upload_spec_${rfqProduct?.id}-file_uploads-${pageRoute}`}
-                      className="upload uploadInlineFile"
-                      style={{ maxWidth: "100%" }}
+                      className={`upload uploadInlineFile ${readOnly ? 'disabled' : ''}`}
+                      style={{ maxWidth: "100%", opacity: readOnly ? 0.6 : 1, pointerEvents: readOnly ? 'none' : 'auto' }}
                     >
                       {/* <FontAwesomeIcon icon={faFile} className="me-2" /> */}
                       Upload Spec
@@ -701,6 +712,7 @@ const Item = ({
                         accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
                         onChange={(e) => uploadToServer(e, "spec_file")}
                         multiple={true}
+                        disabled={readOnly}
                       />
                     </label>
 
@@ -720,13 +732,15 @@ const Item = ({
                           >
                             {extractfileName(spec_file)}
                           </a>
-                          <span
-                            className="btn-close btn-close-sm"
-                            aria-label="Close"
-                            onClick={() =>
-                              handleRemoveFile(spec_file, "spec_file")
-                            }
-                          ></span>
+                          {!readOnly && (
+                            <span
+                              className="btn-close btn-close-sm"
+                              aria-label="Close"
+                              onClick={() =>
+                                handleRemoveFile(spec_file, "spec_file")
+                              }
+                            ></span>
+                          )}
                         </div>
                       );
                     })}
@@ -751,6 +765,7 @@ const Item = ({
                 placeholder="Grade, Material and other Specs"
                 className=" form-control"
                 style={{ height: "100px" }}
+                disabled={readOnly}
               />
             </div>
             {/*end: product spec */}
@@ -768,6 +783,7 @@ const Item = ({
                   placeholder="Quantity"
                   className=" form-control"
                   validation="float_number"
+                  disabled={readOnly}
                 />
               </div>
 
@@ -781,6 +797,7 @@ const Item = ({
                   onChange={(e) => handleSpecValue("unit", e.target.value)}
                   placeholder="Unit"
                   className=" form-control"
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -809,6 +826,8 @@ const Item = ({
                     className="upload  btn btn-secondary  "
                     // style={{ height: "40px" }} btn-sm  pt-2
                     onClick={handleOpenModal}
+                    disabled={readOnly}
+                    title={readOnly ? "You don't have permission to add clauses" : ""}
                   >
                     <FontAwesomeIcon icon={faPlusCircle} /> Add Clauses
                   </button>
@@ -899,6 +918,8 @@ const Item = ({
                     onClick={handleAddVendorInEdit}
                     style={{ height: "40px" }}
                     className="upload btn btn-success text-white pt-2 btn-sm"
+                    disabled={readOnly}
+                    title={readOnly ? "You don't have permission to add vendors" : ""}
                   >
                     Add Vendors
                   </button>
@@ -919,6 +940,7 @@ const Item = ({
                 onChange={handleaddProductComment}
                 placeholder="Add Comments..."
                 className="form-control me-0 mb-3"
+                disabled={readOnly}
               />
             </div>
 
