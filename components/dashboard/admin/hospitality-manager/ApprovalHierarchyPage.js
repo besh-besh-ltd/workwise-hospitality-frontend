@@ -43,6 +43,7 @@ const ApprovalHierarchyPage = () => {
 
   const entityTypes = [
     { value: "RFQ", label: "RFQ" },
+    { value: "TENDER", label: "TENDER" },
     { value: "PO", label: "Purchase Order" },
     { value: "INDENT", label: "Indent" },
   ];

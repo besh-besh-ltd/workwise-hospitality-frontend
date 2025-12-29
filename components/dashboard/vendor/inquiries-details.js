@@ -17,6 +17,7 @@ import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { toast } from "react-toastify";
+import { ApprovalWorkflowSection, ApprovalPendingBanner } from "@/components/dashboard/buyer/approval";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -788,6 +789,16 @@ const RfqManagementPreview = () => {
             <div className="container-fluid">
               <div className="row">
                 <div className="col-md-12">
+                  {/* Approval Pending Banner - Shows at top for buyers when action is needed */}
+                  {enableBuyerView && rfqDetails?.id && (
+                    <section className="mt-3 mx-1">
+                      <ApprovalPendingBanner
+                        entityType={rfqDetails?.is_tender === 1 ? "TENDER" : "RFQ"}
+                        entityId={id}
+                        entityLabel={rfqDetails?.is_tender === 1 ? "Tender" : "RFQ"}
+                      />
+                    </section>
+                  )}
                   {/* RFQ Details Section */}
                   <div className="bg-light p-3 rounded-2">
                     <div className="row g-3">
@@ -1477,9 +1488,21 @@ const RfqManagementPreview = () => {
               </div>
             </div>
           </section>
+          {/* Approval Workflow Section - Only visible to buyers */}
+          {enableBuyerView && rfqDetails?.id && (
+            <section className="buyer-rfq-approval-sec mt-4">
+              <div className="container-fluid">
+                <ApprovalWorkflowSection
+                  entityType={rfqDetails?.is_tender === 1 ? "TENDER" : "RFQ"}
+                  entityId={id}
+                  entityLabel={rfqDetails?.is_tender === 1 ? "Tender" : "RFQ"}
+                />
+              </div>
+            </section>
+          )}
         </>
       )}
-      
+
       {!loading && rfqDetails && !rfqDetails.id && (
         <section className="buyer-common-header sc-pt-80">
           <div className="container-fluid">

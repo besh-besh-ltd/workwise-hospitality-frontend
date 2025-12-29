@@ -54,11 +54,11 @@ const RfqManagementDetails = () => {
   const handleCloseCancel = () => {
     setShowCloseConfirmModal(false);
   };
-  
+
   return (
     <>
-      <ViewRFQ 
-        data={rfqDetails} 
+      <ViewRFQ
+        data={rfqDetails}
         onCloseRFQ={handleCloseConfirm}
         closeLoading={closeLoading}
       />
