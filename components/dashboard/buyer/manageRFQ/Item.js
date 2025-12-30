@@ -4,9 +4,11 @@ import moment from "moment";
 import Link from "next/link";
 import React, { useState } from "react";
 import { toast } from "react-toastify";
+import { Badge } from "react-bootstrap";
+import { BsExclamationCircleFill } from "react-icons/bs";
 import VendorSelectionModal from "@/components/modal/VendorSelectionModal";
 
-const RFQItem = ({ data }) => {
+const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
   const [loading, setloading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [showVendorModal, setShowVendorModal] = useState(false);
@@ -48,7 +50,7 @@ const RFQItem = ({ data }) => {
     e.preventDefault();
     setModalLoading(true);
     setShowVendorModal(true);
-    
+
     try {
       const response = await getVendorsForReminder(data.id);
       setVendors(response.data || []);
@@ -83,12 +85,26 @@ const RFQItem = ({ data }) => {
   };
   const isRecievedFromAll = data.vendors[0]?.total_vendors == data.vendors[0]?.quote_received;
 
+  // Pending approval row styling
+  const rowStyle = isPendingApproval
+    ? {
+        backgroundColor: "#fff8e6",
+        borderLeft: "4px solid #ffc107",
+      }
+    : {};
+
   return (
     <>
-      <tr>
+      <tr style={rowStyle}>
         <td>
           <span className="d-block fw-semibold">{formatRFQNumber(data?.rfq_no, data?.is_tender)}</span>
           <span className="text-truncate">{data?.project_name}</span>
+          {isPendingApproval && (
+            <Badge bg="warning" text="dark" className="mt-1 d-flex align-items-center gap-1" style={{ width: "fit-content" }}>
+              <BsExclamationCircleFill size={10} />
+              Awaiting Your Approval
+            </Badge>
+          )}
         </td>
         <td>{list_products()}</td>
         <td style={{ width: "190px" }}>
@@ -115,20 +131,34 @@ const RFQItem = ({ data }) => {
         <td>{data.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
         <td>
           <div className="d-flex flex-column gap-2">
-            <Link
-              href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data?.id}`}
-              className="page-link"
-              id={`view_rfq_${data?.id}-rfq_actions-manage_rfq_page`}
-            >
-              View
-            </Link>
-            <Link
-              href={`/dashboard/buyer/rfq-management-edit?id=${data?.id}`}
-              className="page-link"
-              id={`edit_rfq_${data?.id}-rfq_actions-manage_rfq_page`}
-            >
-              Edit
-            </Link>
+            {isPendingApproval ? (
+              <Link
+                href={`/dashboard/vendor/inquiries-details?type=buyer-view&id=${data?.id}`}
+                className="btn btn-warning btn-sm p-2 border-0 rounded-2 d-flex align-items-center justify-content-center gap-1"
+                style={{ minWidth: "140px" }}
+                id={`approve_rfq_${data?.id}-rfq_actions-pending_approval_page`}
+              >
+                <BsExclamationCircleFill size={14} />
+                View & Approve
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href={`/dashboard/vendor/inquiries-details?type=buyer-view&id=${data?.id}`}
+                  className="page-link"
+                  id={`view_rfq_${data?.id}-rfq_actions-manage_rfq_page`}
+                >
+                  View
+                </Link>
+                <Link
+                  href={`/dashboard/buyer/rfq-management-edit?id=${data?.id}`}
+                  className="page-link"
+                  id={`edit_rfq_${data?.id}-rfq_actions-manage_rfq_page`}
+                >
+                  Edit
+                </Link>
+              </>
+            )}
           </div>
         </td>
         <td>
@@ -141,44 +171,46 @@ const RFQItem = ({ data }) => {
               style={{ width: "120px", backgroundColor: "var(--primary-color)" }}
               id={`view_queries_${data?.id}-rfq_actions-manage_rfq_page`}
             >
-              Queries 
+              Queries
               {data.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{data.unseen_query_count} + </span>}
             </button>
           </Link>
         </td>
-        <td>
+        {showReminder && (
+          <td>
 
-          {data.vendors.length > 0 && (
-            <button
-              type="button"
-              onClick={!isRecievedFromAll && !data.is_finalized && handleOpenVendorModal}
-              className={`page-link-btn border-0 p-2 my-3 rounded-2 ${(isRecievedFromAll || data.status == 2 || data.is_finalized) ? "btn disabled" : ""}`}
-              role="button"
-              disabled={isRecievedFromAll || data.status == 2 || data.is_finalized}
-              aria-disabled={isRecievedFromAll}
-              style={{ width: "200px", backgroundColor: data.status == 2 ? 'var(--red-color)' : data.is_finalized ? "var(--secondary-color)" : (isRecievedFromAll || isHovered) ? "var(--primary-color)" : "var(--secondary-color)" }}
-              onMouseEnter={() => setIsHovered(true)}
-              onMouseLeave={() => setIsHovered(false)}
-              id={`send_reminder_${data?.id}-rfq_actions-manage_rfq_page`}
-            >
-              {loading ? (
-                <>
-                  <span
-                    className="spinner-border spinner-border-sm"
-                    role="status"
-                  ></span>{" "}
-                  Processing request...
-                </>
-              ) : data.status == 2 ? 'RFQ has been closed' : data.is_finalized ? "All Products Finalized" : (
-                isRecievedFromAll
-                  ? "All Quotes Received"
-                  : `Send Reminder (${data.vendors[0].total_vendors - data.vendors[0].quote_received}/${data.vendors[0].total_vendors})`
-              )
-              }
-            </button>
-          )}
+            {data.vendors.length > 0 && (
+              <button
+                type="button"
+                onClick={!isRecievedFromAll && !data.is_finalized && handleOpenVendorModal}
+                className={`page-link-btn border-0 p-2 my-3 rounded-2 ${(isRecievedFromAll || data.status == 2 || data.is_finalized) ? "btn disabled" : ""}`}
+                role="button"
+                disabled={isRecievedFromAll || data.status == 2 || data.is_finalized}
+                aria-disabled={isRecievedFromAll}
+                style={{ width: "200px", backgroundColor: data.status == 2 ? 'var(--red-color)' : data.is_finalized ? "var(--secondary-color)" : (isRecievedFromAll || isHovered) ? "var(--primary-color)" : "var(--secondary-color)" }}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+                id={`send_reminder_${data?.id}-rfq_actions-manage_rfq_page`}
+              >
+                {loading ? (
+                  <>
+                    <span
+                      className="spinner-border spinner-border-sm"
+                      role="status"
+                    ></span>{" "}
+                    Processing request...
+                  </>
+                ) : data.status == 2 ? 'RFQ has been closed' : data.is_finalized ? "All Products Finalized" : (
+                  isRecievedFromAll
+                    ? "All Quotes Received"
+                    : `Send Reminder (${data.vendors[0].total_vendors - data.vendors[0].quote_received}/${data.vendors[0].total_vendors})`
+                )
+                }
+              </button>
+            )}
 
-        </td>
+          </td>
+        )}
       </tr>
 
       <VendorSelectionModal

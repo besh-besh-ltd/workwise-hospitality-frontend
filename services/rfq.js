@@ -256,6 +256,19 @@ export const getRFQS = (payload) => {
     }
   });
 };
+
+// Get RFQs/Tenders pending approval from current user
+export const getPendingApprovalRFQs = (payload = {}) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/pending-approvals`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const getRFQById = (id, token, includeVendors = false) => {
   return new Promise(async (resolve, reject) => {
     try {

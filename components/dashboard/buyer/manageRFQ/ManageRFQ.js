@@ -4,8 +4,13 @@ import React, { useEffect, useState } from "react";
 import RFQItem from "./Item";
 import Pagination from "@/components/shared/Pagination";
 import FilterSection from "@/components/shared/FilterSection";
+import PendingApprovalsList from "./PendingApprovalsList";
+import { Nav, Tab, Badge } from "react-bootstrap";
+import { BsBellFill, BsListUl } from "react-icons/bs";
 
 const ManageRFQ = () => {
+  const [activeTab, setActiveTab] = useState("pending");
+  const [pendingCount, setPendingCount] = useState(0);
   const [loading, setloading] = useState(false);
   const [filterData, setFilterData] = useState({
     project_id: -1,
@@ -36,66 +41,116 @@ const ManageRFQ = () => {
   };
 
   useEffect(() => {
-    console.log("CURRENT FILTER DATA:", filterData)
-    getAllRFQs();
-  }, [filterData]);
+    console.log("CURRENT FILTER DATA:", filterData);
+    if (activeTab === "all") {
+      getAllRFQs();
+    }
+  }, [filterData, activeTab]);
+
+  const handlePendingCountChange = (count) => {
+    setPendingCount(count);
+  };
+
+  // Reset page when switching tabs
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setFilterData((prev) => ({ ...prev, page: 1 }));
+  };
 
   return (
     <>
       <div className="manage-rfq-con">
-        {/* Content for Manage RFQs tab */}
-        {/* <h3 className="title">Manage RFQs</h3> */}
+        {/* Filter Section - Shared across tabs */}
+        <FilterSection setFilterData={setFilterData} />
 
-        <div className="details-table hasFullLoader mt-0">
-          {/* Table Filter Section */}
-          <FilterSection
-            setFilterData={setFilterData}
-          />
+        {/* Tab Navigation */}
+        <Tab.Container activeKey={activeTab} onSelect={handleTabChange}>
+          <Nav variant="tabs" className="mb-2 border-bottom-0">
+            <Nav.Item>
+              <Nav.Link
+                eventKey="pending"
+                className="d-flex align-items-center gap-1 py-2 px-3"
+              >
+                <BsBellFill size={12} />
+                <span>Pending Approvals</span>
+                {pendingCount > 0 && (
+                  <Badge bg="danger" pill style={{ fontSize: "0.7rem" }}>
+                    {pendingCount}
+                  </Badge>
+                )}
+              </Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
+              <Nav.Link
+                eventKey="all"
+                className="d-flex align-items-center gap-1 py-2 px-3"
+              >
+                <BsListUl size={12} />
+                <span>All Tender / RFQ</span>
+              </Nav.Link>
+            </Nav.Item>
+          </Nav>
 
-          {/* Table Data Section */}
-          {loading && <FullLoader />}
-          {!loading && myRFQs.length == 0 && (
-            <p>You haven't created any RFQs yet!</p>
-          )}
-          {!loading && myRFQs && myRFQs.length > 0 && (
-            <div className="table-responsive">
-              <table className="table table-striped ">
-                <thead>
-                  <tr>
-                    <th>RFQ No & Project</th>
-                    <th>Products</th>
-                    <th>Timeline</th>
-                    <th>Created By</th>
-                    <th>RFQ Type</th>
-                    <th>Reverse Auction</th>
-                    <th>Action</th>
-                    <th>Query</th>
-                    <th>Reminder for Quotes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {myRFQs.map((item) => {
-                    return <RFQItem key={`rfq_item_${item.id}`} data={item} />;
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <Tab.Content>
+            {/* Pending Approvals Tab */}
+            <Tab.Pane eventKey="pending">
+              <PendingApprovalsList
+                filterData={filterData}
+                setFilterData={setFilterData}
+                onCountChange={handlePendingCountChange}
+              />
+            </Tab.Pane>
 
-          {!loading && myRFQs.length > 0 && (
-            <Pagination
-              page={filterData.page}
-              setPage={(newPage) =>
-                setFilterData((prev) => ({ ...prev, page: newPage }))
-              }
-              limit={filterData.limit}
-              setLimit={(newLimit) =>
-                setFilterData((prev) => ({ ...prev, limit: newLimit }))
-              }
-              totalData={totalRFQs}
-            />
-          )}
-        </div>
+            {/* All RFQs Tab */}
+            <Tab.Pane eventKey="all">
+              <div className="details-table hasFullLoader mt-0">
+                {/* Table Data Section */}
+                {loading && <FullLoader />}
+                {!loading && myRFQs.length == 0 && (
+                  <p>You haven't created any RFQs yet!</p>
+                )}
+                {!loading && myRFQs && myRFQs.length > 0 && (
+                  <div className="table-responsive">
+                    <table className="table table-striped ">
+                      <thead>
+                        <tr>
+                          <th>RFQ No & Project</th>
+                          <th>Products</th>
+                          <th>Timeline</th>
+                          <th>Created By</th>
+                          <th>RFQ Type</th>
+                          <th>Reverse Auction</th>
+                          <th>Action</th>
+                          <th>Query</th>
+                          <th>Reminder for Quotes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myRFQs.map((item) => {
+                          return <RFQItem key={`rfq_item_${item.id}`} data={item} />;
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {!loading && myRFQs.length > 0 && (
+                  <Pagination
+                    page={filterData.page}
+                    setPage={(newPage) =>
+                      setFilterData((prev) => ({ ...prev, page: newPage }))
+                    }
+                    limit={filterData.limit}
+                    setLimit={(newLimit) =>
+                      setFilterData((prev) => ({ ...prev, limit: newLimit }))
+                    }
+                    totalData={totalRFQs}
+                  />
+                )}
+              </div>
+            </Tab.Pane>
+          </Tab.Content>
+        </Tab.Container>
       </div>
     </>
   );
