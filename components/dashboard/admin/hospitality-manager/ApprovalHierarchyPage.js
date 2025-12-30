@@ -51,7 +51,6 @@ const ApprovalHierarchyPage = () => {
   const approverSourceTypes = [
     { value: "USER", label: "Specific User" },
     { value: "ROLE", label: "User Role" },
-    { value: "DEPARTMENT", label: "Department" },
   ];
 
   const decisionRules = [
@@ -229,7 +228,12 @@ const ApprovalHierarchyPage = () => {
 
   const handleStepChange = (index, field, value) => {
     const newSteps = [...policyForm.steps];
-    newSteps[index] = { ...newSteps[index], [field]: value };
+    const updatedStep = { ...newSteps[index], [field]: value };
+    // If changing approver_source_type, reset approver_source_id
+    if (field === "approver_source_type") {
+      updatedStep.approver_source_id = null;
+    }
+    newSteps[index] = updatedStep;
     setPolicyForm({ ...policyForm, steps: newSteps });
   };
 
@@ -241,8 +245,6 @@ const ApprovalHierarchyPage = () => {
       }));
     } else if (sourceType === "ROLE") {
       return roles.map((r) => ({ value: r.id, label: r.title }));
-    } else if (sourceType === "DEPARTMENT") {
-      return departments.map((d) => ({ value: d.id, label: d.title }));
     }
     return [];
   };
@@ -266,15 +268,6 @@ const ApprovalHierarchyPage = () => {
         type: "Role",
         typeLabel: "User Role",
         users: roleUsers
-      };
-    } else if (step.approver_source_type === "DEPARTMENT") {
-      const dept = departments.find((d) => d.id === step.approver_source_id);
-      return {
-        name: dept?.title || "Unknown Department",
-        email: "",
-        type: "Department",
-        typeLabel: "Department",
-        users: []
       };
     }
     return { name: "Unknown", email: "", type: "", typeLabel: "", users: [] };
@@ -721,15 +714,20 @@ const ApprovalHierarchyPage = () => {
                               <div className="col-md-6">
                                 <label className="form-label small fw-semibold">Who approves? *</label>
                                 <Select
+                                  key={`approver-type-${index}-${step.approver_source_type}`}
                                   options={approverSourceTypes}
                                   value={approverSourceTypes.find(
                                     (t) => t.value === step.approver_source_type
-                                  )}
+                                  ) || null}
                                   onChange={(option) => {
-                                    handleStepChange(index, "approver_source_type", option.value);
-                                    handleStepChange(index, "approver_source_id", null);
+                                    if (option) {
+                                      handleStepChange(index, "approver_source_type", option.value);
+                                    }
                                   }}
                                   placeholder="Select approver type..."
+                                  isClearable={false}
+                                  isSearchable={false}
+                                  menuPlacement="auto"
                                 />
                               </div>
 
@@ -739,22 +737,29 @@ const ApprovalHierarchyPage = () => {
                                     ? "Select User *" 
                                     : step.approver_source_type === "ROLE"
                                     ? "Select Role *"
-                                    : "Select Department *"}
+                                    : "Select *"}
                                 </label>
                                 <Select
+                                  key={`approver-${index}-${step.approver_source_type}-${step.approver_source_id || 'none'}`}
                                   options={getApproverOptions(step.approver_source_type)}
                                   value={
                                     step.approver_source_id
                                       ? getApproverOptions(step.approver_source_type).find(
                                           (o) => o.value === step.approver_source_id
-                                        )
+                                        ) || null
                                       : null
                                   }
                                   onChange={(option) =>
-                                    handleStepChange(index, "approver_source_id", option.value)
+                                    handleStepChange(index, "approver_source_id", option ? option.value : null)
                                   }
                                   isDisabled={!step.approver_source_type}
-                                  placeholder={`Select ${step.approver_source_type === "USER" ? "user" : step.approver_source_type === "ROLE" ? "role" : "department"}...`}
+                                  placeholder={step.approver_source_type === "USER" 
+                                    ? "Select user..." 
+                                    : step.approver_source_type === "ROLE"
+                                    ? "Select role..."
+                                    : "Select..."}
+                                  isClearable={false}
+                                  menuPlacement="auto"
                                 />
                                 {step.approver_source_id && approverInfo.email && (
                                   <small className="text-muted d-block mt-1">
