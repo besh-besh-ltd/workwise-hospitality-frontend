@@ -86,11 +86,6 @@ const roleMenus = {
       targetMenu: "nav",
     },
     {
-      href: "/dashboard/admin/approval-management",
-      label: "Approval Hierarchy",
-      targetMenu: "nav",
-    },
-    {
       href: "/dashboard/admin/hospitality-manager",
       label: "Hospitality Network",
       targetMenu: "nav",

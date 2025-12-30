@@ -10,8 +10,7 @@ import {
   updateApprovalPolicy,
   deleteApprovalPolicy,
 } from "@/services/approval";
-import { getRoles } from "@/services/rbac";
-import { getDepartments } from "@/services/rbac";
+import { getRoles, getUserRoleScopes } from "@/services/rbac";
 import { getCompanyUserMappings } from "@/services/hospitality";
 import { getHospitalityHotels } from "@/services/hospitality";
 
@@ -25,8 +24,9 @@ const ApprovalHierarchyPage = () => {
   const [policies, setPolicies] = useState([]);
   const [selectedPolicy, setSelectedPolicy] = useState(null);
   const [roles, setRoles] = useState([]);
-  const [departments, setDepartments] = useState([]);
   const [users, setUsers] = useState([]);
+  const [userRoleScopes, setUserRoleScopes] = useState({}); // Map of userId -> roleIds array
+  const [departments] = useState([]);
   const [showPolicyForm, setShowPolicyForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -49,14 +49,14 @@ const ApprovalHierarchyPage = () => {
   ];
 
   const approverSourceTypes = [
-    { value: "USER", label: "User" },
-    { value: "ROLE", label: "Role" },
+    { value: "USER", label: "Specific User" },
+    { value: "ROLE", label: "User Role" },
     { value: "DEPARTMENT", label: "Department" },
   ];
 
   const decisionRules = [
-    { value: "ANY", label: "Any (One approval sufficient)" },
-    { value: "ALL", label: "All (All must approve)" },
+    { value: "ANY", label: "Any one person can approve" },
+    { value: "ALL", label: "Everyone must approve" },
   ];
 
   useEffect(() => {
@@ -65,6 +65,13 @@ const ApprovalHierarchyPage = () => {
     }
   }, [companyId, hotelId]);
 
+  // Ensure role scopes are loaded when users change
+  useEffect(() => {
+    if (users.length > 0 && Object.keys(userRoleScopes).length === 0) {
+      loadUserRoleScopes(users.map(u => u.user_id));
+    }
+  }, [users]);
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -72,7 +79,6 @@ const ApprovalHierarchyPage = () => {
         loadHotel(),
         loadPolicies(),
         loadRoles(),
-        loadDepartments(),
         loadUsers(),
       ]);
     } catch (error) {
@@ -136,15 +142,6 @@ const ApprovalHierarchyPage = () => {
     }
   };
 
-  const loadDepartments = async () => {
-    try {
-      const response = await getDepartments();
-      const data = response?.data?.data || response?.data || [];
-      setDepartments(data);
-    } catch (error) {
-      console.error("Error loading departments:", error);
-    }
-  };
 
   const loadUsers = async () => {
     try {
@@ -166,9 +163,44 @@ const ApprovalHierarchyPage = () => {
         new Map(allUsers.map((user) => [user.user_id, user])).values()
       );
       setUsers(uniqueUsers);
+      
+      // Load role scopes for all users to enable role-based filtering
+      await loadUserRoleScopes(uniqueUsers.map(u => u.user_id));
     } catch (error) {
       console.error("Error loading users:", error);
     }
+  };
+
+  const loadUserRoleScopes = async (userIds) => {
+    try {
+      const roleScopesPromises = userIds.map(async (userId) => {
+        try {
+          const response = await getUserRoleScopes(userId);
+          const scopes = response?.data?.data || response?.data || [];
+          return { userId, roleIds: scopes.map(s => s.role_id) };
+        } catch (error) {
+          console.error(`Error loading role scopes for user ${userId}:`, error);
+          return { userId, roleIds: [] };
+        }
+      });
+      
+      const results = await Promise.all(roleScopesPromises);
+      const roleScopesMap = {};
+      results.forEach(({ userId, roleIds }) => {
+        roleScopesMap[userId] = roleIds;
+      });
+      setUserRoleScopes(roleScopesMap);
+    } catch (error) {
+      console.error("Error loading user role scopes:", error);
+    }
+  };
+
+  const getUsersByRole = (roleId) => {
+    if (!roleId) return [];
+    return users.filter(user => {
+      const userRoles = userRoleScopes[user.user_id] || [];
+      return userRoles.includes(roleId);
+    });
   };
 
   const handleAddStep = () => {
@@ -203,7 +235,10 @@ const ApprovalHierarchyPage = () => {
 
   const getApproverOptions = (sourceType) => {
     if (sourceType === "USER") {
-      return users.map((u) => ({ value: u.user_id, label: `${u.name} (${u.email})` }));
+      return users.map((u) => ({ 
+        value: u.user_id, 
+        label: `${u.name}${u.email ? ` (${u.email})` : ''}` 
+      }));
     } else if (sourceType === "ROLE") {
       return roles.map((r) => ({ value: r.id, label: r.title }));
     } else if (sourceType === "DEPARTMENT") {
@@ -212,36 +247,67 @@ const ApprovalHierarchyPage = () => {
     return [];
   };
 
-  const handleSavePolicy = async () => {
-    if (!policyForm.name || policyForm.name.trim() === "") {
-      toast.error("Please enter a policy name");
-      return;
+  const getApproverDisplayInfo = (step) => {
+    if (step.approver_source_type === "USER") {
+      const user = users.find((u) => u.user_id === step.approver_source_id);
+      return {
+        name: user?.name || "Unknown User",
+        email: user?.email || "",
+        type: "User",
+        typeLabel: "Specific User",
+        users: user ? [user] : []
+      };
+    } else if (step.approver_source_type === "ROLE") {
+      const role = roles.find((r) => r.id === step.approver_source_id);
+      const roleUsers = getUsersByRole(step.approver_source_id);
+      return {
+        name: role?.title || "Unknown Role",
+        email: "",
+        type: "Role",
+        typeLabel: "User Role",
+        users: roleUsers
+      };
+    } else if (step.approver_source_type === "DEPARTMENT") {
+      const dept = departments.find((d) => d.id === step.approver_source_id);
+      return {
+        name: dept?.title || "Unknown Department",
+        email: "",
+        type: "Department",
+        typeLabel: "Department",
+        users: []
+      };
     }
+    return { name: "Unknown", email: "", type: "", typeLabel: "", users: [] };
+  };
 
+  const handleSavePolicy = async () => {
     if (!policyForm.entity_type) {
-      toast.error("Please select an entity type");
+      toast.error("Please select a document type");
       return;
     }
 
     if (policyForm.steps.length === 0) {
-      toast.error("Please add at least one approval step");
+      toast.error("Please add at least one approver");
       return;
     }
 
     for (let i = 0; i < policyForm.steps.length; i++) {
       const step = policyForm.steps[i];
       if (!step.approver_source_type || !step.approver_source_id) {
-        toast.error(`Step ${i + 1} is incomplete. Please select an approver.`);
+        toast.error(`Approval level ${i + 1} is incomplete. Please select an approver.`);
         return;
       }
     }
 
     setSaving(true);
     try {
-      // Remove name from payload as backend doesn't support it
-      const { name, ...payloadWithoutName } = policyForm;
       const payload = {
-        ...payloadWithoutName,
+        id: policyForm.id,
+        entity_type: policyForm.entity_type,
+        hospitality_company_id: policyForm.hospitality_company_id,
+        hotel_id: policyForm.hotel_id,
+        department_id: policyForm.department_id,
+        is_active: policyForm.is_active,
         steps: policyForm.steps.map((step, index) => ({
           ...step,
           step_order: index + 1,
@@ -251,10 +317,10 @@ const ApprovalHierarchyPage = () => {
       let response;
       if (policyForm.id) {
         response = await updateApprovalPolicy(payload);
-        toast.success("Policy updated successfully");
+        toast.success("Workflow updated successfully");
       } else {
         response = await createApprovalPolicy(payload);
-        toast.success("Policy created successfully");
+        toast.success("Workflow created successfully");
       }
 
       setShowPolicyForm(false);
@@ -273,10 +339,8 @@ const ApprovalHierarchyPage = () => {
     try {
       const response = await getApprovalPolicy(policyId);
       const policy = response?.data?.data || response?.data;
-      // Generate display name from entity type and department
-      const displayName = policy.department_id
-        ? `${policy.entity_type} Approval Policy - ${departments.find((d) => d.id === policy.department_id)?.title || 'Department'}`
-        : `${policy.entity_type} Approval Policy`;
+      // Generate display name from entity type
+      const displayName = `${policy.entity_type} Approval Workflow`;
       setPolicyForm({
         id: policy.id,
         name: displayName,
@@ -296,17 +360,17 @@ const ApprovalHierarchyPage = () => {
   };
 
   const handleDeletePolicy = async (policyId) => {
-    if (!window.confirm("Are you sure you want to delete this policy?")) {
+    if (!window.confirm("Are you sure you want to delete this approval workflow?")) {
       return;
     }
 
     try {
       await deleteApprovalPolicy(policyId);
-      toast.success("Policy deleted successfully");
+      toast.success("Workflow deleted successfully");
       loadPolicies();
     } catch (error) {
       console.error("Error deleting policy:", error);
-      toast.error(error?.message?.response?.data?.message || "Failed to delete policy");
+      toast.error(error?.message?.response?.data?.message || "Failed to delete workflow");
     }
   };
 
@@ -324,77 +388,142 @@ const ApprovalHierarchyPage = () => {
     setSelectedPolicy(null);
   };
 
+  const getPolicyDisplayName = (policy) => {
+    return `${policy.entity_type} Approval Workflow`;
+  };
+
   const renderHierarchyGraph = (policy) => {
     if (!policy || !policy.steps || policy.steps.length === 0) {
       return (
         <div className="text-center py-5 text-muted">
           <i className="bi bi-diagram-3" style={{ fontSize: "48px" }}></i>
-          <p className="mt-3">No approval steps configured</p>
+          <p className="mt-3">No approvers configured yet</p>
+          <small>Add approvers to see the approval flow</small>
         </div>
       );
     }
 
     return (
       <div className="hierarchy-graph" style={{ padding: "20px 0", position: "relative" }}>
+        <div className="mb-3 text-center">
+          <small className="text-muted">Approval Flow</small>
+        </div>
         {policy.steps.map((step, index) => {
-          const approverName =
-            step.approver_source_type === "USER"
-              ? users.find((u) => u.user_id === step.approver_source_id)?.name || "Unknown User"
-              : step.approver_source_type === "ROLE"
-              ? roles.find((r) => r.id === step.approver_source_id)?.title || "Unknown Role"
-              : departments.find((d) => d.id === step.approver_source_id)?.title || "Unknown Department";
-
+          const approverInfo = getApproverDisplayInfo(step);
           const isLast = index === policy.steps.length - 1;
+          const hasMultipleUsers = approverInfo.users && approverInfo.users.length > 0;
 
           return (
-            <div key={step.id || index} style={{ position: "relative", marginBottom: isLast ? "0" : "20px" }}>
-              {/* Step Card */}
+            <div key={step.id || index} style={{ position: "relative", marginBottom: isLast ? "0" : "30px" }}>
+              {/* Approver Card */}
               <div className="d-flex align-items-center justify-content-center">
                 <div
                   className="card shadow-sm"
                   style={{
                     width: "100%",
-                    maxWidth: "400px",
-                    borderLeft: "4px solid #158993",
-                    borderRadius: "8px",
-                    transition: "transform 0.2s",
+                    maxWidth: "500px",
+                    borderLeft: "5px solid #158993",
+                    borderRadius: "10px",
+                    transition: "all 0.2s",
+                    backgroundColor: "#ffffff",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-3px)";
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "";
+                  }}
                 >
-                  <div className="card-body">
+                  <div className="card-body p-4">
                     <div className="text-center">
                       <div
-                        className="rounded-circle d-inline-flex align-items-center justify-content-center mb-2"
+                        className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
                         style={{
-                          width: "40px",
-                          height: "40px",
+                          width: "50px",
+                          height: "50px",
                           backgroundColor: "#158993",
                           color: "white",
-                          fontSize: "18px",
+                          fontSize: "20px",
                           fontWeight: "bold",
+                          boxShadow: "0 2px 8px rgba(21, 137, 147, 0.3)",
                         }}
                       >
                         {step.step_order}
                       </div>
-                      <h6 className="mb-2 fw-bold">{approverName}</h6>
-                      <div className="d-flex justify-content-center gap-2 flex-wrap">
+                      <h5 className="mb-2 fw-bold" style={{ color: "#1a1a1a" }}>
+                        {approverInfo.name}
+                      </h5>
+                      {approverInfo.email && (
+                        <p className="mb-2 text-muted small">{approverInfo.email}</p>
+                      )}
+                      
+                      {/* Show users when role is selected */}
+                      {hasMultipleUsers && (
+                        <div className="mt-3 mb-3">
+                          <div className="border rounded p-3" style={{ backgroundColor: "#f8f9fa" }}>
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <small className="fw-semibold text-muted">
+                                <i className="bi bi-people me-1"></i>
+                                {approverInfo.users.length} {approverInfo.users.length === 1 ? 'User' : 'Users'} with this role:
+                              </small>
+                            </div>
+                            <div className="text-start">
+                              {approverInfo.users.map((user, idx) => (
+                                <div 
+                                  key={user.user_id || idx} 
+                                  className="d-flex align-items-center mb-2 pb-2 border-bottom"
+                                  style={{ borderBottomColor: idx === approverInfo.users.length - 1 ? 'transparent' : '#dee2e6' }}
+                                >
+                                  <div className="flex-grow-1">
+                                    <div className="fw-semibold small">{user.name}</div>
+                                    {user.email && (
+                                      <div className="text-muted" style={{ fontSize: "11px" }}>
+                                        <i className="bi bi-envelope me-1"></i>
+                                        {user.email}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {!hasMultipleUsers && approverInfo.type === "ROLE" && (
+                        <div className="mt-2 mb-2">
+                          <small className="text-warning">
+                            <i className="bi bi-exclamation-triangle me-1"></i>
+                            No users found with this role for this hotel
+                          </small>
+                        </div>
+                      )}
+                      
+                      <div className="d-flex justify-content-center gap-2 flex-wrap mt-3">
                         <span
-                          className="badge"
+                          className="badge px-3 py-2"
                           style={{
                             backgroundColor:
                               step.decision_rule === "ALL" ? "#fef3c7" : "#dcfce7",
                             color: step.decision_rule === "ALL" ? "#92400e" : "#166534",
-                            fontSize: "11px",
+                            fontSize: "12px",
+                            fontWeight: "500",
                           }}
                         >
-                          {step.decision_rule === "ALL" ? "All Must Approve" : "Any Can Approve"}
+                          {step.decision_rule === "ALL" ? "✓ Everyone Must Approve" : "✓ Any One Can Approve"}
                         </span>
                         <span
-                          className="badge bg-secondary"
-                          style={{ fontSize: "11px" }}
+                          className="badge px-3 py-2"
+                          style={{ 
+                            backgroundColor: "#e5e7eb",
+                            color: "#374151",
+                            fontSize: "12px",
+                            fontWeight: "500",
+                          }}
                         >
-                          {step.approver_source_type}
+                          {approverInfo.typeLabel}
                         </span>
                       </div>
                     </div>
@@ -404,35 +533,47 @@ const ApprovalHierarchyPage = () => {
 
               {/* Arrow Connector */}
               {!isLast && (
-                <div className="text-center my-3" style={{ position: "relative" }}>
+                <div className="text-center my-4" style={{ position: "relative" }}>
                   <div
                     style={{
-                      width: "2px",
-                      height: "30px",
+                      width: "3px",
+                      height: "40px",
                       backgroundColor: "#158993",
                       margin: "0 auto",
                       position: "relative",
+                      borderRadius: "2px",
                     }}
                   >
                     <div
                       style={{
                         position: "absolute",
-                        bottom: "-6px",
+                        bottom: "-8px",
                         left: "50%",
                         transform: "translateX(-50%)",
                         width: "0",
                         height: "0",
-                        borderLeft: "6px solid transparent",
-                        borderRight: "6px solid transparent",
-                        borderTop: "8px solid #158993",
+                        borderLeft: "8px solid transparent",
+                        borderRight: "8px solid transparent",
+                        borderTop: "12px solid #158993",
                       }}
                     ></div>
+                  </div>
+                  <div className="mt-2">
+                    <small className="text-muted">Then</small>
                   </div>
                 </div>
               )}
             </div>
           );
         })}
+        {policy.steps.length > 0 && (
+          <div className="text-center mt-4 pt-3 border-top">
+            <small className="text-muted">
+              <i className="bi bi-check-circle-fill text-success me-1"></i>
+              Approval workflow complete
+            </small>
+          </div>
+        )}
       </div>
     );
   };
@@ -457,7 +598,7 @@ const ApprovalHierarchyPage = () => {
           >
             <i className="bi bi-arrow-left me-2"></i>Back
           </button>
-          <h4 className="mb-0">Approval Hierarchy</h4>
+          <h4 className="mb-0">Approval Workflow</h4>
           {hotel && (
             <p className="text-muted mb-0 mt-1">
               {hotel.name} - {[hotel.city, hotel.state].filter(Boolean).join(", ")}
@@ -473,7 +614,7 @@ const ApprovalHierarchyPage = () => {
             }}
             style={{ backgroundColor: "#158993", borderColor: "#158993" }}
           >
-            <i className="bi bi-plus-lg me-2"></i>Create Policy
+            <i className="bi bi-plus-lg me-2"></i>Create Workflow
           </button>
         )}
       </div>
@@ -485,7 +626,7 @@ const ApprovalHierarchyPage = () => {
             <div className="card buyer-card border-0 shadow-sm h-100">
               <div className="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
                 <h5 className="mb-0 fw-bold">
-                  {policyForm.id ? "Edit Approval Policy" : "Create Approval Policy"}
+                  {policyForm.id ? "Edit Approval Workflow" : "Create Approval Workflow"}
                 </h5>
                 <button
                   type="button"
@@ -500,21 +641,8 @@ const ApprovalHierarchyPage = () => {
                 </button>
               </div>
               <div className="card-body" style={{ maxHeight: "calc(100vh - 300px)", overflowY: "auto" }}>
-                <div className="mb-3">
-                  <label className="form-label">Policy Name *</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="e.g., RFQ Approval Policy"
-                    value={policyForm.name || ""}
-                    onChange={(e) =>
-                      setPolicyForm({ ...policyForm, name: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label">Entity Type *</label>
+                <div className="mb-4">
+                  <label className="form-label fw-semibold">Document Type *</label>
                   <Select
                     options={entityTypes}
                     value={entityTypes.find((e) => e.value === policyForm.entity_type)}
@@ -522,122 +650,140 @@ const ApprovalHierarchyPage = () => {
                       setPolicyForm({ ...policyForm, entity_type: option.value })
                     }
                     isDisabled={!!policyForm.id}
+                    placeholder="Select document type..."
                   />
+                  <small className="text-muted">Choose what type of documents this workflow applies to</small>
                 </div>
 
-                {policyForm.department_id !== undefined && (
-                  <div className="mb-3">
-                    <label className="form-label">Department (Optional)</label>
-                    <Select
-                      options={[
-                        { value: null, label: "All Departments" },
-                        ...departments.map((d) => ({ value: d.id, label: d.title })),
-                      ]}
-                      value={
-                        policyForm.department_id
-                          ? {
-                              value: policyForm.department_id,
-                              label:
-                                departments.find((d) => d.id === policyForm.department_id)?.title ||
-                                "Unknown",
-                            }
-                          : { value: null, label: "All Departments" }
-                      }
-                      onChange={(option) =>
-                        setPolicyForm({ ...policyForm, department_id: option.value })
-                      }
-                    />
-                  </div>
-                )}
-
-                <div className="mb-3">
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <label className="form-label mb-0">Approval Steps *</label>
+                <div className="mb-4">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <label className="form-label mb-0 fw-semibold">Approvers *</label>
                     <button
                       type="button"
-                      className="btn btn-sm btn-outline-primary"
+                      className="btn btn-sm btn-primary"
                       onClick={handleAddStep}
+                      style={{ backgroundColor: "#158993", borderColor: "#158993" }}
                     >
-                      <i className="bi bi-plus-lg me-1"></i>Add Step
+                      <i className="bi bi-plus-lg me-1"></i>Add Approver
                     </button>
                   </div>
 
                   {policyForm.steps.length === 0 ? (
-                    <div className="text-center py-4 border rounded text-muted">
-                      <p className="mb-0">No steps added yet</p>
-                      <small>Click "Add Step" to create the approval workflow</small>
+                    <div className="text-center py-5 border rounded" style={{ backgroundColor: "#f8f9fa" }}>
+                      <i className="bi bi-people text-muted" style={{ fontSize: "32px" }}></i>
+                      <p className="mb-1 mt-2 text-muted">No approvers added yet</p>
+                      <small className="text-muted">Click "Add Approver" to start building your approval flow</small>
                     </div>
                   ) : (
-                    <div className="border rounded p-3">
-                      {policyForm.steps.map((step, index) => (
-                        <div
-                          key={index}
-                          className="mb-3 p-3 border rounded"
-                          style={{ backgroundColor: "#f9fafb" }}
-                        >
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <h6 className="mb-0">Step {index + 1}</h6>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-danger"
-                              onClick={() => handleRemoveStep(index)}
-                              disabled={policyForm.steps.length === 1}
-                              title={policyForm.steps.length === 1 ? "At least one step is required" : "Remove this step"}
-                              style={{
-                                opacity: policyForm.steps.length === 1 ? 0.5 : 1,
-                                cursor: policyForm.steps.length === 1 ? "not-allowed" : "pointer"
-                              }}
-                            >
-                              <i className="bi bi-trash me-1"></i>
-                              Remove
-                            </button>
-                          </div>
+                    <div className="border rounded p-3" style={{ backgroundColor: "#f8f9fa" }}>
+                      {policyForm.steps.map((step, index) => {
+                        const approverInfo = getApproverDisplayInfo(step);
+                        return (
+                          <div
+                            key={index}
+                            className="mb-3 p-3 border rounded"
+                            style={{ backgroundColor: "#ffffff" }}
+                          >
+                            <div className="d-flex justify-content-between align-items-center mb-3">
+                              <div className="d-flex align-items-center gap-2">
+                                <span
+                                  className="badge rounded-circle d-flex align-items-center justify-content-center"
+                                  style={{
+                                    width: "28px",
+                                    height: "28px",
+                                    backgroundColor: "#158993",
+                                    color: "white",
+                                    fontSize: "14px",
+                                    fontWeight: "bold",
+                                  }}
+                                >
+                                  {index + 1}
+                                </span>
+                                <h6 className="mb-0">Approval Level {index + 1}</h6>
+                              </div>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleRemoveStep(index)}
+                                disabled={policyForm.steps.length === 1}
+                                title={policyForm.steps.length === 1 ? "At least one approver is required" : "Remove this approver"}
+                                style={{
+                                  opacity: policyForm.steps.length === 1 ? 0.5 : 1,
+                                  cursor: policyForm.steps.length === 1 ? "not-allowed" : "pointer"
+                                }}
+                              >
+                                <i className="bi bi-trash me-1"></i>
+                                Remove
+                              </button>
+                            </div>
 
-                          <div className="row">
-                            <div className="col-md-6 mb-2">
-                              <label className="form-label small">Approver Type *</label>
-                              <Select
-                                options={approverSourceTypes}
-                                value={approverSourceTypes.find(
-                                  (t) => t.value === step.approver_source_type
+                            <div className="row g-3">
+                              <div className="col-md-6">
+                                <label className="form-label small fw-semibold">Who approves? *</label>
+                                <Select
+                                  options={approverSourceTypes}
+                                  value={approverSourceTypes.find(
+                                    (t) => t.value === step.approver_source_type
+                                  )}
+                                  onChange={(option) => {
+                                    handleStepChange(index, "approver_source_type", option.value);
+                                    handleStepChange(index, "approver_source_id", null);
+                                  }}
+                                  placeholder="Select approver type..."
+                                />
+                              </div>
+
+                              <div className="col-md-6">
+                                <label className="form-label small fw-semibold">
+                                  {step.approver_source_type === "USER" 
+                                    ? "Select User *" 
+                                    : step.approver_source_type === "ROLE"
+                                    ? "Select Role *"
+                                    : "Select Department *"}
+                                </label>
+                                <Select
+                                  options={getApproverOptions(step.approver_source_type)}
+                                  value={
+                                    step.approver_source_id
+                                      ? getApproverOptions(step.approver_source_type).find(
+                                          (o) => o.value === step.approver_source_id
+                                        )
+                                      : null
+                                  }
+                                  onChange={(option) =>
+                                    handleStepChange(index, "approver_source_id", option.value)
+                                  }
+                                  isDisabled={!step.approver_source_type}
+                                  placeholder={`Select ${step.approver_source_type === "USER" ? "user" : step.approver_source_type === "ROLE" ? "role" : "department"}...`}
+                                />
+                                {step.approver_source_id && approverInfo.email && (
+                                  <small className="text-muted d-block mt-1">
+                                    <i className="bi bi-envelope me-1"></i>
+                                    {approverInfo.email}
+                                  </small>
                                 )}
-                                onChange={(option) =>
-                                  handleStepChange(index, "approver_source_type", option.value)
-                                }
-                              />
-                            </div>
+                              </div>
 
-                            <div className="col-md-6 mb-2">
-                              <label className="form-label small">Approver *</label>
-                              <Select
-                                options={getApproverOptions(step.approver_source_type)}
-                                value={
-                                  step.approver_source_id
-                                    ? getApproverOptions(step.approver_source_type).find(
-                                        (o) => o.value === step.approver_source_id
-                                      )
-                                    : null
-                                }
-                                onChange={(option) =>
-                                  handleStepChange(index, "approver_source_id", option.value)
-                                }
-                                isDisabled={!step.approver_source_type}
-                              />
-                            </div>
-
-                            <div className="col-md-12 mb-2">
-                              <label className="form-label small">Decision Rule *</label>
-                              <Select
-                                options={decisionRules}
-                                value={decisionRules.find((r) => r.value === step.decision_rule)}
-                                onChange={(option) =>
-                                  handleStepChange(index, "decision_rule", option.value)
-                                }
-                              />
+                              <div className="col-md-12">
+                                <label className="form-label small fw-semibold">Approval Requirement *</label>
+                                <Select
+                                  options={decisionRules}
+                                  value={decisionRules.find((r) => r.value === step.decision_rule)}
+                                  onChange={(option) =>
+                                    handleStepChange(index, "decision_rule", option.value)
+                                  }
+                                  placeholder="Select requirement..."
+                                />
+                                <small className="text-muted d-block mt-1">
+                                  {step.decision_rule === "ALL" 
+                                    ? "All selected approvers must approve to proceed" 
+                                    : "Any one of the selected approvers can approve to proceed"}
+                                </small>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -669,7 +815,7 @@ const ApprovalHierarchyPage = () => {
                       Saving...
                     </>
                   ) : (
-                    "Save Policy"
+                    "Save Workflow"
                   )}
                 </button>
               </div>
@@ -683,16 +829,10 @@ const ApprovalHierarchyPage = () => {
                 <h5 className="mb-0 fw-bold">Preview</h5>
               </div>
               <div className="card-body" style={{ maxHeight: "calc(100vh - 300px)", overflowY: "auto" }}>
-                {policyForm.name && (
-                  <div className="mb-3">
-                    <h6 className="fw-bold">{policyForm.name}</h6>
-                    {policyForm.department_id && (
-                      <small className="text-muted">
-                        Department: {departments.find((d) => d.id === policyForm.department_id)?.title}
-                      </small>
-                    )}
-                  </div>
-                )}
+                <div className="mb-3 pb-3 border-bottom">
+                  <h6 className="fw-bold mb-1">{policyForm.entity_type} Approval Workflow</h6>
+                  <small className="text-muted">Live preview of your approval flow</small>
+                </div>
                 {renderHierarchyGraph({
                   ...policyForm,
                   steps: policyForm.steps || []
@@ -707,9 +847,9 @@ const ApprovalHierarchyPage = () => {
             <div className="card buyer-card border-0 shadow-sm">
               <div className="card-body text-center py-5">
                 <i className="bi bi-diagram-3 text-muted" style={{ fontSize: "64px" }}></i>
-                <h5 className="mt-3 mb-2">No Approval Policies</h5>
+                <h5 className="mt-3 mb-2">No Approval Workflows</h5>
                 <p className="text-muted mb-4">
-                  Create an approval policy to define the workflow for this business unit
+                  Create an approval workflow to define who needs to approve documents for this hotel
                 </p>
                 <button
                   className="btn btn-primary"
@@ -719,7 +859,7 @@ const ApprovalHierarchyPage = () => {
                   }}
                   style={{ backgroundColor: "#158993", borderColor: "#158993" }}
                 >
-                  <i className="bi bi-plus-lg me-2"></i>Create First Policy
+                  <i className="bi bi-plus-lg me-2"></i>Create First Workflow
                 </button>
               </div>
             </div>
@@ -731,15 +871,11 @@ const ApprovalHierarchyPage = () => {
                     <div className="card-header bg-transparent d-flex justify-content-between align-items-center">
                       <div>
                         <h6 className="mb-0 fw-bold">
-                          {policy.department_id
-                            ? `${policy.entity_type} Approval Policy - ${departments.find((d) => d.id === policy.department_id)?.title || 'Department'}`
-                            : `${policy.entity_type} Approval Policy`}
+                          {getPolicyDisplayName(policy)}
                         </h6>
-                        {policy.department_id && (
-                          <small className="text-muted">
-                            Department: {departments.find((d) => d.id === policy.department_id)?.title}
-                          </small>
-                        )}
+                        <small className="text-muted">
+                          {policy.steps?.length || 0} approval level{policy.steps?.length !== 1 ? 's' : ''}
+                        </small>
                       </div>
                       <div className="d-flex gap-2">
                         <button
