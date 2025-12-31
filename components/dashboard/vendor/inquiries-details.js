@@ -869,7 +869,7 @@ const RfqManagementPreview = () => {
                       {rfqDetails?.tender_fees && rfqDetails?.is_tender   ? (
                         <div className=" col-md-2 col-sm-6 ">
                           <strong>Tender Fees:</strong>
-                          <div>{rfqDetails.tender_fees}</div>
+                          <div>₹{addCommasToNumber(rfqDetails.tender_fees / 100)}</div>
                         </div>
                       ):""}
                               
