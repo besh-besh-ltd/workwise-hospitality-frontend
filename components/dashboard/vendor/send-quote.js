@@ -19,6 +19,7 @@ import { IoMdInformationCircleOutline } from "react-icons/io";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal";
+import VendorNegotiationRoundBanner from "./NegotiationRoundBanner";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
@@ -1353,6 +1354,14 @@ return { deletedTerms, createdTerms, updatedTerms };
       {!loading && rfqDetails && (
         <section className="quote-send-sec-1">
           <div className="container-fluid ">
+            {/* Negotiation Round Banner */}
+            {rfqDetails.id && (
+              <div className="row mb-3">
+                <div className="col-12">
+                  <VendorNegotiationRoundBanner rfq_id={rfqDetails.id} />
+                </div>
+              </div>
+            )}
             <div className="row">
               <div className="col-md-12">
                 <div className="quote-sec-table">

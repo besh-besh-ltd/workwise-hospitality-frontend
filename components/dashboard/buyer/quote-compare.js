@@ -30,6 +30,9 @@ import ReadMore from "@/components/shared/ReadMore";
 import InputModal from "@/components/shared/InputModal";
 import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import NegotiationBanner from "./negotiation/NegotiationBanner";
+import { getProfile } from "@/services/Auth";
+import { getActiveNegotiationRound, getRoundQuotes } from "@/services/negotiation";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -84,6 +87,9 @@ const QuoteCompare = () => {
  const [openModalId, setOpenModalId] = useState(null);
  const[openInputModal , setOpenInputModal] =useState(false)
  const [showNormalizeModal, setShowNormalizeModal] = useState(false);
+ const [currentUser, setCurrentUser] = useState(null);
+ const [activeRound, setActiveRound] = useState(null);
+ const [roundQuotes, setRoundQuotes] = useState([]);
  
 
 
@@ -101,6 +107,44 @@ const QuoteCompare = () => {
     getAllProjects();
     fetchUserHotelMappings();
     // getPricehistory();
+    loadCurrentUser();
+  }, [rfq]);
+
+  const loadCurrentUser = async () => {
+    try {
+      const res = await getProfile();
+      setCurrentUser(res.data);
+    } catch (error) {
+      console.error("Error loading user:", error);
+    }
+  };
+
+  const loadNegotiationRoundData = async () => {
+    if (!rfq) return;
+    try {
+      const roundResponse = await getActiveNegotiationRound(rfq);
+      if (roundResponse.status === 1 && roundResponse.data && roundResponse.data.status === 'ACTIVE') {
+        setActiveRound(roundResponse.data);
+        // Load quotes for the active round
+        const quotesResponse = await getRoundQuotes(roundResponse.data.id);
+        if (quotesResponse.status === 1) {
+          setRoundQuotes(quotesResponse.data || []);
+        }
+      } else {
+        setActiveRound(null);
+        setRoundQuotes([]);
+      }
+    } catch (error) {
+      console.error("Error loading negotiation round data:", error);
+      setActiveRound(null);
+      setRoundQuotes([]);
+    }
+  };
+
+  useEffect(() => {
+    if (rfq) {
+      loadNegotiationRoundData();
+    }
   }, [rfq]);
 
   useEffect(() => {
@@ -1275,25 +1319,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
             <div className="col-md-8">
               {rfq && quotes && quotes.length > 0 && (
                 <div className="btn-options float-end">
-                  {/*Negotiation Module Button*/}
-                  <span
-                    onClick={() => {
-                      setOpenInputModal(true); // Make sure this matches the state variable name
-                    }}
-                    id="negotiation_button-top_actions-compare_quotes_page"
-                  >
-                    Negotiation
-                  </span>
-                  {openInputModal && (
-                    <InputModal
-                      show={openInputModal}
-                      onHide={() => setOpenInputModal(false)}
-                      onSubmit={handleSubmitTargetPrice}
-                      products={transformData(quotes)} // directly passing API response
-                      modalTitle="Set Target Price for Vendor"
-                    />
-                  )}
-
                   {/* Download quote & Close Rfq Buttons */}
                   <span id="download_quote_actions-quote_compare_page" onClick={handleDownloadQuote}>
                     {" "}
@@ -1325,6 +1350,15 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
           </div>
         </div>
       </section>
+
+      {/* Negotiation Banner */}
+      {rfq && (
+        <section className="quote-edit-sec-1">
+          <div className="container-fluid" style={{ paddingTop: "15px", paddingBottom: "15px" }}>
+            <NegotiationBanner rfq_id={rfq} currentUser={currentUser} />
+          </div>
+        </section>
+      )}
 
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
@@ -2088,6 +2122,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                         targetPrice={item.latest_target_price}
                                         // targetHistory={targetPriceHistory}
                         normalizeFilter={normalizeFilter}
+                        negotiationRoundQuotes={roundQuotes.filter(rq => rq.rfq_product_id === item.id)}
+                        activeRound={activeRound}
                         freightFilter={freightFilter}
                         vendorCodeMap={vendorCodeMap}
                                       />

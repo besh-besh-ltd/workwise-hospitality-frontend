@@ -16,6 +16,7 @@ import FinalizeHistoryModal from "./FinalizeHistoryModal";
 import { toast } from "react-toastify";
 import { getAvailableHierarchies } from "@/services/general";
 import HierarchySelectionModal from "./HierarchySelectionModal";
+import { Badge } from "react-bootstrap";
 
 const QuoteCompareTable = ({
   quotations,
@@ -32,6 +33,8 @@ const QuoteCompareTable = ({
   normalizeFilter,
   freightFilter,
   vendorCodeMap = {},
+  negotiationRoundQuotes = [], // Array of negotiation round quotes for this product
+  activeRound = null, // Active negotiation round info
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
@@ -193,10 +196,41 @@ const QuoteCompareTable = ({
                 const missingCosts = hasMissingCosts(originalItem);
                 const isRegret = item?.quote_details?.is_regret == 1;
 
+                // Check if this quote has a negotiation round quote
+                const vendorId = item?.quote_details?.vendor_details?.id || item?.quote_details?.created_by;
+                const roundQuote = negotiationRoundQuotes?.find(
+                  rq => rq.vendor_id === vendorId && rq.rfq_product_id === proditem.id
+                );
+
+                // Determine background color based on price comparison
+                let rowBgColor = 'transparent';
+                let priceComparison = null;
+                if (roundQuote && roundQuote.previous_price && roundQuote.quoted_price) {
+                  const diff = roundQuote.quoted_price - roundQuote.previous_price;
+                  if (diff < 0) {
+                    rowBgColor = '#d4edda'; // Green - better (lower price)
+                    priceComparison = 'better';
+                  } else if (diff > 0) {
+                    rowBgColor = '#f8d7da'; // Red - worse (higher price)
+                    priceComparison = 'worse';
+                  } else {
+                    rowBgColor = '#fff3cd'; // Yellow - same
+                    priceComparison = 'same';
+                  }
+                }
+
                 return (
                   <div
                     className="table-col"
                     key={`tab_qq_${item.quote_id}_${index}`}
+                    style={{
+                      backgroundColor: rowBgColor,
+                      border: roundQuote ? '2px solid #158993' : 'none',
+                      borderRadius: roundQuote ? '4px' : '0',
+                      position: 'relative',
+                      margin: roundQuote ? '2px' : '0'
+                    }}
+                    title={roundQuote ? `This quote was submitted for Round ${activeRound?.round_number || ''}` : ''}
                   >
                     <div
                       className="table-si-row table-dark-row "
@@ -220,6 +254,11 @@ const QuoteCompareTable = ({
                             : 'VEN-NA';
                           return code;
                         })()}
+                        {roundQuote && activeRound && (
+                          <Badge bg="info" className="ms-2" style={{ fontSize: "0.7rem" }}>
+                            Round {activeRound.round_number} Quote
+                          </Badge>
+                        )}
                         {(() => {
                           // build dynamic missing note under the vendor header (non-regret only)
                           const orig = originalQuotations?.find(o => o.quote_id === item.quote_id);
@@ -416,6 +455,12 @@ const QuoteCompareTable = ({
                             {calculateTotal(itemUpdated, quantity)}
                           </span>
                         )}
+                      {roundQuote && roundQuote.previous_price && (
+                        <div className="small text-muted mt-1" style={{ fontSize: "0.75rem" }}>
+                          <div>Previous: ₹{parseFloat(roundQuote.previous_price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                          <div>Round: ₹{parseFloat(roundQuote.quoted_price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        </div>
+                      )}
                       {item.is_lowest && (
                         <span className="d-flex align-items-center gap-2 border border-light rounded-3 text-white px-3 py-2">
                           <FontAwesomeIcon icon={faAward} fontSize={16} />
