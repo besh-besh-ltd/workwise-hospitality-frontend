@@ -1,0 +1,565 @@
+import React, { useState, useEffect } from 'react';
+import { Modal, Button, Form, Table, Badge, Alert, Spinner } from 'react-bootstrap';
+import { 
+  createNegotiationRound, 
+  approveNegotiationRound, 
+  rejectNegotiationRound,
+  getRoundQuotes
+} from '@/services/negotiation';
+import { toast } from 'react-toastify';
+import moment from 'moment';
+
+const NegotiationModal = ({ 
+  show, 
+  onHide, 
+  mode, 
+  rfq_id, 
+  products = [], 
+  activeRounds = [],
+  roundsHistory = [],
+  onRefresh
+}) => {
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [formData, setFormData] = useState({ target_price: '', end_date: '' });
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [roundQuotes, setRoundQuotes] = useState([]);
+  const [selectedRound, setSelectedRound] = useState(null);
+
+  useEffect(() => {
+    if (show && mode === 'create') {
+      setSelectedProducts([]);
+      setFormData({ target_price: '', end_date: '' });
+    }
+    if (show && mode === 'view-approve' && activeRounds.length > 0) {
+      const pendingRound = activeRounds.find(r => r.status === 'PENDING_APPROVAL');
+      if (pendingRound) {
+        setSelectedRound(pendingRound);
+        loadRoundQuotes(pendingRound.id);
+      }
+    }
+  }, [show, mode, activeRounds]);
+
+  const loadRoundQuotes = async (roundId) => {
+    try {
+      setLoading(true);
+      const response = await getRoundQuotes(roundId);
+      if (response.status === 1) {
+        setRoundQuotes(response.data || []);
+      }
+    } catch (error) {
+      setRoundQuotes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProductToggle = (productId) => {
+    setSelectedProducts(prev => {
+      if (prev.includes(productId)) {
+        return prev.filter(id => id !== productId);
+      } else {
+        return [...prev, productId];
+      }
+    });
+  };
+
+  const handleSelectAll = () => {
+    const availableProducts = products.filter(p => !hasActiveRound(p.id));
+    if (selectedProducts.length === availableProducts.length) {
+      setSelectedProducts([]);
+    } else {
+      setSelectedProducts(availableProducts.map(p => p.id));
+    }
+  };
+
+  const hasActiveRound = (productId) => {
+    return activeRounds.some(r => r.rfq_product_id === productId);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (selectedProducts.length === 0 || !formData.target_price || !formData.end_date) {
+      toast.error('Please select at least one product and fill all fields');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Create rounds for each selected product
+      for (const productId of selectedProducts) {
+        await createNegotiationRound({
+          rfq_id,
+          rfq_product_id: parseInt(productId),
+          target_price: parseFloat(formData.target_price),
+          end_date: formData.end_date
+        });
+      }
+      
+      toast.success(`Negotiation round${selectedProducts.length > 1 ? 's' : ''} created successfully`);
+      onRefresh();
+      onHide();
+    } catch (error) {
+      toast.error(error.message || 'Failed to create negotiation round');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleApprove = async (roundId) => {
+    setSubmitting(true);
+    try {
+      const response = await approveNegotiationRound(roundId);
+      if (response.status === 1) {
+        toast.success('Round approved successfully');
+        onRefresh();
+        if (selectedRound?.id === roundId) {
+          setSelectedRound(null);
+          setRoundQuotes([]);
+        }
+      } else {
+        toast.error(response.message || 'Failed to approve round');
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to approve round');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReject = async (roundId) => {
+    const reason = window.prompt('Please provide a reason for rejection:');
+    if (!reason) return;
+
+    setSubmitting(true);
+    try {
+      const response = await rejectNegotiationRound(roundId, reason);
+      if (response.status === 1) {
+        toast.success('Round rejected successfully');
+        onRefresh();
+        if (selectedRound?.id === roundId) {
+          setSelectedRound(null);
+          setRoundQuotes([]);
+        }
+      } else {
+        toast.error(response.message || 'Failed to reject round');
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to reject round');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const getModalTitle = () => {
+    switch (mode) {
+      case 'create': return 'Create Negotiation Round';
+      case 'history': return 'Negotiation Rounds History';
+      case 'view-approve': return 'View & Approve Negotiation Rounds';
+      default: return 'Negotiation';
+    }
+  };
+
+  const getProductName = (product) => {
+    return product?.product_details?.[0]?.name || `Product ${product.id}`;
+  };
+
+  const getVendorCodes = (product) => {
+    const quotations = product?.quotations || [];
+    if (quotations.length === 0) return 'No quotes';
+    
+    const codes = quotations.slice(0, 3).map(q => {
+      const vendor = q?.quote_details?.vendor_details;
+      if (vendor?.rfq_product_vendor_id) {
+        return `VEN-${vendor.rfq_product_vendor_id}`;
+      }
+      return null;
+    }).filter(Boolean);
+    
+    if (quotations.length > 3) {
+      return `${codes.join(', ')} +${quotations.length - 3} more`;
+    }
+    return codes.join(', ') || 'No vendor codes';
+  };
+
+  const getProductDetails = (product) => {
+    const details = product?.product_details?.[0] || {};
+    const productSpecs = product?.product_specs || [];
+    const rfqDetails = details?.rfq_details || [];
+    
+    const spec = productSpecs.find(s => s.title === 'Spec')?.value || 
+                 rfqDetails.find(d => d.title === 'Spec')?.value || '-';
+    const size = productSpecs.find(s => s.title === 'Size')?.value || 
+                 rfqDetails.find(d => d.title === 'Size')?.value || '-';
+    const quantity = rfqDetails.find(d => d.title === 'Quantity')?.value || 
+                     product?.quantity || '-';
+    const unit = rfqDetails.find(d => d.title === 'Unit')?.value || 
+                 product?.unit || '-';
+    
+    return {
+      name: details?.name || details?.product_name || `Product ${product.id}`,
+      spec,
+      size,
+      quantity,
+      unit
+    };
+  };
+
+  const renderCreateForm = () => {
+    const availableProducts = products.filter(p => !hasActiveRound(p.id));
+    
+    return (
+      <Form onSubmit={handleSubmit}>
+        <Form.Group className="mb-3">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <Form.Label className="mb-0 fw-bold">Select Product</Form.Label>
+            {availableProducts.length > 1 && (
+              <Button 
+                variant="link" 
+                size="sm" 
+                onClick={handleSelectAll}
+                className="p-0"
+              >
+                {selectedProducts.length === availableProducts.length ? 'Deselect All' : 'Select All'}
+              </Button>
+            )}
+          </div>
+          
+          <Table bordered hover size="sm" className="mb-0">
+            <thead className="table-light">
+              <tr>
+                <th style={{ width: '40px' }}></th>
+                <th>Product</th>
+                <th>Spec</th>
+                <th>Size</th>
+                <th>Quantity</th>
+                <th>Unit</th>
+                <th>Vendor Codes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((product) => {
+                const hasRound = hasActiveRound(product.id);
+                const isSelected = selectedProducts.includes(product.id);
+                const details = getProductDetails(product);
+                
+                return (
+                  <tr 
+                    key={product.id}
+                    onClick={() => !hasRound && handleProductToggle(product.id)}
+                    style={{
+                      cursor: hasRound ? 'not-allowed' : 'pointer',
+                      backgroundColor: hasRound ? '#f8f9fa' : isSelected ? '#e3f2fd' : '#fff',
+                      opacity: hasRound ? 0.6 : 1,
+                    }}
+                  >
+                    <td className="text-center align-middle">
+                      <Form.Check 
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={hasRound}
+                        onChange={() => {}}
+                        style={{ pointerEvents: 'none' }}
+                      />
+                    </td>
+                    <td className="align-middle">
+                      {details.name}
+                      {hasRound && (
+                        <Badge bg="warning" text="dark" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                          Active
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="align-middle">{details.spec}</td>
+                    <td className="align-middle">{details.size}</td>
+                    <td className="align-middle">{details.quantity}</td>
+                    <td className="align-middle">{details.unit}</td>
+                    <td className="align-middle">
+                      <small className="text-muted">{getVendorCodes(product)}</small>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+          {selectedProducts.length > 0 && (
+            <Form.Text className="text-success mt-2 d-block">
+              {selectedProducts.length} product{selectedProducts.length > 1 ? 's' : ''} selected
+            </Form.Text>
+          )}
+        </Form.Group>
+
+        <Form.Group className="mb-3">
+          <Form.Label>Target Price (₹) <span className="text-danger">*</span></Form.Label>
+          <Form.Control
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.target_price}
+            onChange={(e) => setFormData({ ...formData, target_price: e.target.value })}
+            placeholder="Enter target price"
+            required
+          />
+        </Form.Group>
+
+        <Form.Group className="mb-3">
+          <Form.Label>End Date <span className="text-danger">*</span></Form.Label>
+          <Form.Control
+            type="datetime-local"
+            value={formData.end_date}
+            onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+            min={new Date().toISOString().slice(0, 16)}
+            required
+          />
+          <Form.Text className="text-muted">
+            Vendors can submit one quote per product until this date
+          </Form.Text>
+        </Form.Group>
+
+        <div className="d-flex justify-content-end gap-2">
+          <Button variant="secondary" onClick={onHide} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button variant="primary" type="submit" disabled={submitting || selectedProducts.length === 0}>
+            {submitting ? <Spinner size="sm" /> : `Create Round${selectedProducts.length > 1 ? 's' : ''}`}
+          </Button>
+        </div>
+      </Form>
+    );
+  };
+
+  const renderHistory = () => (
+    <div>
+      {roundsHistory.length === 0 ? (
+        <Alert variant="info">No negotiation rounds found</Alert>
+      ) : (
+        <Table striped bordered hover size="sm">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Round #</th>
+              <th>Target Price</th>
+              <th>End Date</th>
+              <th>Status</th>
+              <th>Created By</th>
+            </tr>
+          </thead>
+          <tbody>
+            {roundsHistory.map((round) => {
+              const product = products.find(p => p.id === round.rfq_product_id);
+              return (
+                <tr key={round.id}>
+                  <td>{product ? getProductName(product) : `Product ${round.rfq_product_id}`}</td>
+                  <td>{round.round_number}</td>
+                  <td>₹{parseFloat(round.target_price).toLocaleString()}</td>
+                  <td>{moment(round.end_date).format('DD/MM/YYYY HH:mm')}</td>
+                  <td>
+                    <Badge bg={
+                      round.status === 'ACTIVE' ? 'success' :
+                      round.status === 'PENDING_APPROVAL' ? 'warning' :
+                      round.status === 'COMPLETED' ? 'info' :
+                      'secondary'
+                    }>
+                      {round.status}
+                    </Badge>
+                  </td>
+                  <td>{round.created_by_name || 'N/A'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      )}
+    </div>
+  );
+
+  const renderViewApprove = () => {
+    const pendingRounds = activeRounds.filter(r => r.status === 'PENDING_APPROVAL');
+    const activeRoundsList = activeRounds.filter(r => r.status === 'ACTIVE');
+    const currentUserId = parseInt(localStorage.getItem('userId') || localStorage.getItem('user_id') || '0');
+
+    return (
+      <div>
+        {pendingRounds.length === 0 && activeRoundsList.length === 0 ? (
+          <Alert variant="info">No active negotiation rounds</Alert>
+        ) : (
+          <>
+            {pendingRounds.length > 0 && (
+              <div className="mb-4">
+                <h6 className="mb-3">Pending Approval</h6>
+                {pendingRounds.map((round) => {
+                  const product = products.find(p => p.id === round.rfq_product_id);
+                  const userApproval = round.approvals?.find(a => a.approver_user_id === currentUserId);
+                  const canApprove = userApproval?.status === 'PENDING';
+
+                  return (
+                    <div key={round.id} className="border rounded p-3 mb-3" style={{ backgroundColor: '#fff8e1' }}>
+                      <div className="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                          <strong>{product ? getProductName(product) : `Product ${round.rfq_product_id}`}</strong>
+                          <Badge bg="warning" text="dark" className="ms-2">Round {round.round_number}</Badge>
+                        </div>
+                        <div>
+                          {canApprove ? (
+                            <>
+                              <Button
+                                variant="success"
+                                size="sm"
+                                className="me-2"
+                                onClick={() => handleApprove(round.id)}
+                                disabled={submitting}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={() => handleReject(round.id)}
+                                disabled={submitting}
+                              >
+                                Reject
+                              </Button>
+                            </>
+                          ) : (
+                            <Badge bg={userApproval?.status === 'APPROVED' ? 'success' : 'secondary'}>
+                              {userApproval?.status || 'N/A'}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="row">
+                        <div className="col-md-6">
+                          <small className="text-muted">Target Price:</small>
+                          <div className="fw-bold">₹{parseFloat(round.target_price).toLocaleString()}</div>
+                        </div>
+                        <div className="col-md-6">
+                          <small className="text-muted">End Date:</small>
+                          <div>{moment(round.end_date).format('DD/MM/YYYY HH:mm')}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {activeRoundsList.length > 0 && (
+              <div>
+                <h6 className="mb-3">Active Rounds</h6>
+                {activeRoundsList.map((round) => {
+                  const product = products.find(p => p.id === round.rfq_product_id);
+                  return (
+                    <div key={round.id} className="border rounded p-3 mb-3" style={{ backgroundColor: '#e8f5e9' }}>
+                      <div className="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                          <strong>{product ? getProductName(product) : `Product ${round.rfq_product_id}`}</strong>
+                          <Badge bg="success" className="ms-2">Round {round.round_number}</Badge>
+                        </div>
+                         <Button
+                           variant={selectedRound?.id === round.id ? "primary" : "outline-primary"}
+                           size="sm"
+                           onClick={() => {
+                             if (selectedRound?.id === round.id) {
+                               setSelectedRound(null);
+                               setRoundQuotes([]);
+                             } else {
+                               setSelectedRound(round);
+                               loadRoundQuotes(round.id);
+                             }
+                           }}
+                           disabled={loading}
+                         >
+                           {loading && selectedRound?.id === round.id ? (
+                             <Spinner size="sm" />
+                           ) : selectedRound?.id === round.id ? (
+                             'Hide Quotes'
+                           ) : (
+                             'View Quotes'
+                           )}
+                         </Button>
+                      </div>
+                      <div className="row">
+                        <div className="col-md-6">
+                          <small className="text-muted">Target Price:</small>
+                          <div className="fw-bold">₹{parseFloat(round.target_price).toLocaleString()}</div>
+                        </div>
+                        <div className="col-md-6">
+                          <small className="text-muted">End Date:</small>
+                          <div>{moment(round.end_date).format('DD/MM/YYYY HH:mm')}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+             {selectedRound && (
+               <div className="mt-4 border-top pt-3">
+                 <h6>Quotes for Round {selectedRound.round_number}</h6>
+                 {loading ? (
+                   <div className="text-center py-3">
+                     <Spinner size="sm" />
+                   </div>
+                 ) : roundQuotes.length === 0 ? (
+                   <Alert variant="info" className="mb-0">No quotes submitted yet</Alert>
+                 ) : (
+                   <Table striped bordered hover size="sm">
+                     <thead>
+                       <tr>
+                         <th>Vendor</th>
+                         <th>Quoted Price</th>
+                         <th>Previous Price</th>
+                         <th>Submitted At</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       {roundQuotes.map((quote, idx) => (
+                         <tr key={idx}>
+                           <td>{quote.vendor_name || quote.vendor_company_name || 'N/A'}</td>
+                           <td>₹{parseFloat(quote.quoted_price || 0).toLocaleString()}</td>
+                           <td>{quote.previous_price ? `₹${parseFloat(quote.previous_price).toLocaleString()}` : '-'}</td>
+                           <td>{quote.submitted_at ? moment(quote.submitted_at).format('DD/MM/YYYY HH:mm') : '-'}</td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </Table>
+                 )}
+               </div>
+             )}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <Modal show={show} onHide={onHide} size="lg" centered>
+      <Modal.Header closeButton>
+        <Modal.Title>{getModalTitle()}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {loading ? (
+          <div className="text-center py-4">
+            <Spinner animation="border" />
+          </div>
+        ) : (
+          <>
+            {mode === 'create' && renderCreateForm()}
+            {mode === 'history' && renderHistory()}
+            {mode === 'view-approve' && renderViewApprove()}
+          </>
+        )}
+      </Modal.Body>
+      {mode !== 'create' && (
+        <Modal.Footer>
+          <Button variant="secondary" onClick={onHide}>
+            Close
+          </Button>
+        </Modal.Footer>
+      )}
+    </Modal>
+  );
+};
+
+export default NegotiationModal;

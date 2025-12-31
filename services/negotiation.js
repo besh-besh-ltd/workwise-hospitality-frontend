@@ -1,13 +1,14 @@
 import axiosInstance from "@/lib/axios";
 
 /**
- * Create a new negotiation round
+ * Create a new negotiation round (product-specific)
  */
-export const createNegotiationRound = ({ rfq_id, target_price, end_date }) => {
+export const createNegotiationRound = ({ rfq_id, rfq_product_id, target_price, end_date }) => {
   return new Promise(async (resolve, reject) => {
     try {
       const response = await axiosInstance.post('/negotiation/rounds', {
         rfq_id,
+        rfq_product_id,
         target_price,
         end_date
       });
@@ -19,12 +20,15 @@ export const createNegotiationRound = ({ rfq_id, target_price, end_date }) => {
 };
 
 /**
- * Get all rounds for an RFQ
+ * Get all rounds for an RFQ (optionally filtered by product)
  */
-export const getNegotiationRounds = (rfq_id) => {
+export const getNegotiationRounds = (rfq_id, rfq_product_id = null) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}`);
+      const url = rfq_product_id 
+        ? `/negotiation/rounds/${rfq_id}?rfq_product_id=${rfq_product_id}`
+        : `/negotiation/rounds/${rfq_id}`;
+      const response = await axiosInstance.get(url);
       resolve(response.data);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
@@ -33,12 +37,26 @@ export const getNegotiationRounds = (rfq_id) => {
 };
 
 /**
- * Get active round for an RFQ
+ * Get active round for a product
  */
-export const getActiveNegotiationRound = (rfq_id) => {
+export const getActiveNegotiationRound = (rfq_id, rfq_product_id) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/active`);
+      const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/active?rfq_product_id=${rfq_product_id}`);
+      resolve(response.data);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+
+/**
+ * Get all active rounds for an RFQ (all products)
+ */
+export const getAllActiveNegotiationRounds = (rfq_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/active-all`);
       resolve(response.data);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
@@ -111,11 +129,10 @@ export const getRoundQuotes = (round_id) => {
 /**
  * Vendor submits quote for a round
  */
-export const submitVendorRoundQuote = ({ round_id, rfq_product_id, quoted_price, previous_price }) => {
+export const submitVendorRoundQuote = ({ round_id, quoted_price, previous_price }) => {
   return new Promise(async (resolve, reject) => {
     try {
       const response = await axiosInstance.post(`/negotiation/rounds/${round_id}/quote`, {
-        rfq_product_id,
         quoted_price,
         previous_price
       });

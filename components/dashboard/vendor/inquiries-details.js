@@ -18,6 +18,7 @@ import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { toast } from "react-toastify";
 import { ApprovalWorkflowSection, ApprovalPendingBanner } from "@/components/dashboard/buyer/approval";
+import VendorNegotiationInfo from "./VendorNegotiationInfo";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -799,6 +800,15 @@ const RfqManagementPreview = () => {
                       />
                     </section>
                   )}
+                  {/* Negotiation Info Banner */}
+                  {rfqDetails?.products?.map((product) => (
+                    <VendorNegotiationInfo
+                      key={product.id}
+                      rfq_id={rfqDetails.id}
+                      rfq_product_id={product.id}
+                    />
+                  ))}
+
                   {/* RFQ Details Section */}
                   <div className="bg-light p-3 rounded-2">
                     <div className="row g-3">

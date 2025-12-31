@@ -30,9 +30,8 @@ import ReadMore from "@/components/shared/ReadMore";
 import InputModal from "@/components/shared/InputModal";
 import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
-import NegotiationBanner from "./negotiation/NegotiationBanner";
+import NegotiationCompactBanner from "./negotiation/NegotiationCompactBanner";
 import { getProfile } from "@/services/Auth";
-import { getActiveNegotiationRound, getRoundQuotes } from "@/services/negotiation";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -88,8 +87,6 @@ const QuoteCompare = () => {
  const[openInputModal , setOpenInputModal] =useState(false)
  const [showNormalizeModal, setShowNormalizeModal] = useState(false);
  const [currentUser, setCurrentUser] = useState(null);
- const [activeRound, setActiveRound] = useState(null);
- const [roundQuotes, setRoundQuotes] = useState([]);
  
 
 
@@ -119,33 +116,6 @@ const QuoteCompare = () => {
     }
   };
 
-  const loadNegotiationRoundData = async () => {
-    if (!rfq) return;
-    try {
-      const roundResponse = await getActiveNegotiationRound(rfq);
-      if (roundResponse.status === 1 && roundResponse.data && roundResponse.data.status === 'ACTIVE') {
-        setActiveRound(roundResponse.data);
-        // Load quotes for the active round
-        const quotesResponse = await getRoundQuotes(roundResponse.data.id);
-        if (quotesResponse.status === 1) {
-          setRoundQuotes(quotesResponse.data || []);
-        }
-      } else {
-        setActiveRound(null);
-        setRoundQuotes([]);
-      }
-    } catch (error) {
-      console.error("Error loading negotiation round data:", error);
-      setActiveRound(null);
-      setRoundQuotes([]);
-    }
-  };
-
-  useEffect(() => {
-    if (rfq) {
-      loadNegotiationRoundData();
-    }
-  }, [rfq]);
 
   useEffect(() => {
     if(quotes && quotes.length > 0) {
@@ -1351,14 +1321,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         </div>
       </section>
 
-      {/* Negotiation Banner */}
-      {rfq && (
-        <section className="quote-edit-sec-1">
-          <div className="container-fluid" style={{ paddingTop: "15px", paddingBottom: "15px" }}>
-            <NegotiationBanner rfq_id={rfq} currentUser={currentUser} />
-          </div>
-        </section>
-      )}
 
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
@@ -1583,6 +1545,12 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       </div>
                     </div>
                   </div>
+                )}
+                {"rfq" in router?.query && quotes && quotes.length > 0 && (
+                  <NegotiationCompactBanner 
+                    rfq_id={rfq} 
+                    products={quotes || []} 
+                  />
                 )}
                 {"rfq" in router?.query && (
                   <div
@@ -2122,8 +2090,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                         targetPrice={item.latest_target_price}
                                         // targetHistory={targetPriceHistory}
                         normalizeFilter={normalizeFilter}
-                        negotiationRoundQuotes={roundQuotes.filter(rq => rq.rfq_product_id === item.id)}
-                        activeRound={activeRound}
+                        negotiationRoundQuotes={[]}
+                        activeRound={null}
                         freightFilter={freightFilter}
                         vendorCodeMap={vendorCodeMap}
                                       />
