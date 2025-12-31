@@ -46,6 +46,7 @@ const ApprovalHierarchyPage = () => {
     { value: "TENDER", label: "TENDER" },
     { value: "PO", label: "Purchase Order" },
     { value: "INDENT", label: "Indent" },
+    { value: "NEGOTIATION", label: "Negotiation" },
   ];
 
   const approverSourceTypes = [

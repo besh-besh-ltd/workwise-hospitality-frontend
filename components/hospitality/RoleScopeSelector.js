@@ -257,7 +257,12 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   };
 
   const handleAddRole = () => {
-    if (!selectedRole || !selectedCompany || !selectedDepartment) {
+    // Only validate if a role is selected
+    if (!selectedRole) {
+      return;
+    }
+
+    if (!selectedCompany || !selectedDepartment) {
       if (!selectedDepartment) {
         setError("Please select a department");
       }
@@ -369,11 +374,16 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
           <select
             className="form-select"
             value={selectedRole?.id || ""}
-            onChange={e =>
-              setSelectedRole(
-                roles.find(r => r.id === Number(e.target.value)) || null
-              )
-            }
+            onChange={e => {
+              const role = roles.find(r => r.id === Number(e.target.value)) || null;
+              setSelectedRole(role);
+              if (!role) {
+                setError(null);
+                setSelectedCompany(null);
+                setSelectedHotel(null);
+                setSelectedDepartment(null);
+              }
+            }}
           >
             <option value="">Select a role</option>
             {roles.map(role => (
@@ -385,7 +395,9 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
         </div>
 
         <div className="col-md-4">
-          <label className="form-label">Select Company *</label>
+          <label className="form-label">
+            Select Company {selectedRole && <sup className="text-danger">*</sup>}
+          </label>
           <select
             className="form-select"
             value={selectedCompany?.id || ""}
@@ -396,6 +408,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
               setSelectedCompany(company || null);
               setSelectedHotel(null);
             }}
+            disabled={!selectedRole}
           >
             <option value="">Select company</option>
             {companies.map(c => (
@@ -410,7 +423,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
           <label className="form-label">Select Hotel (optional)</label>
           <select
             className="form-select"
-            disabled={!selectedCompany}
+            disabled={!selectedCompany || !selectedRole}
             value={selectedHotel?.id || ""}
             onChange={e => {
                 setSelectedHotel(
@@ -434,19 +447,19 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       <div className="row g-3 mb-3">
         <div className="col-md-4">
           <label className="form-label">
-            Select Department <sup className="text-danger">*</sup>
+            Select Department {selectedRole && <sup className="text-danger">*</sup>}
             {propSelectedDepartment && !isEditMode && " (Auto-selected)"}
           </label>
           <select
             className={`form-select ${!selectedDepartment && error ? "is-invalid" : ""}`}
-            disabled={propSelectedDepartment && !isEditMode ? true : false}
+            disabled={propSelectedDepartment && !isEditMode ? true : !selectedRole}
             value={selectedDepartment?.id || selectedDepartment?.value || ""}
             onChange={e => {
               const dept = departments.find(d => d.id === Number(e.target.value)) || null;
               setSelectedDepartment(dept);
               if (dept) setError(null);
             }}
-            required
+            required={!!selectedRole}
           >
             <option value="">Select Department</option>
             {departments.map(h => (
@@ -498,7 +511,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       <div className="d-flex justify-content-end">
         <button
           className="btn btn-primary p-2"
-          disabled={!selectedRole || !selectedCompany || !selectedDepartment}
+          disabled={!selectedRole || (selectedRole && (!selectedCompany || !selectedDepartment))}
           onClick={handleAddRole}
         >
           Add Role Scope

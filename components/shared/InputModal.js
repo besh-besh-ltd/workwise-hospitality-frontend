@@ -6,11 +6,14 @@ const InputModal = ({
   onHide,
   onSubmit,
   modalTitle = "Set Target Price",
-  products = []
+  products = [],
+  rfq_id = null,
+  isNegotiationRound = false
 }) => {
   const [selectedProductId, setSelectedProductId] = useState("");
   const [selectedVendorIds, setSelectedVendorIds] = useState([]);
   const [numericValue, setNumericValue] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selectedProduct = products.find((p) => p.id === Number(selectedProductId));
@@ -25,12 +28,17 @@ const InputModal = ({
 
  const handleSubmit = async () => {
   if (!selectedProductId || selectedVendorIds.length === 0 || !numericValue) return;
+  if (isNegotiationRound && !endDate) {
+    alert("Please select an end date for the negotiation round");
+    return;
+  }
   setIsSubmitting(true);
   try {
     await onSubmit({
       productId: Number(selectedProductId),
       vendorIds: selectedVendorIds,
       targetPrice: parseFloat(numericValue),
+      endDate: endDate ? new Date(endDate).toISOString() : null
     });
     onHide();
     window.location.reload(); // 🔄 Reload the page after successful submit
@@ -154,18 +162,35 @@ const InputModal = ({
 
         {/* Target Price (shown after product selection) */}
         {selectedProduct && (
-          <Form.Group className="mb-3 mt-3">
-            <Form.Label>Target Price</Form.Label>
-            <Form.Control
-              type="number"
-              min="0"
-              step="0.01"
-              value={numericValue}
-              onChange={(e) => setNumericValue(e.target.value)}
-              disabled={isSubmitting}
-              placeholder="Enter target price"
-            />
-          </Form.Group>
+          <>
+            <Form.Group className="mb-3 mt-3">
+              <Form.Label>Target Price <span className="text-danger">*</span></Form.Label>
+              <Form.Control
+                type="number"
+                min="0"
+                step="0.01"
+                value={numericValue}
+                onChange={(e) => setNumericValue(e.target.value)}
+                disabled={isSubmitting}
+                placeholder="Enter target price"
+              />
+            </Form.Group>
+            {isNegotiationRound && (
+              <Form.Group className="mb-3">
+                <Form.Label>End Date <span className="text-danger">*</span></Form.Label>
+                <Form.Control
+                  type="datetime-local"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  disabled={isSubmitting}
+                  min={new Date().toISOString().slice(0, 16)}
+                />
+                <Form.Text className="text-muted">
+                  Vendors can submit quotes until this date
+                </Form.Text>
+              </Form.Group>
+            )}
+          </>
         )}
 
         {/* Show Vendor List + Existing Prices only if target price is entered */}
@@ -308,6 +333,7 @@ const InputModal = ({
               !selectedProductId ||
               selectedVendorIds.length === 0 ||
               !numericValue ||
+              (isNegotiationRound && !endDate) ||
               isSubmitting
             }
             size="sm"
@@ -322,7 +348,7 @@ const InputModal = ({
                 Submitting...
               </>
             ) : (
-              "Set Target Price"
+              isNegotiationRound ? "Create Negotiation Round" : "Set Target Price"
             )}
           </Button>
         </div>

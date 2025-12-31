@@ -2285,30 +2285,8 @@ useEffect(() => {
                 </div>
               ) : (
                 <>
-                  {/* Is Tender & Project Selection Section */}
+                  {/* Project Selection Section */}
                   <div className="row mb-3">
-                    <div className="col-md-3">
-                      <label className="form-label fw-medium">Is Tender</label>
-                      <Select
-                        id="is_tender-toggle-top-create_rfq_page"
-                        options={[
-                          { label: "Yes", value: 1 },
-                          { label: "No", value: 0 },
-                        ]}
-                        value={rfqFormDataFromStore.is_tender === 1 ? { label: "Yes", value: 1 } : { label: "No", value: 0 }}
-                        onChange={(selectedOption) => {
-                          const value = selectedOption?.value || 0;
-                          dispatch(setOtherFormFields({ field_name: "is_tender", value }));
-                          if (value === 0) {
-                            dispatch(setOtherFormFields({ field_name: "tender_fees", value: 0 }));
-                            dispatch(setOtherFormFields({ field_name: "vendor_clarification_date", value: "" }));
-                            dispatch(setOtherFormFields({ field_name: "tender_publish_date", value: "" }));
-                          }
-                          setHasUnsavedChanges(true);
-                        }}
-                        placeholder="Select"
-                      />
-                    </div>
                     {rfqFormDataFromStore.is_tender === 1 && userHotelMappings.length > 0 && (
                       <div className="col-md-3">
                         <label className="form-label fw-medium">Select Hotels</label>
