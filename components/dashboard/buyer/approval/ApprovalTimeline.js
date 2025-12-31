@@ -174,7 +174,7 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
                   </div>
 
                   {/* Decision Rule Info */}
-                  <div className="text-muted small mb-3">
+                  <div className="text-muted mb-3">
                     <BsArrowRight className="me-1" />
                     {step.decision_rule === "ANY"
                       ? "Requires approval from any one approver"
@@ -199,7 +199,7 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
                           >
                             <ApproverIcon
                               size={16}
-                              style={{ color: approverStatus.color, marginTop: 2 }}
+                              style={{ color: approverStatus.color, marginTop: 3.5 }}
                             />
                             <div className="flex-grow-1">
                               <div className="d-flex align-items-center gap-2">

@@ -17,7 +17,7 @@ const ReadOnlyBanner = ({
   return (
     <Alert
       variant={variant}
-      className={`mb-3 ${className} mx-4 mb-4`}
+      className={`mb-3 ${className} mb-4`}
       dismissible={dismissible}
       onClose={onDismiss}
     >

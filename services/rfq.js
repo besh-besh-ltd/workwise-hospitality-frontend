@@ -1251,3 +1251,15 @@ export const extractQuotation = (quotation_document, rfq_data) => {
 
   return axios.post(`${quotationAIServerUrl}/extract_quotation`, formData);
 };
+
+/** Submit technical evaluation for approval - creates an approval workflow instance */
+export const submitTechEvalForApproval = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/tech-eval/submit-for-approval`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error?.message || "Failed to submit for approval" });
+    }
+  });
+};

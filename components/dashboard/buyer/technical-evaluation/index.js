@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import AsyncSelect from "react-select/async";
 import { useRouter } from "next/router";
@@ -11,6 +11,9 @@ import { getProjectList } from '@/services/project';
 import { getUserMappings } from '@/services/hospitality';
 import Select from 'react-select';
 import { formatRFQNumber } from "@/utils/sharedFunctions";
+import { useModulePermissions } from "@/hooks/useModulePermissions";
+import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
+import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 
 
 
@@ -32,6 +35,47 @@ const BuyerTechnicalEvaluation = () => {
   const [clauseInfo, setClauseInfo] = useState(null);
   const [selectedVendorsMap, setSelectedVendorsMap] = useState(new Map());
   const [isTenderFilter, setIsTenderFilter] = useState(null);
+
+  // Extract hotel IDs for permission checks - use hotel_id from RFQ data
+  const hotelIds = useMemo(() => {
+    if (currentRfq) {
+      // Primary: use hotel_id from RFQ (technical evaluation has single hotel)
+      if (currentRfq.hotel_id !== undefined && currentRfq.hotel_id !== null) {
+        return [currentRfq.hotel_id];
+      }
+      // Alternative: try hospitality_hotel_id field
+      if (currentRfq.hospitality_hotel_id !== undefined && currentRfq.hospitality_hotel_id !== null) {
+        return [currentRfq.hospitality_hotel_id];
+      }
+      // Alternative: try mappedHotels array
+      if (currentRfq.mappedHotels && currentRfq.mappedHotels.length > 0) {
+        const ids = currentRfq.mappedHotels.map(h => h.hotel_id || h.hospitality_hotel_id).filter(id => id !== undefined && id !== null);
+        if (ids.length > 0) return ids;
+      }
+    }
+    // Fallback: use user's hotel mappings if available
+    if (userHotelMappings && userHotelMappings.length > 0) {
+      return userHotelMappings.map(h => h.hospitality_hotel_id).filter(id => id !== undefined && id !== null);
+    }
+    return [];
+  }, [currentRfq, userHotelMappings]);
+
+  // Permission hook for technical evaluation module
+  // Always enabled when RFQ is selected - API will handle empty hotelIds gracefully
+  const {
+    canRead,
+    canUpdate,
+    canCreate,
+    canApprove,
+    loading: permissionsLoading,
+  } = useModulePermissions({
+    moduleKey: "te",
+    hotelIds: hotelIds,
+    enabled: !!currentRfq,
+  });
+
+  // For technical evaluation, "write" access means either update OR create permission
+  const canWrite = canUpdate || canCreate;
 
   const getAllProjects = () => {
     getProjectList()
@@ -194,6 +238,19 @@ useEffect(() => {
     }
   }, [rfq_id]);
 
+  // Access Denied check - show when user has no read permission
+  // Only check when an RFQ is selected and we have permission context
+  const hasPermissionContext = hotelIds.length > 0 && !!currentRfq;
+  if (hasPermissionContext && !permissionsLoading && !canRead) {
+    return (
+      <AccessDeniedPage
+        title="Access Denied"
+        message="You do not have permission to view technical evaluations for this RFQ. Contact your administrator to request access."
+        backUrl="/dashboard/buyer"
+        backLabel="Back to Dashboard"
+      />
+    );
+  }
 
   return (
     <>
@@ -403,6 +460,16 @@ useEffect(() => {
                   </div>
                 }
 
+                {/* Read-Only Banner - Shows when user has read but not write permission */}
+                {hasPermissionContext && !permissionsLoading && !canWrite && canRead && (
+                  <div className="mt-3 mb-3">
+                    <ReadOnlyBanner
+                      title="View Only Mode"
+                      message="You have read-only access to this technical evaluation. Contact your administrator to request edit permissions."
+                    />
+                  </div>
+                )}
+
                 <div className="quote-sec-main">
                   <>
                     {!loading && currentRfq &&
@@ -414,7 +481,7 @@ useEffect(() => {
                       </>}
 
                     {currentRfq && clauseInfo &&
-                      clauseInfo.map((rfqProduct) => {
+                      clauseInfo.map((rfqProduct, productIndex) => {
                         if (clauseMap.get(rfqProduct.rfq_product_id)) {
                           const product = currentRfq.products.find(product => product.id == rfqProduct.rfq_product_id)
                           if(!product) return null;
@@ -500,6 +567,9 @@ useEffect(() => {
                                     selectedVendor={vendorMap.get(product.id)}
                                     selectedVendors={productSelectedVendors.map(vendor => vendor.value)}
                                     minimumPassingScore={rfqProduct?.minimum_passing_score}
+                                    canWrite={canWrite}
+                                    canApprove={canApprove}
+                                    permissionsLoading={permissionsLoading}
                                   />
 
                                 </div>

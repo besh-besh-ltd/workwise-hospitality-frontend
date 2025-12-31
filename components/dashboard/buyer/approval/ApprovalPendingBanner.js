@@ -42,7 +42,7 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item" }) =
   };
 
   const scrollToApprovalSection = () => {
-    const section = document.querySelector(".buyer-rfq-approval-sec");
+    const section = document.querySelector(".approval-workflow-accordion");
     if (section) {
       section.scrollIntoView({ behavior: "smooth", block: "start" });
     }

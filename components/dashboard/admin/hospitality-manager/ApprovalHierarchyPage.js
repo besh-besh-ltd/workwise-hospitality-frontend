@@ -42,11 +42,12 @@ const ApprovalHierarchyPage = () => {
   });
 
   const entityTypes = [
-    { value: "RFQ", label: "RFQ" },
-    { value: "TENDER", label: "TENDER" },
-    { value: "PO", label: "Purchase Order" },
-    { value: "INDENT", label: "Indent" },
-    { value: "NEGOTIATION", label: "Negotiation" },
+    { value: "RFQ", label: "RFQ Approval" },
+    { value: "TENDER", label: "Tender Approval" },
+    { value: "PO", label: "Purchase Order Approval" },
+    { value: "NEGOTIATION", label: "Negotiation Approval" },
+    { value: "NEGOTIATION_ROUND", label: "Negotiation Rounds Approval" },
+    { value: "TECHNICAL", label: "Technical Approval" },
   ];
 
   const approverSourceTypes = [

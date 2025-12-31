@@ -1,5 +1,5 @@
 import FileLink from '@/components/shared/FileLink';
-import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getSummarisedDeviation, getTechClearedVendorsResult, updateBuyerMarks } from '@/services/rfq';
+import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getSummarisedDeviation, getTechClearedVendorsResult, updateBuyerMarks, submitTechEvalForApproval } from '@/services/rfq';
 import { faMessage } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import React, { useEffect, useRef, useState } from 'react'
@@ -11,9 +11,12 @@ import ReadMore from '@/components/shared/ReadMore';
 import { Dropdown, Modal, Form } from 'react-bootstrap';
 import Image from 'next/image';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
+import { FiSend } from "react-icons/fi";
+import { ApprovalWorkflowSection } from "@/components/dashboard/buyer/approval";
+import { getEntityApprovalInstances } from "@/services/approval";
 
 
-const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, currentRfq ,  vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors, minimumPassingScore: _minimumPassingScore }) => {
+const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, currentRfq ,  vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors, minimumPassingScore: _minimumPassingScore, canWrite = true, canApprove = false, permissionsLoading = false }) => {
     
   const multipleVendorsSelected = selectedVendors && selectedVendors.length > 1;
   
@@ -36,11 +39,45 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     const [buyerRemark, setBuyerRemark] = useState("");
     const [buyerMarks, setBuyerMarks] = useState("");
     const [minimumPassingScore, setMinimumPassingScore] = useState(null);
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
+    const [isSubmittedForApproval, setIsSubmittedForApproval] = useState(false);
+    const [isApproved, setIsApproved] = useState(false);
+    const [approvalStatusLoading, setApprovalStatusLoading] = useState(false);
     // const [summarisedDeviation , setSummarisedDeviation] = useState();
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
-    
- 
+
+    // Fetch approval status for this product
+    const fetchApprovalStatus = async () => {
+        if (!product?.id) return;
+
+        try {
+            setApprovalStatusLoading(true);
+            const response = await getEntityApprovalInstances("TECHNICAL", product.id);
+            const instances = response?.data?.data || response?.data || [];
+
+            // Check if there's any pending or in-progress approval instance
+            const hasPendingApproval = instances.some(
+                instance => instance.status === 'PENDING' || instance.status === 'IN_PROGRESS'
+            );
+
+            // Check if there's an approved instance
+            const hasApprovedInstance = instances.some(
+                instance => instance.status === 'APPROVED'
+            );
+
+            setIsSubmittedForApproval(hasPendingApproval);
+            setIsApproved(hasApprovedInstance);
+        } catch (error) {
+            console.error("Error fetching approval status:", error);
+            // Don't set error state, just keep the current state
+        } finally {
+            setApprovalStatusLoading(false);
+        }
+    };
+
+
     const addToTechnicallyAccepted = async (vendor = null) => {
         // When triggered from the ellipsis menu, a vendor object is passed.
         // Ensure that becomes the currently selected vendor so confirmation works.
@@ -156,6 +193,37 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
             setLoading(false);
         }
     }
+
+    // Handler for submitting technical evaluation for approval (product level)
+    const handleSubmitForApproval = async () => {
+        if (!product?.id) {
+            toast.error("Product information is missing");
+            return;
+        }
+
+        try {
+            setSubmitLoading(true);
+            const payload = {
+                rfq_id: parseInt(rfq_id),
+                rfq_product_id: product.id,
+                is_tender: currentRfq?.is_tender === 1,
+            };
+
+            await submitTechEvalForApproval(payload);
+            toast.success("Technical evaluation submitted for approval successfully");
+            setShowSubmitModal(false);
+
+            // Refresh the approval status to update UI
+            await fetchApprovalStatus();
+
+            // Refresh the data to show updated approval status
+            if (refetch) refetch();
+        } catch (error) {
+            toast.error(error?.message || "Failed to submit for approval");
+        } finally {
+            setSubmitLoading(false);
+        }
+    };
 
     const handleSaveBuyerMarks = async () => {
         if (!selectedClauseForRemark || !selectedVendorForRemark) {
@@ -319,6 +387,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     //  fetchSummarisedDeviation();
     // },[])
     // console.log("gettig this dine ", summarisedDeviation);
+
+    // Fetch approval status on mount and when product changes
+    useEffect(() => {
+        if (product?.id) {
+            fetchApprovalStatus();
+        }
+    }, [product?.id]);
+
     useEffect(() => {
         if(_vendors) {
             setVendors(_vendors);
@@ -453,7 +529,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                               >
                                                 View Profile
                                               </Dropdown.Item>
-                                              {isCleared == null && (
+                                              {isCleared == null && canWrite && !permissionsLoading && !isSubmittedForApproval && (
                                                 <>
                                                   <Dropdown.Item
                                                     href="#"
@@ -584,11 +660,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                       className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
                                       style={{
                                         maxWidth: "120px",
-                                        backgroundColor: "var(--primary-color)",
+                                        backgroundColor: (!canWrite || permissionsLoading || isSubmittedForApproval) ? "#cccccc" : "var(--primary-color)",
                                         color: "#ffffff",
                                         fontSize: "13px",
+                                        cursor: (!canWrite || permissionsLoading || isSubmittedForApproval) ? "not-allowed" : "pointer",
                                       }}
                                       onClick={() => openRemarkModal(clauseItem, vendor)}
+                                      disabled={!canWrite || permissionsLoading || isSubmittedForApproval}
+                                      title={isSubmittedForApproval ? "Evaluation is submitted for approval" : (!canWrite ? "You don't have permission to add marks" : "")}
                                       id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-clause_actions-technical_evaluation_page`}
                                     >
                                       Add Marks/Remark
@@ -656,8 +735,10 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                     <button
                                         type="button"
                                         className="btn btn-secondary border-0 p-2"
-                                        style={{ width: "220px", marginRight: 10 }}
+                                        style={{ width: "220px", marginRight: 10, opacity: (!canWrite || permissionsLoading || isSubmittedForApproval) ? 0.6 : 1 }}
                                         onClick={() => addToTechnicallyAccepted()}
+                                        disabled={!canWrite || permissionsLoading || isSubmittedForApproval}
+                                        title={isSubmittedForApproval ? "Evaluation is submitted for approval" : (!canWrite ? "You don't have permission to accept vendors" : "")}
                                         id="technically_accept_vendor-vendor_evaluation-technical_evaluation_page"
                                     >
                                         Technically Accepted
@@ -665,8 +746,10 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                     <button
                                         type="button"
                                         className="btn btn-danger border-0 p-2"
-                                        style={{ width: "255px" }}
+                                        style={{ width: "255px", opacity: (!canWrite || permissionsLoading || isSubmittedForApproval) ? 0.6 : 1 }}
                                         onClick={() => setShowRejectConfirmModal(true)}
+                                        disabled={!canWrite || permissionsLoading || isSubmittedForApproval}
+                                        title={isSubmittedForApproval ? "Evaluation is submitted for approval" : (!canWrite ? "You don't have permission to reject vendors" : "")}
                                         id="technically_reject_vendor-vendor_evaluation-technical_evaluation_page"
                                     >
                                         Technically Not Accepted
@@ -862,12 +945,51 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
               type="button"
               className="btn btn-primary"
               onClick={handleSaveBuyerMarks}
-              disabled={loading}
+              disabled={loading || !canWrite || permissionsLoading}
+              title={!canWrite ? "You don't have permission to save marks" : ""}
             >
               {loading ? "Saving..." : "Save"}
             </button>
           </Modal.Footer>
         </Modal>
+
+        {/* Submit for Approval Button - Product Level */}
+        <div className="d-flex justify-content-end mt-4 mb-3">
+          <button
+            type="button"
+            className={`btn btn-sm p-2 ${isApproved ? 'btn-success' : (isSubmittedForApproval ? 'btn-warning' : 'btn-primary')}`}
+            style={{width: 220}}
+            onClick={() => setShowSubmitModal(true)}
+            disabled={!canWrite || permissionsLoading || submitLoading || isSubmittedForApproval || isApproved}
+            title={isApproved ? "Evaluation has been approved" : (isSubmittedForApproval ? "Evaluation is pending approval" : (!canWrite ? "You don't have permission to submit for approval" : "Submit evaluation for approval"))}
+            id={`submit_for_approval_product_${product?.id}-technical_evaluation_page`}
+          >
+            {submitLoading ? "Submitting..." : (isApproved ? "Approved" : (isSubmittedForApproval ? "Submitted for Approval" : "Submit for Approval"))}
+          </button>
+        </div>
+
+        {/* Approval Workflow Section - Product Level */}
+        {product?.id && (
+          <div className="buyer-rfq-approval-sec mt-3 mb-3">
+            <ApprovalWorkflowSection
+              entityType="TECHNICAL"
+              entityId={product.id}
+              entityLabel={`Evaluation of ${product?.product_details?.[0]?.name || 'Product'}`}
+            />
+          </div>
+        )}
+
+        {/* Submit for Approval Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showSubmitModal}
+          onClose={() => setShowSubmitModal(false)}
+          onConfirm={handleSubmitForApproval}
+          title="Submit for Approval"
+          description={`Are you sure you want to submit the technical evaluation for "${product?.product_details?.[0]?.name || 'this product'}" for approval?\n\nOnce submitted, it will be sent to the technical approver for review.`}
+          confirmButtonColor="primary"
+          confirmButtonText={submitLoading ? "Submitting..." : "Submit"}
+          cancelButtonText="Cancel"
+        />
 
         <hr />
       </div>

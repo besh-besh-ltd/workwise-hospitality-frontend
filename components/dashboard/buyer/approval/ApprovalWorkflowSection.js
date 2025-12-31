@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Card, Badge, Button, Alert, Spinner } from "react-bootstrap";
+import { Accordion, Badge, Button, Alert, Spinner } from "react-bootstrap";
 import { toast } from "react-toastify";
 import {
   BsCheckCircleFill,
@@ -78,12 +78,10 @@ const ApprovalWorkflowSection = ({ entityType, entityId, entityLabel = "Item" })
   // Loading state
   if (loading) {
     return (
-      <Card className="border-0 shadow-sm">
-        <Card.Body className="text-center py-5">
-          <Spinner animation="border" variant="primary" className="mb-3" />
-          <p className="text-muted mb-0">Loading approval workflow...</p>
-        </Card.Body>
-      </Card>
+      <div className="border rounded-md p-4 text-center">
+        <Spinner animation="border" variant="primary" className="mb-3" />
+        <p className="text-muted mb-0">Loading approval workflow...</p>
+      </div>
     );
   }
 
@@ -107,148 +105,177 @@ const ApprovalWorkflowSection = ({ entityType, entityId, entityLabel = "Item" })
   // No approval instance
   if (!instance) {
     return (
-      <Card className="border-0 shadow-sm">
-        <Card.Body className="text-center py-5">
-          <BsShieldCheck size={48} className="text-muted mb-3 opacity-50" />
-          <h6 className="text-muted">No Approval Workflow</h6>
-          <p className="text-muted small mb-0">
-            No approval workflow is currently active for this {entityLabel.toLowerCase()}.
-          </p>
-        </Card.Body>
-      </Card>
+      <div className="border rounded-md p-4 text-center">
+        <BsShieldCheck size={48} className="text-muted mb-3 opacity-50" />
+        <h6 className="text-muted">No Approval Workflow</h6>
+        <p className="text-muted small mb-0">
+          No approval workflow is currently active for this {entityLabel.toLowerCase()}.
+        </p>
+      </div>
     );
   }
 
   const statusInfo = statusConfig[status] || statusConfig.PENDING;
   const StatusIcon = statusInfo.icon;
 
+  // Determine accordion header background color
+  // Warning (yellow) if pending and action required from current user
+  // Success (green) if approved or no action required
+  const isActionRequired = canUserApprove && status === "PENDING";
+  const headerBgColor = isActionRequired
+    ? "#fff3cd"  // Bootstrap warning light
+    : (status === "APPROVED" ? "#d1e7dd" : "#f8f9fa");  // Bootstrap success light or default gray
+
   return (
     <>
-      <Card className="border-0 shadow-sm">
-        {/* Header */}
-        <Card.Header
-          className="py-3"
-          style={{
-            backgroundColor: status === "PENDING" && canUserApprove ? "#fff3cd" : "#fff",
-            borderBottom: "1px solid #dee2e6",
-          }}
-        >
-          <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div className="d-flex align-items-center gap-2">
-              <div
-                className="d-flex align-items-center justify-content-center rounded-circle"
-                style={{
-                  width: 40,
-                  height: 40,
-                  backgroundColor: statusInfo.color,
-                  color: "white",
-                }}
-              >
-                <StatusIcon size={20} />
-              </div>
-              <div>
-                <h6 className="mb-0 fw-bold">Approval Workflow</h6>
-                <small className="text-muted">
-                  {totalSteps > 0 ? `Step ${currentStep} of ${totalSteps}` : "No steps configured"}
-                </small>
-              </div>
-            </div>
-
-            <Badge
-              bg={statusInfo.variant}
-              className="px-3 py-2"
-              style={{ fontSize: "0.85rem" }}
-            >
-              {statusInfo.label}
-            </Badge>
-          </div>
-
-          {/* Action Required Notice */}
-          {canUserApprove && status === "PENDING" && (
-            <Alert variant="warning" className="mt-3 mb-0 py-2 border-0">
-              <div className="d-flex justify-content-between align-items-center">
+      <style jsx global>{`
+        .approval-workflow-accordion .accordion-button {
+          background-color: ${headerBgColor} !important;
+          width: 100% !important;
+          margin: 0 !important;
+        }
+        .approval-workflow-accordion .accordion-button:not(.collapsed) {
+          background-color: ${headerBgColor} !important;
+          box-shadow: none;
+        }
+        .approval-workflow-accordion .accordion-button:focus {
+          box-shadow: none;
+        }
+      `}</style>
+      <Accordion className="approval-workflow-accordion">
+        <Accordion.Item eventKey="0" className="border rounded-md overflow-hidden">
+          {/* Accordion Header */}
+          <Accordion.Header>
+            <div className="d-flex justify-content-between align-items-center w-100 me-3 py-1">
+              <div className="d-flex align-items-center gap-3">
+                <div
+                  className="d-flex align-items-center justify-content-center rounded-circle"
+                  style={{
+                    width: 45,
+                    height: 45,
+                    backgroundColor: statusInfo.color,
+                    color: "white",
+                  }}
+                >
+                  <StatusIcon size={22} />
+                </div>
                 <div>
-                  <strong>Action Required:</strong> You are the current approver.
-                  Please review and take action below.
+                  <h6 className="mb-1 fw-bold text-dark" style={{ fontSize: "1rem" }}>Approval Workflow</h6>
+                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                    <small className="text-secondary">
+                      {totalSteps > 0 ? `Step ${currentStep} of ${totalSteps}` : "No steps configured"}
+                    </small>
+                    <Badge bg={statusInfo.variant} className="px-2 py-1" style={{ fontSize: "0.75rem" }}>
+                      {statusInfo.label}
+                    </Badge>
+                    {isActionRequired && (
+                      <Badge bg="danger" className="px-2 py-1" style={{ fontSize: "0.75rem" }}>
+                        Action Required
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
-            </Alert>
-          )}
-        </Card.Header>
 
-        {/* Body */}
-        <Card.Body className="py-4">
-          {/* Timeline */}
-          <ApprovalTimeline
-            steps={steps}
-            currentStep={currentStep}
-            initiatedBy={initiatedBy}
-          />
-
-          {/* Action Buttons for Current Approver */}
-          {canUserApprove && status === "PENDING" && (
-            <div
-              className="mt-4 pt-4 border-top"
-              style={{ backgroundColor: "#fffbeb", margin: "-1rem", padding: "1.5rem", marginTop: "1.5rem" }}
-            >
-              <h6 className="fw-bold mb-0 fs-5">Take Action</h6>
-              <p className="text-muted small mb-3">
-                Review the {entityLabel.toLowerCase()} details above and choose to approve or reject.
-                {" "}A comment is optional for approval but required for rejection.
-              </p>
-              <div className="d-flex gap-2">
-                <Button
-                  variant="success"
-                  className="p-2"
-                  onClick={() => openActionModal("APPROVE")}
-                  disabled={actionLoading}
+              <div className="d-flex align-items-center gap-2">
+                {/* Status Badge - Larger */}
+                <Badge
+                  bg={statusInfo.variant}
+                  className="px-3 py-2"
+                  style={{ fontSize: "0.9rem" }}
                 >
-                  Approve {entityLabel}
-                </Button>
-                <Button
-                  variant="outline-danger"
-                  className="p-2"
-                  onClick={() => openActionModal("REJECT")}
-                  disabled={actionLoading}
-                >
-                  Reject {entityLabel}
-                </Button>
+                  {statusInfo.label}
+                </Badge>
               </div>
             </div>
-          )}
+          </Accordion.Header>
 
-          {/* Status Messages */}
-          {status === "APPROVED" && (
-            <Alert variant="success" className="mt-4 mb-0 d-flex align-items-center gap-2">
-              <BsCheckCircleFill size={20} />
-              <div>
-                <strong>Approved!</strong> This {entityLabel.toLowerCase()} has been fully approved
-                and can proceed to the next stage.
-              </div>
-            </Alert>
-          )}
+          {/* Accordion Body */}
+          <Accordion.Body className="py-4">
+            {/* Action Required Notice */}
+            {canUserApprove && status === "PENDING" && (
+              <Alert variant="warning" className="mb-3 py-2 border-0">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>Action Required:</strong> You are the current approver.
+                    Please review and take action below.
+                  </div>
+                </div>
+              </Alert>
+            )}
 
-          {status === "REJECTED" && (
-            <Alert variant="danger" className="mt-4 mb-0 d-flex align-items-center gap-2">
-              <BsXCircleFill size={20} />
-              <div>
-                <strong>Rejected.</strong> This {entityLabel.toLowerCase()} has been rejected.
-                Please review the rejection reason in the timeline above.
-              </div>
-            </Alert>
-          )}
+            {/* Timeline */}
+            <ApprovalTimeline
+              steps={steps}
+              currentStep={currentStep}
+              initiatedBy={initiatedBy}
+            />
 
-          {status === "PENDING" && !canUserApprove && (
-            <Alert variant="info" className="mt-4 mb-0 d-flex align-items-center gap-2">
-              <BsClockFill size={20} />
-              <div>
-                <strong>Pending Approval.</strong> This {entityLabel.toLowerCase()} is waiting
-                for approval from the designated approver(s). You will be notified when it's your turn.
+            {/* Action Buttons for Current Approver */}
+            {canUserApprove && status === "PENDING" && (
+              <div
+                className="mt-4 pt-4 border-top"
+                style={{ backgroundColor: "#fffbeb", margin: "-1rem", padding: "1.5rem", marginTop: "1.5rem" }}
+              >
+                <h6 className="fw-bold mb-1 fs-5">Take Action</h6>
+                <p className="text-muted mb-3">
+                  Review the {entityLabel.toLowerCase()} details above and choose to approve or reject.
+                  {" "}A comment is optional for approval but required for rejection.
+                </p>
+                <div className="d-flex gap-2">
+                  <Button
+                    variant="success"
+                    className="p-2"
+                    onClick={() => openActionModal("APPROVE")}
+                    disabled={actionLoading}
+                  >
+                    Approve {entityLabel}
+                  </Button>
+                  <Button
+                    variant="outline-danger"
+                    className="p-2"
+                    onClick={() => openActionModal("REJECT")}
+                    disabled={actionLoading}
+                  >
+                    Reject {entityLabel}
+                  </Button>
+                </div>
               </div>
-            </Alert>
-          )}
-        </Card.Body>
-      </Card>
+            )}
+
+            {/* Status Messages */}
+            {status === "APPROVED" && (
+              <Alert variant="success" className="mt-4 mb-0 d-flex align-items-center gap-2">
+                <BsCheckCircleFill size={20} />
+                <div>
+                  <strong>Approved!</strong> This {entityLabel.toLowerCase()} has been fully approved
+                  and can proceed to the next stage.
+                </div>
+              </Alert>
+            )}
+
+            {status === "REJECTED" && (
+              <Alert variant="danger" className="mt-4 mb-0 d-flex align-items-center gap-2">
+                <BsXCircleFill size={20} />
+                <div>
+                  <strong>Rejected.</strong> This {entityLabel.toLowerCase()} has been rejected.
+                  Please review the rejection reason in the timeline above.
+                </div>
+              </Alert>
+            )}
+
+            {status === "PENDING" && !canUserApprove && (
+              <Alert variant="info" className="mt-4 mb-0 d-flex align-items-center gap-2">
+                <BsClockFill size={20} />
+                <div>
+                  <strong>Pending Approval.</strong> This {entityLabel.toLowerCase()} is waiting
+                  for approval from the designated approver(s). You will be notified when it's your turn.
+                </div>
+              </Alert>
+            )}
+          </Accordion.Body>
+        </Accordion.Item>
+      </Accordion>
 
       {/* Action Modal */}
       <ApprovalActionModal

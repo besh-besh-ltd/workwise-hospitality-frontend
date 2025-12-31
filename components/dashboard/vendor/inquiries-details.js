@@ -1215,6 +1215,18 @@ const RfqManagementPreview = () => {
                           </tbody>
                         </table>
                       </div>
+
+                      {/* Approval Workflow Section - Only visible to buyers */}
+                      {enableBuyerView && rfqDetails?.id && (
+                        <div className="approval-workflow-section">
+                          <ApprovalWorkflowSection
+                            entityType={rfqDetails?.is_tender === 1 ? "TENDER" : "RFQ"}
+                            entityId={id}
+                            entityLabel={rfqDetails?.is_tender === 1 ? "Tender" : "RFQ"}
+                          />
+                        </div>
+                      )}
+
                       <form>
                         <div className="row">
                           <div className="col-md-12">
@@ -1488,18 +1500,6 @@ const RfqManagementPreview = () => {
               </div>
             </div>
           </section>
-          {/* Approval Workflow Section - Only visible to buyers */}
-          {enableBuyerView && rfqDetails?.id && (
-            <section className="buyer-rfq-approval-sec mt-4">
-              <div className="container-fluid">
-                <ApprovalWorkflowSection
-                  entityType={rfqDetails?.is_tender === 1 ? "TENDER" : "RFQ"}
-                  entityId={id}
-                  entityLabel={rfqDetails?.is_tender === 1 ? "Tender" : "RFQ"}
-                />
-              </div>
-            </section>
-          )}
         </>
       )}
 
