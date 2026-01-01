@@ -74,8 +74,21 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             setPreviousClauses(clausesData);
             
             // Fetch minimum passing score from response
-            if (res && res.data && res.data.minimum_passing_score !== undefined && res.data.minimum_passing_score !== null) {
-                setMinimumPassingScore(res.data.minimum_passing_score);
+            // Axios response structure: { data: { success, vendor_response, minimum_passing_score, data: [...] } }
+            // So res.data is the backend response object: { success: true, minimum_passing_score: 20, data: [...] }
+            const backendResponse = res?.data;
+            const minimumScore = backendResponse?.minimum_passing_score;
+            
+            if (minimumScore !== undefined && minimumScore !== null) {
+                // Convert to number to ensure proper handling (including 0)
+                const score = Number(minimumScore);
+                if (!isNaN(score)) {
+                    setMinimumPassingScore(score);
+                } else {
+                    setMinimumPassingScore(null);
+                }
+            } else {
+                setMinimumPassingScore(null);
             }
         } catch (error) {
             console.error("Error fetching clauses:", error);
@@ -232,10 +245,21 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         setLoading(true);
         try {
             const res = await updateMinimumPassingScore(payload);
-            toast.success(res.message || "Minimum passing score updated successfully");
-            setMinimumPassingScore(parseInt(tempMinimumScore));
-            setShowMinimumScoreInput(false);
-            setTempMinimumScore("");
+            
+            if (res && res.status === 1) {
+                const savedScore = parseInt(tempMinimumScore);
+                // Immediately update the state so button shows the value
+                setMinimumPassingScore(savedScore);
+                toast.success(res.message || "Minimum passing score updated successfully");
+                setShowMinimumScoreInput(false);
+                setTempMinimumScore("");
+                // Refresh clauses to ensure data is in sync - wait a bit for DB to update
+                setTimeout(async () => {
+                    await getPreviousClauses();
+                }, 300);
+            } else {
+                toast.error(res?.message || "Failed to update minimum passing score");
+            }
         } catch (error) {
             toast.error(error.message || "Failed to update minimum passing score");
         } finally {
@@ -249,7 +273,11 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
     }
 
     const handleOpenMinimumScoreInput = () => {
-        setTempMinimumScore(minimumPassingScore || "");
+        // Use current state value, useEffect will sync if it changes
+        const scoreToShow = (minimumPassingScore !== null && minimumPassingScore !== undefined) 
+            ? minimumPassingScore.toString() 
+            : "";
+        setTempMinimumScore(scoreToShow);
         setShowMinimumScoreInput(true);
     }
 
@@ -260,10 +288,26 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
 
     useEffect(() => {
         if(show) {
-        getPreviousClauses();
+            // Reset input state when modal opens
+            setShowMinimumScoreInput(false);
+            setTempMinimumScore("");
+            // Fetch clauses and minimum passing score - this will set minimumPassingScore
+            getPreviousClauses();
+        } else {
+            // Reset state when modal closes
+            setShowMinimumScoreInput(false);
+            setTempMinimumScore("");
+            // Don't reset minimumPassingScore here - let it persist until next fetch
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [show, product.id])
+
+    // Sync tempMinimumScore when minimumPassingScore changes and input is shown
+    useEffect(() => {
+        if (showMinimumScoreInput && minimumPassingScore !== null && minimumPassingScore !== undefined) {
+            setTempMinimumScore(minimumPassingScore.toString());
+        }
+    }, [showMinimumScoreInput, minimumPassingScore])
 
 
     const handleMagicFileUpload = (event) => {
@@ -356,7 +400,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                             className="btn btn-primary btn-sm"
                             onClick={handleOpenMinimumScoreInput}
                         >
-                            {minimumPassingScore !== null && minimumPassingScore !== undefined 
+                            {(minimumPassingScore !== null && minimumPassingScore !== undefined)
                                 ? `Edit minimum score (${minimumPassingScore})` 
                                 : "Set minimum score"}
                         </button>

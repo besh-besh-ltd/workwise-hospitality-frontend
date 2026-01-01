@@ -151,6 +151,11 @@ const roleMenus = {
       targetMenu: "nav",
     },
     {
+      href: "/dashboard/buyer/arc-committee",
+      label: "ARC Committee",
+      targetMenu: "nav",
+    },
+    {
       href: "/dashboard/buyer/purchase-order",
       label: "Purchase Orders",
       targetMenu: "nav",

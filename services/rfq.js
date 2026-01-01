@@ -903,9 +903,13 @@ export const updateMinimumPassingScore = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.post(`/rfq/update-minimum-passing-score`, payload);
-      resolve(response);
+      // Return the data object directly for easier handling
+      resolve(response.data || response);
     } catch (error) {
-      reject({ message: error });
+      reject({ 
+        message: error.response?.data?.message || error.message || "Failed to update minimum passing score",
+        status: error.response?.data?.status || 0
+      });
     }
   });
 };

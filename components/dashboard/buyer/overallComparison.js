@@ -15,13 +15,14 @@ import { updateTargetPrice } from "@/services/rfq";
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Tooltip from 'react-bootstrap/Tooltip';
 import { toast } from "react-toastify";
+import ProductNegotiationBadge from "../vendor/ProductNegotiationBadge";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
  * @Updated Ayush Singh 22 JUNE 2025
  * @updated by mukul 08-08-2025 - normilize total
  */
-const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalizeFilter, rfq_product_id, source, vendorCodeMap = {} }) => {
+const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalizeFilter, rfq_product_id, source, vendorCodeMap = {}, productNegotiationData = {} }) => {
   const getVendorCode = (vendor = {}) => {
     if (vendor.rfq_product_vendor_id) return `VEN-${vendor.rfq_product_vendor_id}`;
     if (vendor.id && vendorCodeMap[vendor.id]) return `VEN-${vendorCodeMap[vendor.id]}`;
@@ -478,11 +479,11 @@ const openModalForVariant = (variantId) => {
                       </p>
                     </th>
                     }
-                    <th scope="col" className="all_vendors" rowSpan={2}>
-                      <p>
-                        Target Price
-                        <div className=" text-gray-500" style = {{"font-size" : "12px"}}>
-                          (Total Cost)
+                    <th scope="col" className="all_vendors" rowSpan={2} style={{ backgroundColor: "#ffc107", color: "#000", fontWeight: "bold", minWidth: "250px", border: "3px solid #ff9800", boxShadow: "0 2px 8px rgba(255, 152, 0, 0.3)" }}>
+                      <p style={{ margin: 0, fontSize: "18px", fontWeight: "bold" }}>
+                        🔄 Negotiation
+                        <div className="text-dark" style={{ fontSize: "12px", fontWeight: "normal", marginTop: "4px" }}>
+                          (Active Rounds & Status)
                         </div>
                       </p>
                     </th>
@@ -550,11 +551,17 @@ const openModalForVariant = (variantId) => {
                         <tr key={item.id}>
                           <td>{index + 1} </td>
                           <td>
-                            <p className="fw-semibold mb-1">
-                              {item.product_details.length > 0
-                                ? item.product_details[0]?.name
-                                : "-"}
-                            </p>
+                            <div className="d-flex align-items-center gap-2 flex-wrap">
+                              <p className="fw-semibold mb-1">
+                                {item.product_details.length > 0
+                                  ? item.product_details[0]?.name
+                                  : "-"}
+                              </p>
+                              <ProductNegotiationBadge 
+                                rfq_id={rfq_id} 
+                                rfq_product_id={item.id} 
+                              />
+                            </div>
                             {/* {selling_price && (
                               <div className="d-flex justify-content-center">
                                 <Badge
@@ -955,60 +962,56 @@ const openModalForVariant = (variantId) => {
                             <td>{selling_price ? `₹${addCommasToNumber(selling_price)}` : "--"}</td>
                           }
                           
-                          <td>
-                                  <label style={{display:'flex', gap:'10px', justifyContent :'space-between',alignItems: 'center',width: '100%',gap: '10px',  }}>
-                                       <div style={{ flex: 1, minWidth: 0 }}>
-                                      { item.latest_target_price > 0 || isEditing ?
-                                      <input
-                                      type="text"
-                                      class="!outline-none !border-none !bg-none"
-                                      style={{border : 'none', background : 'none'}}
-                                      onChange={(e)=>handleTargetChange(index, e.target.value)}
-                                      value={`₹ ${addCommasToNumber(item.latest_target_price)}`}
-                                      disabled={!isEditing}
-                                      />
-                                    :
-                                    <p className="text-left" >--</p>
-                                    }
+                          <td style={{ 
+                            backgroundColor: "#fff8e1", 
+                            padding: "16px", 
+                            verticalAlign: "middle",
+                            border: "3px solid #ffc107",
+                            minWidth: "250px",
+                            boxShadow: "inset 0 2px 4px rgba(255, 152, 0, 0.1)"
+                          }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center", justifyContent: "center" }}>
+                              <ProductNegotiationBadge 
+                                rfq_id={rfq_id} 
+                                rfq_product_id={item.id} 
+                              />
+                              {productNegotiationData && productNegotiationData[item.id] && productNegotiationData[item.id].activeRound && (
+                                <div style={{ 
+                                  fontSize: "13px", 
+                                  color: "#000", 
+                                  textAlign: "center",
+                                  fontWeight: "600",
+                                  padding: "8px 14px",
+                                  backgroundColor: "#fff",
+                                  borderRadius: "8px",
+                                  border: "2px solid #ffc107",
+                                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                                }}>
+                                  <div style={{ marginBottom: "4px" }}>
+                                    <strong>Round #{productNegotiationData[item.id].activeRound.round_number}</strong>
+                                    <div style={{ fontSize: "10px", color: "#666", marginTop: "2px", fontStyle: "italic" }}>
+                                      (Product-specific round)
                                     </div>
-<div style={{ flexShrink: 0 }}>
-                                      {isEditing ?
-                                        <OverlayTrigger
-                                          placement={'bottom-end'}
-                                          overlay={
-                                              <Tooltip id={`tooltip-vendor-search`}>
-                                                  Save Target Price for all Vendors
-                                              </Tooltip>
-                                          }
-                                      >
-                                        <Badge
-                                  bg="success"
-                                  // className="d-fle"
-                                >
-                                  <p  onClick={()=>saveTargetPrice(item)}>Save</p>
-                                </Badge>
-                                          {/* <IoIosSave/> */}
-                                      </OverlayTrigger>
-                                      :
-                                       <OverlayTrigger
-                                          placement={'bottom-end'}
-                                          overlay={
-                                              <Tooltip id={`tooltip-vendor-search`}>
-                                                {`${item.latest_target_price > 0 ? "Edit Target Price" : "Add Target Price"}`}
-                                              </Tooltip>
-                                          }
-                                      >
-                                          {/* <FaRegEdit onClick={()=>toggleEditPrice(item.id)}/> */}
-                                            <Badge
-                                              bg="warning"
-                                              // className="d-fle"
-                                            >
-                                              <p  onClick={()=>toggleEditPrice(item.id)}>{`${item.latest_target_price > 0 ? "Edit" : "Add Target Price"}`}</p>
-                                            </Badge>
-                                      </OverlayTrigger>
-                                      }
-                                      </div>
-                                  </label>
+                                  </div>
+                                  {productNegotiationData[item.id].roundQuotes && productNegotiationData[item.id].roundQuotes.length > 0 && (
+                                    <div style={{ 
+                                      marginTop: "6px",
+                                      padding: "4px 8px",
+                                      backgroundColor: "#e3f2fd",
+                                      borderRadius: "4px",
+                                      fontSize: "11px"
+                                    }}>
+                                      {productNegotiationData[item.id].roundQuotes.length} quote(s) received
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {(!productNegotiationData || !productNegotiationData[item.id] || !productNegotiationData[item.id].activeRound) && (
+                                <div style={{ fontSize: "12px", color: "#999", fontStyle: "italic" }}>
+                                  No active rounds
+                                </div>
+                              )}
+                            </div>
                           </td>
 
                           {item.quotations.length > 0 &&

@@ -430,9 +430,10 @@ const NegotiationModal = ({
           <tbody>
             {roundsHistory.map((round) => {
               const product = products.find(p => p.id === round.rfq_product_id);
+              const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
               return (
                 <tr key={round.id}>
-                  <td>{product ? getProductName(product) : `Product ${round.rfq_product_id}`}</td>
+                  <td>{productName}</td>
                   <td>{round.round_number}</td>
                   <td>₹{parseFloat(round.target_price).toLocaleString()}</td>
                   <td>{moment(round.end_date).format('DD/MM/YYYY HH:mm')}</td>
@@ -471,6 +472,7 @@ const NegotiationModal = ({
                 <h6 className="mb-3">Pending Approval</h6>
                 {pendingRounds.map((round) => {
                   const product = products.find(p => p.id === round.rfq_product_id);
+                  const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
                   const approvals = round.approvals || [];
                   const userApproval = approvals.find(a => {
                     const approverId = parseInt(a.approver_user_id);
@@ -509,7 +511,7 @@ const NegotiationModal = ({
                     <div key={round.id} className="border rounded p-3 mb-3" style={{ backgroundColor: '#fff8e1' }}>
                       <div className="d-flex justify-content-between align-items-start mb-2">
                         <div>
-                          <strong>{product ? getProductName(product) : `Product ${round.rfq_product_id}`}</strong>
+                          <strong>{productName}</strong>
                           <Badge bg="warning" text="dark" className="ms-2">Round {round.round_number}</Badge>
                         </div>
                         <div>
@@ -599,11 +601,12 @@ const NegotiationModal = ({
                 <h6 className="mb-3">Active Rounds</h6>
                 {activeRoundsList.map((round) => {
                   const product = products.find(p => p.id === round.rfq_product_id);
+                  const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
                   return (
                     <div key={round.id} className="border rounded p-3 mb-3" style={{ backgroundColor: '#e8f5e9' }}>
                       <div className="d-flex justify-content-between align-items-start mb-2">
                         <div>
-                          <strong>{product ? getProductName(product) : `Product ${round.rfq_product_id}`}</strong>
+                          <strong>{productName}</strong>
                           <Badge bg="success" className="ms-2">Round {round.round_number}</Badge>
                         </div>
                          <Button

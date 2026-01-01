@@ -31,7 +31,9 @@ import InputModal from "@/components/shared/InputModal";
 import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import NegotiationCompactBanner from "./negotiation/NegotiationCompactBanner";
+import ProductNegotiationBadge from "../vendor/ProductNegotiationBadge";
 import { getProfile } from "@/services/Auth";
+import { getAllActiveNegotiationRounds, getActiveNegotiationRound, getRoundQuotes } from "@/services/negotiation";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -87,14 +89,66 @@ const QuoteCompare = () => {
  const[openInputModal , setOpenInputModal] =useState(false)
  const [showNormalizeModal, setShowNormalizeModal] = useState(false);
  const [currentUser, setCurrentUser] = useState(null);
+ const [productNegotiationData, setProductNegotiationData] = useState({}); // { productId: { activeRound, roundQuotes } }
  
 
 
   useEffect(() => {
     if (rfq) {
       getRespectiveQuotes();
+      loadNegotiationData();
     }
   }, [rfq, TA_Filter, freightFilter, normalizeFilter]);
+
+  const loadNegotiationData = async () => {
+    if (!rfq) return;
+    
+    try {
+      // Load all active rounds for this RFQ
+      const response = await getAllActiveNegotiationRounds(rfq);
+      let activeRounds = [];
+      
+      if (response) {
+        if (response.status === 1 && response.data) {
+          activeRounds = Array.isArray(response.data) ? response.data : [];
+        } else if (Array.isArray(response)) {
+          activeRounds = response;
+        }
+      }
+
+      // For each active round, load quotes and organize by product
+      const negotiationData = {};
+      
+      for (const round of activeRounds) {
+        if (round.rfq_product_id) {
+          try {
+            const quotesResponse = await getRoundQuotes(round.id);
+            let roundQuotes = [];
+            
+            if (quotesResponse) {
+              if (quotesResponse.status === 1 && quotesResponse.data) {
+                roundQuotes = Array.isArray(quotesResponse.data) ? quotesResponse.data : [];
+              } else if (Array.isArray(quotesResponse)) {
+                roundQuotes = quotesResponse;
+              }
+            }
+
+            negotiationData[round.rfq_product_id] = {
+              activeRound: round,
+              roundQuotes: roundQuotes
+            };
+          } catch (error) {
+            console.error(`Error loading quotes for round ${round.id}:`, error);
+          }
+        }
+      }
+
+      setProductNegotiationData(negotiationData);
+    } catch (error) {
+      console.error('Error loading negotiation data:', error);
+      setProductNegotiationData({});
+    }
+  };
 
   useEffect(() => {
     getAllRFQs();
@@ -1726,10 +1780,16 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                 <div className="row">
                                   <div className="d-flex justify-content-between">
                                     <div>
-                                      <p className="sub-heading mb-0">
-                                        <b>Product</b> :{" "}
-                                        {item?.product_details[0]?.product_name}
-                                      </p>
+                                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                                        <p className="sub-heading mb-0">
+                                          <b>Product</b> :{" "}
+                                          {item?.product_details[0]?.product_name}
+                                        </p>
+                                        <ProductNegotiationBadge 
+                                          rfq_id={rfq} 
+                                          rfq_product_id={item.id} 
+                                        />
+                                      </div>
                                       <div className="sub-heading mb-0 d-flex gap-1">
                                         <b>Product Specification</b> :{" "}
                                         {spec ? (
@@ -2090,10 +2150,11 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                         targetPrice={item.latest_target_price}
                                         // targetHistory={targetPriceHistory}
                         normalizeFilter={normalizeFilter}
-                        negotiationRoundQuotes={[]}
-                        activeRound={null}
+                        negotiationRoundQuotes={productNegotiationData[item.id]?.roundQuotes || []}
+                        activeRound={productNegotiationData[item.id]?.activeRound || null}
                         freightFilter={freightFilter}
                         vendorCodeMap={vendorCodeMap}
+                        onRoundEnded={loadNegotiationData}
                                       />
                                     </>
                                   )}
@@ -2111,6 +2172,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         normalizeFilter={normalizeFilter}
                         freightFilter={freightFilter}
                         RFQ_no={currentRFQ?.rfq_no}
+                        productNegotiationData={productNegotiationData}
                       />
                     )}
                     {activeTab === "cost" && (

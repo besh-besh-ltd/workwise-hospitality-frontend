@@ -16,6 +16,7 @@ import FinalizeHistoryModal from "./FinalizeHistoryModal";
 import { toast } from "react-toastify";
 import HierarchySelectionModal from "./HierarchySelectionModal";
 import { Badge } from "react-bootstrap";
+import RoundEndActions from "./negotiation/RoundEndActions";
 
 const QuoteCompareTable = ({
   quotations,
@@ -34,6 +35,7 @@ const QuoteCompareTable = ({
   vendorCodeMap = {},
   negotiationRoundQuotes = [], // Array of negotiation round quotes for this product
   activeRound = null, // Active negotiation round info
+  onRoundEnded = null, // Callback when round ends
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
@@ -132,9 +134,28 @@ const QuoteCompareTable = ({
   const handleViewFinalizationHistory = () => {
     setActiveModal('finalize_history');
   }
+
+  const productName = proditem?.product_details?.[0]?.product_name || 'Product';
  
   return (
     <>
+      {/* Round End Actions - Show if round has ended */}
+      {activeRound && (
+        <RoundEndActions
+          activeRound={activeRound}
+          roundQuotes={negotiationRoundQuotes}
+          rfq_id={rfq}
+          rfq_product_id={proditem.id}
+          productName={productName}
+          onRoundCreated={onRoundEnded}
+          onQuotesApproved={() => {
+            if (onRoundEnded) {
+              onRoundEnded();
+            }
+          }}
+        />
+      )}
+
       <div
         className="table-content"
         key={`${proditem.id}_${proditem.product_id}_${proditem.variant}`}
