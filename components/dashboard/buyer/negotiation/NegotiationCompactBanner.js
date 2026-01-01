@@ -242,9 +242,18 @@ const NegotiationCompactBanner = ({ rfq_id, products = [] }) => {
             variant={pendingApprovalsCount > 0 ? "warning" : "outline-info"}
             size="sm"
             onClick={handleViewApproveClick}
-            style={{ fontSize: '0.8rem', padding: '5px 14px' }}
+            style={{ 
+              fontSize: '0.8rem', 
+              padding: '5px 14px',
+              ...(pendingApprovalsCount > 0 ? {
+                backgroundColor: '#ffc107',
+                borderColor: '#ffc107',
+                color: '#000',
+                fontWeight: 600
+              } : {})
+            }}
           >
-            {pendingApprovalsCount > 0 ? 'Approve' : 'View'}
+            {pendingApprovalsCount > 0 ? 'View & Approve' : 'View'}
           </Button>
         </div>
       </div>

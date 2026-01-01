@@ -72,10 +72,11 @@ export const getAllActiveNegotiationRounds = (rfq_id) => {
 export const approveNegotiationRound = (round_id, remarks = null) => {
   return new Promise(async (resolve, reject) => {
     try {
+      // axiosInstance interceptor already returns response.data, so response is { status: 1, data: {...}, message: "..." }
       const response = await axiosInstance.post(`/negotiation/rounds/${round_id}/approve`, {
         remarks
       });
-      resolve(response.data);
+      resolve(response); // Return the full response object
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }
@@ -88,10 +89,11 @@ export const approveNegotiationRound = (round_id, remarks = null) => {
 export const rejectNegotiationRound = (round_id, remarks) => {
   return new Promise(async (resolve, reject) => {
     try {
+      // axiosInstance interceptor already returns response.data, so response is { status: 1, data: {...}, message: "..." }
       const response = await axiosInstance.post(`/negotiation/rounds/${round_id}/reject`, {
         remarks
       });
-      resolve(response.data);
+      resolve(response); // Return the full response object
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }

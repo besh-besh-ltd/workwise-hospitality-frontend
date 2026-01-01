@@ -181,8 +181,12 @@ const NegotiationModal = ({
     setSubmitting(true);
     try {
       const response = await approveNegotiationRound(roundId);
-      if (response.status === 1) {
-        toast.success('Round approved successfully');
+      console.log('Approve response:', response);
+      
+      // Response structure: { status: 1, data: {...}, message: "...", approved: true, ... }
+      if (response.status === 1 || response.approved === true) {
+        const message = response.message || 'Round approved successfully';
+        toast.success(message);
         onRefresh();
         if (selectedRound?.id === roundId) {
           setSelectedRound(null);
@@ -192,7 +196,9 @@ const NegotiationModal = ({
         toast.error(response.message || 'Failed to approve round');
       }
     } catch (error) {
-      toast.error(error.message || 'Failed to approve round');
+      console.error('Approve error:', error);
+      const errorMessage = error?.message || error?.response?.data?.message || 'Failed to approve round';
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -205,8 +211,12 @@ const NegotiationModal = ({
     setSubmitting(true);
     try {
       const response = await rejectNegotiationRound(roundId, reason);
+      console.log('Reject response:', response);
+      
+      // Response structure: { status: 1, data: {...}, message: "..." }
       if (response.status === 1) {
-        toast.success('Round rejected successfully');
+        const message = response.message || 'Round rejected successfully';
+        toast.success(message);
         onRefresh();
         if (selectedRound?.id === roundId) {
           setSelectedRound(null);
@@ -216,7 +226,9 @@ const NegotiationModal = ({
         toast.error(response.message || 'Failed to reject round');
       }
     } catch (error) {
-      toast.error(error.message || 'Failed to reject round');
+      console.error('Reject error:', error);
+      const errorMessage = error?.message || error?.response?.data?.message || 'Failed to reject round';
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
