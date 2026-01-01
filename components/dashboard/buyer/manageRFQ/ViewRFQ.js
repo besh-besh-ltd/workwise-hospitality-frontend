@@ -35,6 +35,16 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
                     >
                       Queries
                     </Link>
+                    {/* Clarifications Button - Only for Tenders */}
+                    {data?.is_tender === 1 && (
+                      <Link
+                        href={`/dashboard/buyer/clarification-management?rfq_id=${data.id}`}
+                        className="btn btn-warning"
+                        id="clarifications_button-rfq_header-view_rfq_page"
+                      >
+                        Clarifications
+                      </Link>
+                    )}
                     <Link
                       href={`/dashboard/buyer/quote-compare?rfq_id=${data.rfq_no}`}
                       className="btn btn-primary"

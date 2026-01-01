@@ -21,6 +21,8 @@ import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal";
 import VendorNegotiationInfo from "./VendorNegotiationInfo";
 import ProductNegotiationBadge from "./ProductNegotiationBadge";
+import { checkOpenClarification } from "@/services/clarification";
+import { Alert } from "react-bootstrap";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
@@ -98,6 +100,10 @@ const [showQuoteHistoryModal, setShowQuoteHistoryModal] = useState(false); //to 
 const [tenderPaymentPaid, setTenderPaymentPaid] = useState(false);
 const [tenderFees, setTenderFees] = useState(0);
 const [tenderPaymentLoading, setTenderPaymentLoading] = useState(false);
+// Clarification blocking state
+const [hasOpenClarification, setHasOpenClarification] = useState(false);
+const [openClarification, setOpenClarification] = useState(null);
+const [isOwnerOfOpenClarification, setIsOwnerOfOpenClarification] = useState(false);
 // Changes by Agnij [Preserve form state when Razorpay modal opens]
 const formStateRef = useRef(null);
 const shouldAutoSendQuoteRef = useRef(false);
@@ -209,6 +215,23 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
     const restrictionsEnabled = router.query.showTechEvalRestrictions === 'true';
     setShowTechEvalRestrictions(restrictionsEnabled);
   }, [router, router.query]);
+
+  // Check for open clarifications (for tenders only)
+  useEffect(() => {
+    const checkClarifications = async () => {
+      if (!id || !rfqDetails?.is_tender) return;
+      try {
+        const result = await checkOpenClarification(id, token);
+        setHasOpenClarification(result.hasOpen);
+        setOpenClarification(result.clarification || null);
+        // Use is_own_clarification from API (backend handles privacy)
+        setIsOwnerOfOpenClarification(result.isOwnClarification || false);
+      } catch (error) {
+        console.error("Error checking clarifications:", error);
+      }
+    };
+    checkClarifications();
+  }, [id, token, rfqDetails?.is_tender]);
 
   // Changes by Agnij <2024-07-30> [Add debug logging for reverse auction status]
   useEffect(() => {
@@ -1355,6 +1378,22 @@ return { deletedTerms, createdTerms, updatedTerms };
       {!loading && rfqDetails && (
         <section className="quote-send-sec-1">
           <div className="container-fluid ">
+            {/* Clarification Blocking Banner */}
+            {rfqDetails?.is_tender === 1 && hasOpenClarification && (
+              <div className="row mb-3">
+                <div className="col-12">
+                  {isOwnerOfOpenClarification ? (
+                    <Alert variant="info" className="d-flex align-items-center gap-2 mb-0">
+                      <strong>Your Clarification is Pending</strong> - Your clarification request has been submitted. A response from the tender creator will arrive soon. Quote submission is disabled until the clarification is resolved.
+                    </Alert>
+                  ) : (
+                    <Alert variant="warning" className="d-flex align-items-center gap-2 mb-0">
+                      <strong>Clarification in Progress</strong> - A clarification is currently being addressed. Quote submission is temporarily disabled. Please check back later.
+                    </Alert>
+                  )}
+                </div>
+              </div>
+            )}
             {/* Product-specific Negotiation Info */}
             {rfqDetails.id && rfqDetails.products && rfqDetails.products.map((product) => (
               <div key={product.id} className="row mb-2">
@@ -2625,7 +2664,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                           type="submit"
                           className="btn btn-secondary float-end"
                           onClick={handleSendQuote}
-                          disabled={!isAnyFieldFilled() || tenderPaymentLoading}
+                          disabled={!isAnyFieldFilled() || tenderPaymentLoading || hasOpenClarification}
+                          title={hasOpenClarification ? "Quote submission blocked - Clarification in progress" : ""}
                         >
                           Send Quote
                         </button>

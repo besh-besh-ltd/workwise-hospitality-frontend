@@ -18,8 +18,16 @@ import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { toast } from "react-toastify";
 import { ApprovalWorkflowSection, ApprovalPendingBanner } from "@/components/dashboard/buyer/approval";
+import {
+  ClarificationBlockingBanner,
+  RaiseClarificationModal,
+  ClarificationDetailModal,
+  ClarificationListModal,
+} from "@/components/dashboard/buyer/clarification";
+import { getClarifications } from "@/services/clarification";
 import VendorNegotiationInfo from "./VendorNegotiationInfo";
 import ProductNegotiationBadge from "./ProductNegotiationBadge";
+import { Badge, Button } from "react-bootstrap";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -46,6 +54,17 @@ const RfqManagementPreview = () => {
   // Changes by Agnij 2025-05-05 [Add state for technical evaluation restrictions]
   const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
 
+  // Clarification state
+  const [clarifications, setClarifications] = useState([]);
+  const [clarificationsLoading, setClarificationsLoading] = useState(false);
+  const [hasOpenClarification, setHasOpenClarification] = useState(false);
+  const [openClarification, setOpenClarification] = useState(null);
+  const [isOwnerOfOpenClarification, setIsOwnerOfOpenClarification] = useState(false);
+  const [showRaiseClarificationModal, setShowRaiseClarificationModal] = useState(false);
+  const [showClarificationDetailModal, setShowClarificationDetailModal] = useState(false);
+  const [showClarificationListModal, setShowClarificationListModal] = useState(false);
+  const [selectedClarification, setSelectedClarification] = useState(null);
+
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
@@ -58,6 +77,40 @@ const RfqManagementPreview = () => {
       getRFQdetails();
     }
   }, [id]);
+
+  // Fetch clarifications for tenders
+  const fetchClarifications = useCallback(async () => {
+    if (!id || !rfqDetails?.is_tender) return;
+
+    setClarificationsLoading(true);
+    try {
+      const response = await getClarifications(id, token);
+      // API returns: { status: 1, data: { clarifications: [], open_clarification: null, has_open: false, is_own_clarification: boolean, is_buyer: boolean } }
+      const responseData = response?.data?.data || response?.data || {};
+
+      // Clarifications list - API only returns vendor's own clarifications (already filtered by backend)
+      const clarificationsList = responseData?.clarifications || [];
+      setClarifications(clarificationsList);
+
+      // Use has_open and open_clarification from response
+      setHasOpenClarification(responseData?.has_open || false);
+      setOpenClarification(responseData?.open_clarification || null);
+
+      // Use is_own_clarification from API (backend handles privacy)
+      setIsOwnerOfOpenClarification(responseData?.is_own_clarification || false);
+    } catch (error) {
+      console.error("Error fetching clarifications:", error);
+    } finally {
+      setClarificationsLoading(false);
+    }
+  }, [id, token, rfqDetails?.is_tender]);
+
+  // Fetch clarifications when RFQ details are loaded (for tenders only)
+  useEffect(() => {
+    if (rfqDetails?.is_tender === 1) {
+      fetchClarifications();
+    }
+  }, [rfqDetails?.is_tender, fetchClarifications]);
 
   useEffect(() => {
     if (type === "buyer-view") {
@@ -242,6 +295,11 @@ const RfqManagementPreview = () => {
       isDisabled = true;
       message = "RFQ is Closed";
     }
+    // Priority 1.5: Open Clarification blocks quote submission (for tenders only)
+    else if (rfqDetails?.is_tender === 1 && hasOpenClarification) {
+      isDisabled = true;
+      message = "Clarification in Progress";
+    }
     // Priority 2: Active Reverse Auction (only if RFQ is not closed)
     else if (isReverseAuction && raStartDate && raEndDate && now >= raStartDate && now <= raEndDate) {
       isDisabled = false; // Explicitly allowed
@@ -303,7 +361,7 @@ const RfqManagementPreview = () => {
       }
     }
 
-  }, [rfqDetails, productleftforbid]);
+  }, [rfqDetails, productleftforbid, hasOpenClarification]);
 
   useEffect(() => {
     if (rfqDetails) {
@@ -666,7 +724,7 @@ const RfqManagementPreview = () => {
         <>
           <section className="buyer-common-header sc-pt-80">
             <div className="container-fluid">
-              <div className="d-flex justify-content-between align-items-center flex-wrap">
+              <div className="d-flex justify-content-between align-items-center flex-wrap gap-4">
                 <div>
                   {!enableBuyerView && (
                     <h1 className="heading mb-0">
@@ -703,6 +761,79 @@ const RfqManagementPreview = () => {
                       </span>
                     )}
                   </button>
+
+                  {/* Clarification Button - Only for Tenders */}
+                  {rfqDetails?.is_tender === 1 && (
+                    <>
+                      {/* Main Clarification Button */}
+                      {(() => {
+                        const isWithinClarificationPeriod = rfqDetails?.vendor_clarification_date &&
+                          new Date() < new Date(rfqDetails.vendor_clarification_date);
+
+                        // Case 1: No open clarification - can raise new one (if within period)
+                        if (!hasOpenClarification) {
+                          return isWithinClarificationPeriod ? (
+                            <button
+                              type="button"
+                              className="btn btn-warning"
+                              onClick={() => setShowRaiseClarificationModal(true)}
+                            >
+                              Raise Clarification
+                            </button>
+                          ) : null;
+                        }
+
+                        // Case 2: Current vendor's open clarification - view their clarification
+                        if (isOwnerOfOpenClarification) {
+                          return (
+                            <button
+                              type="button"
+                              className="btn btn-warning position-relative"
+                              onClick={() => {
+                                setSelectedClarification(openClarification);
+                                setShowClarificationDetailModal(true);
+                              }}
+                            >
+                              View My Clarification
+                              <Badge bg="light" text="dark" className="ms-2">
+                                Pending
+                              </Badge>
+                            </button>
+                          );
+                        }
+
+                        // Case 3: Someone else's open clarification - button disabled
+                        return (
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            disabled
+                            title="Another vendor has raised a clarification. Please wait for it to be resolved."
+                          >
+                            Clarification in Progress
+                          </button>
+                        );
+                      })()}
+
+                      {/* My Clarifications History Button - Only show if vendor has past clarifications */}
+                      {clarifications.length > 0 && (
+                        <button
+                          type="button"
+                          className="btn btn-dark position-relative"
+                          onClick={() => setShowClarificationListModal(true)}
+                        >
+                          My Clarifications
+                          <Badge
+                            bg={isOwnerOfOpenClarification ? "warning" : "secondary"}
+                            className="ms-2"
+                          >
+                            {clarifications.length}
+                          </Badge>
+                        </button>
+                      )}
+                    </>
+                  )}
+
                   {/* Regret Quote Button (conditional rendering example) */}
                   {!enableBuyerView &&
                     rfqDetails.quotations.length === 0 &&
@@ -809,6 +940,21 @@ const RfqManagementPreview = () => {
                       rfq_product_id={product.id}
                     />
                   ))}
+
+                  {/* Clarification Blocking Banner - Shows when a clarification is open */}
+                  {!enableBuyerView && rfqDetails?.is_tender === 1 && hasOpenClarification && (
+                    <section className="mt-3 mx-1">
+                      <ClarificationBlockingBanner
+                        clarification={openClarification}
+                        onViewDetails={isOwnerOfOpenClarification ? () => {
+                          setSelectedClarification(openClarification);
+                          setShowClarificationDetailModal(true);
+                        } : null}
+                        clarificationDeadline={rfqDetails?.vendor_clarification_date}
+                        isOwner={isOwnerOfOpenClarification}
+                      />
+                    </section>
+                  )}
 
                   {/* RFQ Details Section */}
                   <div className="bg-light p-3 rounded-2">
@@ -970,6 +1116,27 @@ const RfqManagementPreview = () => {
                               No Quotes Received
                             </button>
                           ))}
+
+                        {/* Clarifications Button - For Buyer View on Tenders */}
+                        {type == "buyer-view" && rfqDetails?.is_tender === 1 && (
+                          <Link
+                            href={`/dashboard/buyer/clarification-management?rfq_id=${rfqDetails.id}`}
+                          >
+                            <button
+                              id="clarifications-rfq_header-inquiries_details_page"
+                              type="button"
+                              className={`btn ${hasOpenClarification ? "btn-danger" : "btn-warning"}`}
+                              style={{ width: hasOpenClarification ? "200px" : "180px" }}
+                            >
+                              Clarifications
+                              {hasOpenClarification && (
+                                <Badge bg="light" text="danger" className="ms-2">
+                                  OPEN
+                                </Badge>
+                              )}
+                            </button>
+                          </Link>
+                        )}
                       </div>
                     </div>
 
@@ -1561,6 +1728,45 @@ const RfqManagementPreview = () => {
         confirmButtonColor="warning"
         confirmButtonText="Close RFQ"
         cancelButtonText="Cancel"
+      />
+
+      {/* Raise Clarification Modal */}
+      <RaiseClarificationModal
+        show={showRaiseClarificationModal}
+        onHide={() => setShowRaiseClarificationModal(false)}
+        rfqId={rfqDetails?.id}
+        token={token}
+        onSuccess={() => {
+          fetchClarifications();
+          setShowRaiseClarificationModal(false);
+        }}
+      />
+
+      {/* Clarification Detail Modal */}
+      <ClarificationDetailModal
+        show={showClarificationDetailModal}
+        onHide={() => {
+          setShowClarificationDetailModal(false);
+          setSelectedClarification(null);
+        }}
+        clarification={selectedClarification}
+        isBuyer={false}
+        isOwner={selectedClarification?.raised_by_vendor_id === storageInstance.getStorage("user_id")}
+        onSuccess={() => {
+          fetchClarifications();
+          setShowClarificationDetailModal(false);
+          setSelectedClarification(null);
+        }}
+      />
+
+      {/* Clarification List Modal - API already returns only vendor's own clarifications */}
+      <ClarificationListModal
+        show={showClarificationListModal}
+        onHide={() => setShowClarificationListModal(false)}
+        clarifications={clarifications}
+        isBuyer={false}
+        currentUserId={storageInstance.getStorage("user_id")}
+        onRefresh={fetchClarifications}
       />
     </>
   );

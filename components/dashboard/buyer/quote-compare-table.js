@@ -14,7 +14,6 @@ import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import FinalizeVendorModal from "./FinalizeVendorModal";
 import FinalizeHistoryModal from "./FinalizeHistoryModal";
 import { toast } from "react-toastify";
-import { getAvailableHierarchies } from "@/services/general";
 import HierarchySelectionModal from "./HierarchySelectionModal";
 import { Badge } from "react-bootstrap";
 
@@ -65,20 +64,10 @@ const QuoteCompareTable = ({
     previous_quotes:[]
   });
   const [existingPOId, setExistingPOId] = useState(null)
-  const [availableHierarchies, setAvailableHierarchies] = useState([]);
-
-  const fetchAvailableHierarchies = async () => {
-    try {
-      const result = await getAvailableHierarchies('po', projectId);
-      setAvailableHierarchies(result.data);
-    } catch (error) {
-      console.error(error);
-    }
-  }
+  const [availableHierarchies, setAvailableHierarchies] = useState([true]);
 
   useEffect(() => {
     calculateLowestQuote();
-    fetchAvailableHierarchies();
   }, []);
 //  console.log("logging the quotations recived ", quotations);
   const calculateLowestQuote = () => {

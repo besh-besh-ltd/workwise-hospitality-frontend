@@ -2,11 +2,12 @@ import { getVendorsForReminder, sendSelectiveReminder } from "@/services/rfq";
 import { textCapitalize, formatRFQNumber } from "@/utils/sharedFunctions";
 import moment from "moment";
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { Badge } from "react-bootstrap";
 import { BsExclamationCircleFill } from "react-icons/bs";
 import VendorSelectionModal from "@/components/modal/VendorSelectionModal";
+import { checkOpenClarification } from "@/services/clarification";
 
 const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
   const [loading, setloading] = useState(false);
@@ -14,6 +15,22 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [vendors, setVendors] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
+  const [hasOpenClarification, setHasOpenClarification] = useState(false);
+
+  // Check for open clarifications (only for tenders)
+  useEffect(() => {
+    const fetchClarificationStatus = async () => {
+      if (data?.is_tender === 1 && data?.id) {
+        try {
+          const result = await checkOpenClarification(data.id);
+          setHasOpenClarification(result.hasOpen);
+        } catch (error) {
+          console.error("Error checking clarification status:", error);
+        }
+      }
+    };
+    fetchClarificationStatus();
+  }, [data?.id, data?.is_tender]);
 
 
   const list_products = () => {
@@ -167,7 +184,7 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
           >
             <button
               type="button"
-              className="page-link-btn border-0 text-white p-2 my-3 rounded-2"
+              className="page-link-btn border-0 text-white p-2 rounded-2"
               style={{ width: "120px", backgroundColor: "var(--primary-color)" }}
               id={`view_queries_${data?.id}-rfq_actions-manage_rfq_page`}
             >
@@ -175,6 +192,36 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
               {data.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{data.unseen_query_count} + </span>}
             </button>
           </Link>
+          {/* Clarifications Button - Only for Tenders */}
+          {data?.is_tender === 1 && (
+            <Link
+              href={`/dashboard/buyer/clarification-management?rfq_id=${data?.id}`}
+              className="d-block mt-2"
+            >
+              <button
+                type="button"
+                className="page-link-btn border-0 text-white p-2 rounded-2 position-relative"
+                style={{
+                  width: hasOpenClarification ? "145px" : "120px",
+                  backgroundColor: hasOpenClarification ? "#dc3545" : "#ffc107",
+                  color: hasOpenClarification ? "#fff" : "#000"
+                }}
+                id={`view_clarifications_${data?.id}-rfq_actions-manage_rfq_page`}
+              >
+                Clarifications
+                {hasOpenClarification && (
+                  <Badge
+                    bg="light"
+                    text="danger"
+                    className="ms-1"
+                    style={{ fontSize: "0.65rem" }}
+                  >
+                    OPEN
+                  </Badge>
+                )}
+              </button>
+            </Link>
+          )}
         </td>
         {showReminder && (
           <td>
