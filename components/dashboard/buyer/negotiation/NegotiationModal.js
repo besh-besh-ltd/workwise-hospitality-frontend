@@ -7,6 +7,7 @@ import {
   getRoundQuotes,
   getNegotiationRounds
 } from '@/services/negotiation';
+import { getUserDetails } from '@/services/Auth';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 
@@ -412,9 +413,33 @@ const NegotiationModal = ({
   );
 
   const renderViewApprove = () => {
-    const pendingRounds = activeRounds.filter(r => r.status === 'PENDING_APPROVAL');
-    const activeRoundsList = activeRounds.filter(r => r.status === 'ACTIVE');
-    const currentUserId = parseInt(localStorage.getItem('userId') || localStorage.getItem('user_id') || '0');
+    const pendingRounds = activeRounds.filter(r => r.status === 'PENDING_APPROVAL' || r.status === 'pending_approval');
+    const activeRoundsList = activeRounds.filter(r => r.status === 'ACTIVE' || r.status === 'active');
+    
+    // Get user ID from multiple sources
+    let currentUserId = null;
+    try {
+      // Try localStorage first
+      const localStorageUserId = localStorage.getItem('userId') || localStorage.getItem('user_id');
+      if (localStorageUserId) {
+        currentUserId = parseInt(localStorageUserId);
+      }
+      
+      // Fallback to JWT token
+      if (!currentUserId || currentUserId === 0) {
+        const userDetails = getUserDetails();
+        if (userDetails?.sub || userDetails?.user_id || userDetails?.id) {
+          const userId = userDetails.sub || userDetails.user_id || userDetails.id;
+          currentUserId = typeof userId === 'string' ? parseInt(userId.split('|')[0]) : parseInt(userId);
+        }
+      }
+    } catch (error) {
+      console.error('Error getting user ID:', error);
+    }
+    
+    if (!currentUserId || currentUserId === 0) {
+      console.warn('Could not determine current user ID');
+    }
 
     return (
       <div>
@@ -427,8 +452,28 @@ const NegotiationModal = ({
                 <h6 className="mb-3">Pending Approval</h6>
                 {pendingRounds.map((round) => {
                   const product = products.find(p => p.id === round.rfq_product_id);
-                  const userApproval = round.approvals?.find(a => a.approver_user_id === currentUserId);
-                  const canApprove = userApproval?.status === 'PENDING';
+                  const approvals = round.approvals || [];
+                  const userApproval = approvals.find(a => {
+                    const approverId = parseInt(a.approver_user_id);
+                    return approverId === currentUserId;
+                  });
+                  const canApprove = userApproval && (
+                    userApproval.status === 'PENDING' || 
+                    userApproval.status === 'pending' ||
+                    userApproval.status === null ||
+                    userApproval.status === undefined
+                  );
+                  
+                  console.log('Round approval check:', {
+                    roundId: round.id,
+                    currentUserId,
+                    userApproval,
+                    canApprove,
+                    approvals: approvals.map(a => ({
+                      approver_user_id: a.approver_user_id,
+                      status: a.status
+                    }))
+                  });
 
                   return (
                     <div key={round.id} className="border rounded p-3 mb-3" style={{ backgroundColor: '#fff8e1' }}>
@@ -458,14 +503,17 @@ const NegotiationModal = ({
                                 Reject
                               </Button>
                             </>
-                          ) : (
-                            <Badge bg={userApproval?.status === 'APPROVED' ? 'success' : 'secondary'}>
-                              {userApproval?.status || 'N/A'}
+                          ) : userApproval ? (
+                            <Badge bg={userApproval.status === 'APPROVED' || userApproval.status === 'approved' ? 'success' : 
+                                     userApproval.status === 'REJECTED' || userApproval.status === 'rejected' ? 'danger' : 'secondary'}>
+                              {userApproval.status || 'N/A'}
                             </Badge>
+                          ) : (
+                            <Badge bg="secondary">Not an approver</Badge>
                           )}
                         </div>
                       </div>
-                      <div className="row">
+                      <div className="row mb-2">
                         <div className="col-md-6">
                           <small className="text-muted">Target Price:</small>
                           <div className="fw-bold">₹{parseFloat(round.target_price).toLocaleString()}</div>
@@ -475,6 +523,41 @@ const NegotiationModal = ({
                           <div>{moment(round.end_date).format('DD/MM/YYYY HH:mm')}</div>
                         </div>
                       </div>
+                      
+                      {/* Round Approval Status */}
+                      {round.approvals && round.approvals.length > 0 && (
+                        <div className="mt-2 pt-2 border-top">
+                          <small className="text-muted d-block mb-1">
+                            <strong>Round Approval Status</strong> (approvers for this negotiation round):
+                          </small>
+                          <div className="d-flex flex-wrap gap-2">
+                            {round.approvals.map((approval, idx) => (
+                              <div key={idx} className="d-flex align-items-center gap-1">
+                                <Badge 
+                                  bg={
+                                    approval.status === 'APPROVED' ? 'success' :
+                                    approval.status === 'REJECTED' ? 'danger' :
+                                    'warning'
+                                  }
+                                  style={{ fontSize: '0.7rem' }}
+                                >
+                                  {approval.approver_name || `User ${approval.approver_user_id}`}
+                                </Badge>
+                                <small className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                  {approval.status === 'APPROVED' ? '✓ Approved' :
+                                   approval.status === 'REJECTED' ? '✗ Rejected' :
+                                   '⏳ Pending'}
+                                </small>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-1">
+                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>
+                              {round.approvalStatus?.approved || 0} of {round.approvalStatus?.total || 0} approvers have approved this round
+                            </small>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

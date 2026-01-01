@@ -134,6 +134,37 @@ const NegotiationCompactBanner = ({ rfq_id, products = [] }) => {
     borderColor = '#a5d6a7';
   }
 
+  // Get pending approvers for all pending rounds
+  const getPendingApprovers = () => {
+    const pendingApprovers = [];
+    pendingRounds.forEach(round => {
+      const approvals = round.approvals || [];
+      approvals.forEach(approval => {
+        if (approval.status === 'PENDING') {
+          pendingApprovers.push({
+            name: approval.approver_name || `User ${approval.approver_user_id}`,
+            email: approval.approver_email,
+            roundNumber: round.round_number,
+            productId: round.rfq_product_id
+          });
+        }
+      });
+    });
+    // Remove duplicates by name
+    const uniqueApprovers = [];
+    const seen = new Set();
+    pendingApprovers.forEach(approver => {
+      const key = `${approver.name}-${approver.email}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueApprovers.push(approver);
+      }
+    });
+    return uniqueApprovers;
+  };
+
+  const pendingApprovers = getPendingApprovers();
+
   // Build status message
   let statusMessage = 'No active negotiation rounds';
   if (totalActiveCount > 0) {
@@ -145,6 +176,9 @@ const NegotiationCompactBanner = ({ rfq_id, products = [] }) => {
       parts.push(`${pendingRounds.length} pending approval`);
     }
     statusMessage = `${parts.join(', ')} round${totalActiveCount > 1 ? 's' : ''}`;
+    if (pendingApprovers.length > 0) {
+      statusMessage += ` (${pendingApprovers.length} approver${pendingApprovers.length > 1 ? 's' : ''} pending)`;
+    }
   }
 
   return (
@@ -163,14 +197,26 @@ const NegotiationCompactBanner = ({ rfq_id, products = [] }) => {
         }}
       >
         {/* Left: Status Message */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '0.875rem', color: '#333' }}>
-            <strong>Negotiation:</strong> {loading ? 'Loading...' : statusMessage}
-          </span>
-          {pendingApprovalsCount > 0 && (
-            <Badge bg="warning" text="dark" style={{ fontSize: '0.75rem' }}>
-              {pendingApprovalsCount} needs your approval
-            </Badge>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '0.875rem', color: '#333' }}>
+              <strong>Negotiation:</strong> {loading ? 'Loading...' : statusMessage}
+            </span>
+            {pendingApprovalsCount > 0 && (
+              <Badge bg="warning" text="dark" style={{ fontSize: '0.75rem' }}>
+                {pendingApprovalsCount} needs your approval
+              </Badge>
+            )}
+          </div>
+          {pendingApprovers.length > 0 && (
+            <div style={{ fontSize: '0.75rem', color: '#666', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 500 }}>Round approval pending from:</span>
+              {pendingApprovers.map((approver, idx) => (
+                <Badge key={idx} bg="secondary" style={{ fontSize: '0.7rem', marginRight: '4px' }}>
+                  {approver.name}
+                </Badge>
+              ))}
+            </div>
           )}
         </div>
 
