@@ -20,6 +20,7 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal";
 import VendorNegotiationInfo from "./VendorNegotiationInfo";
+import ProductNegotiationBadge from "./ProductNegotiationBadge";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
@@ -1931,6 +1932,13 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       <p className="fw-semibold text-nowrap mb-1">
                                         {item?.product_details[0]?.name}
                                       </p>
+                                      {/* Product-level Negotiation Badge */}
+                                      {rfqDetails.id && (
+                                        <ProductNegotiationBadge
+                                          rfq_id={rfqDetails.id}
+                                          rfq_product_id={item.id}
+                                        />
+                                      )}
                                       <p className="text-sm mb-1">
                                         {getProductSpecValueByTitle(
                                           item?.product_specs,

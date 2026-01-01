@@ -19,6 +19,7 @@ import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { toast } from "react-toastify";
 import { ApprovalWorkflowSection, ApprovalPendingBanner } from "@/components/dashboard/buyer/approval";
 import VendorNegotiationInfo from "./VendorNegotiationInfo";
+import ProductNegotiationBadge from "./ProductNegotiationBadge";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -1026,7 +1027,17 @@ const RfqManagementPreview = () => {
                                 <tr
                                   key={`${item?.id}_${item?.product_id}_${item?.variant}`}
                                 >
-                                  <td>{item?.product_details[0]?.name}</td>
+                                  <td>
+                                    {item?.product_details[0]?.name}
+                                    {rfqDetails?.id && (
+                                      <div className="mt-1">
+                                        <ProductNegotiationBadge
+                                          rfq_id={rfqDetails.id}
+                                          rfq_product_id={item.id}
+                                        />
+                                      </div>
+                                    )}
+                                  </td>
                                   <td
                                     style={{
                                       minWidth: "300px",
