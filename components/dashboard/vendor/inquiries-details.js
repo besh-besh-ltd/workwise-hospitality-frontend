@@ -938,6 +938,7 @@ const RfqManagementPreview = () => {
                       key={product.id}
                       rfq_id={rfqDetails.id}
                       rfq_product_id={product.id}
+                      productName={product.product_details?.[0]?.name || ''}
                     />
                   ))}
 

@@ -1431,7 +1431,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                 <div className="col-12">
                   <VendorNegotiationInfo 
                     rfq_id={rfqDetails.id} 
-                    rfq_product_id={product.id} 
+                    rfq_product_id={product.id}
+                    productName={product.product_details?.[0]?.name || ''}
                   />
                 </div>
               </div>
@@ -2692,9 +2693,9 @@ return { deletedTerms, createdTerms, updatedTerms };
                         {/* Changes by Agnij 2024-07-30 [Disable send quote button when no fields are filled] */}
                         {/* Check if any product has a negotiation quote already submitted */}
                         {Object.keys(negotiationQuoteSubmitted).length > 0 && (
-                          <Alert variant="success" className="mb-3 py-2">
+                          <Alert variant="danger" className="mb-3 py-2">
                             <small>
-                              <strong>Negotiation Quote Submitted:</strong> You have submitted negotiation quotes for {Object.keys(negotiationQuoteSubmitted).length} product(s). Only regular quote updates are allowed now.
+                              <strong>Quote Submission Disabled:</strong> You have already submitted negotiation quotes for {Object.keys(negotiationQuoteSubmitted).length} product(s). No further quote updates are allowed during the active negotiation round.
                             </small>
                           </Alert>
                         )}
@@ -2703,10 +2704,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                           type="submit"
                           className="btn btn-secondary float-end"
                           onClick={handleSendQuote}
-                          disabled={!isAnyFieldFilled() || tenderPaymentLoading || hasOpenClarification}
-                          title={hasOpenClarification ? "Quote submission blocked - Clarification in progress" : ""}
+                          disabled={!isAnyFieldFilled() || tenderPaymentLoading || hasOpenClarification || Object.keys(negotiationQuoteSubmitted).length > 0}
+                          title={Object.keys(negotiationQuoteSubmitted).length > 0 ? "Quote submission disabled - Negotiation quote already submitted" : hasOpenClarification ? "Quote submission blocked - Clarification in progress" : ""}
                         >
-                          Send Quote
+                          {Object.keys(negotiationQuoteSubmitted).length > 0 ? 'Quote Submitted' : 'Send Quote'}
                         </button>
                       </div>
                     </div>

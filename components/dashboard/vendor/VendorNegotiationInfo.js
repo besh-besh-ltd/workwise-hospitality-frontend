@@ -3,7 +3,7 @@ import { Alert, Badge } from 'react-bootstrap';
 import { getVendorNegotiationStatus } from '@/services/negotiation';
 import moment from 'moment';
 
-const VendorNegotiationInfo = ({ rfq_id, rfq_product_id }) => {
+const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
   const [negotiationStatus, setNegotiationStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(null);
@@ -93,6 +93,8 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id }) => {
   const vendorQuote = negotiationStatus.vendorQuote;
   const isExpired = round?.isExpired || timeRemaining === 'Expired';
   const isPending = round?.status === 'PENDING_APPROVAL';
+  // Get product name from API response or prop
+  const displayProductName = round?.product_name || productName || '';
 
   return (
     <Alert 
@@ -104,6 +106,9 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id }) => {
           {hasSubmittedQuote ? (
             <>
               <strong>Negotiation Quote Already Submitted</strong>
+              {displayProductName && (
+                <Badge bg="dark" className="ms-2">{displayProductName}</Badge>
+              )}
               <div className="mt-2">
                 <strong>Quoted Price:</strong> ₹{parseFloat(vendorQuote?.quoted_price || 0).toLocaleString()}
               </div>
@@ -121,6 +126,9 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id }) => {
               <strong>
                 {isPending ? 'Negotiation Round Pending Approval' : 'Active Negotiation Round'}
               </strong>
+              {displayProductName && (
+                <Badge bg="dark" className="ms-2">{displayProductName}</Badge>
+              )}
               {round?.status === 'ACTIVE' && (
                 <>
                   <div className="mt-2">
