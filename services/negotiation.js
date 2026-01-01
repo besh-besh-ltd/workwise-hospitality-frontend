@@ -28,8 +28,9 @@ export const getNegotiationRounds = (rfq_id, rfq_product_id = null) => {
       const url = rfq_product_id 
         ? `/negotiation/rounds/${rfq_id}?rfq_product_id=${rfq_product_id}`
         : `/negotiation/rounds/${rfq_id}`;
+      // axiosInstance interceptor already returns response.data, so response is { status: 1, data: [...] }
       const response = await axiosInstance.get(url);
-      resolve(response.data);
+      resolve(response); // Return the full response object { status: 1, data: [...] }
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }
@@ -56,8 +57,9 @@ export const getActiveNegotiationRound = (rfq_id, rfq_product_id) => {
 export const getAllActiveNegotiationRounds = (rfq_id) => {
   return new Promise(async (resolve, reject) => {
     try {
+      // axiosInstance interceptor already returns response.data, so response is { status: 1, data: [...] }
       const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/active-all`);
-      resolve(response.data);
+      resolve(response); // Return the full response object { status: 1, data: [...] }
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }

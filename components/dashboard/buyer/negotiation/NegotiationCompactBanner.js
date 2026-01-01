@@ -25,11 +25,29 @@ const NegotiationCompactBanner = ({ rfq_id, products = [] }) => {
     try {
       setLoading(true);
       const response = await getAllActiveNegotiationRounds(rfq_id);
-      if (response.status === 1 && response.data) {
-        setActiveRounds(response.data || []);
+      console.log('Active rounds raw response:', response);
+      
+      // Axios interceptor already returns response.data, so response is the backend response
+      let rounds = [];
+      
+      if (response) {
+        if (response.status === 1 && response.data) {
+          // Standard format: { status: 1, data: [...] }
+          rounds = Array.isArray(response.data) ? response.data : [];
+        } else if (Array.isArray(response)) {
+          // Response is array directly
+          rounds = response;
+        } else if (Array.isArray(response.data)) {
+          // Fallback: check if data exists
+          rounds = response.data;
+        }
       }
+      
+      console.log('Parsed rounds:', rounds, 'Count:', rounds.length);
+      setActiveRounds(rounds);
     } catch (error) {
       console.error('Error loading active rounds:', error);
+      setActiveRounds([]);
     } finally {
       setLoading(false);
     }
@@ -38,10 +56,24 @@ const NegotiationCompactBanner = ({ rfq_id, products = [] }) => {
   const loadRoundsHistory = async () => {
     try {
       const response = await getNegotiationRounds(rfq_id);
-      if (response.status === 1 && response.data) {
-        setRoundsHistory(response.data || []);
+      console.log('Rounds history raw response:', response);
+      
+      let rounds = [];
+      
+      if (response) {
+        if (response.status === 1 && response.data) {
+          rounds = Array.isArray(response.data) ? response.data : [];
+        } else if (Array.isArray(response)) {
+          rounds = response;
+        } else if (Array.isArray(response.data)) {
+          rounds = response.data;
+        }
       }
+      
+      console.log('Parsed history rounds:', rounds, 'Count:', rounds.length);
+      setRoundsHistory(rounds);
     } catch (error) {
+      console.error('Error loading rounds history:', error);
       setRoundsHistory([]);
     }
   };
@@ -69,9 +101,20 @@ const NegotiationCompactBanner = ({ rfq_id, products = [] }) => {
     loadActiveRounds();
   };
 
-  const pendingRounds = activeRounds.filter(r => r.status === 'PENDING_APPROVAL');
-  const activeRoundsList = activeRounds.filter(r => r.status === 'ACTIVE');
+  const pendingRounds = (activeRounds || []).filter(r => {
+    const status = r?.status?.toUpperCase();
+    return status === 'PENDING_APPROVAL';
+  });
+  const activeRoundsList = (activeRounds || []).filter(r => {
+    const status = r?.status?.toUpperCase();
+    return status === 'ACTIVE';
+  });
   const totalActiveCount = pendingRounds.length + activeRoundsList.length;
+  
+  console.log('Active rounds state:', activeRounds, 'Length:', activeRounds?.length);
+  console.log('Pending rounds:', pendingRounds, 'Length:', pendingRounds.length);
+  console.log('Active rounds list:', activeRoundsList, 'Length:', activeRoundsList.length);
+  console.log('Total active count:', totalActiveCount);
 
   const pendingApprovalsCount = pendingRounds.filter(round => {
     if (!currentUserId) return false;

@@ -4,7 +4,8 @@ import {
   createNegotiationRound, 
   approveNegotiationRound, 
   rejectNegotiationRound,
-  getRoundQuotes
+  getRoundQuotes,
+  getNegotiationRounds
 } from '@/services/negotiation';
 import { toast } from 'react-toastify';
 import moment from 'moment';
@@ -16,7 +17,7 @@ const NegotiationModal = ({
   rfq_id, 
   products = [], 
   activeRounds = [],
-  roundsHistory = [],
+  roundsHistory: initialRoundsHistory = [],
   onRefresh
 }) => {
   const [selectedProducts, setSelectedProducts] = useState([]);
@@ -25,6 +26,7 @@ const NegotiationModal = ({
   const [submitting, setSubmitting] = useState(false);
   const [roundQuotes, setRoundQuotes] = useState([]);
   const [selectedRound, setSelectedRound] = useState(null);
+  const [roundsHistory, setRoundsHistory] = useState(initialRoundsHistory);
 
   useEffect(() => {
     if (show && mode === 'create') {
@@ -38,7 +40,43 @@ const NegotiationModal = ({
         loadRoundQuotes(pendingRound.id);
       }
     }
-  }, [show, mode, activeRounds]);
+    if (show && mode === 'history') {
+      loadHistoryData();
+    }
+    // Sync with prop when it changes
+    if (initialRoundsHistory.length > 0) {
+      setRoundsHistory(initialRoundsHistory);
+    }
+  }, [show, mode, activeRounds, initialRoundsHistory]);
+
+  const loadHistoryData = async () => {
+    if (!rfq_id) return;
+    try {
+      setLoading(true);
+      const response = await getNegotiationRounds(rfq_id);
+      console.log('Modal history raw response:', response);
+      
+      let rounds = [];
+      
+      if (response) {
+        if (response.status === 1 && response.data) {
+          rounds = Array.isArray(response.data) ? response.data : [];
+        } else if (Array.isArray(response)) {
+          rounds = response;
+        } else if (Array.isArray(response.data)) {
+          rounds = response.data;
+        }
+      }
+      
+      console.log('Modal parsed history rounds:', rounds, 'Count:', rounds.length);
+      setRoundsHistory(rounds);
+    } catch (error) {
+      console.error('Error loading history in modal:', error);
+      setRoundsHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadRoundQuotes = async (roundId) => {
     try {
