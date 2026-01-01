@@ -10,7 +10,10 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id }) => {
 
   useEffect(() => {
     if (rfq_id && rfq_product_id) {
+      console.log('VendorNegotiationInfo - Loading round for RFQ:', rfq_id, 'Product:', rfq_product_id);
       loadActiveRound();
+    } else {
+      console.log('VendorNegotiationInfo - Missing params:', { rfq_id, rfq_product_id });
     }
   }, [rfq_id, rfq_product_id]);
 
@@ -28,11 +31,28 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id }) => {
     try {
       setLoading(true);
       const response = await getActiveNegotiationRound(rfq_id, rfq_product_id);
-      if (response.status === 1 && response.data) {
-        setActiveRound(response.data);
-      } else {
-        setActiveRound(null);
+      console.log('VendorNegotiationInfo - Response:', response);
+      
+      // Handle different response formats
+      let roundData = null;
+      if (response) {
+        if (response.status === 1 && response.data) {
+          // Standard format: { status: 1, data: {...} }
+          roundData = response.data;
+        } else if (response.status === 1 && response.data === null) {
+          // No active round found
+          roundData = null;
+        } else if (response.data && !response.status) {
+          // Response might be just the data object
+          roundData = response.data;
+        } else if (response.id) {
+          // Response might be the round object directly
+          roundData = response;
+        }
       }
+      
+      console.log('VendorNegotiationInfo - Round data:', roundData, 'for product:', rfq_product_id);
+      setActiveRound(roundData);
     } catch (error) {
       console.error('Error loading active round:', error);
       setActiveRound(null);
@@ -70,12 +90,18 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id }) => {
     }
   };
 
+  // Show loading state briefly, but don't hide if we're still loading
+  // Only hide if we've finished loading and there's no round
   if (loading) {
-    return null;
+    return (
+      <Alert variant="info" className="mb-3">
+        <small>Loading negotiation information...</small>
+      </Alert>
+    );
   }
 
   if (!activeRound) {
-    return null;
+    return null; // Don't show anything if no active round
   }
 
   const isExpired = activeRound.status === 'ACTIVE' && timeRemaining === 'Expired';

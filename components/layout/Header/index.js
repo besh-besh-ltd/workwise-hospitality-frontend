@@ -522,16 +522,19 @@ const Header = () => {
           setStoredHospitalityContext(null);
         }
 
-        // Fetch and store user permissions after profile is fetched
-        try {
-          const permissionsResponse = await getMyPermissions();
-          if (!isMounted) return;
-          if (permissionsResponse?.data?.data) {
-            storageInstance.setStorageObj("user-permissions", permissionsResponse.data.data);
+        // Fetch and store user permissions after profile is fetched (skip for vendors)
+        // Vendors (user_type 3) don't need permissions
+        if (profile?.user_type !== 3) {
+          try {
+            const permissionsResponse = await getMyPermissions();
+            if (!isMounted) return;
+            if (permissionsResponse?.data?.data) {
+              storageInstance.setStorageObj("user-permissions", permissionsResponse.data.data);
+            }
+          } catch (permissionsError) {
+            // Silently fail if permissions fetch fails (e.g., 403 for vendors or other users)
+            console.error("Failed to fetch user permissions:", permissionsError);
           }
-        } catch (permissionsError) {
-          // Silently fail if permissions fetch fails
-          console.error("Failed to fetch user permissions:", permissionsError);
         }
       } catch (error) {
         if (isMounted) {

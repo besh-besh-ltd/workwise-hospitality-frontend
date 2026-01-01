@@ -1,12 +1,14 @@
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { getVendorQuoteStatus, getVendorRfqList, sendFollowUpEmail } from "@/services/rfq";
+import { getAllActiveNegotiationRounds } from "@/services/negotiation";
 import moment from "moment";
 import Pagination from "@/components/shared/Pagination";
 import PlaceholderLoading from "react-placeholder-loading";
 import { checkBidExpired, textCapitalize } from "@/utils/sharedFunctions";
 import QuoteStatus from "@/components/modal/QuoteStatus";
 import { toast } from "react-toastify";
+import { Badge } from "react-bootstrap";
 
 import {  Modal  } from "react-bootstrap";
 
@@ -20,10 +22,59 @@ const InquiriesReceived = ({ pageType = 0 }) => {
   const [showModal, setShowModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false); // New state for reminder confirmation modal
   const [selectedItem, setSelectedItem] = useState(null); // To keep track of the item for which reminder is being sent
+  const [negotiationRounds, setNegotiationRounds] = useState({}); // Store active rounds by RFQ ID
 
   useEffect(() => {
     getRFQs();
   }, [page, limit]);
+
+  useEffect(() => {
+    // Load negotiation rounds for all RFQs in the list
+    if (rfqList.length > 0) {
+      loadNegotiationRounds();
+    }
+  }, [rfqList]);
+
+  const loadNegotiationRounds = async () => {
+    const roundsMap = {};
+    for (const item of rfqList) {
+      try {
+        const response = await getAllActiveNegotiationRounds(item.id);
+        if (response?.status === 1 && response?.data && Array.isArray(response.data)) {
+          roundsMap[item.id] = response.data;
+        } else {
+          roundsMap[item.id] = [];
+        }
+      } catch (error) {
+        console.error(`Error loading negotiation rounds for RFQ ${item.id}:`, error);
+        roundsMap[item.id] = [];
+      }
+    }
+    setNegotiationRounds(roundsMap);
+  };
+
+  const getNegotiationBadge = (rfqId) => {
+    const rounds = negotiationRounds[rfqId] || [];
+    if (rounds.length === 0) return null;
+    
+    const activeRounds = rounds.filter(r => r.status === 'ACTIVE');
+    const pendingRounds = rounds.filter(r => r.status === 'PENDING_APPROVAL');
+    
+    if (activeRounds.length > 0) {
+      return (
+        <Badge bg="success" className="ms-2" style={{ fontSize: '0.7rem' }}>
+          {activeRounds.length} Active Negotiation{activeRounds.length > 1 ? 's' : ''}
+        </Badge>
+      );
+    } else if (pendingRounds.length > 0) {
+      return (
+        <Badge bg="warning" text="dark" className="ms-2" style={{ fontSize: '0.7rem' }}>
+          {pendingRounds.length} Pending Negotiation{pendingRounds.length > 1 ? 's' : ''}
+        </Badge>
+      );
+    }
+    return null;
+  };
 
   const getRFQs = () => {
     setloading(true);
@@ -296,7 +347,10 @@ const getQuoteStatus = async (rfq_id) => {
                               rfqList.map((item) => {
                                 return (
                                   <tr key={`rfq-item-${item.rfq_no}`}>
-                                    <td>#{item.rfq_no}</td>
+                                    <td>
+                                      #{item.rfq_no}
+                                      {getNegotiationBadge(item.id)}
+                                    </td>
                                     <td>{getProductsList(item)}</td>
                                     <td>{item.company_name}</td>
                                     <td>

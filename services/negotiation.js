@@ -43,8 +43,9 @@ export const getNegotiationRounds = (rfq_id, rfq_product_id = null) => {
 export const getActiveNegotiationRound = (rfq_id, rfq_product_id) => {
   return new Promise(async (resolve, reject) => {
     try {
+      // axiosInstance interceptor already returns response.data, so response is { status: 1, data: {...} }
       const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/active?rfq_product_id=${rfq_product_id}`);
-      resolve(response.data);
+      resolve(response); // Return the full response object { status: 1, data: {...} }
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }
