@@ -22,6 +22,7 @@ import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal"
 import VendorNegotiationInfo from "./VendorNegotiationInfo";
 import ProductNegotiationBadge from "./ProductNegotiationBadge";
 import { checkOpenClarification } from "@/services/clarification";
+import { getAllVendorNegotiationStatus } from "@/services/negotiation";
 import { Alert } from "react-bootstrap";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
@@ -104,6 +105,8 @@ const [tenderPaymentLoading, setTenderPaymentLoading] = useState(false);
 const [hasOpenClarification, setHasOpenClarification] = useState(false);
 const [openClarification, setOpenClarification] = useState(null);
 const [isOwnerOfOpenClarification, setIsOwnerOfOpenClarification] = useState(false);
+// Negotiation quote submitted state - tracks products where vendor has already submitted negotiation quote
+const [negotiationQuoteSubmitted, setNegotiationQuoteSubmitted] = useState({});
 // Changes by Agnij [Preserve form state when Razorpay modal opens]
 const formStateRef = useRef(null);
 const shouldAutoSendQuoteRef = useRef(false);
@@ -232,6 +235,34 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
     };
     checkClarifications();
   }, [id, token, rfqDetails?.is_tender]);
+
+  // Check for negotiation quote submission status
+  useEffect(() => {
+    const checkNegotiationStatus = async () => {
+      if (!id || !rfqDetails?.id) return;
+      try {
+        const response = await getAllVendorNegotiationStatus(id);
+        if (response?.status === 1 && response?.data) {
+          const statusMap = {};
+          response.data.forEach((round) => {
+            if (round.hasSubmittedQuote) {
+              statusMap[round.rfq_product_id] = {
+                hasSubmitted: true,
+                quotedPrice: round.vendor_quoted_price,
+                submittedAt: round.vendor_submitted_at,
+                targetPrice: round.target_price,
+                roundId: round.id
+              };
+            }
+          });
+          setNegotiationQuoteSubmitted(statusMap);
+        }
+      } catch (error) {
+        console.error("Error checking negotiation status:", error);
+      }
+    };
+    checkNegotiationStatus();
+  }, [id, rfqDetails?.id]);
 
   // Changes by Agnij <2024-07-30> [Add debug logging for reverse auction status]
   useEffect(() => {
@@ -2659,6 +2690,14 @@ return { deletedTerms, createdTerms, updatedTerms };
                       </div>
                       <div className="col-md-6">
                         {/* Changes by Agnij 2024-07-30 [Disable send quote button when no fields are filled] */}
+                        {/* Check if any product has a negotiation quote already submitted */}
+                        {Object.keys(negotiationQuoteSubmitted).length > 0 && (
+                          <Alert variant="success" className="mb-3 py-2">
+                            <small>
+                              <strong>Negotiation Quote Submitted:</strong> You have submitted negotiation quotes for {Object.keys(negotiationQuoteSubmitted).length} product(s). Only regular quote updates are allowed now.
+                            </small>
+                          </Alert>
+                        )}
                         <button
                           id="send_quote-quote_actions-send_quote_page"
                           type="submit"

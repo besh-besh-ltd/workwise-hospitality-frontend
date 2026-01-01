@@ -1,71 +1,57 @@
 import React, { useState, useEffect } from 'react';
 import { Alert, Badge } from 'react-bootstrap';
-import { getActiveNegotiationRound } from '@/services/negotiation';
+import { getVendorNegotiationStatus } from '@/services/negotiation';
 import moment from 'moment';
 
 const VendorNegotiationInfo = ({ rfq_id, rfq_product_id }) => {
-  const [activeRound, setActiveRound] = useState(null);
+  const [negotiationStatus, setNegotiationStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(null);
 
   useEffect(() => {
     if (rfq_id && rfq_product_id) {
-      console.log('VendorNegotiationInfo - Loading round for RFQ:', rfq_id, 'Product:', rfq_product_id);
-      loadActiveRound();
-    } else {
-      console.log('VendorNegotiationInfo - Missing params:', { rfq_id, rfq_product_id });
+      loadNegotiationStatus();
     }
   }, [rfq_id, rfq_product_id]);
 
   useEffect(() => {
-    if (activeRound && activeRound.status === 'ACTIVE') {
+    if (negotiationStatus?.hasActiveRound && negotiationStatus?.round?.status === 'ACTIVE') {
       const interval = setInterval(() => {
         updateTimeRemaining();
       }, 1000);
       updateTimeRemaining();
       return () => clearInterval(interval);
     }
-  }, [activeRound]);
+  }, [negotiationStatus]);
 
-  const loadActiveRound = async () => {
+  const loadNegotiationStatus = async () => {
     try {
       setLoading(true);
-      const response = await getActiveNegotiationRound(rfq_id, rfq_product_id);
-      console.log('VendorNegotiationInfo - Response:', response);
+      const response = await getVendorNegotiationStatus(rfq_id, rfq_product_id);
       
-      // Handle different response formats
-      let roundData = null;
+      let statusData = null;
       if (response) {
         if (response.status === 1 && response.data) {
-          // Standard format: { status: 1, data: {...} }
-          roundData = response.data;
-        } else if (response.status === 1 && response.data === null) {
-          // No active round found
-          roundData = null;
-        } else if (response.data && !response.status) {
-          // Response might be just the data object
-          roundData = response.data;
-        } else if (response.id) {
-          // Response might be the round object directly
-          roundData = response;
+          statusData = response.data;
+        } else if (response.hasActiveRound !== undefined) {
+          statusData = response;
         }
       }
       
-      console.log('VendorNegotiationInfo - Round data:', roundData, 'for product:', rfq_product_id);
-      setActiveRound(roundData);
+      setNegotiationStatus(statusData);
     } catch (error) {
-      console.error('Error loading active round:', error);
-      setActiveRound(null);
+      console.error('Error loading negotiation status:', error);
+      setNegotiationStatus(null);
     } finally {
       setLoading(false);
     }
   };
 
   const updateTimeRemaining = () => {
-    if (!activeRound || !activeRound.end_date) return;
+    if (!negotiationStatus?.round?.end_date) return;
 
     const now = moment();
-    const endDate = moment(activeRound.end_date);
+    const endDate = moment(negotiationStatus.round.end_date);
     const diff = endDate.diff(now);
 
     if (diff <= 0) {
@@ -90,8 +76,6 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id }) => {
     }
   };
 
-  // Show loading state briefly, but don't hide if we're still loading
-  // Only hide if we've finished loading and there's no round
   if (loading) {
     return (
       <Alert variant="info" className="mb-3">
@@ -100,53 +84,80 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id }) => {
     );
   }
 
-  if (!activeRound) {
-    return null; // Don't show anything if no active round
+  if (!negotiationStatus?.hasActiveRound) {
+    return null;
   }
 
-  const isExpired = activeRound.status === 'ACTIVE' && timeRemaining === 'Expired';
-  const isPending = activeRound.status === 'PENDING_APPROVAL';
+  const round = negotiationStatus.round;
+  const hasSubmittedQuote = negotiationStatus.hasSubmittedQuote;
+  const vendorQuote = negotiationStatus.vendorQuote;
+  const isExpired = round?.isExpired || timeRemaining === 'Expired';
+  const isPending = round?.status === 'PENDING_APPROVAL';
 
   return (
     <Alert 
-      variant={isExpired ? 'danger' : isPending ? 'warning' : 'info'}
+      variant={hasSubmittedQuote ? 'success' : isExpired ? 'danger' : isPending ? 'warning' : 'info'}
       className="mb-3"
     >
       <div className="d-flex justify-content-between align-items-center flex-wrap">
         <div className="flex-grow-1">
-          <strong>
-            {isPending ? 'Negotiation Round Pending Approval' : 'Active Negotiation Round'}
-          </strong>
-          {activeRound.status === 'ACTIVE' && (
+          {hasSubmittedQuote ? (
             <>
+              <strong>Negotiation Quote Already Submitted</strong>
               <div className="mt-2">
-                <strong>Target Price:</strong> ₹{parseFloat(activeRound.target_price).toLocaleString()}
+                <strong>Quoted Price:</strong> ₹{parseFloat(vendorQuote?.quoted_price || 0).toLocaleString()}
               </div>
               <div className="mt-1">
-                <strong>End Date:</strong> {moment(activeRound.end_date).format('DD/MM/YYYY HH:mm')}
+                <strong>Submitted At:</strong> {moment(vendorQuote?.submitted_at).format('DD/MM/YYYY HH:mm')}
               </div>
-              {timeRemaining && (
-                <div className="mt-1">
-                  <strong>Time Remaining:</strong>{' '}
-                  <Badge bg={isExpired ? 'danger' : 'warning'}>
-                    {timeRemaining}
-                  </Badge>
-                </div>
-              )}
               <div className="mt-1">
                 <small className="text-muted">
-                  Note: Only one quote submission allowed per negotiation round
+                  You have already submitted your negotiation quote for this round. No further updates allowed.
                 </small>
               </div>
             </>
+          ) : (
+            <>
+              <strong>
+                {isPending ? 'Negotiation Round Pending Approval' : 'Active Negotiation Round'}
+              </strong>
+              {round?.status === 'ACTIVE' && (
+                <>
+                  <div className="mt-2">
+                    <strong>Target Price:</strong> ₹{parseFloat(round.target_price).toLocaleString()}
+                  </div>
+                  <div className="mt-1">
+                    <strong>End Date:</strong> {moment(round.end_date).format('DD/MM/YYYY HH:mm')}
+                  </div>
+                  {timeRemaining && (
+                    <div className="mt-1">
+                      <strong>Time Remaining:</strong>{' '}
+                      <Badge bg={isExpired ? 'danger' : 'warning'}>
+                        {timeRemaining}
+                      </Badge>
+                    </div>
+                  )}
+                  <div className="mt-1">
+                    <small className="text-muted">
+                      Note: Only one quote submission allowed per negotiation round
+                    </small>
+                  </div>
+                </>
+              )}
+            </>
           )}
         </div>
-        {activeRound.status === 'ACTIVE' && !isExpired && (
+        {hasSubmittedQuote && (
           <Badge bg="success" className="ms-2">
+            Submitted
+          </Badge>
+        )}
+        {!hasSubmittedQuote && round?.status === 'ACTIVE' && !isExpired && (
+          <Badge bg="info" className="ms-2">
             Submit Quote
           </Badge>
         )}
-        {isExpired && (
+        {!hasSubmittedQuote && isExpired && (
           <Badge bg="danger" className="ms-2">
             Expired
           </Badge>

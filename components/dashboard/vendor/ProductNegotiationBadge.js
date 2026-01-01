@@ -1,60 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { Badge } from 'react-bootstrap';
-import { getActiveNegotiationRound } from '@/services/negotiation';
+import { getVendorNegotiationStatus } from '@/services/negotiation';
 import moment from 'moment';
 
 const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
-  const [activeRound, setActiveRound] = useState(null);
+  const [negotiationStatus, setNegotiationStatus] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (rfq_id && rfq_product_id) {
-      loadActiveRound();
+      loadNegotiationStatus();
     }
   }, [rfq_id, rfq_product_id]);
 
   useEffect(() => {
-    if (activeRound && activeRound.status === 'ACTIVE') {
+    if (negotiationStatus?.hasActiveRound && negotiationStatus?.round?.status === 'ACTIVE') {
       const interval = setInterval(() => {
         updateTimeRemaining();
       }, 1000);
       updateTimeRemaining();
       return () => clearInterval(interval);
     }
-  }, [activeRound]);
+  }, [negotiationStatus]);
 
-  const loadActiveRound = async () => {
+  const loadNegotiationStatus = async () => {
     try {
       setLoading(true);
-      const response = await getActiveNegotiationRound(rfq_id, rfq_product_id);
+      const response = await getVendorNegotiationStatus(rfq_id, rfq_product_id);
       
-      let roundData = null;
+      let statusData = null;
       if (response) {
         if (response.status === 1 && response.data) {
-          roundData = response.data;
-        } else if (response.status === 1 && response.data === null) {
-          roundData = null;
-        } else if (response.data && !response.status) {
-          roundData = response.data;
-        } else if (response.id) {
-          roundData = response;
+          statusData = response.data;
+        } else if (response.hasActiveRound !== undefined) {
+          statusData = response;
         }
       }
       
-      setActiveRound(roundData);
+      setNegotiationStatus(statusData);
     } catch (error) {
-      setActiveRound(null);
+      setNegotiationStatus(null);
     } finally {
       setLoading(false);
     }
   };
 
   const updateTimeRemaining = () => {
-    if (!activeRound || !activeRound.end_date) return;
+    if (!negotiationStatus?.round?.end_date) return;
 
     const now = moment();
-    const endDate = moment(activeRound.end_date);
+    const endDate = moment(negotiationStatus.round.end_date);
     const diff = endDate.diff(now);
 
     if (diff <= 0) {
@@ -76,12 +72,14 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
     }
   };
 
-  if (loading || !activeRound) {
+  if (loading || !negotiationStatus?.hasActiveRound) {
     return null;
   }
 
-  const isExpired = activeRound.status === 'ACTIVE' && timeRemaining === 'Expired';
-  const isPending = activeRound.status === 'PENDING_APPROVAL';
+  const round = negotiationStatus.round;
+  const hasSubmittedQuote = negotiationStatus.hasSubmittedQuote;
+  const isExpired = round?.isExpired || timeRemaining === 'Expired';
+  const isPending = round?.status === 'PENDING_APPROVAL';
 
   if (isPending) {
     return (
@@ -103,16 +101,24 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
     );
   }
 
-  if (activeRound.status === 'ACTIVE') {
+  if (round?.status === 'ACTIVE') {
     return (
       <div className="mt-1 d-flex align-items-center gap-1 flex-wrap">
-        <Badge bg="info" style={{ fontSize: '0.7rem' }}>
-          Target: ₹{parseFloat(activeRound.target_price).toLocaleString()}
-        </Badge>
-        {timeRemaining && (
-          <Badge bg="warning" text="dark" style={{ fontSize: '0.7rem' }}>
-            {timeRemaining}
+        {hasSubmittedQuote ? (
+          <Badge bg="success" style={{ fontSize: '0.7rem' }}>
+            Negotiation Quote Submitted
           </Badge>
+        ) : (
+          <>
+            <Badge bg="info" style={{ fontSize: '0.7rem' }}>
+              Target: ₹{parseFloat(round.target_price).toLocaleString()}
+            </Badge>
+            {timeRemaining && (
+              <Badge bg="warning" text="dark" style={{ fontSize: '0.7rem' }}>
+                {timeRemaining}
+              </Badge>
+            )}
+          </>
         )}
       </div>
     );

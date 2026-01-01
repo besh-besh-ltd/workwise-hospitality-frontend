@@ -148,3 +148,31 @@ export const submitVendorRoundQuote = ({ round_id, quoted_price, previous_price 
   });
 };
 
+/**
+ * Get vendor's negotiation status for a specific product
+ */
+export const getVendorNegotiationStatus = (rfq_id, rfq_product_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/product/${rfq_product_id}/vendor-status`);
+      resolve(response); // Return the full response object { status: 1, data: {...} }
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+
+/**
+ * Get all vendor's negotiation statuses for an RFQ
+ */
+export const getAllVendorNegotiationStatus = (rfq_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/vendor-status`);
+      resolve(response); // Return the full response object { status: 1, data: [...] }
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+
