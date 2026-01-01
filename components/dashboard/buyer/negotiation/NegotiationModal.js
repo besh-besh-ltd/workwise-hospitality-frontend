@@ -7,7 +7,7 @@ import {
   getRoundQuotes,
   getNegotiationRounds
 } from '@/services/negotiation';
-import { getUserDetails } from '@/services/Auth';
+import { getUserDetails, getProfile } from '@/services/Auth';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 
@@ -28,8 +28,40 @@ const NegotiationModal = ({
   const [roundQuotes, setRoundQuotes] = useState([]);
   const [selectedRound, setSelectedRound] = useState(null);
   const [roundsHistory, setRoundsHistory] = useState(initialRoundsHistory);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
+    // Load current user ID when modal opens
+    const loadUser = async () => {
+      try {
+        const res = await getProfile();
+        if (res?.data?.id) {
+          setCurrentUserId(parseInt(res.data.id));
+        }
+      } catch (error) {
+        console.error('Error loading user profile:', error);
+        // Fallback to localStorage or JWT
+        try {
+          const localStorageUserId = localStorage.getItem('userId') || localStorage.getItem('user_id');
+          if (localStorageUserId) {
+            setCurrentUserId(parseInt(localStorageUserId));
+          } else {
+            const userDetails = getUserDetails();
+            if (userDetails?.sub || userDetails?.user_id || userDetails?.id) {
+              const userId = userDetails.sub || userDetails.user_id || userDetails.id;
+              setCurrentUserId(typeof userId === 'string' ? parseInt(userId.split('|')[0]) : parseInt(userId));
+            }
+          }
+        } catch (e) {
+          console.error('Error getting user ID from fallback:', e);
+        }
+      }
+    };
+    
+    if (show) {
+      loadUser();
+    }
+    
     if (show && mode === 'create') {
       setSelectedProducts([]);
       setFormData({ target_price: '', end_date: '' });
@@ -415,31 +447,6 @@ const NegotiationModal = ({
   const renderViewApprove = () => {
     const pendingRounds = activeRounds.filter(r => r.status === 'PENDING_APPROVAL' || r.status === 'pending_approval');
     const activeRoundsList = activeRounds.filter(r => r.status === 'ACTIVE' || r.status === 'active');
-    
-    // Get user ID from multiple sources
-    let currentUserId = null;
-    try {
-      // Try localStorage first
-      const localStorageUserId = localStorage.getItem('userId') || localStorage.getItem('user_id');
-      if (localStorageUserId) {
-        currentUserId = parseInt(localStorageUserId);
-      }
-      
-      // Fallback to JWT token
-      if (!currentUserId || currentUserId === 0) {
-        const userDetails = getUserDetails();
-        if (userDetails?.sub || userDetails?.user_id || userDetails?.id) {
-          const userId = userDetails.sub || userDetails.user_id || userDetails.id;
-          currentUserId = typeof userId === 'string' ? parseInt(userId.split('|')[0]) : parseInt(userId);
-        }
-      }
-    } catch (error) {
-      console.error('Error getting user ID:', error);
-    }
-    
-    if (!currentUserId || currentUserId === 0) {
-      console.warn('Could not determine current user ID');
-    }
 
     return (
       <div>
@@ -455,7 +462,15 @@ const NegotiationModal = ({
                   const approvals = round.approvals || [];
                   const userApproval = approvals.find(a => {
                     const approverId = parseInt(a.approver_user_id);
-                    return approverId === currentUserId;
+                    const userId = parseInt(currentUserId);
+                    console.log('Comparing approver IDs:', {
+                      approverId,
+                      userId,
+                      match: approverId === userId,
+                      approverIdType: typeof approverId,
+                      userIdType: typeof userId
+                    });
+                    return approverId === userId;
                   });
                   const canApprove = userApproval && (
                     userApproval.status === 'PENDING' || 
@@ -467,11 +482,14 @@ const NegotiationModal = ({
                   console.log('Round approval check:', {
                     roundId: round.id,
                     currentUserId,
+                    currentUserIdType: typeof currentUserId,
                     userApproval,
                     canApprove,
                     approvals: approvals.map(a => ({
                       approver_user_id: a.approver_user_id,
-                      status: a.status
+                      approver_user_id_parsed: parseInt(a.approver_user_id),
+                      status: a.status,
+                      approver_name: a.approver_name
                     }))
                   });
 
