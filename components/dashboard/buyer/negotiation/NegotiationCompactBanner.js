@@ -3,7 +3,7 @@ import { Button, Badge } from 'react-bootstrap';
 import { getAllActiveNegotiationRounds, getNegotiationRounds } from '@/services/negotiation';
 import NegotiationModal from './NegotiationModal';
 
-const NegotiationCompactBanner = ({ rfq_id, products = [] }) => {
+const NegotiationCompactBanner = ({ rfq_id, products = [], canWrite = true, permissionsLoading = false }) => {
   const [activeRounds, setActiveRounds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -226,6 +226,7 @@ const NegotiationCompactBanner = ({ rfq_id, products = [] }) => {
             variant="primary"
             size="sm"
             onClick={handleCreateClick}
+            disabled={!canWrite || permissionsLoading}
             style={{ fontSize: '0.8rem', padding: '5px 14px' }}
           >
             Create
@@ -242,8 +243,9 @@ const NegotiationCompactBanner = ({ rfq_id, products = [] }) => {
             variant={pendingApprovalsCount > 0 ? "warning" : "outline-info"}
             size="sm"
             onClick={handleViewApproveClick}
-            style={{ 
-              fontSize: '0.8rem', 
+            disabled={pendingApprovalsCount > 0 && (!canWrite || permissionsLoading)}
+            style={{
+              fontSize: '0.8rem',
               padding: '5px 14px',
               ...(pendingApprovalsCount > 0 ? {
                 backgroundColor: '#ffc107',
@@ -269,6 +271,8 @@ const NegotiationCompactBanner = ({ rfq_id, products = [] }) => {
         selectedProduct={null}
         onProductSelect={() => {}}
         onRefresh={loadActiveRounds}
+        canWrite={canWrite}
+        permissionsLoading={permissionsLoading}
       />
     </>
   );

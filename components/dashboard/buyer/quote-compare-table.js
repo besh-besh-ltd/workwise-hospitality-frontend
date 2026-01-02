@@ -36,6 +36,8 @@ const QuoteCompareTable = ({
   negotiationRoundQuotes = [], // Array of negotiation round quotes for this product
   activeRound = null, // Active negotiation round info
   onRoundEnded = null, // Callback when round ends
+  canWrite = true,
+  permissionsLoading = false,
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
@@ -153,6 +155,8 @@ const QuoteCompareTable = ({
               onRoundEnded();
             }
           }}
+          canWrite={canWrite}
+          permissionsLoading={permissionsLoading}
         />
       )}
 

@@ -7,14 +7,16 @@ import moment from 'moment';
 import NegotiationModal from './NegotiationModal';
 import { finalizeQuotation } from '@/services/rfq';
 
-const RoundEndActions = ({ 
-  activeRound, 
-  roundQuotes = [], 
-  rfq_id, 
+const RoundEndActions = ({
+  activeRound,
+  roundQuotes = [],
+  rfq_id,
   rfq_product_id,
   productName,
   onRoundCreated,
-  onQuotesApproved 
+  onQuotesApproved,
+  canWrite = true,
+  permissionsLoading = false
 }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [approving, setApproving] = useState(false);
@@ -75,6 +77,7 @@ const RoundEndActions = ({
             variant="outline-primary"
             size="sm"
             onClick={() => setShowCreateModal(true)}
+            disabled={!canWrite || permissionsLoading}
           >
             <FontAwesomeIcon icon={faPlus} className="me-1" />
             Create Another Round
@@ -83,7 +86,7 @@ const RoundEndActions = ({
             variant="success"
             size="sm"
             onClick={handleApproveQuotes}
-            disabled={approving}
+            disabled={approving || !canWrite || permissionsLoading}
           >
             <FontAwesomeIcon icon={faCheckCircle} className="me-1" />
             {approving ? 'Processing...' : 'Approve Best Quote'}

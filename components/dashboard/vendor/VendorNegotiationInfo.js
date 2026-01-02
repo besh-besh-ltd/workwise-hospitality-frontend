@@ -98,6 +98,7 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id }) => {
     <Alert 
       variant={hasSubmittedQuote ? 'success' : isExpired ? 'danger' : isPending ? 'warning' : 'info'}
       className="mb-3"
+      style={{ marginTop: "13px", borderRadius: "16px" }}
     >
       <div className="d-flex justify-content-between align-items-center flex-wrap">
         <div className="flex-grow-1">

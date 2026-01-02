@@ -1,6 +1,9 @@
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import FullLoader from "@/components/shared/FullLoader";
+import useModulePermissions from "@/hooks/useModulePermissions";
+import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
+import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import {
   closeRFQ,
   downloadQuotesDetails,
@@ -90,8 +93,42 @@ const QuoteCompare = () => {
  const [showNormalizeModal, setShowNormalizeModal] = useState(false);
  const [currentUser, setCurrentUser] = useState(null);
  const [productNegotiationData, setProductNegotiationData] = useState({}); // { productId: { activeRound, roundQuotes } }
- 
 
+  // Permission-based authorization for Negotiation and Quote-Compare sections
+  // Memoize hotelIds to prevent infinite re-renders in useModulePermissions
+  const hotelIdsKey = currentRFQ?.hotel_ids?.join(',') || currentRFQ?.hotel_id || '';
+  const hotelIds = useMemo(() => {
+    return currentRFQ?.hotel_ids || (currentRFQ?.hotel_id ? [currentRFQ.hotel_id] : []);
+  }, [hotelIdsKey]);
+
+  // Negotiation permissions
+  const {
+    canRead: canReadNegotiation,
+    canUpdate: canUpdateNegotiation,
+    canCreate: canCreateNegotiation,
+    loading: negotiationPermissionsLoading,
+  } = useModulePermissions({
+    moduleKey: "negotiation",
+    hotelIds: hotelIds,
+    enabled: !!currentRFQ,
+  });
+  const canWriteNegotiation = canUpdateNegotiation || canCreateNegotiation;
+
+  // Quote-Compare permissions
+  const {
+    canRead: canReadQuoteCompare,
+    canUpdate: canUpdateQuoteCompare,
+    canCreate: canCreateQuoteCompare,
+    loading: quoteComparePermissionsLoading,
+  } = useModulePermissions({
+    moduleKey: "quote-compare",
+    hotelIds: hotelIds,
+    enabled: !!currentRFQ,
+  });
+  const canWriteQuoteCompare = canUpdateQuoteCompare || canCreateQuoteCompare;
+
+  // Combined loading state
+  const permissionsLoading = negotiationPermissionsLoading || quoteComparePermissionsLoading;
 
   useEffect(() => {
     if (rfq) {
@@ -1329,8 +1366,14 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
 // const handleTargetPriceSubmit = async ({ productId, vendorIds, targetPrice }) => {
 //   console.log("Submitted Data:", { productId, vendorIds, targetPrice });
-  
+
 // };
+
+  // Access denied check - show only if user has NO permissions for EITHER section
+  if (currentRFQ && !permissionsLoading && !canReadNegotiation && !canReadQuoteCompare) {
+    return <AccessDeniedPage />;
+  }
+
   return (
     <>
       {finalizeLoading && <Loader />}
@@ -1374,7 +1417,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
           </div>
         </div>
       </section>
-
 
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
@@ -1600,13 +1642,30 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     </div>
                   </div>
                 )}
-                {"rfq" in router?.query && quotes && quotes.length > 0 && (
-                  <NegotiationCompactBanner 
-                    rfq_id={rfq} 
-                    products={quotes || []} 
+                {/* Negotiation read-only banner - only show if user CAN read negotiation but CANNOT write */}
+                {currentRFQ && canReadNegotiation && !canWriteNegotiation && !permissionsLoading && (
+                  <ReadOnlyBanner
+                    title="Negotiation View Only"
+                    message="You don't have edit permissions for negotiation rounds."
                   />
                 )}
-                {"rfq" in router?.query && (
+                {/* Only show NegotiationCompactBanner if user has negotiation read permission */}
+                {"rfq" in router?.query && quotes && quotes.length > 0 && canReadNegotiation && (
+                  <NegotiationCompactBanner
+                    rfq_id={rfq}
+                    products={quotes || []}
+                    canWrite={canWriteNegotiation}
+                    permissionsLoading={negotiationPermissionsLoading}
+                  />
+                )}
+                {/* Show message if no quote-compare permission but has negotiation */}
+                {"rfq" in router?.query && !canReadQuoteCompare && canReadNegotiation && !permissionsLoading && (
+                  <div className="alert alert-info mt-3" role="alert">
+                    You don't have permission to view quote comparisons.
+                  </div>
+                )}
+                {/* Only show quote-compare section if user has quote-compare read permission */}
+                {"rfq" in router?.query && canReadQuoteCompare && (
                   <div
                     className="tabs-container"
                     style={{
@@ -1732,7 +1791,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   </div>
                 )}
 
-                {!rfq && (
+                {!rfq && canReadQuoteCompare && (
                   <div className="quote-sec-main">
                     <div className="quote-sec-table-sub">
                       <h4 className="text-center">
@@ -1742,7 +1801,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   </div>
                 )}
 
-                {rfq && (
+                {rfq && canReadQuoteCompare && (
                   <div className="quote-sec-main">
                     {activeTab === "product" && (
                       <>
@@ -2155,6 +2214,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         freightFilter={freightFilter}
                         vendorCodeMap={vendorCodeMap}
                         onRoundEnded={loadNegotiationData}
+                        canWrite={canWriteQuoteCompare}
+                        permissionsLoading={quoteComparePermissionsLoading}
                                       />
                                     </>
                                   )}

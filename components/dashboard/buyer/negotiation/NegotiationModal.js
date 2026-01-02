@@ -11,15 +11,17 @@ import { getUserDetails, getProfile } from '@/services/Auth';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 
-const NegotiationModal = ({ 
-  show, 
-  onHide, 
-  mode, 
-  rfq_id, 
-  products = [], 
+const NegotiationModal = ({
+  show,
+  onHide,
+  mode,
+  rfq_id,
+  products = [],
   activeRounds = [],
   roundsHistory: initialRoundsHistory = [],
-  onRefresh
+  onRefresh,
+  canWrite = true,
+  permissionsLoading = false
 }) => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [formData, setFormData] = useState({ target_price: '', end_date: '' });
@@ -403,7 +405,7 @@ const NegotiationModal = ({
           <Button variant="secondary" onClick={onHide} disabled={submitting}>
             Cancel
           </Button>
-          <Button variant="primary" type="submit" disabled={submitting || selectedProducts.length === 0}>
+          <Button variant="primary" type="submit" disabled={submitting || selectedProducts.length === 0 || !canWrite || permissionsLoading}>
             {submitting ? <Spinner size="sm" /> : `Create Round${selectedProducts.length > 1 ? 's' : ''}`}
           </Button>
         </div>
@@ -522,7 +524,7 @@ const NegotiationModal = ({
                                 size="sm"
                                 className="me-2"
                                 onClick={() => handleApprove(round.id)}
-                                disabled={submitting}
+                                disabled={submitting || !canWrite || permissionsLoading}
                               >
                                 Approve
                               </Button>
@@ -530,7 +532,7 @@ const NegotiationModal = ({
                                 variant="danger"
                                 size="sm"
                                 onClick={() => handleReject(round.id)}
-                                disabled={submitting}
+                                disabled={submitting || !canWrite || permissionsLoading}
                               >
                                 Reject
                               </Button>
