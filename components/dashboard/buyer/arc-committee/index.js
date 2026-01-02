@@ -430,13 +430,13 @@ const ArcCommittee = () => {
         </div>
         <div className="card-body">
           <Accordion>
-            {lifecycleData.techEvaluation.map((eval, idx) => (
-              <Accordion.Item key={eval.id} eventKey={idx.toString()}>
+            {lifecycleData.techEvaluation.map((techEval, idx) => (
+              <Accordion.Item key={techEval.id} eventKey={idx.toString()}>
                 <Accordion.Header>
-                  Product: {eval.rfq_product_id}
+                  Product: {techEval.rfq_product_id}
                 </Accordion.Header>
                 <Accordion.Body>
-                  {eval.vendor_evaluations && eval.vendor_evaluations.length > 0 && (
+                  {techEval.vendor_evaluations && techEval.vendor_evaluations.length > 0 && (
                     <Table striped bordered size="sm">
                       <thead>
                         <tr>
@@ -447,7 +447,7 @@ const ArcCommittee = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {eval.vendor_evaluations.map((vendor, vIdx) => (
+                        {techEval.vendor_evaluations.map((vendor, vIdx) => (
                           <tr key={vIdx}>
                             <td>{vendor.vendor_name}</td>
                             <td>
