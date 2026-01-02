@@ -123,8 +123,9 @@ export const closeNegotiationRound = (round_id, action) => {
 export const getRoundQuotes = (round_id) => {
   return new Promise(async (resolve, reject) => {
     try {
+      // axiosInstance interceptor already returns response.data, so response is { status: 1, data: [...] }
       const response = await axiosInstance.get(`/negotiation/rounds/${round_id}/quotes`);
-      resolve(response.data);
+      resolve(response); // Return the full response object { status: 1, data: [...] }
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }
