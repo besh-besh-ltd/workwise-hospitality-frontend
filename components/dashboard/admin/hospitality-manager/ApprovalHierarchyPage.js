@@ -48,6 +48,7 @@ const ApprovalHierarchyPage = () => {
     { value: "NEGOTIATION", label: "Negotiation Approval" },
     { value: "NEGOTIATION_ROUND", label: "Negotiation Rounds Approval" },
     { value: "TECHNICAL", label: "Technical Approval" },
+    { value: "ARC COMMITTEE", label: "ARC Committee Approval" },
   ];
 
   const approverSourceTypes = [
