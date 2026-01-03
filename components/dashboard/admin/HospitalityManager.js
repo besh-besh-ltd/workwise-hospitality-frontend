@@ -6,6 +6,7 @@ import Select from "react-select";
 import {
   createHospitalityCompany,
   createHospitalityHotel,
+  updateHospitalityHotel,
   getHospitalityCompanies,
   getHospitalityHotels,
   mapHospitalityProjects,
@@ -115,6 +116,7 @@ const HospitalityManager = () => {
 
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showHotelModal, setShowHotelModal] = useState(false);
+  const [editingHotel, setEditingHotel] = useState(null);
   const [showUserMappingModal, setShowUserMappingModal] = useState(false);
   const [showProjectMappingModal, setShowProjectMappingModal] = useState(false);
 
@@ -482,6 +484,12 @@ const HospitalityManager = () => {
   }, [selectedCompanyId, projectMappingForm.mappingLevel, projectMappingForm.hotelId]);
 
   useEffect(() => {
+    if (projectMappingForm.mappingLevel === "hotel" && projectMappingForm.hotelId) {
+      loadAllProjectMappings();
+    }
+  }, [projectMappingForm.hotelId, projectMappingForm.mappingLevel]);
+
+  useEffect(() => {
     if (!selectedCompanyId || !selectedCompanyHotels.length) return;
     selectedCompanyHotels.forEach((hotel) => {
       loadHotelUserMappings(hotel.id);
@@ -595,44 +603,71 @@ const HospitalityManager = () => {
 
     try {
       setIsSubmittingHotel(true);
-      await createHospitalityHotel(
-        selectedCompanyId,
-        {
-          name: hotelForm.name.trim(),
-          city: hotelForm.city.trim() || "",
-          keys: hotelForm.keys ? parseInt(hotelForm.keys, 10) : 0,
-          status: hotelForm.status,
-          full_address: hotelForm.full_address.trim() || "",
-          state: hotelForm.state.trim() || "",
-          gst: hotelForm.gst.trim() ? hotelForm.gst.toUpperCase().trim() : "",
-          pan: hotelForm.pan.trim() ? hotelForm.pan.toUpperCase().trim() : "",
-          bank_account_number: hotelForm.bank_account_number.trim() || "",
-          bank_name: hotelForm.bank_name.trim() || "",
-          ifsc_code: hotelForm.ifsc_code.trim() || "",
-          account_holder_name: hotelForm.account_holder_name.trim() || "",
-          msme: hotelForm.msme.trim() || "",
-          delivery_address: hotelForm.delivery_address.trim() || "",
-        },
-        hotelDocuments
-      );
-      toast.success("Business unit added successfully!");
+      const payload = {
+        name: hotelForm.name.trim(),
+        city: hotelForm.city.trim() || "",
+        keys: hotelForm.keys ? parseInt(hotelForm.keys, 10) : 0,
+        status: hotelForm.status,
+        full_address: hotelForm.full_address.trim() || "",
+        state: hotelForm.state.trim() || "",
+        gst: hotelForm.gst.trim() ? hotelForm.gst.toUpperCase().trim() : "",
+        pan: hotelForm.pan.trim() ? hotelForm.pan.toUpperCase().trim() : "",
+        bank_account_number: hotelForm.bank_account_number.trim() || "",
+        bank_name: hotelForm.bank_name.trim() || "",
+        ifsc_code: hotelForm.ifsc_code.trim() || "",
+        account_holder_name: hotelForm.account_holder_name.trim() || "",
+        msme: hotelForm.msme.trim() || "",
+        delivery_address: hotelForm.delivery_address.trim() || "",
+      };
+
+      if (editingHotel) {
+        await updateHospitalityHotel(selectedCompanyId, editingHotel.id, payload, hotelDocuments);
+        toast.success("Business unit updated successfully!");
+      } else {
+        await createHospitalityHotel(selectedCompanyId, payload, hotelDocuments);
+        toast.success("Business unit added successfully!");
+        setCompanies((prev) =>
+          prev.map((company) =>
+            company.id === selectedCompanyId
+              ? { ...company, total_hotels: (company.total_hotels || 0) + 1 }
+              : company
+          )
+        );
+      }
+      
       setHotelForm(defaultHotelForm);
       setHotelDocuments({ gst: null, pan: null, cancelled_cheque: null, msme: null });
+      setEditingHotel(null);
       setShowHotelModal(false);
       loadHotels(selectedCompanyId);
-      setCompanies((prev) =>
-        prev.map((company) =>
-          company.id === selectedCompanyId
-            ? { ...company, total_hotels: (company.total_hotels || 0) + 1 }
-            : company
-        )
-      );
     } catch (error) {
       console.error(error);
-      toast.error(error?.message?.response?.data?.message || "Failed to add hotel");
+      toast.error(error?.message?.response?.data?.message || `Failed to ${editingHotel ? 'update' : 'add'} business unit`);
     } finally {
       setIsSubmittingHotel(false);
     }
+  };
+
+  const handleEditHotel = (hotel) => {
+    setEditingHotel(hotel);
+    setHotelForm({
+      name: hotel.name || "",
+      city: hotel.city || "",
+      keys: hotel.keys || "",
+      status: hotel.status || "Active",
+      full_address: hotel.full_address || "",
+      state: hotel.state || "",
+      gst: hotel.gst || "",
+      pan: hotel.pan || "",
+      bank_account_number: hotel.bank_account_number || "",
+      bank_name: hotel.bank_name || "",
+      ifsc_code: hotel.ifsc_code || "",
+      account_holder_name: hotel.account_holder_name || "",
+      msme: hotel.msme || "",
+      delivery_address: hotel.delivery_address || "",
+    });
+    setHotelDocuments({ gst: null, pan: null, cancelled_cheque: null, msme: null });
+    setShowHotelModal(true);
   };
 
   // Commented out - Map Users functionality temporarily disabled
@@ -725,11 +760,37 @@ const HospitalityManager = () => {
       label: `${user.name} (${user.email})`,
     }));
 
-  const projectOptions = projects.map((project) => ({
-    value: project.id,
-    label: project.name,
-    isDisabled: mappedProjectIds.includes(project.id),
-  }));
+  const projectOptions = useMemo(() => {
+    if (projectMappingForm.mappingLevel === "hotel" && projectMappingForm.hotelId) {
+      // For hotel-level mapping, check if project is already mapped to this specific hotel
+      const hotelId = parseInt(projectMappingForm.hotelId, 10);
+      const hotelMappedProjectIds = projectMappingsData
+        .filter((mapping) => mapping.mapping_type === 1 && mapping.hotel_id === hotelId)
+        .map((mapping) => mapping.project_id);
+      
+      return projects.map((project) => {
+        const isMappedToHotel = hotelMappedProjectIds.includes(project.id);
+        return {
+          value: project.id,
+          label: isMappedToHotel ? `${project.name} (Already mapped)` : project.name,
+          isDisabled: isMappedToHotel,
+        };
+      });
+    } else {
+      // For company-level mapping, check if project is already mapped at company level
+      const companyMappedProjectIds = projectMappingsData
+        .filter((mapping) => mapping.mapping_type === 0)
+        .map((mapping) => mapping.project_id);
+      
+      return projects.map((project) => ({
+        value: project.id,
+        label: companyMappedProjectIds.includes(project.id) 
+          ? `${project.name} (Already mapped)` 
+          : project.name,
+        isDisabled: companyMappedProjectIds.includes(project.id),
+      }));
+    }
+  }, [projects, projectMappingsData, projectMappingForm.mappingLevel, projectMappingForm.hotelId]);
 
   const selectStyles = {
     menuPortal: (base) => ({ ...base, zIndex: 9999 }),
@@ -888,7 +949,14 @@ const HospitalityManager = () => {
                     type="text"
                     className="form-control"
                     value={companyForm.pan}
-                    onChange={(e) => setCompanyForm((prev) => ({ ...prev, pan: e.target.value.toUpperCase() }))}
+                    onChange={(e) => {
+                      const cursorPosition = e.target.selectionStart;
+                      const newValue = e.target.value.toUpperCase();
+                      setCompanyForm((prev) => ({ ...prev, pan: newValue }));
+                      setTimeout(() => {
+                        e.target.setSelectionRange(cursorPosition, cursorPosition);
+                      }, 0);
+                    }}
                     placeholder="ABCDE1234F"
                     maxLength="10"
                     required
@@ -900,7 +968,14 @@ const HospitalityManager = () => {
                     type="text"
                     className="form-control"
                     value={companyForm.gst}
-                    onChange={(e) => setCompanyForm((prev) => ({ ...prev, gst: e.target.value.toUpperCase() }))}
+                    onChange={(e) => {
+                      const cursorPosition = e.target.selectionStart;
+                      const newValue = e.target.value.toUpperCase();
+                      setCompanyForm((prev) => ({ ...prev, gst: newValue }));
+                      setTimeout(() => {
+                        e.target.setSelectionRange(cursorPosition, cursorPosition);
+                      }, 0);
+                    }}
                     placeholder="27AABCU9603R1ZX"
                     maxLength="15"
                   />
@@ -1042,10 +1117,14 @@ const HospitalityManager = () => {
       >
         <div className="modal-header px-4 py-3 border-bottom" style={{ backgroundColor: "#f8fafc" }}>
           <div>
-            <h5 className="modal-title mb-1">Add New Business Unit</h5>
-            <small className="text-muted">Adding to: <strong>{selectedCompany?.name}</strong></small>
+            <h5 className="modal-title mb-1">{editingHotel ? "Edit Business Unit" : "Add New Business Unit"}</h5>
+            <small className="text-muted">{editingHotel ? "Editing" : "Adding to"}: <strong>{selectedCompany?.name}</strong></small>
           </div>
-          <button type="button" className="btn-close" onClick={() => setShowHotelModal(false)} />
+          <button type="button" className="btn-close" onClick={() => {
+            setShowHotelModal(false);
+            setEditingHotel(null);
+            setHotelForm(defaultHotelForm);
+          }} />
         </div>
         <div className="modal-body p-4">
           <form onSubmit={handleHotelSubmit}>
@@ -1269,7 +1348,11 @@ const HospitalityManager = () => {
             </div>
 
             <div className="d-flex justify-content-end gap-2 pt-3 border-top">
-              <button type="button" className="btn btn-light px-4" onClick={() => setShowHotelModal(false)}>
+              <button type="button" className="btn btn-light px-4" onClick={() => {
+                setShowHotelModal(false);
+                setEditingHotel(null);
+                setHotelForm(defaultHotelForm);
+              }}>
                 Cancel
               </button>
               <button
@@ -1278,7 +1361,7 @@ const HospitalityManager = () => {
                 disabled={isSubmittingHotel}
                 style={{ backgroundColor: "#158993", borderColor: "#158993" }}
               >
-                {isSubmittingHotel ? "Adding..." : "Add Business Unit"}
+                {isSubmittingHotel ? (editingHotel ? "Updating..." : "Adding...") : (editingHotel ? "Update Business Unit" : "Add Business Unit")}
               </button>
             </div>
           </form>
@@ -1877,19 +1960,29 @@ const HospitalityManager = () => {
                                         <span className="text-muted">{hotelUsers.length} users</span>
                                       </td>
                                       <td className="py-3 text-end pe-4">
-                                        <button
-                                          type="button"
-                                          className="btn btn-sm btn-outline-primary"
-                                          onClick={() => {
-                                            router.push(
-                                              `/dashboard/admin/hospitality-manager/approval-hierarchy?companyId=${selectedCompanyId}&hotelId=${hotel.id}`
-                                            );
-                                          }}
-                                          style={{ backgroundColor: "#158993", borderColor: "#158993", color: "#fff" }}
-                                        >
-                                          <i className="bi bi-diagram-3 me-1"></i>
-                                          Set Hierarchy
-                                        </button>
+                                        <div className="d-flex gap-2 justify-content-end">
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline-secondary"
+                                            onClick={() => handleEditHotel(hotel)}
+                                            title="Edit Business Unit"
+                                          >
+                                            <i className="bi bi-pencil"></i>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline-primary"
+                                            onClick={() => {
+                                              router.push(
+                                                `/dashboard/admin/hospitality-manager/approval-hierarchy?companyId=${selectedCompanyId}&hotelId=${hotel.id}`
+                                              );
+                                            }}
+                                            style={{ backgroundColor: "#158993", borderColor: "#158993", color: "#fff" }}
+                                          >
+                                            <i className="bi bi-diagram-3 me-1"></i>
+                                            Set Hierarchy
+                                          </button>
+                                        </div>
                                       </td>
                                     </tr>
                                   );
@@ -1957,16 +2050,6 @@ const HospitalityManager = () => {
                                 ? "Map users to give them access to this hospitality company and its business units"
                                 : "Try changing the filter or map users at this level"}
                             </p>
-                            {userMappingFilter === "all" && (
-                              <button
-                                type="button"
-                                className="btn btn-outline-primary btn-sm"
-                                onClick={() => setShowUserMappingModal(true)}
-                              >
-                                <i className="bi bi-plus-lg me-1"></i>
-                                Add First User
-                              </button>
-                            )}
                           </div>
                         ) : (
                           <div className="table-responsive">
