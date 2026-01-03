@@ -1291,11 +1291,12 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     setShowCloseConfirmModal(false);
   };
 
-  const handleFinalize = (item, proditem, existingPOId, selectedHierarchy) => {
+  const handleFinalize = (item, proditem, existingPOId, selectedHierarchy, routeType = 'PO') => {
     setfinalizeLoading(true);
     const specs = proditem.product_details[0].rfq_details;
 
-    const poRequiredPayload = {
+    // PO-related payload - only include full details for PO route
+    const poRequiredPayload = routeType === 'PO' ? {
       project_id: proditem.rfq[0].project_id,
       total_value: item.total_price,
       existing_po_id: existingPOId,
@@ -1315,7 +1316,16 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         },
         finalized_vendor_id: item.quote_details.created_by
       },
-    }
+    } : {
+      // Minimal payload for ARC route
+      product_info: {
+        rfq_product_id: proditem.id,
+        quantity: specs.find(spec => spec.title == 'Quantity')?.value ?? -1,
+        unit: specs.find(spec => spec.title == 'Unit')?.value ?? "N/A",
+        unit_price: item.unit_price,
+        finalized_vendor_id: item.quote_details.created_by
+      }
+    };
 
     const payload = {
       rfq_id: proditem.rfq_id,
@@ -1325,13 +1335,17 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       quote_id: item.quote_id,
       quote_item_id: item.quote_item_id,
       variant: proditem.variant,
+      route_type: routeType, // Pass the selected route type
       ...poRequiredPayload
     };
 
     finalizeQuotation(payload)
       .then((res) => {
         setfinalizeLoading(false);
-        toast.success(res.message ?? "You've finalized vendor for this product!")
+        const routeMsg = routeType === 'ARC' 
+          ? "Vendor finalized! ARC approval will be triggered when all products are finalized."
+          : "Vendor finalized! Purchase Order created.";
+        toast.success(res.message ?? routeMsg)
         getRespectiveQuotes();
       })
       .catch((err) => {

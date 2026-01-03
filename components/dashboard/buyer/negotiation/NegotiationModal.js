@@ -253,18 +253,35 @@ const NegotiationModal = ({
     const quotations = product?.quotations || [];
     if (quotations.length === 0) return 'No quotes';
     
-    const codes = quotations.slice(0, 3).map(q => {
-      const vendor = q?.quote_details?.vendor_details;
-      if (vendor?.rfq_product_vendor_id) {
-        return `VEN-${vendor.rfq_product_vendor_id}`;
+    // Filter out regretted quotes and those without valid data
+    const validQuotations = quotations.filter(q => 
+      q.id != null && 
+      q.is_regret !== 1 && 
+      q.vendor_details
+    );
+    
+    if (validQuotations.length === 0) return 'No quotes';
+    
+    const codes = validQuotations.slice(0, 3).map(q => {
+      // vendor_details is an array at quotation level, not inside quote_details
+      const vendorDetails = Array.isArray(q.vendor_details) ? q.vendor_details[0] : q.vendor_details;
+      if (vendorDetails?.rfq_product_vendor_id) {
+        return `VEN-${vendorDetails.rfq_product_vendor_id}`;
+      }
+      // Fallback: try to get from all_vendors using created_by
+      if (q.created_by && product?.all_vendors) {
+        const allVendor = product.all_vendors.find(v => v.id === q.created_by);
+        if (allVendor?.rfq_product_vendor_id) {
+          return `VEN-${allVendor.rfq_product_vendor_id}`;
+        }
       }
       return null;
     }).filter(Boolean);
     
-    if (quotations.length > 3) {
-      return `${codes.join(', ')} +${quotations.length - 3} more`;
+    if (validQuotations.length > 3) {
+      return codes.length > 0 ? `${codes.join(', ')} +${validQuotations.length - 3} more` : 'No vendor codes';
     }
-    return codes.join(', ') || 'No vendor codes';
+    return codes.length > 0 ? codes.join(', ') : 'No vendor codes';
   };
 
   const getProductDetails = (product) => {

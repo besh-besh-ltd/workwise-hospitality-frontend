@@ -69,6 +69,7 @@ const QuoteCompareTable = ({
   });
   const [existingPOId, setExistingPOId] = useState(null)
   const [availableHierarchies, setAvailableHierarchies] = useState([true]);
+  const [selectedRouteType, setSelectedRouteType] = useState(null); // 'ARC' or 'PO'
 
   useEffect(() => {
     calculateLowestQuote();
@@ -742,13 +743,25 @@ const QuoteCompareTable = ({
         show={activeModal == 'finalize'}
         onHide={() => setActiveModal(null)}
         onConfirm={(selectedPOId) => {
-          if(availableHierarchies.length <= 0) {
-            toast.error("You cannot finalize a vendor, as you don't belong to the company's PO approval hierarchy");
-            return;
+          setExistingPOId(selectedPOId);
+          // Automatically determine route based on is_tender
+          const isTender = proditem?.rfq?.[0]?.is_tender === 1 || proditem?.rfq?.[0]?.is_tender === true;
+          const routeType = isTender ? 'ARC' : 'PO';
+          setSelectedRouteType(routeType);
+          
+          if (routeType === 'ARC') {
+            // ARC route: finalize directly without hierarchy selection
+            handleFinalize(currentItem, proditem, existingPOId, null, 'ARC');
+            setActiveModal(null);
+          } else {
+            // PO route: need hierarchy selection
+            if (availableHierarchies.length <= 0) {
+              toast.error("You cannot finalize a vendor, as you don't belong to the company's PO approval hierarchy");
+              setActiveModal(null);
+              return;
+            }
+            setActiveModal('hierarchy');
           }
-
-          setExistingPOId(selectedPOId)
-          setActiveModal('hierarchy')
         }}
         vendorName={
           currentItem?.quote_details?.vendor_details?.organization_name ||
@@ -766,8 +779,9 @@ const QuoteCompareTable = ({
         onHide={() => setActiveModal(null)}
         hierarchies={availableHierarchies}
         onConfirm={(selectedHierarchy) => {
-          handleFinalize(currentItem, proditem, existingPOId, selectedHierarchy);
-          setActiveModal(null)
+          // Use selected route type (defaults to PO)
+          handleFinalize(currentItem, proditem, existingPOId, selectedHierarchy, selectedRouteType || 'PO');
+          setActiveModal(null);
         }}
       />
       <FinalizeHistoryModal
