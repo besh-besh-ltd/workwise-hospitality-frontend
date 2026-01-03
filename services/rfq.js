@@ -833,6 +833,28 @@ export const getClausesByRfqProductId = (payload) => {
   });
 };
 
+export const replaceTechEvalVendor = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/replace-tech-eval-vendor`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getNextVendorsForTechEval = (params) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/get-next-vendors-for-tech-eval`, { params });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const getClausesByRfqVendorSide = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {

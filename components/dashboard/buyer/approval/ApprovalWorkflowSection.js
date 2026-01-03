@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Accordion, Badge, Button, Alert, Spinner } from "react-bootstrap";
 import { toast } from "react-toastify";
 import {
@@ -11,6 +11,7 @@ import {
 import useApprovalWorkflow from "@/hooks/useApprovalWorkflow";
 import ApprovalTimeline from "./ApprovalTimeline";
 import ApprovalActionModal from "./ApprovalActionModal";
+import { findMatchingPolicy } from "@/services/approval";
 
 const statusConfig = {
   PENDING: {
@@ -39,7 +40,7 @@ const statusConfig = {
   },
 };
 
-const ApprovalWorkflowSection = ({ entityType, entityId, entityLabel = "Item" }) => {
+const ApprovalWorkflowSection = ({ entityType, entityId, entityLabel = "Item", hospitalityCompanyId, hotelId, departmentId }) => {
   const {
     instance,
     loading,
@@ -57,6 +58,9 @@ const ApprovalWorkflowSection = ({ entityType, entityId, entityLabel = "Item" })
 
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState(null);
+  const [policy, setPolicy] = useState(null);
+  const [policyLoading, setPolicyLoading] = useState(false);
+  const [policyError, setPolicyError] = useState(null);
 
   const openActionModal = (type) => {
     setActionType(type);
@@ -74,6 +78,38 @@ const ApprovalWorkflowSection = ({ entityType, entityId, entityLabel = "Item" })
       toast.error(result.error || `Failed to ${actionType.toLowerCase()}`);
     }
   };
+
+  // Fetch matching policy when there's no instance
+  useEffect(() => {
+    const fetchPolicy = async () => {
+      if (instance || !entityType || !hospitalityCompanyId) {
+        return;
+      }
+
+      setPolicyLoading(true);
+      setPolicyError(null);
+      try {
+        const params = {
+          entity_type: entityType,
+          hospitality_company_id: hospitalityCompanyId,
+        };
+        if (hotelId) params.hotel_id = hotelId;
+        if (departmentId) params.department_id = departmentId;
+
+        const response = await findMatchingPolicy(params);
+        const policyData = response?.data?.data || response?.data || null;
+        setPolicy(policyData);
+      } catch (err) {
+        console.error("Failed to fetch approval policy:", err);
+        setPolicyError(err?.message || "Failed to fetch approval policy");
+        setPolicy(null);
+      } finally {
+        setPolicyLoading(false);
+      }
+    };
+
+    fetchPolicy();
+  }, [instance, entityType, hospitalityCompanyId, hotelId, departmentId]);
 
   // Loading state
   if (loading) {
@@ -102,14 +138,79 @@ const ApprovalWorkflowSection = ({ entityType, entityId, entityLabel = "Item" })
     );
   }
 
-  // No approval instance
+  // No approval instance - show policy if available
   if (!instance) {
+    if (policyLoading) {
+      return (
+        <div className="border rounded-md p-4 text-center">
+          <Spinner animation="border" variant="primary" className="mb-3" />
+          <p className="text-muted mb-0">Loading approval workflow...</p>
+        </div>
+      );
+    }
+
+    if (policy && policy.steps && policy.steps.length > 0) {
+      // Show policy workflow even without active instance
+      return (
+        <Accordion className="approval-workflow-accordion">
+          <Accordion.Item eventKey="0" className="border rounded-md overflow-hidden">
+            <Accordion.Header>
+              <div className="d-flex justify-content-between align-items-center w-100 me-3 py-1">
+                <div className="d-flex align-items-center gap-3">
+                  <div
+                    className="d-flex align-items-center justify-content-center rounded-circle"
+                    style={{
+                      width: 45,
+                      height: 45,
+                      backgroundColor: "#6c757d",
+                      color: "white",
+                    }}
+                  >
+                    <BsShieldCheck size={22} />
+                  </div>
+                  <div>
+                    <h6 className="mb-1 fw-bold text-dark" style={{ fontSize: "1rem" }}>Approval Workflow</h6>
+                    <div className="d-flex align-items-center gap-2 flex-wrap">
+                      <small className="text-secondary">
+                        {policy.steps.length} step{policy.steps.length !== 1 ? 's' : ''} configured
+                      </small>
+                      <Badge bg="secondary" className="px-2 py-1" style={{ fontSize: "0.75rem" }}>
+                        Not Started
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Accordion.Header>
+            <Accordion.Body className="py-4">
+              <Alert variant="info" className="mb-3">
+                <strong>Workflow Configured:</strong> This {entityLabel.toLowerCase()} will follow the approval workflow below when submitted for approval.
+              </Alert>
+              <ApprovalTimeline
+                steps={policy.steps.map((step, index) => ({
+                  ...step,
+                  step_order: step.step_order || index + 1,
+                  status: 'PENDING',
+                  approvers: []
+                }))}
+                currentStep={0}
+                initiatedBy={null}
+              />
+            </Accordion.Body>
+          </Accordion.Item>
+        </Accordion>
+      );
+    }
+
+    // No policy found
     return (
       <div className="border rounded-md p-4 text-center">
         <BsShieldCheck size={48} className="text-muted mb-3 opacity-50" />
         <h6 className="text-muted">No Approval Workflow</h6>
         <p className="text-muted small mb-0">
-          No approval workflow is currently active for this {entityLabel.toLowerCase()}.
+          {policyError 
+            ? `Unable to load approval workflow: ${policyError}`
+            : `No approval workflow is currently configured for this ${entityLabel.toLowerCase()}.`}
         </p>
       </div>
     );

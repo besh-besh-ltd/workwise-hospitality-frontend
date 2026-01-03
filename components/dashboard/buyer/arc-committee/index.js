@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { getArcRfqList, getTenderLifecycle, performArcAction } from "@/services/arc";
 import { getProjectList } from '@/services/project';
+import { getUserMappings } from '@/services/hospitality';
 import { formatRFQNumber } from "@/utils/sharedFunctions";
 import { toast } from "react-toastify";
 import FullLoader from "@/components/shared/FullLoader";
@@ -11,6 +12,8 @@ import moment from 'moment';
 import { Badge, Button, Modal, Form, Accordion, Table, Alert } from 'react-bootstrap';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheckCircle, faTimesCircle, faArrowRight, faClock, faFileAlt, faUsers, faGavel } from "@fortawesome/free-solid-svg-icons";
+import { useModulePermissions } from "@/hooks/useModulePermissions";
+import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 
 const ArcCommittee = () => {
   const router = useRouter();
@@ -20,13 +23,56 @@ const ArcCommittee = () => {
   const [currentRfq, setCurrentRfq] = useState(null);
   const [lifecycleData, setLifecycleData] = useState(null);
   const [projects, setProjects] = useState([]);
+  const [allProjects, setAllProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [isTenderFilter, setIsTenderFilter] = useState(null);
+  const [rfqNo, setRfqNo] = useState(null);
+  const [userHotelMappings, setUserHotelMappings] = useState([]);
+  const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState(null);
   const [remarks, setRemarks] = useState('');
   const [targetStage, setTargetStage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Extract hotel IDs for permission checks - use hotel_id from RFQ data or user mappings
+  const hotelIds = useMemo(() => {
+    // If we have lifecycle data with RFQ, use that hotel_id
+    if (lifecycleData?.rfq) {
+      const rfq = lifecycleData.rfq;
+      // Primary: use hotel_id from RFQ
+      if (rfq.hotel_id !== undefined && rfq.hotel_id !== null) {
+        return [rfq.hotel_id];
+      }
+      // Alternative: try hospitality_hotel_id field
+      if (rfq.hospitality_hotel_id !== undefined && rfq.hospitality_hotel_id !== null) {
+        return [rfq.hospitality_hotel_id];
+      }
+    }
+    // If we have currentRfq with hotel_id, use that
+    if (currentRfq?.hotel_id !== undefined && currentRfq?.hotel_id !== null) {
+      return [currentRfq.hotel_id];
+    }
+    // Fallback: use user's hotel mappings if available (for list view)
+    if (userHotelMappings && userHotelMappings.length > 0) {
+      return userHotelMappings.map(h => h.hospitality_hotel_id).filter(id => id !== undefined && id !== null);
+    }
+    return [];
+  }, [lifecycleData, currentRfq, userHotelMappings]);
+
+  // Permission hook for ARC Committee module
+  // Use bulk permissions endpoint - only enabled when we have hotel IDs
+  const {
+    canRead,
+    canUpdate,
+    canCreate,
+    canApprove,
+    loading: permissionsLoading,
+  } = useModulePermissions({
+    moduleKey: "arc",
+    hotelIds: hotelIds,
+    enabled: hotelIds.length > 0, // Only fetch when we have hotel IDs
+  });
 
   const lifecycleStages = [
     { value: 'CREATED', label: 'RFQ Created' },
@@ -41,9 +87,19 @@ const ArcCommittee = () => {
   ];
 
   useEffect(() => {
-    loadRfqList();
     getAllProjects();
-  }, [selectedProject, isTenderFilter]);
+    fetchUserHotelMappings();
+  }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      loadRfqList();
+    }, 1000);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [selectedProject, isTenderFilter, rfqNo, selectedHotelIds]);
 
   useEffect(() => {
     if (rfq_id) {
@@ -56,13 +112,39 @@ const ArcCommittee = () => {
       .then((res) => {
         let d = [];
         (res.data.data || res.data || []).map((item) => {
-          d.push({ label: item.name, value: item.id });
+          d.push({ label: item.name, value: item.id, hospitality_company_id: item.hospitality_company_id, hotel_id: item.hotel_id });
         });
         setProjects(d);
+        setAllProjects(d);
       })
       .catch((error) => {
         console.log(error);
       });
+  };
+
+  const fetchUserHotelMappings = async () => {
+    try {
+      const response = await getUserMappings();
+      const mappings = response?.data || [];
+      setUserHotelMappings(mappings);
+    } catch (error) {
+      console.error("Error fetching user hotel mappings", error);
+    }
+  };
+
+  const handleHotelSelectionChange = (hotelIds) => {
+    setSelectedHotelIds(hotelIds);
+    
+    // Filter projects based on selected hotels
+    if (!hotelIds || hotelIds.length === 0) {
+      setProjects(allProjects);
+    } else {
+      const filtered = allProjects.filter(p => hotelIds.includes(p.hotel_id));
+      setProjects(filtered);
+    }
+    
+    // Reset project selection when hotels change
+    setSelectedProject(null);
   };
 
   const loadRfqList = async () => {
@@ -71,8 +153,9 @@ const ArcCommittee = () => {
       const params = {
         page: 1,
         limit: 100,
-        project_id: selectedProject?.value,
-        is_tender: isTenderFilter
+        project_id: selectedProject || -1,
+        is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null,
+        rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null
       };
       const response = await getArcRfqList(params);
       if (response.status === 1) {
@@ -98,7 +181,9 @@ const ArcCommittee = () => {
             id: response.data.rfq.id,
             rfq_no: response.data.rfq.rfq_no,
             is_tender: response.data.rfq.is_tender,
-            project_name: response.data.rfq.project_name || ''
+            project_name: response.data.rfq.project_name || '',
+            hotel_id: response.data.rfq.hotel_id,
+            hospitality_hotel_id: response.data.rfq.hospitality_hotel_id
           });
         }
       }
@@ -594,44 +679,109 @@ const ArcCommittee = () => {
     );
   };
 
+  // Check permissions - show access denied if no read permission
+  // Only check when we have hotel context (RFQ selected) and permissions have been loaded
+  // For list view (no RFQ selected), allow access since backend ACL already handles it
+  const hasPermissionContext = hotelIds.length > 0 && !!rfq_id;
+  if (hasPermissionContext && !permissionsLoading && !canRead) {
+    return (
+      <AccessDeniedPage
+        title="Access Denied"
+        message="You do not have permission to view ARC Committee reviews. Contact your administrator to request access."
+        backUrl="/dashboard/buyer/rfq-management"
+        backLabel="Back to RFQ Management"
+      />
+    );
+  }
+
   return (
     <>
-      {loading && <FullLoader />}
-      <section className="buyer-common-header sc-pt-80">
+      <section className="quote-common-header compare-received-quote sc-pt-80">
         <div className="container-fluid">
-          <h1 className="heading">ARC Committee Review</h1>
+          <div className="row">
+            <div className="col-md-6">
+              <h3 className="heading">ARC Committee Review</h3>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="buyer-rfq-det-sec-1 hasFullLoader">
+      <section className="quote-edit-sec-1">
         <div className="container-fluid">
           <div className="row">
-            {/* Left Sidebar - RFQ List */}
+            {/* RFQ List */}
             <div className="col-md-2">
-              <div className="quote-sec-table">
-                <div className="quote-sec-table-top mb-3">
-                  <h3 className="title">RFQ List</h3>
-                  
-                  <div className="mb-2">
+              <div className="hasFullLoader">
+                <h5 className="title">List Of RFQ's</h5>
+
+                {loading && <FullLoader />}
+
+                <div className="py-1">
+                    <label>Search RFQ No.</label>
+                    <input
+                        className="form-control react-select" 
+                        style={{ borderRadius: '0.25rem', borderColor: '#ced4da', boxShadow: 'none' }}
+                        value={rfqNo || ''}
+                        onChange={(e)=> setRfqNo(e.target.value)}
+                        name="rfq_type"
+                        placeholder="Ex. 123456"
+                        id="search_rfq_no-rfq_list-arc_committee_page"
+                    />
+                </div>
+                {userHotelMappings.length > 0 && (
+                  <div className="py-2">
+                    <label>Select Hotels</label>
                     <Select
-                      options={projects}
-                      value={selectedProject}
-                      onChange={setSelectedProject}
-                      placeholder="Select Project"
+                      isMulti
+                      options={userHotelMappings}
+                      value={userHotelMappings.filter(opt => 
+                        selectedHotelIds.includes(opt.hospitality_hotel_id)
+                      )}
+                      onChange={(selectedOptions) => {
+                        const ids = selectedOptions 
+                          ? selectedOptions.map(opt => opt.hospitality_hotel_id)
+                          : [];
+                        handleHotelSelectionChange(ids);
+                      }}
+                      placeholder="Select Hotels..."
+                      closeMenuOnSelect={false}
+                      classNamePrefix="react-select"
                       isClearable
+                      formatOptionLabel={(option) => (
+                        <div>
+                          <span>{option.hotel_name}</span>
+                        </div>
+                      )}
+                      getOptionValue={(option) => option.hospitality_hotel_id}
+                      id="select_hotels_filter-rfq_list-arc_committee_page"
                     />
                   </div>
-                  
-                  <Select
-                    options={[
-                      { label: 'Tender', value: '1' },
-                      { label: 'RFQ', value: '0' }
-                    ]}
-                    value={isTenderFilter !== null ? { label: isTenderFilter === '1' ? "Tender" : "RFQ", value: isTenderFilter } : null}
-                    onChange={(option) => setIsTenderFilter(option?.value || null)}
-                    placeholder="Type"
-                    isClearable
-                  />
+                )}
+                <div className="py-2">
+                    <label>Select Project</label>
+                    <Select
+                        options={projects}
+                        onChange={(selectedOption) => setSelectedProject(selectedOption?.value ? selectedOption.value : -1)}
+                        value={selectedProject && selectedProject !== -1 ? projects.find(p => p.value === selectedProject) : null}
+                        name="project_id"
+                        placeholder="Select"
+                        isClearable
+                        id="select_project_filter-rfq_list-arc_committee_page"
+                    />
+                </div>
+                <div className="py-2">
+                    <label>Type</label>
+                    <Select
+                        options={[
+                            { label: "RFQ", value: "0" },
+                            { label: "Tender", value: "1" }
+                        ]}
+                        onChange={(selectedOption) => setIsTenderFilter(selectedOption?.value || null)}
+                        value={isTenderFilter !== null ? { label: isTenderFilter === '1' || isTenderFilter === 1 ? "Tender" : "RFQ", value: isTenderFilter } : null}
+                        placeholder="Select"
+                        isClearable
+                        id="is_tender_filter-rfq_list-arc_committee_page"
+                    />
                 </div>
 
                 {!loading && rfqList.length === 0 ? (
@@ -648,13 +798,13 @@ const ArcCommittee = () => {
                           className={
                             item.id === currentRfq?.id ? "text-white" : "text-dark"
                           }
+                          id={`rfq_${item.rfq_no}-rfq_list-arc_committee_page`}
                         >
                           {formatRFQNumber(item.rfq_no, item.is_tender)}
-                          {item.project_name && item.project_name != "" && (
+                          {item.project_name && item.project_name != "" &&
                             <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
                               {item.project_name}
-                            </b>
-                          )}
+                            </b>}
                         </Link>
                       </li>
                     ))}
@@ -663,8 +813,9 @@ const ArcCommittee = () => {
               </div>
             </div>
 
-            {/* Main Content */}
+            {/* Main Container */}
             <div className="col-md-10">
+              <div className="quote-sec-table quote-sec-tab">
               {!rfq_id ? (
                 <Alert variant="info">Please select an RFQ from the list to view details</Alert>
               ) : lifecycleData ? (
@@ -725,6 +876,7 @@ const ArcCommittee = () => {
               ) : (
                 <Alert variant="warning">Loading tender lifecycle data...</Alert>
               )}
+              </div>
             </div>
           </div>
         </div>

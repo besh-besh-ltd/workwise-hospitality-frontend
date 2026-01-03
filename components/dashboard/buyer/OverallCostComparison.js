@@ -58,7 +58,8 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilt
 
   useEffect(() => {
     setLoading(true);
-    downloadQuotesDetails(rfq_id, TA_Filter, freightFilter, rfq_product_id, source)
+    // Always filter by tech-cleared vendors for OverallCostComparison
+    downloadQuotesDetails(rfq_id, 'TA', freightFilter, rfq_product_id, source)
       .then((res) => {
         let data = res.data || [];
         
@@ -85,7 +86,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilt
 
       })
       .catch(() => setLoading(false));
-  }, [rfq_id, TA_Filter, freightFilter, normalizeFilter]);
+  }, [rfq_id, freightFilter, normalizeFilter]);
 
   // ...
 

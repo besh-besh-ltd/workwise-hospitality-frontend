@@ -552,11 +552,11 @@ const openModalForVariant = (variantId) => {
                           <td>{index + 1} </td>
                           <td>
                             <div className="d-flex align-items-center gap-2 flex-wrap">
-                              <p className="fw-semibold mb-1">
-                                {item.product_details.length > 0
-                                  ? item.product_details[0]?.name
-                                  : "-"}
-                              </p>
+                            <p className="fw-semibold mb-1">
+                              {item.product_details.length > 0
+                                ? item.product_details[0]?.name
+                                : "-"}
+                            </p>
                               <ProductNegotiationBadge 
                                 rfq_id={rfq_id} 
                                 rfq_product_id={item.id} 
@@ -992,7 +992,7 @@ const openModalForVariant = (variantId) => {
                                     <div style={{ fontSize: "10px", color: "#666", marginTop: "2px", fontStyle: "italic" }}>
                                       (Product-specific round)
                                     </div>
-                                  </div>
+                                      </div>
                                   {productNegotiationData[item.id].roundQuotes && productNegotiationData[item.id].roundQuotes.length > 0 && (
                                     <div style={{ 
                                       marginTop: "6px",

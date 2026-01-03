@@ -1,6 +1,5 @@
 "use client";
 import { getProfile, getUserDetails } from "@/services/Auth";
-import { getMyPermissions } from "@/services/rbac";
 import storageInstance from "@/utils/storageInstance";
 import { faBell, faUser, faMessage } from "@fortawesome/free-regular-svg-icons";
 import { faGear, faSignOut } from "@fortawesome/free-solid-svg-icons";
@@ -108,6 +107,11 @@ const roleMenus = {
     {
       href: "/dashboard/buyer/quote-compare",
       label: "Quote Comparison",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/buyer/arc-committee",
+      label: "ARC Committee",
       targetMenu: "nav",
     },
     {
@@ -527,20 +531,8 @@ const Header = () => {
           setStoredHospitalityContext(null);
         }
 
-        // Fetch and store user permissions after profile is fetched (skip for vendors)
-        // Vendors (user_type 3) don't need permissions
-        if (profile?.user_type !== 3) {
-          try {
-            const permissionsResponse = await getMyPermissions();
-            if (!isMounted) return;
-            if (permissionsResponse?.data?.data) {
-              storageInstance.setStorageObj("user-permissions", permissionsResponse.data.data);
-            }
-          } catch (permissionsError) {
-            // Silently fail if permissions fetch fails (e.g., 403 for vendors or other users)
-            console.error("Failed to fetch user permissions:", permissionsError);
-          }
-        }
+        // Permissions are now fetched per-page using the bulk endpoint
+        // No need to fetch global permissions here
       } catch (error) {
         if (isMounted) {
           setIsHospitalityCompany(false);

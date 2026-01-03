@@ -1,5 +1,5 @@
 import FileLink from '@/components/shared/FileLink';
-import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getSummarisedDeviation, getTechClearedVendorsResult, updateBuyerMarks, submitTechEvalForApproval } from '@/services/rfq';
+import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getSummarisedDeviation, getTechClearedVendorsResult, updateBuyerMarks, submitTechEvalForApproval, replaceTechEvalVendor, getNextVendorsForTechEval } from '@/services/rfq';
 import { faMessage } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import React, { useEffect, useRef, useState } from 'react'
@@ -44,6 +44,10 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     const [isSubmittedForApproval, setIsSubmittedForApproval] = useState(false);
     const [isApproved, setIsApproved] = useState(false);
     const [approvalStatusLoading, setApprovalStatusLoading] = useState(false);
+    const [showReplaceModal, setShowReplaceModal] = useState(false);
+    const [vendorToReplace, setVendorToReplace] = useState(null);
+    const [nextVendors, setNextVendors] = useState([]);
+    const [replaceLoading, setReplaceLoading] = useState(false);
     // const [summarisedDeviation , setSummarisedDeviation] = useState();
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
@@ -222,6 +226,64 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
             toast.error(error?.message || "Failed to submit for approval");
         } finally {
             setSubmitLoading(false);
+        }
+    };
+
+    const handleReplaceVendor = async (vendor) => {
+      setVendorToReplace(vendor);
+      setReplaceLoading(true);
+      try {
+        // Get current vendor IDs to exclude
+        const currentVendorIds = vendors
+          .filter(v => selectedVendors.length <= 0 ? true : selectedVendors.includes(v.vendor_id))
+          .map(v => v.vendor_id);
+        
+        const response = await getNextVendorsForTechEval({
+          rfq_id: rfq_id,
+          rfq_product_id: product.id,
+          exclude_vendor_ids: currentVendorIds.join(',')
+        });
+        
+        if (response.data && response.data.status === 1) {
+          setNextVendors(response.data.data || []);
+          setShowReplaceModal(true);
+        } else {
+          toast.error('No replacement vendors available');
+        }
+      } catch (error) {
+        toast.error('Error fetching replacement vendors');
+        console.error(error);
+      } finally {
+        setReplaceLoading(false);
+      }
+    };
+
+    const confirmReplaceVendor = async (newVendor) => {
+      if (!vendorToReplace || !newVendor) return;
+      
+      setReplaceLoading(true);
+      try {
+        const response = await replaceTechEvalVendor({
+          rfq_id: parseInt(rfq_id),
+          rfq_product_id: product.id,
+          old_vendor_id: vendorToReplace.vendor_id,
+          new_vendor_id: newVendor.vendor_id
+        });
+        
+        if (response.data && response.data.status === 1) {
+          toast.success('Vendor replaced successfully');
+          setShowReplaceModal(false);
+          setVendorToReplace(null);
+          setNextVendors([]);
+          if (refetch) refetch();
+        } else {
+          toast.error(response.data?.message || 'Failed to replace vendor');
+        }
+      } catch (error) {
+        toast.error('Error replacing vendor');
+        console.error(error);
+      } finally {
+        setReplaceLoading(false);
         }
     };
 
@@ -446,8 +508,18 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                             <tr className="table-dark">
                               <th className="col-4 align-middle">Clause And Files</th>
                               {vendors && vendors.length > 0 &&
-                                vendors.filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id)).map((vendor) => {
+                                vendors
+                                  .filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id))
+                                  .sort((a, b) => {
+                                    // Sort by rank (L1-L5), if rank is not available, maintain original order
+                                    const rankA = a.rank || 999;
+                                    const rankB = b.rank || 999;
+                                    return rankA - rankB;
+                                  })
+                                  .map((vendor) => {
                                     const isCleared = vendor.is_cleared;
+                                    const vendorCode = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : vendor.vendor_name;
+                                    const rankLabel = vendor.rank ? `L${vendor.rank}` : '';
                                     return (
                                       <th
                                         key={vendor.vendor_id}
@@ -455,7 +527,10 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                       >
                                         <div className="d-flex justify-content-between gap-2 align-items-center">
                                           <div className="d-flex flex-column align-items-center w-100">
-                                            <span>{`VEN-${vendor.rfq_product_vendor_id}` || vendor.vendor_name}</span>
+                                            <span>
+                                              {vendorCode}
+                                              {rankLabel && <span className="badge bg-primary ms-2">{rankLabel}</span>}
+                                            </span>
                                             {vendor.calculated_score !== undefined && vendor.calculated_score !== null && (
                                               <p className="mb-1 mt-1">
                                                 <strong>Score:</strong> {vendor.calculated_score}%
@@ -559,6 +634,18 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                             </Dropdown.Menu>
                                           </Dropdown>
                                         </div>
+                                        {canWrite && !permissionsLoading && !isSubmittedForApproval && vendor.rank && (
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline-primary mt-2"
+                                            onClick={() => handleReplaceVendor(vendor)}
+                                            disabled={replaceLoading}
+                                            style={{ fontSize: '12px', width: '100%' }}
+                                            id={`replace_vendor_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
+                                          >
+                                            Replace
+                                          </button>
+                                        )}
                                       </th>
                                     );
                                 }
@@ -592,7 +679,15 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                             ) : null}
                           </td>
                           {vendors && vendors.length > 0 &&
-                            vendors.filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id)).map((vendor) => {
+                            vendors
+                              .filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id))
+                              .sort((a, b) => {
+                                // Sort by rank (L1-L5), if rank is not available, maintain original order
+                                const rankA = a.rank || 999;
+                                const rankB = b.rank || 999;
+                                return rankA - rankB;
+                              })
+                              .map((vendor) => {
                               const response = clauseItem.vendor_responses.find(
                                 (response) =>
                                   vendor.vendor_id == response.vendor_id
@@ -607,20 +702,23 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                       gap: 2,
                                     }}
                                   >
-                                    <span
-                                      className={`badge rounded-pill py-2 px-3 ${
-                                        response?.vendor_response == "I Agree"
-                                          ? "text-bg-success"
-                                          : response?.vendor_response ==
-                                            "I Dont Agree"
-                                          ? "text-bg-danger"
-                                          : "text-bg-secondary"
-                                      }`}
-                                      style={{ width: "fit-content" }}
-                                    >
-                                      {response?.vendor_response ||
-                                        "No Response"}
-                                    </span>
+                                    {/* Don't show vendor response for sampling clauses */}
+                                    {clauseItem.clause_type !== 'sampling' && (
+                                      <span
+                                        className={`badge rounded-pill py-2 px-3 ${
+                                          response?.vendor_response == "I Agree"
+                                            ? "text-bg-success"
+                                            : response?.vendor_response ==
+                                              "I Dont Agree"
+                                            ? "text-bg-danger"
+                                            : "text-bg-secondary"
+                                        }`}
+                                        style={{ width: "fit-content" }}
+                                      >
+                                        {response?.vendor_response ||
+                                          "No Response"}
+                                      </span>
+                                    )}
                                     {response?.vendor_response_files && (
                                       <FileLink
                                         key={response.vendor_id}
@@ -628,14 +726,22 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         ColumnClass="col-md-6"
                                       />
                                     )}
+                                    {/* Show marks if available (for all clause types including sampling) */}
                                     {(response?.buyer_marks !== null && response?.buyer_marks !== undefined) && (
                                       <p className="mb-1 mt-1">
                                         <strong>Marks:</strong> {response.buyer_marks} / {clauseItem.weightage || 0}
                                       </p>
                                     )}
+                                    {/* Show remark for sampling clauses */}
                                     {clauseItem.clause_type === 'sampling' && response?.buyer_remark && (
                                       <p className="mb-1">
                                         <strong>Remark:</strong> {response.buyer_remark}
+                                      </p>
+                                    )}
+                                    {/* For sampling clauses, show message if no marks yet */}
+                                    {clauseItem.clause_type === 'sampling' && (!response || (response?.buyer_marks === null && response?.buyer_marks === undefined)) && (
+                                      <p className="mb-1 mt-1 text-muted small">
+                                        No score assigned yet
                                       </p>
                                     )}
                                     <button
@@ -975,6 +1081,9 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
               entityType="TECHNICAL"
               entityId={product.id}
               entityLabel={`Evaluation of ${product?.product_details?.[0]?.name || 'Product'}`}
+              hospitalityCompanyId={currentRfq?.hospitality_company_id}
+              hotelId={currentRfq?.hotel_id}
+              departmentId={currentRfq?.department_id}
             />
           </div>
         )}
@@ -990,6 +1099,62 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
           confirmButtonText={submitLoading ? "Submitting..." : "Submit"}
           cancelButtonText="Cancel"
         />
+
+        {/* Replace Vendor Modal */}
+        <Modal show={showReplaceModal} onHide={() => {
+          setShowReplaceModal(false);
+          setVendorToReplace(null);
+          setNextVendors([]);
+        }} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>Replace Vendor</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {vendorToReplace && (
+              <div className="mb-3">
+                <p><strong>Replacing:</strong> VEN-{vendorToReplace.rfq_product_vendor_id} ({vendorToReplace.vendor_name})</p>
+                <p className="text-muted">Select a replacement vendor from the list below:</p>
+              </div>
+            )}
+            {nextVendors.length > 0 ? (
+              <div className="list-group">
+                {nextVendors.map((newVendor, idx) => (
+                  <button
+                    key={newVendor.vendor_id}
+                    type="button"
+                    className="list-group-item list-group-item-action"
+                    onClick={() => confirmReplaceVendor(newVendor)}
+                    disabled={replaceLoading}
+                  >
+                    <div className="d-flex justify-content-between align-items-center">
+                      <div>
+                        <strong>VEN-{newVendor.rfq_product_vendor_id}</strong> - {newVendor.vendor_name}
+                        <br />
+                        <small className="text-muted">Quote Price: ₹{newVendor.quote_price?.toLocaleString() || 'N/A'}</small>
+                      </div>
+                      <span className="badge bg-secondary">L{newVendor.rank}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted">No replacement vendors available</p>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setShowReplaceModal(false);
+                setVendorToReplace(null);
+                setNextVendors([]);
+              }}
+            >
+              Cancel
+            </button>
+          </Modal.Footer>
+        </Modal>
 
         <hr />
       </div>
