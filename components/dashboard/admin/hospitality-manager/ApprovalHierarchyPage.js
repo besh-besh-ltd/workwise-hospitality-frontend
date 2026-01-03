@@ -229,6 +229,46 @@ const ApprovalHierarchyPage = () => {
     setPolicyForm({ ...policyForm, steps: newSteps });
   };
 
+  const handleDragStart = (e, index) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', index);
+    e.currentTarget.style.opacity = '0.5';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = '1';
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    const dragIndex = parseInt(e.dataTransfer.getData('text/html'), 10);
+    
+    if (dragIndex === dropIndex) {
+      return;
+    }
+
+    const newSteps = [...policyForm.steps];
+    const draggedStep = newSteps[dragIndex];
+    
+    // Remove the dragged item
+    newSteps.splice(dragIndex, 1);
+    
+    // Insert at new position
+    newSteps.splice(dropIndex, 0, draggedStep);
+    
+    // Update step_order for all steps
+    newSteps.forEach((step, i) => {
+      step.step_order = i + 1;
+    });
+    
+    setPolicyForm({ ...policyForm, steps: newSteps });
+  };
+
   const handleStepChange = (index, field, value) => {
     const newSteps = [...policyForm.steps];
     const updatedStep = { ...newSteps[index], [field]: value };
@@ -677,11 +717,28 @@ const ApprovalHierarchyPage = () => {
                         return (
                           <div
                             key={index}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, index)}
+                            onDragOver={handleDragOver}
+                            onDragEnd={handleDragEnd}
+                            onDrop={(e) => handleDrop(e, index)}
                             className="mb-3 p-3 border rounded"
-                            style={{ backgroundColor: "#ffffff" }}
+                            style={{ 
+                              backgroundColor: "#ffffff",
+                              cursor: "move",
+                              transition: "all 0.2s"
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = "none";
+                            }}
                           >
                             <div className="d-flex justify-content-between align-items-center mb-3">
                               <div className="d-flex align-items-center gap-2">
+                                <div className="d-flex align-items-center gap-2">
+                                  <i className="bi bi-grip-vertical text-muted" style={{ fontSize: "18px", cursor: "grab" }}></i>
                                 <span
                                   className="badge rounded-circle d-flex align-items-center justify-content-center"
                                   style={{
@@ -695,6 +752,7 @@ const ApprovalHierarchyPage = () => {
                                 >
                                   {index + 1}
                                 </span>
+                                </div>
                                 <h6 className="mb-0">Approval Level {index + 1}</h6>
                               </div>
                               <button
