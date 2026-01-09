@@ -783,24 +783,6 @@ Example:
                                   required={true}
                                 />
 
-                                {Array.isArray(userDepartments) &&
-                                  userDepartments.length > 0 && (
-                                    <div className="mb-3">
-                                      <label className="form-label">
-                                        Departments
-                                      </label>
-                                      <div className="d-flex flex-wrap gap-2">
-                                        {userDepartments.map((dept) => (
-                                          <span
-                                            key={dept.id}
-                                            className="badge bg-info text-dark"
-                                          >
-                                            {dept.title}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
 
                                 {showHospitalitySection && (
                                   <>
@@ -835,7 +817,7 @@ Example:
                                   errors={errors}
                                   values={values.department_id}
                                   onChange={setFieldValue}
-                                  required={true}
+                                  required={false}
                                 />
                               </>
                             ) : type === "add-team-member" ? (
@@ -1149,7 +1131,7 @@ Example:
                                     <div className="card border-0 shadow-sm">
                                       <div className="card-body">
                                         <div className="d-flex justify-content-between align-items-center mb-3">
-                                          <h5 className="mb-0">Hospitality Access</h5>
+                                          <h5 className="mb-0">Company & Hotel Access</h5>
                                           <span className="text-muted small">
                                             Manage company/hotel scope for this user
                                           </span>
@@ -1371,6 +1353,9 @@ Example:
                                                 >
                                                   Auto add to active mapped projects
                                                 </label>
+                                                <small className="text-muted d-block mt-1">
+                                                  When enabled, this user will automatically be added to all active projects associated with the selected company/hotel scope
+                                                </small>
                                               </div>
                                             </div>
                                             <div className="col-12">
@@ -1481,9 +1466,9 @@ Example:
                               <div className="card border-0 shadow-sm">
                                 <div className="card-body">
                                   <div className="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 className="mb-0">RBAC Role &amp; Scope</h5>
+                                    <h5 className="mb-0">Workflow Roles & Permissions</h5>
                                     <span className="text-muted small">
-                                      Assign roles with company / hotel scope
+                                      Assign roles with company / hotel scope and permissions
                                     </span>
                                   </div>
                                   <RoleScopeSelector

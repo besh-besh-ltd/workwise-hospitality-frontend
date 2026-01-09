@@ -14,7 +14,7 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
     <>
       <section className="buyer-common-header sc-pt-80">
         <div className="container-fluid">
-          <h1 className="heading">RFQ Management</h1>
+          <h1 className="heading">Tender / RFQ Management</h1>
         </div>
       </section>
 
@@ -25,7 +25,7 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
               <div className="manage-rfq-con">
                 {/* Content for Manage RFQs tab */}
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                  <span className="title">RFQ #{data.rfq_no} details</span>
+                  <span className="title">Tender / RFQ #{data.rfq_no} details</span>
                   
                   <div className="d-flex gap-2">
                     <Link
@@ -35,16 +35,6 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
                     >
                       Queries
                     </Link>
-                    {/* Clarifications Button - Only for Tenders */}
-                    {data?.is_tender === 1 && (
-                      <Link
-                        href={`/dashboard/buyer/clarification-management?rfq_id=${data.id}`}
-                        className="btn btn-warning"
-                        id="clarifications_button-rfq_header-view_rfq_page"
-                      >
-                        Clarifications
-                      </Link>
-                    )}
                     <Link
                       href={`/dashboard/buyer/quote-compare?rfq_id=${data.rfq_no}`}
                       className="btn btn-primary"
@@ -542,7 +532,7 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
                           className="btn btn-primary"
                           id="edit_rfq-rfq_actions-view_rfq_page"
                         >
-                          Edit RFQ
+                          Edit Tender / RFQ
                         </Link>
                       )}
                       {rfqStatus === 1 && (
@@ -553,12 +543,12 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
                           onClick={onCloseRFQ}
                           disabled={closeLoading}
                         >
-                          {closeLoading ? "Processing..." : "Mark RFQ as Closed"}
+                          {closeLoading ? "Processing..." : "Mark Tender / RFQ as Closed"}
                         </button>
                       )}
                       {rfqStatus === 2 && (
                         <button type="button" className="btn btn-danger" disabled id="rfq_closed-rfq_status-view_rfq_page">
-                          RFQ is Closed
+                          Tender / RFQ is Closed
                         </button>
                       )}
                     </div>

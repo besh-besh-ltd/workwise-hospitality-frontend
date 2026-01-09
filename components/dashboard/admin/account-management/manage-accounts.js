@@ -61,7 +61,6 @@ const ManageAccountsPage = () => {
   });
 
   const [filters, setFilters] = useState({
-    workflowRole: null,
     status: null,
   });
 
@@ -421,12 +420,6 @@ const ManageAccountsPage = () => {
 
   useEffect(() => {
     let filtered = data.accounts;
-    if (filters.workflowRole) {
-      filtered = filtered.filter((u) => {
-        const userScopes = userRoleScopes[u.id] || [];
-        return userScopes.some((scope) => scope.role_title === filters.workflowRole.value);
-      });
-    }
     if (filters.status)
       filtered = filtered.filter((u) => u.status === filters.status.value);
 
@@ -435,7 +428,7 @@ const ManageAccountsPage = () => {
       ...prev,
       pagination: { ...prev.pagination, totalData: filtered.length },
     }));
-  }, [filters, data.accounts, userRoleScopes]);
+  }, [filters, data.accounts]);
 
   useEffect(() => {
     if (data.accounts.length) {
@@ -542,32 +535,6 @@ const ManageAccountsPage = () => {
               <div className="vendor-mngt-con">
                 <div className="filter-section">
                   <div className="row mb-4 text-sm">
-                  
-                    <div className="col-md-3">
-                      <label>Filter by Workflow Role</label>
-                      <Select
-                        options={(() => {
-                          const allWorkflowRoles = new Set();
-                          Object.values(userRoleScopes).forEach((scopes) => {
-                            scopes.forEach((scope) => {
-                              if (scope.role_title) {
-                                allWorkflowRoles.add(scope.role_title);
-                              }
-                            });
-                          });
-                          return Array.from(allWorkflowRoles)
-                            .sort()
-                            .map((title) => ({ value: title, label: title }));
-                        })()}
-                        onChange={(workflowRole) =>
-                          setFilters((prev) => ({ ...prev, workflowRole }))
-                        }
-                        placeholder="Select Workflow Role"
-                        isClearable
-                        id="filter_by_workflow_role-account_filters-manage_accounts_page"
-                      />
-                    </div>
-
                     <div className="col-md-3">
                       <label>Filter by Status</label>
                       <Select
@@ -625,11 +592,10 @@ const ManageAccountsPage = () => {
                             <th>Name</th>
                             <th>Email</th>
                             <th>Mobile</th>
-                            <th>Account Type</th>
                             {isHospitalityCompany && <th>Workflow Roles</th>}
                             <th>Department</th>
                             <th>Created</th>
-                            {isHospitalityCompany && <th>Hospitality Scope</th>}
+                            {isHospitalityCompany && <th>Company & Hotel Access</th>}
                             <th>Actions</th>
                           </tr>
                         </thead>
@@ -641,20 +607,6 @@ const ManageAccountsPage = () => {
                                 <td>{account.name}</td>
                                 <td>{account.email}</td>
                                 <td>{account.mobile}</td>
-                                <td>
-                                  <span
-                                    className="badge"
-                                    style={{
-                                      backgroundColor: roleInfo.color,
-                                      color:
-                                        roleInfo.color === "#FFE600"
-                                          ? "#000"
-                                          : "#fff",
-                                    }}
-                                  >
-                                    {roleInfo.label}
-                                  </span>
-                                </td>
                                 {isHospitalityCompany && (
                                   <td>{renderUserWorkflowRoles(account.id)}</td>
                                 )}

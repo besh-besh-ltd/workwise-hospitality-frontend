@@ -11,7 +11,7 @@ import {
   setUserSelectedDefaultFile,
 } from "@/redux/slice";
 import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
-import { faEye, faFile } from "@fortawesome/free-regular-svg-icons";
+import { faEye, faFile, faEdit } from "@fortawesome/free-regular-svg-icons";
 import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useDispatch } from "react-redux";
@@ -59,6 +59,7 @@ const Item = ({
   const [isModelOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [buyerClauses, setBuyerClauses] = useState(null);
+  const [minimumPassingScore, setMinimumPassingScore] = useState(null);
   const [showRemoveConfirmModal, setShowRemoveConfirmModal] = useState(false);
   const [specs, setSpecs] = useState({
     size: '',
@@ -261,11 +262,23 @@ const Item = ({
     };
     try {
       const res = await getClausesByRfqProductId(payload);
-      if(!res.success) setBuyerClauses([])
-      else
+      if(!res.success) {
+        setBuyerClauses([]);
+        setMinimumPassingScore(null);
+      } else {
         setBuyerClauses(res.data);
+        // Extract minimum passing score from response
+        const minimumScore = res.minimum_passing_score;
+        if (minimumScore !== undefined && minimumScore !== null) {
+          const score = Number(minimumScore);
+          setMinimumPassingScore(isNaN(score) ? null : score);
+        } else {
+          setMinimumPassingScore(null);
+        }
+      }
     } catch (error) {
       setBuyerClauses([]);
+      setMinimumPassingScore(null);
     }
   }, [data.id]);
 
@@ -842,6 +855,21 @@ const Item = ({
                       <FontAwesomeIcon icon={faEye} />{" "}
                       {`View ${buyerClauses.length} Clauses`}
                     </button>
+                  )}
+
+                  {minimumPassingScore !== null && minimumPassingScore !== undefined && (
+                    <div className="d-flex align-items-center gap-2 p-2 border rounded" style={{ backgroundColor: "#f8f9fa" }}>
+                      <span className="small fw-semibold">Minimum Score:</span>
+                      <span className="badge bg-primary">{minimumPassingScore}</span>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary ms-auto"
+                        onClick={handleOpenModal}
+                        disabled={readOnly}
+                      >
+                        <FontAwesomeIcon icon={faEdit} /> Edit
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

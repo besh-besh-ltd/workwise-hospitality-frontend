@@ -7,30 +7,12 @@ import { toast } from "react-toastify";
 import { Badge } from "react-bootstrap";
 import { BsExclamationCircleFill } from "react-icons/bs";
 import VendorSelectionModal from "@/components/modal/VendorSelectionModal";
-import { checkOpenClarification } from "@/services/clarification";
-
 const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
   const [loading, setloading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [vendors, setVendors] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
-  const [hasOpenClarification, setHasOpenClarification] = useState(false);
-
-  // Check for open clarifications (only for tenders)
-  useEffect(() => {
-    const fetchClarificationStatus = async () => {
-      if (data?.is_tender === 1 && data?.id) {
-        try {
-          const result = await checkOpenClarification(data.id);
-          setHasOpenClarification(result.hasOpen);
-        } catch (error) {
-          console.error("Error checking clarification status:", error);
-        }
-      }
-    };
-    fetchClarificationStatus();
-  }, [data?.id, data?.is_tender]);
 
 
   const list_products = () => {
@@ -192,36 +174,6 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
               {data.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{data.unseen_query_count} + </span>}
             </button>
           </Link>
-          {/* Clarifications Button - Only for Tenders */}
-          {data?.is_tender === 1 && (
-            <Link
-              href={`/dashboard/buyer/clarification-management?rfq_id=${data?.id}`}
-              className="d-block mt-2"
-            >
-              <button
-                type="button"
-                className="page-link-btn border-0 text-white p-2 rounded-2 position-relative"
-                style={{
-                  width: hasOpenClarification ? "145px" : "120px",
-                  backgroundColor: hasOpenClarification ? "#dc3545" : "#ffc107",
-                  color: hasOpenClarification ? "#fff" : "#000"
-                }}
-                id={`view_clarifications_${data?.id}-rfq_actions-manage_rfq_page`}
-              >
-                Clarifications
-                {hasOpenClarification && (
-                  <Badge
-                    bg="light"
-                    text="danger"
-                    className="ms-1"
-                    style={{ fontSize: "0.65rem" }}
-                  >
-                    OPEN
-                  </Badge>
-                )}
-              </button>
-            </Link>
-          )}
         </td>
         {showReminder && (
           <td>
@@ -247,7 +199,7 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
                     ></span>{" "}
                     Processing request...
                   </>
-                ) : data.status == 2 ? 'RFQ has been closed' : data.is_finalized ? "All Products Finalized" : (
+                ) : data.status == 2 ? 'Tender / RFQ has been closed' : data.is_finalized ? "All Products Finalized" : (
                   isRecievedFromAll
                     ? "All Quotes Received"
                     : `Send Reminder (${data.vendors[0].total_vendors - data.vendors[0].quote_received}/${data.vendors[0].total_vendors})`

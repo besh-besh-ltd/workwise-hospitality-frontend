@@ -49,7 +49,7 @@ const PendingApprovalsList = ({ filterData, setFilterData, onCountChange }) => {
         <small>
           <strong>Action Required:</strong>
           <span className="ms-1 text-dark">
-            The following RFQs/Tenders require your approval. Click "View & Approve" to take action.
+            The following Tender / RFQ require your approval. Click "View & Approve" to take action.
           </span>
         </small>
       </Alert>
@@ -84,11 +84,11 @@ const PendingApprovalsList = ({ filterData, setFilterData, onCountChange }) => {
             <table className="table table-striped">
               <thead>
                 <tr>
-                  <th>RFQ No & Project</th>
+                  <th>Tender / RFQ No & Project</th>
                   <th>Products</th>
                   <th>Timeline</th>
                   <th>Created By</th>
-                  <th>RFQ Type</th>
+                  <th>Tender / RFQ Type</th>
                   <th>Reverse Auction</th>
                   <th>Action</th>
                   <th>Query</th>

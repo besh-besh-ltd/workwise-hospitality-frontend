@@ -8,6 +8,7 @@ import {
   BsShieldCheck,
   BsArrowRepeat,
 } from "react-icons/bs";
+import { Button } from "react-bootstrap";
 import useApprovalWorkflow from "@/hooks/useApprovalWorkflow";
 import ApprovalTimeline from "./ApprovalTimeline";
 import ApprovalActionModal from "./ApprovalActionModal";
@@ -383,11 +384,34 @@ const ApprovalWorkflowSection = ({
             )}
 
             {status === "REJECTED" && (
-              <Alert variant="danger" className="mt-4 mb-0 d-flex align-items-center gap-2">
-                <BsXCircleFill size={20} />
-                <div>
-                  <strong>Rejected.</strong> This {entityLabel.toLowerCase()} has been rejected.
-                  Please review the rejection reason in the timeline above.
+              <Alert variant="danger" className="mt-4 mb-0">
+                <div className="d-flex align-items-start gap-3">
+                  <BsXCircleFill size={24} className="flex-shrink-0 mt-1" />
+                  <div className="flex-grow-1">
+                    <div className="fw-bold mb-2">Your Tender / RFQ has been rejected</div>
+                    <p className="mb-2">
+                      This {entityLabel.toLowerCase()} was rejected during the approval process. 
+                      Please review the rejection reason in the timeline above, make necessary changes, and resubmit for approval.
+                    </p>
+                    <div className="d-flex gap-2 mt-3">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          // Navigate to edit page - adjust route based on entity type
+                          const editRoute = entityType === 'TENDER' || entityType === 'RFQ' 
+                            ? `/dashboard/buyer/rfq-management-edit?id=${entityId}`
+                            : `#`;
+                          if (editRoute !== '#') {
+                            window.location.href = editRoute;
+                          }
+                        }}
+                      >
+                        <BsArrowRepeat className="me-1" />
+                        Edit & Resubmit
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </Alert>
             )}

@@ -961,6 +961,17 @@ const HospitalityManager = () => {
                     maxLength="10"
                     required
                   />
+                  {companyForm.pan && (
+                    <div className="mt-2">
+                      <label className="form-label small">PAN Document</label>
+                      <input
+                        type="file"
+                        className="form-control form-control-sm"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => setCompanyDocuments((prev) => ({ ...prev, pan: e.target.files[0] || null }))}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="col-md-6">
                   <label className="form-label">GST <small className="text-muted">(Optional)</small></label>
@@ -979,6 +990,17 @@ const HospitalityManager = () => {
                     placeholder="27AABCU9603R1ZX"
                     maxLength="15"
                   />
+                  {companyForm.gst && (
+                    <div className="mt-2">
+                      <label className="form-label small">GST Document</label>
+                      <input
+                        type="file"
+                        className="form-control form-control-sm"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => setCompanyDocuments((prev) => ({ ...prev, gst: e.target.files[0] || null }))}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="col-md-6">
                   <label className="form-label">MSME <small className="text-muted">(Optional)</small></label>
@@ -989,6 +1011,17 @@ const HospitalityManager = () => {
                     onChange={(e) => setCompanyForm((prev) => ({ ...prev, msme: e.target.value }))}
                     placeholder="MSME registration number"
                   />
+                  {companyForm.msme && (
+                    <div className="mt-2">
+                      <label className="form-label small">MSME Document</label>
+                      <input
+                        type="file"
+                        className="form-control form-control-sm"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => setCompanyDocuments((prev) => ({ ...prev, msme: e.target.files[0] || null }))}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1039,51 +1072,17 @@ const HospitalityManager = () => {
                     placeholder="IFSC code"
                     maxLength="11"
                   />
-                </div>
-              </div>
-            </div>
-
-            {/* Documents */}
-            <div className="mb-4">
-              <h6 className="text-uppercase text-muted mb-3" style={{ fontSize: "12px", letterSpacing: "0.5px" }}>
-                Documents <small>(PDF, JPG, PNG)</small>
-              </h6>
-              <div className="row g-3">
-                <div className="col-md-6">
-                  <label className="form-label">PAN Document</label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => setCompanyDocuments((prev) => ({ ...prev, pan: e.target.files[0] || null }))}
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label">GST Document</label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => setCompanyDocuments((prev) => ({ ...prev, gst: e.target.files[0] || null }))}
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label">Cancelled Cheque</label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => setCompanyDocuments((prev) => ({ ...prev, cancelled_cheque: e.target.files[0] || null }))}
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label">MSME Document</label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => setCompanyDocuments((prev) => ({ ...prev, msme: e.target.files[0] || null }))}
-                  />
+                  {(companyForm.bank_account_number || companyForm.ifsc_code) && (
+                    <div className="mt-2">
+                      <label className="form-label small">Cancelled Cheque</label>
+                      <input
+                        type="file"
+                        className="form-control form-control-sm"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => setCompanyDocuments((prev) => ({ ...prev, cancelled_cheque: e.target.files[0] || null }))}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

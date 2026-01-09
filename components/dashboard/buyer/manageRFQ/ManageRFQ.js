@@ -107,18 +107,18 @@ const ManageRFQ = () => {
                 {/* Table Data Section */}
                 {loading && <FullLoader />}
                 {!loading && myRFQs.length == 0 && (
-                  <p>You haven't created any RFQs yet!</p>
+                  <p>You haven't created any Tender / RFQ yet!</p>
                 )}
                 {!loading && myRFQs && myRFQs.length > 0 && (
                   <div className="table-responsive">
                     <table className="table table-striped ">
                       <thead>
                         <tr>
-                          <th>RFQ No & Project</th>
+                          <th>Tender / RFQ No & Project</th>
                           <th>Products</th>
                           <th>Timeline</th>
                           <th>Created By</th>
-                          <th>RFQ Type</th>
+                          <th>Tender / RFQ Type</th>
                           <th>Reverse Auction</th>
                           <th>Action</th>
                           <th>Query</th>

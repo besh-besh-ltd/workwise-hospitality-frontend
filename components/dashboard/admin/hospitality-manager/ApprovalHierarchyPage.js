@@ -677,8 +677,32 @@ const ApprovalHierarchyPage = () => {
                 </button>
               </div>
               <div className="card-body" style={{ maxHeight: "calc(100vh - 300px)", overflowY: "auto" }}>
+                {/* Info Banner */}
+                <div className="alert alert-info d-flex align-items-start gap-2 mb-4" style={{ backgroundColor: "#e7f3ff", borderLeft: "4px solid #0d6efd" }}>
+                  <i className="bi bi-info-circle fs-5 mt-1" style={{ color: "#0d6efd" }}></i>
+                  <div className="flex-grow-1">
+                    <strong>What is an Approval Workflow?</strong>
+                    <p className="mb-0 small">
+                      An approval workflow defines who needs to approve documents before they can proceed. 
+                      You can create multiple approval levels, and each level can require one or all approvers to approve.
+                    </p>
+                  </div>
+                </div>
+
                 <div className="mb-4">
-                  <label className="form-label fw-semibold">Document Type *</label>
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    <label className="form-label fw-semibold mb-0">Document Type *</label>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-link p-0"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="right"
+                      title="Select the type of document this approval workflow will apply to. For example, if you select 'Tender Approval', this workflow will be used when tenders are submitted for approval."
+                      style={{ fontSize: "14px", color: "#0d6efd" }}
+                    >
+                      <i className="bi bi-question-circle"></i>
+                    </button>
+                  </div>
                   <Select
                     options={entityTypes}
                     value={entityTypes.find((e) => e.value === policyForm.entity_type)}
@@ -688,27 +712,56 @@ const ApprovalHierarchyPage = () => {
                     isDisabled={!!policyForm.id}
                     placeholder="Select document type..."
                   />
-                  <small className="text-muted">Choose what type of documents this workflow applies to</small>
+                  <div className="mt-2 p-2 rounded" style={{ backgroundColor: "#f8f9fa", fontSize: "12px" }}>
+                    <strong>Example:</strong> If you select "Tender Approval", all tenders created for this hotel will follow this workflow.
+                  </div>
                 </div>
 
                 <div className="mb-4">
                   <div className="d-flex justify-content-between align-items-center mb-3">
-                    <label className="form-label mb-0 fw-semibold">Approvers *</label>
+                    <div className="d-flex align-items-center gap-2">
+                      <label className="form-label mb-0 fw-semibold">Approval Levels *</label>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-link p-0"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="right"
+                        title="Approval levels are sequential steps in your workflow. Each level must be completed before moving to the next. You can add multiple levels to create a multi-step approval process."
+                        style={{ fontSize: "14px", color: "#0d6efd" }}
+                      >
+                        <i className="bi bi-question-circle"></i>
+                      </button>
+                    </div>
                     <button
                       type="button"
                       className="btn btn-sm btn-primary"
                       onClick={handleAddStep}
                       style={{ backgroundColor: "#158993", borderColor: "#158993" }}
                     >
-                      <i className="bi bi-plus-lg me-1"></i>Add Approver
+                      <i className="bi bi-plus-lg me-1"></i>Add Approval Level
                     </button>
+                  </div>
+                  
+                  {/* Example Box */}
+                  <div className="alert alert-light border mb-3" style={{ backgroundColor: "#f8f9fa" }}>
+                    <div className="d-flex align-items-start gap-2">
+                      <i className="bi bi-lightbulb text-warning fs-5"></i>
+                      <div className="flex-grow-1">
+                        <strong className="d-block mb-1">How it works:</strong>
+                        <ol className="mb-0 small" style={{ paddingLeft: "20px" }}>
+                          <li>Level 1: First approver(s) review and approve</li>
+                          <li>Level 2: After Level 1 is approved, Level 2 approver(s) review</li>
+                          <li>And so on... Documents move forward only when each level is completed</li>
+                        </ol>
+                      </div>
+                    </div>
                   </div>
 
                   {policyForm.steps.length === 0 ? (
                     <div className="text-center py-5 border rounded" style={{ backgroundColor: "#f8f9fa" }}>
                       <i className="bi bi-people text-muted" style={{ fontSize: "32px" }}></i>
-                      <p className="mb-1 mt-2 text-muted">No approvers added yet</p>
-                      <small className="text-muted">Click "Add Approver" to start building your approval flow</small>
+                      <p className="mb-1 mt-2 text-muted fw-semibold">No approval levels added yet</p>
+                      <small className="text-muted">Click "Add Approval Level" above to start building your approval workflow</small>
                     </div>
                   ) : (
                     <div className="border rounded p-3" style={{ backgroundColor: "#f8f9fa" }}>
@@ -773,7 +826,19 @@ const ApprovalHierarchyPage = () => {
 
                             <div className="row g-3">
                               <div className="col-md-6">
-                                <label className="form-label small fw-semibold">Who approves? *</label>
+                                <div className="d-flex align-items-center gap-2 mb-1">
+                                  <label className="form-label small fw-semibold mb-0">Approver Type *</label>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-link p-0"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-placement="right"
+                                    title="Choose 'Specific User' to assign a particular person, or 'User Role' to assign anyone with that role (e.g., all Finance Managers)."
+                                    style={{ fontSize: "12px", color: "#0d6efd" }}
+                                  >
+                                    <i className="bi bi-question-circle"></i>
+                                  </button>
+                                </div>
                                 <Select
                                   key={`approver-type-${index}-${step.approver_source_type}`}
                                   options={approverSourceTypes}
@@ -790,6 +855,11 @@ const ApprovalHierarchyPage = () => {
                                   isSearchable={false}
                                   menuPlacement="auto"
                                 />
+                                {!step.approver_source_type && (
+                                  <small className="text-muted d-block mt-1">
+                                    <strong>Example:</strong> Select "User Role" if you want any Finance Manager to approve, or "Specific User" for a particular person.
+                                  </small>
+                                )}
                               </div>
 
                               <div className="col-md-6">
@@ -798,7 +868,7 @@ const ApprovalHierarchyPage = () => {
                                     ? "Select User *" 
                                     : step.approver_source_type === "ROLE"
                                     ? "Select Role *"
-                                    : "Select *"}
+                                    : "Select Approver *"}
                                 </label>
                                 <Select
                                   key={`approver-${index}-${step.approver_source_type}-${step.approver_source_id || 'none'}`}
@@ -818,7 +888,7 @@ const ApprovalHierarchyPage = () => {
                                     ? "Select user..." 
                                     : step.approver_source_type === "ROLE"
                                     ? "Select role..."
-                                    : "Select..."}
+                                    : "Select approver type first..."}
                                   isClearable={false}
                                   menuPlacement="auto"
                                 />
@@ -831,7 +901,19 @@ const ApprovalHierarchyPage = () => {
                               </div>
 
                               <div className="col-md-12">
-                                <label className="form-label small fw-semibold">Approval Requirement *</label>
+                                <div className="d-flex align-items-center gap-2 mb-1">
+                                  <label className="form-label small fw-semibold mb-0">Approval Requirement *</label>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-link p-0"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-placement="right"
+                                    title="'Any one person' means only one approver needs to approve. 'Everyone must approve' means all selected approvers must approve before moving to the next level."
+                                    style={{ fontSize: "12px", color: "#0d6efd" }}
+                                  >
+                                    <i className="bi bi-question-circle"></i>
+                                  </button>
+                                </div>
                                 <Select
                                   options={decisionRules}
                                   value={decisionRules.find((r) => r.value === step.decision_rule)}
@@ -840,11 +922,23 @@ const ApprovalHierarchyPage = () => {
                                   }
                                   placeholder="Select requirement..."
                                 />
-                                <small className="text-muted d-block mt-1">
-                                  {step.decision_rule === "ALL" 
-                                    ? "All selected approvers must approve to proceed" 
-                                    : "Any one of the selected approvers can approve to proceed"}
-                                </small>
+                                <div className="mt-2 p-2 rounded" style={{ backgroundColor: step.decision_rule === "ALL" ? "#fff3cd" : "#d1e7dd", fontSize: "12px" }}>
+                                  {step.decision_rule === "ALL" ? (
+                                    <>
+                                      <strong>✓ All must approve:</strong> All selected approvers need to approve. 
+                                      <br />
+                                      <em>Example: If you select 3 Finance Managers, all 3 must approve.</em>
+                                    </>
+                                  ) : step.decision_rule === "ANY" ? (
+                                    <>
+                                      <strong>✓ Any one can approve:</strong> Only one of the selected approvers needs to approve.
+                                      <br />
+                                      <em>Example: If you select 3 Finance Managers, any one of them can approve.</em>
+                                    </>
+                                  ) : (
+                                    <span className="text-muted">Select an approval requirement to see examples</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
