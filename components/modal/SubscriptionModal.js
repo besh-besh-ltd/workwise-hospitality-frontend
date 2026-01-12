@@ -77,40 +77,84 @@ const SubscriptionModal = (props) => {
                         </div>
                     }
                     {isHospitality && selectedSubscription?.costBreakdown && (
-                      <div className="mt-3">
-                        <h6 className="fw-semibold mb-2">Cost breakdown</h6>
-                        <ul className="list-unstyled mb-0" style={{ fontSize: "0.9rem" }}>
-                          {selectedSubscription.costBreakdown.categoryNames?.map(
-                            (name, idx) => (
-                              <li key={`cat-${idx}`}>
-                                <span className="text-muted me-1">Category:</span>
-                                {name} – ₹{" "}
-                                {selectedSubscription.costBreakdown.perCategoryFee}
-                              </li>
-                            )
-                          )}
-                          {selectedSubscription.costBreakdown.subcategoryNames?.map(
-                            (name, idx) => (
-                              <li key={`subcat-${idx}`}>
-                                <span className="text-muted me-1">Subcategory:</span>
-                                {name} – ₹{" "}
-                                {selectedSubscription.costBreakdown.perSubcategoryFee}
-                              </li>
-                            )
-                          )}
-                          {selectedSubscription.costBreakdown.hotelNames?.map(
-                            (name, idx) => (
-                              <li key={`hotel-${idx}`}>
-                                <span className="text-muted me-1">Hotel:</span>
-                                {name} – ₹{" "}
-                                {selectedSubscription.costBreakdown.perHotelFee}
-                              </li>
-                            )
-                          )}
-                          <li className="mt-2 fw-semibold">
-                            Total: ₹ {selectedSubscription.costBreakdown.total}
-                          </li>
-                        </ul>
+                      <div className="mt-4">
+                        <h6 className="fw-semibold mb-3" style={{ fontSize: "1rem" }}>Cost Breakdown</h6>
+                        
+                        {/* Tabular format: Categories on left, Hotels on right */}
+                        <div className="border rounded p-3" style={{ backgroundColor: "#f8f9fa" }}>
+                          <div className="row mb-2" style={{ fontSize: "0.85rem", fontWeight: "600", color: "#6c757d", borderBottom: "1px solid #dee2e6", paddingBottom: "8px" }}>
+                            <div className="col-6">
+                              <span>Categories</span>
+                            </div>
+                            <div className="col-6">
+                              <span>Hotels Selected</span>
+                            </div>
+                          </div>
+                          
+                          {/* Categories and Hotels mapping */}
+                          <div className="row align-items-start">
+                            <div className="col-6">
+                              <div style={{ fontSize: "0.9rem" }}>
+                                {selectedSubscription.costBreakdown.categoryNames?.map((name, idx) => (
+                                  <div key={`cat-${idx}`} className="mb-2" style={{ lineHeight: "1.5" }}>
+                                    <div className="fw-medium" style={{ color: "#333" }}>
+                                      {name}
+                                    </div>
+                                    <div className="text-muted" style={{ fontSize: "0.8rem" }}>
+                                      ₹ {selectedSubscription.costBreakdown.perCategoryFee} per category
+                                    </div>
+                                  </div>
+                                ))}
+                                {(!selectedSubscription.costBreakdown.categoryNames || selectedSubscription.costBreakdown.categoryNames.length === 0) && (
+                                  <div className="text-muted" style={{ fontSize: "0.85rem" }}>No categories selected</div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="col-6">
+                              <div style={{ fontSize: "0.9rem" }}>
+                                {selectedSubscription.costBreakdown.hotelNames?.map((name, idx) => (
+                                  <div key={`hotel-${idx}`} className="mb-2" style={{ lineHeight: "1.5" }}>
+                                    <div className="fw-medium" style={{ color: "#333" }}>
+                                      {name}
+                                    </div>
+                                  </div>
+                                ))}
+                                {(!selectedSubscription.costBreakdown.hotelNames || selectedSubscription.costBreakdown.hotelNames.length === 0) && (
+                                  <div className="text-muted" style={{ fontSize: "0.85rem" }}>No hotels selected</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Calculation breakdown */}
+                          <div className="mt-3 pt-3 border-top" style={{ fontSize: "0.9rem" }}>
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <span className="text-muted">Number of Categories:</span>
+                              <span className="fw-medium">{selectedSubscription.costBreakdown.numCategories || 0}</span>
+                            </div>
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <span className="text-muted">Price per Category:</span>
+                              <span className="fw-medium">₹ {selectedSubscription.costBreakdown.perCategoryFee || 0}</span>
+                            </div>
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <span className="text-muted">Number of Hotels:</span>
+                              <span className="fw-medium">{selectedSubscription.costBreakdown.numHotels || 0}</span>
+                            </div>
+                            <div className="d-flex justify-content-between align-items-center mb-2" style={{ fontSize: "0.85rem", color: "#6c757d" }}>
+                              <span>Calculation:</span>
+                              <span>
+                                {selectedSubscription.costBreakdown.numHotels > 0
+                                  ? `${selectedSubscription.costBreakdown.numCategories} categories × ₹${selectedSubscription.costBreakdown.perCategoryFee} × ${selectedSubscription.costBreakdown.numHotels} hotels`
+                                  : `${selectedSubscription.costBreakdown.numCategories} categories × ₹${selectedSubscription.costBreakdown.perCategoryFee}`}
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between align-items-center mt-3 pt-2 border-top" style={{ fontSize: "1rem", fontWeight: "600" }}>
+                              <span>Total Amount:</span>
+                              <span style={{ color: "#158993", fontSize: "1.1rem" }}>₹ {selectedSubscription.costBreakdown.total || 0}</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { Modal } from "react-bootstrap";
 import Register from "../register";
@@ -23,6 +23,15 @@ export default function RegisterUserModal({
   const [currentStep, setCurrentStep] = useState(1);
   const modalShow = showModal !== undefined ? showModal : internalShowModal;
   const setModalShow = setShowModal !== undefined ? setShowModal : setInternalShowModal;
+
+  // Clear localStorage when modal opens freshly to ensure clean state
+  useEffect(() => {
+    if (modalShow) {
+      // Clear T&C and CoC acceptance when modal opens
+      localStorage.removeItem('vendor_tnc_accepted');
+      localStorage.removeItem('vendor_coc_accepted');
+    }
+  }, [modalShow]);
 
   const getStepSubtitle = () => {
     if (currentStep === 1) return "Tell us about yourself";

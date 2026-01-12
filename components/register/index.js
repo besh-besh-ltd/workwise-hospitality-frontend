@@ -3,7 +3,7 @@ import axiosFormData from "@/lib/axiosFormData";
 import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Field, Form, Formik } from "formik";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { toast } from "react-toastify";
 import * as yup from "yup";
 import FullLoader from "../shared/FullLoader";
@@ -30,7 +30,11 @@ const Register = ({
   const [showCPassword, setShowCPassword] = useState(false);
   const [loading, setloading] = useState(false);
   const [countryCode, setCountryCode] = useState([]);
-  const [tncCheckned, setTncCheckned] = useState(false);
+  const [tncAccepted, setTncAccepted] = useState(false);
+  const [cocAccepted, setCocAccepted] = useState(false);
+  const hasOpenedTnCRef = useRef(false);
+  const hasOpenedCoCRef = useRef(false);
+  const isInitialMountRef = useRef(true);
   const [currentStep, setCurrentStep] = useState(1);
   const [locationOptions, setLocationOptions] = useState({
     countries: [],
@@ -107,39 +111,119 @@ const Register = ({
     }
   }, [currentStep, onStepChange]);
 
+  // Clear localStorage when form is opened freshly to prevent stale values
   useEffect(() => {
-    const checkCocAccepted = () => {
-      const cocAccepted = localStorage.getItem('vendor_coc_accepted') === 'true';
-      if (cocAccepted) {
-        setTncCheckned(true);
+    // Clear T&C and CoC acceptance on component mount (fresh registration)
+    localStorage.removeItem('vendor_tnc_accepted');
+    localStorage.removeItem('vendor_coc_accepted');
+    
+    // Reset state to ensure checkboxes are unchecked
+    setTncAccepted(false);
+    setCocAccepted(false);
+    
+    // Reset refs to track fresh session
+    hasOpenedTnCRef.current = false;
+    hasOpenedCoCRef.current = false;
+    isInitialMountRef.current = true;
+  }, []); // Run only once on component mount
+
+  useEffect(() => {
+    // CRITICAL: Always start with unchecked state - NEVER auto-check from localStorage
+    // Only check localStorage when explicitly triggered by user actions
+    
+    // Force unchecked state when entering step 2 or 3 - NEVER check localStorage on mount
+    if (currentStep === 2 || currentStep === 3) {
+      // On initial mount or first time entering these steps, always reset to false
+      if (isInitialMountRef.current) {
+        setTncAccepted(false);
+        setCocAccepted(false);
+        isInitialMountRef.current = false;
       } else {
-        setTncCheckned(false);
+        // On subsequent visits, only reset if user hasn't opened the pages yet
+        if (!hasOpenedTnCRef.current && !hasOpenedCoCRef.current) {
+          setTncAccepted(false);
+          setCocAccepted(false);
+        }
+      }
+    }
+
+    // This function ONLY gets called when user explicitly returns from T&C/CoC pages
+    const checkAcceptances = () => {
+      // Only check localStorage when explicitly called (user returned from T&C/CoC pages)
+      // AND only if user has actually opened the pages
+      if ((hasOpenedTnCRef.current || hasOpenedCoCRef.current) && (currentStep === 2 || currentStep === 3)) {
+        const tnc = localStorage.getItem('vendor_tnc_accepted') === 'true';
+        const coc = localStorage.getItem('vendor_coc_accepted') === 'true';
+        setTncAccepted(tnc);
+        setCocAccepted(coc);
       }
     };
 
-    checkCocAccepted();
+    // ONLY listen to explicit events - never auto-check on mount or interval
+    const handleStorageChange = (e) => {
+      // Only update if the storage change is for our keys AND we're on the right step
+      // AND user has opened at least one of the pages
+      if ((e.key === 'vendor_tnc_accepted' || e.key === 'vendor_coc_accepted' || e.key === null) 
+          && (currentStep === 2 || currentStep === 3)
+          && (hasOpenedTnCRef.current || hasOpenedCoCRef.current)) {
+        checkAcceptances();
+      }
+    };
 
-    const handleStorageChange = () => {
-      checkCocAccepted();
+    const handleTncAccepted = () => {
+      if (currentStep === 2 || currentStep === 3) {
+        checkAcceptances();
+      }
     };
 
     const handleCocAccepted = () => {
-      checkCocAccepted();
+      if (currentStep === 2 || currentStep === 3) {
+        checkAcceptances();
+      }
+    };
+
+    // Only check when window gets focus AND we're on the right step
+    // AND user has opened at least one of the pages (prevents initial load from checking)
+    let focusTimeout;
+    const handleFocus = () => {
+      if ((currentStep === 2 || currentStep === 3) && (hasOpenedTnCRef.current || hasOpenedCoCRef.current)) {
+        // Clear any existing timeout
+        if (focusTimeout) clearTimeout(focusTimeout);
+        // Small delay to ensure localStorage is updated
+        focusTimeout = setTimeout(() => {
+          checkAcceptances();
+        }, 150);
+      }
     };
 
     window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('focus', checkCocAccepted);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('vendorTncAccepted', handleTncAccepted);
     window.addEventListener('vendorCocAccepted', handleCocAccepted);
 
-    const interval = setInterval(checkCocAccepted, 1000);
+    // REMOVED interval check - we only check on explicit events now
+    // This prevents any auto-checking from stale localStorage values
 
     return () => {
+      if (focusTimeout) clearTimeout(focusTimeout);
       window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', checkCocAccepted);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('vendorTncAccepted', handleTncAccepted);
       window.removeEventListener('vendorCocAccepted', handleCocAccepted);
-      clearInterval(interval);
     };
-  }, []);
+  }, [currentStep]);
+
+  const handleTnCClick = (e) => {
+    e.preventDefault();
+    hasOpenedTnCRef.current = true; // Mark that user has opened T&C page
+    window.open('/vendor-tnc', '_blank', 'width=1200,height=800');
+  };
+
+  const handleCoCClick = (e) => {
+    e.preventDefault();
+    hasOpenedCoCRef.current = true; // Mark that user has opened CoC page
+    window.open('/vendor-coc', '_blank', 'width=1200,height=800');
+  };
 
   useEffect(() => {
     const fetchHotels = async () => {
@@ -1341,7 +1425,7 @@ const Register = ({
                       <button
                         type="submit"
                         className="btn btn-secondary"
-                        disabled={registerAs === "vendor" ? !tncCheckned : false}
+                        disabled={registerAs === "vendor" ? !(tncAccepted && cocAccepted) : false}
                       >
                         Register
                       </button>
@@ -1392,38 +1476,57 @@ const Register = ({
 
                   {registerAs === "vendor" && (
                     <div className="mt-3">
-                      <label className="d-flex align-items-start mb-2">
-                        <input
-                          type="checkbox"
-                          name="vendor_tnc"
-                          checked={tncCheckned}
-                          disabled
-                          readOnly
-                          className="me-2 mt-1"
-                          style={{ cursor: 'not-allowed', pointerEvents: 'none' }}
-                        />
-                        <span>
-                          I agree to the following terms and conditions
-                        </span>
-                      </label>
-                      <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                        <a
-                          href="/vendor-tnc"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontWeight: 500 }}
+                      <div className="mb-3">
+                        <label 
+                          className="d-flex align-items-start mb-2"
+                          style={{ cursor: 'pointer' }}
+                          onClick={handleTnCClick}
                         >
-                          Terms & Conditions
-                        </a>
-                        <span style={{ color: '#666' }}>|</span>
-                        <a
-                          href="/vendor-coc"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontWeight: 500 }}
+                          <input
+                            type="checkbox"
+                            name="vendor_tnc"
+                            checked={!!tncAccepted}
+                            disabled
+                            readOnly
+                            className="me-2 mt-1"
+                            style={{ 
+                              cursor: 'pointer',
+                              pointerEvents: 'none',
+                              accentColor: tncAccepted ? '#28a745' : '#6c757d',
+                              opacity: tncAccepted ? 1 : 0.6
+                            }}
+                            onChange={() => {}} // Prevent any changes
+                          />
+                          <span style={{ color: tncAccepted ? '#28a745' : '#333' }}>
+                            I agree to the <strong>Terms & Conditions</strong>
+                          </span>
+                        </label>
+                      </div>
+                      <div className="mb-3">
+                        <label 
+                          className="d-flex align-items-start mb-2"
+                          style={{ cursor: 'pointer' }}
+                          onClick={handleCoCClick}
                         >
-                          Ethical Code of Conduct
-                        </a>
+                          <input
+                            type="checkbox"
+                            name="vendor_coc"
+                            checked={!!cocAccepted}
+                            disabled
+                            readOnly
+                            className="me-2 mt-1"
+                            style={{ 
+                              cursor: 'pointer',
+                              pointerEvents: 'none',
+                              accentColor: cocAccepted ? '#28a745' : '#6c757d',
+                              opacity: cocAccepted ? 1 : 0.6
+                            }}
+                            onChange={() => {}} // Prevent any changes
+                          />
+                          <span style={{ color: cocAccepted ? '#28a745' : '#333' }}>
+                            I agree to the <strong>Ethical Code of Conduct</strong>
+                          </span>
+                        </label>
                       </div>
                     </div>
                   )}
@@ -1444,6 +1547,7 @@ const Register = ({
                     <button
                       type="button"
                       className="btn btn-primary"
+                      disabled={registerAs === "vendor" ? !(tncAccepted && cocAccepted) : false}
                       onClick={() =>
                         handleNextStep(validateForm, setTouched, touched, 3, values)
                       }

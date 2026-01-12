@@ -152,11 +152,18 @@ const HotelVendor = () => {
     const numCategories = (userData.categories || []).length;
     const numSubcategories = (userData.subcategories || []).length;
     const numHotels = (userData.hotels || []).length;
+
+    // Hospitality pricing model:
+    // - Subcategories are free (temporary)
+    // - Hotels do not have an independent hotel cost
+    // - Total price = (price per category) × (number of categories) × (number of hotels selected)
     const perCategoryFee = 500;
-    const perSubcategoryFee = 300;
-    const perHotelFee = 500;
+    const perSubcategoryFee = 0;
+    const perHotelFee = 0;
+
+    const baseCategoryAmount = numCategories * perCategoryFee;
     const totalAmount =
-      (numCategories * perCategoryFee + numSubcategories * perSubcategoryFee + numHotels * perHotelFee) ||
+      (numHotels > 0 ? baseCategoryAmount * numHotels : baseCategoryAmount) ||
       parseInt(plan.price.replace(/[^\d]/g, ''), 10) ||
       0;
 

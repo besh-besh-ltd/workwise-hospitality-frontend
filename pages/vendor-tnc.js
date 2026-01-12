@@ -6,28 +6,42 @@ export default function VendorTnC() {
   const router = useRouter();
   const [isAccepted, setIsAccepted] = useState(false);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
+  const [showAnimation, setShowAnimation] = useState(false);
   const contentRef = useRef(null);
   const checkboxRef = useRef(null);
+  const acceptButtonRef = useRef(null);
+
+  useEffect(() => {
+    // Check if already accepted
+    const alreadyAccepted = localStorage.getItem('vendor_tnc_accepted') === 'true';
+    if (alreadyAccepted) {
+      setIsAccepted(true);
+      setIsScrolledToBottom(true);
+      setShowAnimation(true);
+    }
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
-      if (!contentRef.current) return;
+      if (!contentRef.current || isAccepted) return;
 
       const element = contentRef.current;
       const scrollTop = element.scrollTop;
       const scrollHeight = element.scrollHeight;
       const clientHeight = element.clientHeight;
-      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10;
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 20;
 
-      if (isAtBottom) {
+      if (isAtBottom && !isScrolledToBottom) {
         setIsScrolledToBottom(true);
-        if (checkboxRef.current) {
-          checkboxRef.current.checked = true;
-        }
-        setIsAccepted(true);
-        localStorage.setItem('vendor_tnc_accepted', 'true');
-        window.dispatchEvent(new Event('storage'));
-        window.dispatchEvent(new CustomEvent('vendorTncAccepted'));
+        setShowAnimation(true);
+        
+        // Animate checkbox
+        setTimeout(() => {
+          setIsAccepted(true);
+          if (checkboxRef.current) {
+            checkboxRef.current.checked = true;
+          }
+        }, 300);
       }
     };
 
@@ -42,12 +56,18 @@ export default function VendorTnC() {
         contentElement.removeEventListener('scroll', handleScroll);
       }
     };
-  }, []);
+  }, [isScrolledToBottom, isAccepted]);
 
   const handleAccept = () => {
+    localStorage.setItem('vendor_tnc_accepted', 'true');
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('vendorTncAccepted'));
+    
+    // Close the window
     if (window.opener) {
       window.close();
     } else {
+      // If opened in same tab, go back
       router.back();
     }
   };
@@ -56,6 +76,38 @@ export default function VendorTnC() {
     <>
       <Head>
         <title>Terms & Conditions for Online Vendor Onboarding</title>
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes checkmark {
+            0% {
+              transform: scale(0) rotate(45deg);
+              opacity: 0;
+            }
+            50% {
+              transform: scale(1.2) rotate(45deg);
+              opacity: 1;
+            }
+            100% {
+              transform: scale(1) rotate(45deg);
+              opacity: 1;
+            }
+          }
+          @keyframes fadeInScale {
+            0% {
+              opacity: 0;
+              transform: scale(0.8);
+            }
+            100% {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+          .checkbox-animated {
+            animation: fadeInScale 0.5s ease-out;
+          }
+          .checkmark-animated::after {
+            animation: checkmark 0.6s ease-out;
+          }
+        `}} />
       </Head>
 
       <div style={{ 
@@ -402,16 +454,19 @@ export default function VendorTnC() {
             padding: '20px 0',
             borderTop: '2px solid #e0e0e0',
             marginTop: '40px',
-            boxShadow: '0 -2px 10px rgba(0,0,0,0.1)'
+            boxShadow: '0 -2px 10px rgba(0,0,0,0.1)',
+            transition: 'all 0.3s ease'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
               <label style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
                 cursor: 'default',
                 userSelect: 'none',
                 fontSize: '16px',
-                color: '#333'
+                color: isAccepted ? '#28a745' : '#6c757d',
+                transition: 'color 0.5s ease',
+                fontWeight: isAccepted ? '600' : '400'
               }}>
                 <input
                   ref={checkboxRef}
@@ -419,35 +474,54 @@ export default function VendorTnC() {
                   readOnly
                   disabled
                   checked={isAccepted}
+                  className={showAnimation ? 'checkbox-animated' : ''}
                   style={{
-                    width: '20px',
-                    height: '20px',
-                    marginRight: '10px',
+                    width: '22px',
+                    height: '22px',
+                    marginRight: '12px',
                     cursor: 'default',
-                    pointerEvents: 'none'
+                    pointerEvents: 'none',
+                    accentColor: '#28a745',
+                    transition: 'all 0.5s ease',
+                    transform: showAnimation ? 'scale(1.1)' : 'scale(1)'
                   }}
                 />
-                <span>
+                <span style={{ 
+                  color: isAccepted ? '#28a745' : '#6c757d',
+                  transition: 'color 0.5s ease'
+                }}>
                   I have read and accept the terms and conditions
                 </span>
               </label>
               
               {isAccepted && (
                 <button
+                  ref={acceptButtonRef}
                   onClick={handleAccept}
+                  className="checkbox-animated"
                   style={{
                     padding: '12px 40px',
-                    backgroundColor: '#007bff',
+                    backgroundColor: '#28a745',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: '4px',
+                    borderRadius: '6px',
                     fontSize: '16px',
                     fontWeight: '600',
                     cursor: 'pointer',
-                    transition: 'background-color 0.3s ease'
+                    transition: 'all 0.3s ease',
+                    boxShadow: '0 2px 8px rgba(40, 167, 69, 0.3)',
+                    animation: 'fadeInScale 0.5s ease-out'
                   }}
-                  onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
-                  onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
+                  onMouseOver={(e) => {
+                    e.target.style.backgroundColor = '#218838';
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 4px 12px rgba(40, 167, 69, 0.4)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.backgroundColor = '#28a745';
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = '0 2px 8px rgba(40, 167, 69, 0.3)';
+                  }}
                 >
                   Accept
                 </button>
@@ -459,4 +533,3 @@ export default function VendorTnC() {
     </>
   );
 }
-
