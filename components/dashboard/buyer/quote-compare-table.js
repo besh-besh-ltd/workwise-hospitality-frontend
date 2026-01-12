@@ -17,6 +17,8 @@ import { toast } from "react-toastify";
 import HierarchySelectionModal from "./HierarchySelectionModal";
 import { Badge } from "react-bootstrap";
 import RoundEndActions from "./negotiation/RoundEndActions";
+import ApprovalWorkflowSection from "./approval/ApprovalWorkflowSection";
+import { getQuoteApprovalStatus } from "@/services/negotiation";
 
 const QuoteCompareTable = ({
   quotations,
@@ -38,6 +40,10 @@ const QuoteCompareTable = ({
   onRoundEnded = null, // Callback when round ends
   canWrite = true,
   permissionsLoading = false,
+  is_tender = false, // Whether this is a tender
+  hospitalityCompanyId = null, // For approval workflow
+  hotelId = null, // For approval workflow
+  departmentId = null, // For approval workflow
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
@@ -70,10 +76,39 @@ const QuoteCompareTable = ({
   const [existingPOId, setExistingPOId] = useState(null)
   const [availableHierarchies, setAvailableHierarchies] = useState([true]);
   const [selectedRouteType, setSelectedRouteType] = useState(null); // 'ARC' or 'PO'
+  const [quoteApprovalStatus, setQuoteApprovalStatus] = useState(null); // Quote approval status for tenders
+  const [approvalRefreshKey, setApprovalRefreshKey] = useState(0); // Key to refresh approval workflow
 
   useEffect(() => {
     calculateLowestQuote();
   }, []);
+
+  // Load quote approval status for tenders
+  useEffect(() => {
+    if (is_tender && proditem?.id) {
+      loadQuoteApprovalStatus();
+    }
+  }, [is_tender, proditem?.id, approvalRefreshKey]);
+
+  const loadQuoteApprovalStatus = async () => {
+    try {
+      const response = await getQuoteApprovalStatus(proditem.id);
+      if (response?.status === 1 && response?.data) {
+        setQuoteApprovalStatus(response.data);
+      }
+    } catch (error) {
+      // No approval status found, which is fine
+      setQuoteApprovalStatus(null);
+    }
+  };
+
+  const handleApprovalActionComplete = () => {
+    // Refresh approval status after an action
+    setApprovalRefreshKey(prev => prev + 1);
+    if (onRoundEnded) {
+      onRoundEnded();
+    }
+  };
 //  console.log("logging the quotations recived ", quotations);
   const calculateLowestQuote = () => {
     const removeRegretQuotes = quotations.filter((item) => item.quote_details.is_regret != 1);
@@ -139,7 +174,11 @@ const QuoteCompareTable = ({
   }
 
   const productName = proditem?.product_details?.[0]?.product_name || 'Product';
- 
+
+  // For tenders, finalization is only allowed after quote approval is complete
+  const isTenderAwaitingApproval = is_tender && (!quoteApprovalStatus || quoteApprovalStatus?.status !== 'APPROVED');
+  const canFinalizeForTender = !is_tender || (quoteApprovalStatus?.status === 'APPROVED');
+
   return (
     <>
       {/* Round End Actions - Show if round has ended */}
@@ -151,14 +190,28 @@ const QuoteCompareTable = ({
           rfq_product_id={proditem.id}
           productName={productName}
           onRoundCreated={onRoundEnded}
-          onQuotesApproved={() => {
-            if (onRoundEnded) {
-              onRoundEnded();
-            }
-          }}
+          onQuotesApproved={handleApprovalActionComplete}
           canWrite={canWrite}
           permissionsLoading={permissionsLoading}
+          is_tender={is_tender}
+          vendorCodeMap={vendorCodeMap}
         />
+      )}
+
+      {/* Quote Approval Workflow Section - Show for tenders when approval is active */}
+      {is_tender && quoteApprovalStatus && (
+        <div className="mb-3 p-3 border rounded bg-light">
+          <h6 className="mb-2">Quote Approval Status</h6>
+          <ApprovalWorkflowSection
+            entityType="negotiation-approval"
+            entityId={proditem.id}
+            entityLabel={`Quote Approval - ${productName}`}
+            hospitalityCompanyId={hospitalityCompanyId}
+            hotelId={hotelId}
+            departmentId={departmentId}
+            onActionComplete={handleApprovalActionComplete}
+          />
+        </div>
       )}
 
       <div
@@ -322,7 +375,8 @@ const QuoteCompareTable = ({
                           {alreadyFinalized?.length == 0 &&
                             item?.quote_details?.is_regret == 0 &&
                             !item.finalization &&
-                            !isRfqClosed && (
+                            !isRfqClosed &&
+                            canWrite && !permissionsLoading && (
                               <Dropdown.Item
                                 className=""
                                 href={`/dashboard/buyer/query?rfq_id=${rfq}&role=buyer`}
@@ -344,7 +398,8 @@ const QuoteCompareTable = ({
                           {!item.quote_details.is_regret == 1 &&
                             (!item.finalization ||
                               item.finalization.winning_vendor.id !=
-                                item?.quote_details?.created_by) && (
+                                item?.quote_details?.created_by) &&
+                            canWrite && !permissionsLoading && canFinalizeForTender && (
                               <Dropdown.Item
                                 href="#"
                                 onClick={(e) => {
@@ -355,8 +410,19 @@ const QuoteCompareTable = ({
                                 className=""
                                 id={`finalize_vendor_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
                               >
-                                <FontAwesomeIcon icon={faCheckCircle} className="me-2"/> 
+                                <FontAwesomeIcon icon={faCheckCircle} className="me-2"/>
                                 Finalize
+                              </Dropdown.Item>
+                            )}
+                          {isTenderAwaitingApproval && !item.quote_details.is_regret == 1 && (
+                              <Dropdown.Item
+                                href="#"
+                                disabled
+                                className="text-muted"
+                                title="Quote approval required before finalization"
+                              >
+                                <FontAwesomeIcon icon={faCheckCircle} className="me-2"/>
+                                Finalize (Approval Pending)
                               </Dropdown.Item>
                             )}
 
@@ -619,6 +685,16 @@ const QuoteCompareTable = ({
                 >
                   RFQ has been Closed
                 </button>
+              ) : isTenderAwaitingApproval ? (
+                <button
+                  type="submit"
+                  className="btn btn-warning"
+                  disabled
+                  title="Quote approval required before finalization"
+                  id="finalize_vendor-quote_actions-quote_compare_table"
+                >
+                  Finalize (Approval Pending)
+                </button>
               ) : (
                 <button
                   type="submit"
@@ -628,8 +704,11 @@ const QuoteCompareTable = ({
                     setCurrentItem(lowestQuote);
                     // handleFinalize(lowestQuote, proditem)
                   }}
-                  title={availableHierarchies.length <= 0 ? "You cannot finalize as you dont belong to the company's hierarchy" : ""}
-                  disabled={availableHierarchies.length <= 0}
+                  title={
+                    !canWrite || permissionsLoading ? "You don't have permission to finalize vendors" :
+                    availableHierarchies.length <= 0 ? "You cannot finalize as you dont belong to the company's hierarchy" : ""
+                  }
+                  disabled={availableHierarchies.length <= 0 || !canWrite || permissionsLoading}
                   id="finalize_vendor-quote_actions-quote_compare_table"
                 >
                   Finalize

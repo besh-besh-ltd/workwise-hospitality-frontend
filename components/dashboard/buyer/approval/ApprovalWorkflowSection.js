@@ -40,7 +40,17 @@ const statusConfig = {
   },
 };
 
-const ApprovalWorkflowSection = ({ entityType, entityId, entityLabel = "Item", hospitalityCompanyId, hotelId, departmentId }) => {
+const ApprovalWorkflowSection = ({
+  entityType,
+  entityId,
+  entityLabel = "Item",
+  hospitalityCompanyId,
+  hotelId,
+  departmentId,
+  onCustomApprove,    // Optional: Custom approve handler (for negotiation)
+  onCustomReject,     // Optional: Custom reject handler (for negotiation)
+  onActionComplete    // Optional: Callback after action completes
+}) => {
   const {
     instance,
     loading,
@@ -68,12 +78,29 @@ const ApprovalWorkflowSection = ({ entityType, entityId, entityLabel = "Item", h
   };
 
   const handleAction = async (comment) => {
-    const result = await handleApprovalAction(actionType, comment);
+    let result;
+
+    // Use custom handlers if provided (for negotiation module)
+    if (actionType === "APPROVE" && onCustomApprove) {
+      result = await onCustomApprove(comment);
+    } else if (actionType === "REJECT" && onCustomReject) {
+      result = await onCustomReject(comment);
+    } else {
+      // Default behavior using hook's handleApprovalAction
+      result = await handleApprovalAction(actionType, comment);
+    }
+
     if (result.success) {
       toast.success(
         `${entityLabel} ${actionType === "APPROVE" ? "approved" : "rejected"} successfully`
       );
       setShowActionModal(false);
+      // Call action complete callback if provided
+      if (onActionComplete) {
+        onActionComplete();
+      }
+      // Refresh workflow state
+      refetch();
     } else {
       toast.error(result.error || `Failed to ${actionType.toLowerCase()}`);
     }

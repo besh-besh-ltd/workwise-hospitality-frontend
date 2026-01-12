@@ -1670,6 +1670,9 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     products={quotes || []}
                     canWrite={canWriteNegotiation}
                     permissionsLoading={negotiationPermissionsLoading}
+                    hospitalityCompanyId={currentRFQ?.hospitality_company_id}
+                    hotelId={currentRFQ?.hotel_id}
+                    departmentId={currentRFQ?.department_id}
                   />
                 )}
                 {/* Show message if no quote-compare permission but has negotiation */}
@@ -1680,6 +1683,15 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 )}
                 {/* Only show quote-compare section if user has quote-compare read permission */}
                 {"rfq" in router?.query && canReadQuoteCompare && (
+                  <>
+                  {/* Quote-Compare read-only banner - only show if user CAN read quote-compare but CANNOT write */}
+                  {currentRFQ && !canWriteQuoteCompare && !permissionsLoading && (
+                    <ReadOnlyBanner
+                      title="Quote Compare View Only"
+                      message="You don't have edit permissions for quote comparison and finalization."
+                      className="mt-3"
+                    />
+                  )}
                   <div
                     className="tabs-container"
                     style={{
@@ -1803,6 +1815,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       )}
                     </div>
                   </div>
+                  </>
                 )}
 
                 {!rfq && canReadQuoteCompare && (
@@ -2230,6 +2243,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         onRoundEnded={loadNegotiationData}
                         canWrite={canWriteQuoteCompare}
                         permissionsLoading={quoteComparePermissionsLoading}
+                        is_tender={currentRFQ?.is_tender === 1 || currentRFQ?.is_tender === true}
+                        hospitalityCompanyId={currentRFQ?.hospitality_company_id}
+                        hotelId={currentRFQ?.hotel_id}
+                        departmentId={currentRFQ?.department_id}
                                       />
                                     </>
                                   )}

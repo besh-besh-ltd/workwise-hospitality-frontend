@@ -10,6 +10,7 @@ import {
 import { getUserDetails, getProfile } from '@/services/Auth';
 import { toast } from 'react-toastify';
 import moment from 'moment';
+import NegotiationWorkflowModal from './NegotiationWorkflowModal';
 
 const NegotiationModal = ({
   show,
@@ -21,7 +22,10 @@ const NegotiationModal = ({
   roundsHistory: initialRoundsHistory = [],
   onRefresh,
   canWrite = true,
-  permissionsLoading = false
+  permissionsLoading = false,
+  hospitalityCompanyId,
+  hotelId,
+  departmentId
 }) => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [formData, setFormData] = useState({ target_price: '', end_date: '' });
@@ -31,6 +35,9 @@ const NegotiationModal = ({
   const [selectedRound, setSelectedRound] = useState(null);
   const [roundsHistory, setRoundsHistory] = useState(initialRoundsHistory);
   const [currentUserId, setCurrentUserId] = useState(null);
+  // Workflow modal state
+  const [showWorkflowModal, setShowWorkflowModal] = useState(false);
+  const [selectedRoundForWorkflow, setSelectedRoundForWorkflow] = useState(null);
 
   useEffect(() => {
     // Load current user ID when modal opens
@@ -245,6 +252,96 @@ const NegotiationModal = ({
     }
   };
 
+  // Helper to get effective round status (considering end_date)
+  const getEffectiveRoundStatus = (round) => {
+    const status = (round?.status || '').toUpperCase();
+
+    // If status is ACTIVE but end_date has passed, treat as ENDED
+    if (status === 'ACTIVE' && round?.end_date && moment(round.end_date).isBefore(moment())) {
+      return 'ENDED';
+    }
+
+    return status;
+  };
+
+  // Compute round status counts for summary display
+  const getRoundStatusCounts = () => {
+    const allRounds = mode === 'history' ? roundsHistory : [...activeRounds, ...roundsHistory];
+
+    // Deduplicate rounds by ID
+    const uniqueRounds = allRounds.filter((round, index, self) =>
+      index === self.findIndex(r => r.id === round.id)
+    );
+
+    const counts = {
+      active: 0,
+      pending_approval: 0,
+      completed: 0,
+      closed: 0,
+      ended: 0
+    };
+
+    uniqueRounds.forEach(round => {
+      const effectiveStatus = getEffectiveRoundStatus(round);
+      if (effectiveStatus === 'ACTIVE') counts.active++;
+      else if (effectiveStatus === 'PENDING_APPROVAL') counts.pending_approval++;
+      else if (effectiveStatus === 'COMPLETED') counts.completed++;
+      else if (effectiveStatus === 'CLOSED') counts.closed++;
+      else if (effectiveStatus === 'ENDED') counts.ended++;
+    });
+
+    return counts;
+  };
+
+  // Round status summary component
+  const renderRoundStatusSummary = () => {
+    const counts = getRoundStatusCounts();
+    const total = counts.active + counts.pending_approval + counts.completed + counts.closed + counts.ended;
+
+    if (total === 0) return null;
+
+    return (
+      <div className="mb-3 p-2 bg-light rounded border">
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <small className="text-muted fw-bold">Round Status Summary</small>
+          <Badge bg="secondary" pill>{total} Total</Badge>
+        </div>
+        <div className="d-flex gap-2 flex-wrap">
+          {counts.active > 0 && (
+            <Badge bg="success" className="d-flex align-items-center gap-1 px-2 py-1">
+              <span className="fw-bold">{counts.active}</span>
+              <span>Active</span>
+            </Badge>
+          )}
+          {counts.ended > 0 && (
+            <Badge style={{ backgroundColor: '#fd7e14', color: '#fff' }} className="d-flex align-items-center gap-1 px-2 py-1">
+              <span className="fw-bold">{counts.ended}</span>
+              <span>Ended</span>
+            </Badge>
+          )}
+          {counts.pending_approval > 0 && (
+            <Badge bg="warning" text="dark" className="d-flex align-items-center gap-1 px-2 py-1">
+              <span className="fw-bold">{counts.pending_approval}</span>
+              <span>Pending Approval</span>
+            </Badge>
+          )}
+          {counts.completed > 0 && (
+            <Badge bg="info" className="d-flex align-items-center gap-1 px-2 py-1">
+              <span className="fw-bold">{counts.completed}</span>
+              <span>Completed</span>
+            </Badge>
+          )}
+          {counts.closed > 0 && (
+            <Badge bg="secondary" className="d-flex align-items-center gap-1 px-2 py-1">
+              <span className="fw-bold">{counts.closed}</span>
+              <span>Closed</span>
+            </Badge>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const getProductName = (product) => {
     return product?.product_details?.[0]?.name || `Product ${product.id}`;
   };
@@ -432,6 +529,7 @@ const NegotiationModal = ({
 
   const renderHistory = () => (
     <div>
+      {renderRoundStatusSummary()}
       {roundsHistory.length === 0 ? (
         <Alert variant="info">No negotiation rounds found</Alert>
       ) : (
@@ -482,6 +580,7 @@ const NegotiationModal = ({
 
     return (
       <div>
+        {renderRoundStatusSummary()}
         {pendingRounds.length === 0 && activeRoundsList.length === 0 ? (
           <Alert variant="info">No active negotiation rounds</Alert>
         ) : (
@@ -533,13 +632,12 @@ const NegotiationModal = ({
                           <strong>{productName}</strong>
                           <Badge bg="warning" text="dark" className="ms-2">Round {round.round_number}</Badge>
                         </div>
-                        <div>
+                        <div className="d-flex gap-2 align-items-center">
                           {canApprove ? (
                             <>
                               <Button
                                 variant="success"
                                 size="sm"
-                                className="me-2"
                                 onClick={() => handleApprove(round.id)}
                                 disabled={submitting || !canWrite || permissionsLoading}
                               >
@@ -555,13 +653,23 @@ const NegotiationModal = ({
                               </Button>
                             </>
                           ) : userApproval ? (
-                            <Badge bg={userApproval.status === 'APPROVED' || userApproval.status === 'approved' ? 'success' : 
+                            <Badge bg={userApproval.status === 'APPROVED' || userApproval.status === 'approved' ? 'success' :
                                      userApproval.status === 'REJECTED' || userApproval.status === 'rejected' ? 'danger' : 'secondary'}>
                               {userApproval.status || 'N/A'}
                             </Badge>
                           ) : (
                             <Badge bg="secondary">Not an approver</Badge>
                           )}
+                          <Button
+                            variant="outline-secondary"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRoundForWorkflow(round);
+                              setShowWorkflowModal(true);
+                            }}
+                          >
+                            View Workflow
+                          </Button>
                         </div>
                       </div>
                       <div className="row mb-2">
@@ -707,6 +815,7 @@ const NegotiationModal = ({
   };
 
   return (
+    <>
     <Modal show={show} onHide={onHide} size="lg" centered>
       <Modal.Header closeButton>
         <Modal.Title>{getModalTitle()}</Modal.Title>
@@ -732,6 +841,21 @@ const NegotiationModal = ({
         </Modal.Footer>
       )}
     </Modal>
+
+      {/* Workflow Modal */}
+      <NegotiationWorkflowModal
+        show={showWorkflowModal}
+        onHide={() => setShowWorkflowModal(false)}
+        round={selectedRoundForWorkflow}
+        hospitalityCompanyId={hospitalityCompanyId}
+        hotelId={hotelId}
+        departmentId={departmentId}
+        onActionComplete={() => {
+          setShowWorkflowModal(false);
+          if (onRefresh) onRefresh();
+        }}
+      />
+    </>
   );
 };
 

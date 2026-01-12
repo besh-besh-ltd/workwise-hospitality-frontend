@@ -177,3 +177,45 @@ export const getAllVendorNegotiationStatus = (rfq_id) => {
   });
 };
 
+/**
+ * Submit selected quotes for approval (tender workflow)
+ * Creates an approval workflow instance for the product
+ * @param {Object} params - The submission parameters
+ * @param {number} params.rfq_id - RFQ ID
+ * @param {number} params.rfq_product_id - RFQ Product ID
+ * @param {Array<number>} params.quote_ids - Array of selected quote IDs
+ * @param {string} [params.remarks] - Optional remarks for the approval
+ */
+export const submitQuotesForApproval = ({ rfq_id, rfq_product_id, quote_ids, remarks }) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const payload = {
+        rfq_id,
+        rfq_product_id,
+        quote_ids
+      };
+      if (remarks) {
+        payload.remarks = remarks;
+      }
+      const response = await axiosInstance.post(`/negotiation/quotes/submit-for-approval`, payload);
+      resolve(response);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+
+/**
+ * Get quote approval status for a product
+ */
+export const getQuoteApprovalStatus = (rfq_product_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/negotiation/quotes/${rfq_product_id}/approval-status`);
+      resolve(response);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+

@@ -2,8 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Button, Badge } from 'react-bootstrap';
 import { getAllActiveNegotiationRounds, getNegotiationRounds } from '@/services/negotiation';
 import NegotiationModal from './NegotiationModal';
+import moment from 'moment';
 
-const NegotiationCompactBanner = ({ rfq_id, products = [], canWrite = true, permissionsLoading = false }) => {
+const NegotiationCompactBanner = ({
+  rfq_id,
+  products = [],
+  canWrite = true,
+  permissionsLoading = false,
+  hospitalityCompanyId,
+  hotelId,
+  departmentId
+}) => {
   const [activeRounds, setActiveRounds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -14,6 +23,7 @@ const NegotiationCompactBanner = ({ rfq_id, products = [], canWrite = true, perm
   useEffect(() => {
     if (rfq_id) {
       loadActiveRounds();
+      loadRoundsHistory(); // Also load history to get ended rounds count
     }
     const userId = localStorage.getItem('userId') || localStorage.getItem('user_id');
     if (userId) {
@@ -101,20 +111,45 @@ const NegotiationCompactBanner = ({ rfq_id, products = [], canWrite = true, perm
     loadActiveRounds();
   };
 
+  // Helper to check if a round has ended based on end_date
+  const isRoundEnded = (round) => {
+    const status = (round?.status || '').toUpperCase();
+    if (status === 'ACTIVE' && round?.end_date && moment(round.end_date).isBefore(moment())) {
+      return true;
+    }
+    return false;
+  };
+
   const pendingRounds = (activeRounds || []).filter(r => {
     const status = r?.status?.toUpperCase();
     return status === 'PENDING_APPROVAL';
   });
+
+  // Active rounds: status is ACTIVE and end_date has NOT passed
   const activeRoundsList = (activeRounds || []).filter(r => {
     const status = r?.status?.toUpperCase();
-    return status === 'ACTIVE';
+    return status === 'ACTIVE' && !isRoundEnded(r);
   });
-  const totalActiveCount = pendingRounds.length + activeRoundsList.length;
-  
-  console.log('Active rounds state:', activeRounds, 'Length:', activeRounds?.length);
-  console.log('Pending rounds:', pendingRounds, 'Length:', pendingRounds.length);
-  console.log('Active rounds list:', activeRoundsList, 'Length:', activeRoundsList.length);
-  console.log('Total active count:', totalActiveCount);
+
+  // Rounds from activeRounds that have ended (status ACTIVE but end_date passed)
+  const endedFromActiveRounds = (activeRounds || []).filter(r => {
+    return isRoundEnded(r);
+  });
+
+  // Calculate ended rounds from history (CLOSED or COMPLETED status)
+  const endedFromHistory = (roundsHistory || []).filter(r => {
+    const status = r?.status?.toUpperCase();
+    return status === 'CLOSED' || status === 'COMPLETED';
+  });
+
+  // Combine ended rounds, deduplicate by ID
+  const allEndedRoundsMap = new Map();
+  [...endedFromActiveRounds, ...endedFromHistory].forEach(r => {
+    if (r?.id && !allEndedRoundsMap.has(r.id)) {
+      allEndedRoundsMap.set(r.id, r);
+    }
+  });
+  const endedRounds = Array.from(allEndedRoundsMap.values());
 
   const pendingApprovalsCount = pendingRounds.filter(round => {
     if (!currentUserId) return false;
@@ -166,16 +201,20 @@ const NegotiationCompactBanner = ({ rfq_id, products = [], canWrite = true, perm
   const pendingApprovers = getPendingApprovers();
 
   // Build status message
-  let statusMessage = 'No active negotiation rounds';
-  if (totalActiveCount > 0) {
+  const totalRoundsCount = endedRounds.length + activeRoundsList.length + pendingRounds.length;
+  let statusMessage = 'No negotiation rounds';
+  if (totalRoundsCount > 0) {
     const parts = [];
+    if (endedRounds.length > 0) {
+      parts.push(`${endedRounds.length} ended`);
+    }
     if (activeRoundsList.length > 0) {
       parts.push(`${activeRoundsList.length} active`);
     }
     if (pendingRounds.length > 0) {
-      parts.push(`${pendingRounds.length} pending approval`);
+      parts.push(`${pendingRounds.length} pending`);
     }
-    statusMessage = `${parts.join(', ')} round${totalActiveCount > 1 ? 's' : ''}`;
+    statusMessage = `${parts.join(', ')} round${totalRoundsCount > 1 ? 's' : ''}`;
     if (pendingApprovers.length > 0) {
       statusMessage += ` (${pendingApprovers.length} approver${pendingApprovers.length > 1 ? 's' : ''} pending)`;
     }
@@ -247,6 +286,7 @@ const NegotiationCompactBanner = ({ rfq_id, products = [], canWrite = true, perm
             style={{
               fontSize: '0.8rem',
               padding: '5px 14px',
+              position: 'relative',
               ...(pendingApprovalsCount > 0 ? {
                 backgroundColor: '#ffc107',
                 borderColor: '#ffc107',
@@ -255,7 +295,26 @@ const NegotiationCompactBanner = ({ rfq_id, products = [], canWrite = true, perm
               } : {})
             }}
           >
-            {pendingApprovalsCount > 0 ? 'View & Approve' : 'View'}
+            View
+            {pendingApprovalsCount > 0 && (
+              <Badge
+                bg="danger"
+                pill
+                style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  right: '-8px',
+                  fontSize: '0.65rem',
+                  minWidth: '18px',
+                  height: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {pendingApprovalsCount}
+              </Badge>
+            )}
           </Button>
         </div>
       </div>
@@ -273,6 +332,9 @@ const NegotiationCompactBanner = ({ rfq_id, products = [], canWrite = true, perm
         onRefresh={loadActiveRounds}
         canWrite={canWrite}
         permissionsLoading={permissionsLoading}
+        hospitalityCompanyId={hospitalityCompanyId}
+        hotelId={hotelId}
+        departmentId={departmentId}
       />
     </>
   );
