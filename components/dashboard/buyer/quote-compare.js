@@ -1673,6 +1673,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     hospitalityCompanyId={currentRFQ?.hospitality_company_id}
                     hotelId={currentRFQ?.hotel_id}
                     departmentId={currentRFQ?.department_id}
+                    onRoundChange={loadNegotiationData}
                   />
                 )}
                 {/* Show message if no quote-compare permission but has negotiation */}

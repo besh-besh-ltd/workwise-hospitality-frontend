@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Button, Alert } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
@@ -18,7 +18,9 @@ const RoundEndActions = ({
   canWrite = true,
   permissionsLoading = false,
   is_tender = false,
-  vendorCodeMap = {}
+  vendorCodeMap = {},
+  fullProduct = null,
+  quoteApprovalStatus = null
 }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showQuoteApprovalModal, setShowQuoteApprovalModal] = useState(false);
@@ -32,6 +34,20 @@ const RoundEndActions = ({
   if (!activeRound || !isRoundEnded || roundQuotes.length === 0) {
     return null;
   }
+
+  // Check quote approval status for tenders
+  const isApprovalPending = quoteApprovalStatus?.has_pending_approval === true;
+  const isApprovalApproved = quoteApprovalStatus?.approval_instance?.status === 'APPROVED';
+  const hasApprovalInProgress = isApprovalPending || isApprovalApproved;
+
+  // Memoize products array for NegotiationModal to prevent infinite re-renders
+  const productsForModal = useMemo(() => {
+    if (fullProduct) {
+      return [fullProduct];
+    }
+    // Fallback to simplified format if fullProduct not provided
+    return [{ id: rfq_product_id, name: productName }];
+  }, [fullProduct, rfq_product_id, productName]);
 
   const handleApproveQuotes = () => {
     if (roundQuotes.length === 0) {
@@ -54,13 +70,28 @@ const RoundEndActions = ({
     }
   };
 
+  // Determine alert variant based on approval status
+  const getAlertVariant = () => {
+    if (isApprovalApproved) return 'success';
+    if (isApprovalPending) return 'warning';
+    return 'info';
+  };
+
   return (
     <div className="my-3">
-      <Alert variant="info" className="d-flex justify-content-between align-items-center">
+      <Alert variant={getAlertVariant()} className="d-flex justify-content-between align-items-center">
         <div>
           <strong>Round {activeRound.round_number} Ended</strong>
           <div className="small mt-1">
-            {roundQuotes.length} quote(s) received. Choose an action:
+            {roundQuotes.length} quote(s) received.
+            {hasApprovalInProgress ? (
+              <span className="ms-1">
+                {isApprovalPending && <strong>Quotes are Being Approved</strong>}
+                {isApprovalApproved && <strong>Quotes Approved for ARC</strong>}
+              </span>
+            ) : (
+              ' Choose an action:'
+            )}
           </div>
         </div>
         <div className="d-flex gap-2">
@@ -69,7 +100,7 @@ const RoundEndActions = ({
             className="p-2"
             size="sm"
             onClick={() => setShowCreateModal(true)}
-            disabled={!canWrite || permissionsLoading}
+            disabled={!canWrite || permissionsLoading || hasApprovalInProgress}
           >
             <FontAwesomeIcon icon={faPlus} className="me-1" />
             Create Another Round
@@ -80,7 +111,7 @@ const RoundEndActions = ({
               className="p-2"
               size="sm"
               onClick={handleApproveQuotes}
-              disabled={!canWrite || permissionsLoading}
+              disabled={!canWrite || permissionsLoading || hasApprovalInProgress}
             >
               <FontAwesomeIcon icon={faCheckCircle} className="me-1" />
               Approve Best Quotes
@@ -92,11 +123,11 @@ const RoundEndActions = ({
       {showCreateModal && (
         <NegotiationModal
           show={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
+          onHide={() => setShowCreateModal(false)}
           mode="create"
           rfq_id={rfq_id}
-          products={[{ id: rfq_product_id, name: productName }]}
-          onSuccess={() => {
+          products={productsForModal}
+          onRefresh={() => {
             setShowCreateModal(false);
             if (onRoundCreated) {
               onRoundCreated();

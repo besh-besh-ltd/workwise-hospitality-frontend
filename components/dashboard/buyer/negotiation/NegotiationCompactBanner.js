@@ -11,7 +11,8 @@ const NegotiationCompactBanner = ({
   permissionsLoading = false,
   hospitalityCompanyId,
   hotelId,
-  departmentId
+  departmentId,
+  onRoundChange
 }) => {
   const [activeRounds, setActiveRounds] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -109,6 +110,8 @@ const NegotiationCompactBanner = ({
     setShowModal(false);
     setModalMode(null);
     loadActiveRounds();
+    // Sync parent's negotiation data with this banner
+    onRoundChange?.();
   };
 
   // Helper to check if a round has ended based on end_date

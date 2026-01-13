@@ -195,6 +195,8 @@ const QuoteCompareTable = ({
           permissionsLoading={permissionsLoading}
           is_tender={is_tender}
           vendorCodeMap={vendorCodeMap}
+          fullProduct={proditem}
+          quoteApprovalStatus={quoteApprovalStatus}
         />
       )}
 
