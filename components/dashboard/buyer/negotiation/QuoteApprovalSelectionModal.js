@@ -138,7 +138,6 @@ const QuoteApprovalSelectionModal = ({
                         <div className="d-flex justify-content-between align-items-start">
                           <div>
                             <strong>{vendorCode}</strong>
-                            <span className="text-muted ms-2">({vendorName})</span>
                             {index === 0 && (
                               <Badge bg="success" className="ms-2">Lowest</Badge>
                             )}
