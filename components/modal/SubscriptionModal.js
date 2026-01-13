@@ -3,6 +3,12 @@ import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import { capitalize } from "../shared/TitleCase";
 
+const EmptyState = ({ label }) => (
+  <div className="text-muted" style={{ fontSize: "0.85rem" }}>
+    No {label} selected
+  </div>
+);
+
 const SubscriptionModal = (props) => {
     const { 
       selectedSubscription, 
@@ -15,6 +21,19 @@ const SubscriptionModal = (props) => {
       couponCode,
       isHospitality = false 
     } = props;
+
+    const {
+      categoryNames = [],
+      hotelNames = [],
+      numCategories = 0,
+      numHotels = 0,
+      perCategoryFee = 0,
+      total = 0,
+    } = selectedSubscription?.costBreakdown || {};
+
+    const calculationText = numHotels > 0
+      ? `${numCategories} categories × ₹${perCategoryFee} × ${numHotels} hotels`
+      : `${numCategories} categories × ₹${perCategoryFee}`;
     let getSubscriptionDuration = {
         "-1": "Lifetime",
         1: "Monthly",
@@ -48,7 +67,7 @@ const SubscriptionModal = (props) => {
                         </h5>
                         <h3>
                           {isHospitality && selectedSubscription?.costBreakdown
-                            ? `₹ ${selectedSubscription.costBreakdown.total}`
+                            ? `₹ ${total}`
                             : selectedSubscription.billingCycle?.plan_type == "f"
                             ? "FREE"
                             : `₹ ${selectedSubscription.billingCycle?.price} / ${
@@ -95,34 +114,30 @@ const SubscriptionModal = (props) => {
                           <div className="row align-items-start">
                             <div className="col-6">
                               <div style={{ fontSize: "0.9rem" }}>
-                                {selectedSubscription.costBreakdown.categoryNames?.map((name, idx) => (
-                                  <div key={`cat-${idx}`} className="mb-2" style={{ lineHeight: "1.5" }}>
+                                {categoryNames.map((name) => (
+                                  <div key={name} className="mb-2" style={{ lineHeight: "1.5" }}>
                                     <div className="fw-medium" style={{ color: "#333" }}>
                                       {name}
                                     </div>
                                     <div className="text-muted" style={{ fontSize: "0.8rem" }}>
-                                      ₹ {selectedSubscription.costBreakdown.perCategoryFee} per category
+                                      ₹ {perCategoryFee} per category
                                     </div>
                                   </div>
                                 ))}
-                                {(!selectedSubscription.costBreakdown.categoryNames || selectedSubscription.costBreakdown.categoryNames.length === 0) && (
-                                  <div className="text-muted" style={{ fontSize: "0.85rem" }}>No categories selected</div>
-                                )}
+                                {categoryNames.length === 0 && <EmptyState label="categories" />}
                               </div>
                             </div>
                             
                             <div className="col-6">
                               <div style={{ fontSize: "0.9rem" }}>
-                                {selectedSubscription.costBreakdown.hotelNames?.map((name, idx) => (
-                                  <div key={`hotel-${idx}`} className="mb-2" style={{ lineHeight: "1.5" }}>
+                                {hotelNames.map((name) => (
+                                  <div key={name} className="mb-2" style={{ lineHeight: "1.5" }}>
                                     <div className="fw-medium" style={{ color: "#333" }}>
                                       {name}
                                     </div>
                                   </div>
                                 ))}
-                                {(!selectedSubscription.costBreakdown.hotelNames || selectedSubscription.costBreakdown.hotelNames.length === 0) && (
-                                  <div className="text-muted" style={{ fontSize: "0.85rem" }}>No hotels selected</div>
-                                )}
+                                {hotelNames.length === 0 && <EmptyState label="hotels" />}
                               </div>
                             </div>
                           </div>
@@ -131,27 +146,23 @@ const SubscriptionModal = (props) => {
                           <div className="mt-3 pt-3 border-top" style={{ fontSize: "0.9rem" }}>
                             <div className="d-flex justify-content-between align-items-center mb-2">
                               <span className="text-muted">Number of Categories:</span>
-                              <span className="fw-medium">{selectedSubscription.costBreakdown.numCategories || 0}</span>
+                              <span className="fw-medium">{numCategories}</span>
                             </div>
                             <div className="d-flex justify-content-between align-items-center mb-2">
                               <span className="text-muted">Price per Category:</span>
-                              <span className="fw-medium">₹ {selectedSubscription.costBreakdown.perCategoryFee || 0}</span>
+                              <span className="fw-medium">₹ {perCategoryFee}</span>
                             </div>
                             <div className="d-flex justify-content-between align-items-center mb-2">
                               <span className="text-muted">Number of Hotels:</span>
-                              <span className="fw-medium">{selectedSubscription.costBreakdown.numHotels || 0}</span>
+                              <span className="fw-medium">{numHotels}</span>
                             </div>
                             <div className="d-flex justify-content-between align-items-center mb-2" style={{ fontSize: "0.85rem", color: "#6c757d" }}>
                               <span>Calculation:</span>
-                              <span>
-                                {selectedSubscription.costBreakdown.numHotels > 0
-                                  ? `${selectedSubscription.costBreakdown.numCategories} categories × ₹${selectedSubscription.costBreakdown.perCategoryFee} × ${selectedSubscription.costBreakdown.numHotels} hotels`
-                                  : `${selectedSubscription.costBreakdown.numCategories} categories × ₹${selectedSubscription.costBreakdown.perCategoryFee}`}
-                              </span>
+                              <span>{calculationText}</span>
                             </div>
                             <div className="d-flex justify-content-between align-items-center mt-3 pt-2 border-top" style={{ fontSize: "1rem", fontWeight: "600" }}>
                               <span>Total Amount:</span>
-                              <span style={{ color: "#158993", fontSize: "1.1rem" }}>₹ {selectedSubscription.costBreakdown.total || 0}</span>
+                              <span style={{ color: "#158993", fontSize: "1.1rem" }}>₹ {total}</span>
                             </div>
                           </div>
                         </div>
