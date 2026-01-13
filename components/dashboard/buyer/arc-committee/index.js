@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { getArcRfqList, getTenderLifecycle, performArcAction } from "@/services/arc";
+import { getArcRfqList, getTenderLifecycle, performArcAction, getArcDocument } from "@/services/arc";
 import { getProjectList } from '@/services/project';
 import { getUserMappings } from '@/services/hospitality';
 import { formatRFQNumber } from "@/utils/sharedFunctions";
@@ -34,6 +34,8 @@ const ArcCommittee = () => {
   const [remarks, setRemarks] = useState('');
   const [targetStage, setTargetStage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState(null);
+  const [arcDocuments, setArcDocuments] = useState({});
 
   // Extract hotel IDs for permission checks - use hotel_id from RFQ data or user mappings
   const hotelIds = useMemo(() => {
@@ -105,7 +107,7 @@ const ArcCommittee = () => {
     if (rfq_id) {
       loadLifecycleData();
     }
-  }, [rfq_id]);
+  }, [rfq_id, selectedProductId]);
 
   const getAllProjects = () => {
     getProjectList()
@@ -212,16 +214,34 @@ const ArcCommittee = () => {
 
     try {
       setSubmitting(true);
+      
+      // Get approval instance ID for selected product if available
+      let approval_instance_id = null;
+      let approval_instance_step_id = null;
+      
+      if (selectedProductId && lifecycleData?.arcApproval?.instances) {
+        const productArc = lifecycleData.arcApproval.instances.find(
+          inst => (inst.metadata?.rfq_product_id || inst.entity_id) === selectedProductId && inst.status === 'PENDING'
+        );
+        if (productArc) {
+          approval_instance_id = productArc.id;
+        }
+      }
+      
       const response = await performArcAction(
         rfq_id,
         actionType,
         actionType === 'send_to' ? targetStage : null,
-        remarks || null
+        remarks || null,
+        selectedProductId || null,
+        approval_instance_id,
+        approval_instance_step_id
       );
 
       if (response.status === 1) {
         toast.success(response.message || 'Action performed successfully');
         setShowActionModal(false);
+        setSelectedProductId(null);
         loadLifecycleData(); // Reload data
       } else {
         toast.error(response.message || 'Failed to perform action');
@@ -371,10 +391,22 @@ const ArcCommittee = () => {
   const renderProducts = () => {
     if (!lifecycleData?.rfq?.products) return null;
 
+    // Get ARC approval instances grouped by product
+    const arcInstancesByProduct = {};
+    if (lifecycleData?.arcApproval?.instances) {
+      lifecycleData.arcApproval.instances.forEach(inst => {
+        const rfq_product_id = inst.metadata?.rfq_product_id || inst.entity_id;
+        if (!arcInstancesByProduct[rfq_product_id]) {
+          arcInstancesByProduct[rfq_product_id] = [];
+        }
+        arcInstancesByProduct[rfq_product_id].push(inst);
+      });
+    }
+
     return (
       <div className="card mb-4">
         <div className="card-header bg-info text-white">
-          <h5 className="mb-0">Product Details</h5>
+          <h5 className="mb-0">Product Details & ARC Approvals</h5>
         </div>
         <div className="card-body">
           <Table striped bordered hover>
@@ -384,7 +416,9 @@ const ArcCommittee = () => {
                 <th>Specifications</th>
                 <th>Quantity</th>
                 <th>Unit</th>
-                <th>Comments</th>
+                <th>ARC Status</th>
+                <th>ARC Document</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -394,9 +428,14 @@ const ArcCommittee = () => {
                 const spec = specs.find(s => s.title === 'Spec')?.value || '-';
                 const qty = specs.find(s => s.title === 'Quantity')?.value || '-';
                 const unit = specs.find(s => s.title === 'Unit')?.value || '-';
+                
+                const productArcInstances = arcInstancesByProduct[product.id] || [];
+                const pendingArc = productArcInstances.find(inst => inst.status === 'PENDING');
+                const approvedArc = productArcInstances.find(inst => inst.status === 'APPROVED');
+                const arcDocument = approvedArc ? arcDocuments[approvedArc.id] : null;
 
                 return (
-                  <tr key={product.id}>
+                  <tr key={product.id} style={{ backgroundColor: selectedProductId === product.id ? '#e7f3ff' : '' }}>
                     <td>{product.product_details?.[0]?.name || 'N/A'}</td>
                     <td>
                       <div><strong>Size:</strong> {size}</div>
@@ -404,7 +443,49 @@ const ArcCommittee = () => {
                     </td>
                     <td>{qty}</td>
                     <td>{unit}</td>
-                    <td>{product.comment || '-'}</td>
+                    <td>
+                      {pendingArc ? (
+                        <Badge bg="warning">Pending Approval</Badge>
+                      ) : approvedArc ? (
+                        <Badge bg="success">Approved</Badge>
+                      ) : (
+                        <Badge bg="secondary">No ARC</Badge>
+                      )}
+                    </td>
+                    <td>
+                      {arcDocument?.document_url ? (
+                        <a 
+                          href={arcDocument.document_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary text-decoration-underline"
+                        >
+                          <FontAwesomeIcon icon={faFileAlt} className="me-1" />
+                          View Document
+                        </a>
+                      ) : approvedArc ? (
+                        <span className="text-muted">Generating...</span>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
+                    <td>
+                      {pendingArc && (
+                        <Button
+                          size="sm"
+                          variant="outline-primary"
+                          onClick={() => {
+                            setSelectedProductId(product.id);
+                            handleAction('approve');
+                          }}
+                        >
+                          Review ARC
+                        </Button>
+                      )}
+                      {!pendingArc && !approvedArc && (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -769,34 +850,26 @@ const ArcCommittee = () => {
                         id="select_project_filter-rfq_list-arc_committee_page"
                     />
                 </div>
-                <div className="py-2">
-                    <label>Type</label>
-                    <Select
-                        options={[
-                            { label: "RFQ", value: "0" },
-                            { label: "Tender", value: "1" }
-                        ]}
-                        onChange={(selectedOption) => setIsTenderFilter(selectedOption?.value || null)}
-                        value={isTenderFilter !== null ? { label: isTenderFilter === '1' || isTenderFilter === 1 ? "Tender" : "RFQ", value: isTenderFilter } : null}
-                        placeholder="Select"
-                        isClearable
-                        id="is_tender_filter-rfq_list-arc_committee_page"
-                    />
-                </div>
+                {/* ARC is only for tenders - no need for filter */}
+                <Alert variant="info" className="mt-2" style={{ fontSize: "12px" }}>
+                  <strong>Note:</strong> ARC approvals are only applicable for tenders.
+                </Alert>
 
                 {!loading && rfqList.length === 0 ? (
                   <p style={{ textAlign: "center" }}>No RFQs yet!</p>
                 ) : (
                   <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
-                    {rfqList.map((item) => (
+                    {rfqList.map((item) => {
+                      const rfqId = item.rfq_id || item.id;
+                      return (
                       <li
-                        className={item.id === currentRfq?.id ? "active" : ""}
-                        key={`rfq_no_${item.rfq_no}`}
+                        className={rfqId === currentRfq?.id ? "active" : ""}
+                        key={`rfq_no_${item.rfq_no}-${item.rfq_product_id || ''}`}
                       >
                         <Link
-                          href={`/dashboard/buyer/arc-committee?rfq_id=${item.id}`}
+                          href={`/dashboard/buyer/arc-committee?rfq_id=${rfqId}`}
                           className={
-                            item.id === currentRfq?.id ? "text-white" : "text-dark"
+                            rfqId === currentRfq?.id ? "text-white" : "text-dark"
                           }
                           id={`rfq_${item.rfq_no}-rfq_list-arc_committee_page`}
                         >
@@ -805,9 +878,26 @@ const ArcCommittee = () => {
                             <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
                               {item.project_name}
                             </b>}
+                          {item.product_name && (
+                            <div className="mt-1" style={{ fontSize: "12px", opacity: 0.9 }}>
+                              <Badge bg="info" style={{ fontSize: "10px" }}>
+                                {item.product_name}
+                              </Badge>
+                              {item.approval_status && (
+                                <Badge 
+                                  bg={item.approval_status === 'PENDING' ? 'warning' : item.approval_status === 'APPROVED' ? 'success' : 'secondary'} 
+                                  className="ms-1"
+                                  style={{ fontSize: "10px" }}
+                                >
+                                  {item.approval_status}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
                         </Link>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 )}
               </div>
@@ -821,36 +911,50 @@ const ArcCommittee = () => {
               ) : lifecycleData ? (
                 <div>
                   {/* Action Buttons */}
-                  <div className="card mb-4 border-primary">
-                    <div className="card-body">
-                      <div className="d-flex gap-2 flex-wrap">
-                        <Button
-                          variant="success"
-                          onClick={() => handleAction('approve')}
-                          disabled={submitting}
-                        >
-                          <FontAwesomeIcon icon={faCheckCircle} className="me-2" />
-                          Approve
-                        </Button>
-                        <Button
-                          variant="danger"
-                          onClick={() => handleAction('reject')}
-                          disabled={submitting}
-                        >
-                          <FontAwesomeIcon icon={faTimesCircle} className="me-2" />
-                          Reject
-                        </Button>
-                        <Button
-                          variant="warning"
-                          onClick={() => handleAction('send_to')}
-                          disabled={submitting}
-                        >
-                          <FontAwesomeIcon icon={faArrowRight} className="me-2" />
-                          Send To Stage
-                        </Button>
+                  {lifecycleData?.arcApproval?.pending && (
+                    <div className="card mb-4 border-primary">
+                      <div className="card-body">
+                        <div className="d-flex gap-2 flex-wrap align-items-center">
+                          {selectedProductId && (
+                            <Alert variant="info" className="mb-0 me-auto">
+                              Reviewing ARC for selected product
+                            </Alert>
+                          )}
+                          <Button
+                            variant="success"
+                            onClick={() => handleAction('approve')}
+                            disabled={submitting}
+                          >
+                            <FontAwesomeIcon icon={faCheckCircle} className="me-2" />
+                            Approve
+                          </Button>
+                          <Button
+                            variant="danger"
+                            onClick={() => handleAction('reject')}
+                            disabled={submitting}
+                          >
+                            <FontAwesomeIcon icon={faTimesCircle} className="me-2" />
+                            Reject
+                          </Button>
+                          <Button
+                            variant="warning"
+                            onClick={() => handleAction('send_to')}
+                            disabled={submitting}
+                          >
+                            <FontAwesomeIcon icon={faArrowRight} className="me-2" />
+                            Send To Stage
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
+                  
+                  {/* Product Selection Info */}
+                  {lifecycleData?.arcApproval?.instances && lifecycleData.arcApproval.instances.length > 0 && (
+                    <Alert variant="info" className="mb-3">
+                      <strong>Note:</strong> ARC approvals are product-wise. Select a product from the table below to review its ARC approval.
+                    </Alert>
+                  )}
 
                   {/* Lifecycle Timeline */}
                   {renderLifecycleTimeline()}

@@ -1967,6 +1967,7 @@ const HospitalityManager = () => {
                                             title="Edit Business Unit"
                                           >
                                             <i className="bi bi-pencil"></i>
+                                            <span className="ms-1 d-none d-md-inline">Edit</span>
                                           </button>
                                           <button
                                             type="button"

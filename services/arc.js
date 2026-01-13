@@ -23,11 +23,17 @@ export const getArcRfqList = (params = {}) => {
 
 /**
  * Get full tender lifecycle data
+ * @param {number} rfq_id - RFQ ID
+ * @param {number} rfq_product_id - Optional product ID for product-specific ARC
  */
-export const getTenderLifecycle = (rfq_id) => {
+export const getTenderLifecycle = (rfq_id, rfq_product_id = null) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.get(`/arc/tender/${rfq_id}`);
+      let url = `/arc/tender/${rfq_id}`;
+      if (rfq_product_id) {
+        url += `?rfq_product_id=${rfq_product_id}`;
+      }
+      const response = await axiosInstance.get(url);
       resolve(response);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
@@ -37,15 +43,40 @@ export const getTenderLifecycle = (rfq_id) => {
 
 /**
  * Perform ARC action (approve/reject/send to)
+ * @param {number} rfq_id - RFQ ID
+ * @param {string} action - Action type (approve/reject/send_to)
+ * @param {string} target_stage - Target stage for send_to action
+ * @param {string} remarks - Remarks
+ * @param {number} rfq_product_id - Optional product ID for product-level ARC
+ * @param {number} approval_instance_id - Optional approval instance ID
+ * @param {number} approval_instance_step_id - Optional approval instance step ID
  */
-export const performArcAction = (rfq_id, action, target_stage = null, remarks = null) => {
+export const performArcAction = (rfq_id, action, target_stage = null, remarks = null, rfq_product_id = null, approval_instance_id = null, approval_instance_step_id = null) => {
   return new Promise(async (resolve, reject) => {
     try {
       const response = await axiosInstance.post(`/arc/tender/${rfq_id}/action`, {
         action,
         target_stage,
-        remarks
+        remarks,
+        rfq_product_id,
+        approval_instance_id,
+        approval_instance_step_id
       });
+      resolve(response);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+
+/**
+ * Get ARC document URL from approval instance
+ * @param {number} approval_instance_id - Approval instance ID
+ */
+export const getArcDocument = (approval_instance_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/arc/document/${approval_instance_id}`);
       resolve(response);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
