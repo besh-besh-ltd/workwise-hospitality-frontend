@@ -575,8 +575,21 @@ const NegotiationModal = ({
   );
 
   const renderViewApprove = () => {
+    // Helper to check if a round has ended based on end_date
+    const isRoundEnded = (round) => {
+      const status = (round?.status || '').toUpperCase();
+      if (status === 'ACTIVE' && round?.end_date && moment(round.end_date).isBefore(moment())) {
+        return true;
+      }
+      return false;
+    };
+
     const pendingRounds = activeRounds.filter(r => r.status === 'PENDING_APPROVAL' || r.status === 'pending_approval');
-    const activeRoundsList = activeRounds.filter(r => r.status === 'ACTIVE' || r.status === 'active');
+    // Active rounds: status is ACTIVE and end_date has NOT passed
+    const activeRoundsList = activeRounds.filter(r => {
+      const status = (r?.status || '').toUpperCase();
+      return status === 'ACTIVE' && !isRoundEnded(r);
+    });
 
     return (
       <div>

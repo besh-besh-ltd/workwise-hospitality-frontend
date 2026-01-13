@@ -203,7 +203,7 @@ const QuoteCompareTable = ({
         <div className="mb-3 p-3 border rounded bg-light">
           <h6 className="mb-2">Quote Approval Status</h6>
           <ApprovalWorkflowSection
-            entityType="negotiation-approval"
+            entityType="NEGOTIATION"
             entityId={proditem.id}
             entityLabel={`Quote Approval - ${productName}`}
             hospitalityCompanyId={hospitalityCompanyId}
