@@ -201,11 +201,11 @@ const QuoteCompareTable = ({
       )}
 
       {/* Quote Approval Workflow Section - Show for tenders when approval is active */}
-      {is_tender && quoteApprovalStatus && (
-        <div className="mb-3 p-3 border rounded bg-light">
+      {is_tender && quoteApprovalStatus?.status && (
+        <div className="my-3 p-3 border rounded bg-light">
           <h6 className="mb-2">Quote Approval Status</h6>
           <ApprovalWorkflowSection
-            entityType="NEGOTIATION"
+            entityType="NEGOTIATION_QUOTE"
             entityId={proditem.id}
             entityLabel={`Quote Approval - ${productName}`}
             hospitalityCompanyId={hospitalityCompanyId}

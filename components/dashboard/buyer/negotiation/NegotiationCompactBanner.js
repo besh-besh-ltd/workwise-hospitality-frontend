@@ -241,6 +241,17 @@ const NegotiationCompactBanner = ({
         {/* Left: Status Message */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {pendingApprovalsCount > 0 && (
+              <Badge
+                bg="danger"
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                }}
+              >
+                ⚠️ Action Required
+              </Badge>
+            )}
             <span style={{ fontSize: '0.875rem', color: '#333' }}>
               <strong>Negotiation:</strong> {loading ? 'Loading...' : statusMessage}
             </span>
@@ -324,6 +335,7 @@ const NegotiationCompactBanner = ({
 
       <NegotiationModal
         show={showModal}
+        handleShow={handleViewApproveClick}
         onHide={handleModalClose}
         mode={modalMode}
         rfq_id={rfq_id}

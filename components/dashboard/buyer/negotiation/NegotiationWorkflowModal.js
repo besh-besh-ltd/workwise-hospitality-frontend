@@ -46,7 +46,7 @@ const NegotiationWorkflowModal = ({
 
   return (
     <Modal show={show} onHide={onHide} size="lg" centered>
-      <Modal.Header closeButton>
+      <Modal.Header closeButton className='py-2 px-3 pb-0'>
         <Modal.Title>
           Negotiation Round {round.round_number} - Approval Workflow
           <div className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>

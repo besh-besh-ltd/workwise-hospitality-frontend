@@ -14,6 +14,7 @@ import NegotiationWorkflowModal from './NegotiationWorkflowModal';
 
 const NegotiationModal = ({
   show,
+  handleShow,
   onHide,
   mode,
   rfq_id,
@@ -678,6 +679,7 @@ const NegotiationModal = ({
                             size="sm"
                             onClick={() => {
                               setSelectedRoundForWorkflow(round);
+                              onHide();
                               setShowWorkflowModal(true);
                             }}
                           >
@@ -830,7 +832,7 @@ const NegotiationModal = ({
   return (
     <>
     <Modal show={show} onHide={onHide} size="lg" centered>
-      <Modal.Header closeButton>
+      <Modal.Header closeButton className='py-2 px-3 pb-0'>
         <Modal.Title>{getModalTitle()}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
@@ -858,7 +860,10 @@ const NegotiationModal = ({
       {/* Workflow Modal */}
       <NegotiationWorkflowModal
         show={showWorkflowModal}
-        onHide={() => setShowWorkflowModal(false)}
+        onHide={() => {
+          setShowWorkflowModal(false);
+          handleShow();
+        }}
         round={selectedRoundForWorkflow}
         hospitalityCompanyId={hospitalityCompanyId}
         hotelId={hotelId}

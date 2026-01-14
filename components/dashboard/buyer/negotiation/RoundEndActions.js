@@ -123,6 +123,7 @@ const RoundEndActions = ({
       {showCreateModal && (
         <NegotiationModal
           show={showCreateModal}
+          handleShow={() => setShowCreateModal(true)}
           onHide={() => setShowCreateModal(false)}
           mode="create"
           rfq_id={rfq_id}
