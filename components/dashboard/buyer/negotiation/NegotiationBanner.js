@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Card, Badge, Button, Collapse } from "react-bootstrap";
+import { Card, Badge, Button, Collapse, Alert } from "react-bootstrap";
 import { toast } from "react-toastify";
 import {
   getNegotiationRounds,
@@ -294,10 +294,47 @@ const NegotiationBanner = ({ rfq_id, currentUser }) => {
                 <h6 className="mb-3 fw-semibold" style={{ fontSize: "14px" }}>
                   Approval Status
                 </h6>
+
+                {/* Check if current user is a pending approver */}
+                {(() => {
+                  const userApproval = activeRound.approvals?.find(
+                    a => String(a.approver_user_id) === String(currentUser?.id)
+                  );
+                  const isCurrentApprover = userApproval &&
+                    (userApproval.status === 'PENDING' || userApproval.status === 'pending' || !userApproval.status);
+
+                  return isCurrentApprover ? (
+                    <>
+                      <Alert variant="warning" className="mb-2 py-2" style={{ fontSize: "13px" }}>
+                        <strong>Action Required!</strong> You need to approve or reject this round.
+                      </Alert>
+                      <div className="d-flex gap-2 mb-3">
+                        <Button
+                          variant="success"
+                          size="sm"
+                          onClick={handleApprove}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => {
+                            const reason = window.prompt('Please provide a reason for rejection:');
+                            if (reason) handleReject(reason);
+                          }}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </>
+                  ) : null;
+                })()}
+
                 <div className="mb-2">
                   <span className="text-muted small">Your Status:</span>
                   <div className="fw-semibold">
-                    {activeRound.approvals?.find(a => a.approver_user_id === currentUser?.id)?.status || 'N/A'}
+                    {activeRound.approvals?.find(a => String(a.approver_user_id) === String(currentUser?.id))?.status || 'Not an approver'}
                   </div>
                 </div>
                 <div className="text-muted small">

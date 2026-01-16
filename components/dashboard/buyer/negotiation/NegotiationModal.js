@@ -8,9 +8,11 @@ import {
   getNegotiationRounds
 } from '@/services/negotiation';
 import { getUserDetails, getProfile } from '@/services/Auth';
+import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
+import ApprovalActionModal from '../approval/ApprovalActionModal';
 
 const NegotiationModal = ({
   show,
@@ -39,6 +41,13 @@ const NegotiationModal = ({
   // Workflow modal state
   const [showWorkflowModal, setShowWorkflowModal] = useState(false);
   const [selectedRoundForWorkflow, setSelectedRoundForWorkflow] = useState(null);
+  // Approval instances fetched from hospitality approval API
+  const [approvalInstances, setApprovalInstances] = useState({}); // Map of rfq_product_id -> approval instance
+  const [loadingApprovals, setLoadingApprovals] = useState(false);
+  // Action modal state for approve/reject confirmation
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [actionType, setActionType] = useState(null); // 'APPROVE' or 'REJECT'
+  const [selectedRoundForAction, setSelectedRoundForAction] = useState(null);
 
   useEffect(() => {
     // Load current user ID when modal opens
@@ -82,6 +91,8 @@ const NegotiationModal = ({
         setSelectedRound(pendingRound);
         loadRoundQuotes(pendingRound.id);
       }
+      // Fetch approval status from hospitality approval API for accurate can_user_approve
+      loadApprovalStatusForRounds(activeRounds);
     }
     if (show && mode === 'history') {
       loadHistoryData();
@@ -119,6 +130,34 @@ const NegotiationModal = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch approval status from hospitality approval API for pending rounds
+  const loadApprovalStatusForRounds = async (rounds) => {
+    const pendingRounds = rounds.filter(r => r.status === 'PENDING_APPROVAL' || r.status === 'pending_approval');
+    if (pendingRounds.length === 0) return;
+
+    setLoadingApprovals(true);
+    const instances = {};
+
+    for (const round of pendingRounds) {
+      try {
+        const response = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
+        const instanceList = response?.data?.data || response?.data || [];
+
+        if (instanceList && instanceList.length > 0) {
+          // Get detailed instance with can_user_approve
+          const detailResponse = await getApprovalInstanceDetails(instanceList[0].id);
+          const detailedInstance = detailResponse?.data?.data || detailResponse?.data;
+          instances[round.rfq_product_id] = detailedInstance;
+        }
+      } catch (error) {
+        console.error(`Error loading approval for product ${round.rfq_product_id}:`, error);
+      }
+    }
+
+    setApprovalInstances(instances);
+    setLoadingApprovals(false);
   };
 
   const loadRoundQuotes = async (roundId) => {
@@ -187,12 +226,37 @@ const NegotiationModal = ({
     }
   };
 
-  const handleApprove = async (roundId) => {
+  // Open action modal for approve/reject
+  const openActionModal = (round, type) => {
+    setSelectedRoundForAction(round);
+    setActionType(type);
+    onHide(); // Close the NegotiationModal first to avoid modal overlap
+    setShowActionModal(true);
+  };
+
+  // Handle action modal submission
+  const handleActionModalSubmit = async (comment) => {
+    if (!selectedRoundForAction) return;
+
+    const roundId = selectedRoundForAction.id;
+
+    if (actionType === 'APPROVE') {
+      await handleApprove(roundId, comment);
+    } else if (actionType === 'REJECT') {
+      await handleReject(roundId, comment);
+    }
+
+    setShowActionModal(false);
+    setSelectedRoundForAction(null);
+    setActionType(null);
+  };
+
+  const handleApprove = async (roundId, comment = '') => {
     setSubmitting(true);
     try {
-      const response = await approveNegotiationRound(roundId);
+      const response = await approveNegotiationRound(roundId, comment || null);
       console.log('Approve response:', response);
-      
+
       // Response structure: { status: 1, data: {...}, message: "...", approved: true, ... }
       if (response.status === 1 || response.approved === true) {
         const message = response.message || 'Round approved successfully';
@@ -214,15 +278,17 @@ const NegotiationModal = ({
     }
   };
 
-  const handleReject = async (roundId) => {
-    const reason = window.prompt('Please provide a reason for rejection:');
-    if (!reason) return;
+  const handleReject = async (roundId, reason) => {
+    if (!reason) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
 
     setSubmitting(true);
     try {
       const response = await rejectNegotiationRound(roundId, reason);
       console.log('Reject response:', response);
-      
+
       // Response structure: { status: 1, data: {...}, message: "..." }
       if (response.status === 1) {
         const message = response.message || 'Round rejected successfully';
@@ -606,70 +672,73 @@ const NegotiationModal = ({
                   const product = products.find(p => p.id === round.rfq_product_id);
                   const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
                   const approvals = round.approvals || [];
-                  const userApproval = approvals.find(a => {
-                    const approverId = parseInt(a.approver_user_id);
-                    const userId = parseInt(currentUserId);
-                    console.log('Comparing approver IDs:', {
-                      approverId,
-                      userId,
-                      match: approverId === userId,
-                      approverIdType: typeof approverId,
-                      userIdType: typeof userId
-                    });
-                    return approverId === userId;
-                  });
-                  const canApprove = userApproval && (
-                    userApproval.status === 'PENDING' || 
-                    userApproval.status === 'pending' ||
-                    userApproval.status === null ||
-                    userApproval.status === undefined
-                  );
-                  
-                  console.log('Round approval check:', {
-                    roundId: round.id,
-                    currentUserId,
-                    currentUserIdType: typeof currentUserId,
-                    userApproval,
-                    canApprove,
-                    approvals: approvals.map(a => ({
-                      approver_user_id: a.approver_user_id,
-                      approver_user_id_parsed: parseInt(a.approver_user_id),
-                      status: a.status,
-                      approver_name: a.approver_name
-                    }))
-                  });
+
+                  // Get approval instance from hospitality API (authoritative source for can_user_approve)
+                  const approvalInstance = approvalInstances[round.rfq_product_id];
+
+                  // Use approval instance data if available, otherwise fall back to round.approvals
+                  const canApprove = approvalInstance
+                    ? approvalInstance.can_user_approve === true
+                    : (() => {
+                        // Fallback: Use string comparison to avoid type issues
+                        const userApproval = approvals.find(a =>
+                          String(a.approver_user_id) === String(currentUserId)
+                        );
+                        return userApproval && (
+                          userApproval.status === 'PENDING' ||
+                          userApproval.status === 'pending' ||
+                          !userApproval.status  // null/undefined treated as pending
+                        );
+                      })();
+
+                  // Only show as current approver if not loading and canApprove is true
+                  const isCurrentApprover = !loadingApprovals && canApprove;
+                  const approvalStatus = approvalInstance?.status;
 
                   return (
-                    <div key={round.id} className="border rounded p-3 mb-3" style={{ backgroundColor: '#fff8e1' }}>
+                    <div
+                      key={round.id}
+                      className="border rounded p-3 mb-3"
+                      style={{
+                        backgroundColor: isCurrentApprover ? '#fff3cd' : '#fff8e1',
+                        border: isCurrentApprover ? '2px solid #ffc107' : '1px solid #dee2e6',
+                        boxShadow: isCurrentApprover ? '0 0 10px rgba(255, 193, 7, 0.3)' : 'none'
+                      }}
+                    >
                       <div className="d-flex justify-content-between align-items-start mb-2">
                         <div>
                           <strong>{productName}</strong>
                           <Badge bg="warning" text="dark" className="ms-2">Round {round.round_number}</Badge>
+                          {isCurrentApprover && (
+                            <Badge bg="danger" className="ms-2">Your Action Required</Badge>
+                          )}
                         </div>
-                        <div className="d-flex gap-2 align-items-center">
-                          {canApprove ? (
-                            <>
+                        <div className="d-flex flex-column gap-2 align-items-end">
+                          {loadingApprovals ? (
+                            <Spinner size="sm" />
+                          ) : canApprove ? (
+                            <div className="d-flex gap-2 p-2 rounded" style={{ backgroundColor: '#fff3cd' }}>
                               <Button
                                 variant="success"
-                                size="sm"
-                                onClick={() => handleApprove(round.id)}
+                                className='p-2'
+                                onClick={() => openActionModal(round, 'APPROVE')}
                                 disabled={submitting || !canWrite || permissionsLoading}
                               >
-                                Approve
+                                Approve Round
                               </Button>
                               <Button
                                 variant="danger"
-                                size="sm"
-                                onClick={() => handleReject(round.id)}
+                                className='p-2'
+                                onClick={() => openActionModal(round, 'REJECT')}
                                 disabled={submitting || !canWrite || permissionsLoading}
                               >
-                                Reject
+                                Reject Round
                               </Button>
-                            </>
-                          ) : userApproval ? (
-                            <Badge bg={userApproval.status === 'APPROVED' || userApproval.status === 'approved' ? 'success' :
-                                     userApproval.status === 'REJECTED' || userApproval.status === 'rejected' ? 'danger' : 'secondary'}>
-                              {userApproval.status || 'N/A'}
+                            </div>
+                          ) : approvalInstance ? (
+                            <Badge bg={approvalStatus === 'APPROVED' ? 'success' :
+                                     approvalStatus === 'REJECTED' ? 'danger' : 'secondary'}>
+                              {approvalStatus === 'PENDING' ? 'Awaiting Your Turn' : approvalStatus || 'Pending'}
                             </Badge>
                           ) : (
                             <Badge bg="secondary">Not an approver</Badge>
@@ -677,13 +746,14 @@ const NegotiationModal = ({
                           <Button
                             variant="outline-secondary"
                             size="sm"
+                            className='p-2'
                             onClick={() => {
                               setSelectedRoundForWorkflow(round);
                               onHide();
                               setShowWorkflowModal(true);
                             }}
                           >
-                            View Workflow
+                            View Workflow Details
                           </Button>
                         </div>
                       </div>
@@ -872,6 +942,21 @@ const NegotiationModal = ({
           setShowWorkflowModal(false);
           if (onRefresh) onRefresh();
         }}
+      />
+
+      {/* Approval Action Modal for approve/reject confirmation */}
+      <ApprovalActionModal
+        show={showActionModal}
+        actionType={actionType}
+        onClose={() => {
+          setShowActionModal(false);
+          setSelectedRoundForAction(null);
+          setActionType(null);
+          handleShow(); // Re-open the NegotiationModal when action is cancelled
+        }}
+        onSubmit={handleActionModalSubmit}
+        loading={submitting}
+        entityLabel={`Negotiation Round ${selectedRoundForAction?.round_number || ''}`}
       />
     </>
   );

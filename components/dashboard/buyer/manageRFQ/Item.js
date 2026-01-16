@@ -160,21 +160,23 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
             )}
           </div>
         </td>
-        <td>
-          <Link
-            href={`/dashboard/buyer/query?rfq_id=${data?.id}&role=buyer`}
-          >
-            <button
-              type="button"
-              className="page-link-btn border-0 text-white p-2 rounded-2"
-              style={{ width: "120px", backgroundColor: "var(--primary-color)" }}
-              id={`view_queries_${data?.id}-rfq_actions-manage_rfq_page`}
+        {!isPendingApproval && (
+          <td>
+            <Link
+              href={`/dashboard/buyer/query?rfq_id=${data?.id}&role=buyer`}
             >
-              Queries
-              {data.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{data.unseen_query_count} + </span>}
-            </button>
-          </Link>
-        </td>
+              <button
+                type="button"
+                className="page-link-btn border-0 text-white p-2 rounded-2"
+                style={{ width: "120px", backgroundColor: "var(--primary-color)" }}
+                id={`view_queries_${data?.id}-rfq_actions-manage_rfq_page`}
+              >
+                Queries
+                {data.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{data.unseen_query_count} + </span>}
+              </button>
+            </Link>
+          </td>
+        )}
         {showReminder && (
           <td>
 

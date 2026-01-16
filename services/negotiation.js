@@ -219,3 +219,43 @@ export const getQuoteApprovalStatus = (rfq_product_id) => {
   });
 };
 
+/**
+ * Approve negotiation quotes (for hierarchy approvers)
+ * @param {number} rfq_product_id - RFQ Product ID
+ * @param {string} remarks - Optional approval remarks
+ */
+export const approveNegotiationQuotes = (rfq_product_id, remarks = null) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const payload = {};
+      if (remarks) payload.remarks = remarks;
+      const response = await axiosInstance.post(
+        `/negotiation/quotes/${rfq_product_id}/approve`,
+        payload
+      );
+      resolve(response);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+
+/**
+ * Reject negotiation quotes (for hierarchy approvers)
+ * @param {number} rfq_product_id - RFQ Product ID
+ * @param {string} remarks - Rejection reason (required)
+ */
+export const rejectNegotiationQuotes = (rfq_product_id, remarks) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(
+        `/negotiation/quotes/${rfq_product_id}/reject`,
+        { remarks }
+      );
+      resolve(response);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+

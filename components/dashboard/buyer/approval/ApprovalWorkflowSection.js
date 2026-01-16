@@ -7,10 +7,10 @@ import {
   BsClockFill,
   BsArrowRepeat,
 } from "react-icons/bs";
-import { Button } from "react-bootstrap";
 import useApprovalWorkflow from "@/hooks/useApprovalWorkflow";
 import ApprovalTimeline from "./ApprovalTimeline";
 import ApprovalActionModal from "./ApprovalActionModal";
+import SelectedQuotesDisplay from "../negotiation/SelectedQuotesDisplay";
 
 const statusConfig = {
   PENDING: {
@@ -48,7 +48,8 @@ const ApprovalWorkflowSection = ({
   departmentId,
   onCustomApprove,    // Optional: Custom approve handler (for negotiation)
   onCustomReject,     // Optional: Custom reject handler (for negotiation)
-  onActionComplete    // Optional: Callback after action completes
+  onActionComplete,   // Optional: Callback after action completes
+  vendorCodeMap = {}  // Optional: For displaying vendor codes in selected quotes
 }) => {
   const {
     instance,
@@ -221,6 +222,15 @@ const ApprovalWorkflowSection = ({
                   </div>
                 </div>
               </Alert>
+            )}
+
+            {/* Display selected quotes from metadata (for quote approvals) */}
+            {instance?.metadata?.selected_quotes?.length > 0 && (
+              <SelectedQuotesDisplay
+                quotes={instance.metadata.selected_quotes}
+                vendorCodeMap={vendorCodeMap}
+                status={status}
+              />
             )}
 
             {/* Timeline */}

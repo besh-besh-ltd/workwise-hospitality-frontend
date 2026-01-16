@@ -46,9 +46,9 @@ const ApprovalHierarchyPage = () => {
     { value: "TENDER", label: "Tender Approval" },
     { value: "PO", label: "Purchase Order Approval" },
     { value: "NEGOTIATION", label: "Negotiation Approval" },
-    { value: "NEGOTIATION_ROUND", label: "Negotiation Rounds Approval" },
+    { value: "NEGOTIATION_QUOTE", label: "Negotiation Quotes Approval" },
     { value: "TECHNICAL", label: "Technical Approval" },
-    { value: "ARC COMMITTEE", label: "ARC Committee Approval" },
+    { value: "ARC", label: "ARC Committee Approval" },
   ];
 
   const approverSourceTypes = [

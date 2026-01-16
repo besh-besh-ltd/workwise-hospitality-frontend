@@ -262,10 +262,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       return;
     }
 
-    if (!selectedCompany || !selectedDepartment) {
-      if (!selectedDepartment) {
-        setError("Please select a department");
-      }
+    if (!selectedCompany) {
       return;
     }
 
@@ -274,7 +271,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       role_title: selectedRole.title,
       company_id: selectedCompany.id,
       hotel_id: selectedHotel?.id || null,
-      department_id: selectedDepartment.id,
+      department_id: selectedDepartment?.id || null,
       permissions
     });
 
@@ -346,24 +343,50 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       )}
 
       {existingRoles && Array.isArray(existingRoles) && existingRoles.length > 0 && (
-        <div className="d-flex flex-wrap gap-2 mb-2">
-          {existingRoles.map((role, index) => (
-            <div
-              key={index}
-              title={buildRoleTooltip(role)}
-              className="alert alert-success text-sm px-2.5 py-2 mb-0 d-flex align-items-center gap-2"
-            >
-              <span>{role.role_title || role.title}</span>
-              {isEditMode && onRemoveRole && (
-                <button
-                  type="button"
-                  className="btn-close btn-close-sm"
-                  onClick={() => onRemoveRole(index)}
-                  aria-label="Remove role"
-                />
-              )}
-            </div>
-          ))}
+        <div className="mb-3">
+          <label className="form-label fw-semibold mb-2">Assigned Roles</label>
+          <div className="d-flex flex-wrap gap-2">
+            {existingRoles.map((role, index) => {
+              const companyMeta = companies.find((c) => c.id === role.company_id);
+              const hotelMeta = companyMeta?.hotels?.find((h) => h.id === role.hotel_id);
+              const deptMeta = allDepartments.find((d) => d.id === role.department_id);
+
+              return (
+                <div
+                  key={index}
+                  className="card border shadow-sm"
+                  style={{ minWidth: '200px', maxWidth: '280px' }}
+                >
+                  <div className="card-body p-2">
+                    <div className="d-flex justify-content-between align-items-start">
+                      <span className="badge bg-primary mb-1">
+                        {role.role_title || role.title}
+                      </span>
+                      {isEditMode && onRemoveRole && (
+                        <button
+                          type="button"
+                          className="btn-close btn-close-sm"
+                          onClick={() => onRemoveRole(index)}
+                          aria-label="Remove role"
+                        />
+                      )}
+                    </div>
+                    <div className="small">
+                      <div className="text-muted">
+                        <strong>Company:</strong> {companyMeta?.name || 'N/A'}
+                      </div>
+                      <div className="text-muted">
+                        <strong>Hotel:</strong> {hotelMeta?.name || 'All Hotels'}
+                      </div>
+                      <div className="text-muted">
+                        <strong>Dept:</strong> {deptMeta?.title || 'All Departments'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -447,7 +470,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       <div className="row g-3 mb-3">
         <div className="col-md-4">
           <label className="form-label">
-            Select Department {selectedRole && <sup className="text-danger">*</sup>}
+            Select Department (optional)
             {propSelectedDepartment && !isEditMode && " (Auto-selected)"}
           </label>
           <select
@@ -511,7 +534,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       <div className="d-flex justify-content-end">
         <button
           className="btn btn-primary p-2"
-          disabled={!selectedRole || (selectedRole && (!selectedCompany || !selectedDepartment))}
+          disabled={!selectedRole || (selectedRole && !selectedCompany)}
           onClick={handleAddRole}
         >
           Add Role Scope

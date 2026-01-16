@@ -80,7 +80,7 @@ const QuoteApprovalSelectionModal = ({
 
   return (
     <Modal show={show} onHide={handleClose} size="lg" centered>
-      <Modal.Header closeButton>
+      <Modal.Header closeButton className='px-3 py-2'>
         <Modal.Title>
           Select Quotes for Approval
           <div className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
@@ -132,7 +132,7 @@ const QuoteApprovalSelectionModal = ({
                         checked={isSelected}
                         onChange={() => handleQuoteToggle(quoteId)}
                         onClick={(e) => e.stopPropagation()}
-                        className="me-3 mt-1"
+                        className="me-3"
                       />
                       <div className="flex-grow-1">
                         <div className="d-flex justify-content-between align-items-start">

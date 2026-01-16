@@ -18,7 +18,8 @@ import HierarchySelectionModal from "./HierarchySelectionModal";
 import { Badge } from "react-bootstrap";
 import RoundEndActions from "./negotiation/RoundEndActions";
 import ApprovalWorkflowSection from "./approval/ApprovalWorkflowSection";
-import { getQuoteApprovalStatus } from "@/services/negotiation";
+import SelectedQuotesDisplay from "./negotiation/SelectedQuotesDisplay";
+import { getQuoteApprovalStatus, approveNegotiationQuotes, rejectNegotiationQuotes } from "@/services/negotiation";
 
 const QuoteCompareTable = ({
   quotations,
@@ -109,6 +110,25 @@ const QuoteCompareTable = ({
       onRoundEnded();
     }
   };
+
+  // Custom handlers for negotiation quote approval (using dedicated APIs)
+  const handleCustomQuoteApprove = async (comment) => {
+    try {
+      await approveNegotiationQuotes(proditem.id, comment);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message || 'Failed to approve quotes' };
+    }
+  };
+
+  const handleCustomQuoteReject = async (comment) => {
+    try {
+      await rejectNegotiationQuotes(proditem.id, comment);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message || 'Failed to reject quotes' };
+    }
+  };
 //  console.log("logging the quotations recived ", quotations);
   const calculateLowestQuote = () => {
     const removeRegretQuotes = quotations.filter((item) => item.quote_details.is_regret != 1);
@@ -176,8 +196,8 @@ const QuoteCompareTable = ({
   const productName = proditem?.product_details?.[0]?.product_name || 'Product';
 
   // For tenders, finalization is only allowed after quote approval is complete
-  const isTenderAwaitingApproval = is_tender && (!quoteApprovalStatus || quoteApprovalStatus?.status !== 'APPROVED');
-  const canFinalizeForTender = !is_tender || (quoteApprovalStatus?.status === 'APPROVED');
+  const isTenderAwaitingApproval = is_tender && (quoteApprovalStatus && quoteApprovalStatus?.approval_instance?.status !== 'APPROVED');
+  const canFinalizeForTender = !is_tender || (quoteApprovalStatus?.approval_instance?.status === 'APPROVED');
 
   return (
     <>
@@ -201,19 +221,19 @@ const QuoteCompareTable = ({
       )}
 
       {/* Quote Approval Workflow Section - Show for tenders when approval is active */}
-      {is_tender && quoteApprovalStatus?.status && (
-        <div className="my-3 p-3 border rounded bg-light">
-          <h6 className="mb-2">Quote Approval Status</h6>
-          <ApprovalWorkflowSection
-            entityType="NEGOTIATION_QUOTE"
-            entityId={proditem.id}
-            entityLabel={`Quote Approval - ${productName}`}
-            hospitalityCompanyId={hospitalityCompanyId}
-            hotelId={hotelId}
-            departmentId={departmentId}
-            onActionComplete={handleApprovalActionComplete}
-          />
-        </div>
+      {is_tender && quoteApprovalStatus?.approval_instance?.status && (
+        <ApprovalWorkflowSection
+          entityType="NEGOTIATION_QUOTE"
+          entityId={proditem.id}
+          entityLabel={`Quote Approval - ${productName}`}
+          hospitalityCompanyId={hospitalityCompanyId}
+          hotelId={hotelId}
+          departmentId={departmentId}
+          onCustomApprove={handleCustomQuoteApprove}
+          onCustomReject={handleCustomQuoteReject}
+          onActionComplete={handleApprovalActionComplete}
+          vendorCodeMap={vendorCodeMap}
+        />
       )}
 
       <div
@@ -289,18 +309,54 @@ const QuoteCompareTable = ({
                   }
                 }
 
+                // Quote approval status highlighting (takes precedence over round highlighting)
+                const selectedQuoteIds = quoteApprovalStatus?.metadata?.selected_quotes?.map(q => q.quote_id) || [];
+                const approvalStatus = quoteApprovalStatus?.approval_instance?.status;
+                const isQuoteSelectedForApproval = selectedQuoteIds.includes(item.quote_id);
+
+                // Determine border and background based on approval status
+                let approvalBorderColor = roundQuote ? '#158993' : 'transparent';
+                let approvalBorderWidth = roundQuote ? '2px' : '0';
+
+                if (isQuoteSelectedForApproval && approvalStatus) {
+                  switch (approvalStatus) {
+                    case 'PENDING':
+                      approvalBorderColor = '#ffc107'; // Warning yellow
+                      rowBgColor = '#fffbeb';
+                      approvalBorderWidth = '3px';
+                      break;
+                    case 'APPROVED':
+                      approvalBorderColor = '#198754'; // Success green
+                      rowBgColor = '#d1e7dd';
+                      approvalBorderWidth = '3px';
+                      break;
+                    case 'REJECTED':
+                      approvalBorderColor = '#dc3545'; // Danger red
+                      rowBgColor = '#f8d7da';
+                      approvalBorderWidth = '3px';
+                      break;
+                  }
+                }
+
+                // Determine title text
+                const titleText = isQuoteSelectedForApproval
+                  ? `Quote ${approvalStatus === 'PENDING' ? 'pending approval' : approvalStatus === 'APPROVED' ? 'approved' : 'rejected'}`
+                  : roundQuote
+                    ? `This quote was submitted for Round ${activeRound?.round_number || ''}`
+                    : '';
+
                 return (
                   <div
                     className="table-col"
                     key={`tab_qq_${item.quote_id}_${index}`}
                     style={{
                       backgroundColor: rowBgColor,
-                      border: roundQuote ? '2px solid #158993' : 'none',
-                      borderRadius: roundQuote ? '4px' : '0',
+                      border: approvalBorderWidth !== '0' ? `${approvalBorderWidth} solid ${approvalBorderColor}` : 'none',
+                      borderRadius: '4px',
                       position: 'relative',
-                      margin: roundQuote ? '2px' : '0'
+                      margin: '2px'
                     }}
-                    title={roundQuote ? `This quote was submitted for Round ${activeRound?.round_number || ''}` : ''}
+                    title={titleText}
                   >
                     <div
                       className="table-si-row table-dark-row "
@@ -327,6 +383,16 @@ const QuoteCompareTable = ({
                         {roundQuote && activeRound && (
                           <Badge bg="info" className="ms-2" style={{ fontSize: "0.7rem" }}>
                             Round {activeRound.round_number} Quote
+                          </Badge>
+                        )}
+                        {isQuoteSelectedForApproval && approvalStatus && (
+                          <Badge
+                            bg={approvalStatus === 'APPROVED' ? 'success' : approvalStatus === 'REJECTED' ? 'danger' : 'warning'}
+                            className="ms-2"
+                            style={{ fontSize: "0.7rem" }}
+                          >
+                            {approvalStatus === 'APPROVED' ? 'Approved' :
+                             approvalStatus === 'REJECTED' ? 'Rejected' : 'Pending Approval'}
                           </Badge>
                         )}
                         {(() => {

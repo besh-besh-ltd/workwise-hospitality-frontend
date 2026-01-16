@@ -87,11 +87,10 @@ const PendingApprovalsList = ({ filterData, setFilterData, onCountChange }) => {
                   <th>Tender / RFQ No & Project</th>
                   <th>Products</th>
                   <th>Timeline</th>
-                  <th>Created By</th>
+                  <th>Initiated By</th>
                   <th>Tender / RFQ Type</th>
                   <th>Reverse Auction</th>
                   <th>Action</th>
-                  <th>Query</th>
                 </tr>
               </thead>
               <tbody>
