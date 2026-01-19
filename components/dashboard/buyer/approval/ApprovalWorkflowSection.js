@@ -77,11 +77,17 @@ const ApprovalWorkflowSection = ({
   const handleAction = async (comment) => {
     let result;
 
-    // Use custom handlers if provided (for negotiation module)
+    // Build context object with instance data for custom handlers
+    const handlerContext = {
+      approval_instance_id: instance?.id,
+      approval_instance_step_id: instance?.user_approval_step_id,
+    };
+
+    // Use custom handlers if provided (for ARC, negotiation modules)
     if (actionType === "APPROVE" && onCustomApprove) {
-      result = await onCustomApprove(comment);
+      result = await onCustomApprove(comment, handlerContext);
     } else if (actionType === "REJECT" && onCustomReject) {
-      result = await onCustomReject(comment);
+      result = await onCustomReject(comment, handlerContext);
     } else {
       // Default behavior using hook's handleApprovalAction
       result = await handleApprovalAction(actionType, comment);

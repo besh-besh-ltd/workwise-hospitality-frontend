@@ -10,10 +10,21 @@ import FullLoader from "@/components/shared/FullLoader";
 import Select from 'react-select';
 import moment from 'moment';
 import { Badge, Button, Modal, Form, Accordion, Table, Alert } from 'react-bootstrap';
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCheckCircle, faTimesCircle, faArrowRight, faClock, faFileAlt, faUsers, faGavel } from "@fortawesome/free-solid-svg-icons";
+import {
+  BsCheckCircleFill,
+  BsArrowRight,
+  BsClockFill,
+  BsFileEarmarkText,
+  BsPeopleFill,
+  BsHammer,
+  BsExclamationCircleFill,
+  BsFileBreak
+} from "react-icons/bs";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
+import ApprovalPendingBanner from "@/components/dashboard/buyer/approval/ApprovalPendingBanner";
+import ApprovalWorkflowSection from "@/components/dashboard/buyer/approval/ApprovalWorkflowSection";
+import { MdClose } from "react-icons/md";
 
 const ArcCommittee = () => {
   const router = useRouter();
@@ -30,7 +41,6 @@ const ArcCommittee = () => {
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [showActionModal, setShowActionModal] = useState(false);
-  const [actionType, setActionType] = useState(null);
   const [remarks, setRemarks] = useState('');
   const [targetStage, setTargetStage] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -197,61 +207,272 @@ const ArcCommittee = () => {
     }
   };
 
-  const handleAction = (type) => {
-    setActionType(type);
+  const handleAction = () => {
     setShowActionModal(true);
     setRemarks('');
     setTargetStage('');
   };
 
   const handleSubmitAction = async () => {
-    if (!actionType) return;
-
-    if (actionType === 'send_to' && !targetStage) {
+    if (!targetStage) {
       toast.error('Please select a target stage');
       return;
     }
 
     try {
       setSubmitting(true);
-      
-      // Get approval instance ID for selected product if available
-      let approval_instance_id = null;
-      let approval_instance_step_id = null;
-      
-      if (selectedProductId && lifecycleData?.arcApproval?.instances) {
-        const productArc = lifecycleData.arcApproval.instances.find(
-          inst => (inst.metadata?.rfq_product_id || inst.entity_id) === selectedProductId && inst.status === 'PENDING'
-        );
-        if (productArc) {
-          approval_instance_id = productArc.id;
-        }
-      }
-      
+
       const response = await performArcAction(
         rfq_id,
-        actionType,
-        actionType === 'send_to' ? targetStage : null,
+        'send_to',
+        targetStage,
         remarks || null,
         selectedProductId || null,
-        approval_instance_id,
-        approval_instance_step_id
+        null,
+        null
       );
 
       if (response.status === 1) {
-        toast.success(response.message || 'Action performed successfully');
+        toast.success(response.message || 'Tender sent to stage successfully');
         setShowActionModal(false);
         setSelectedProductId(null);
-        loadLifecycleData(); // Reload data
+        loadLifecycleData();
       } else {
-        toast.error(response.message || 'Failed to perform action');
+        toast.error(response.message || 'Failed to send tender to stage');
       }
     } catch (error) {
-      console.error('Error performing action:', error);
-      toast.error(error.message || 'Failed to perform action');
+      console.error('Error sending tender to stage:', error);
+      toast.error(error.message || 'Failed to send tender to stage');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Custom handlers for ARC approval using ARC-specific APIs
+  const handleArcApprove = async (comment, context = {}) => {
+    try {
+      const response = await performArcAction(
+        rfq_id,
+        'approve',
+        null,
+        comment || null,
+        selectedProductId,
+        context.approval_instance_id || null,
+        context.approval_instance_step_id || null
+      );
+
+      if (response.status === 1) {
+        return { success: true };
+      } else {
+        return { success: false, error: response.message || 'Failed to approve ARC' };
+      }
+    } catch (error) {
+      return { success: false, error: error.message || 'Failed to approve ARC' };
+    }
+  };
+
+  const handleArcReject = async (comment, context = {}) => {
+    try {
+      const response = await performArcAction(
+        rfq_id,
+        'reject',
+        null,
+        comment,
+        selectedProductId,
+        context.approval_instance_id || null,
+        context.approval_instance_step_id || null
+      );
+
+      if (response.status === 1) {
+        return { success: true };
+      } else {
+        return { success: false, error: response.message || 'Failed to reject ARC' };
+      }
+    } catch (error) {
+      return { success: false, error: error.message || 'Failed to reject ARC' };
+    }
+  };
+
+  const handleApprovalComplete = () => {
+    loadLifecycleData();
+    setSelectedProductId(null);
+  };
+
+  // Get selected product name for display
+  const getSelectedProductName = () => {
+    if (!selectedProductId || !lifecycleData?.rfq?.products) return '';
+    const product = lifecycleData.rfq.products.find(p => p.id === selectedProductId);
+    return product?.product_details?.[0]?.name || `Product ${selectedProductId}`;
+  };
+
+  // Compact tender summary at top
+  const renderTenderSummary = () => {
+    const rfq = lifecycleData?.rfq;
+    if (!rfq) return null;
+
+    return (
+      <div className="d-flex flex-wrap gap-3 mb-4 p-3 bg-light rounded align-items-center">
+        <span><strong>Tender:</strong> #{rfq.rfq_no}</span>
+        <span className="text-muted">|</span>
+        <span><strong>Company:</strong> {rfq.company_name}</span>
+        <span className="text-muted">|</span>
+        <span><strong>Bid End:</strong> {moment(rfq.bid_end_date).format('DD/MM/YYYY')}</span>
+        <Badge bg={rfq.status === 1 ? 'success' : 'secondary'} className="ms-auto">
+          {rfq.status === 1 ? 'Open' : 'Closed'}
+        </Badge>
+      </div>
+    );
+  };
+
+  // Prominent product selection with inline approval workflow
+  const renderPendingArcProducts = () => {
+    const instances = lifecycleData?.arcApproval?.instances || [];
+
+    // Get products that have ARC instances (both pending and approved)
+    const productsWithArc = lifecycleData?.rfq?.products?.filter(product => {
+      return instances.some(inst =>
+        (inst.metadata?.rfq_product_id || inst.entity_id) === product.id
+      );
+    }) || [];
+
+    if (productsWithArc.length === 0) {
+      return null;
+    }
+
+    // Helper to get ARC instance for a product
+    const getProductArcInstance = (productId) => {
+      return instances.find(inst =>
+        (inst.metadata?.rfq_product_id || inst.entity_id) === productId
+      );
+    };
+
+    // Separate pending and approved products
+    const pendingProducts = productsWithArc.filter(p => getProductArcInstance(p.id)?.status === 'PENDING');
+    const approvedProducts = productsWithArc.filter(p => getProductArcInstance(p.id)?.status === 'APPROVED');
+
+    return (
+      <div className="mb-4">
+        {/* Pending Products Section */}
+        {pendingProducts.length > 0 && (
+          <>
+            <h5 className="mb-3">
+              <BsExclamationCircleFill className="me-2 text-warning" />
+              Products Requiring ARC Approval
+            </h5>
+            <div className="row g-3 mb-4">
+              {pendingProducts.map(product => {
+                const isSelected = selectedProductId === product.id;
+                const productName = product.product_details?.[0]?.name || 'N/A';
+                const specs = product.product_specs || [];
+                const qty = specs.find(s => s.title === 'Quantity')?.value || '-';
+                const unit = specs.find(s => s.title === 'Unit')?.value || '';
+
+                return (
+                  <div key={product.id} className="col-md-4">
+                    <div
+                      className={`card h-100 ${isSelected ? 'border-primary border-2 shadow' : 'border'}`}
+                      onClick={() => setSelectedProductId(isSelected ? null : product.id)}
+                      style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                    >
+                      <div className="card-body">
+                        <h6 className="card-title mb-2">{productName}</h6>
+                        <div className="text-muted small mb-2">Qty: {qty} {unit}</div>
+                        <Badge bg="warning" text="dark">Pending Approval</Badge>
+                      </div>
+                      {isSelected && (
+                        <div className="card-footer bg-primary text-white text-center py-2">
+                          <small>✓ Selected for Review</small>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Inline Approval Workflow when product is selected */}
+        {selectedProductId && (
+          <div className="mb-4 p-4 bg-light rounded border">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h6 className="mb-0">
+                Reviewing: <strong>{getSelectedProductName()}</strong>
+              </h6>
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                className="p-2"
+                onClick={() => setSelectedProductId(null)}
+              >
+                <MdClose size={18}/> Close
+              </Button>
+            </div>
+            <ApprovalPendingBanner
+              entityType="ARC"
+              entityId={selectedProductId}
+              entityLabel="ARC Approval"
+            />
+            <ApprovalWorkflowSection
+              entityType="ARC"
+              entityId={selectedProductId}
+              entityLabel="ARC Approval"
+              hospitalityCompanyId={lifecycleData?.rfq?.hospitality_company_id}
+              hotelId={lifecycleData?.rfq?.hotel_id}
+              onCustomApprove={handleArcApprove}
+              onCustomReject={handleArcReject}
+              onActionComplete={handleApprovalComplete}
+            />
+          </div>
+        )}
+
+        {/* Approved Products Section */}
+        {approvedProducts.length > 0 && (
+          <>
+            <h5 className="mb-3">
+              <BsCheckCircleFill className="me-2 text-success" />
+              Approved Products
+            </h5>
+            <div className="row g-3">
+              {approvedProducts.map(product => {
+                const productName = product.product_details?.[0]?.name || 'N/A';
+                const specs = product.product_specs || [];
+                const qty = specs.find(s => s.title === 'Quantity')?.value || '-';
+                const unit = specs.find(s => s.title === 'Unit')?.value || '';
+                const arcInstance = getProductArcInstance(product.id);
+                const documentUrl = arcInstance?.metadata?.award_document_url;
+
+                return (
+                  <div key={product.id} className="col-md-4">
+                    <div className="card h-100 border-success">
+                      <div className="card-body">
+                        <h6 className="card-title mb-2">{productName}</h6>
+                        <div className="text-muted small mb-2">Qty: {qty} {unit}</div>
+                        <Badge bg="success">Approved</Badge>
+                      </div>
+                      {documentUrl && (
+                        <div className="card-footer bg-transparent">
+                          <a
+                            href={documentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-outline-dark btn-sm w-100 p-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <BsFileBreak className="me-2" />
+                            View Document
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    );
   };
 
   const renderLifecycleTimeline = () => {
@@ -259,16 +480,16 @@ const ArcCommittee = () => {
 
     const history = lifecycleData.lifecycleHistory;
     const stages = [
-      { stage: 'CREATED', label: 'RFQ Created', icon: faFileAlt },
-      { stage: 'SUBMITTED', label: 'Submitted for Approval', icon: faClock },
-      { stage: 'PUBLISHED', label: 'Published', icon: faCheckCircle },
-      { stage: 'TECH_EVAL_STARTED', label: 'Technical Evaluation Started', icon: faUsers },
-      { stage: 'TECH_EVAL_COMPLETED', label: 'Technical Evaluation Completed', icon: faCheckCircle },
-      { stage: 'QUOTES_RECEIVED', label: 'Quotes Received', icon: faFileAlt },
-      { stage: 'NEGOTIATION_STARTED', label: 'Negotiation Started', icon: faGavel },
-      { stage: 'VENDOR_FINALIZED', label: 'Vendor Finalized', icon: faCheckCircle },
-      { stage: 'FINANCE_APPROVED', label: 'Finance Approved', icon: faCheckCircle },
-      { stage: 'ARC_REVIEW', label: 'ARC Review', icon: faGavel }
+      { stage: 'CREATED', label: 'RFQ Created', icon: BsFileEarmarkText },
+      { stage: 'SUBMITTED', label: 'Submitted for Approval', icon: BsClockFill },
+      { stage: 'PUBLISHED', label: 'Published', icon: BsCheckCircleFill },
+      { stage: 'TECH_EVAL_STARTED', label: 'Technical Evaluation Started', icon: BsPeopleFill },
+      { stage: 'TECH_EVAL_COMPLETED', label: 'Technical Evaluation Completed', icon: BsCheckCircleFill },
+      { stage: 'QUOTES_RECEIVED', label: 'Quotes Received', icon: BsFileEarmarkText },
+      { stage: 'NEGOTIATION_STARTED', label: 'Negotiation Started', icon: BsHammer },
+      { stage: 'VENDOR_FINALIZED', label: 'Vendor Finalized', icon: BsCheckCircleFill },
+      { stage: 'FINANCE_APPROVED', label: 'Finance Approved', icon: BsCheckCircleFill },
+      { stage: 'ARC_REVIEW', label: 'ARC Review', icon: BsHammer }
     ];
 
     return (
@@ -315,10 +536,9 @@ const ArcCommittee = () => {
                 <div className="d-flex justify-content-between align-items-start">
                   <div>
                     <div className="d-flex align-items-center gap-2 mb-1">
-                      <FontAwesomeIcon 
-                        icon={stage.icon} 
-                        color={isCompleted ? '#28a745' : '#6c757d'} 
-                        size="sm"
+                      <stage.icon
+                        color={isCompleted ? '#28a745' : '#6c757d'}
+                        size={14}
                       />
                       <strong>{stage.label}</strong>
                       {isCompleted && (
@@ -348,48 +568,48 @@ const ArcCommittee = () => {
     );
   };
 
-  const renderTenderDetails = () => {
-    if (!lifecycleData?.rfq) return null;
+  // Full tender details for reference accordion (no card wrapper)
+  const renderTenderDetailsContent = () => {
+    if (!lifecycleData?.rfq) {
+      return <Alert variant="info" className="mb-0">No tender details available</Alert>;
+    }
     const rfq = lifecycleData.rfq;
 
     return (
-      <div className="card mb-4">
-        <div className="card-header bg-primary text-white">
-          <h5 className="mb-0">Tender Details</h5>
+      <div className="row">
+        <div className="col-md-6">
+          <p className="mb-2"><strong>RFQ/Tender No:</strong> {rfq.rfq_no}</p>
+          <p className="mb-2"><strong>Company:</strong> {rfq.company_name}</p>
+          <p className="mb-2"><strong>Contact Person:</strong> {rfq.contact_name}</p>
+          <p className="mb-2"><strong>Email:</strong> {rfq.response_email}</p>
+          <p className="mb-2"><strong>Contact Number:</strong> {rfq.contact_number}</p>
         </div>
-        <div className="card-body">
-          <div className="row">
-            <div className="col-md-6">
-              <p><strong>RFQ/Tender No:</strong> {rfq.rfq_no}</p>
-              <p><strong>Company:</strong> {rfq.company_name}</p>
-              <p><strong>Contact Person:</strong> {rfq.contact_name}</p>
-              <p><strong>Email:</strong> {rfq.response_email}</p>
-              <p><strong>Contact Number:</strong> {rfq.contact_number}</p>
-            </div>
-            <div className="col-md-6">
-              <p><strong>Type:</strong> {rfq.is_tender === 1 ? 'Tender' : 'RFQ'}</p>
-              <p><strong>Bid End Date:</strong> {moment(rfq.bid_end_date).format('DD/MM/YYYY')}</p>
-              <p><strong>Location:</strong> {rfq.location || 'N/A'}</p>
-              <p><strong>Status:</strong> 
-                <Badge bg={rfq.status === 1 ? 'success' : 'secondary'} className="ms-2">
-                  {rfq.status === 1 ? 'Open' : 'Closed'}
-                </Badge>
-              </p>
-            </div>
+        <div className="col-md-6">
+          <p className="mb-2"><strong>Type:</strong> {rfq.is_tender === 1 ? 'Tender' : 'RFQ'}</p>
+          <p className="mb-2"><strong>Bid End Date:</strong> {moment(rfq.bid_end_date).format('DD/MM/YYYY')}</p>
+          <p className="mb-2"><strong>Location:</strong> {rfq.location || 'N/A'}</p>
+          <p className="mb-2">
+            <strong>Status:</strong>
+            <Badge bg={rfq.status === 1 ? 'success' : 'secondary'} className="ms-2">
+              {rfq.status === 1 ? 'Open' : 'Closed'}
+            </Badge>
+          </p>
+        </div>
+        {rfq.comment && (
+          <div className="col-12 mt-2">
+            <strong>Comments:</strong>
+            <p className="text-muted mb-0">{rfq.comment}</p>
           </div>
-          {rfq.comment && (
-            <div className="mt-3">
-              <strong>Comments:</strong>
-              <p className="text-muted">{rfq.comment}</p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     );
   };
 
-  const renderProducts = () => {
-    if (!lifecycleData?.rfq?.products) return null;
+  // All products table for reference section (no card wrapper)
+  const renderProductsTable = () => {
+    if (!lifecycleData?.rfq?.products) {
+      return <Alert variant="info" className="mb-0">No products available</Alert>;
+    }
 
     // Get ARC approval instances grouped by product
     const arcInstancesByProduct = {};
@@ -404,359 +624,211 @@ const ArcCommittee = () => {
     }
 
     return (
-      <div className="card mb-4">
-        <div className="card-header bg-info text-white">
-          <h5 className="mb-0">Product Details & ARC Approvals</h5>
-        </div>
-        <div className="card-body">
-          <Table striped bordered hover>
-            <thead>
-              <tr>
-                <th>Product Name</th>
-                <th>Specifications</th>
-                <th>Quantity</th>
-                <th>Unit</th>
-                <th>ARC Status</th>
-                <th>ARC Document</th>
-                <th>Actions</th>
+      <Table striped bordered hover size="sm">
+        <thead>
+          <tr>
+            <th>Product Name</th>
+            <th>Size</th>
+            <th>Spec</th>
+            <th>Qty</th>
+            <th>Unit</th>
+            <th>ARC Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lifecycleData.rfq.products.map((product) => {
+            const specs = product.product_specs || [];
+            const size = specs.find(s => s.title === 'Size')?.value || '-';
+            const spec = specs.find(s => s.title === 'Spec')?.value || '-';
+            const qty = specs.find(s => s.title === 'Quantity')?.value || '-';
+            const unit = specs.find(s => s.title === 'Unit')?.value || '-';
+
+            const productArcInstances = arcInstancesByProduct[product.id] || [];
+            const pendingArc = productArcInstances.find(inst => inst.status === 'PENDING');
+            const approvedArc = productArcInstances.find(inst => inst.status === 'APPROVED');
+
+            return (
+              <tr key={product.id}>
+                <td>{product.product_details?.[0]?.name || 'N/A'}</td>
+                <td>{size}</td>
+                <td>{spec}</td>
+                <td>{qty}</td>
+                <td>{unit}</td>
+                <td>
+                  {pendingArc ? (
+                    <Badge bg="warning" text="dark">Pending</Badge>
+                  ) : approvedArc ? (
+                    <Badge bg="success">Approved</Badge>
+                  ) : (
+                    <Badge bg="secondary">No ARC</Badge>
+                  )}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {lifecycleData.rfq.products.map((product) => {
-                const specs = product.product_specs || [];
-                const size = specs.find(s => s.title === 'Size')?.value || '-';
-                const spec = specs.find(s => s.title === 'Spec')?.value || '-';
-                const qty = specs.find(s => s.title === 'Quantity')?.value || '-';
-                const unit = specs.find(s => s.title === 'Unit')?.value || '-';
-                
-                const productArcInstances = arcInstancesByProduct[product.id] || [];
-                const pendingArc = productArcInstances.find(inst => inst.status === 'PENDING');
-                const approvedArc = productArcInstances.find(inst => inst.status === 'APPROVED');
-                const arcDocument = approvedArc ? arcDocuments[approvedArc.id] : null;
-
-                return (
-                  <tr key={product.id} style={{ backgroundColor: selectedProductId === product.id ? '#e7f3ff' : '' }}>
-                    <td>{product.product_details?.[0]?.name || 'N/A'}</td>
-                    <td>
-                      <div><strong>Size:</strong> {size}</div>
-                      <div><strong>Spec:</strong> {spec}</div>
-                    </td>
-                    <td>{qty}</td>
-                    <td>{unit}</td>
-                    <td>
-                      {pendingArc ? (
-                        <Badge bg="warning">Pending Approval</Badge>
-                      ) : approvedArc ? (
-                        <Badge bg="success">Approved</Badge>
-                      ) : (
-                        <Badge bg="secondary">No ARC</Badge>
-                      )}
-                    </td>
-                    <td>
-                      {arcDocument?.document_url ? (
-                        <a 
-                          href={arcDocument.document_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary text-decoration-underline"
-                        >
-                          <FontAwesomeIcon icon={faFileAlt} className="me-1" />
-                          View Document
-                        </a>
-                      ) : approvedArc ? (
-                        <span className="text-muted">Generating...</span>
-                      ) : (
-                        <span className="text-muted">-</span>
-                      )}
-                    </td>
-                    <td>
-                      {pendingArc && (
-                        <Button
-                          size="sm"
-                          variant="outline-primary"
-                          onClick={() => {
-                            setSelectedProductId(product.id);
-                            handleAction('approve');
-                          }}
-                        >
-                          Review ARC
-                        </Button>
-                      )}
-                      {!pendingArc && !approvedArc && (
-                        <span className="text-muted">-</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        </div>
-      </div>
+            );
+          })}
+        </tbody>
+      </Table>
     );
   };
 
-  const renderQuotes = () => {
+  // Simplified quotes summary (no inner accordion)
+  const renderQuotesSummary = () => {
     if (!lifecycleData?.quotes || lifecycleData.quotes.length === 0) {
-      return (
-        <div className="card mb-4">
-          <div className="card-header bg-warning text-dark">
-            <h5 className="mb-0">Initial Quotes</h5>
-          </div>
-          <div className="card-body">
-            <Alert variant="info">No quotes received yet</Alert>
-          </div>
-        </div>
-      );
+      return <Alert variant="info" className="mb-0">No quotes received yet</Alert>;
     }
 
     return (
-      <div className="card mb-4">
-        <div className="card-header bg-warning text-dark">
-          <h5 className="mb-0">Initial Quotes ({lifecycleData.quotes.length})</h5>
-        </div>
-        <div className="card-body">
-          <Accordion>
-            {lifecycleData.quotes.map((quote, idx) => (
-              <Accordion.Item key={quote.id} eventKey={idx.toString()}>
-                <Accordion.Header>
-                  <div className="d-flex justify-content-between w-100 me-3">
-                    <span>
-                      <strong>{quote.vendor_name || quote.organization_name || 'Unknown Vendor'}</strong>
-                    </span>
-                    <span className="text-muted">
-                      {moment(quote.created_at).format('DD/MM/YYYY HH:mm')}
-                    </span>
-                  </div>
-                </Accordion.Header>
-                <Accordion.Body>
-                  <div className="mb-2">
-                    <strong>Vendor:</strong> {quote.vendor_name || quote.organization_name || 'N/A'}<br />
-                    <strong>Email:</strong> {quote.vendor_email || 'N/A'}<br />
-                    <strong>Status:</strong> 
-                    <Badge bg={quote.status === 1 ? 'success' : 'secondary'} className="ms-2">
-                      {quote.status === 1 ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </div>
-                  {quote.quote_items && quote.quote_items.length > 0 && (
-                    <Table striped bordered size="sm">
-                      <thead>
-                        <tr>
-                          <th>Product</th>
-                          <th>Qty</th>
-                          <th>Unit Price</th>
-                          <th>Freight</th>
-                          <th>Packaging</th>
-                          <th>Tax</th>
-                          <th>Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {quote.quote_items.map((item, itemIdx) => (
-                          <tr key={itemIdx}>
-                            <td>{item.product_name}</td>
-                            <td>{item.quantity} {item.unit}</td>
-                            <td>₹{parseFloat(item.unit_price || 0).toLocaleString()}</td>
-                            <td>₹{parseFloat(item.freight_price || 0).toLocaleString()}</td>
-                            <td>₹{parseFloat(item.package_price || 0).toLocaleString()}</td>
-                            <td>₹{parseFloat(item.tax || 0).toLocaleString()}</td>
-                            <td><strong>₹{parseFloat(item.total_price || 0).toLocaleString()}</strong></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  )}
-                </Accordion.Body>
-              </Accordion.Item>
-            ))}
-          </Accordion>
-        </div>
-      </div>
-    );
-  };
-
-  const renderTechEvaluation = () => {
-    if (!lifecycleData?.techEvaluation || lifecycleData.techEvaluation.length === 0) {
-      return (
-        <div className="card mb-4">
-          <div className="card-header bg-success text-white">
-            <h5 className="mb-0">Technical Evaluation</h5>
-          </div>
-          <div className="card-body">
-            <Alert variant="info">No technical evaluation data available</Alert>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="card mb-4">
-        <div className="card-header bg-success text-white">
-          <h5 className="mb-0">Technical Evaluation</h5>
-        </div>
-        <div className="card-body">
-          <Accordion>
-            {lifecycleData.techEvaluation.map((techEval, idx) => (
-              <Accordion.Item key={techEval.id} eventKey={idx.toString()}>
-                <Accordion.Header>
-                  Product: {techEval.rfq_product_id}
-                </Accordion.Header>
-                <Accordion.Body>
-                  {techEval.vendor_evaluations && techEval.vendor_evaluations.length > 0 && (
-                    <Table striped bordered size="sm">
-                      <thead>
-                        <tr>
-                          <th>Vendor</th>
-                          <th>Status</th>
-                          <th>Score</th>
-                          <th>Remarks</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {techEval.vendor_evaluations.map((vendor, vIdx) => (
-                          <tr key={vIdx}>
-                            <td>{vendor.vendor_name}</td>
-                            <td>
-                              <Badge bg={vendor.is_accepted ? 'success' : 'danger'}>
-                                {vendor.is_accepted ? 'Accepted' : 'Rejected'}
-                              </Badge>
-                            </td>
-                            <td>{vendor.score || 'N/A'}</td>
-                            <td>{vendor.remarks || '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  )}
-                </Accordion.Body>
-              </Accordion.Item>
-            ))}
-          </Accordion>
-        </div>
-      </div>
-    );
-  };
-
-  const renderNegotiationRounds = () => {
-    if (!lifecycleData?.negotiationRounds || lifecycleData.negotiationRounds.length === 0) {
-      return (
-        <div className="card mb-4">
-          <div className="card-header bg-primary text-white">
-            <h5 className="mb-0">Negotiation Rounds</h5>
-          </div>
-          <div className="card-body">
-            <Alert variant="info">No negotiation rounds conducted</Alert>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="card mb-4">
-        <div className="card-header bg-primary text-white">
-          <h5 className="mb-0">Negotiation Rounds ({lifecycleData.negotiationRounds.length})</h5>
-        </div>
-        <div className="card-body">
-          <Accordion>
-            {lifecycleData.negotiationRounds.map((round, idx) => (
-              <Accordion.Item key={round.id} eventKey={idx.toString()}>
-                <Accordion.Header>
-                  Round {round.round_number} - Target: ₹{parseFloat(round.target_price).toLocaleString()}
-                  <Badge bg={round.status === 'ACTIVE' ? 'success' : round.status === 'PENDING_APPROVAL' ? 'warning' : 'secondary'} className="ms-2">
-                    {round.status}
-                  </Badge>
-                </Accordion.Header>
-                <Accordion.Body>
-                  <div className="mb-3">
-                    <p><strong>Target Price:</strong> ₹{parseFloat(round.target_price).toLocaleString()}</p>
-                    <p><strong>End Date:</strong> {moment(round.end_date).format('DD/MM/YYYY HH:mm')}</p>
-                    <p><strong>Status:</strong> 
-                      <Badge bg={round.status === 'ACTIVE' ? 'success' : round.status === 'PENDING_APPROVAL' ? 'warning' : 'secondary'} className="ms-2">
-                        {round.status}
-                      </Badge>
-                    </p>
-                  </div>
-                  {round.quotes && round.quotes.length > 0 && (
-                    <div>
-                      <h6>Quotes for this Round:</h6>
-                      <Table striped bordered size="sm">
-                        <thead>
-                          <tr>
-                            <th>Vendor</th>
-                            <th>Quoted Price</th>
-                            <th>Previous Price</th>
-                            <th>Submitted At</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {round.quotes.map((quote, qIdx) => (
-                            <tr key={qIdx}>
-                              <td>{quote.vendor_name || quote.vendor_company_name || 'N/A'}</td>
-                              <td>₹{parseFloat(quote.quoted_price || 0).toLocaleString()}</td>
-                              <td>{quote.previous_price ? `₹${parseFloat(quote.previous_price).toLocaleString()}` : '-'}</td>
-                              <td>{moment(quote.submitted_at).format('DD/MM/YYYY HH:mm')}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                    </div>
-                  )}
-                </Accordion.Body>
-              </Accordion.Item>
-            ))}
-          </Accordion>
-        </div>
-      </div>
-    );
-  };
-
-  const renderVendorRankings = () => {
-    if (!lifecycleData?.vendorRankings || Object.keys(lifecycleData.vendorRankings).length === 0) {
-      return (
-        <div className="card mb-4">
-          <div className="card-header bg-dark text-white">
-            <h5 className="mb-0">Vendor Rankings (L1-L5)</h5>
-          </div>
-          <div className="card-body">
-            <Alert variant="info">No vendor finalization data available</Alert>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="card mb-4">
-        <div className="card-header bg-dark text-white">
-          <h5 className="mb-0">Vendor Rankings (L1-L5)</h5>
-        </div>
-        <div className="card-body">
-          {Object.entries(lifecycleData.vendorRankings).map(([productKey, rankings]) => (
-            <div key={productKey} className="mb-4">
-              <h6>Product: {productKey}</h6>
-              <Table striped bordered hover>
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Vendor</th>
-                    <th>Quoted Price</th>
-                    <th>Finalized At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rankings.map((ranking, idx) => (
-                    <tr key={ranking.id}>
-                      <td><strong>L{idx + 1}</strong></td>
-                      <td>{ranking.vendor_name || ranking.organization_name || 'N/A'}</td>
-                      <td>₹{parseFloat(ranking.quoted_price || 0).toLocaleString()}</td>
-                      <td>{moment(ranking.created_at).format('DD/MM/YYYY HH:mm')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
+      <Table striped bordered hover size="sm">
+        <thead>
+          <tr>
+            <th>Vendor</th>
+            <th>Email</th>
+            <th>Items</th>
+            <th>Submitted</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lifecycleData.quotes.map((quote) => (
+            <tr key={quote.id}>
+              <td><strong>{quote.vendor_name || quote.organization_name || 'Unknown'}</strong></td>
+              <td>{quote.vendor_email || 'N/A'}</td>
+              <td>{quote.quote_items?.length || 0} items</td>
+              <td>{moment(quote.created_at).format('DD/MM/YYYY')}</td>
+              <td>
+                <Badge bg={quote.status === 1 ? 'success' : 'secondary'}>
+                  {quote.status === 1 ? 'Active' : 'Inactive'}
+                </Badge>
+              </td>
+            </tr>
           ))}
-        </div>
-      </div>
+        </tbody>
+      </Table>
+    );
+  };
+
+  // Simplified tech evaluation summary (no inner accordion)
+  const renderTechEvalSummary = () => {
+    if (!lifecycleData?.techEvaluation || lifecycleData.techEvaluation.length === 0) {
+      return <Alert variant="info" className="mb-0">No technical evaluation data available</Alert>;
+    }
+
+    // Flatten all vendor evaluations into a single table
+    const allEvaluations = lifecycleData.techEvaluation.flatMap(techEval =>
+      (techEval.vendor_evaluations || []).map(v => ({
+        ...v,
+        productId: techEval.rfq_product_id
+      }))
+    );
+
+    if (allEvaluations.length === 0) {
+      return <Alert variant="info" className="mb-0">No vendor evaluations recorded</Alert>;
+    }
+
+    return (
+      <Table striped bordered hover size="sm">
+        <thead>
+          <tr>
+            <th>Product ID</th>
+            <th>Vendor</th>
+            <th>Status</th>
+            <th>Score</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {allEvaluations.map((item, idx) => (
+            <tr key={idx}>
+              <td>{item.productId}</td>
+              <td>{item.vendor_name}</td>
+              <td>
+                <Badge bg={item.is_accepted ? 'success' : 'danger'}>
+                  {item.is_accepted ? 'Accepted' : 'Rejected'}
+                </Badge>
+              </td>
+              <td>{item.score || 'N/A'}</td>
+              <td>{item.remarks || '-'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    );
+  };
+
+  // Simplified negotiation summary (no inner accordion)
+  const renderNegotiationSummary = () => {
+    if (!lifecycleData?.negotiationRounds || lifecycleData.negotiationRounds.length === 0) {
+      return <Alert variant="info" className="mb-0">No negotiation rounds conducted</Alert>;
+    }
+
+    return (
+      <Table striped bordered hover size="sm">
+        <thead>
+          <tr>
+            <th>Round</th>
+            <th>Target Price</th>
+            <th>End Date</th>
+            <th>Quotes</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lifecycleData.negotiationRounds.map((round) => (
+            <tr key={round.id}>
+              <td><strong>Round {round.round_number}</strong></td>
+              <td>₹{parseFloat(round.target_price || 0).toLocaleString()}</td>
+              <td>{moment(round.end_date).format('DD/MM/YYYY')}</td>
+              <td>{round.quotes?.length || 0} vendors</td>
+              <td>
+                <Badge bg={round.status === 'ACTIVE' ? 'success' : round.status === 'PENDING_APPROVAL' ? 'warning' : 'secondary'}>
+                  {round.status}
+                </Badge>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    );
+  };
+
+  // Simplified vendor rankings (no card wrapper)
+  const renderVendorRankingsSummary = () => {
+    if (!lifecycleData?.vendorRankings || Object.keys(lifecycleData.vendorRankings).length === 0) {
+      return <Alert variant="info" className="mb-0">No vendor finalization data available</Alert>;
+    }
+
+    // Flatten all rankings into a single table
+    const allRankings = Object.entries(lifecycleData.vendorRankings).flatMap(([productKey, rankings]) =>
+      rankings.map((r, idx) => ({
+        ...r,
+        productKey,
+        rank: idx + 1
+      }))
+    );
+
+    return (
+      <Table striped bordered hover size="sm">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Rank</th>
+            <th>Vendor</th>
+            <th>Quoted Price</th>
+            <th>Finalized At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {allRankings.map((ranking, idx) => (
+            <tr key={idx}>
+              <td>{ranking.productKey}</td>
+              <td><strong>L{ranking.rank}</strong></td>
+              <td>{ranking.vendor_name || ranking.organization_name || 'N/A'}</td>
+              <td>₹{parseFloat(ranking.quoted_price || 0).toLocaleString()}</td>
+              <td>{moment(ranking.created_at).format('DD/MM/YYYY')}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
     );
   };
 
@@ -910,72 +982,73 @@ const ArcCommittee = () => {
                 <Alert variant="info">Please select an RFQ from the list to view details</Alert>
               ) : lifecycleData ? (
                 <div>
-                  {/* Action Buttons */}
+                  {/* 1. Compact Tender Summary */}
+                  {renderTenderSummary()}
+
+                  {/* 2. Prominent: Products Requiring Approval (with inline workflow) */}
+                  {renderPendingArcProducts()}
+
+                  {/* 3. Reference Data - Single accordion with all items */}
+                  <Accordion className="mb-4">
+                    <Accordion.Item eventKey="0">
+                      <Accordion.Header>Full Tender Details</Accordion.Header>
+                      <Accordion.Body>
+                        {renderTenderDetailsContent()}
+                      </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="1">
+                      <Accordion.Header>All Product Details</Accordion.Header>
+                      <Accordion.Body>
+                        {renderProductsTable()}
+                      </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="2">
+                      <Accordion.Header>Lifecycle Timeline</Accordion.Header>
+                      <Accordion.Body>
+                        {renderLifecycleTimeline()}
+                      </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="3">
+                      <Accordion.Header>Quote Summary ({lifecycleData?.quotes?.length || 0})</Accordion.Header>
+                      <Accordion.Body>
+                        {renderQuotesSummary()}
+                      </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="4">
+                      <Accordion.Header>Technical Evaluation</Accordion.Header>
+                      <Accordion.Body>
+                        {renderTechEvalSummary()}
+                      </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="5">
+                      <Accordion.Header>Negotiation Rounds ({lifecycleData?.negotiationRounds?.length || 0})</Accordion.Header>
+                      <Accordion.Body>
+                        {renderNegotiationSummary()}
+                      </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="6">
+                      <Accordion.Header>Vendor Rankings (L1-L5)</Accordion.Header>
+                      <Accordion.Body>
+                        {renderVendorRankingsSummary()}
+                      </Accordion.Body>
+                    </Accordion.Item>
+                  </Accordion>
+
+                  {/* 4. Secondary Action - Send To Stage */}
                   {lifecycleData?.arcApproval?.pending && (
-                    <div className="card mb-4 border-primary">
-                      <div className="card-body">
-                        <div className="d-flex gap-2 flex-wrap align-items-center">
-                          {selectedProductId && (
-                            <Alert variant="info" className="mb-0 me-auto">
-                              Reviewing ARC for selected product
-                            </Alert>
-                          )}
-                          <Button
-                            variant="success"
-                            onClick={() => handleAction('approve')}
-                            disabled={submitting}
-                          >
-                            <FontAwesomeIcon icon={faCheckCircle} className="me-2" />
-                            Approve
-                          </Button>
-                          <Button
-                            variant="danger"
-                            onClick={() => handleAction('reject')}
-                            disabled={submitting}
-                          >
-                            <FontAwesomeIcon icon={faTimesCircle} className="me-2" />
-                            Reject
-                          </Button>
-                          <Button
-                            variant="warning"
-                            onClick={() => handleAction('send_to')}
-                            disabled={submitting}
-                          >
-                            <FontAwesomeIcon icon={faArrowRight} className="me-2" />
-                            Send To Stage
-                          </Button>
-                        </div>
-                      </div>
+                    <div className="mt-4 pt-4 border-top">
+                      <h6 className="text-muted mb-2">Advanced Actions</h6>
+                      <Button
+                        variant="outline-secondary"
+                        className="p-2"
+                        onClick={handleAction}
+                        disabled={submitting}
+                      >
+                        <BsArrowRight className="me-2" />
+                        Send To Stage
+                      </Button>
                     </div>
                   )}
-                  
-                  {/* Product Selection Info */}
-                  {lifecycleData?.arcApproval?.instances && lifecycleData.arcApproval.instances.length > 0 && (
-                    <Alert variant="info" className="mb-3">
-                      <strong>Note:</strong> ARC approvals are product-wise. Select a product from the table below to review its ARC approval.
-                    </Alert>
-                  )}
-
-                  {/* Lifecycle Timeline */}
-                  {renderLifecycleTimeline()}
-
-                  {/* Tender Details */}
-                  {renderTenderDetails()}
-
-                  {/* Products */}
-                  {renderProducts()}
-
-                  {/* Initial Quotes */}
-                  {renderQuotes()}
-
-                  {/* Technical Evaluation */}
-                  {renderTechEvaluation()}
-
-                  {/* Negotiation Rounds */}
-                  {renderNegotiationRounds()}
-
-                  {/* Vendor Rankings */}
-                  {renderVendorRankings()}
                 </div>
               ) : (
                 <Alert variant="warning">Loading tender lifecycle data...</Alert>
@@ -986,36 +1059,29 @@ const ArcCommittee = () => {
         </div>
       </section>
 
-      {/* Action Modal */}
+      {/* Send To Stage Modal */}
       <Modal show={showActionModal} onHide={() => setShowActionModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>
-            {actionType === 'approve' && 'Approve Tender'}
-            {actionType === 'reject' && 'Reject Tender'}
-            {actionType === 'send_to' && 'Send Tender To Stage'}
-          </Modal.Title>
+          <Modal.Title>Send Tender To Stage</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {actionType === 'send_to' && (
-            <Form.Group className="mb-3">
-              <Form.Label>Target Stage</Form.Label>
-              <Select
-                options={lifecycleStages}
-                value={lifecycleStages.find(s => s.value === targetStage)}
-                onChange={(option) => setTargetStage(option?.value || '')}
-                placeholder="Select target stage"
-              />
-            </Form.Group>
-          )}
           <Form.Group className="mb-3">
-            <Form.Label>Remarks {actionType === 'reject' && <span className="text-danger">*</span>}</Form.Label>
+            <Form.Label>Target Stage</Form.Label>
+            <Select
+              options={lifecycleStages}
+              value={lifecycleStages.find(s => s.value === targetStage)}
+              onChange={(option) => setTargetStage(option?.value || '')}
+              placeholder="Select target stage"
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Remarks</Form.Label>
             <Form.Control
               as="textarea"
               rows={4}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Enter remarks..."
-              required={actionType === 'reject'}
+              placeholder="Enter remarks (optional)..."
             />
           </Form.Group>
         </Modal.Body>
@@ -1024,11 +1090,11 @@ const ArcCommittee = () => {
             Cancel
           </Button>
           <Button
-            variant={actionType === 'approve' ? 'success' : actionType === 'reject' ? 'danger' : 'warning'}
+            variant="warning"
             onClick={handleSubmitAction}
-            disabled={submitting || (actionType === 'reject' && !remarks) || (actionType === 'send_to' && !targetStage)}
+            disabled={submitting || !targetStage}
           >
-            {submitting ? 'Processing...' : 'Submit'}
+            {submitting ? 'Processing...' : 'Send To Stage'}
           </Button>
         </Modal.Footer>
       </Modal>
