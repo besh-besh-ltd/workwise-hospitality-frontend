@@ -22,6 +22,7 @@ import Link from "next/link";
 import { toast } from "react-toastify";
 import { getProjectList, getProjectTableDataById, getProjectsByHospitalityContext, getProjectHospitalityContext, getRfqFilters } from "@/services/project";
 import { getMyHospitalityContexts, getUserMappings } from "@/services/hospitality";
+import { getDepartments } from "@/services/rbac";
 import HotelFilter from "@/components/shared/HotelFilter";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
@@ -124,6 +125,7 @@ const CreateRFQ = () => {
   const [allProjects, setAllProjects] = useState([]);
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
+  const [departments, setDepartments] = useState([]);
 
   const storeLoading = useSelector((data) => data.storeLoading);
   const rfqDetails = useSelector((data) => data.rfq_id);
@@ -319,6 +321,19 @@ const CreateRFQ = () => {
       console.error("Error fetching hospitality contexts:", error);
     }
   }
+
+  const fetchDepartments = async () => {
+    try {
+      const response = await getDepartments();
+      const depts = (response?.data?.data || response?.data || []).map((d) => ({
+        value: d.id,
+        label: d.title || d.name
+      }));
+      setDepartments(depts);
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+    }
+  };
 
   const handleHotelSelectionChange = (hotelIds) => {
     setSelectedHotelIds(hotelIds);
@@ -592,13 +607,31 @@ const CreateRFQ = () => {
         const selectedEndDate = new Date(value);
         // Changes by Agnij 2025-05-03 [Removed RA end must be after bid end constraint]
         // Removed constraint that RA end must be after bid end date
-        
+
         // mukul - 04/may/2025: Ensure RA end date is on or after RA start date and have 60min gap
         if (raStartDate) {
           const timeDifference = selectedEndDate - raStartDate; // in ms
           if (timeDifference < 60 * 60 * 1000) {
             error = 'Reverse Auction End Time must be at least 60 minutes after the Start Time.';
         }}
+    } else if (name === 'vendor_clarification_date' && value) {
+        // Vendor Clarification Date Validation
+        const clarificationDate = new Date(value);
+        const publishDate = currentFormData.tender_publish_date
+          ? new Date(currentFormData.tender_publish_date) : null;
+
+        // Rule 1: Must be after tender publish date
+        if (publishDate && clarificationDate <= publishDate) {
+          error = 'Clarification deadline must be after the tender publish date.';
+        }
+
+        // Rule 2: Must be at least 5 days before bid end date
+        if (!error && bidEndDate) {
+          const diffInDays = (bidEndDate - clarificationDate) / (1000 * 60 * 60 * 24);
+          if (diffInDays < 5) {
+            error = 'Clarification deadline must be at least 5 days before procurement end date.';
+          }
+        }
     } else if (name === 'reverse_auction' && !value) {
       // If disabling RA, clear potential errors for RA dates
       setValidationErrors(prev => ({ ...prev, ra_start_date: '', ra_end_date: '' }));
@@ -625,6 +658,48 @@ const CreateRFQ = () => {
             toast.error(`Project procurement end date must be greater than ${today.toISOString().slice(0, 10)}`);;
             return;
         }
+      }
+      // Warn if existing clarification date becomes invalid
+      if (value && rfqFormDataFromStore.vendor_clarification_date) {
+        const bidEndDate = new Date(value);
+        const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
+        const diffInDays = (bidEndDate - clarificationDate) / (1000 * 60 * 60 * 24);
+        if (diffInDays < 5) {
+          toast.warning("Clarification deadline is now less than 5 days before procurement end date. Please update it.");
+        }
+      }
+    }
+
+    // Vendor Clarification Date validation
+    if (name === "vendor_clarification_date" && value) {
+      const clarificationDate = new Date(value);
+
+      // Rule 1: Must be after tender publish date
+      if (rfqFormDataFromStore.tender_publish_date) {
+        const publishDate = new Date(rfqFormDataFromStore.tender_publish_date);
+        if (clarificationDate <= publishDate) {
+          toast.error("Clarification deadline must be after the tender publish date.");
+          return;
+        }
+      }
+
+      // Rule 2: Must be at least 5 days before bid end date
+      if (rfqFormDataFromStore.bid_end_date) {
+        const bidEndDate = new Date(rfqFormDataFromStore.bid_end_date);
+        const diffInDays = (bidEndDate - clarificationDate) / (1000 * 60 * 60 * 24);
+        if (diffInDays < 5) {
+          toast.error("Clarification deadline must be at least 5 days before procurement end date.");
+          return;
+        }
+      }
+    }
+
+    // Warn if clarification date becomes invalid when tender publish date changes
+    if (name === "tender_publish_date" && value && rfqFormDataFromStore.vendor_clarification_date) {
+      const publishDate = new Date(value);
+      const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
+      if (clarificationDate <= publishDate) {
+        toast.warning("Clarification deadline is now invalid. Please update it.");
       }
     }
 
@@ -657,8 +732,8 @@ const CreateRFQ = () => {
     return;
   }
 
-    // Handle datetime-local inputs for auction dates
-    if ((name === 'ra_start_date' || name === 'ra_end_date') && value) {
+    // Handle datetime-local inputs for auction and tender dates
+    if ((name === 'ra_start_date' || name === 'ra_end_date' || name === 'tender_publish_date' || name === 'vendor_clarification_date') && value) {
       // Changes by Agnij 2025-05-03 [Fixed timestamp format issue]
       // Convert from datetime-local format to server expected format
       // This preserves the exact time without timezone adjustments
@@ -2023,6 +2098,7 @@ useEffect(() => {
       getAllProjects();
       fetchCountryCodes();
       fetchHospitalityContexts();
+      fetchDepartments();
     } catch (error) {
       console.log("SOMETHING WENT WRONG DURING INITIAL FETCHING");
       toast.error(error.message)
@@ -2313,6 +2389,27 @@ useEffect(() => {
                             </div>
                           )}
                           getOptionValue={(option) => option.hospitality_hotel_id}
+                        />
+                      </div>
+                    )}
+
+                    {rfqFormDataFromStore.is_tender === 1 && departments.length > 0 && (
+                      <div className="col-md-3">
+                        <label className="form-label fw-medium">Department</label>
+                        <Select
+                          id="select_department-create_rfq_page"
+                          options={departments}
+                          value={departments.find(d => d.value === rfqFormDataFromStore.department_id) || null}
+                          onChange={(selected) => {
+                            dispatch(setOtherFormFields({
+                              field_name: "department_id",
+                              value: selected?.value || null
+                            }));
+                            setHasUnsavedChanges(true);
+                          }}
+                          placeholder="Select Department"
+                          classNamePrefix="react-select"
+                          isClearable
                         />
                       </div>
                     )}
@@ -2820,6 +2917,11 @@ useEffect(() => {
                                         }
                                         onChange={handleFormFieldChange}
                                       />
+                                      {validationErrors.vendor_clarification_date && (
+                                        <div className="text-danger">
+                                          {validationErrors.vendor_clarification_date}
+                                        </div>
+                                      )}
                                     </div>
 
 

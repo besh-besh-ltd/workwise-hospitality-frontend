@@ -177,7 +177,7 @@ const Vendor = () => {
   const get_notification_title = (item, type) => {
     if (type == "title") {
       if (item.notification_type == "new_rfq_received") {
-        return "New RFQ Received";
+        return "New Tender / RFQ Received";
       } else if (item.notification_type == "quote_submitted") {
         return "You've submitted a quotation!";
       } else if (item.notification_type == "add_product") {
@@ -185,9 +185,9 @@ const Vendor = () => {
       }
     } else {
       if (item.notification_type == "new_rfq_received") {
-        return `#${item.rfq_no} Received a new RFQ request from ${item.company_name}`;
+        return `#${item.rfq_no} Received a new Tender / RFQ request from ${item.company_name}`;
       } else if (item.notification_type == "quote_submitted") {
-        return `You've submitted a quotation for RFQ #${item.rfq_no}`;
+        return `You've submitted a quotation for Tender / RFQ #${item.rfq_no}`;
       } else if (item.notification_type == "add_product") {
         return `You've added ${item.product_name}`;
       }
@@ -300,7 +300,7 @@ const Vendor = () => {
               <div className="detail-con">
                 <div className="detail-con-text">
                   <h2>{dashboardData?.closed_rfqs}</h2>
-                  <span>Closed RFQs</span>
+                  <span>Closed Tender / RFQs</span>
                 </div>
                 <div className="detail-con-icon reject">
                   <Image

@@ -70,13 +70,13 @@ export const getAllActiveNegotiationRounds = (rfq_id) => {
 /**
  * Approve a negotiation round
  */
-export const approveNegotiationRound = (round_id, remarks = null) => {
+export const approveNegotiationRound = (round_id, remarks = null, department_id = null) => {
   return new Promise(async (resolve, reject) => {
     try {
+      const payload = { remarks };
+      if (department_id) payload.department_id = department_id;
       // axiosInstance interceptor already returns response.data, so response is { status: 1, data: {...}, message: "..." }
-      const response = await axiosInstance.post(`/negotiation/rounds/${round_id}/approve`, {
-        remarks
-      });
+      const response = await axiosInstance.post(`/negotiation/rounds/${round_id}/approve`, payload);
       resolve(response); // Return the full response object
     } catch (error) {
       reject(error.response?.data || { message: error.message });
@@ -87,13 +87,13 @@ export const approveNegotiationRound = (round_id, remarks = null) => {
 /**
  * Reject a negotiation round
  */
-export const rejectNegotiationRound = (round_id, remarks) => {
+export const rejectNegotiationRound = (round_id, remarks, department_id = null) => {
   return new Promise(async (resolve, reject) => {
     try {
+      const payload = { remarks };
+      if (department_id) payload.department_id = department_id;
       // axiosInstance interceptor already returns response.data, so response is { status: 1, data: {...}, message: "..." }
-      const response = await axiosInstance.post(`/negotiation/rounds/${round_id}/reject`, {
-        remarks
-      });
+      const response = await axiosInstance.post(`/negotiation/rounds/${round_id}/reject`, payload);
       resolve(response); // Return the full response object
     } catch (error) {
       reject(error.response?.data || { message: error.message });
@@ -186,7 +186,7 @@ export const getAllVendorNegotiationStatus = (rfq_id) => {
  * @param {Array<number>} params.quote_ids - Array of selected quote IDs
  * @param {string} [params.remarks] - Optional remarks for the approval
  */
-export const submitQuotesForApproval = ({ rfq_id, rfq_product_id, quote_ids, remarks }) => {
+export const submitQuotesForApproval = ({ rfq_id, rfq_product_id, quote_ids, remarks, department_id }) => {
   return new Promise(async (resolve, reject) => {
     try {
       const payload = {
@@ -196,6 +196,9 @@ export const submitQuotesForApproval = ({ rfq_id, rfq_product_id, quote_ids, rem
       };
       if (remarks) {
         payload.remarks = remarks;
+      }
+      if (department_id) {
+        payload.department_id = department_id;
       }
       const response = await axiosInstance.post(`/negotiation/quotes/submit-for-approval`, payload);
       resolve(response);
@@ -224,11 +227,12 @@ export const getQuoteApprovalStatus = (rfq_product_id) => {
  * @param {number} rfq_product_id - RFQ Product ID
  * @param {string} remarks - Optional approval remarks
  */
-export const approveNegotiationQuotes = (rfq_product_id, remarks = null) => {
+export const approveNegotiationQuotes = (rfq_product_id, remarks = null, department_id = null) => {
   return new Promise(async (resolve, reject) => {
     try {
       const payload = {};
       if (remarks) payload.remarks = remarks;
+      if (department_id) payload.department_id = department_id;
       const response = await axiosInstance.post(
         `/negotiation/quotes/${rfq_product_id}/approve`,
         payload
@@ -245,12 +249,14 @@ export const approveNegotiationQuotes = (rfq_product_id, remarks = null) => {
  * @param {number} rfq_product_id - RFQ Product ID
  * @param {string} remarks - Rejection reason (required)
  */
-export const rejectNegotiationQuotes = (rfq_product_id, remarks) => {
+export const rejectNegotiationQuotes = (rfq_product_id, remarks, department_id = null) => {
   return new Promise(async (resolve, reject) => {
     try {
+      const payload = { remarks };
+      if (department_id) payload.department_id = department_id;
       const response = await axiosInstance.post(
         `/negotiation/quotes/${rfq_product_id}/reject`,
-        { remarks }
+        payload
       );
       resolve(response);
     } catch (error) {

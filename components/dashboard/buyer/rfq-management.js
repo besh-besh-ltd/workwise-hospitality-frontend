@@ -94,7 +94,7 @@ const handleTabChange = (tabKey) => {
     <>
       <section className="buyer-common-header sc-pt-80">
         <div className="container-fluid">
-          <h1 className="heading">RFQ Management</h1>
+          <h1 className="heading">Tender / RFQ Management</h1>
         </div>
       </section>
 
@@ -133,7 +133,7 @@ const handleTabChange = (tabKey) => {
                   }`}
                   onClick={() => handleTabChange("createRFQs")}
                 >
-                  Create RFQs
+                  Create Tender / RFQ
                 </button>
                 <button
                   id="draft_rfqs-rfq_tabs-rfq_management_page"
@@ -142,7 +142,7 @@ const handleTabChange = (tabKey) => {
                   }`}
                   onClick={() => handleTabChange("draftRFQs")}
                 >
-                  Draft RFQs
+                  Draft Tender / RFQ
                 </button>
               </div>
 

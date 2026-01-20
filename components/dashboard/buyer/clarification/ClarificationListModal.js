@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Modal, Table, Badge, Button, Alert } from "react-bootstrap";
-import { BsEye, BsCheckCircleFill, BsClockFill, BsQuestionCircle } from "react-icons/bs";
+import { BsEye, BsCheckCircleFill, BsClockFill, BsQuestionCircle, BsChatDots } from "react-icons/bs";
 import moment from "moment";
 import ClarificationDetailModal from "./ClarificationDetailModal";
 
@@ -13,8 +13,8 @@ const ClarificationListModal = ({
   onHide,
   clarifications = [],
   isBuyer = false,
-  currentUserId = null,
   onRefresh,
+  token = null,
 }) => {
   const [selectedClarification, setSelectedClarification] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -79,14 +79,20 @@ const ClarificationListModal = ({
                 <tr>
                   <th>#</th>
                   <th>Subject</th>
-                  <th>Date</th>
+                  <th>Messages</th>
+                  <th>Last Activity</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedClarifications.map((clarification, index) => {
-                  const isOwner = clarification.raised_by_vendor_id === currentUserId;
+                  // For vendors (!isBuyer), all clarifications in their list are owned by them
+                  const isOwner = !isBuyer;
+                  const messageCount = clarification.messages?.length || 0;
+                  const latestMessage = clarification.messages?.[clarification.messages.length - 1];
+                  const latestActivityDate = latestMessage?.created_at || clarification.created_at;
+
                   return (
                     <tr
                       key={clarification.id}
@@ -100,9 +106,15 @@ const ClarificationListModal = ({
                         </small>
                       </td>
                       <td>
-                        <div>{moment(clarification.created_at).format("DD MMM YYYY")}</div>
+                        <Badge bg="secondary" className="d-flex align-items-center gap-1" style={{ width: "fit-content" }}>
+                          <BsChatDots size={12} />
+                          {messageCount}
+                        </Badge>
+                      </td>
+                      <td>
+                        <div>{moment(latestActivityDate).format("DD MMM YYYY")}</div>
                         <small className="text-muted">
-                          {moment(clarification.created_at).format("hh:mm A")}
+                          {moment(latestActivityDate).format("hh:mm A")}
                         </small>
                       </td>
                       <td>
@@ -151,8 +163,10 @@ const ClarificationListModal = ({
         onHide={handleDetailModalClose}
         clarification={selectedClarification}
         isBuyer={isBuyer}
-        isOwner={selectedClarification?.raised_by_vendor_id === currentUserId}
+        isOwner={!isBuyer}
         onSuccess={handleDetailModalSuccess}
+        token={token}
+        onRefresh={onRefresh}
       />
     </>
   );

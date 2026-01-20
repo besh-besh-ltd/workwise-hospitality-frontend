@@ -62,9 +62,28 @@ export const raiseClarification = (payload, token = null) =>
   });
 
 /**
+ * Send a message in an existing clarification thread (Both buyer and vendor)
+ * POST /rfq/clarification/message
+ * @param {FormData} payload - FormData containing clarification_id, message, and files
+ * @param {string} token - Optional token for vendor access
+ */
+export const sendClarificationMessage = (payload, token = null) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosFormData.post(
+        `/rfq/clarification/message${token ? `?token=${token}` : ''}`,
+        payload
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+/**
  * Resolve/Close a clarification (Buyer action)
  * POST /rfq/clarification/resolve
- * @param {FormData} payload - FormData containing clarification_id, response, and files
+ * @param {FormData} payload - FormData containing clarification_id, and optional response/files for final message
  */
 export const resolveClarification = (payload) =>
   new Promise(async (resolve, reject) => {

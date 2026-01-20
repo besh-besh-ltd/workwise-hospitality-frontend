@@ -184,7 +184,7 @@ const ProductManagement = () => {
     <>
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid">
-          <h1 className="heading">RFQ Report</h1>
+          <h1 className="heading">Tender / RFQ Report</h1>
         </div>
       </section>
 
@@ -193,8 +193,8 @@ const ProductManagement = () => {
           <div className="row">
             <div className="col-md-12">
               <div className="vendor-mngt-con">
-                {/* Content for Manage RFQs tab */}
-                <span className="title">RFQ</span>
+                {/* Content for Manage Tender / RFQs tab */}
+                <span className="title">Tender / RFQ</span>
 
                 <div className="filter ">
                   <div className="d-flex justify-content-around">
@@ -274,9 +274,9 @@ const ProductManagement = () => {
                     <table className="table table-striped">
                       <thead>
                         <tr>
-                          <th scope="col">RFQ No</th>
+                          <th scope="col">Tender / RFQ No</th>
                           <th scope="col">Quotation </th>
-                          <th scope="col">RFQ Finalize</th>
+                          <th scope="col">Tender / RFQ Finalize</th>
                         </tr>
                       </thead>
                       <tbody>

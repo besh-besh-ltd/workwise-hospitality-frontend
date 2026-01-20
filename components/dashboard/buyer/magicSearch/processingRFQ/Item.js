@@ -92,7 +92,7 @@ const DraftRFQItem = ({ data, index, onViewErrors, handleCreateRFQ }) => {
 
   const processType = {
     simplified: { label: "BOQ Simplification", color: "success" },
-    rfq: { label: "BOQ To RFQ", color: "primary" },
+    rfq: { label: "BOQ To Tender / RFQ", color: "primary" },
     "cost-estimation": { label: "Cost Estimation", color: "warning" },
     "tender-summary": { label: "Tender Summary", color: "secondary" },
   };
@@ -199,7 +199,7 @@ const DraftRFQItem = ({ data, index, onViewErrors, handleCreateRFQ }) => {
                   size="sm"
                   style={{ padding: "8px 0", width: "100%" }}
                 >
-                  Create RFQ
+                  Create Tender / RFQ
                 </Button>
                 {data.raw_file_url && (
                   <Link
@@ -235,7 +235,7 @@ const DraftRFQItem = ({ data, index, onViewErrors, handleCreateRFQ }) => {
                 size="sm"
                 style={{ padding: "8px 0", width: "140px" }}
               >
-                View RFQ
+                View Tender / RFQ
               </Button>
             </Link>
             {data.raw_file_url && (

@@ -114,7 +114,7 @@ const QuoteCompareTable = ({
   // Custom handlers for negotiation quote approval (using dedicated APIs)
   const handleCustomQuoteApprove = async (comment) => {
     try {
-      await approveNegotiationQuotes(proditem.id, comment);
+      await approveNegotiationQuotes(proditem.id, comment, departmentId);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message || 'Failed to approve quotes' };
@@ -123,7 +123,7 @@ const QuoteCompareTable = ({
 
   const handleCustomQuoteReject = async (comment) => {
     try {
-      await rejectNegotiationQuotes(proditem.id, comment);
+      await rejectNegotiationQuotes(proditem.id, comment, departmentId);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message || 'Failed to reject quotes' };
@@ -217,6 +217,7 @@ const QuoteCompareTable = ({
           vendorCodeMap={vendorCodeMap}
           fullProduct={proditem}
           quoteApprovalStatus={quoteApprovalStatus}
+          department_id={departmentId}
         />
       )}
 
@@ -463,11 +464,11 @@ const QuoteCompareTable = ({
                            <FontAwesomeIcon icon={faUser} className="me-2"/> 
                             View Profile
                           </Dropdown.Item>
-                          {!item.quote_details.is_regret == 1 &&
+                          {!is_tender && !item.quote_details.is_regret == 1 &&
                             (!item.finalization ||
                               item.finalization.winning_vendor.id !=
                                 item?.quote_details?.created_by) &&
-                            canWrite && !permissionsLoading && canFinalizeForTender && (
+                            canWrite && !permissionsLoading && (
                               <Dropdown.Item
                                 href="#"
                                 onClick={(e) => {
@@ -480,17 +481,6 @@ const QuoteCompareTable = ({
                               >
                                 <FontAwesomeIcon icon={faCheckCircle} className="me-2"/>
                                 Finalize
-                              </Dropdown.Item>
-                            )}
-                          {isTenderAwaitingApproval && !item.quote_details.is_regret == 1 && (
-                              <Dropdown.Item
-                                href="#"
-                                disabled
-                                className="text-muted"
-                                title="Quote approval required before finalization"
-                              >
-                                <FontAwesomeIcon icon={faCheckCircle} className="me-2"/>
-                                Finalize (Approval Pending)
                               </Dropdown.Item>
                             )}
 
@@ -745,42 +735,34 @@ const QuoteCompareTable = ({
                   </Link>
                 </span>
               </div>
-              {isRfqClosed ? (
-                <button
-                  type="submit"
-                  className="btn btn-danger btn-outlined"
-                  disabled
-                >
-                  RFQ has been Closed
-                </button>
-              ) : isTenderAwaitingApproval ? (
-                <button
-                  type="submit"
-                  className="btn btn-warning"
-                  disabled
-                  title="Quote approval required before finalization"
-                  id="finalize_vendor-quote_actions-quote_compare_table"
-                >
-                  Finalize (Approval Pending)
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  className="btn btn-secondary"
-                  onClick={(e) => {
-                    setActiveModal('finalize')
-                    setCurrentItem(lowestQuote);
-                    // handleFinalize(lowestQuote, proditem)
-                  }}
-                  title={
-                    !canWrite || permissionsLoading ? "You don't have permission to finalize vendors" :
-                    availableHierarchies.length <= 0 ? "You cannot finalize as you dont belong to the company's hierarchy" : ""
-                  }
-                  disabled={availableHierarchies.length <= 0 || !canWrite || permissionsLoading}
-                  id="finalize_vendor-quote_actions-quote_compare_table"
-                >
-                  Finalize
-                </button>
+              {!is_tender && (
+                isRfqClosed ? (
+                  <button
+                    type="submit"
+                    className="btn btn-danger btn-outlined"
+                    disabled
+                  >
+                    RFQ has been Closed
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="btn btn-secondary"
+                    onClick={(e) => {
+                      setActiveModal('finalize')
+                      setCurrentItem(lowestQuote);
+                      // handleFinalize(lowestQuote, proditem)
+                    }}
+                    title={
+                      !canWrite || permissionsLoading ? "You don't have permission to finalize vendors" :
+                      availableHierarchies.length <= 0 ? "You cannot finalize as you dont belong to the company's hierarchy" : ""
+                    }
+                    disabled={availableHierarchies.length <= 0 || !canWrite || permissionsLoading}
+                    id="finalize_vendor-quote_actions-quote_compare_table"
+                  >
+                    Finalize
+                  </button>
+                )
               )}
             </div>
           )}

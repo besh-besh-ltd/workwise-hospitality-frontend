@@ -1,6 +1,6 @@
 import React from "react";
 import { Alert, Button } from "react-bootstrap";
-import { BsExclamationTriangleFill, BsEye, BsClockFill } from "react-icons/bs";
+import { BsExclamationTriangleFill, BsEye, BsClockFill, BsChatDots } from "react-icons/bs";
 
 /**
  * ClarificationBlockingBanner
@@ -37,6 +37,11 @@ const ClarificationBlockingBanner = ({
 
   const timeRemaining = getTimeRemaining();
 
+  // Get latest message and message count for owner view
+  const messageCount = clarification?.messages?.length || 0;
+  const latestMessage = clarification?.messages?.[clarification.messages.length - 1];
+  const latestMessagePreview = latestMessage?.message || clarification?.subject;
+
   // Owner of the clarification sees detailed message
   if (isOwner) {
     return (
@@ -53,6 +58,18 @@ const ClarificationBlockingBanner = ({
               {clarification?.subject && (
                 <span className="d-block mt-1">
                   <em>Subject: {clarification.subject}</em>
+                </span>
+              )}
+              {messageCount > 0 && (
+                <span className="d-block mt-1">
+                  <BsChatDots size={12} className="me-1" />
+                  <strong>{messageCount} message{messageCount > 1 ? "s" : ""}</strong>
+                  {latestMessagePreview && (
+                    <span className="ms-1 text-truncate" style={{ maxWidth: 200 }}>
+                      - {latestMessagePreview.substring(0, 50)}
+                      {latestMessagePreview.length > 50 ? "..." : ""}
+                    </span>
+                  )}
                 </span>
               )}
               <span className="d-block mt-1 text-secondary">

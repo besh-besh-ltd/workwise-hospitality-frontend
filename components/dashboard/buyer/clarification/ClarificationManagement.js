@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Table, Badge, Button, Spinner, Alert, Card } from "react-bootstrap";
-import { BsEye, BsCheckCircleFill, BsClockFill, BsArrowLeft, BsQuestionCircle } from "react-icons/bs";
+import { BsEye, BsCheckCircleFill, BsClockFill, BsArrowLeft, BsQuestionCircle, BsChatDots } from "react-icons/bs";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import moment from "moment";
@@ -159,60 +159,75 @@ const ClarificationManagement = () => {
                 <th style={{ width: "50px" }}>#</th>
                 <th>Subject</th>
                 <th>Raised By</th>
-                <th>Date</th>
+                <th style={{ width: "100px" }}>Messages</th>
+                <th>Last Activity</th>
                 <th style={{ width: "100px" }}>Status</th>
                 <th style={{ width: "100px" }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {sortedClarifications.map((clarification, index) => (
-                <tr
-                  key={clarification.id}
-                  className={clarification.status === "OPEN" ? "table-warning" : ""}
-                >
-                  <td>{index + 1}</td>
-                  <td>
-                    <div className="fw-semibold">{clarification.subject}</div>
-                    <small className="text-muted text-truncate d-block" style={{ maxWidth: 300 }}>
-                      {clarification.question?.substring(0, 100)}
-                      {clarification.question?.length > 100 ? "..." : ""}
-                    </small>
-                  </td>
-                  <td>{clarification.raised_by_vendor_name || "Unknown Vendor"}</td>
-                  <td>
-                    <div>{moment(clarification.created_at).format("DD MMM YYYY")}</div>
-                    <small className="text-muted">
-                      {moment(clarification.created_at).format("hh:mm A")}
-                    </small>
-                  </td>
-                  <td>
-                    <Badge bg={clarification.status === "OPEN" ? "warning" : "success"}>
-                      {clarification.status === "OPEN" ? (
-                        <>
-                          <BsClockFill className="me-1" />
-                          Open
-                        </>
-                      ) : (
-                        <>
-                          <BsCheckCircleFill className="me-1" />
-                          Closed
-                        </>
-                      )}
-                    </Badge>
-                  </td>
-                  <td>
-                    <Button
-                      variant={clarification.status === "OPEN" ? "warning" : "outline-secondary"}
-                      size="sm"
-                      onClick={() => handleViewClarification(clarification)}
-                      className="d-flex align-items-center p-2 px-3 gap-1"
-                    >
-                      <BsEye size={14} />
-                      {clarification.status === "OPEN" ? "Respond" : "View"}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {sortedClarifications.map((clarification, index) => {
+                // Get message count and latest message preview
+                const messageCount = clarification.messages?.length || 0;
+                const latestMessage = clarification.messages?.[clarification.messages.length - 1];
+                const latestActivityDate = latestMessage?.created_at || clarification.created_at;
+                const previewText = latestMessage?.message || clarification.question;
+
+                return (
+                  <tr
+                    key={clarification.id}
+                    className={clarification.status === "OPEN" ? "table-warning" : ""}
+                  >
+                    <td>{index + 1}</td>
+                    <td>
+                      <div className="fw-semibold">{clarification.subject}</div>
+                      <small className="text-muted text-truncate d-block" style={{ maxWidth: 300 }}>
+                        {previewText?.substring(0, 100)}
+                        {previewText?.length > 100 ? "..." : ""}
+                      </small>
+                    </td>
+                    <td>{clarification.raised_by_vendor_name || "Unknown Vendor"}</td>
+                    <td>
+                      <Badge bg="secondary" className="d-flex align-items-center justify-content-center gap-1" style={{ width: "fit-content" }}>
+                        <BsChatDots size={12} />
+                        {messageCount}
+                      </Badge>
+                    </td>
+                    <td>
+                      <div>{moment(latestActivityDate).format("DD MMM YYYY")}</div>
+                      <small className="text-muted">
+                        {moment(latestActivityDate).format("hh:mm A")}
+                      </small>
+                    </td>
+                    <td>
+                      <Badge bg={clarification.status === "OPEN" ? "warning" : "success"}>
+                        {clarification.status === "OPEN" ? (
+                          <>
+                            <BsClockFill className="me-1" />
+                            Open
+                          </>
+                        ) : (
+                          <>
+                            <BsCheckCircleFill className="me-1" />
+                            Closed
+                          </>
+                        )}
+                      </Badge>
+                    </td>
+                    <td>
+                      <Button
+                        variant={clarification.status === "OPEN" ? "warning" : "outline-secondary"}
+                        size="sm"
+                        onClick={() => handleViewClarification(clarification)}
+                        className="d-flex align-items-center p-2 px-3 gap-1"
+                      >
+                        <BsEye size={14} />
+                        {clarification.status === "OPEN" ? "Respond" : "View"}
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </Table>
         </Card>
@@ -228,6 +243,7 @@ const ClarificationManagement = () => {
         clarification={selectedClarification}
         isBuyer={true}
         onSuccess={handleModalSuccess}
+        onRefresh={fetchData}
       />
     </div>
   );

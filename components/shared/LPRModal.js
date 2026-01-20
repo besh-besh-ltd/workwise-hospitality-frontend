@@ -145,7 +145,7 @@ const LPRModal = ({ show, onHide, variantId , RFQ_no }) => {
                 <Table striped hover className="mb-0">
                   <thead className="sticky-top bg-white">
                     <tr>
-                      <th className='"bg-light'>RFQ No.</th>
+                      <th className='"bg-light'>Tender / RFQ No.</th>
                       <th className="bg-light">Vendor Details</th>
                       <th className="bg-light">Finalized By</th>
                       <th className="bg-light">Date</th>

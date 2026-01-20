@@ -131,7 +131,7 @@ const VendorSelectionModal = ({
           </div>
         ) : vendors.length === 0 ? (
           <div className="text-center py-4 px-3">
-            <p className="mb-0">No vendors need reminders for this RFQ.</p>
+            <p className="mb-0">No vendors need reminders for this Tender / RFQ.</p>
           </div>
         ) : (
           <div className="vendor-modal-content">

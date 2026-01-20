@@ -108,19 +108,19 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
 
         const dataSets = [
             {
-                label: 'New RFQs',
+                label: 'New Tender / RFQs',
                 data: preparedData.new_rfqs,
                 backgroundColor: Utils.CHART_COLORS.blue,
                 borderColor: Utils.CHART_COLORS.blue
             },
             {
-                label: 'Closed RFQs',
+                label: 'Closed Tender / RFQs',
                 data: preparedData.closed_rfqs,
                 backgroundColor: Utils.CHART_COLORS.red,
                 borderColor: Utils.CHART_COLORS.red
             },
             {
-                label: 'Completed RFQs',
+                label: 'Completed Tender / RFQs',
                 data: preparedData.completed_rfqs,
                 backgroundColor: Utils.CHART_COLORS.green,
                 borderColor: Utils.CHART_COLORS.green
@@ -208,7 +208,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                     <div className="rounded-2 shadow p-4">
                         <div className="d-flex justify-content-between align-items-start">
                             <div>
-                                <h2 className="fs-4 fw-medium mb-0">RFQ Overview</h2>
+                                <h2 className="fs-4 fw-medium mb-0">Tender / RFQ Overview</h2>
                                 {selectedProject && <p className="text-sm fw-semibold mb-0" >{selectedProject.label}</p>}
                                 <p className="text-sm fw-medium" >{chartTitle.split(/from |for the |for /)[1]}</p>
                             </div>
@@ -277,7 +277,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                             <div className="d-flex justify-content-between align-items-center">
                                                 <h3 className="fs-4 fw-medium mb-0">
                                                     {rfqData ? (rfqData.new_rfqs || 0) : 0}
-                                                    <span className="d-block fs-6">New RFQs</span>
+                                                    <span className="d-block fs-6">New Tender / RFQs</span>
                                                 </h3>
                                                 <FontAwesomeIcon icon={faCartPlus} fontSize={28} />
                                             </div>
@@ -297,7 +297,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                             <div className="d-flex justify-content-between align-items-center">
                                                 <h3 className="fs-4 fw-medium mb-0">
                                                     {rfqData ? (rfqData.completed_rfqs || 0) : 0}
-                                                    <span className="d-block fs-6">Completed RFQs</span>
+                                                    <span className="d-block fs-6">Completed Tender / RFQs</span>
                                                 </h3>
                                                 <FontAwesomeIcon icon={faCheckToSlot} fontSize={28} />
                                             </div>
@@ -307,7 +307,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                             <div className="d-flex justify-content-between align-items-center">
                                                 <h3 className="fs-4 fw-medium mb-0">
                                                     {rfqData ? (rfqData.closed_rfqs || 0) : 0}
-                                                    <span className="d-block fs-6">Closed RFQs</span>
+                                                    <span className="d-block fs-6">Closed Tender / RFQs</span>
                                                 </h3>
                                                 <FontAwesomeIcon icon={faRectangleXmark} fontSize={28} />
                                             </div>
@@ -319,7 +319,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                                 className="btn btn-primary border-0 py-2"
                                                 id="create_new_rfq-rfq_actions-rfq_overview_page"
                                             >
-                                                Create New RFQ
+                                                Create New Tender / RFQ
                                             </Link>
                                         </div>
                                     </div>
@@ -350,7 +350,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                 <div className="rfq-table-container col-md-8 pe-2">
                     <div className="bg-white shadow rounded-2 p-4 h-100 hasFullLoader">
                         <div className="d-flex justify-content-between align-items-center mb-3">
-                            <h2 className="fs-4 fw-medium mb-0">Latest RFQs</h2>
+                            <h2 className="fs-4 fw-medium mb-0">Latest Tender / RFQs</h2>
                             <Link
                                 href="/dashboard/buyer/rfq-management"
                                 style={{ borderColor: "var(--primary-color)" }}
@@ -368,7 +368,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                     <table className="table table-borderless table-sm text-center">
                                         <thead className="text-nowrap">
                                             <tr style={{ fontSize: "14px", fontWeight: "200" }}>
-                                                <th>RFQ Details</th>
+                                                <th>Tender / RFQ Details</th>
                                                 <th>Total Products</th>
                                                 <th>Quotes Recieved</th>
                                                 <th>Queries</th>
@@ -465,10 +465,10 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                     </table>
                                 </div>
                             ) : (
-                                <h3>You don't Have any RFQ's Yet...!</h3>
+                                <h3>You don't Have any Tender / RFQs Yet...!</h3>
                             )
                         ) : (
-                            <h3>No RFQ's Found...!</h3>
+                            <h3>No Tender / RFQs Found...!</h3>
                         )}
 
                     </div>
@@ -491,10 +491,10 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                     >
                                         <div className="card-body p-2">
                                             <h3 className="card-title fs-6 fw-semibold my-1">{notification?.notification_type == 'rfq_created'
-                                                ? "New RFQ created" : "New Quotation Received"}</h3>
+                                                ? "New Tender / RFQ created" : "New Quotation Received"}</h3>
                                             <p className="card-text text-sm mb-0">{notification?.notification_type == 'rfq_created'
-                                                ? `You created a new RFQ #${notification?.rfq_no} and shared it with the vendors.`
-                                                : ` ${notification?.organization_name || notification?.vendor_name} has sent you a new quotation on RFQ #${notification?.rfq_no}.`}</p>
+                                                ? `You created a new Tender / RFQ #${notification?.rfq_no} and shared it with the vendors.`
+                                                : ` ${notification?.organization_name || notification?.vendor_name} has sent you a new quotation on Tender / RFQ #${notification?.rfq_no}.`}</p>
                                             <span className='d-block m-0 fw-semibold text-end' style={{ fontSize: "12px", color: "grey" }}>{formatDate(notification?.readable_date_time)}</span>
                                         </div>
                                     </Link>

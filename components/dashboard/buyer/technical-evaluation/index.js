@@ -10,7 +10,7 @@ import { toast } from "react-toastify";
 import { getProjectList } from '@/services/project';
 import { getUserMappings } from '@/services/hospitality';
 import Select from 'react-select';
-import { formatRFQNumber } from "@/utils/sharedFunctions";
+import { formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
@@ -245,7 +245,7 @@ useEffect(() => {
     return (
       <AccessDeniedPage
         title="Access Denied"
-        message="You do not have permission to view technical evaluations for this RFQ. Contact your administrator to request access."
+        message={`You do not have permission to view technical evaluations for this ${getEntityLabel(currentRfq?.is_tender)}. Contact your administrator to request access.`}
         backUrl="/dashboard/buyer"
         backLabel="Back to Dashboard"
       />
@@ -271,12 +271,12 @@ useEffect(() => {
             {/* RFQ List */}
             <div className="col-md-2">
               <div className="hasFullLoader">
-                <h5 className="title">List Of RFQ's</h5>
+                <h5 className="title">List Of Tender / RFQs</h5>
 
                 {loading && <FullLoader />}
 
                 <div className="py-1">
-                    <label>Search RFQ No.</label>
+                    <label>Search Tender / RFQ No.</label>
                     <input
                         className="form-control react-select" 
                         style={{ borderRadius: '0.25rem', borderColor: '#ced4da', boxShadow: 'none' }}
@@ -345,7 +345,7 @@ useEffect(() => {
                 </div>
 
                 {!loading && rfqList.length === 0 ? (
-                  <p style={{ textAlign: "center" }}>No RFQs yet!</p>
+                  <p style={{ textAlign: "center" }}>No Tender / RFQs yet!</p>
                 ) : (
                   <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
                     {rfqList.map((item) => (
@@ -434,7 +434,7 @@ useEffect(() => {
                         )}
                         {currentRfq.rfq_type && currentRfq.rfq_type != "" &&
                           <p className="sub-heading mb-0">
-                            <b>RFQ Type</b> :{" "}
+                            <b>Tender / RFQ Type</b> :{" "}
                             {currentRfq.rfq_type}
                           </p>}
                         <p className="sub-heading mb-0">
@@ -475,7 +475,7 @@ useEffect(() => {
                     {!loading && currentRfq &&
                       <>
                         <h3 className="fs-5 mb-2 mt-4">
-                          <span className="fw-semibold">RFQ Products </span>
+                          <span className="fw-semibold">{getEntityLabel(currentRfq?.is_tender)} Products </span>
                         </h3>
                         <hr />
                       </>}

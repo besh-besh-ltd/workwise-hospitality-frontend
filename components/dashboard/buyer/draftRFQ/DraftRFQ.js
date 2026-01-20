@@ -61,17 +61,17 @@ const DraftRFQ = () => {
           {/* Table Data Section */}
           {loading && <FullLoader />}
           {!loading && myDraftRFQs.length == 0 && (
-            <p>You don't have any draft RFQs yet!</p>
+            <p>You don't have any draft Tender / RFQs yet!</p>
           )}
           {!loading && myDraftRFQs && myDraftRFQs.length > 0 && (
             <div className="table-responsive">
               <table className="table table-striped ">
                 <thead>
                   <tr>
-                    <th>RFQ No & Project</th>
+                    <th>Tender / RFQ No & Project</th>
                     <th>Products</th>
                     <th>Timeline</th>
-                    <th>RFQ Type</th>
+                    <th>Tender / RFQ Type</th>
                     <th>Reverse Auction</th>
                     <th>Action</th>
                   </tr>

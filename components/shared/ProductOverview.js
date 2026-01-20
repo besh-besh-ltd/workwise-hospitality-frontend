@@ -14,7 +14,7 @@ const chartData = {
     labels: labels,
     datasets: [
         {
-            label: 'Active RFQs',
+            label: 'Active Tender / RFQs',
             data: [0, 20, 60, 30, 90, 120],
             backgroundColor: "#FFA500",
             borderColor: "#FFA500",
@@ -22,14 +22,14 @@ const chartData = {
             cubicInterpolationMode: 'monotone',
             tension: 0.4
         }, {
-            label: 'Completed RFQs',
+            label: 'Completed Tender / RFQs',
             data: [0, 35, 68, 100, 50, 70],
             backgroundColor: "#000080",
             borderColor: "#000080",
             fill: false,
             tension: 0.4
         }, {
-            label: 'Closed RFQs',
+            label: 'Closed Tender / RFQs',
             data: [0, 50, 30, 75, 120, 100],
             backgroundColor: "#02c969",
             borderColor: "#02c969",

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Table, Badge, Alert, Spinner } from 'react-bootstrap';
-import { 
-  createNegotiationRound, 
-  approveNegotiationRound, 
+import {
+  createNegotiationRound,
+  approveNegotiationRound,
   rejectNegotiationRound,
   getRoundQuotes,
-  getNegotiationRounds
+  getNegotiationRounds,
+  getQuoteApprovalStatus
 } from '@/services/negotiation';
 import { getUserDetails, getProfile } from '@/services/Auth';
 import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
@@ -48,6 +49,9 @@ const NegotiationModal = ({
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState(null); // 'APPROVE' or 'REJECT'
   const [selectedRoundForAction, setSelectedRoundForAction] = useState(null);
+  // Quote approval status (for checking if quotes are already approved)
+  const [quoteApprovalStatuses, setQuoteApprovalStatuses] = useState({}); // Map of productId -> approval status
+  const [loadingQuoteApprovals, setLoadingQuoteApprovals] = useState(false);
 
   useEffect(() => {
     // Load current user ID when modal opens
@@ -84,6 +88,7 @@ const NegotiationModal = ({
     if (show && mode === 'create') {
       setSelectedProducts([]);
       setFormData({ target_price: '', end_date: '' });
+      loadQuoteApprovalStatuses();
     }
     if (show && mode === 'view-approve' && activeRounds.length > 0) {
       const pendingRound = activeRounds.find(r => r.status === 'PENDING_APPROVAL');
@@ -160,6 +165,34 @@ const NegotiationModal = ({
     setLoadingApprovals(false);
   };
 
+  // Load quote approval statuses to check if quotes are already approved
+  const loadQuoteApprovalStatuses = async () => {
+    if (!products || products.length === 0) return;
+
+    setLoadingQuoteApprovals(true);
+    const statuses = {};
+
+    for (const product of products) {
+      try {
+        const response = await getQuoteApprovalStatus(product.id);
+        if (response?.status === 1 && response?.data?.approval_instance) {
+          statuses[product.id] = response.data.approval_instance;
+        }
+      } catch (error) {
+        // Product may not have any approval instance - that's OK
+      }
+    }
+
+    setQuoteApprovalStatuses(statuses);
+    setLoadingQuoteApprovals(false);
+  };
+
+  // Check if product quotes are approved
+  const isQuoteApproved = (productId) => {
+    const approvalInstance = quoteApprovalStatuses[productId];
+    return approvalInstance?.status === 'APPROVED';
+  };
+
   const loadRoundQuotes = async (roundId) => {
     try {
       setLoading(true);
@@ -185,7 +218,7 @@ const NegotiationModal = ({
   };
 
   const handleSelectAll = () => {
-    const availableProducts = products.filter(p => !hasActiveRound(p.id));
+    const availableProducts = products.filter(p => !hasActiveRound(p.id) && !isQuoteApproved(p.id));
     if (selectedProducts.length === availableProducts.length) {
       setSelectedProducts([]);
     } else {
@@ -194,7 +227,12 @@ const NegotiationModal = ({
   };
 
   const hasActiveRound = (productId) => {
-    return activeRounds.some(r => r.rfq_product_id === productId);
+    return activeRounds.some(r =>
+      r.rfq_product_id === productId &&
+      r.status === 'ACTIVE' &&
+      r.end_date &&
+      moment(r.end_date).isAfter(moment())
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -472,7 +510,7 @@ const NegotiationModal = ({
   };
 
   const renderCreateForm = () => {
-    const availableProducts = products.filter(p => !hasActiveRound(p.id));
+    const availableProducts = products.filter(p => !hasActiveRound(p.id) && !isQuoteApproved(p.id));
     
     return (
       <Form onSubmit={handleSubmit}>
@@ -506,31 +544,38 @@ const NegotiationModal = ({
             <tbody>
               {products.map((product) => {
                 const hasRound = hasActiveRound(product.id);
+                const quoteApproved = isQuoteApproved(product.id);
+                const isDisabled = hasRound || quoteApproved;
                 const isSelected = selectedProducts.includes(product.id);
                 const details = getProductDetails(product);
-                
+
                 return (
-                  <tr 
+                  <tr
                     key={product.id}
-                    onClick={() => !hasRound && handleProductToggle(product.id)}
+                    onClick={() => !isDisabled && handleProductToggle(product.id)}
                     style={{
-                      cursor: hasRound ? 'not-allowed' : 'pointer',
-                      backgroundColor: hasRound ? '#f8f9fa' : isSelected ? '#e3f2fd' : '#fff',
-                      opacity: hasRound ? 0.6 : 1,
+                      cursor: isDisabled ? 'not-allowed' : 'pointer',
+                      backgroundColor: isDisabled ? '#f8f9fa' : isSelected ? '#e3f2fd' : '#fff',
+                      opacity: isDisabled ? 0.6 : 1,
                     }}
                   >
                     <td className="text-center align-middle">
-                      <Form.Check 
+                      <Form.Check
                         type="checkbox"
                         checked={isSelected}
-                        disabled={hasRound}
+                        disabled={isDisabled}
                         onChange={() => {}}
                         style={{ pointerEvents: 'none' }}
                       />
                     </td>
                     <td className="align-middle">
                       {details.name}
-                      {hasRound && (
+                      {quoteApproved && (
+                        <Badge bg="success" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                          Approved
+                        </Badge>
+                      )}
+                      {hasRound && !quoteApproved && (
                         <Badge bg="warning" text="dark" className="ms-2" style={{ fontSize: '0.65rem' }}>
                           Active
                         </Badge>

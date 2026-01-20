@@ -13,7 +13,6 @@ import FullLoader from "@/components/shared/FullLoader";
 function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
     const [clauseFile, setClauseFile] = useState(null);
     const [active, setActive] = useState('clause');
-    const [isSampling, setIsSampling] = useState(false);
     const [message, setMessage] = useState("");
     const [files, setFiles] = useState([]);
     const [fileLoading, setFileLoading] = useState(false);
@@ -30,6 +29,14 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
     const [minimumPassingScore, setMinimumPassingScore] = useState(null);
     const [showMinimumScoreInput, setShowMinimumScoreInput] = useState(false);
     const [tempMinimumScore, setTempMinimumScore] = useState("");
+
+    // Sampling clause specific state
+    const [showSamplingForm, setShowSamplingForm] = useState(false);
+    const [samplingWeightage, setSamplingWeightage] = useState("");
+
+    // Compute if sampling clause already exists
+    const existingSamplingClause = previousClauses?.find(c => c.clause_type === 'sampling');
+    const hasSamplingClause = !!existingSamplingClause;
 
     const handleAttachFileClick = () => {
         fileInputRef.current.click(); // Trigger the file input when the "Attach file" button is clicked
@@ -114,9 +121,9 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         const payload = {
             rfq_id,
             rfq_product_id: product.id,
-            clause_text: isSampling ? (message || "Sampling") : message,
+            clause_text: message,
             file_url: files,
-            clause_type: isSampling ? 'sampling' : 'clause',
+            clause_type: 'clause',
             weightage: parseInt(weightage)
         }
 
@@ -144,7 +151,51 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             setMessage("");
             setFiles([]);
             setWeightage("");
-            setIsSampling(false);
+        }
+    };
+
+    const handleAddSamplingClause = async () => {
+        // Check if sampling clause already exists
+        if (previousClauses?.some(c => c.clause_type === 'sampling')) {
+            toast.error("A sampling clause already exists for this item");
+            return;
+        }
+
+        if (!samplingWeightage || samplingWeightage === "") {
+            toast.error("Weightage is required for sampling clause");
+            return;
+        }
+
+        const payload = {
+            rfq_id,
+            rfq_product_id: product.id,
+            clause_text: "Sampling",
+            file_url: [],
+            clause_type: 'sampling',
+            weightage: parseInt(samplingWeightage)
+        };
+
+        setLoading(true);
+        try {
+            const res = await addClause(payload);
+            toast.success("Sampling clause added successfully");
+            setShowSamplingForm(false);
+            setSamplingWeightage("");
+            setTimeout(() => {
+                getPreviousClauses();
+            }, 100);
+            onClauseChange && onClauseChange({
+                action: 'add',
+                payload: {
+                    ...payload,
+                    product_variant_id: product.product_id,
+                    variant: product.variant,
+                },
+            });
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -185,7 +236,6 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             setWeightage("");
             setCurrentClause(null);
             setUpdate(false);
-            setIsSampling(false);
         }
     }
 
@@ -220,7 +270,6 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         setWeightage(clause.weightage || "");
         setUpdate(true);
         setCurrentClause(clause);
-        setIsSampling(clause.clause_type === 'sampling');
     }
 
     const handleUpdateMinimumScore = async () => {
@@ -388,7 +437,8 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         <Modal show={show} onHide={() => {
             setShowMinimumScoreInput(false);
             setTempMinimumScore("");
-            setIsSampling(false);
+            setShowSamplingForm(false);
+            setSamplingWeightage("");
             onClose();
         }} centered size="lg">
             <Modal.Header closeButton>
@@ -432,18 +482,18 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                         <div className="d-flex gap-2 justify-content-end">
                             <button
                                 type="button"
-                                className="btn btn-secondary"
+                                className="btn btn-outline-secondary p-2"
                                 onClick={handleCancelMinimumScore}
                             >
                                 Cancel
                             </button>
                             <button
                                 type="button"
-                                className="btn btn-primary"
+                                className="btn btn-primary p-2"
                                 onClick={handleUpdateMinimumScore}
                                 disabled={loading || !tempMinimumScore || tempMinimumScore === ""}
                             >
-                                {loading ? "Saving..." : "Save"}
+                                {loading ? "Saving..." : "Save Score"}
                             </button>
                         </div>
                     </div>
@@ -451,20 +501,22 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                 <Tab.Container activeKey={active} onSelect={(k) => {
                     if (k) {
                         if (k === 'clause') {
-                            setActive('clause'); 
-                            setMessage(""); 
-                            setFiles([]); 
+                            setActive('clause');
+                            setMessage("");
+                            setFiles([]);
                             setWeightage("");
                             setUpdate(false);
                             setCurrentClause(null);
                             setShowMinimumScoreInput(false);
-                            setIsSampling(false);
+                            setShowSamplingForm(false);
+                            setSamplingWeightage("");
                         } else if (k === 'bulkclause') {
                             setActive('bulkclause');
                             setUpdate(false);
                             setCurrentClause(null);
                             setShowMinimumScoreInput(false);
-                            setIsSampling(false);
+                            setShowSamplingForm(false);
+                            setSamplingWeightage("");
                         }
                     }
                 }}>
@@ -481,31 +533,79 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                     <Tab.Content>
                         {/* Clauses Tab */}
                         <Tab.Pane eventKey="clause">
-                            <div className="d-flex justify-content-end mb-2">
-                                <button
-                                    type="button"
-                                    className={`btn btn-sm ${isSampling ? 'btn-success' : 'btn-outline-primary'}`}
-                                    onClick={() => {
-                                        setIsSampling(!isSampling);
-                                        if (!isSampling) {
-                                            setMessage("Sampling");
-                                        } else {
-                                            setMessage("");
-                                        }
-                                    }}
-                                >
-                                    {isSampling ? '✓ Sampling Mode' : '+ Add Sampling'}
-                                </button>
+                            {/* Sampling Clause Section - Dedicated area with clear visual distinction */}
+                            <div className="border rounded p-3 mb-3 mt-2" style={{ backgroundColor: '#f8f9fa' }}>
+                                <div className="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong className="text-primary">Sampling Clause</strong>
+                                        <small className="text-muted d-block">Maximum 1 sampling clause per item</small>
+                                    </div>
+                                    {hasSamplingClause ? (
+                                        <div className="d-flex align-items-center gap-2">
+                                            <span className="badge bg-success">Added</span>
+                                            <span className="small text-muted">Weightage: {existingSamplingClause.weightage || 0}</span>
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm btn-outline-danger p-2"
+                                                onClick={() => handleDeleteClause(existingSamplingClause.clause_id)}
+                                                disabled={loading}
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    ) : showSamplingForm ? (
+                                        <div className="d-flex flex-column align-items-center gap-2">
+                                            <Form.Control
+                                                type="number"
+                                                placeholder="Weightage"
+                                                size="sm"
+                                                min="0"
+                                                value={samplingWeightage}
+                                                onChange={(e) => setSamplingWeightage(e.target.value)}
+                                            />
+                                            <div className="d-flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-primary p-2"
+                                                    onClick={handleAddSamplingClause}
+                                                    disabled={loading || !samplingWeightage}
+                                                >
+                                                    {loading ? '...' : 'Add'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-outline-secondary p-2"
+                                                    onClick={() => {
+                                                        setShowSamplingForm(false);
+                                                        setSamplingWeightage("");
+                                                    }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline-dark p-2"
+                                            onClick={() => setShowSamplingForm(true)}
+                                            disabled={loading}
+                                        >
+                                            + Add Sampling Clause
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                            <div className="d-flex flex-column mb-3 mt-2">
+
+                            {/* Regular Clause Form */}
+                            <div className="d-flex flex-column mb-3">
                                 <Form.Control
                                     as="textarea"
-                                    placeholder={isSampling ? "Sampling" : "Message"}
+                                    placeholder="Message"
                                     rows={2}
                                     className="me-2 mb-2"
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
-                                    disabled={isSampling}
                                 />
                                 <Form.Control
                                     type="number"
@@ -568,17 +668,14 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                                 onChange={(e) => uploadToServer(e)}
                             />
 
-                            {/* Show Previous Clauses */}
+                            {/* Show Previous Clauses (excluding sampling clauses which are shown above) */}
                             <strong className="text-primary">List of Clauses</strong>
                             {loading && <FullLoader />}
                             <div className="mt-2">
-                                {!loading && previousClauses && previousClauses.length > 0 && (
+                                {!loading && previousClauses && previousClauses.filter(c => c.clause_type !== 'sampling').length > 0 && (
                                     <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                                        {previousClauses.map((clause, index) => (
+                                        {previousClauses.filter(c => c.clause_type !== 'sampling').map((clause, index) => (
                                             <li key={index} className="list-group-item ">
-                                                <p className="text-sm mb-1">
-                                                    <strong>Type:</strong> {clause.clause_type === 'sampling' ? 'Sampling' : 'Clause'}
-                                                </p>
                                                 <p className="text-sm mb-1">
                                                     <strong>Message:</strong> {clause.clause_text}
                                                 </p>
@@ -728,116 +825,115 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                 )}
             </Modal.Body>
 
+            {!showMinimumScoreInput && (
             <Modal.Footer>
                 <div className="d-flex gap-2 ms-auto">
                     {active === 'clause' ? (
-                <button
-                    type="button"
-                            className="btn btn-primary p-2"
-                    style={{ width: "120px" }}
-                    onClick={() => {
-                                if (message.trim() !== "" || files.length > 0) {
-                                    if (update) {
-                                        handleUpdateClause();
+                            <button
+                                type="button"
+                                className="btn btn-primary p-2"
+                                style={{ width: "120px" }}
+                                onClick={() => {
+                                    if (message.trim() !== "" || files.length > 0) {
+                                        if (update) {
+                                            handleUpdateClause();
+                                        } else {
+                                            handleAddClause();
+                                        }
                                     } else {
-                            handleAddClause();
+                                        toast.info("No changes to save.")
                                     }
-                                } else {
-                                    toast.info("No changes to save.")
-                                }
-                            }}
-                            disabled={loading}
-                        >
-                            {loading && active === 'clause' ? (
-                                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                            ) : update ? 'Update' : 'Save'}
-                </button>
-                    ) : (
-                        <>
-                            {/* Show Upload button if there's a file to upload and no extracted clauses yet */}
-                            {!extractedClauses.length && (
-                <button
-                type="button"
-                                    className="btn btn-primary p-2"
-                style={{ width: "120px" }}
-                                    onClick={() => uploadClauseFile()}
-                                    disabled={uploadLoading || !clauseFile}
-                                >
-                                    {uploadLoading ? (
-                                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                    ) : (
-                                        'Upload'
-                                    )}
-                                </button>
-                            )}
-                            
-                            {/* Show buttons to add all clauses or clear results if we have extracted clauses */}
-                            {extractedClauses.length > 0 && (
-                                <>
-                                    <button 
+                                }}
+                                disabled={loading}
+                            >
+                                {loading && active === 'clause' ? (
+                                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                ) : update ? 'Update' : 'Save'}
+                            </button>
+                        ) : (
+                            <>
+                                {/* Show Upload button if there's a file to upload and no extracted clauses yet */}
+                                {!extractedClauses.length && (
+                                    <button
                                         type="button"
-                                        className="btn btn-success p-2"
-                                        style={{ width: "150px" }}
-                                        onClick={() => {
-                                            // Add all extracted clauses one by one
-                                            const addAllClauses = async () => {
-                                                setLoading(true);
-                                                try {
-                                                    for (const clause of extractedClauses) {
-                                                        await addClause({
-                                                            rfq_id: rfq_id,
-                                                            rfq_product_id: product.id,
-                                                            clause_text: clause,
-                                                            file_url: []
-                                                        });
-                                                    }
-                                                    toast.success(`Added ${extractedClauses.length} clauses successfully`);
-                                                    setExtractedClauses([]);
-                                                    getPreviousClauses();
-                                                } catch (error) {
-                                                    toast.error("Error adding clauses: " + error.message);
-                                                } finally {
-                                                    setLoading(false);
-                                                }
-                                            };
-                                            addAllClauses();
-                                        }}
-                                        disabled={loading} 
+                                        className="btn btn-primary p-2"
+                                        style={{ width: "120px" }}
+                                        onClick={() => uploadClauseFile()}
+                                        disabled={uploadLoading || !clauseFile}
                                     >
-                                        {loading ? (
+                                        {uploadLoading ? (
                                             <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                                         ) : (
-                                            'Add All Clauses'
+                                            'Upload'
                                         )}
                                     </button>
-                                    <button 
-                                        type="button"
-                                        className="btn btn-warning p-2"
-                                        onClick={() => {
-                                            setExtractedClauses([]);
-                                            setClauseErrors([]);
-                                            setFileName('');
-                                            setClauseFile(null);
-                                        }}
-                                    >
-                                        Clear Results
-                                    </button>
-                                </>
-                            )}
-                        </>
-                    )}
+                                )}
+
+                                {/* Show buttons to add all clauses or clear results if we have extracted clauses */}
+                                {extractedClauses.length > 0 && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className="btn btn-success p-2"
+                                            style={{ width: "150px" }}
+                                            onClick={() => {
+                                                // Add all extracted clauses one by one
+                                                const addAllClauses = async () => {
+                                                    setLoading(true);
+                                                    try {
+                                                        for (const clause of extractedClauses) {
+                                                            await addClause({
+                                                                rfq_id: rfq_id,
+                                                                rfq_product_id: product.id,
+                                                                clause_text: clause,
+                                                                file_url: []
+                                                            });
+                                                        }
+                                                        toast.success(`Added ${extractedClauses.length} clauses successfully`);
+                                                        setExtractedClauses([]);
+                                                        getPreviousClauses();
+                                                    } catch (error) {
+                                                        toast.error("Error adding clauses: " + error.message);
+                                                    } finally {
+                                                        setLoading(false);
+                                                    }
+                                                };
+                                                addAllClauses();
+                                            }}
+                                            disabled={loading}
+                                        >
+                                            {loading ? (
+                                                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                            ) : (
+                                                'Add All Clauses'
+                                            )}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-warning p-2"
+                                            onClick={() => {
+                                                setExtractedClauses([]);
+                                                setClauseErrors([]);
+                                                setFileName('');
+                                                setClauseFile(null);
+                                            }}
+                                        >
+                                            Clear Results
+                                        </button>
+                                    </>
+                                )}
+                            </>
+                        )}
                     <button
                         type="button"
                         className="btn btn-secondary p-2"
-                        onClick={() => {
-                            setIsSampling(false);
-                            onClose();
-                        }}
+                        onClick={onClose}
                     >
                         Close
-            </button>
+                    </button>
                 </div>
             </Modal.Footer>
+            )}
         </Modal >
     
     );

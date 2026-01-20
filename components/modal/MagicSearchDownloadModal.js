@@ -68,7 +68,7 @@ const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
                           className="fw-semibold mb-0 me-2"
                           style={{ color: "var(--primary-color)" }}
                         >
-                          Download, fill and upload the BOQ file for smooth RFQ
+                          Download, fill and upload the BOQ file for smooth Tender / RFQ
                           Creation
                         </p>
                         <FontAwesomeIcon

@@ -51,17 +51,19 @@ export const getTenderLifecycle = (rfq_id, rfq_product_id = null) => {
  * @param {number} approval_instance_id - Optional approval instance ID
  * @param {number} approval_instance_step_id - Optional approval instance step ID
  */
-export const performArcAction = (rfq_id, action, target_stage = null, remarks = null, rfq_product_id = null, approval_instance_id = null, approval_instance_step_id = null) => {
+export const performArcAction = (rfq_id, action, target_stage = null, remarks = null, rfq_product_id = null, approval_instance_id = null, approval_instance_step_id = null, department_id = null) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.post(`/arc/tender/${rfq_id}/action`, {
+      const payload = {
         action,
         target_stage,
         remarks,
         rfq_product_id,
         approval_instance_id,
         approval_instance_step_id
-      });
+      };
+      if (department_id) payload.department_id = department_id;
+      const response = await axiosInstance.post(`/arc/tender/${rfq_id}/action`, payload);
       resolve(response);
     } catch (error) {
       reject(error.response?.data || { message: error.message });

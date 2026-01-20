@@ -470,10 +470,10 @@ const closeRFQConfirmModal = () => {
                                         className="text-primary me-3" 
                                         style={{ fontSize: "48px" }} 
                                       />
-                                      <h3 className="h5 mb-0">Create RFQ with AI</h3>
+                                      <h3 className="h5 mb-0">Create Tender / RFQ with AI</h3>
                                     </div>
                                     <p className="text-muted small">
-                                      Generate comprehensive RFQs automatically with AI assistance for faster procurement.
+                                      Generate comprehensive Tender / RFQs automatically with AI assistance for faster procurement.
                                     </p>
                                   </div>
 
@@ -527,13 +527,13 @@ const closeRFQConfirmModal = () => {
                                       className="px-4 w-100"
                                     >
                                       <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
-                                      {loading ? "Generating RFQ..." : "Generate RFQ Now"}
+                                      {loading ? "Generating Tender / RFQ..." : "Generate Tender / RFQ Now"}
                                     </Button>
                                   </div>
 
                                   <div className="text-center mt-3">
                                     <small className="text-muted">
-                                      AI will analyze your BOQ and create detailed RFQs automatically
+                                      AI will analyze your BOQ and create detailed Tender / RFQs automatically
                                     </small>
                                   </div>
                                 </div>
@@ -554,7 +554,7 @@ const closeRFQConfirmModal = () => {
                                   style={{ width: "180px" }}
                                   onClick={handleSeeMyRfq}
                                 >
-                                  Edit My RFQ
+                                  Edit My Tender / RFQ
                                 </Button>
                               ) : null}
                             </div>
@@ -595,13 +595,13 @@ const closeRFQConfirmModal = () => {
           showCloseButton={false}
         />
 
-        {/* RFQ Generation Confirmation Modal */}
+        {/* Tender / RFQ Generation Confirmation Modal */}
         <ConfirmationModal
           isOpen={showRFQConfirmModal}
           onClose={closeRFQConfirmModal}
           onConfirm={confirmRFQUpload}
-          title="RFQ Generation Initiated"
-          description={`RFQ generation has been initiated for the file "${fileData.name}". Do you want to switch to the processing tab to monitor the progress?`}
+          title="Tender / RFQ Generation Initiated"
+          description={`Tender / RFQ generation has been initiated for the file "${fileData.name}". Do you want to switch to the processing tab to monitor the progress?`}
           confirmButtonColor="primary"
           confirmButtonText="Switch to Processing"
           cancelButtonText="Cancel"

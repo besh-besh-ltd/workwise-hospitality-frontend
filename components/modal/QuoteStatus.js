@@ -26,7 +26,7 @@ const statusMap = {
     text: "#073B3A"
   },
   CLOSED: {
-    label: "RFQ Closed",
+    label: "Tender / RFQ Closed",
     icon: "bi-lock-fill",
     color: "#DC3545", // Bootstrap red
     text: "#FFFFFF"

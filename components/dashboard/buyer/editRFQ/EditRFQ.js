@@ -17,9 +17,10 @@ import {
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { getProjectList } from "@/services/project";
+import { getDepartments } from "@/services/rbac";
 import { getCountryCodes } from "@/services/cms";
 import * as Yup from "yup";
-import { formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
+import { formatISOToDateTimeLocal, getEntityLabel } from "@/utils/sharedFunctions";
 import ViewVendorModal from "./ViewVendorModal";
 import AddVendorModal from "./AddVendorModal";
 import AddProductModal from "./AddProductModal";
@@ -114,6 +115,7 @@ const EditRFQ = () => {
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
   const [projects, setProjects] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [rfqData, setRfqData] = useState(null);
   const [products, setProducts] = useState([]);
   const [initialized, setInitialized] = useState(false);
@@ -192,6 +194,19 @@ const EditRFQ = () => {
       });
   };
 
+  const fetchDepartments = async () => {
+    try {
+      const response = await getDepartments();
+      const depts = (response?.data?.data || response?.data || []).map((d) => ({
+        value: d.id,
+        label: d.title || d.name
+      }));
+      setDepartments(depts);
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+    }
+  };
+
   const handleTermChange = (e, item) => {
       try {
         setTermsChanged(true);
@@ -265,6 +280,7 @@ const EditRFQ = () => {
     if (router.query.id) {
       fetchInitialData();
       fetchCountryCodes();
+      fetchDepartments();
     }
     
     // Handle beforeunload event
@@ -438,8 +454,8 @@ const EditRFQ = () => {
         setInitialDataLoaded(true);
       }
     } catch (error) {
-      setDataFetchError(error.message || "Failed to load RFQ data");
-      toast.error("Failed to load RFQ data. Please try again.");
+      setDataFetchError(error.message || "Failed to load Tender / RFQ data");
+      toast.error("Failed to load Tender / RFQ data. Please try again.");
       console.error("Error loading RFQ data:", error);
     } finally {
       setRfqLoading(false);
@@ -820,7 +836,7 @@ const EditRFQ = () => {
              !response.error);
              
           if (isSuccess) {
-            toast.info("RFQ has been updated, you can change something else or go back!");
+            toast.info(`${getEntityLabel(rfqData?.is_tender)} has been updated, you can change something else or go back!`);
             
             // Reset initialization flag so we'll re-initialize terms on fetch
             termsInitializedRef.current = false;
@@ -885,7 +901,7 @@ const EditRFQ = () => {
 
           } else {
             console.error("Update failed:", response);
-            toast.error(response?.message || "Failed to update RFQ. Please check the form and try again.");
+            toast.error(response?.message || `Failed to update ${getEntityLabel(rfqData?.is_tender)}. Please check the form and try again.`);
           }
         })
         .catch((error) => {
@@ -895,7 +911,7 @@ const EditRFQ = () => {
           if (error.response && error.response.data && error.response.data.message) {
             toast.error(error.response.data.message);
           } else {
-            toast.error("Failed to update RFQ. Please check form fields and try again.");
+            toast.error(`Failed to update ${getEntityLabel(rfqData?.is_tender)}. Please check form fields and try again.`);
           }
         }).finally(() => 
           setTimeout(() => {
@@ -906,7 +922,7 @@ const EditRFQ = () => {
     } catch (error) {
       setLoading(false);
       console.error("Error in handleUpdateRFQ:", error);
-      toast.error("An error occurred while updating the RFQ: " + (error.message || "Unknown error"));
+      toast.error(`An error occurred while updating the ${getEntityLabel(rfqData?.is_tender)}: ` + (error.message || "Unknown error"));
     }
   };
 
@@ -1375,7 +1391,7 @@ const EditRFQ = () => {
     return (
       <div className="container-fluid">
         <div className="alert alert-warning">
-          <p>Unable to load RFQ data. Please try again.</p>
+          <p>Unable to load Tender / RFQ data. Please try again.</p>
           <button
             className="btn btn-primary"
             onClick={() => window.location.reload()}
@@ -1403,7 +1419,7 @@ const EditRFQ = () => {
     return (
       <AccessDeniedPage
         title="Access Denied"
-        message="You do not have permission to view this RFQ. This may be because you are not assigned to the hotels associated with this tender."
+        message={`You do not have permission to view this ${getEntityLabel(rfqData?.is_tender)}. This may be because you are not assigned to the hotels associated with this ${getEntityLabel(rfqData?.is_tender)}.`}
       />
     );
   }
@@ -1412,7 +1428,7 @@ const EditRFQ = () => {
     <>
       <div className="bg-dark-blue text-white p-3 mb-4">
         <div className="container-fluid">
-          <h1 className="fs-4 m-0">Edit RFQ #{rfqData?.rfq_no}</h1>
+          <h1 className="fs-4 m-0">Edit {getEntityLabel(rfqData?.is_tender)} #{rfqData?.rfq_no}</h1>
         </div>
       </div>
 
@@ -1420,16 +1436,16 @@ const EditRFQ = () => {
       {hotelIds.length > 0 && !canUpdate && canRead && (
         <ReadOnlyBanner
           title="View Only Mode"
-          message="You don't have edit permissions for this tender. Contact your administrator to request access."
+          message={`You don't have edit permissions for this ${getEntityLabel(rfqData?.is_tender).toLowerCase()}. Contact your administrator to request access.`}
         />
       )}
 
       <div className="container-fluid mb-4">
         <div className="d-flex">
           <Link href="/dashboard/buyer/rfq-management" className="me-2 text-decoration-none text-muted">
-            Manage RFQs
+            Manage Tender / RFQs
           </Link>
-          <span className="text-primary">Edit RFQ</span>
+          <span className="text-primary">Edit {getEntityLabel(rfqData?.is_tender)}</span>
         </div>
       </div>
 
@@ -1439,7 +1455,7 @@ const EditRFQ = () => {
           borderRadius: 0
         }} className="mb-4">
           <div className="mb-3">
-            <h4 className="mb-0">RFQ #{rfqData?.rfq_no} details</h4>
+            <h4 className="mb-0">{getEntityLabel(rfqData?.is_tender)} #{rfqData?.rfq_no} details</h4>
           </div>
           {/* <div className="p-0">
             {rfqLoading ? (
@@ -1649,7 +1665,7 @@ const EditRFQ = () => {
                       }}
                       handleRemoveProductInEdit={(data) => {
                         if((updatableData.products.deletable.length + 1) === rfqData?.products?.length)
-                          toast.warning("You cannot delete all products from RFQ, at least one product is required");
+                          toast.warning(`You cannot delete all products from ${getEntityLabel(rfqData?.is_tender)}, at least one product is required`);
                         else
                         setUpdatableData((prev) => ({
                           ...prev,
@@ -1718,7 +1734,7 @@ const EditRFQ = () => {
                 <fieldset disabled={hotelIds.length > 0 && !canUpdate}>
                 <div className="card mb-4">
                   <div className="card-header bg-light">
-                    <h5 className="mb-0">RFQ Information</h5>
+                    <h5 className="mb-0">{getEntityLabel(rfqData?.is_tender)} Information</h5>
                   </div>
                   <div className="card-body">
                     <div className="row g-3">
@@ -1896,9 +1912,9 @@ const EditRFQ = () => {
                       </div>
 
                       <div className="col-md-6">
-                        {/* RFQ Type */}
+                        {/* Tender / RFQ Type */}
                         <div className="mb-3">
-                          <label className="form-label fw-medium">RFQ Type  </label>
+                          <label className="form-label fw-medium">Tender / RFQ Type  </label>
                           <Select
                             options={rfqTypes}
                             value={(() => {
@@ -1968,6 +1984,30 @@ const EditRFQ = () => {
                         </div>
                       </div>
 
+                      {rfqFormDataFromStore.is_tender === 1 && departments.length > 0 && (
+                        <div className="col-md-6">
+                          {/* Department */}
+                          <div className="mb-3">
+                            <label className="form-label fw-medium">Department</label>
+                            <Select
+                              options={departments}
+                              value={departments.find(d => d.value === rfqFormDataFromStore.department_id) || null}
+                              onChange={(selected) => {
+                                dispatch(setOtherFormFields({
+                                  field_name: "department_id",
+                                  value: selected?.value || null
+                                }));
+                                setHasUnsavedChanges(true);
+                              }}
+                              placeholder="Select Department"
+                              className="basic-select"
+                              classNamePrefix="select"
+                              isClearable={true}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       {
                         !!rfqFormDataFromStore.reverse_auction && parseInt(rfqFormDataFromStore.reverse_auction) && (
                           <>
@@ -2022,7 +2062,7 @@ const EditRFQ = () => {
                       </div>
                       <div className="col-6">
                         <div className="mb-3">
-                          <label className="form-label fw-medium">RFQ Status  </label>
+                          <label className="form-label fw-medium">{getEntityLabel(rfqData?.is_tender)} Status  </label>
                           <Select
                             options={statusType}
                             value={(() => {
@@ -2035,7 +2075,7 @@ const EditRFQ = () => {
                               dispatch(setOtherFormFields({ status: rfqStatus }));
                               setHasUnsavedChanges(true);
                             }}
-                            placeholder="Select RFQ Status"
+                            placeholder={`Select ${getEntityLabel(rfqData?.is_tender)} Status`}
                             className="basic-select"
                             classNamePrefix="select"
                             isClearable={true}
@@ -2103,7 +2143,7 @@ const EditRFQ = () => {
                             })}
                           </ol>
                         ) : (
-                          <p className="text-muted mb-0">No terms have been selected for this RFQ.</p>
+                          <p className="text-muted mb-0">No terms have been selected for this {getEntityLabel(rfqData?.is_tender)}.</p>
                         )}
                       </div>
                     </div>
@@ -2170,9 +2210,9 @@ const EditRFQ = () => {
                         }
                       }}
                       id="update_rfq-rfq_actions-edit_rfq_page"
-                      title={hotelIds.length > 0 && !canUpdate ? "You don't have permission to update this RFQ" : ""}
+                      title={hotelIds.length > 0 && !canUpdate ? `You don't have permission to update this ${getEntityLabel(rfqData?.is_tender)}` : ""}
                     >
-                      {storeLoading || loading ? "Updating..." : "Update RFQ"}
+                      {storeLoading || loading ? "Updating..." : `Update ${getEntityLabel(rfqData?.is_tender)}`}
                     </button>
                     {isUpdateConfirm && (
                       <span className="text-danger mt-2">Updation have deletable products,<br/>click again to confirm.</span>
@@ -2193,7 +2233,7 @@ const EditRFQ = () => {
           </Formik>
         ) : (
           <div className="alert alert-info">
-            <p className="mb-2">Loading RFQ form data. Please wait...</p>
+            <p className="mb-2">Loading {getEntityLabel(rfqData?.is_tender)} form data. Please wait...</p>
             <div className="progress">
               <div 
                 className="progress-bar progress-bar-striped progress-bar-animated" 
@@ -2406,7 +2446,7 @@ const EditRFQ = () => {
         submitText={"Add Product"}
       />
       <AddProductModal
-        headerTitle={`Add Vendors to RFQ #${rfqData.rfq_no}`}
+        headerTitle={`Add Vendors to ${getEntityLabel(rfqData?.is_tender)} #${rfqData.rfq_no}`}
         rfqData={rfqData}
         isOpen={showAddProductModal}
         onClose={() => setShowAddProductModal(false)}
@@ -2422,15 +2462,15 @@ const EditRFQ = () => {
         updatableData={updatableData}
       />
 
-      {/* Update RFQ Confirmation Modal */}
+      {/* Update Tender / RFQ Confirmation Modal */}
       <ConfirmationModal
         isOpen={showUpdateConfirmModal}
         onClose={handleUpdateCancel}
         onConfirm={handleUpdateConfirm}
-        title="Update RFQ"
-        description="Are you sure you want to update this RFQ?\nThis action will modify the RFQ details and notify relevant vendors."
+        title={`Update ${getEntityLabel(rfqData?.is_tender)}`}
+        description={`Are you sure you want to update this ${getEntityLabel(rfqData?.is_tender)}?\nThis action will modify the ${getEntityLabel(rfqData?.is_tender)} details and notify relevant vendors.`}
         confirmButtonColor="success"
-        confirmButtonText="Update RFQ"
+        confirmButtonText={`Update ${getEntityLabel(rfqData?.is_tender)}`}
         cancelButtonText="Cancel"
       />
 

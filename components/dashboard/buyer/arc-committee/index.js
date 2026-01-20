@@ -87,7 +87,7 @@ const ArcCommittee = () => {
   });
 
   const lifecycleStages = [
-    { value: 'CREATED', label: 'RFQ Created' },
+    { value: 'CREATED', label: 'Tender Created' },
     { value: 'SUBMITTED', label: 'Submitted for Approval' },
     { value: 'PUBLISHED', label: 'Published' },
     { value: 'TECH_EVAL', label: 'Technical Evaluation' },
@@ -174,8 +174,8 @@ const ArcCommittee = () => {
         setRfqList(response.data || []);
       }
     } catch (error) {
-      console.error('Error loading RFQ list:', error);
-      toast.error('Failed to load RFQ list');
+      console.error('Error loading Tender list:', error);
+      toast.error('Failed to load Tender list');
     } finally {
       setLoading(false);
     }
@@ -229,7 +229,8 @@ const ArcCommittee = () => {
         remarks || null,
         selectedProductId || null,
         null,
-        null
+        null,
+        lifecycleData?.rfq?.department_id || null
       );
 
       if (response.status === 1) {
@@ -258,7 +259,8 @@ const ArcCommittee = () => {
         comment || null,
         selectedProductId,
         context.approval_instance_id || null,
-        context.approval_instance_step_id || null
+        context.approval_instance_step_id || null,
+        lifecycleData?.rfq?.department_id || null
       );
 
       if (response.status === 1) {
@@ -280,7 +282,8 @@ const ArcCommittee = () => {
         comment,
         selectedProductId,
         context.approval_instance_id || null,
-        context.approval_instance_step_id || null
+        context.approval_instance_step_id || null,
+        lifecycleData?.rfq?.department_id || null
       );
 
       if (response.status === 1) {
@@ -480,7 +483,7 @@ const ArcCommittee = () => {
 
     const history = lifecycleData.lifecycleHistory;
     const stages = [
-      { stage: 'CREATED', label: 'RFQ Created', icon: BsFileEarmarkText },
+      { stage: 'CREATED', label: 'Tender Created', icon: BsFileEarmarkText },
       { stage: 'SUBMITTED', label: 'Submitted for Approval', icon: BsClockFill },
       { stage: 'PUBLISHED', label: 'Published', icon: BsCheckCircleFill },
       { stage: 'TECH_EVAL_STARTED', label: 'Technical Evaluation Started', icon: BsPeopleFill },
@@ -578,7 +581,7 @@ const ArcCommittee = () => {
     return (
       <div className="row">
         <div className="col-md-6">
-          <p className="mb-2"><strong>RFQ/Tender No:</strong> {rfq.rfq_no}</p>
+          <p className="mb-2"><strong>Tender No:</strong> {rfq.rfq_no}</p>
           <p className="mb-2"><strong>Company:</strong> {rfq.company_name}</p>
           <p className="mb-2"><strong>Contact Person:</strong> {rfq.contact_name}</p>
           <p className="mb-2"><strong>Email:</strong> {rfq.response_email}</p>
@@ -842,7 +845,7 @@ const ArcCommittee = () => {
         title="Access Denied"
         message="You do not have permission to view ARC Committee reviews. Contact your administrator to request access."
         backUrl="/dashboard/buyer/rfq-management"
-        backLabel="Back to RFQ Management"
+        backLabel="Back to Tender / RFQ Management"
       />
     );
   }
@@ -862,15 +865,15 @@ const ArcCommittee = () => {
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
           <div className="row">
-            {/* RFQ List */}
+            {/* Tender List */}
             <div className="col-md-2">
               <div className="hasFullLoader">
-                <h5 className="title">List Of RFQ's</h5>
+                <h5 className="title">List Of Tenders</h5>
 
                 {loading && <FullLoader />}
 
                 <div className="py-1">
-                    <label>Search RFQ No.</label>
+                    <label>Search Tender No.</label>
                     <input
                         className="form-control react-select" 
                         style={{ borderRadius: '0.25rem', borderColor: '#ced4da', boxShadow: 'none' }}
@@ -928,7 +931,7 @@ const ArcCommittee = () => {
                 </Alert>
 
                 {!loading && rfqList.length === 0 ? (
-                  <p style={{ textAlign: "center" }}>No RFQs yet!</p>
+                  <p style={{ textAlign: "center" }}>No Tenders yet!</p>
                 ) : (
                   <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
                     {rfqList.map((item) => {
@@ -979,7 +982,7 @@ const ArcCommittee = () => {
             <div className="col-md-10">
               <div className="quote-sec-table quote-sec-tab">
               {!rfq_id ? (
-                <Alert variant="info">Please select an RFQ from the list to view details</Alert>
+                <Alert variant="info">Please select a Tender from the list to view details</Alert>
               ) : lifecycleData ? (
                 <div>
                   {/* 1. Compact Tender Summary */}

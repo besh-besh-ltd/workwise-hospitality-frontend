@@ -107,9 +107,9 @@ const ProjectManagement = () => {
                                                     <th scope='col'>Sl No.</th>
                                                     <th scope="col">Project Name</th>
                                                     <th scope="col">Description</th>
-                                                    <th scope="col">Total RFQs</th>
-                                                    <th scope="col">Open RFQs</th>
-                                                    <th scope="col">Closed RFQs</th>
+                                                    <th scope="col">Total Tender / RFQs</th>
+                                                    <th scope="col">Open Tender / RFQs</th>
+                                                    <th scope="col">Closed Tender / RFQs</th>
                                                     <th scope="col">Created By</th>
                                                     <th scope="col">Budget</th>
                                                     <th scope="col">Action</th>

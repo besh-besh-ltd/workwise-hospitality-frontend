@@ -308,7 +308,7 @@ const ProjectDetails = () => {
                       <div className="col-md-6">
                         <div className="row">
                           <div className="col-md-4 mb-2">
-                            <span className="fw-bold">Total RFQs </span>
+                            <span className="fw-bold">Total Tender / RFQs </span>
                             {loading ? (
                               <span className="d-block mt-1">
                                 <PlaceholderLoading
@@ -324,7 +324,7 @@ const ProjectDetails = () => {
                             )}
                           </div>
                           <div className="col-md-4 mb-2">
-                            <span className="fw-bold">Open RFQs </span>
+                            <span className="fw-bold">Open Tender / RFQs </span>
                             {loading ? (
                               <span className="d-block mt-1">
                                 <PlaceholderLoading
@@ -340,7 +340,7 @@ const ProjectDetails = () => {
                             )}
                           </div>
                           <div className="col-md-4 mb-2">
-                            <span className="fw-bold">Closed RFQs </span>
+                            <span className="fw-bold">Closed Tender / RFQs </span>
                             {loading ? (
                               <span className="d-block mt-1">
                                 <PlaceholderLoading
@@ -613,7 +613,7 @@ const ProjectDetails = () => {
 
                         {/* Budget Header */}
                         <div className="budget-header d-flex justify-content-between mb-1 p-2 bg-light rounded fw-bold">
-                          <span>RFQ NO</span>
+                          <span>Tender / RFQ No</span>
                           <span style={{ width: "150px", textAlign: "center" }}>
                             Vendor
                           </span>
@@ -701,8 +701,8 @@ const ProjectDetails = () => {
                     </div>
                   </div>
 
-                  {/* RFQ Details Table */}
-                  <span className="title">RFQs for this Project</span>
+                  {/* Tender / RFQ Details Table */}
+                  <span className="title">Tender / RFQs for this Project</span>
                   <div className="details-table p-4 ">
                     <div className="row">
                       <div className="col-sm-4 col-md-6"></div>
@@ -732,7 +732,7 @@ const ProjectDetails = () => {
                               icon={faWandMagicSparkles}
                               className="me-2"
                             />{" "}
-                            Generate RFQ from BOQ
+                            Generate Tender / RFQ from BOQ
                           </Link>
                         </div>
                       </div>
@@ -743,8 +743,8 @@ const ProjectDetails = () => {
                         <thead>
                           <tr>
                             <th scope="col">Sl No.</th>
-                            <th scope="col">RFQ Number</th>
-                            <th scope="col">RFQ Type</th>
+                            <th scope="col">Tender / RFQ Number</th>
+                            <th scope="col">Tender / RFQ Type</th>
                             <th scope="col">Reverse Auction</th>
                             <th scope="col">Total Vendors</th>
                             <th scope="col">Quotes Recieved</th>

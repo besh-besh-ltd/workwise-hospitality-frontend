@@ -20,7 +20,7 @@ import * as XLSX from "xlsx-js-style";
 import QuoteCompareTable from "@/components/dashboard/buyer/quote-compare-table";
 import Loader from "@/components/shared/Loader";
 import OverallComparison from "./overallComparison";
-import { addCommasToNumber, calculateTotal, formatPrice, handleNormalize, normalizeFlatQuotationData, formatRFQNumber } from "@/utils/sharedFunctions";
+import { addCommasToNumber, calculateTotal, formatPrice, handleNormalize, normalizeFlatQuotationData, formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
 import PlaceholderLoading from "react-placeholder-loading";
 import { toast } from "react-toastify";
 import { getProjectAvailableBudget, getProjectList } from '@/services/project';
@@ -1277,10 +1277,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     try {
       await closeRFQ(rfq);
       getRespectiveQuotes();
-      toast.success("RFQ closed successfully");
+      toast.success(`${getEntityLabel(currentRFQ?.is_tender)} closed successfully`);
     } catch (err) {
       console.error("Error closing RFQ:", err);
-      toast.error("Failed to close RFQ");
+      toast.error(`Failed to close ${getEntityLabel(currentRFQ?.is_tender)}`);
     } finally {
       setcloseRFqLoading(false);
       setShowCloseConfirmModal(false);
@@ -1413,12 +1413,12 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       <span id="close_rfq_actions-quote_compare_page" onClick={handleRFqClose}>
                         {closeRFqLoading
                           ? "Processing request..."
-                          : "Mark RFQ as Closed"}
+                          : `Mark ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender)} as Closed`}
                       </span>
                     )}
                     {quotes[0]?.rfq[0]?.status == 2 && (
                       <span className="disabled-button">
-                        RFQ has been closed
+                        {getEntityLabel(quotes[0]?.rfq[0]?.is_tender)} has been closed
                       </span>
                     )}
                   </>
@@ -1440,7 +1440,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 <p className="px-1 pt-3 fs-6 mb-1 fw-medium">Quotes Received</p>
                 {loading && <FullLoader />}
                 <div className="py-1">
-                  <label>Search RFQ No.</label>
+                  <label>Search Tender / RFQ No.</label>
                   <input
                     className="form-control react-select"
                     style={{
@@ -1519,7 +1519,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   />
                 </div>
                 {!loading && myRFQs && myRFQs.length === 0 ? (
-                  <p style={{ textAlign: "center" }}>No RFQs yet!</p>
+                  <p style={{ textAlign: "center" }}>No Tender / RFQs yet!</p>
                 ) : !loading && myRFQs && myRFQs.length > 0 ? (
                   <ul
                     className="overflow-y-auto mt-1"
@@ -1641,7 +1641,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         )}
                         {currentRFQ.rfq_type && currentRFQ.rfq_type != "" && (
                           <p className="sub-heading mb-0">
-                            <b>RFQ Type</b> : {currentRFQ.rfq_type}
+                            <b>Tender / RFQ Type</b> : {currentRFQ.rfq_type}
                           </p>
                         )}
                         <p className="sub-heading mb-0">
@@ -2293,15 +2293,15 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         onClose={handleCloseNormalizeModal}
       />
 
-      {/* Close RFQ Confirmation Modal */}
+      {/* Close Tender / RFQ Confirmation Modal */}
       <ConfirmationModal
         isOpen={showCloseConfirmModal}
         onClose={handleCloseCancel}
         onConfirm={handleCloseConfirm}
-        title="Close RFQ"
-        description={`Are you sure you want to close ${quotes[0]?.rfq[0]?.is_tender === 1 ? 'Tender' : 'RFQ'} #${quotes[0]?.rfq[0]?.rfq_no || 'this RFQ'}?\nOnce closed, vendors will no longer be able to submit quotes.`}
+        title={`Close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender)}`}
+        description={`Are you sure you want to close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender)} #${quotes[0]?.rfq[0]?.rfq_no || ''}?\nOnce closed, vendors will no longer be able to submit quotes.`}
         confirmButtonColor="warning"
-        confirmButtonText="Close RFQ"
+        confirmButtonText={`Close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender)}`}
         cancelButtonText="Cancel"
       />
     </>

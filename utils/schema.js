@@ -49,6 +49,10 @@ export const CreateRFQSchema = yup.object().shape({
   contact_name: yup.string().required("Contact name is required"),
   company_name: yup.string().required("Company name is required"),
   bid_end_date: yup.string().optional("Bid end date is required"),
+  department_id: yup
+    .number()
+    .nullable()
+    .typeError("Please select a department"),
 });
 
 export const EditSocialDetails = yup.object().shape({

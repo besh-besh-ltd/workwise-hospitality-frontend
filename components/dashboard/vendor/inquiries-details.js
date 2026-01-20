@@ -12,7 +12,7 @@ import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
-import { checkBidExpired, extractfileName, formatDate } from "@/utils/sharedFunctions";
+import { checkBidExpired, extractfileName, formatDate, getEntityLabel } from "@/utils/sharedFunctions";
 import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
@@ -256,10 +256,10 @@ const RfqManagementPreview = () => {
     try {
       await closeRFQ(id);
       getRFQdetails();
-      toast.success("RFQ closed successfully");
+      toast.success(`${getEntityLabel(rfqDetails?.is_tender)} closed successfully`);
     } catch (err) {
-      console.error("Error closing RFQ:", err);
-      toast.error("Failed to close RFQ");
+      console.error("Error closing Tender / RFQ:", err);
+      toast.error(`Failed to close ${getEntityLabel(rfqDetails?.is_tender)}`);
     } finally {
       setcloseRFqLoading(false);
       setShowCloseConfirmModal(false);
@@ -290,10 +290,10 @@ const RfqManagementPreview = () => {
     let currentIsReverseAuctionActive = false;
 
     // Changes by Agnij 2025-05-05 [Ensure RFQ closed status takes precedence]
-    // Priority 1: RFQ Closed (highest priority)
+    // Priority 1: Tender / RFQ Closed (highest priority)
     if (isRfqClosed) {
       isDisabled = true;
-      message = "RFQ is Closed";
+      message = `${getEntityLabel(rfqDetails?.is_tender)} is Closed`;
     }
     // Priority 1.5: Open Clarification blocks quote submission (for tenders only)
     else if (rfqDetails?.is_tender === 1 && hasOpenClarification) {
@@ -728,7 +728,7 @@ const RfqManagementPreview = () => {
                 <div>
                   {!enableBuyerView && (
                     <h1 className="heading mb-0">
-                      Inquiry from {rfqDetails.company_name} (RFQ #
+                      Inquiry from {rfqDetails.company_name} ({getEntityLabel(rfqDetails?.is_tender)} #
                       {rfqDetails.rfq_no})
                     </h1>
                   )}
@@ -1072,7 +1072,7 @@ const RfqManagementPreview = () => {
                     {/* Content for Manage RFQs tab */}
                     <div className="d-flex justify-content-between align-items-center">
                       <span className="title mb-0">
-                        RFQ #{rfqDetails.rfq_no} details
+                        {getEntityLabel(rfqDetails?.is_tender)} #{rfqDetails.rfq_no} details
                       </span>
 
                       <div>
@@ -1087,7 +1087,7 @@ const RfqManagementPreview = () => {
                               style={{ width: "auto" }}
                             >
                               <FontAwesomeIcon icon={faEdit} className="me-2" />
-                              Edit RFQ
+                              Edit {getEntityLabel(rfqDetails?.is_tender)}
                             </button>
                           </Link>
                         )}
@@ -1666,7 +1666,7 @@ const RfqManagementPreview = () => {
                                 >
                                   {closeRFqLoading
                                     ? "Processing request..."
-                                    : "Mark RFQ as Closed"}
+                                    : `Mark ${getEntityLabel(rfqDetails?.is_tender)} as Closed`}
                                 </button>
                               )}
                               {rfqDetails?.status == 2 && (
@@ -1676,7 +1676,7 @@ const RfqManagementPreview = () => {
                                   onClick={(e) => e.preventDefault()}
                                   disabled={true}
                                 >
-                                  RFQ has been closed
+                                  {getEntityLabel(rfqDetails?.is_tender)} has been closed
                                 </button>
                               )}
                             </>
@@ -1695,7 +1695,7 @@ const RfqManagementPreview = () => {
       {!loading && rfqDetails && !rfqDetails.id && (
         <section className="buyer-common-header sc-pt-80">
           <div className="container-fluid">
-            {<h1 className="heading">RFQ Not Available!</h1>}
+            {<h1 className="heading">Tender / RFQ Not Available!</h1>}
           </div>
         </section>
       )}
@@ -1717,17 +1717,17 @@ const RfqManagementPreview = () => {
         setActiveAuthTab={setActiveAuthTab}
       />
 
-      {/* Close RFQ Confirmation Modal */}
+      {/* Close Tender / RFQ Confirmation Modal */}
       <ConfirmationModal
         isOpen={showCloseConfirmModal}
         onClose={handleCloseCancel}
         onConfirm={handleCloseConfirm}
-        title="Close RFQ"
-        description={`Are you sure you want to close RFQ #${
-          rfqDetails?.rfq_no || "this RFQ"
+        title={`Close ${getEntityLabel(rfqDetails?.is_tender)}`}
+        description={`Are you sure you want to close ${getEntityLabel(rfqDetails?.is_tender)} #${
+          rfqDetails?.rfq_no || `this ${getEntityLabel(rfqDetails?.is_tender)}`
         }?\nOnce closed, vendors will no longer be able to submit quotes.`}
         confirmButtonColor="warning"
-        confirmButtonText="Close RFQ"
+        confirmButtonText={`Close ${getEntityLabel(rfqDetails?.is_tender)}`}
         cancelButtonText="Cancel"
       />
 
@@ -1752,12 +1752,14 @@ const RfqManagementPreview = () => {
         }}
         clarification={selectedClarification}
         isBuyer={false}
-        isOwner={selectedClarification?.raised_by_vendor_id === storageInstance.getStorage("user_id")}
+        isOwner={true}
         onSuccess={() => {
           fetchClarifications();
           setShowClarificationDetailModal(false);
           setSelectedClarification(null);
         }}
+        token={token}
+        onRefresh={fetchClarifications}
       />
 
       {/* Clarification List Modal - API already returns only vendor's own clarifications */}
@@ -1766,8 +1768,8 @@ const RfqManagementPreview = () => {
         onHide={() => setShowClarificationListModal(false)}
         clarifications={clarifications}
         isBuyer={false}
-        currentUserId={storageInstance.getStorage("user_id")}
         onRefresh={fetchClarifications}
+        token={token}
       />
     </>
   );

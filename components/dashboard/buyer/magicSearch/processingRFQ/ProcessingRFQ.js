@@ -60,7 +60,7 @@ const ProcessingRFQ = ({ handleCreateRFQ }) => {
           {/* Table Data Section */}
           {loading && <FullLoader />}
           {!loading && myProcessingRFQs.length == 0 && (
-            <p>You don't have any processing RFQs yet!</p>
+            <p>You don't have any processing Tender / RFQs yet!</p>
           )}
           {!loading && myProcessingRFQs && myProcessingRFQs.length > 0 && (
             <div className="table-responsive">
@@ -74,7 +74,7 @@ const ProcessingRFQ = ({ handleCreateRFQ }) => {
                     <th>Started At</th>
                     <th>Completed At</th>
                     <th>Time Taken</th>
-                    <th>RFQ ID</th>
+                    <th>Tender / RFQ ID</th>
                     <th>Pending Items</th>
                     <th>Action</th>
                   </tr>

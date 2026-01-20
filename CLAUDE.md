@@ -2,7 +2,48 @@
 
 ## Portal Details
 
-This is a **Customized Procurement Platform** for **"Phileein Hospitality"** - a hospitality chain serving multiple hotel chains. The platform facilitates procurement workflows including RFQ management, vendor management, purchase orders, and technical evaluations across the hospitality ecosystem.
+This is a **Customized Procurement Platform** for **"Phileein Hospitality"** - a hospitality chain serving multiple hotel chains. The platform facilitates procurement workflows including RFQ management, tender management, vendor management, purchase orders, and technical evaluations across the hospitality ecosystem.
+
+### Hospitality Context
+The platform operates on a **Company → Hotel** hierarchy:
+- Users are mapped to specific companies and/or hotels
+- All API calls include hospitality headers (`X-Hospitality-Company`, `X-Hospitality-Hotel`)
+- Approval workflows are configured per hotel
+- Context is stored in localStorage and synced via custom events
+
+### Permission-Based Access
+- User access is determined by **roles with permissions**, not user types
+- Permissions control what actions a user can perform (read, write, approve, etc.)
+- Custom roles can be created with specific permission sets
+- Module-based permissions for: RFQ, Tender, PO, Technical Evaluation, Negotiation, ARC
+
+---
+
+## Core Workflows
+
+### RFQ Flow (No ARC)
+```
+Create RFQ → Save Draft → Publish → Vendor Quotes Received
+→ Quote Comparison → Negotiation (optional) → Vendor Finalization
+→ PO Creation → PO Approval → GRN → Completion
+```
+
+### Tender Flow (With ARC, No PO)
+```
+Search Vendor (by Hotel) → Tender Review → Submit For Approval
+→ Authority Approval → Auto Publish (on publish date)
+→ Clarifications (if any) → Vendors Send Quotes
+→ Negotiation → Vendor Updates Quote (once per round)
+→ Submit Best Quotes OR Create Another Round
+→ Authority Approval → ARC Review → ARC Approval
+→ ARC Document Created → Sent to Vendor
+```
+
+### Key Workflow Components
+- **Negotiation**: Multi-round with target prices, vendors can update quote once per round
+- **Clarifications**: Tender-specific Q&A between buyer and vendors
+- **ARC**: Approval & Routing Committee (Tender flow only)
+- **Technical Evaluation**: Clause-based scoring before quote comparison
 
 ---
 
@@ -54,6 +95,10 @@ frontend/
 │   │   │   ├── project-management/
 │   │   │   ├── magicSearch/
 │   │   │   │   └── processingRFQ/
+│   │   │   ├── negotiation/           # Negotiation rounds
+│   │   │   ├── arc-committee/         # ARC workflow (Tender only)
+│   │   │   ├── clarification/         # Tender clarifications
+│   │   │   ├── approval/              # Approval workflow components
 │   │   │   └── dashboard-components/
 │   │   ├── vendor/                # Vendor dashboard
 │   │   │   ├── company-profile/
@@ -132,7 +177,7 @@ frontend/
 │
 ├── services/                      # API service layers
 │   ├── Auth.js                    # Authentication APIs
-│   ├── rfq.js                     # RFQ management APIs
+│   ├── rfq.js                     # RFQ/Tender management APIs
 │   ├── po.js                      # Purchase order APIs
 │   ├── products.js                # Product APIs
 │   ├── project.js                 # Project management APIs
@@ -140,6 +185,9 @@ frontend/
 │   ├── hospitality.js             # Hospitality-specific APIs
 │   ├── subscription.js            # Subscription APIs
 │   ├── approval.js                # Approval workflow APIs
+│   ├── negotiation.js             # Negotiation rounds APIs
+│   ├── arc.js                     # ARC committee APIs
+│   ├── clarification.js           # Tender clarification APIs
 │   ├── general.js                 # General utility APIs
 │   ├── contact.js                 # Contact form APIs
 │   ├── cms.js                     # CMS APIs
@@ -383,3 +431,66 @@ npm run test         # Run Jest tests
 - `.env.development` - Development environment
 - `.env.production` - Production environment
 - `.env.test` - Test environment
+
+---
+
+## State Management (Redux)
+
+Single slice architecture in `/redux/slice.js` - primarily for RFQ/Tender creation:
+
+**Key State:**
+- `rfqProducts[]` - Products with specs, vendors, files
+- `rfqFormData{}` - Form metadata (dates, terms, hospitality context)
+- `storeLoading` - Loading state
+
+**Common Actions:**
+- `intializeRfq` / `clearState` - RFQ state lifecycle
+- `addRfqProduct` / `removeRfqProduct` - Product management
+- `addProductSpecValue` / `addFiles` - Spec and file updates
+- `setOtherFormFields` - Generic form field updates
+
+---
+
+## API Patterns
+
+### Axios Configuration (`/lib/axios.js`)
+- **Request Interceptor**: Injects JWT token + hospitality headers
+- **Response Interceptor**: Unwraps `response.data`, handles 401 redirects, shows toast errors
+- **FormData Instance**: `/lib/axiosFormData.js` for file uploads
+
+### Service Pattern
+```javascript
+export const functionName = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(endpoint, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+```
+
+---
+
+## Key Utility Files
+
+| File | Purpose |
+|------|---------|
+| `utils/authGuard.js` | Route protection (AuthGuard, AdminGuard, etc.) |
+| `utils/hospitalityContext.js` | Hospitality context storage and events |
+| `utils/schema.js` | Yup validation schemas for forms |
+| `utils/sharedFunctions.js` | Formatting, calculations, file uploads |
+| `utils/constants/index.js` | Categories, business types, locations |
+
+---
+
+## Approval Workflow System
+
+Configured per hotel with multi-level approvals:
+- **Entity Types**: RFQ, TENDER, PO, NEGOTIATION, NEGOTIATION_QUOTE, TECHNICAL, ARC
+- **Approver Sources**: User-level or Role-level
+- **Decision Rules**: ANY (one approves) or ALL (consensus required)
+
+Components: `ApprovalTimeline`, `ApprovalPendingBanner`, `ApprovalActionModal`

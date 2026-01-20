@@ -20,7 +20,7 @@ const CreateRFQModal = ({
         }}
       >
         <Modal.Title style={{ fontWeight: 600, fontSize: "1.6rem" }}>
-          Create RFQ
+          Create Tender / RFQ
         </Modal.Title>
       </Modal.Header>
 
@@ -33,7 +33,7 @@ const CreateRFQModal = ({
             color: "#343a40",
           }}
         >
-          Heads Up! This will create a RFQ for only the 
+          Heads Up! This will create a Tender / RFQ for only the
           selected <strong>processed</strong> sheet's data
         </h4>
 
@@ -98,13 +98,13 @@ const CreateRFQModal = ({
           className="text-muted"
           style={{ fontSize: "1rem", lineHeight: "1.5" }}
         >
-          Select from the <strong>Processed Sheets</strong>, only for which you want to create the RFQ.
+          Select from the <strong>Processed Sheets</strong>, only for which you want to create the Tender / RFQ.
         </p>
         <p
           className="text-muted"
           style={{ fontSize: "1rem", lineHeight: "1.5" }}
         >
-          Upon clicking the <strong>Create RFQ</strong> button, a RFQ will be
+          Upon clicking the <strong>Create Tender / RFQ</strong> button, a Tender / RFQ will be
           created with all the details provided in the selected processed sheets.
         </p>
         <p
@@ -125,7 +125,7 @@ const CreateRFQModal = ({
           Cancel
         </Button>
         <Button variant="primary" size="sm" onClick={onConfirm}>
-          Create RFQ
+          Create Tender / RFQ
         </Button>
       </Modal.Footer>
     </Modal>

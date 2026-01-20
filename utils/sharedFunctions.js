@@ -56,6 +56,20 @@ export const formatRFQNumber = (rfq_no, is_tender) => {
     return isTender ? `Tender #${rfq_no}` : `RFQ #${rfq_no}`;
 }
 
+/**
+ * Returns "Tender" or "RFQ" label based on is_tender flag
+ * @param {boolean|number} is_tender - Whether this is a tender (1/true) or RFQ (0/false)
+ * @param {boolean} plural - If true, returns "Tenders" or "RFQs"
+ * @returns {string} "Tender"/"Tenders" or "RFQ"/"RFQs"
+ */
+export const getEntityLabel = (is_tender, plural = false) => {
+    const isTender = is_tender === 1 || is_tender === true;
+    if (plural) {
+        return isTender ? 'Tenders' : 'RFQs';
+    }
+    return isTender ? 'Tender' : 'RFQ';
+}
+
 export const getFuturedate = (days = 30) => {
     const date = new Date();
     date.setDate(date.getDate() + days);

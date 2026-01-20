@@ -12,7 +12,7 @@ const AccessDeniedPage = ({
   message = "You do not have permission to view this content.",
   showBackButton = true,
   backUrl = "/dashboard/buyer/rfq-management",
-  backLabel = "Back to RFQ Management",
+  backLabel = "Back to Management",
 }) => {
   const router = useRouter();
 

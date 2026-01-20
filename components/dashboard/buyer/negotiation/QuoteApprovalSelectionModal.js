@@ -12,7 +12,8 @@ const QuoteApprovalSelectionModal = ({
   rfq_product_id,
   productName,
   vendorCodeMap = {},
-  onSuccess
+  onSuccess,
+  department_id = null
 }) => {
   const [selectedQuotes, setSelectedQuotes] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -48,7 +49,8 @@ const QuoteApprovalSelectionModal = ({
         rfq_id,
         rfq_product_id,
         quote_ids: selectedQuotes,
-        remarks: remarks.trim() || undefined
+        remarks: remarks.trim() || undefined,
+        department_id
       });
       toast.success(response?.message || 'Quotes submitted for approval successfully');
       setSelectedQuotes([]);

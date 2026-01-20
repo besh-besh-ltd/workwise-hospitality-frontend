@@ -231,15 +231,15 @@ const getQuoteStatus = async (rfq_id) => {
                       <table className="table table-striped border-0 mb-0 ">
                         <thead>
                           <tr>
-                            <th>RFQ ID</th>
+                            <th>Tender / RFQ ID</th>
                             <th>Products</th>
                             <th>Company</th>
                             <th>Received Date</th>
                             <th>End Date</th>
-                            <th>RFQ Type</th>
+                            <th>Tender / RFQ Type</th>
                             <th>Quote Sent</th>
                             <th>Reverse Auction</th>
-                            <th>RFQ Status</th>
+                            <th>Tender / RFQ Status</th>
                             <th>Action</th>
                             <th>Query</th>
                             <th>Follow Up</th>
@@ -327,15 +327,15 @@ const getQuoteStatus = async (rfq_id) => {
                         <table className="table table-striped border-0 mb-0 ">
                           <thead>
                             <tr>
-                              <th>RFQ ID</th>
+                              <th>Tender / RFQ ID</th>
                               <th>Products</th>
                               <th>Company</th>
                               <th>Received Date</th>
                               <th>End Date</th>
-                              <th>RFQ Type</th>
+                              <th>Tender / RFQ Type</th>
                               <th>Quote Sent</th>
                               <th>Reverse Auction</th>
-                              <th>RFQ Status</th>
+                              <th>Tender / RFQ Status</th>
                               <th>Action</th>
                               <th>Query</th>
                               <th>Follow Up</th>

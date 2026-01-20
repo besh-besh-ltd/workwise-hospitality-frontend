@@ -45,13 +45,13 @@ const BuyerPage = () => {
       if (item.notification_type == "new_quote_received") {
         return "New Quotation Received";
       } else if (item.notification_type == "rfq_created") {
-        return "New RFQ Created";
+        return "New Tender / RFQ Created";
       }
     } else {
       if (item.notification_type == "new_quote_received") {
-        return `You've received a new quotation on RFQ #${item.rfq_no}`;
+        return `You've received a new quotation on Tender / RFQ #${item.rfq_no}`;
       } else if (item.notification_type == "rfq_created") {
-        return `You've created a new RFQ #${item.rfq_no} and shared it with the vendors!`;
+        return `You've created a new Tender / RFQ #${item.rfq_no} and shared it with the vendors!`;
       }
     }
   };
@@ -100,7 +100,7 @@ const BuyerPage = () => {
                       ? dashboardData?.total_rfqs
                       : 0}
                   </h2>
-                  <span>Total RFQs</span>
+                  <span>Total Tender / RFQs</span>
                 </div>
                 <div className="detail-con-icon p-order">
                   <Image
@@ -122,7 +122,7 @@ const BuyerPage = () => {
                       ? dashboardData?.active_rfqs
                       : 0}
                   </h2>
-                  <span>Total Active RFQs</span>
+                  <span>Total Active Tender / RFQs</span>
                 </div>
                 <div className="detail-con-icon buy">
                   <Image
@@ -190,7 +190,7 @@ const BuyerPage = () => {
                       ? dashboardData?.quotes_received
                       : 0}
                   </h2>
-                  <span>Quotes for Active RFQs</span>
+                  <span>Quotes for Active Tender / RFQs</span>
                 </div>
                 <div className="detail-con-icon buy">
                   <Image

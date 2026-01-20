@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 import { Button } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { getEntityLabel } from "@/utils/sharedFunctions";
 
 const QueryComponent = () => {
   const router = useRouter();
@@ -142,7 +143,7 @@ const handleSelectVendor = (vendor) => {
   <section className="small-size-heading buyer-common-header ">
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center">
-        <h1 className="heading">{`Queries for RFQ#${rfqDetails?.rfq_no}`}</h1>
+        <h1 className="heading">{`Queries for ${getEntityLabel(rfqDetails?.is_tender)}#${rfqDetails?.rfq_no}`}</h1>
       </div>
     </div>
   </section>

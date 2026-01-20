@@ -20,7 +20,8 @@ const RoundEndActions = ({
   is_tender = false,
   vendorCodeMap = {},
   fullProduct = null,
-  quoteApprovalStatus = null
+  quoteApprovalStatus = null,
+  department_id = null
 }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showQuoteApprovalModal, setShowQuoteApprovalModal] = useState(false);
@@ -148,6 +149,7 @@ const RoundEndActions = ({
           productName={productName}
           vendorCodeMap={vendorCodeMap}
           onSuccess={handleQuoteApprovalSuccess}
+          department_id={department_id}
         />
       )}
     </div>

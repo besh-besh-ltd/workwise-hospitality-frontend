@@ -105,7 +105,7 @@ const FilterSection = ({ title, setFilterData }) => {
             <div className="row mb-4 text-sm" >
 
                 <div className="col-md-2 col-lg-2">
-                    <label>Search RFQ No.</label>
+                    <label>Search Tender / RFQ No.</label>
                     <input
                         id="search_rfq_no-filter_section-manage_rfq_page"
                         className="form-control react-select" 
@@ -150,7 +150,7 @@ const FilterSection = ({ title, setFilterData }) => {
 
 
                 <div className="col-md-3 col-lg-2">
-                    <label>RFQ Type</label>
+                    <label>Tender / RFQ Type</label>
                     <Select
                         id="rfq_type_filter-filter_section-manage_rfq_page"
                         options={[
