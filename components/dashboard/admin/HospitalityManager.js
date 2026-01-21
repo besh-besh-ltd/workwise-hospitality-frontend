@@ -1165,17 +1165,6 @@ const HospitalityManager = () => {
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label">Keys (Rooms)</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={hotelForm.keys}
-                    onChange={(e) => setHotelForm((prev) => ({ ...prev, keys: e.target.value }))}
-                    placeholder="Number of rooms"
-                    min={0}
-                  />
-                </div>
-                <div className="col-md-6">
                   <label className="form-label">Status</label>
                   <select
                     className="form-select"
@@ -1207,6 +1196,17 @@ const HospitalityManager = () => {
                     placeholder="Address for deliveries"
                   />
                 </div>
+                <div className="col-md-6">
+                  <label className="form-label">Number of Rooms/Keys</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={hotelForm.keys}
+                    onChange={(e) => setHotelForm((prev) => ({ ...prev, keys: e.target.value }))}
+                    placeholder="Number of rooms"
+                    min={0}
+                  />
+                </div>
               </div>
             </div>
 
@@ -1226,6 +1226,17 @@ const HospitalityManager = () => {
                     placeholder="ABCDE1234F"
                     maxLength="10"
                   />
+                  {hotelForm.pan && (
+                    <div className="mt-2">
+                      <label className="form-label small">PAN Document</label>
+                      <input
+                        type="file"
+                        className="form-control form-control-sm"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => setHotelDocuments((prev) => ({ ...prev, pan: e.target.files[0] || null }))}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="col-md-6">
                   <label className="form-label">GST</label>
@@ -1237,6 +1248,17 @@ const HospitalityManager = () => {
                     placeholder="27AABCU9603R1ZX"
                     maxLength="15"
                   />
+                  {hotelForm.gst && (
+                    <div className="mt-2">
+                      <label className="form-label small">GST Document</label>
+                      <input
+                        type="file"
+                        className="form-control form-control-sm"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => setHotelDocuments((prev) => ({ ...prev, gst: e.target.files[0] || null }))}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="col-md-6">
                   <label className="form-label">MSME</label>
@@ -1247,6 +1269,17 @@ const HospitalityManager = () => {
                     onChange={(e) => setHotelForm((prev) => ({ ...prev, msme: e.target.value }))}
                     placeholder="MSME registration"
                   />
+                  {hotelForm.msme && (
+                    <div className="mt-2">
+                      <label className="form-label small">MSME Document</label>
+                      <input
+                        type="file"
+                        className="form-control form-control-sm"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => setHotelDocuments((prev) => ({ ...prev, msme: e.target.files[0] || null }))}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1298,33 +1331,6 @@ const HospitalityManager = () => {
                     maxLength="11"
                   />
                 </div>
-              </div>
-            </div>
-
-            {/* Documents */}
-            <div className="mb-4">
-              <h6 className="text-uppercase text-muted mb-3" style={{ fontSize: "12px", letterSpacing: "0.5px" }}>
-                Documents <small>(Optional - PDF, JPG, PNG)</small>
-              </h6>
-              <div className="row g-3">
-                <div className="col-md-6">
-                  <label className="form-label">PAN Document</label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => setHotelDocuments((prev) => ({ ...prev, pan: e.target.files[0] || null }))}
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label">GST Document</label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => setHotelDocuments((prev) => ({ ...prev, gst: e.target.files[0] || null }))}
-                  />
-                </div>
                 <div className="col-md-6">
                   <label className="form-label">Cancelled Cheque</label>
                   <input
@@ -1332,15 +1338,6 @@ const HospitalityManager = () => {
                     className="form-control"
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={(e) => setHotelDocuments((prev) => ({ ...prev, cancelled_cheque: e.target.files[0] || null }))}
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label">MSME Document</label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => setHotelDocuments((prev) => ({ ...prev, msme: e.target.files[0] || null }))}
                   />
                 </div>
               </div>

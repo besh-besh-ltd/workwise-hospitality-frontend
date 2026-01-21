@@ -165,7 +165,7 @@ const LoginContainer = (props) => {
                     } else if (userType == "vendor" && pathname.includes("/dashboard/vendor/inquiries-details")) {
                         console.log("Push Sent")
                     } else if (userType == "admin") {
-                        router.push(`/dashboard/admin`);
+                        router.push(`/dashboard/admin/hospitality-manager`);
                     } else if (userType == "finance" || userType == "engineering") {
                         router.push(`/dashboard/${userType}/editprofile`);
                     } else {
@@ -246,7 +246,7 @@ const LoginContainer = (props) => {
                     if (userType == "buyer") {
                         router.push(`/vendor/all?loggedin=true`);
                     } else if (userType == "admin") {
-                        router.push(`/dashboard/admin`);
+                        router.push(`/dashboard/admin/hospitality-manager`);
                     } else if (userType == "finance" || userType == "engineering") {
                         router.push(`/dashboard/${userType}/editprofile`);
                     } else {

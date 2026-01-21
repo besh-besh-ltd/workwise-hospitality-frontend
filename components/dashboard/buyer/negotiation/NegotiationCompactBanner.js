@@ -12,7 +12,8 @@ const NegotiationCompactBanner = ({
   hospitalityCompanyId,
   hotelId,
   departmentId,
-  onRoundChange
+  onRoundChange,
+  arcApprovalData = null
 }) => {
   const [activeRounds, setActiveRounds] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -203,12 +204,16 @@ const NegotiationCompactBanner = ({
 
   const pendingApprovers = getPendingApprovers();
 
+  // Check if ARC is approved (hide ended rounds when ARC is approved)
+  const isArcApproved = arcApprovalData?.status === 'APPROVED';
+
   // Build status message
   const totalRoundsCount = endedRounds.length + activeRoundsList.length + pendingRounds.length;
   let statusMessage = 'No negotiation rounds';
   if (totalRoundsCount > 0) {
     const parts = [];
-    if (endedRounds.length > 0) {
+    // Only show ended rounds if ARC is not yet approved
+    if (endedRounds.length > 0 && !isArcApproved) {
       parts.push(`${endedRounds.length} ended`);
     }
     if (activeRoundsList.length > 0) {
@@ -217,7 +222,7 @@ const NegotiationCompactBanner = ({
     if (pendingRounds.length > 0) {
       parts.push(`${pendingRounds.length} pending`);
     }
-    statusMessage = `${parts.join(', ')} round${totalRoundsCount > 1 ? 's' : ''}`;
+    statusMessage = parts.length > 0 ? `${parts.join(', ')} round${totalRoundsCount > 1 ? 's' : ''}` : 'No negotiation rounds';
     if (pendingApprovers.length > 0) {
       statusMessage += ` (${pendingApprovers.length} approver${pendingApprovers.length > 1 ? 's' : ''} pending)`;
     }

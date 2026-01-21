@@ -26,6 +26,16 @@ const RoundEndActions = ({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showQuoteApprovalModal, setShowQuoteApprovalModal] = useState(false);
 
+  // Memoize products array for NegotiationModal to prevent infinite re-renders
+  // Note: Must be called before any early returns to comply with React hooks rules
+  const productsForModal = useMemo(() => {
+    if (fullProduct) {
+      return [fullProduct];
+    }
+    // Fallback to simplified format if fullProduct not provided
+    return [{ id: rfq_product_id, name: productName }];
+  }, [fullProduct, rfq_product_id, productName]);
+
   // Check if round has ended
   const isRoundEnded = activeRound && (
     activeRound.status === 'CLOSED' ||
@@ -41,14 +51,10 @@ const RoundEndActions = ({
   const isApprovalApproved = quoteApprovalStatus?.approval_instance?.status === 'APPROVED';
   const hasApprovalInProgress = isApprovalPending || isApprovalApproved;
 
-  // Memoize products array for NegotiationModal to prevent infinite re-renders
-  const productsForModal = useMemo(() => {
-    if (fullProduct) {
-      return [fullProduct];
-    }
-    // Fallback to simplified format if fullProduct not provided
-    return [{ id: rfq_product_id, name: productName }];
-  }, [fullProduct, rfq_product_id, productName]);
+  // Don't render the "Round Ended" banner if quotes are already approved for ARC
+  if (isApprovalApproved) {
+    return null;
+  }
 
   const handleApproveQuotes = () => {
     if (roundQuotes.length === 0) {

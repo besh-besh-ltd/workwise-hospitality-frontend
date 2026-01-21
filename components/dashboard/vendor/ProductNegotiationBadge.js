@@ -91,16 +91,6 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
     );
   }
 
-  if (isExpired) {
-    return (
-      <div className="mt-1">
-        <Badge bg="danger" style={{ fontSize: '0.7rem' }}>
-          Negotiation Expired
-        </Badge>
-      </div>
-    );
-  }
-
   if (round?.status === 'ACTIVE') {
     return (
       <div className="mt-1 d-flex align-items-center gap-1 flex-wrap">

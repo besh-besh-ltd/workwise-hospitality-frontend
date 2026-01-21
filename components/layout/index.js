@@ -7,7 +7,7 @@ import { setSwSubscription } from "@/redux/slice";
 import { SWSubscribe } from "@/services/Auth";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import Footer from "./Footer/newFooter";
+// import Footer from "./Footer/newFooter";
 
 const Layout = (props) => {
   const [cmsdata, setCmsdata] = useState([]);
@@ -136,7 +136,7 @@ const Layout = (props) => {
         {!shouldHideNavbarFooter && <Header />}
         {/* Home-only announcement bar just below navbar */}
         <main className="flex-grow-1 ">{props.children}</main>
-        {!shouldHideNavbarFooter && <Footer />}
+        {/* {!shouldHideNavbarFooter && <Footer />} */}
       </div>
     </>
   );

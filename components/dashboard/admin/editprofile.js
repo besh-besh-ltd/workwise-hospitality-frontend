@@ -425,20 +425,6 @@ const handleCreateLocation = async (locationData) => {
         <div className="container-fluid">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h1 className="heading">Edit profile</h1>
-            {userType && (
-              <div style={{
-                display: 'inline-block',
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                padding: '10px 20px',
-                borderRadius: '25px',
-                fontSize: '18px',
-                fontWeight: '600',
-                border: '2px solid #d1d5db'
-              }}>
-                {getUserTypeLabel(userType)}
-              </div>
-            )}
           </div>
         </div>
       </section>

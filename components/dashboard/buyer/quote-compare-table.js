@@ -315,11 +315,21 @@ const QuoteCompareTable = ({
                 const approvalStatus = quoteApprovalStatus?.approval_instance?.status;
                 const isQuoteSelectedForApproval = selectedQuoteIds.includes(item.quote_id);
 
+                // Check if this quote is ARC selected (by vendor_id)
+                const isArcSelected = is_tender && quoteApprovalStatus?.metadata?.selected_quotes?.some(
+                  sq => sq.vendor_id == vendorId
+                ) && approvalStatus === 'APPROVED';
+
                 // Determine border and background based on approval status
                 let approvalBorderColor = roundQuote ? '#158993' : 'transparent';
                 let approvalBorderWidth = roundQuote ? '2px' : '0';
 
-                if (isQuoteSelectedForApproval && approvalStatus) {
+                // ARC selected vendors get green border styling (override round quote border)
+                if (isArcSelected) {
+                  approvalBorderColor = '#198754'; // Success green
+                  rowBgColor = '#d1e7dd';
+                  approvalBorderWidth = '3px';
+                } else if (isQuoteSelectedForApproval && approvalStatus) {
                   switch (approvalStatus) {
                     case 'PENDING':
                       approvalBorderColor = '#ffc107'; // Warning yellow
@@ -381,12 +391,21 @@ const QuoteCompareTable = ({
                             : 'VEN-NA';
                           return code;
                         })()}
-                        {roundQuote && activeRound && (
+                        {roundQuote && activeRound && !isArcSelected && (
                           <Badge bg="info" className="ms-2" style={{ fontSize: "0.7rem" }}>
                             Round {activeRound.round_number} Quote
                           </Badge>
                         )}
-                        {isQuoteSelectedForApproval && approvalStatus && (
+                        {isArcSelected && (
+                          <Badge
+                            bg="success"
+                            className="ms-2"
+                            style={{ fontSize: "0.7rem" }}
+                          >
+                            ARC Selected
+                          </Badge>
+                        )}
+                        {isQuoteSelectedForApproval && approvalStatus && !isArcSelected && (
                           <Badge
                             bg={approvalStatus === 'APPROVED' ? 'success' : approvalStatus === 'REJECTED' ? 'danger' : 'warning'}
                             className="ms-2"
@@ -441,20 +460,6 @@ const QuoteCompareTable = ({
                           />
                         </Dropdown.Toggle>
                         <Dropdown.Menu>
-                          {alreadyFinalized?.length == 0 &&
-                            item?.quote_details?.is_regret == 0 &&
-                            !item.finalization &&
-                            !isRfqClosed &&
-                            canWrite && !permissionsLoading && (
-                              <Dropdown.Item
-                                className=""
-                                href={`/dashboard/buyer/query?rfq_id=${rfq}&role=buyer`}
-                                id={`negotiate_with_vendor_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
-                              >
-                              <FontAwesomeIcon icon={faPhone} className="me-2" />
-                                Negotiate
-                              </Dropdown.Item>
-                            )}
                           <Dropdown.Item
                             target="_blank"
                             href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item?.quote_details?.vendor_details?.id}`}
