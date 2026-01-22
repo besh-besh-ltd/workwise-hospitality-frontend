@@ -77,34 +77,32 @@ const StageNegotiation = ({ stage, rfq, lifecycleData, onRefresh }) => {
               <Accordion.Body>
                 {/* Round Details */}
                 <div className="row g-3 mb-3">
-                  <div className="col-md-4">
-                    <div className="d-flex align-items-start gap-2">
-                      <BsCurrencyRupee className="text-success mt-1" />
-                      <div>
-                        <div className="text-muted small">Target Price</div>
-                        <div className="fw-semibold">
-                          {round.target_price
-                            ? `Rs. ${parseFloat(round.target_price).toLocaleString()}`
-                            : 'N/A'
-                          }
+                  {round.target_price && (
+                    <div className="col-md-4">
+                      <div className="d-flex align-items-start gap-2">
+                        <BsCurrencyRupee className="text-success mt-1" />
+                        <div>
+                          <div className="text-muted small">Target Price</div>
+                          <div className="fw-semibold">
+                            Rs. {parseFloat(round.target_price).toLocaleString()}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="col-md-4">
-                    <div className="d-flex align-items-start gap-2">
-                      <BsCalendar className="text-warning mt-1" />
-                      <div>
-                        <div className="text-muted small">End Date</div>
-                        <div className="fw-semibold">
-                          {round.end_date
-                            ? moment(round.end_date).format('DD MMM YYYY')
-                            : 'N/A'
-                          }
+                  )}
+                  {round.end_date && (
+                    <div className="col-md-4">
+                      <div className="d-flex align-items-start gap-2">
+                        <BsCalendar className="text-warning mt-1" />
+                        <div>
+                          <div className="text-muted small">End Date</div>
+                          <div className="fw-semibold">
+                            {moment(round.end_date).format('DD MMM YYYY')}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                   <div className="col-md-4">
                     <div className="d-flex align-items-start gap-2">
                       <BsPeople className="text-primary mt-1" />

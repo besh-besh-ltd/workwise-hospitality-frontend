@@ -40,7 +40,7 @@ const StageQuotesReceived = ({ stage, lifecycleData }) => {
                 <td className="fw-semibold">
                   {quote.vendor_name || quote.organization_name || 'Unknown'}
                 </td>
-                <td className="text-muted small">{quote.vendor_email || 'N/A'}</td>
+                <td className="text-muted small">{quote.vendor_email}</td>
                 <td>{quote.quote_items?.length || 0} items</td>
                 <td>{moment(quote.created_at).format('DD MMM YYYY')}</td>
                 <td>

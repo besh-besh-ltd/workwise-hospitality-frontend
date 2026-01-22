@@ -1289,3 +1289,50 @@ export const submitTechEvalForApproval = (payload) => {
     }
   });
 };
+
+/**
+ * Get technical evaluation workflow status
+ * Returns current round, passed/failed vendors, and workflow completion status
+ * @param {number} rfq_product_id - The RFQ product ID
+ */
+export const getTechEvalStatus = (rfq_product_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/tech-eval/status/${rfq_product_id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error?.message || "Failed to fetch workflow status" });
+    }
+  });
+};
+
+/**
+ * Get technical evaluation history (all rounds with vendor details)
+ * @param {number} rfq_product_id - The RFQ product ID
+ */
+export const getTechEvalHistory = (rfq_product_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/tech-eval/history/${rfq_product_id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error?.message || "Failed to fetch evaluation history" });
+    }
+  });
+};
+
+/**
+ * Submit approval action for technical evaluation (custom endpoint)
+ * Similar to NEGOTIATION custom approval actions
+ * @param {Object} payload - { approval_instance_id, approval_instance_step_id, action, comment }
+ */
+export const submitTechEvalApprovalAction = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/tech-eval/approval/action`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error?.message || "Failed to submit approval action" });
+    }
+  });
+};

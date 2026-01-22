@@ -170,7 +170,7 @@ const PurchaseOrderGRNPage = ({ poDetails, token, onBack }) => {
                   bg={isDispatched ? "warning" : "secondary"}
                   className="text-uppercase"
                 >
-                  {status || "N/A"}
+                  {status}
                 </Badge>
               </div>
               <div className="small text-muted">
@@ -208,14 +208,18 @@ const PurchaseOrderGRNPage = ({ poDetails, token, onBack }) => {
                 <span className="text-muted">PO ID: </span>
                 <strong>{id}</strong>
               </div>
-              <div className="small mb-1">
-                <span className="text-muted">RFQ ID: </span>
-                <strong>{rfq_id ?? "N/A"}</strong>
-              </div>
-              <div className="small mb-1">
-                <span className="text-muted">Project: </span>
-                <strong>{project_details?.name || "N/A"}</strong>
-              </div>
+              {rfq_id && (
+                <div className="small mb-1">
+                  <span className="text-muted">RFQ ID: </span>
+                  <strong>{rfq_id}</strong>
+                </div>
+              )}
+              {project_details?.name && (
+                <div className="small mb-1">
+                  <span className="text-muted">Project: </span>
+                  <strong>{project_details.name}</strong>
+                </div>
+              )}
             </Card.Body>
           </Card>
         </Col>
@@ -223,14 +227,18 @@ const PurchaseOrderGRNPage = ({ poDetails, token, onBack }) => {
           <Card className="shadow-sm h-100">
             <Card.Body>
               <h6 className="fw-semibold mb-2">Vendor Details</h6>
-              <div className="small mb-1">
-                <span className="text-muted">Vendor: </span>
-                <strong>{finalized_vendor_name || "N/A"}</strong>
-              </div>
-              <div className="small mb-1">
-                <span className="text-muted">Vendor Email: </span>
-                <strong>{finalized_vendor_email || "N/A"}</strong>
-              </div>
+              {finalized_vendor_name && (
+                <div className="small mb-1">
+                  <span className="text-muted">Vendor: </span>
+                  <strong>{finalized_vendor_name}</strong>
+                </div>
+              )}
+              {finalized_vendor_email && (
+                <div className="small mb-1">
+                  <span className="text-muted">Vendor Email: </span>
+                  <strong>{finalized_vendor_email}</strong>
+                </div>
+              )}
               <div className="small text-muted mt-2">
                 Once the material is received at site, please verify quantity
                 and basic condition, then submit GRN from this page.

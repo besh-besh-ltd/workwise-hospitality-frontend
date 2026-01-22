@@ -1,5 +1,5 @@
 import FileLink from '@/components/shared/FileLink';
-import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getSummarisedDeviation, getTechClearedVendorsResult, updateBuyerMarks, submitTechEvalForApproval, replaceTechEvalVendor, getNextVendorsForTechEval } from '@/services/rfq';
+import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getSummarisedDeviation, getTechClearedVendorsResult, updateBuyerMarks, submitTechEvalForApproval, submitTechEvalApprovalAction } from '@/services/rfq';
 import { faMessage } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import React, { useEffect, useRef, useState } from 'react'
@@ -14,6 +14,10 @@ import ConfirmationModal from '@/components/modal/ConfirmationModal';
 import { FiSend } from "react-icons/fi";
 import { ApprovalWorkflowSection } from "@/components/dashboard/buyer/approval";
 import { getEntityApprovalInstances } from "@/services/approval";
+import { useTechEvalWorkflow } from '@/hooks/useTechEvalWorkflow';
+import TechEvalWorkflowStatus from './TechEvalWorkflowStatus';
+import TechEvalFailedHistory from './TechEvalFailedHistory';
+import { TECH_EVAL_WORKFLOW_STATES } from '@/utils/constants/techEvalWorkflow';
 
 
 const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, currentRfq ,  vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors, minimumPassingScore: _minimumPassingScore, canWrite = true, canApprove = false, permissionsLoading = false }) => {
@@ -44,13 +48,31 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     const [isSubmittedForApproval, setIsSubmittedForApproval] = useState(false);
     const [isApproved, setIsApproved] = useState(false);
     const [approvalStatusLoading, setApprovalStatusLoading] = useState(false);
-    const [showReplaceModal, setShowReplaceModal] = useState(false);
-    const [vendorToReplace, setVendorToReplace] = useState(null);
-    const [nextVendors, setNextVendors] = useState([]);
-    const [replaceLoading, setReplaceLoading] = useState(false);
     // const [summarisedDeviation , setSummarisedDeviation] = useState();
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
+
+    // Technical Evaluation Workflow Hook - Multi-round approval support
+    const {
+      workflowState,
+      currentRound,
+      totalPassedVerified,
+      requiredPassedVendors,
+      isComplete: workflowComplete,
+      blockedInsufficientVendors,
+      rounds,
+      latestRound,
+      passedVerifiedVendors,
+      failedVerifiedVendors,
+      pendingEvaluationVendors,
+      summary: workflowSummary,
+      remainingNeeded,
+      loading: workflowLoading,
+      refetch: refetchWorkflow
+    } = useTechEvalWorkflow({ rfq_product_id: product?.id, enabled: !!product?.id });
+
+    // Derived: Check if approval is pending (freeze all actions)
+    const isPendingApproval = workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL || isSubmittedForApproval;
 
     // Fetch approval status for this product
     const fetchApprovalStatus = async () => {
@@ -213,9 +235,16 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                 is_tender: currentRfq?.is_tender === 1,
             };
 
-            await submitTechEvalForApproval(payload);
-            toast.success("Technical evaluation submitted for approval successfully");
+            const response = await submitTechEvalForApproval(payload);
+
+            // Response now includes round_id and round_number for multi-round workflow
+            const { round_id, round_number } = response?.data?.data || response?.data || {};
+
+            toast.success(`Round ${round_number || currentRound} submitted for approval`);
             setShowSubmitModal(false);
+
+            // Refresh workflow status to update UI
+            await refetchWorkflow();
 
             // Refresh the approval status to update UI
             await fetchApprovalStatus();
@@ -229,61 +258,45 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
         }
     };
 
-    const handleReplaceVendor = async (vendor) => {
-      setVendorToReplace(vendor);
-      setReplaceLoading(true);
-      try {
-        // Get current vendor IDs to exclude
-        const currentVendorIds = vendors
-          .filter(v => selectedVendors.length <= 0 ? true : selectedVendors.includes(v.vendor_id))
-          .map(v => v.vendor_id);
-        
-        const response = await getNextVendorsForTechEval({
-          rfq_id: rfq_id,
-          rfq_product_id: product.id,
-          exclude_vendor_ids: currentVendorIds.join(',')
-        });
-        
-        if (response.data && response.data.status === 1) {
-          setNextVendors(response.data.data || []);
-          setShowReplaceModal(true);
-        } else {
-          toast.error('No replacement vendors available');
+    // Custom approval handler for TECHNICAL entity type
+    const handleTechEvalApprove = async (comment, context) => {
+        try {
+            const payload = {
+                approval_instance_id: context.approval_instance_id,
+                approval_instance_step_id: context.approval_instance_step_id,
+                action: 'APPROVE',
+                comment: comment || ''
+            };
+            await submitTechEvalApprovalAction(payload);
+
+            // Refresh workflow status after approval
+            await refetchWorkflow();
+            if (refetch) refetch();
+
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error?.message || 'Failed to approve' };
         }
-      } catch (error) {
-        toast.error('Error fetching replacement vendors');
-        console.error(error);
-      } finally {
-        setReplaceLoading(false);
-      }
     };
 
-    const confirmReplaceVendor = async (newVendor) => {
-      if (!vendorToReplace || !newVendor) return;
-      
-      setReplaceLoading(true);
-      try {
-        const response = await replaceTechEvalVendor({
-          rfq_id: parseInt(rfq_id),
-          rfq_product_id: product.id,
-          old_vendor_id: vendorToReplace.vendor_id,
-          new_vendor_id: newVendor.vendor_id
-        });
-        
-        if (response.data && response.data.status === 1) {
-          toast.success('Vendor replaced successfully');
-          setShowReplaceModal(false);
-          setVendorToReplace(null);
-          setNextVendors([]);
-          if (refetch) refetch();
-        } else {
-          toast.error(response.data?.message || 'Failed to replace vendor');
-        }
-      } catch (error) {
-        toast.error('Error replacing vendor');
-        console.error(error);
-      } finally {
-        setReplaceLoading(false);
+    // Custom rejection handler for TECHNICAL entity type
+    const handleTechEvalReject = async (comment, context) => {
+        try {
+            const payload = {
+                approval_instance_id: context.approval_instance_id,
+                approval_instance_step_id: context.approval_instance_step_id,
+                action: 'REJECT',
+                comment: comment || ''
+            };
+            await submitTechEvalApprovalAction(payload);
+
+            // Refresh workflow status after rejection
+            await refetchWorkflow();
+            if (refetch) refetch();
+
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error?.message || 'Failed to reject' };
         }
     };
 
@@ -490,6 +503,23 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
         className="col-12 text-sm mb-3 mt-2 hasFullLoader"
         key={`buyer_rfq_prod_${product.id}`}
       >
+        {/* Workflow Status Banner - Multi-round evaluation progress */}
+        {!workflowLoading && product?.id && (
+          <TechEvalWorkflowStatus
+            workflowState={workflowState}
+            currentRound={currentRound}
+            totalPassedVerified={totalPassedVerified}
+            requiredPassedVendors={requiredPassedVendors}
+            remainingNeeded={remainingNeeded}
+            blockedInsufficientVendors={blockedInsufficientVendors}
+          />
+        )}
+
+        {/* Failed Vendor History - Grouped by round */}
+        {failedVerifiedVendors.length > 0 && (
+          <TechEvalFailedHistory vendors={failedVerifiedVendors} />
+        )}
+
         {/* Buyer All Clauses */}
         {loading ? (
           <FullLoader />
@@ -604,7 +634,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                               >
                                                 View Profile
                                               </Dropdown.Item>
-                                              {isCleared == null && canWrite && !permissionsLoading && !isSubmittedForApproval && (
+                                              {isCleared == null && canWrite && !permissionsLoading && !isPendingApproval && (
                                                 <>
                                                   <Dropdown.Item
                                                     href="#"
@@ -634,18 +664,6 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                             </Dropdown.Menu>
                                           </Dropdown>
                                         </div>
-                                        {canWrite && !permissionsLoading && !isSubmittedForApproval && vendor.rank && (
-                                          <button
-                                            type="button"
-                                            className="btn btn-sm btn-outline-primary mt-2"
-                                            onClick={() => handleReplaceVendor(vendor)}
-                                            disabled={replaceLoading}
-                                            style={{ fontSize: '12px', width: '100%' }}
-                                            id={`replace_vendor_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
-                                          >
-                                            Replace
-                                          </button>
-                                        )}
                                       </th>
                                     );
                                 }
@@ -749,14 +767,17 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                       className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
                                       style={{
                                         maxWidth: "100px",
-                                        backgroundColor: "var(--primary-color)",
+                                        backgroundColor: isPendingApproval ? "#cccccc" : "var(--primary-color)",
                                         color: "#ffffff",
                                         fontSize: "13px",
+                                        cursor: isPendingApproval ? "not-allowed" : "pointer",
                                       }}
                                       onClick={() => {
                                         toggleChat(clauseItem.clause_id);
                                         setSelectedVendor(vendor);
                                       }}
+                                      disabled={isPendingApproval}
+                                      title={isPendingApproval ? "Actions frozen during pending approval" : ""}
                                       id={`view_deviation_${clauseItem.clause_id}_${vendor.vendor_id}-deviation_actions-technical_evaluation_page`}
                                     >
                                      Deviation
@@ -766,14 +787,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                       className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
                                       style={{
                                         maxWidth: "120px",
-                                        backgroundColor: (!canWrite || permissionsLoading || isSubmittedForApproval) ? "#cccccc" : "var(--primary-color)",
+                                        backgroundColor: (!canWrite || permissionsLoading || isPendingApproval) ? "#cccccc" : "var(--primary-color)",
                                         color: "#ffffff",
                                         fontSize: "13px",
-                                        cursor: (!canWrite || permissionsLoading || isSubmittedForApproval) ? "not-allowed" : "pointer",
+                                        cursor: (!canWrite || permissionsLoading || isPendingApproval) ? "not-allowed" : "pointer",
                                       }}
                                       onClick={() => openRemarkModal(clauseItem, vendor)}
-                                      disabled={!canWrite || permissionsLoading || isSubmittedForApproval}
-                                      title={isSubmittedForApproval ? "Evaluation is submitted for approval" : (!canWrite ? "You don't have permission to add marks" : "")}
+                                      disabled={!canWrite || permissionsLoading || isPendingApproval}
+                                      title={isPendingApproval ? "Actions frozen during pending approval" : (!canWrite ? "You don't have permission to add marks" : "")}
                                       id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-clause_actions-technical_evaluation_page`}
                                     >
                                       Add Marks/Remark
@@ -841,10 +862,10 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                     <button
                                         type="button"
                                         className="btn btn-secondary border-0 p-2"
-                                        style={{ width: "220px", marginRight: 10, opacity: (!canWrite || permissionsLoading || isSubmittedForApproval) ? 0.6 : 1 }}
+                                        style={{ width: "220px", marginRight: 10, opacity: (!canWrite || permissionsLoading || isPendingApproval) ? 0.6 : 1 }}
                                         onClick={() => addToTechnicallyAccepted()}
-                                        disabled={!canWrite || permissionsLoading || isSubmittedForApproval}
-                                        title={isSubmittedForApproval ? "Evaluation is submitted for approval" : (!canWrite ? "You don't have permission to accept vendors" : "")}
+                                        disabled={!canWrite || permissionsLoading || isPendingApproval}
+                                        title={isPendingApproval ? "Actions frozen during pending approval" : (!canWrite ? "You don't have permission to accept vendors" : "")}
                                         id="technically_accept_vendor-vendor_evaluation-technical_evaluation_page"
                                     >
                                         Technically Accepted
@@ -852,10 +873,10 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                     <button
                                         type="button"
                                         className="btn btn-danger border-0 p-2"
-                                        style={{ width: "255px", opacity: (!canWrite || permissionsLoading || isSubmittedForApproval) ? 0.6 : 1 }}
+                                        style={{ width: "255px", opacity: (!canWrite || permissionsLoading || isPendingApproval) ? 0.6 : 1 }}
                                         onClick={() => setShowRejectConfirmModal(true)}
-                                        disabled={!canWrite || permissionsLoading || isSubmittedForApproval}
-                                        title={isSubmittedForApproval ? "Evaluation is submitted for approval" : (!canWrite ? "You don't have permission to reject vendors" : "")}
+                                        disabled={!canWrite || permissionsLoading || isPendingApproval}
+                                        title={isPendingApproval ? "Actions frozen during pending approval" : (!canWrite ? "You don't have permission to reject vendors" : "")}
                                         id="technically_reject_vendor-vendor_evaluation-technical_evaluation_page"
                                     >
                                         Technically Not Accepted
@@ -915,8 +936,16 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                                 <button
                                                     type="button"
                                                     className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
-                                                    style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff", fontSize: "13px" }}
+                                                    style={{
+                                                        width: "100px",
+                                                        backgroundColor: isPendingApproval ? "#cccccc" : "var(--primary-color)",
+                                                        color: "#ffffff",
+                                                        fontSize: "13px",
+                                                        cursor: isPendingApproval ? "not-allowed" : "pointer"
+                                                    }}
                                                     onClick={() => toggleChat(clauseItem.clause_id)}
+                                                    disabled={isPendingApproval}
+                                                    title={isPendingApproval ? "Actions frozen during pending approval" : ""}
                                                     id={`explanation_deviation_${clauseItem.clause_id}-clause_actions-technical_evaluation_page`}
                                                 >
                                                     Explanation / Deviation
@@ -1059,23 +1088,64 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
           </Modal.Footer>
         </Modal>
 
-        {/* Submit for Approval Button - Product Level */}
+        {/* Submit for Approval Button - Product Level (Multi-round support) */}
         <div className="d-flex justify-content-end mt-4 mb-3">
           <button
             type="button"
-            className={`btn btn-sm p-2 ${isApproved ? 'btn-success' : (isSubmittedForApproval ? 'btn-warning' : 'btn-primary')}`}
-            style={{width: 220}}
+            className={`btn btn-sm p-2 ${
+              workflowComplete ? 'btn-success' :
+              workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL ? 'btn-warning' :
+              'btn-primary'
+            }`}
+            style={{width: 260}}
             onClick={() => setShowSubmitModal(true)}
-            disabled={!canWrite || permissionsLoading || submitLoading || isSubmittedForApproval || isApproved}
-            title={isApproved ? "Evaluation has been approved" : (isSubmittedForApproval ? "Evaluation is pending approval" : (!canWrite ? "You don't have permission to submit for approval" : "Submit evaluation for approval"))}
+            disabled={
+              !canWrite ||
+              permissionsLoading ||
+              submitLoading ||
+              workflowComplete ||
+              workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL ||
+              pendingEvaluationVendors.length === 0
+            }
+            title={
+              workflowComplete ? `Completed (${totalPassedVerified}/${requiredPassedVendors} vendors cleared)` :
+              workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL ? `Round ${currentRound} pending approval` :
+              pendingEvaluationVendors.length === 0 ? "No vendors pending evaluation" :
+              !canWrite ? "You don't have permission to submit for approval" :
+              "Submit evaluation for approval"
+            }
             id={`submit_for_approval_product_${product?.id}-technical_evaluation_page`}
           >
-            {submitLoading ? "Submitting..." : (isApproved ? "Approved" : (isSubmittedForApproval ? "Submitted for Approval" : "Submit for Approval"))}
+            {submitLoading ? "Submitting..." :
+             workflowComplete ? `Completed (${totalPassedVerified}/${requiredPassedVendors})` :
+             workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL ? `Round ${currentRound} Pending Approval` :
+             `Submit Round ${currentRound} for Approval`}
           </button>
         </div>
 
-        {/* Approval Workflow Section - Product Level */}
-        {product?.id && (
+        {/* Approval Workflow Section - Round Level (Multi-round support) */}
+        {latestRound?.round_id && (
+          <div className="buyer-rfq-approval-sec mt-3 mb-3">
+            <ApprovalWorkflowSection
+              entityType="TECHNICAL"
+              entityId={latestRound.round_id}
+              entityLabel={`Round ${latestRound.round_number || currentRound} Evaluation`}
+              hospitalityCompanyId={currentRfq?.hospitality_company_id}
+              hotelId={currentRfq?.hotel_id}
+              departmentId={currentRfq?.department_id}
+              onCustomApprove={handleTechEvalApprove}
+              onCustomReject={handleTechEvalReject}
+              onActionComplete={() => {
+                // Refresh workflow status after approval action
+                refetchWorkflow();
+                if (refetch) refetch();
+              }}
+            />
+          </div>
+        )}
+
+        {/* Fallback: Show approval for product if no round exists yet (legacy support) */}
+        {!latestRound?.round_id && product?.id && (
           <div className="buyer-rfq-approval-sec mt-3 mb-3">
             <ApprovalWorkflowSection
               entityType="TECHNICAL"
@@ -1084,6 +1154,8 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
               hospitalityCompanyId={currentRfq?.hospitality_company_id}
               hotelId={currentRfq?.hotel_id}
               departmentId={currentRfq?.department_id}
+              onCustomApprove={handleTechEvalApprove}
+              onCustomReject={handleTechEvalReject}
             />
           </div>
         )}
@@ -1099,62 +1171,6 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
           confirmButtonText={submitLoading ? "Submitting..." : "Submit"}
           cancelButtonText="Cancel"
         />
-
-        {/* Replace Vendor Modal */}
-        <Modal show={showReplaceModal} onHide={() => {
-          setShowReplaceModal(false);
-          setVendorToReplace(null);
-          setNextVendors([]);
-        }} centered>
-          <Modal.Header closeButton>
-            <Modal.Title>Replace Vendor</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {vendorToReplace && (
-              <div className="mb-3">
-                <p><strong>Replacing:</strong> VEN-{vendorToReplace.rfq_product_vendor_id} ({vendorToReplace.vendor_name})</p>
-                <p className="text-muted">Select a replacement vendor from the list below:</p>
-              </div>
-            )}
-            {nextVendors.length > 0 ? (
-              <div className="list-group">
-                {nextVendors.map((newVendor, idx) => (
-                  <button
-                    key={newVendor.vendor_id}
-                    type="button"
-                    className="list-group-item list-group-item-action"
-                    onClick={() => confirmReplaceVendor(newVendor)}
-                    disabled={replaceLoading}
-                  >
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div>
-                        <strong>VEN-{newVendor.rfq_product_vendor_id}</strong> - {newVendor.vendor_name}
-                        <br />
-                        <small className="text-muted">Quote Price: ₹{newVendor.quote_price?.toLocaleString() || 'N/A'}</small>
-                      </div>
-                      <span className="badge bg-secondary">L{newVendor.rank}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted">No replacement vendors available</p>
-            )}
-          </Modal.Body>
-          <Modal.Footer>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => {
-                setShowReplaceModal(false);
-                setVendorToReplace(null);
-                setNextVendors([]);
-              }}
-            >
-              Cancel
-            </button>
-          </Modal.Footer>
-        </Modal>
 
         <hr />
       </div>

@@ -1927,7 +1927,7 @@ const HospitalityManager = () => {
                                       </td>
                                       <td className="py-3">
                                         <span className="text-muted">
-                                          {[hotel.city, hotel.state].filter(Boolean).join(", ") || "—"}
+                                          {[hotel.city, hotel.state].filter(Boolean).join(", ")}
                                         </span>
                                       </td>
                                       <td className="py-3">{hotel.keys || 0}</td>
@@ -2076,8 +2076,8 @@ const HospitalityManager = () => {
                                           {(user.name || "U")[0].toUpperCase()}
                                         </div>
                                         <div>
-                                          <div className="fw-semibold">{user.name || "N/A"}</div>
-                                          <small className="text-muted">{user.email || "No email"}</small>
+                                          <div className="fw-semibold">{user.name}</div>
+                                          <small className="text-muted">{user.email}</small>
                                         </div>
                                       </div>
                                     </td>
@@ -2196,7 +2196,7 @@ const HospitalityManager = () => {
                                   return (
                                     <tr key={project.id}>
                                       <td className="py-3 ps-4">
-                                        <div className="fw-semibold">{project.name || "N/A"}</div>
+                                        <div className="fw-semibold">{project.name}</div>
                                       </td>
                                       <td className="py-3">
                                         {projectMapping ? (
@@ -2224,7 +2224,7 @@ const HospitalityManager = () => {
                                               : "bg-secondary"
                                           }`}
                                         >
-                                          {project.status || "N/A"}
+                                          {project.status}
                                         </span>
                                       </td>
                                     </tr>

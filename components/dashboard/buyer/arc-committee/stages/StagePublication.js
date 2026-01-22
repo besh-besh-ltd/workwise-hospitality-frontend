@@ -12,36 +12,32 @@ const StagePublication = ({ stage, rfq }) => {
       </p>
 
       <div className="row g-3 mb-3">
-        <div className="col-md-6">
-          <div className="d-flex align-items-start gap-2">
-            <BsGlobe className="text-success mt-1" />
-            <div>
-              <div className="text-muted small">Published On</div>
-              <div className="fw-semibold">
-                {details.publishDate
-                  ? moment(details.publishDate).format('DD MMM YYYY, HH:mm')
-                  : stage.timestamp
-                    ? moment(stage.timestamp).format('DD MMM YYYY, HH:mm')
-                    : 'N/A'
-                }
+        {(details.publishDate || stage.timestamp) && (
+          <div className="col-md-6">
+            <div className="d-flex align-items-start gap-2">
+              <BsGlobe className="text-success mt-1" />
+              <div>
+                <div className="text-muted small">Published On</div>
+                <div className="fw-semibold">
+                  {moment(details.publishDate || stage.timestamp).format('DD MMM YYYY, HH:mm')}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div className="col-md-6">
-          <div className="d-flex align-items-start gap-2">
-            <BsCalendar className="text-warning mt-1" />
-            <div>
-              <div className="text-muted small">Bid End Date</div>
-              <div className="fw-semibold">
-                {details.bidEndDate || rfq?.bid_end_date
-                  ? moment(details.bidEndDate || rfq?.bid_end_date).format('DD MMM YYYY')
-                  : 'N/A'
-                }
+        )}
+        {(details.bidEndDate || rfq?.bid_end_date) && (
+          <div className="col-md-6">
+            <div className="d-flex align-items-start gap-2">
+              <BsCalendar className="text-warning mt-1" />
+              <div>
+                <div className="text-muted small">Bid End Date</div>
+                <div className="fw-semibold">
+                  {moment(details.bidEndDate || rfq?.bid_end_date).format('DD MMM YYYY')}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Actor info */}

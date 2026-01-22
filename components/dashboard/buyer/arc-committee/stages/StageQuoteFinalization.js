@@ -74,7 +74,7 @@ const StageQuoteFinalization = ({ stage, rfq, lifecycleData, onRefresh }) => {
                     L{ranking.rank}
                   </Badge>
                 </td>
-                <td className="fw-semibold">{ranking.vendor_name || ranking.organization_name || 'N/A'}</td>
+                <td className="fw-semibold">{ranking.vendor_name || ranking.organization_name}</td>
                 <td>
                   <div className="d-flex align-items-center">
                     <BsCurrencyRupee className="text-muted me-1" size={12} />

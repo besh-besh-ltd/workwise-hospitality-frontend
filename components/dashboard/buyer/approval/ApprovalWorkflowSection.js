@@ -11,6 +11,7 @@ import useApprovalWorkflow from "@/hooks/useApprovalWorkflow";
 import ApprovalTimeline from "./ApprovalTimeline";
 import ApprovalActionModal from "./ApprovalActionModal";
 import SelectedQuotesDisplay from "../negotiation/SelectedQuotesDisplay";
+import TechEvalVendorStatusDisplay from "../technical-evaluation/TechEvalVendorStatusDisplay";
 
 const statusConfig = {
   PENDING: {
@@ -236,6 +237,15 @@ const ApprovalWorkflowSection = ({
                 quotes={instance.metadata.selected_quotes}
                 vendorCodeMap={vendorCodeMap}
                 status={status}
+              />
+            )}
+
+            {/* Display vendor evaluation results for TECHNICAL entity type */}
+            {entityType === 'TECHNICAL' && instance?.metadata?.vendors?.length > 0 && (
+              <TechEvalVendorStatusDisplay
+                vendors={instance.metadata.vendors}
+                roundNumber={instance.metadata.evaluation_round || 1}
+                showSummary={true}
               />
             )}
 

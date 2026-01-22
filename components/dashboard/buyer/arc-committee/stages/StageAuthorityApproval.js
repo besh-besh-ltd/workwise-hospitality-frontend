@@ -80,11 +80,11 @@ const StageAuthorityApproval = ({ stage, rfq, lifecycleData, onRefresh }) => {
                 <tbody>
                   {details.products.slice(0, 5).map((product, idx) => {
                     const specs = product.product_specs || [];
-                    const qty = specs.find(s => s.title === 'Quantity')?.value || '-';
-                    const unit = specs.find(s => s.title === 'Unit')?.value || '-';
+                    const qty = specs.find(s => s.title === 'Quantity')?.value;
+                    const unit = specs.find(s => s.title === 'Unit')?.value;
                     return (
                       <tr key={product.id || idx}>
-                        <td>{product.product_details?.[0]?.name || 'N/A'}</td>
+                        <td>{product.product_details?.[0]?.name}</td>
                         <td>{qty}</td>
                         <td>{unit}</td>
                       </tr>

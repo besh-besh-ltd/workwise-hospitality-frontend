@@ -71,14 +71,14 @@ const StageTechnicalEval = ({ stage, rfq, lifecycleData, onRefresh }) => {
             {allEvaluations.map((item, idx) => (
               <tr key={idx}>
                 <td className="small">{item.productName}</td>
-                <td className="fw-semibold">{item.vendor_name || 'N/A'}</td>
+                <td className="fw-semibold">{item.vendor_name}</td>
                 <td>
                   <Badge bg={item.is_accepted ? 'success' : 'danger'}>
                     {item.is_accepted ? 'Accepted' : 'Rejected'}
                   </Badge>
                 </td>
-                <td>{item.score || 'N/A'}</td>
-                <td className="small text-muted">{item.remarks || '-'}</td>
+                <td>{item.score}</td>
+                <td className="small text-muted">{item.remarks}</td>
               </tr>
             ))}
           </tbody>

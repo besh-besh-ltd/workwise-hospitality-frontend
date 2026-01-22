@@ -491,14 +491,14 @@ const NegotiationModal = ({
     const productSpecs = product?.product_specs || [];
     const rfqDetails = details?.rfq_details || [];
     
-    const spec = productSpecs.find(s => s.title === 'Spec')?.value || 
-                 rfqDetails.find(d => d.title === 'Spec')?.value || '-';
-    const size = productSpecs.find(s => s.title === 'Size')?.value || 
-                 rfqDetails.find(d => d.title === 'Size')?.value || '-';
-    const quantity = rfqDetails.find(d => d.title === 'Quantity')?.value || 
-                     product?.quantity || '-';
-    const unit = rfqDetails.find(d => d.title === 'Unit')?.value || 
-                 product?.unit || '-';
+    const spec = productSpecs.find(s => s.title === 'Spec')?.value ||
+                 rfqDetails.find(d => d.title === 'Spec')?.value;
+    const size = productSpecs.find(s => s.title === 'Size')?.value ||
+                 rfqDetails.find(d => d.title === 'Size')?.value;
+    const quantity = rfqDetails.find(d => d.title === 'Quantity')?.value ||
+                     product?.quantity;
+    const unit = rfqDetails.find(d => d.title === 'Unit')?.value ||
+                 product?.unit;
     
     return {
       name: details?.name || details?.product_name || `Product ${product.id}`,
@@ -676,7 +676,7 @@ const NegotiationModal = ({
                       {round.status}
                     </Badge>
                   </td>
-                  <td>{round.created_by_name || 'N/A'}</td>
+                  <td>{round.created_by_name}</td>
                 </tr>
               );
             })}
@@ -927,7 +927,7 @@ const NegotiationModal = ({
                      <tbody>
                        {roundQuotes.map((quote, idx) => (
                          <tr key={idx}>
-                           <td>{quote.vendor_name || quote.vendor_company_name || 'N/A'}</td>
+                           <td>{quote.vendor_name || quote.vendor_company_name}</td>
                            <td>₹{parseFloat(quote.quoted_price || 0).toLocaleString()}</td>
                            <td>{quote.previous_price ? `₹${parseFloat(quote.previous_price).toLocaleString()}` : '-'}</td>
                            <td>{quote.submitted_at ? moment(quote.submitted_at).format('DD/MM/YYYY HH:mm') : '-'}</td>

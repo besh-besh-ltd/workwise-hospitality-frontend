@@ -1877,25 +1877,22 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                           rfq_product_id={item.id} 
                                         />
                                       </div>
-                                      <div className="sub-heading mb-0 d-flex gap-1">
-                                        <b>Product Specification</b> :{" "}
-                                        {spec ? (
+                                      {spec && (
+                                        <div className="sub-heading mb-0 d-flex gap-1">
+                                          <b>Product Specification</b> :{" "}
                                           <ReadMore
                                             content={spec}
                                             maxLength={30}
                                             maxLines={2}
                                           />
-                                        ) : (
-                                          "N/A"
-                                        )}
-                                      </div>
-                                      <p className="sub-heading mb-0">
-                                        <b>Selling Price</b> :{" "}
-                                        {selling_price
-                                          ? "₹" +
-                                            addCommasToNumber(selling_price)
-                                          : "N/A"}
-                                      </p>
+                                        </div>
+                                      )}
+                                      {selling_price && (
+                                        <p className="sub-heading mb-0">
+                                          <b>Selling Price</b> :{" "}
+                                          {"₹" + addCommasToNumber(selling_price)}
+                                        </p>
+                                      )}
                                     </div>
                                     <div>
                                       <div className="d-flex gap-2">

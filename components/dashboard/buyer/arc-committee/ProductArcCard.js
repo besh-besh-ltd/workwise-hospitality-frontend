@@ -48,9 +48,9 @@ const ProductArcCard = ({
 
   const productName = product.product_details?.[0]?.name || 'Unknown Product';
   const specs = product.product_specs || [];
-  const qty = specs.find(s => s.title === 'Quantity')?.value || '-';
+  const qty = specs.find(s => s.title === 'Quantity')?.value;
   const unit = specs.find(s => s.title === 'Unit')?.value || '';
-  const size = specs.find(s => s.title === 'Size')?.value || '-';
+  const size = specs.find(s => s.title === 'Size')?.value;
 
   const status = arcInstance?.status || 'PENDING';
   const config = statusConfig[status] || statusConfig.PENDING;
@@ -103,7 +103,7 @@ const ProductArcCard = ({
             <div>
               <h6 className="mb-1">{productName}</h6>
               <div className="text-muted small">
-                Qty: {qty} {unit} {size !== '-' && `| Size: ${size}`}
+                {qty && <>Qty: {qty} {unit}</>} {size && `| Size: ${size}`}
               </div>
             </div>
           </div>
