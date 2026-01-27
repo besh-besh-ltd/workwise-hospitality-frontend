@@ -421,20 +421,15 @@ const EditRFQ = () => {
         }
       }
 
-      // Continue with other data fetching
-      const [projectsResponse] = 
-        await Promise.all([
-          getProjectList(),
-        ]);
-
-      // Format the projects for select
-      if (projectsResponse?.data) {
-        const formattedProjects = projectsResponse.data.map(project => ({
-          value: project.id,
-          label: project.name || `Project #${project.id}`
-        }));
-        setProjects(formattedProjects);
-      }
+      const [projectsResponse] = await Promise.all([getProjectList()]);
+      const projectsData = projectsResponse?.data?.data || projectsResponse?.data || [];
+      const formattedProjects = projectsData.map(project => ({
+        value: project.id,
+        label: project.name || `Project #${project.id}`,
+        hospitality_company_id: project.hospitality_company_id,
+        hotel_id: project.hotel_id
+      }));
+      setProjects(formattedProjects);
 
       const storeData = {
         rfq_id: rfqData.id,
@@ -725,6 +720,25 @@ const EditRFQ = () => {
         return;
       }
 
+      // Validate project selection (required for both RFQ and Tender)
+      const currentProjectId =
+        formValues.project_id !== undefined && formValues.project_id !== null
+          ? formValues.project_id
+          : rfqData.project_id;
+
+      const parsedProjectId =
+        currentProjectId !== undefined &&
+        currentProjectId !== null &&
+        currentProjectId !== "" &&
+        !isNaN(parseInt(currentProjectId))
+          ? parseInt(currentProjectId)
+          : null;
+
+      if (!parsedProjectId || parsedProjectId === -1) {
+        toast.error("Please select a project");
+        return;
+      }
+
       if (
         rfqData.products.filter(product => !updatableData.products.deletable.includes(product.id)).some(
           (product) =>
@@ -757,12 +771,8 @@ const EditRFQ = () => {
         selectedTerms,
        };
 
-      // Only include project_id if it exists and is a valid number
-      if ((formValues.project_id != rfqData.project_id) && (!isNaN(formValues.project_id) || formValues.project_id == null)) {
-        dataToSend.project_id = (parseInt(formValues.project_id ?? "-1"));
-      } else if (rfqData.project_id) {
-        dataToSend.project_id = parseInt(rfqData.project_id);
-      }
+      // Always include validated project_id (for both RFQ and Tender)
+      dataToSend.project_id = parsedProjectId;
 
       if (formValues.rfq_type && rfqTypes.some(type => formValues.rfq_type == type.value)) {
         dataToSend.rfq_type = formValues.rfq_type;
@@ -849,7 +859,7 @@ const EditRFQ = () => {
               contact_number: formValues.contact_number,
               response_email: formValues.response_email,
               bid_end_date: formValues.bid_end_date,
-              project_id: formValues.project_id,
+              project_id: parsedProjectId,
               // Update auction dates if they were changed
               ra_start_date: formValues.ra_start_date || prevData.ra_start_date,
               ra_end_date: formValues.ra_end_date || prevData.ra_end_date,
@@ -871,7 +881,7 @@ const EditRFQ = () => {
                 location: rfqData.location || '',
                 bid_end_date: formValues.bid_end_date,
                 comment: rfqData.comment, // Keep original comment
-                project_id: formValues.project_id,
+                project_id: parsedProjectId,
                 // Update auction dates in Redux store
                 ra_start_date: formValues.ra_start_date || rfqData.ra_start_date,
                 ra_end_date: formValues.ra_end_date || rfqData.ra_end_date,
@@ -1888,7 +1898,7 @@ const EditRFQ = () => {
                         
                         {/* Select Project */}
                         <div className="mb-3">
-                          <label className="form-label fw-medium">Select Project</label>
+                          <label className="form-label fw-medium">Select Project <span className="text-danger">*</span></label>
                           <Select
                             key={`project-select-${rfqFormDataFromStore.project_id || 'none'}`}
                             options={projects}

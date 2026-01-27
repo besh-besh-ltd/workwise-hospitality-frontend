@@ -273,15 +273,20 @@ const CreateRFQ = () => {
   const getAllProjects = () => {
     getProjectList()
       .then((res) => {
-        let d = [];
-        (res.data.data || []).map((item) => {
-          d.push({ label: item.name, value: item.id, hospitality_company_id: item.hospitality_company_id, hotel_id: item.hotel_id });
-        });
-        setProjects(d);
-        setAllProjects(d);
+        const projectsData = res.data?.data || res.data || [];
+        const formatted = projectsData.map(item => ({
+          label: item.name || `Project #${item.id}`,
+          value: item.id,
+          hospitality_company_id: item.hospitality_company_id,
+          hotel_id: item.hotel_id
+        }));
+        setProjects(formatted);
+        setAllProjects(formatted);
       })
       .catch((error) => {
-        toast.error(error.message);
+        toast.error(error.message || "Failed to load projects");
+        setProjects([]);
+        setAllProjects([]);
       })
   }
 
