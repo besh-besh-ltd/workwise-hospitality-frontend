@@ -23,7 +23,6 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
   const [vendorResponseSent, setVendorResponseSent] = useState(0);
   const [techEvalStatus, setTechEvalStatus] = useState(0);
   const [techEvalCleared, setTechEvalCleared] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [responseLoading, setResponseLoading] = useState(false);
@@ -177,7 +176,6 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
       getBuyerClauses();
       getVendorResponse();
       setShowSubmitConfirmModal(false);
-      setIsEditMode(false);
     } catch (error) {
       console.log(error);
       setShowSubmitConfirmModal(false);
@@ -230,27 +228,51 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                 </span>
               </>
             :
-            <div className="d-flex align-items-center gap-3">
-              <span
-                className="fw-medium text-bg-warning px-3 py-2"
-                style={{ borderRadius: "0 18px 18px 0", fontSize: "16px" }}
-              >
-                Your response has been sent. Please wait for Buyer Clearance.
-              </span>
-              {!isEditMode && (
-                <button
-                  type="button"
-                  className="btn btn-outline-dark btn-sm p-2"
-                  onClick={() => setIsEditMode(true)}
-                  id="edit_response-agreement_actions-technical_evaluation_page"
-                >
-                  Edit Response
-                </button>
-              )}
-            </div>}
+            <span
+              className="fw-medium text-bg-warning px-3 py-2"
+              style={{ borderRadius: "0 18px 18px 0", fontSize: "16px" }}
+            >
+              Your response has been sent. Please wait for Buyer Clearance. You may update your responses below.
+            </span>}
         </div>
         : null
       }
+
+      {/* Clause Progress */}
+      {vendorResponse && vendorResponse.length > 0 && (
+        <div className="my-3">
+          {(() => {
+            const total = vendorResponse.length;
+            const responded = vendorResponse.filter(
+              item => agreementMap && (agreementMap.get(item.clause_id) === "I Agree" || agreementMap.get(item.clause_id) === "I Dont Agree")
+            ).length;
+            const pct = total > 0 ? Math.round((responded / total) * 100) : 0;
+            const isComplete = responded === total;
+            return (
+              <div>
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <span className="fw-semibold" style={{ fontSize: "0.9rem" }}>
+                    Clause Progress: {responded} of {total} responded
+                  </span>
+                  <span className={`badge ${isComplete ? 'bg-success' : 'bg-secondary'}`} style={{ fontSize: "0.8rem" }}>
+                    {pct}%
+                  </span>
+                </div>
+                <div className="progress" style={{ height: "8px" }}>
+                  <div
+                    className={`progress-bar ${isComplete ? 'bg-success' : 'bg-primary'}`}
+                    role="progressbar"
+                    style={{ width: `${pct}%`, transition: "width 0.3s ease" }}
+                    aria-valuenow={pct}
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                  />
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Buyer All Clauses */}
       {/* <div className="text-sm my-3 hasFullLoader" >
@@ -325,7 +347,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                             className={`border border-success ${agreementMap.get(clauseItem.clause_id) == "I Agree" ? "bg-success text-white" : "bg-white text-success"} px-2 py-1 rounded-3`}
                             style={{ fontSize: "13px" }}
                             onClick={() => handleAgreementChange(clauseItem.clause_id, "I Agree")}
-                            disabled={vendorResponseSent && !isEditMode}
+                            disabled={techEvalStatus == 1}
                             id="agree_clause-clause_actions-technical_evaluation_page"
                           >
                             I Agree
@@ -335,7 +357,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                             className={`border border-danger ${agreementMap.get(clauseItem.clause_id) == "I Dont Agree" ? "bg-danger text-white" : "bg-white text-danger"} px-2 py-1 rounded-3`}
                             style={{ fontSize: "13px" }}
                             onClick={() => handleAgreementChange(clauseItem.clause_id, "I Dont Agree")}
-                            disabled={vendorResponseSent && !isEditMode}
+                            disabled={techEvalStatus == 1}
                             id="disagree_clause-clause_actions-technical_evaluation_page"
                           >
                             I Dont Agree
@@ -343,7 +365,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                         </span>
                       </td>
                       <td style={{ maxWidth: "260px" }}>
-                        {vendorResponseSent && !isEditMode ?
+                        {techEvalStatus == 1 ?
                           clauseItem.vendor_response_files.length > 0 ?
                             <FileLink
                               key={clauseItem.clause_id}
@@ -413,14 +435,14 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
               </tbody>
             </table>
 
-            {(!vendorResponseSent || isEditMode) && <div className="d-flex justify-content-end">
+            {techEvalStatus != 1 && <div className="d-flex justify-content-end">
               <button
                 type="button"
                 className="btn btn-secondary border-0"
                 onClick={handleSendAgreement}
                 id="submit_agreement-agreement_actions-technical_evaluation_page"
               >
-                {isEditMode ? "Update Response" : "Submit"}
+                {vendorResponseSent ? "Update Response" : "Submit"}
               </button>
             </div>}
           </>}
@@ -431,13 +453,13 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
         isOpen={showSubmitConfirmModal}
         onClose={handleSubmitCancel}
         onConfirm={handleSubmitConfirm}
-        title={isEditMode ? "Update Technical Evaluation Response" : "Submit Technical Evaluation Response"}
-        description={isEditMode
+        title={vendorResponseSent ? "Update Technical Evaluation Response" : "Submit Technical Evaluation Response"}
+        description={vendorResponseSent
           ? "Are you sure you want to update your technical evaluation response?\nThis action will send your updated response to the buyer."
           : "Are you sure you want to submit your technical evaluation response?\nThis action will send your response to the buyer."
         }
         confirmButtonColor="success"
-        confirmButtonText={isEditMode ? "Update Response" : "Submit Response"}
+        confirmButtonText={vendorResponseSent ? "Update Response" : "Submit Response"}
         cancelButtonText="Cancel"
       />
 

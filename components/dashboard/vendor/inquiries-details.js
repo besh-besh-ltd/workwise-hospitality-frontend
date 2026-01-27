@@ -4,7 +4,7 @@ import { faEdit, faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import { Router, useRouter } from "next/router";
-import { closeRFQ, getAllClauses, getRFQById, sendQuotation } from "@/services/rfq";
+import { closeRFQ, getAllClauses, getRFQById, sendQuotation, fetchVendorAgreement, getTechClearedVendorsResult } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
 import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-icons";
@@ -49,10 +49,10 @@ const RfqManagementPreview = () => {
   const [showLowestPrice, setShowLowestPrice] = useState(false);
   const [wasEndDatePassed, setWasEndDatePassed] = useState(false);
   const [raStatusChanged, setRaStatusChanged] = useState(false);
-  // Add technical evaluation statuses tracking
-  const [techEvalStatuses, setTechEvalStatuses] = useState({});
-  // Changes by Agnij 2025-05-05 [Add state for technical evaluation restrictions]
   const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
+  // Enhanced tech eval status tracking for detailed status display
+  const [productTechEvalDetails, setProductTechEvalDetails] = useState({});
+  const [loadingTechEvalDetails, setLoadingTechEvalDetails] = useState({});
 
   // Clarification state
   const [clarifications, setClarifications] = useState([]);
@@ -217,22 +217,299 @@ const RfqManagementPreview = () => {
       });
   };
 
+  // Helper to get status values from product
+  const getStatusValues = (item) => {
+    const detailedStatus = productTechEvalDetails[item.id];
+    const backendStatus = item.tech_evaluation_status;
+    const isBuyerView = type === "buyer-view";
+
+    return {
+      isAccepted: backendStatus?.is_accepted === true || detailedStatus?.isAccepted === true,
+      isRejected: backendStatus?.is_rejected === true || detailedStatus?.isRejected === true,
+      allClausesResponded: backendStatus?.all_clauses_responded !== undefined ? backendStatus.all_clauses_responded : detailedStatus?.allClausesResponded,
+      hasResponse: backendStatus?.has_response !== undefined ? backendStatus.has_response : detailedStatus?.hasResponse,
+      respondedCount: backendStatus?.responded_count !== undefined ? backendStatus.responded_count : detailedStatus?.respondedCount || 0,
+      totalClauses: backendStatus?.total_clauses !== undefined ? backendStatus.total_clauses : detailedStatus?.vendorResponseCount || 0,
+      detailedStatus,
+      backendStatus,
+      isBuyerView
+    };
+  };
+
+  // Helper function to determine status from backend response
+  const determineStatusFromBackend = (backendStatus, isBuyerView = false) => {
+    const {
+      has_tech_eval,
+      is_accepted,
+      is_rejected,
+      has_response,
+      all_clauses_responded,
+      responded_count,
+      total_clauses,
+      rejection_reason
+    } = backendStatus || {};
+
+    let status = 'pending_vendor';
+    let statusText = isBuyerView ? '[PENDING] Vendor Response Pending' : '[PENDING] Your Response Pending';
+    let statusColor = '#6c757d';
+    let bgColor = '#e9ecef';
+
+    if (!has_tech_eval) {
+      return {
+        status: 'not_applicable',
+        statusText: 'N/A',
+        statusColor: '#6c757d',
+        bgColor: '#f8f9fa',
+        hasResponse: false,
+        allClausesResponded: false,
+        someClausesResponded: false,
+        hasDeviation: false,
+        isAccepted: false,
+        isRejected: false,
+        techEvalStatus: 0,
+        techEvalCleared: null,
+        vendorResponseCount: total_clauses || 0,
+        respondedCount: 0
+      };
+    }
+
+    if (is_accepted) {
+      status = 'accepted';
+      statusText = '[ACCEPTED] Technically Accepted';
+      statusColor = '#198754';
+      bgColor = '#d1e7dd';
+    } else if (is_rejected) {
+      status = 'rejected';
+      statusText = '[REJECTED] Technically Rejected';
+      statusColor = '#dc3545';
+      bgColor = '#f8d7da';
+    } else if (all_clauses_responded) {
+      status = 'pending_buyer';
+      statusText = isBuyerView ? '[AWAITING] Awaiting Your Evaluation' : '[AWAITING] Awaiting Buyer Evaluation';
+      statusColor = '#ffc107';
+      bgColor = '#fff3cd';
+    } else if (has_response && responded_count > 0 && responded_count < total_clauses) {
+      status = 'partial';
+      statusText = isBuyerView ? '[INCOMPLETE] Vendor Partially Submitted' : '[INCOMPLETE] Partially Submitted';
+      statusColor = '#fd7e14';
+      bgColor = '#ffe5d0';
+    } else {
+      status = 'pending_vendor';
+      statusText = isBuyerView ? '[PENDING] Vendor Response Pending' : '[PENDING] Your Response Pending';
+      statusColor = '#6c757d';
+      bgColor = '#e9ecef';
+    }
+
+    return {
+      status,
+      statusText,
+      statusColor,
+      bgColor,
+      hasResponse: has_response || false,
+      allClausesResponded: all_clauses_responded || false,
+      someClausesResponded: has_response && !all_clauses_responded,
+      hasDeviation: false,
+      isAccepted: is_accepted || false,
+      isRejected: is_rejected || false,
+      techEvalStatus: is_rejected ? 1 : (is_accepted ? 1 : 0),
+      techEvalCleared: is_accepted || is_rejected ? {
+        status: is_accepted ? 1 : 0,
+        rejection_reason: rejection_reason || null
+      } : null,
+      vendorResponseCount: total_clauses || 0,
+      respondedCount: responded_count || 0
+    };
+  };
+
+  // Fetch detailed tech eval status for a product
+  const fetchProductTechEvalDetails = async (productId, rfqId) => {
+    if (loadingTechEvalDetails[productId] || productTechEvalDetails[productId]) {
+      return;
+    }
+
+    setLoadingTechEvalDetails(prev => ({ ...prev, [productId]: true }));
+
+    try {
+      let vendorId = null;
+      try {
+        const currentUser = storageInstance.getStorage("user");
+        if (currentUser) {
+          const userData = typeof currentUser === 'string' ? JSON.parse(currentUser) : currentUser;
+          vendorId = userData?.id || null;
+        }
+      } catch (e) {
+        console.error("Error parsing user data:", e);
+      }
+
+      if (!vendorId || isNaN(parseInt(vendorId))) {
+        const isBuyerView = type === "buyer-view";
+        const pendingStatus = {
+          status: 'pending_vendor',
+          statusText: isBuyerView ? '[PENDING] Vendor Response Pending' : '[PENDING] Your Response Pending',
+          statusColor: '#6c757d',
+          bgColor: '#e9ecef',
+          hasResponse: false,
+          allClausesResponded: false,
+          someClausesResponded: false,
+          hasDeviation: false,
+          isAccepted: false,
+          isRejected: false,
+          techEvalStatus: 0,
+          techEvalCleared: null,
+          vendorResponseCount: 0,
+          respondedCount: 0
+        };
+        setProductTechEvalDetails(prev => ({ ...prev, [productId]: pendingStatus }));
+        setLoadingTechEvalDetails(prev => ({ ...prev, [productId]: false }));
+        return;
+      }
+
+      const payload = {
+        rfq_id: rfqId,
+        rfq_product_id: productId,
+        vendor_id: parseInt(vendorId)
+      };
+
+      const responseRes = await fetchVendorAgreement(payload);
+      const clearedRes = await getTechClearedVendorsResult(payload);
+
+      if (!responseRes || !responseRes.status || !responseRes.data) {
+        const isBuyerView = type === "buyer-view";
+        const pendingStatus = {
+          status: 'pending_vendor',
+          statusText: isBuyerView ? '[PENDING] Vendor Response Pending' : '[PENDING] Your Response Pending',
+          statusColor: '#6c757d',
+          bgColor: '#e9ecef',
+          hasResponse: false,
+          allClausesResponded: false,
+          someClausesResponded: false,
+          hasDeviation: false,
+          isAccepted: false,
+          isRejected: false,
+          techEvalStatus: 0,
+          techEvalCleared: null,
+          vendorResponseCount: 0,
+          respondedCount: 0
+        };
+        setProductTechEvalDetails(prev => ({ ...prev, [productId]: pendingStatus }));
+        return;
+      }
+
+      const vendorResponse = Array.isArray(responseRes.data) ? responseRes.data : [];
+      const techEvalCleared = clearedRes?.data || null;
+      const techEvalStatus = clearedRes?.status || 0;
+
+      const respondedItems = vendorResponse.filter(
+        item => item &&
+                item.vendor_response &&
+                typeof item.vendor_response === 'string' &&
+                item.vendor_response.trim() !== '' &&
+                item.vendor_response.trim() !== 'N/A'
+      );
+      const respondedCount = respondedItems.length;
+      const vendorResponseCount = vendorResponse.length;
+
+      const hasResponse = respondedCount > 0;
+      const allClausesResponded = hasResponse && respondedCount === vendorResponseCount && vendorResponseCount > 0;
+      const someClausesResponded = hasResponse && respondedCount > 0 && respondedCount < vendorResponseCount;
+      const hasDeviation = vendorResponse && vendorResponse.some(
+        item => item.has_deviation === true || item.has_deviation === 1
+      );
+      const isAccepted = techEvalCleared?.status === 1;
+      const isRejected = techEvalCleared?.status === 0 && techEvalStatus === 1;
+
+      const isBuyerView = type === "buyer-view";
+      let status, statusText, statusColor, bgColor;
+
+      if (isAccepted) {
+        status = 'accepted';
+        statusText = '[ACCEPTED] Technically Accepted';
+        statusColor = '#198754';
+        bgColor = '#d1e7dd';
+      } else if (isRejected) {
+        status = 'rejected';
+        statusText = '[REJECTED] Technically Rejected';
+        statusColor = '#dc3545';
+        bgColor = '#f8d7da';
+      } else if (allClausesResponded) {
+        status = 'pending_buyer';
+        statusText = isBuyerView ? '[AWAITING] Awaiting Your Evaluation' : '[AWAITING] Awaiting Buyer Evaluation';
+        statusColor = '#ffc107';
+        bgColor = '#fff3cd';
+      } else if (someClausesResponded) {
+        status = 'partial';
+        statusText = isBuyerView ? '[INCOMPLETE] Vendor Partially Submitted' : '[INCOMPLETE] Partially Submitted';
+        statusColor = '#fd7e14';
+        bgColor = '#ffe5d0';
+      } else {
+        status = 'pending_vendor';
+        statusText = isBuyerView ? '[PENDING] Vendor Response Pending' : '[PENDING] Your Response Pending';
+        statusColor = '#6c757d';
+        bgColor = '#e9ecef';
+      }
+
+      setProductTechEvalDetails(prev => ({
+        ...prev,
+        [productId]: {
+          status,
+          statusText,
+          statusColor,
+          bgColor,
+          hasResponse,
+          allClausesResponded,
+          someClausesResponded,
+          hasDeviation,
+          isAccepted,
+          isRejected,
+          techEvalStatus,
+          techEvalCleared,
+          vendorResponseCount,
+          respondedCount
+        }
+      }));
+    } catch (error) {
+      console.error(`Error fetching tech eval details for product ${productId}:`, error);
+      const isBuyerView = type === "buyer-view";
+      const pendingStatus = {
+        status: 'pending_vendor',
+        statusText: isBuyerView ? '[PENDING] Vendor Response Pending' : '[PENDING] Your Response Pending',
+        statusColor: '#6c757d',
+        bgColor: '#e9ecef',
+        hasResponse: false,
+        allClausesResponded: false,
+        someClausesResponded: false,
+        hasDeviation: false,
+        isAccepted: false,
+        isRejected: false,
+        techEvalStatus: 0,
+        techEvalCleared: null,
+        vendorResponseCount: 0,
+        respondedCount: 0
+      };
+      setProductTechEvalDetails(prev => ({ ...prev, [productId]: pendingStatus }));
+    } finally {
+      setLoadingTechEvalDetails(prev => ({ ...prev, [productId]: false }));
+    }
+  };
+
   const updatecurrentLowest = (products) => {
     if (products && Array.isArray(products)) {
       // Extract technical evaluation status for each product
-      const techStatuses = {};
       products.forEach(product => {
         if (product.tech_evaluation_status) {
-          techStatuses[product.id] = product.tech_evaluation_status;
+          if (product.tech_evaluation_status.has_tech_eval && product.tech_evaluation_status.has_response !== undefined) {
+            const status = determineStatusFromBackend(product.tech_evaluation_status, type === "buyer-view");
+            setProductTechEvalDetails(prev => ({ ...prev, [product.id]: status }));
+          } else if (id && product.id) {
+            fetchProductTechEvalDetails(product.id, id);
+          }
+        } else if (id && product.id) {
+          fetchProductTechEvalDetails(product.id, id);
         }
       });
-      setTechEvalStatuses(techStatuses);
 
       // Determine if lowest quotation should be visible based on technical evaluation
       const hasLowestQuotation = products.some(product => {
-        // Show lowest quote if it exists and either:
-        // 1. Product doesn't have technical evaluation, or
-        // 2. Product has technical evaluation and vendor is accepted
         const hasTechEval = product.tech_evaluation_status?.has_tech_eval;
         const isAccepted = product.tech_evaluation_status?.is_accepted;
 
@@ -982,16 +1259,16 @@ const RfqManagementPreview = () => {
                         </div>
                       )}
                       {rfqDetails?.response_email && (
-                        <div className="  col-md-2 col-sm-6"> 
+                        <div className="  col-md-2 col-sm-6">
                           <strong>Email:</strong>
-                          <div>{rfqDetails.response_email}</div>
+                          <div className="text-break" style={{ wordBreak: "break-all", overflowWrap: "break-word" }}>{rfqDetails.response_email}</div>
                         </div>
                       )}
 
                       {rfqDetails?.contact_number && (
-                        <div className="  col-md-2 col-sm-6"> 
+                        <div className="  col-md-2 col-sm-6">
                           <strong>Contact Number:</strong>
-                          <div>{rfqDetails.contact_number}</div>
+                          <div className="text-break" style={{ wordBreak: "break-all", overflowWrap: "break-word" }}>{rfqDetails.contact_number}</div>
                         </div>
                       )}
 
@@ -1188,12 +1465,29 @@ const RfqManagementPreview = () => {
                                     break;
                                 }
                               });
-                              const tech_evaluation_status =
-                                item.tech_evaluation_status?.is_accepted ||
-                                null;
                               return (
                                 <tr
                                   key={`${item?.id}_${item?.product_id}_${item?.variant}`}
+                                  style={(() => {
+                                    const techEvalStatus = productTechEvalDetails[item.id];
+                                    if (!techEvalStatus) return { transition: 'all 0.3s ease' };
+
+                                    const statusStyles = {
+                                      accepted: { bg: '#d1e7dd', border: '#198754', shadow: '0 2px 8px rgba(25, 135, 84, 0.2)' },
+                                      rejected: { bg: '#f8d7da', border: '#dc3545', shadow: '0 2px 8px rgba(220, 53, 69, 0.2)' },
+                                      pending_buyer: { bg: '#fff3cd', border: '#ffc107', shadow: '0 2px 8px rgba(255, 193, 7, 0.2)' },
+                                      partial: { bg: '#ffe5d0', border: '#fd7e14', shadow: '0 2px 8px rgba(253, 126, 20, 0.2)' },
+                                      submitted: { bg: '#cfe2ff', border: '#0d6efd', shadow: '0 2px 8px rgba(13, 110, 253, 0.2)' }
+                                    };
+
+                                    const style = statusStyles[techEvalStatus.status] || (techEvalStatus.hasResponse ? { bg: '#e7f3ff', border: '#0d6efd', shadow: '0 2px 8px rgba(13, 110, 253, 0.15)' } : { bg: 'transparent', border: 'none', shadow: 'none' });
+                                    return {
+                                      backgroundColor: style.bg,
+                                      borderLeft: style.border !== 'none' ? `5px solid ${style.border}` : '0',
+                                      transition: 'all 0.3s ease',
+                                      boxShadow: style.shadow
+                                    };
+                                  })()}
                                 >
                                   <td>
                                     {item?.product_details[0]?.name}
@@ -1340,52 +1634,120 @@ const RfqManagementPreview = () => {
                                     </td>
                                   )}
 
-                                  <td>
-                                    {item.tech_evaluation_status
-                                      ?.has_tech_eval ? (
-                                      <a
-                                        href={`/dashboard/${
-                                          type === "buyer-view"
-                                            ? "buyer"
-                                            : "vendor"
-                                        }/technical-evaluation?rfq_id=${id}&prod_id=${
-                                          item.id
-                                        }&token=${token}`}
-                                        className="text-dark-blue"
-                                        style={{
-                                          fontSize: "0.8rem",
-                                          padding: "5px 10px",
-                                          display: "inline-block",
-                                          border: "none",
-                                          backgroundColor: "lightblue",
-                                          color: "darkblue",
-                                          textDecoration: "none",
-                                          borderRadius: "5px",
-                                        }}
-                                      >
-                                        {item.tech_evaluation_status
-                                          ?.is_accepted ? (
-                                          <span
+                                  <td
+                                    style={(() => {
+                                      const techEvalStatus = productTechEvalDetails[item.id];
+                                      const hasTechEval = item.tech_evaluation_status?.has_tech_eval;
+                                      const statusStyles = {
+                                        accepted: { bg: '#d1e7dd', border: '#198754', shadow: '0 2px 8px rgba(25, 135, 84, 0.2)' },
+                                        rejected: { bg: '#f8d7da', border: '#dc3545', shadow: '0 2px 8px rgba(220, 53, 69, 0.2)' },
+                                        pending_buyer: { bg: '#fff3cd', border: '#ffc107', shadow: '0 2px 8px rgba(255, 193, 7, 0.2)' },
+                                        partial: { bg: '#ffe5d0', border: '#fd7e14', shadow: '0 2px 8px rgba(253, 126, 20, 0.2)' },
+                                        pending_vendor: { bg: '#e9ecef', border: '#6c757d', shadow: '0 2px 8px rgba(108, 117, 125, 0.2)' }
+                                      };
+
+                                      let style = { bg: 'transparent', border: 'none', shadow: 'none' };
+                                      if (techEvalStatus) {
+                                        style = statusStyles[techEvalStatus.status] || style;
+                                      } else if (hasTechEval && !loadingTechEvalDetails[item.id]) {
+                                        style = item.tech_evaluation_status?.is_accepted ? statusStyles.accepted : statusStyles.pending_buyer;
+                                      }
+
+                                      return {
+                                        backgroundColor: style.bg,
+                                        borderLeft: style.border !== 'none' ? `5px solid ${style.border}` : '0',
+                                        padding: '12px',
+                                        transition: 'all 0.3s ease',
+                                        fontWeight: techEvalStatus || hasTechEval ? '500' : 'normal',
+                                        boxShadow: style.shadow
+                                      };
+                                    })()}
+                                  >
+                                    {item.tech_evaluation_status?.has_tech_eval ? (
+                                      <div>
+                                        {loadingTechEvalDetails[item.id] ? (
+                                          <div
+                                            className="d-flex align-items-center justify-content-center"
                                             style={{
-                                              color: "darkgreen",
-                                              fontWeight: "600",
+                                              padding: "8px 10px",
+                                              borderRadius: "6px",
+                                              backgroundColor: "#f8f9fa",
+                                              border: "1px solid #dee2e6",
+                                              minWidth: "160px"
                                             }}
                                           >
-                                            Technically Accepted
-                                          </span>
+                                            <span className="badge bg-secondary" style={{ fontSize: "0.8rem", padding: "4px 10px", borderRadius: "4px", fontWeight: "500" }}>Loading...</span>
+                                          </div>
                                         ) : (
-                                          <span
+                                          <a
+                                            href={`/dashboard/${
+                                              type === "buyer-view"
+                                                ? "buyer"
+                                                : "vendor"
+                                            }/technical-evaluation?rfq_id=${id}&prod_id=${
+                                              item.id
+                                            }&token=${token}`}
                                             style={{
-                                              color: "darkorange",
-                                              fontWeight: "600",
+                                              textDecoration: "none",
+                                              display: "inline-block",
+                                              width: "100%"
                                             }}
                                           >
-                                            Pending
-                                          </span>
+                                            <div
+                                              className="d-flex flex-column gap-1"
+                                              style={(() => {
+                                                const status = getStatusValues(item);
+                                                const isPartiallySubmitted = status.hasResponse && status.respondedCount > 0 && status.totalClauses > 0 && status.respondedCount < status.totalClauses;
+                                                const awaitingBuyer = status.allClausesResponded && status.hasResponse && !status.isAccepted && !status.isRejected;
+
+                                                if (status.isAccepted) return { padding: "8px 10px", borderRadius: "6px", backgroundColor: "#d1e7dd", border: "1px solid #198754", minWidth: "160px" };
+                                                if (status.isRejected) return { padding: "8px 10px", borderRadius: "6px", backgroundColor: "#f8d7da", border: "1px solid #dc3545", minWidth: "160px" };
+                                                if (awaitingBuyer) return { padding: "8px 10px", borderRadius: "6px", backgroundColor: "#fff3cd", border: "1px solid #ffc107", minWidth: "160px" };
+                                                if (isPartiallySubmitted) return { padding: "8px 10px", borderRadius: "6px", backgroundColor: "#ffe5d0", border: "1px solid #fd7e14", minWidth: "160px" };
+                                                return { padding: "8px 10px", borderRadius: "6px", backgroundColor: "#f8f9fa", border: "1px solid #dee2e6", minWidth: "160px" };
+                                              })()}
+                                            >
+                                              <span
+                                                className="badge"
+                                                style={(() => {
+                                                  const status = getStatusValues(item);
+                                                  const isPartiallySubmitted = status.hasResponse && status.respondedCount > 0 && status.totalClauses > 0 && status.respondedCount < status.totalClauses;
+                                                  const awaitingBuyer = status.allClausesResponded && status.hasResponse && !status.isAccepted && !status.isRejected;
+                                                  const baseStyle = { fontSize: "0.8rem", padding: "4px 10px", borderRadius: "4px", fontWeight: "500", width: "fit-content" };
+
+                                                  if (status.isAccepted) return { ...baseStyle, backgroundColor: "#198754", color: "#fff" };
+                                                  if (status.isRejected) return { ...baseStyle, backgroundColor: "#dc3545", color: "#fff" };
+                                                  if (awaitingBuyer) return { ...baseStyle, backgroundColor: "#ffc107", color: "#000" };
+                                                  if (isPartiallySubmitted) return { ...baseStyle, backgroundColor: "#fd7e14", color: "#fff" };
+                                                  return { ...baseStyle, backgroundColor: "#6c757d", color: "#fff" };
+                                                })()}
+                                              >
+                                                {(() => {
+                                                  const status = getStatusValues(item);
+                                                  if (status.isAccepted) return "[ACCEPTED] Technically Accepted";
+                                                  if (status.isRejected) return status.detailedStatus?.statusText || status.backendStatus?.rejection_reason || "[REJECTED] Technically Rejected";
+                                                  if (status.detailedStatus?.statusText && !status.detailedStatus.statusText.includes('[IN PROGRESS]')) return status.detailedStatus.statusText;
+                                                  if (status.allClausesResponded && status.hasResponse) return status.isBuyerView ? "[AWAITING] Awaiting Your Evaluation" : "[AWAITING] Awaiting Buyer Evaluation";
+                                                  if (status.hasResponse && status.respondedCount > 0 && status.totalClauses > 0 && status.respondedCount < status.totalClauses) return status.isBuyerView ? "[INCOMPLETE] Vendor Partially Submitted" : "[INCOMPLETE] Partially Submitted";
+                                                  return status.isBuyerView ? "[PENDING] Vendor Response Pending" : "[PENDING] Your Response Pending";
+                                                })()}
+                                              </span>
+                                              <div style={{ fontSize: "0.7rem", color: "#6c757d", marginTop: "2px" }}>
+                                                {(() => {
+                                                  const status = getStatusValues(item);
+                                                  if (status.isAccepted) return "Click to view details";
+                                                  if (status.isRejected) return status.backendStatus?.rejection_reason || status.detailedStatus?.techEvalCleared?.reject_message || "Click to view details";
+                                                  if (status.allClausesResponded && status.hasResponse) return status.isBuyerView ? "Awaiting your evaluation" : "Awaiting buyer evaluation";
+                                                  if (status.hasResponse && status.respondedCount > 0 && status.totalClauses > 0 && status.respondedCount < status.totalClauses) return `${status.respondedCount} of ${status.totalClauses} clauses completed`;
+                                                  return status.isBuyerView ? "Click to view evaluation" : "Click to start evaluation";
+                                                })()}
+                                              </div>
+                                            </div>
+                                          </a>
                                         )}
-                                      </a>
+                                      </div>
                                     ) : (
-                                      "N/A"
+                                      <span className="text-muted">N/A</span>
                                     )}
                                   </td>
 
