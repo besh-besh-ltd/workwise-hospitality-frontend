@@ -40,12 +40,10 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
   const uploadToServer = async (e, clauseId) => {
     try {
       const filePath = await handleFileUpload(e, token);
-      console.log("File Path: ", filePath);
       setFilesMap((prevFiles) => {
         const newFiles = new Map(prevFiles);
         const existingFiles = newFiles.get(clauseId) || [];
         newFiles.set(clauseId, [...existingFiles, filePath]);
-        console.log("Updated Files Map: ", newFiles);
         return newFiles;
       });
     } catch (error) {
@@ -83,7 +81,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
       setVendorResponseSent(res.vendor_response);
       setBuyerClauses(res.data);
     } catch (error) {
-      console.log(error)
+      toast.error("Unable to load clauses. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -177,7 +175,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
       getVendorResponse();
       setShowSubmitConfirmModal(false);
     } catch (error) {
-      console.log(error);
+      toast.error("Failed to submit technical evaluation response. Please try again.");
       setShowSubmitConfirmModal(false);
     } finally {
       setSubmitLoading(false);
@@ -198,6 +196,23 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
     if (product)
       getBuyerClauses()
   }, [product])
+
+  const hasVendorResponses = Array.isArray(vendorResponse) && vendorResponse.length > 0;
+  let clauseTotal = 0;
+  let clauseResponded = 0;
+  let clausePct = 0;
+  let clauseIsComplete = false;
+
+  if (hasVendorResponses && agreementMap) {
+    clauseTotal = vendorResponse.length;
+    clauseResponded = vendorResponse.filter(
+      (item) =>
+        agreementMap.get(item.clause_id) === "I Agree" ||
+        agreementMap.get(item.clause_id) === "I Dont Agree"
+    ).length;
+    clausePct = clauseTotal > 0 ? Math.round((clauseResponded / clauseTotal) * 100) : 0;
+    clauseIsComplete = clauseResponded === clauseTotal;
+  }
 
   return (
     <>
@@ -239,38 +254,28 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
       }
 
       {/* Clause Progress */}
-      {vendorResponse && vendorResponse.length > 0 && (
+      {hasVendorResponses && (
         <div className="my-3">
-          {(() => {
-            const total = vendorResponse.length;
-            const responded = vendorResponse.filter(
-              item => agreementMap && (agreementMap.get(item.clause_id) === "I Agree" || agreementMap.get(item.clause_id) === "I Dont Agree")
-            ).length;
-            const pct = total > 0 ? Math.round((responded / total) * 100) : 0;
-            const isComplete = responded === total;
-            return (
-              <div>
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <span className="fw-semibold" style={{ fontSize: "0.9rem" }}>
-                    Clause Progress: {responded} of {total} responded
-                  </span>
-                  <span className={`badge ${isComplete ? 'bg-success' : 'bg-secondary'}`} style={{ fontSize: "0.8rem" }}>
-                    {pct}%
-                  </span>
-                </div>
-                <div className="progress" style={{ height: "8px" }}>
-                  <div
-                    className={`progress-bar ${isComplete ? 'bg-success' : 'bg-primary'}`}
-                    role="progressbar"
-                    style={{ width: `${pct}%`, transition: "width 0.3s ease" }}
-                    aria-valuenow={pct}
-                    aria-valuemin="0"
-                    aria-valuemax="100"
-                  />
-                </div>
-              </div>
-            );
-          })()}
+          <div>
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <span className="fw-semibold" style={{ fontSize: "0.9rem" }}>
+                Clause Progress: {clauseResponded} of {clauseTotal} responded
+              </span>
+              <span className={`badge ${clauseIsComplete ? "bg-success" : "bg-secondary"}`} style={{ fontSize: "0.8rem" }}>
+                {clausePct}%
+              </span>
+            </div>
+            <div className="progress" style={{ height: "8px" }}>
+              <div
+                className={`progress-bar ${clauseIsComplete ? "bg-success" : "bg-primary"}`}
+                role="progressbar"
+                style={{ width: `${clausePct}%`, transition: "width 0.3s ease" }}
+                aria-valuenow={clausePct}
+                aria-valuemin="0"
+                aria-valuemax="100"
+              />
+            </div>
+          </div>
         </div>
       )}
 
