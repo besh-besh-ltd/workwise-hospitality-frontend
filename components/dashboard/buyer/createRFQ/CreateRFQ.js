@@ -3136,8 +3136,6 @@ useEffect(() => {
                                     </div>
                                   </>
                                 )}
-                                  </>
-                                )}
 
                                 <div className="col-md-12">
                                   <FormikField
