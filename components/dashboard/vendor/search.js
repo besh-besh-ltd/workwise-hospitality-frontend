@@ -348,18 +348,29 @@ const category_id = extractId(slugStr);
 
 
   useEffect(() => {
-    const { rfq_id, sheet_id, orderType  } = router.query;
+    const { rfq_id, sheet_id, orderType } = router.query;
+
+    // Normalize rfq_id and sheet_id to avoid passing "null" or invalid values
+    const parsedRfqId =
+      rfq_id && rfq_id !== "null" && !isNaN(parseInt(rfq_id))
+        ? parseInt(rfq_id)
+        : null;
+
+    const parsedSheetId =
+      sheet_id && sheet_id !== "null" && !isNaN(parseInt(sheet_id))
+        ? parseInt(sheet_id)
+        : null;
+
     setQueryMeta({
-      rfq_id,
-      sheet_id,
-      orderType 
+      rfq_id: parsedRfqId,
+      sheet_id: parsedSheetId,
+      orderType,
     });
 
-     //  fetch rfq mapped hotels 
-    if (rfq_id) {
-        getRfqMappedHotels(rfq_id);   //  RFQ specific hotels
+    // Fetch RFQ-mapped hotels only when we have a valid numeric rfq_id
+    if (parsedRfqId !== null) {
+      getRfqMappedHotels(parsedRfqId); // RFQ specific hotels
     }
-
   }, [router.query]);
 
   function useClickOutside(ref, handler, active = true) {

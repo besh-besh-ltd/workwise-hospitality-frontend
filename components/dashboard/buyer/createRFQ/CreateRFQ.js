@@ -875,6 +875,13 @@ useEffect(() => {
       }
     }
 
+    // Validate project selection (required for both RFQ and Tender)
+    if (!formDataCopy.project_id || formDataCopy.project_id === -1 || formDataCopy.project_id === '') {
+      toast.error("Please select a project");
+      setMainLoading(false);
+      return false;
+    }
+
     if (!validateVendors()) {
       setMainLoading(false);
       return false;
@@ -2947,12 +2954,7 @@ useEffect(() => {
                                   </>
                                 )}
 
-                                {rfqFormDataFromStore.is_tender === 0 && (
-                                  <>
-
-
-                                
-<div className="col-md-4">
+                                <div className="col-md-4">
   <FormikField
     id="select_project-create_rfq_page"
     label="Select Project"
@@ -2973,7 +2975,6 @@ useEffect(() => {
     errors={errors}
   />
 </div>
-                                  </>)}
 
 
                                 <div className="col-md-4">
