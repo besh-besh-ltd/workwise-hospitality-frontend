@@ -901,6 +901,7 @@ useEffect(() => {
       return false;
     }
 
+
     if (!validateVendors()) {
       setMainLoading(false);
       return false;
