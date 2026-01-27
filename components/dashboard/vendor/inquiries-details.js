@@ -29,6 +29,82 @@ import VendorNegotiationInfo from "./VendorNegotiationInfo";
 import ProductNegotiationBadge from "./ProductNegotiationBadge";
 import { Badge, Button } from "react-bootstrap";
 
+const TECH_EVAL_STYLES = {
+  accepted: { bg: '#d1e7dd', border: '#198754', shadow: '0 2px 8px rgba(25, 135, 84, 0.2)' },
+  rejected: { bg: '#f8d7da', border: '#dc3545', shadow: '0 2px 8px rgba(220, 53, 69, 0.2)' },
+  pending_buyer: { bg: '#fff3cd', border: '#ffc107', shadow: '0 2px 8px rgba(255, 193, 7, 0.2)' },
+  partial: { bg: '#ffe5d0', border: '#fd7e14', shadow: '0 2px 8px rgba(253, 126, 20, 0.2)' },
+  submitted: { bg: '#cfe2ff', border: '#0d6efd', shadow: '0 2px 8px rgba(13, 110, 253, 0.2)' },
+  pending_vendor: { bg: '#e9ecef', border: '#6c757d', shadow: '0 2px 8px rgba(108, 117, 125, 0.2)' },
+};
+
+const DEFAULT_STYLE = { bg: 'transparent', border: 'none', shadow: 'none' };
+const RESPONSE_STYLE = { bg: '#e7f3ff', border: '#0d6efd', shadow: '0 2px 8px rgba(13, 110, 253, 0.15)' };
+
+const buildRowStyle = (styleConfig) => ({
+  backgroundColor: styleConfig.bg,
+  borderLeft: styleConfig.border !== 'none' ? `5px solid ${styleConfig.border}` : '0',
+  transition: 'all 0.3s ease',
+  boxShadow: styleConfig.shadow,
+});
+
+const getTechEvalRowStyle = (techEvalStatus) => {
+  if (!techEvalStatus) return { transition: 'all 0.3s ease' };
+  const styleConfig = TECH_EVAL_STYLES[techEvalStatus.status] || (techEvalStatus.hasResponse ? RESPONSE_STYLE : DEFAULT_STYLE);
+  return buildRowStyle(styleConfig);
+};
+
+const getTechEvalCellStyle = (techEvalStatus, hasTechEval, isLoading, isAccepted) => {
+  let styleConfig = DEFAULT_STYLE;
+  if (techEvalStatus) {
+    styleConfig = TECH_EVAL_STYLES[techEvalStatus.status] || DEFAULT_STYLE;
+  } else if (hasTechEval && !isLoading) {
+    styleConfig = isAccepted ? TECH_EVAL_STYLES.accepted : TECH_EVAL_STYLES.pending_buyer;
+  }
+  return {
+    ...buildRowStyle(styleConfig),
+    padding: '12px',
+    fontWeight: techEvalStatus || hasTechEval ? '500' : 'normal',
+  };
+};
+
+const CONTAINER_BASE_STYLE = { padding: "8px 10px", borderRadius: "6px", minWidth: "160px" };
+
+const getContainerStyle = ({ isAccepted, isRejected, awaitingBuyer, isPartiallySubmitted }) => {
+  if (isAccepted) return { ...CONTAINER_BASE_STYLE, backgroundColor: "#d1e7dd", border: "1px solid #198754" };
+  if (isRejected) return { ...CONTAINER_BASE_STYLE, backgroundColor: "#f8d7da", border: "1px solid #dc3545" };
+  if (awaitingBuyer) return { ...CONTAINER_BASE_STYLE, backgroundColor: "#fff3cd", border: "1px solid #ffc107" };
+  if (isPartiallySubmitted) return { ...CONTAINER_BASE_STYLE, backgroundColor: "#ffe5d0", border: "1px solid #fd7e14" };
+  return { ...CONTAINER_BASE_STYLE, backgroundColor: "#f8f9fa", border: "1px solid #dee2e6" };
+};
+
+const BADGE_BASE_STYLE = { fontSize: "0.8rem", padding: "4px 10px", borderRadius: "4px", fontWeight: "500", width: "fit-content" };
+
+const getBadgeStyle = ({ isAccepted, isRejected, awaitingBuyer, isPartiallySubmitted }) => {
+  if (isAccepted) return { ...BADGE_BASE_STYLE, backgroundColor: "#198754", color: "#fff" };
+  if (isRejected) return { ...BADGE_BASE_STYLE, backgroundColor: "#dc3545", color: "#fff" };
+  if (awaitingBuyer) return { ...BADGE_BASE_STYLE, backgroundColor: "#ffc107", color: "#000" };
+  if (isPartiallySubmitted) return { ...BADGE_BASE_STYLE, backgroundColor: "#fd7e14", color: "#fff" };
+  return { ...BADGE_BASE_STYLE, backgroundColor: "#6c757d", color: "#fff" };
+};
+
+const getBadgeText = (status, isPartiallySubmitted) => {
+  if (status.isAccepted) return "[ACCEPTED] Technically Accepted";
+  if (status.isRejected) return status.detailedStatus?.statusText || status.backendStatus?.rejection_reason || "[REJECTED] Technically Rejected";
+  if (status.detailedStatus?.statusText && !status.detailedStatus.statusText.includes('[IN PROGRESS]')) return status.detailedStatus.statusText;
+  if (status.allClausesResponded && status.hasResponse) return status.isBuyerView ? "[AWAITING] Awaiting Your Evaluation" : "[AWAITING] Awaiting Buyer Evaluation";
+  if (isPartiallySubmitted) return status.isBuyerView ? "[INCOMPLETE] Vendor Partially Submitted" : "[INCOMPLETE] Partially Submitted";
+  return status.isBuyerView ? "[PENDING] Vendor Response Pending" : "[PENDING] Your Response Pending";
+};
+
+const getHelperText = (status, isPartiallySubmitted) => {
+  if (status.isAccepted) return "Click to view details";
+  if (status.isRejected) return status.backendStatus?.rejection_reason || status.detailedStatus?.techEvalCleared?.reject_message || "Click to view details";
+  if (status.allClausesResponded && status.hasResponse) return status.isBuyerView ? "Awaiting your evaluation" : "Awaiting buyer evaluation";
+  if (isPartiallySubmitted) return `${status.respondedCount} of ${status.totalClauses} clauses completed`;
+  return status.isBuyerView ? "Click to view evaluation" : "Click to start evaluation";
+};
+
 const RfqManagementPreview = () => {
   const router = useRouter();
   const { id, type, token } = router.query;
@@ -1465,29 +1541,16 @@ const RfqManagementPreview = () => {
                                     break;
                                 }
                               });
+
+                              const itemStatus = getStatusValues(item);
+                              const isPartiallySubmitted = itemStatus.hasResponse && itemStatus.respondedCount > 0 && itemStatus.totalClauses > 0 && itemStatus.respondedCount < itemStatus.totalClauses;
+                              const awaitingBuyer = itemStatus.allClausesResponded && itemStatus.hasResponse && !itemStatus.isAccepted && !itemStatus.isRejected;
+                              const statusFlags = { isAccepted: itemStatus.isAccepted, isRejected: itemStatus.isRejected, awaitingBuyer, isPartiallySubmitted };
+
                               return (
                                 <tr
                                   key={`${item?.id}_${item?.product_id}_${item?.variant}`}
-                                  style={(() => {
-                                    const techEvalStatus = productTechEvalDetails[item.id];
-                                    if (!techEvalStatus) return { transition: 'all 0.3s ease' };
-
-                                    const statusStyles = {
-                                      accepted: { bg: '#d1e7dd', border: '#198754', shadow: '0 2px 8px rgba(25, 135, 84, 0.2)' },
-                                      rejected: { bg: '#f8d7da', border: '#dc3545', shadow: '0 2px 8px rgba(220, 53, 69, 0.2)' },
-                                      pending_buyer: { bg: '#fff3cd', border: '#ffc107', shadow: '0 2px 8px rgba(255, 193, 7, 0.2)' },
-                                      partial: { bg: '#ffe5d0', border: '#fd7e14', shadow: '0 2px 8px rgba(253, 126, 20, 0.2)' },
-                                      submitted: { bg: '#cfe2ff', border: '#0d6efd', shadow: '0 2px 8px rgba(13, 110, 253, 0.2)' }
-                                    };
-
-                                    const style = statusStyles[techEvalStatus.status] || (techEvalStatus.hasResponse ? { bg: '#e7f3ff', border: '#0d6efd', shadow: '0 2px 8px rgba(13, 110, 253, 0.15)' } : { bg: 'transparent', border: 'none', shadow: 'none' });
-                                    return {
-                                      backgroundColor: style.bg,
-                                      borderLeft: style.border !== 'none' ? `5px solid ${style.border}` : '0',
-                                      transition: 'all 0.3s ease',
-                                      boxShadow: style.shadow
-                                    };
-                                  })()}
+                                  style={getTechEvalRowStyle(productTechEvalDetails[item.id])}
                                 >
                                   <td>
                                     {item?.product_details[0]?.name}
@@ -1635,33 +1698,12 @@ const RfqManagementPreview = () => {
                                   )}
 
                                   <td
-                                    style={(() => {
-                                      const techEvalStatus = productTechEvalDetails[item.id];
-                                      const hasTechEval = item.tech_evaluation_status?.has_tech_eval;
-                                      const statusStyles = {
-                                        accepted: { bg: '#d1e7dd', border: '#198754', shadow: '0 2px 8px rgba(25, 135, 84, 0.2)' },
-                                        rejected: { bg: '#f8d7da', border: '#dc3545', shadow: '0 2px 8px rgba(220, 53, 69, 0.2)' },
-                                        pending_buyer: { bg: '#fff3cd', border: '#ffc107', shadow: '0 2px 8px rgba(255, 193, 7, 0.2)' },
-                                        partial: { bg: '#ffe5d0', border: '#fd7e14', shadow: '0 2px 8px rgba(253, 126, 20, 0.2)' },
-                                        pending_vendor: { bg: '#e9ecef', border: '#6c757d', shadow: '0 2px 8px rgba(108, 117, 125, 0.2)' }
-                                      };
-
-                                      let style = { bg: 'transparent', border: 'none', shadow: 'none' };
-                                      if (techEvalStatus) {
-                                        style = statusStyles[techEvalStatus.status] || style;
-                                      } else if (hasTechEval && !loadingTechEvalDetails[item.id]) {
-                                        style = item.tech_evaluation_status?.is_accepted ? statusStyles.accepted : statusStyles.pending_buyer;
-                                      }
-
-                                      return {
-                                        backgroundColor: style.bg,
-                                        borderLeft: style.border !== 'none' ? `5px solid ${style.border}` : '0',
-                                        padding: '12px',
-                                        transition: 'all 0.3s ease',
-                                        fontWeight: techEvalStatus || hasTechEval ? '500' : 'normal',
-                                        boxShadow: style.shadow
-                                      };
-                                    })()}
+                                    style={getTechEvalCellStyle(
+                                      productTechEvalDetails[item.id],
+                                      item.tech_evaluation_status?.has_tech_eval,
+                                      loadingTechEvalDetails[item.id],
+                                      item.tech_evaluation_status?.is_accepted
+                                    )}
                                   >
                                     {item.tech_evaluation_status?.has_tech_eval ? (
                                       <div>
@@ -1695,52 +1737,16 @@ const RfqManagementPreview = () => {
                                           >
                                             <div
                                               className="d-flex flex-column gap-1"
-                                              style={(() => {
-                                                const status = getStatusValues(item);
-                                                const isPartiallySubmitted = status.hasResponse && status.respondedCount > 0 && status.totalClauses > 0 && status.respondedCount < status.totalClauses;
-                                                const awaitingBuyer = status.allClausesResponded && status.hasResponse && !status.isAccepted && !status.isRejected;
-
-                                                if (status.isAccepted) return { padding: "8px 10px", borderRadius: "6px", backgroundColor: "#d1e7dd", border: "1px solid #198754", minWidth: "160px" };
-                                                if (status.isRejected) return { padding: "8px 10px", borderRadius: "6px", backgroundColor: "#f8d7da", border: "1px solid #dc3545", minWidth: "160px" };
-                                                if (awaitingBuyer) return { padding: "8px 10px", borderRadius: "6px", backgroundColor: "#fff3cd", border: "1px solid #ffc107", minWidth: "160px" };
-                                                if (isPartiallySubmitted) return { padding: "8px 10px", borderRadius: "6px", backgroundColor: "#ffe5d0", border: "1px solid #fd7e14", minWidth: "160px" };
-                                                return { padding: "8px 10px", borderRadius: "6px", backgroundColor: "#f8f9fa", border: "1px solid #dee2e6", minWidth: "160px" };
-                                              })()}
+                                              style={getContainerStyle(statusFlags)}
                                             >
                                               <span
                                                 className="badge"
-                                                style={(() => {
-                                                  const status = getStatusValues(item);
-                                                  const isPartiallySubmitted = status.hasResponse && status.respondedCount > 0 && status.totalClauses > 0 && status.respondedCount < status.totalClauses;
-                                                  const awaitingBuyer = status.allClausesResponded && status.hasResponse && !status.isAccepted && !status.isRejected;
-                                                  const baseStyle = { fontSize: "0.8rem", padding: "4px 10px", borderRadius: "4px", fontWeight: "500", width: "fit-content" };
-
-                                                  if (status.isAccepted) return { ...baseStyle, backgroundColor: "#198754", color: "#fff" };
-                                                  if (status.isRejected) return { ...baseStyle, backgroundColor: "#dc3545", color: "#fff" };
-                                                  if (awaitingBuyer) return { ...baseStyle, backgroundColor: "#ffc107", color: "#000" };
-                                                  if (isPartiallySubmitted) return { ...baseStyle, backgroundColor: "#fd7e14", color: "#fff" };
-                                                  return { ...baseStyle, backgroundColor: "#6c757d", color: "#fff" };
-                                                })()}
+                                                style={getBadgeStyle(statusFlags)}
                                               >
-                                                {(() => {
-                                                  const status = getStatusValues(item);
-                                                  if (status.isAccepted) return "[ACCEPTED] Technically Accepted";
-                                                  if (status.isRejected) return status.detailedStatus?.statusText || status.backendStatus?.rejection_reason || "[REJECTED] Technically Rejected";
-                                                  if (status.detailedStatus?.statusText && !status.detailedStatus.statusText.includes('[IN PROGRESS]')) return status.detailedStatus.statusText;
-                                                  if (status.allClausesResponded && status.hasResponse) return status.isBuyerView ? "[AWAITING] Awaiting Your Evaluation" : "[AWAITING] Awaiting Buyer Evaluation";
-                                                  if (status.hasResponse && status.respondedCount > 0 && status.totalClauses > 0 && status.respondedCount < status.totalClauses) return status.isBuyerView ? "[INCOMPLETE] Vendor Partially Submitted" : "[INCOMPLETE] Partially Submitted";
-                                                  return status.isBuyerView ? "[PENDING] Vendor Response Pending" : "[PENDING] Your Response Pending";
-                                                })()}
+                                                {getBadgeText(itemStatus, isPartiallySubmitted)}
                                               </span>
                                               <div style={{ fontSize: "0.7rem", color: "#6c757d", marginTop: "2px" }}>
-                                                {(() => {
-                                                  const status = getStatusValues(item);
-                                                  if (status.isAccepted) return "Click to view details";
-                                                  if (status.isRejected) return status.backendStatus?.rejection_reason || status.detailedStatus?.techEvalCleared?.reject_message || "Click to view details";
-                                                  if (status.allClausesResponded && status.hasResponse) return status.isBuyerView ? "Awaiting your evaluation" : "Awaiting buyer evaluation";
-                                                  if (status.hasResponse && status.respondedCount > 0 && status.totalClauses > 0 && status.respondedCount < status.totalClauses) return `${status.respondedCount} of ${status.totalClauses} clauses completed`;
-                                                  return status.isBuyerView ? "Click to view evaluation" : "Click to start evaluation";
-                                                })()}
+                                                {getHelperText(itemStatus, isPartiallySubmitted)}
                                               </div>
                                             </div>
                                           </a>
