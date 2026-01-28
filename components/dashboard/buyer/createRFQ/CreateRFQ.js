@@ -3151,7 +3151,6 @@ useEffect(() => {
                                     errors={errors}
                                   />
                                 </div>
-                              </>
                             )}
                               </div>
                               </fieldset>
