@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useInsertionEffect, useRef, useState } from "react";
 import Item from "./Item";
 import Select from 'react-select';
-import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft, getVendorsForRFQProduct, vendorTypes, getVendorsForProduct } from "@/services/rfq";
+import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft, getVendorsForRFQProduct, vendorTypes, getVendorsForProduct, getTechEvalUsers } from "@/services/rfq";
 import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
@@ -186,6 +186,7 @@ const CreateRFQ = () => {
   const [validationErrors, setValidationErrors] = useState({});
   const [errorProducts, setErrorProducts] = useState(new Set());
   const [rfqFilters, setRfqFilters] = useState([]);
+  const [techEvalUsers, setTechEvalUsers] = useState([]);
 
   // Permission management - fetch permissions based on selected hotels
   // Dynamic module key based on is_tender field (1 = tender, 0 = rfq)
@@ -781,6 +782,20 @@ const CreateRFQ = () => {
       } catch (error) {
         console.error("Failed to handle project_id change:", error.message);
       }
+
+      // Fetch tech eval users for the selected project
+      try {
+        const res = await getTechEvalUsers(value);
+        setTechEvalUsers(res?.data || []);
+      } catch (err) {
+        console.error("Failed to fetch tech eval users:", err);
+        setTechEvalUsers([]);
+      }
+    }
+
+    if (name === "project_id" && (value === -1 || value === "" || value === null)) {
+      setTechEvalUsers([]);
+      dispatch(setOtherFormFields({ field_name: "technical_evaluation_by", value: null }));
     }
 
     dispatch(setOtherFormFields({ field_name: name, value }));
@@ -1414,6 +1429,17 @@ useEffect(() => {
         dispatch(intializeRfq(draftRes.data));
       }
       getTermsData();
+
+      // Fetch tech eval users if project is already selected
+      const projectId = draftRes?.data?.rfq_form_data?.project_id;
+      if (projectId && projectId !== -1 && projectId !== "") {
+        try {
+          const teRes = await getTechEvalUsers(projectId);
+          setTechEvalUsers(teRes?.data || []);
+        } catch (err) {
+          console.error("Failed to fetch tech eval users on draft load:", err);
+        }
+      }
 
     } catch (error) {
       toast.error(error.message || "Error loading draft RFQ");
@@ -2381,11 +2407,11 @@ useEffect(() => {
                           id="select_hotels-create_rfq_page"
                           isMulti
                           options={userHotelMappings}
-                          value={userHotelMappings.filter(opt => 
+                          value={userHotelMappings.filter(opt =>
                             selectedHotelIds.includes(opt.hospitality_hotel_id)
                           )}
                           onChange={(selectedOptions) => {
-                            const ids = selectedOptions 
+                            const ids = selectedOptions
                               ? selectedOptions.map(opt => opt.hospitality_hotel_id)
                               : [];
                             handleHotelSelectionChange(ids);
@@ -2403,6 +2429,19 @@ useEffect(() => {
                         />
                       </div>
                     )}
+
+                    <div className="col-md-3">
+                      <label className="form-label fw-medium">{rfqFormDataFromStore.is_tender === 1 ? 'Tender' : 'RFQ'} Title <span className="text-danger">*</span></label>
+                      <input
+                        type="text"
+                        id="title-input-create_rfq_page"
+                        name="title"
+                        className="form-control"
+                        value={rfqFormDataFromStore.title || ""}
+                        onChange={handleFormFieldChange}
+                        placeholder={`Enter ${rfqFormDataFromStore.is_tender === 1 ? 'Tender' : 'RFQ'} Title`}
+                      />
+                    </div>
 
                     {rfqFormDataFromStore.is_tender === 1 && departments.length > 0 && (
                       <div className="col-md-3">
@@ -2665,6 +2704,7 @@ useEffect(() => {
                             vendor_clarification_date: rfqFormDataFromStore.vendor_clarification_date,
                             location: rfqFormDataFromStore.location,
                             countryCode: "+91",
+                            title: rfqFormDataFromStore.title || "",
                           }}
                           validationSchema={CreateRFQSchema}
                           onSubmit={(values, { resetForm }) => {
@@ -2958,27 +2998,55 @@ useEffect(() => {
                                   </>
                                 )}
 
-                                <div className="col-md-4">
-  <FormikField
-    id="select_project-create_rfq_page"
-    label="Select Project"
-    value={rfqFormDataFromStore.project_id}
-    enableHandleChange={true}
-    handleChange={handleFormFieldChange}
-    type="select"
-    selectOptions={[
-      { label: "Select Project", value: "" },
-      ...projects.map((project) => ({
-        label: project.label,
-        value: project.value,
-      })),
-    ]}
-    isRequired={true}
-    name="project_id"
-    touched={touched}
-    errors={errors}
-  />
-</div>
+                                {rfqFormDataFromStore.is_tender === 0 && (
+                                  <>
+                                    <div className="col-md-4">
+                                      <FormikField
+                                        id="select_project-create_rfq_page"
+                                        label="Select Project"
+                                        value={rfqFormDataFromStore.project_id}
+                                        enableHandleChange={true}
+                                        handleChange={handleFormFieldChange}
+                                        type="select"
+                                        selectOptions={[
+                                          { label: "Select Project", value: "" },
+                                          ...projects.map((project) => ({
+                                            label: project.label,
+                                            value: project.value,
+                                          })),
+                                        ]}
+                                        isRequired={true}
+                                        name="project_id"
+                                        touched={touched}
+                                        errors={errors}
+                                      />
+                                    </div>
+                                  </>
+                                )}
+
+                                {rfqFormDataFromStore.project_id && rfqFormDataFromStore.project_id !== -1 && rfqFormDataFromStore.project_id !== "" && (
+                                  <div className="col-md-4">
+                                    <label className="form-label fw-medium">Technical Evaluation By</label>
+                                    <select
+                                      id="technical_evaluation_by-select-create_rfq_page"
+                                      name="technical_evaluation_by"
+                                      className="form-select"
+                                      value={rfqFormDataFromStore.technical_evaluation_by || ""}
+                                      onChange={(e) => {
+                                        const val = e.target.value ? parseInt(e.target.value) : null;
+                                        dispatch(setOtherFormFields({ field_name: "technical_evaluation_by", value: val }));
+                                        setHasUnsavedChanges(true);
+                                      }}
+                                    >
+                                      <option value="">Select User</option>
+                                      {techEvalUsers.map((user) => (
+                                        <option key={user.id} value={user.id}>
+                                          {user.name} ({user.email})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
 
 
                                 <div className="col-md-4">

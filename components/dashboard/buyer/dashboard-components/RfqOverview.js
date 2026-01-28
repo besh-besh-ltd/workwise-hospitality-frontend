@@ -382,6 +382,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                                 return (
                                                     <tr key={index} className="align-middle border-bottom">
                                                         <td className="py-2">
+                                                            {rfq.title && <span className="d-block fw-bold">{rfq.title}</span>}
                                                             <span className="d-block">{rfq.rfq_no}</span>
                                                             <span className="d-block">{rfq.project_name}</span>
                                                         </td>

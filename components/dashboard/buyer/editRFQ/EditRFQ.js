@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import Select from 'react-select';
-import { updateRfq,  getTerms, vendorApproveList, getRFQById, getVendorsForProduct, addProductToExistingRfq } from "@/services/rfq";
+import { updateRfq,  getTerms, vendorApproveList, getRFQById, getVendorsForProduct, addProductToExistingRfq, getTechEvalUsers } from "@/services/rfq";
 import { Form, Formik } from "formik";
 import { getProfile } from "@/services/Auth";
 import Loader from "@/components/shared/Loader";
@@ -38,6 +38,7 @@ import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
+  title: Yup.string().required("Title is required"),
   contact_number: Yup.string()
     .matches(/^\d+$/, "Please enter only numbers without country code or special characters")
     .min(10, "Contact number must be at least 10 digits")
@@ -162,6 +163,8 @@ const EditRFQ = () => {
   const [isUpdateConfirm, setIsUpdateConfirm] = useState(false);
   const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
   const [pendingFormValues, setPendingFormValues] = useState(null);
+
+  const [techEvalUsers, setTechEvalUsers] = useState([]);
 
   // Add a ref to track if terms have been initialized
   const termsInitializedRef = useRef(false);
@@ -441,8 +444,18 @@ const EditRFQ = () => {
       };
 
       dispatch(intializeRfq(storeData));
-      
+
       termsInitializedRef.current = true;
+
+      // Fetch tech eval users if project is selected
+      if (rfqData.project_id && rfqData.project_id !== -1) {
+        try {
+          const teRes = await getTechEvalUsers(rfqData.project_id);
+          setTechEvalUsers(teRes?.data || []);
+        } catch (err) {
+          console.error("Failed to fetch tech eval users:", err);
+        }
+      }
 
       if (!isRefetch) {
         setInitialized(true);
@@ -769,6 +782,8 @@ const EditRFQ = () => {
         status: formValues.status || rfqData.status || "",
         termsChanged,
         selectedTerms,
+        title: formValues.title !== undefined ? formValues.title : rfqData.title || null,
+        technical_evaluation_by: formValues.technical_evaluation_by !== undefined ? formValues.technical_evaluation_by : rfqData.technical_evaluation_by || null,
        };
 
       // Always include validated project_id (for both RFQ and Tender)
@@ -1723,6 +1738,7 @@ const EditRFQ = () => {
               comment: rfqFormDataFromStore.comment || "",
               rfq_type: rfqFormDataFromStore.rfq_type || "",
               is_tender: rfqFormDataFromStore.is_tender || 0,
+              title: rfqFormDataFromStore.title || "",
             }}
             validationSchema={EditRFQSchema}
             enableReinitialize={true}
@@ -1759,7 +1775,28 @@ const EditRFQ = () => {
                             disabled
                           />
                         </div>
-                      
+
+                        {/* RFQ/Tender Title */}
+                        <div className="mb-3">
+                          <label className="form-label fw-medium">{rfqFormDataFromStore.is_tender === 1 ? 'Tender' : 'RFQ'} Title <span className="text-danger">*</span></label>
+                          <input
+                            type="text"
+                            name="title"
+                            className="form-control"
+                            value={rfqFormDataFromStore.title || ""}
+                            onChange={(e) => {
+                              handleChange(e);
+                              handleFormFieldChange(e);
+                            }}
+                            placeholder={`Enter ${rfqFormDataFromStore.is_tender === 1 ? 'Tender' : 'RFQ'} Title`}
+                          />
+                          {touched.title && errors.title && (
+                            <div className="invalid-feedback d-block">
+                              {errors.title}
+                            </div>
+                          )}
+                        </div>
+
                         {/* Contact Number */}
                         <div className="mb-3">
                           <label className="form-label fw-medium">
@@ -1908,10 +1945,19 @@ const EditRFQ = () => {
                               const match = projects.find(p => parseInt(p.value) === projectId);
                               return match || null;
                             })()}
-                            onChange={(selectedOption) => {
+                            onChange={async (selectedOption) => {
                               const projectId = selectedOption ? parseInt(selectedOption.value) : null;
                               dispatch(setOtherFormFields({ project_id: projectId }));
                               setHasUnsavedChanges(true);
+                              if (projectId) {
+                                try {
+                                  const teRes = await getTechEvalUsers(projectId);
+                                  setTechEvalUsers(teRes?.data || []);
+                                } catch (err) { setTechEvalUsers([]); }
+                              } else {
+                                setTechEvalUsers([]);
+                                dispatch(setOtherFormFields({ technical_evaluation_by: null }));
+                              }
                             }}
                             placeholder="Select Project"
                             className="basic-select"
@@ -1919,6 +1965,30 @@ const EditRFQ = () => {
                             isClearable={true}
                           />
                         </div>
+
+                        {/* Technical Evaluation By */}
+                        {rfqFormDataFromStore.project_id && rfqFormDataFromStore.project_id !== -1 && (
+                          <div className="mb-3">
+                            <label className="form-label fw-medium">Technical Evaluation By</label>
+                            <select
+                              name="technical_evaluation_by"
+                              className="form-select"
+                              value={rfqFormDataFromStore.technical_evaluation_by || ""}
+                              onChange={(e) => {
+                                const val = e.target.value ? parseInt(e.target.value) : null;
+                                dispatch(setOtherFormFields({ technical_evaluation_by: val }));
+                                setHasUnsavedChanges(true);
+                              }}
+                            >
+                              <option value="">Select User</option>
+                              {techEvalUsers.map((user) => (
+                                <option key={user.id} value={user.id}>
+                                  {user.name} ({user.email})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
 
                       <div className="col-md-6">

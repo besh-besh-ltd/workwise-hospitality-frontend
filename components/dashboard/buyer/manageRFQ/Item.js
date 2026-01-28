@@ -96,7 +96,8 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
     <>
       <tr style={rowStyle}>
         <td>
-          <span className="d-block fw-semibold">{formatRFQNumber(data?.rfq_no, data?.is_tender)}</span>
+          {data?.title && <span className="d-block fw-bold">{data.title}</span>}
+          <span className="d-block">{formatRFQNumber(data?.rfq_no, data?.is_tender)}</span>
           <span className="text-truncate">{data?.project_name}</span>
           {isPendingApproval && (
             <Badge bg="warning" text="dark" className="mt-1 d-flex align-items-center gap-1" style={{ width: "fit-content" }}>

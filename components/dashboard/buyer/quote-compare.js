@@ -1540,6 +1540,14 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             }`}
                             id={`rfq_item_${item.rfq_no}-quotes_received-compare_quotes_page`}
                           >
+                            {item.title && item.title != "" && (
+                              <span
+                                className="d-block fw-bold"
+                                style={{ fontSize: "14px" }}
+                              >
+                                {item.title}
+                              </span>
+                            )}
                             {formatRFQNumber(item?.rfq_no, item?.is_tender)}
                             {item.project_name && item.project_name != "" && (
                               <b
@@ -1584,6 +1592,11 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
               <div className="quote-sec-table quote-sec-tab">
                 {!quotesLoading && currentRFQ && (
                   <div className="mb-3">
+                    {currentRFQ.title && currentRFQ.title != "" && (
+                      <h3 className="fs-5 mb-1 fw-bold">
+                        {currentRFQ.title}
+                      </h3>
+                    )}
                     <h3 className="fs-5 mb-1">
                       <span className="fw-semibold">{currentRFQ?.is_tender === 1 ? 'Tender' : 'RFQ'} No : </span>
                       {currentRFQ?.rfq_no}

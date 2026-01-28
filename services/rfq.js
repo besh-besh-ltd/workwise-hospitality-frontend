@@ -990,6 +990,11 @@ export const getRfqs = async (params) => {
   return res.data;
 };
 
+export const getTechEvalUsers = async (project_id) => {
+  const res = await axiosInstance.get(`/rfq/tech-eval-users/${project_id}`);
+  return res.data;
+};
+
 
 export const fetchTechEvaluationRfqList = (payload) => {
   return new Promise(async (resolve, reject) => {

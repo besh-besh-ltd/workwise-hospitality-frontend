@@ -360,6 +360,10 @@ useEffect(() => {
                           }
                           id={`rfq_${item.rfq_no}-rfq_list-technical_evaluation_page`}
                         >
+                          {item.title && item.title != "" &&
+                            <span className="d-block fw-bold" style={{ fontSize: "14px" }}>
+                              {item.title}
+                            </span>}
                           {formatRFQNumber(item.rfq_no, item.is_tender)}
                           {item.project_name && item.project_name != "" &&
                             <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
@@ -380,6 +384,10 @@ useEffect(() => {
                 {/* RFQ Details */}
                 {!loading && currentRfq &&
                   <div className="mb-3">
+                    {currentRfq.title && currentRfq.title != "" &&
+                      <h3 className="fs-5 mb-1 fw-bold">
+                        {currentRfq.title}
+                      </h3>}
                     <h3 className="fs-5 mb-1">
                       <span className="fw-semibold">{currentRfq.is_tender === 1 ? 'Tender' : 'RFQ'} No : </span>{currentRfq.rfq_no}
                     </h3>

@@ -84,7 +84,8 @@ const DraftRFQItem = ({ data , refetch }) => {
     <>
       <tr>
         <td>
-          <span className="d-block fw-semibold">{formatRFQNumber(data?.rfq_no, data?.is_tender)}</span>
+          {data?.title && <span className="d-block fw-bold">{data.title}</span>}
+          <span className="d-block">{formatRFQNumber(data?.rfq_no, data?.is_tender)}</span>
           <span className="text-truncate">{data?.project_name}</span>
         </td>
         <td>{list_products()}</td>

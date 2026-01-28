@@ -25,7 +25,10 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
               <div className="manage-rfq-con">
                 {/* Content for Manage RFQs tab */}
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                  <span className="title">Tender / RFQ #{data.rfq_no} details</span>
+                  <span className="title">
+                    {data.title && <span className="d-block fw-bold">{data.title}</span>}
+                    Tender / RFQ #{data.rfq_no} details
+                  </span>
                   
                   <div className="d-flex gap-2">
                     <Link

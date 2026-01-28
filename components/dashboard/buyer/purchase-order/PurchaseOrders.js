@@ -360,6 +360,14 @@ const PurchaseOrders = () => {
                             }`}
                             id={`rfq_item_${item.rfq_no}-rfq_selection-purchase_order_page`}
                           >
+                            {item?.title && (
+                              <span
+                                className="d-block fw-bold"
+                                style={{ fontSize: "14px" }}
+                              >
+                                {item.title}
+                              </span>
+                            )}
                             RFQ #{item?.rfq_no}
                             {item.project_name && item.project_name != "" && (
                               <b
