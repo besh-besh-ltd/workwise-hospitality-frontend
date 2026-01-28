@@ -270,24 +270,23 @@ const CreateRFQ = () => {
         });
     };
 
-  const getAllProjects = () => {
-    getProjectList()
-      .then((res) => {
-        const projectsData = res.data?.data || res.data || [];
-        const formatted = projectsData.map(item => ({
-          label: item.name || `Project #${item.id}`,
-          value: item.id,
-          hospitality_company_id: item.hospitality_company_id,
-          hotel_id: item.hotel_id
-        }));
-        setProjects(formatted);
-        setAllProjects(formatted);
-      })
-      .catch((error) => {
-        toast.error(error.message || "Failed to load projects");
-        setProjects([]);
-        setAllProjects([]);
-      })
+  const getAllProjects = async () => {
+    try {
+      const res = await getProjectList();
+      const projectsData = res?.data?.data || res?.data || [];
+      const formatted = projectsData.map((item) => ({
+        label: item.name || `Project #${item.id}`,
+        value: item.id,
+        hospitality_company_id: item.hospitality_company_id,
+        hotel_id: item.hotel_id,
+      }));
+      setProjects(formatted);
+      setAllProjects(formatted);
+    } catch (error) {
+      toast.error(error?.message || "Failed to load projects");
+      setProjects([]);
+      setAllProjects([]);
+    }
   }
 
   const fetchHospitalityContexts = async () => {

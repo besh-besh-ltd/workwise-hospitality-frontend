@@ -421,7 +421,7 @@ const EditRFQ = () => {
         }
       }
 
-      const [projectsResponse] = await Promise.all([getProjectList()]);
+      const projectsResponse = await getProjectList();
       const projectsData = projectsResponse?.data?.data || projectsResponse?.data || [];
       const formattedProjects = projectsData.map(project => ({
         value: project.id,
