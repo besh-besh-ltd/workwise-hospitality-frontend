@@ -119,6 +119,16 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
 // Save the initial payment terms list from backend
 const originalPaymentTermsListRef = useRef(null);
 
+  const grandTotalIncludingGST = quoteProducts.reduce(
+    (sum, product) => sum + (parseFloat(product?.total_price) || 0),
+    0
+  );
+  const grandTotalIncludingGSTText = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(grandTotalIncludingGST);
+
   /**
    * Main transformer
    * @param {Array<object>} items
@@ -2699,6 +2709,14 @@ return { deletedTerms, createdTerms, updatedTerms };
                             </small>
                           </Alert>
                         )}
+                        {/* Start Grand Total */}
+                        <div className="text-end mb-2">
+                          <small className="text-muted">
+                            <strong>Grand Total (including GST):</strong>{" "}
+                            {grandTotalIncludingGSTText}
+                          </small>
+                        </div>
+                        {/* End Grand Total */}
                         <button
                           id="send_quote-quote_actions-send_quote_page"
                           type="submit"
