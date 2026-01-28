@@ -9,7 +9,7 @@ import ReadMore from "@/components/shared/ReadMore";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { extractfileName, extractParsedNumber, handleFileUpload, moneyOrPercent, toNumber } from "@/utils/sharedFunctions";
+import { extractfileName, extractParsedNumber, formatPrice, handleFileUpload, moneyOrPercent, toNumber } from "@/utils/sharedFunctions";
 import { faDeleteLeft, faDownload, faMinus, faPlus, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { renderFileLink } from "@/utils/elementFunctions";
 import SmartButton from "@/components/shared/SmartButton";
@@ -120,14 +120,10 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
 const originalPaymentTermsListRef = useRef(null);
 
   const grandTotalIncludingGST = quoteProducts.reduce(
-    (sum, product) => sum + (parseFloat(product?.total_price) || 0),
+    (sum, product) => sum + (Number(product?.total_price) || 0),
     0
   );
-  const grandTotalIncludingGSTText = new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(grandTotalIncludingGST);
+  const grandTotalIncludingGSTText = formatPrice(grandTotalIncludingGST);
 
   /**
    * Main transformer
