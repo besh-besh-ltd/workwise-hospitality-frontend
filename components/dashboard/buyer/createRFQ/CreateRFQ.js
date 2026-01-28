@@ -786,7 +786,7 @@ const CreateRFQ = () => {
       // Fetch tech eval users for the selected project
       try {
         const res = await getTechEvalUsers(value);
-        setTechEvalUsers(res?.data || []);
+        setTechEvalUsers(res || []);
       } catch (err) {
         console.error("Failed to fetch tech eval users:", err);
         setTechEvalUsers([]);

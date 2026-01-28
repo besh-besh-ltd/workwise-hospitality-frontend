@@ -451,7 +451,7 @@ const EditRFQ = () => {
       if (rfqData.project_id && rfqData.project_id !== -1) {
         try {
           const teRes = await getTechEvalUsers(rfqData.project_id);
-          setTechEvalUsers(teRes?.data || []);
+          setTechEvalUsers(teRes || []);
         } catch (err) {
           console.error("Failed to fetch tech eval users:", err);
         }
@@ -1952,7 +1952,7 @@ const EditRFQ = () => {
                               if (projectId) {
                                 try {
                                   const teRes = await getTechEvalUsers(projectId);
-                                  setTechEvalUsers(teRes?.data || []);
+                                  setTechEvalUsers(teRes || []);
                                 } catch (err) { setTechEvalUsers([]); }
                               } else {
                                 setTechEvalUsers([]);
