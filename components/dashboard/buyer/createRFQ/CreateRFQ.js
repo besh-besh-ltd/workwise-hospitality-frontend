@@ -788,7 +788,7 @@ const CreateRFQ = () => {
         const res = await getTechEvalUsers(value);
         setTechEvalUsers(res || []);
       } catch (err) {
-        console.error("Failed to fetch tech eval users:", err);
+        toast.error("Failed to fetch technical evaluation users");
         setTechEvalUsers([]);
       }
     }
@@ -799,6 +799,13 @@ const CreateRFQ = () => {
     }
 
     dispatch(setOtherFormFields({ field_name: name, value }));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleTechEvalUserChange = (e) => {
+    const value = e.target.value;
+    const parsedValue = value ? Number(value) : null;
+    dispatch(setOtherFormFields({ field_name: "technical_evaluation_by", value: parsedValue }));
     setHasUnsavedChanges(true);
   };
 
@@ -1438,7 +1445,7 @@ useEffect(() => {
           const teRes = await getTechEvalUsers(projectId);
           setTechEvalUsers(teRes?.data || []);
         } catch (err) {
-          console.error("Failed to fetch tech eval users on draft load:", err);
+          toast.error("Failed to fetch technical evaluation users");
         }
       }
 
@@ -3033,11 +3040,7 @@ useEffect(() => {
                                       name="technical_evaluation_by"
                                       className="form-select"
                                       value={rfqFormDataFromStore.technical_evaluation_by || ""}
-                                      onChange={(e) => {
-                                        const val = e.target.value ? parseInt(e.target.value) : null;
-                                        dispatch(setOtherFormFields({ field_name: "technical_evaluation_by", value: val }));
-                                        setHasUnsavedChanges(true);
-                                      }}
+                                      onChange={handleTechEvalUserChange}
                                     >
                                       <option value="">Select User</option>
                                       {techEvalUsers.map((user) => (

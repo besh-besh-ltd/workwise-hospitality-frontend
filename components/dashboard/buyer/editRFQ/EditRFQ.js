@@ -453,7 +453,7 @@ const EditRFQ = () => {
           const teRes = await getTechEvalUsers(rfqData.project_id);
           setTechEvalUsers(teRes || []);
         } catch (err) {
-          console.error("Failed to fetch tech eval users:", err);
+          toast.error("Failed to fetch technical evaluation users");
         }
       }
 
@@ -498,6 +498,13 @@ const EditRFQ = () => {
       console.error("Error updating form field:", error);
       toast.error("Failed to update field. Please try again.");
     }
+  };
+
+  const handleTechEvalUserChange = (e) => {
+    const value = e.target.value;
+    const parsedValue = value ? Number(value) : null;
+    dispatch(setOtherFormFields({ technical_evaluation_by: parsedValue }));
+    setHasUnsavedChanges(true);
   };
 
 
@@ -1974,11 +1981,7 @@ const EditRFQ = () => {
                               name="technical_evaluation_by"
                               className="form-select"
                               value={rfqFormDataFromStore.technical_evaluation_by || ""}
-                              onChange={(e) => {
-                                const val = e.target.value ? parseInt(e.target.value) : null;
-                                dispatch(setOtherFormFields({ technical_evaluation_by: val }));
-                                setHasUnsavedChanges(true);
-                              }}
+                              onChange={handleTechEvalUserChange}
                             >
                               <option value="">Select User</option>
                               {techEvalUsers.map((user) => (
