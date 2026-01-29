@@ -20,6 +20,7 @@ import RoundEndActions from "./negotiation/RoundEndActions";
 import ApprovalWorkflowSection from "./approval/ApprovalWorkflowSection";
 import SelectedQuotesDisplay from "./negotiation/SelectedQuotesDisplay";
 import { getQuoteApprovalStatus, approveNegotiationQuotes, rejectNegotiationQuotes } from "@/services/negotiation";
+import { getAvailableHierarchies } from "@/services/general";
 
 const QuoteCompareTable = ({
   quotations,
@@ -76,12 +77,24 @@ const QuoteCompareTable = ({
   });
   const [existingPOId, setExistingPOId] = useState(null)
   const [availableHierarchies, setAvailableHierarchies] = useState([true]);
+  const [useLegacyHierarchy, setUseLegacyHierarchy] = useState(true); // Default to true (legacy behavior)
   const [selectedRouteType, setSelectedRouteType] = useState(null); // 'ARC' or 'PO'
   const [quoteApprovalStatus, setQuoteApprovalStatus] = useState(null); // Quote approval status for tenders
-  const [approvalRefreshKey, setApprovalRefreshKey] = useState(0); // Key to refresh approval workflow
+  const [approvalRefreshKey, setApprovalRefreshKey] = useState(0); // Key to refresh approval 
+  
+  const fetchAvailableHierarchies = async () => {
+    try {
+      const result = await getAvailableHierarchies('po', projectId);
+      setAvailableHierarchies(result.data || []);
+      setUseLegacyHierarchy(result.use_legacy_hierarchy !== false); // false only if explicitly set to false
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   useEffect(() => {
     calculateLowestQuote();
+    fetchAvailableHierarchies();
   }, []);
 
   // Load quote approval status for tenders
@@ -749,9 +762,9 @@ const QuoteCompareTable = ({
                     }}
                     title={
                       !canWrite || permissionsLoading ? "You don't have permission to finalize vendors" :
-                      availableHierarchies.length <= 0 ? "You cannot finalize as you dont belong to the company's hierarchy" : ""
+                      (useLegacyHierarchy && availableHierarchies.length <= 0) ? "You cannot finalize as you dont belong to the company's hierarchy" : ""
                     }
-                    disabled={availableHierarchies.length <= 0 || !canWrite || permissionsLoading}
+                    disabled={(useLegacyHierarchy && availableHierarchies.length <= 0) || !canWrite || permissionsLoading}
                     id="finalize_vendor-quote_actions-quote_compare_table"
                   >
                     Finalize
@@ -877,13 +890,18 @@ const QuoteCompareTable = ({
             handleFinalize(currentItem, proditem, existingPOId, null, 'ARC');
             setActiveModal(null);
           } else {
-            // PO route: need hierarchy selection
-            if (availableHierarchies.length <= 0) {
+            // PO route
+            if (!useLegacyHierarchy) {
+              // Hospitality context: backend handles hierarchy, skip selection
+              handleFinalize(currentItem, proditem, selectedPOId, null, 'PO');
+              setActiveModal(null);
+            } else if (availableHierarchies.length <= 0) {
               toast.error("You cannot finalize a vendor, as you don't belong to the company's PO approval hierarchy");
               setActiveModal(null);
               return;
+            } else {
+              setActiveModal('hierarchy');
             }
-            setActiveModal('hierarchy');
           }
         }}
         vendorName={

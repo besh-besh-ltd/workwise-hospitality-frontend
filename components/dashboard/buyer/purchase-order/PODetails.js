@@ -19,6 +19,7 @@ import {
   faPencil
 } from "@fortawesome/free-solid-svg-icons";
 import CreateMilestoneModal from './CreateMilestoneModal';
+import ApprovalProgressCard from './ApprovalProgressCard';
 import { toast } from 'react-toastify';
 import { handleDeleteMilestone, handleDeleteTask, handleGetTasks, handleUpdateGST, handleUpdateHSN } from '@/services/po';
 import CreateTaskModal from './CreateTaskModal';
@@ -853,6 +854,11 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           </Card>
         </div>
   
+        {/* New Multi-Step Approval Progress Card */}
+        {approval_status?.type === 'new' && (
+          <ApprovalProgressCard approvalStatus={approval_status} />
+        )}
+
         {/* Approval Timeline */}
         <h5 className="mb-3">
           <MdEventNote className="me-2" />
@@ -873,43 +879,57 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               }
               time={formatIST(created_at)}
             />
-            {approval_history.map((entry, index) => (
-              <TimelineItem
-                key={index}
-                title={
-                  entry.action === "approved"
-                    ? "Approved"
-                    : entry.action === "rejected"
-                    ? "Rejected"
-                    : entry.action === "cancelled"
-                    ? "Cancelled"
-                    : entry.action === "edited"
-                    ? "PO Edited" :
-                    entry.action === "invoice"
-                    ? "Invoice Raised" :
-                    entry.action === "grn"
-                    ? "GRN Marked" :
-                    "Action Taken"
+            {approval_history.map((entry, index) => {
+              // Normalize action to lowercase for comparison (handles both old and new format)
+              const actionLower = entry.action?.toLowerCase();
+              const isApproved = actionLower === "approved" || actionLower === "approve";
+              const isRejected = actionLower === "rejected" || actionLower === "reject";
+              const isCancelled = actionLower === "cancelled" || actionLower === "cancel";
+              const isEdited = actionLower === "edited" || actionLower === "edit";
+              const isInvoice = actionLower === "invoice";
+              const isGrn = actionLower === "grn";
+
+              // Build title with step number for new format
+              const getTitle = () => {
+                let title = isApproved ? "Approved"
+                  : isRejected ? "Rejected"
+                  : isCancelled ? "Cancelled"
+                  : isEdited ? "PO Edited"
+                  : isInvoice ? "Invoice Raised"
+                  : isGrn ? "GRN Marked"
+                  : "Action Taken";
+
+                // Add step info for new format
+                if (entry.step_number) {
+                  title += ` (Step ${entry.step_number})`;
                 }
-                name={entry.approved_by_name}
-                icon={
-                  entry.action === "approved" ? (
-                    <BsCheckCircleFill className="text-success" size={25} />
-                  ) : entry.action === "edited" ? (
-                    <MdHistory className="text-dark" size={25} />
-                  ) : entry.action === "invoice" ? (
-                    <TbFileInvoice className="text-dark" size={25} />
-                  ) : entry.action === "grn" ? (
-                    <TbTruckDelivery className="text-dark" size={25} />
-                  ) : (
-                    <BsXCircleFill className="text-danger" size={25} />
-                  )
-                }
-                time={formatIST(entry.created_at)}
-                remarks={entry.remarks}
-              />
-            ))}
-            {approval_status?.status == "pending" && (
+                return title;
+              };
+
+              // Get appropriate icon
+              const getIcon = () => {
+                if (isApproved) return <BsCheckCircleFill className="text-success" size={25} />;
+                if (isRejected) return <BsXCircleFill className="text-danger" size={25} />;
+                if (isEdited) return <MdHistory className="text-dark" size={25} />;
+                if (isInvoice) return <TbFileInvoice className="text-dark" size={25} />;
+                if (isGrn) return <TbTruckDelivery className="text-dark" size={25} />;
+                if (isCancelled) return <BsXCircleFill className="text-secondary" size={25} />;
+                return <BsCheckCircleFill className="text-primary" size={25} />;
+              };
+
+              return (
+                <TimelineItem
+                  key={index}
+                  title={getTitle()}
+                  name={entry.approved_by_name}
+                  icon={getIcon()}
+                  time={formatIST(entry.created_at)}
+                  remarks={entry.remarks}
+                />
+              );
+            })}
+            {/* Legacy format pending status (only show if not using new format) */}
+            {approval_status?.status == "pending" && approval_status?.type !== "new" && (
               <TimelineItem
                 title={"Action Pending"}
                 name={approval_status.current_approver_name}
