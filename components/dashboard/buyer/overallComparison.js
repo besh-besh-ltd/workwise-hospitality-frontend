@@ -735,7 +735,8 @@ const openModalForVariant = (variantId) => {
                                         )
                                       </th>
                                       <td>
-                                        {item.last_purchase_rate?.tax !== null
+                                        {item.last_purchase_rate?.tax !== null &&
+                                        item.last_purchase_rate?.tax !== undefined
                                           ? `${
                                               item.last_purchase_rate
                                                 ?.tax_mode == "absolute"
@@ -743,12 +744,14 @@ const openModalForVariant = (variantId) => {
                                                 : ""
                                             }${addCommasToNumber(
                                               item.last_purchase_rate?.tax
-                                            )} ${
+                                            )}${
                                               item.last_purchase_rate
                                                 ?.tax_mode == "percentage"
-                                                ? "%"
+                                                ? " %"
                                                 : ""
                                             }`
+                                          : item.last_purchase_rate?.tax_mode === "absolute"
+                                          ? "₹0"
                                           : "0%"}
                                       </td>
                                     </tr>
@@ -859,7 +862,8 @@ const openModalForVariant = (variantId) => {
                                         )
                                       </th>
                                       <td>
-                                        {item.last_quote_rate?.tax !== null
+                                        {item.last_quote_rate?.tax !== null &&
+                                        item.last_quote_rate?.tax !== undefined
                                           ? `${
                                               item.last_quote_rate?.tax_mode ==
                                               "absolute"
@@ -867,12 +871,14 @@ const openModalForVariant = (variantId) => {
                                                 : ""
                                             }${addCommasToNumber(
                                               item.last_quote_rate?.tax
-                                            )} ${
+                                            )}${
                                               item.last_quote_rate?.tax_mode ==
                                               "percentage"
-                                                ? "%"
+                                                ? " %"
                                                 : ""
                                             }`
+                                          : item.last_quote_rate?.tax_mode === "absolute"
+                                          ? "₹0"
                                           : "0%"}
                                       </td>
                                     </tr>

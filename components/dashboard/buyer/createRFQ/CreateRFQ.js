@@ -343,13 +343,19 @@ const CreateRFQ = () => {
   const handleHotelSelectionChange = (hotelIds) => {
     setSelectedHotelIds(hotelIds);
     
-    // Filter projects based on selected hotels
+    // Filter projects: include hotel-mapped and company-level mapped projects for selected hotels' companies
     if (!hotelIds || hotelIds.length === 0) {
       setProjects(allProjects);
       dispatch(setOtherFormFields({ field_name: "hotel_id", value: null }));
       dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: null }));
     } else {
-      const filtered = allProjects.filter(p => hotelIds.includes(p.hotel_id));
+      const companyIdsForHotels = [...new Set(
+        (userHotelMappings || []).filter(h => hotelIds.includes(h.hospitality_hotel_id)).map(h => h.hospitality_company_id)
+      )];
+      const filtered = allProjects.filter(p =>
+        hotelIds.includes(p.hotel_id) ||
+        (p.hotel_id == null && p.hospitality_company_id != null && companyIdsForHotels.includes(p.hospitality_company_id))
+      );
       setProjects(filtered);
       
       // If single hotel selected, set the hotel_id and company_id
@@ -963,6 +969,9 @@ useEffect(() => {
       formDataCopy.tender_fees = 0;
       formDataCopy.tender_publish_date = null;
       formDataCopy.vendor_clarification_date = null;
+    } else if (formDataCopy.is_tender === 1) {
+      // Ensure entered tender_fees from store is used; use 0 when cleared (null)
+      formDataCopy.tender_fees = rfqFormDataFromStore.tender_fees != null ? rfqFormDataFromStore.tender_fees : (formDataCopy.tender_fees ?? 0);
     }
     
     // IMPORTANT: Normalize terms to ensure proper format for backend
@@ -1174,6 +1183,10 @@ useEffect(() => {
     if (isMagicRfq && !formDataCopy.rfq_added_from) {
       formDataCopy.rfq_added_from = 'magic';
     }
+    // Ensure entered tender_fees from store is used when saving draft; use 0 when cleared (null)
+    if (formDataCopy.is_tender === 1) {
+      formDataCopy.tender_fees = rfqFormDataFromStore.tender_fees != null ? rfqFormDataFromStore.tender_fees : (formDataCopy.tender_fees ?? 0);
+    }
 
     const filters = getRefinedFilters();
     const cleanedUpdatableData = cleanUpdatableData(updatableData);
@@ -1188,7 +1201,7 @@ useEffect(() => {
       termsChanged,
       termFilesChanged,
       selectedSheets: selectedSheetsForRFQ,
-      hotel_ids:selectedHotelIds || [],
+      hotel_ids: selectedHotelIds || [],
     };
     const affectedVendorProductIds = Object.keys(
       updatableData?.vendors || {}
@@ -2992,11 +3005,18 @@ useEffect(() => {
                                         id="tender_fees-input-rfq_details-create_rfq_page"
                                         type="number"
                                         className="form-control"
-                                        value={rfqFormDataFromStore.tender_fees ? Number(rfqFormDataFromStore.tender_fees) / 100 : 0}
+                                        value={rfqFormDataFromStore.tender_fees != null && rfqFormDataFromStore.tender_fees !== ""
+                                          ? Number(rfqFormDataFromStore.tender_fees) / 100
+                                          : ""}
                                         onChange={(e) => {
-                                          const numericValue = parseFloat(e.target.value || 0);
-                                          const paise = isNaN(numericValue) ? 0 : Math.max(0, Math.round(numericValue * 100));
-                                          dispatch(setOtherFormFields({ field_name: "tender_fees", value: paise }));
+                                          const raw = e.target.value;
+                                          if (raw === "") {
+                                            dispatch(setOtherFormFields({ field_name: "tender_fees", value: null }));
+                                          } else {
+                                            const numericValue = parseFloat(raw);
+                                            const paise = isNaN(numericValue) ? 0 : Math.max(0, Math.round(numericValue * 100));
+                                            dispatch(setOtherFormFields({ field_name: "tender_fees", value: paise }));
+                                          }
                                           setHasUnsavedChanges(true);
                                         }}
                                         placeholder="Enter fees in INR"

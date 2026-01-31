@@ -832,6 +832,14 @@ const EditRFQ = () => {
       if (rfqData.ra_end_date != formValues.ra_end_date)
         dataToSend.ra_end_date = formValues.ra_end_date;
 
+      // Tender actions: include tender_publish_date and vendor_clarification_date when editing tender
+      if (dataToSend.is_tender === 1) {
+        if (rfqFormDataFromStore.tender_publish_date != null)
+          dataToSend.tender_publish_date = rfqFormDataFromStore.tender_publish_date;
+        if (rfqFormDataFromStore.vendor_clarification_date != null)
+          dataToSend.vendor_clarification_date = rfqFormDataFromStore.vendor_clarification_date;
+      }
+
   //  try {
      
 
@@ -1681,20 +1689,20 @@ const EditRFQ = () => {
                           }
                         }))
                       }}
-                      handleViewVendorInEdit={() => {
+                      handleViewVendorInEdit={rfqData?.is_tender !== 1 ? () => {
                         setShowVendorModal(true);
                         setSelectedProduct({
                           product,
                           vendors: product.vendor_details,
                         });
-                      }}
-                      handleAddVendorInEdit={() => {
+                      } : undefined}
+                      handleAddVendorInEdit={rfqData?.is_tender !== 1 ? () => {
                         setShowAddVendorModal(true);
                         setSelectedProduct({
                           product,
                           vendors: product.vendor_details,
                         });
-                      }}
+                      } : undefined}
                       handleRemoveProductInEdit={(data) => {
                         if((updatableData.products.deletable.length + 1) === rfqData?.products?.length)
                           toast.warning(`You cannot delete all products from ${getEntityLabel(rfqData?.is_tender)}, at least one product is required`);
@@ -2066,6 +2074,46 @@ const EditRFQ = () => {
                           />
                         </div>
                       </div>
+
+                      {/* Tender actions: Tender Publish Date & Vendor Clarification (visible when is_tender) */}
+                      {rfqFormDataFromStore.is_tender === 1 && (
+                        <>
+                          <div className="col-md-6">
+                            <label className="form-label fw-medium">Tender Publish Date & Time</label>
+                            <input
+                              type="datetime-local"
+                              name="tender_publish_date"
+                              className="form-control"
+                              value={rfqFormDataFromStore.tender_publish_date
+                                ? formatISOToDateTimeLocal(rfqFormDataFromStore.tender_publish_date)
+                                : ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const formatted = val ? `${val.replace("T", " ")}:00` : "";
+                                dispatch(setOtherFormFields({ tender_publish_date: formatted || null }));
+                                setHasUnsavedChanges(true);
+                              }}
+                            />
+                          </div>
+                          <div className="col-md-6">
+                            <label className="form-label fw-medium">Vendor Clarification Deadline</label>
+                            <input
+                              type="datetime-local"
+                              name="vendor_clarification_date"
+                              className="form-control"
+                              value={rfqFormDataFromStore.vendor_clarification_date
+                                ? formatISOToDateTimeLocal(rfqFormDataFromStore.vendor_clarification_date)
+                                : ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const formatted = val ? `${val.replace("T", " ")}:00` : "";
+                                dispatch(setOtherFormFields({ vendor_clarification_date: formatted || null }));
+                                setHasUnsavedChanges(true);
+                              }}
+                            />
+                          </div>
+                        </>
+                      )}
 
                       {rfqFormDataFromStore.is_tender === 1 && departments.length > 0 && (
                         <div className="col-md-6">

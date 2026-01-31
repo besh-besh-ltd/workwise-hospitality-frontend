@@ -813,8 +813,9 @@ return { deletedTerms, createdTerms, updatedTerms };
       return toast.error("At least one valid payment term is required. Please add your payment terms.");
     }
 
-    if(!vendorGSTIN || vendorGSTIN.length != 15) {
-      return toast.error("Please enter a valid GSTIN.")
+    // GSTIN is optional; if provided, validate format (15 chars)
+    if (vendorGSTIN && vendorGSTIN.trim() && vendorGSTIN.length !== 15) {
+      return toast.error("Please enter a valid 15-character GSTIN or leave blank.")
     }
 
     // return 0
@@ -1884,7 +1885,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                         <div className="border rounded-3 p-3 pb-2 mb-3" >
                           <div className="d-flex align-items-center justify-content-between mb-2">
                             <div className="d-flex flex-column gap-2 w-100">
-                              <h3 className="fs-6 fw-semibold mb-0">GSTIN <span className="text-danger">*</span></h3>
+                              <h3 className="fs-6 fw-semibold mb-0">GSTIN <span className="text-muted">(optional)</span></h3>
                               <input
                                 className="form-control w-100"
                                 max={15}
