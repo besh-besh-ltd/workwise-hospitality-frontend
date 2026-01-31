@@ -100,9 +100,38 @@ const DynamicFormModal = ({
         return { countryCode: "+91", mobileNumber: mobile };
     };
 
-    const { countryCode, mobileNumber } = accountData?.mobile 
-        ? parseMobile(accountData.mobile) 
+    const { countryCode, mobileNumber } = accountData?.mobile
+        ? parseMobile(accountData.mobile)
         : { countryCode: "+91", mobileNumber: "" };
+
+    // Employee type options for dropdown
+    const employeeTypeOptions = [
+        { value: "full-time", label: "Full Time" },
+        { value: "part-time", label: "Part Time" },
+        { value: "freelance", label: "Freelance" },
+        { value: "contracted", label: "Contracted" },
+        { value: "other", label: "Other" }
+    ];
+
+    // Normalize employee_type to valid enum values
+    const normalizeEmployeeType = (raw) => {
+        if (!raw) return null;
+        const value = String(raw).trim().toLowerCase();
+        if (value === "full time" || value === "full-time") return "full-time";
+        if (value === "part time" || value === "part-time") return "part-time";
+        if (value === "freelance") return "freelance";
+        if (value === "contract" || value === "contracted") return "contracted";
+        if (value === "other") return "other";
+        // Map any other values (like "Permanent") to "other"
+        return "other";
+    };
+
+    // Get employee type option object from string value
+    const getEmployeeTypeOption = (raw) => {
+        const normalizedValue = normalizeEmployeeType(raw);
+        if (!normalizedValue) return null;
+        return employeeTypeOptions.find(opt => opt.value === normalizedValue) || null;
+    };
 
     let statusValue;
     const statusIsActive = 
@@ -130,7 +159,7 @@ const DynamicFormModal = ({
         countryCode: countryCode || "+91",
         role: accountData?.role ? roleOptions?.find(r => r.value === accountData.role) : null,
         status: statusValue,
-        employee_type: accountData?.employee_type || "",
+        employee_type: getEmployeeTypeOption(accountData?.employee_type),
         employee_code: accountData?.employee_code || "",
         payroll_company_id: accountData?.payroll_company_id || null,
         department_id: initialDepartmentValues
@@ -402,8 +431,8 @@ const DynamicFormModal = ({
                 status: statusValue, // Send as number directly
                 roles: filteredRoles,
                 department_ids: departmentIds,
-                employee_type: values.employee_type,
-                employee_code: values.employee_code,
+                employee_type: values.employee_type?.value || null,
+                employee_code: values.employee_code || null,
                 payroll_company_id: values.payroll_company_id
             };
             // Call the parent function to save the data
@@ -789,10 +818,11 @@ Example:
                                     <CommonFormInput
                                       name="employee_type"
                                       label="Employee Type"
+                                      type="select"
+                                      options={employeeTypeOptions}
                                       touched={touched}
                                       errors={errors}
                                       values={values.employee_type}
-                                      onChange={setFieldValue}
                                       required={true}
                                     />
                                     <CommonFormInput
@@ -802,7 +832,7 @@ Example:
                                       errors={errors}
                                       values={values.employee_code}
                                       onChange={setFieldValue}
-                                      required={true}
+                                      required={false}
                                     />
                                   </>
                                 )}

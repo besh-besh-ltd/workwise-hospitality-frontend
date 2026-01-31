@@ -9,6 +9,7 @@ import {
   updateHospitalityHotel,
   getHospitalityCompanies,
   getHospitalityHotels,
+  getHotelDocuments,
   mapHospitalityProjects,
   mapHospitalityUsers,
   getMappedUserIds,
@@ -648,7 +649,7 @@ const HospitalityManager = () => {
     }
   };
 
-  const handleEditHotel = (hotel) => {
+  const handleEditHotel = async (hotel) => {
     setEditingHotel(hotel);
     setHotelForm({
       name: hotel.name || "",
@@ -666,8 +667,24 @@ const HospitalityManager = () => {
       msme: hotel.msme || "",
       delivery_address: hotel.delivery_address || "",
     });
+    // Reset documents first, then fetch existing ones
     setHotelDocuments({ gst: null, pan: null, cancelled_cheque: null, msme: null });
     setShowHotelModal(true);
+
+    // Fetch existing documents for this hotel
+    try {
+      const response = await getHotelDocuments(hotel.id);
+      const docs = response?.data?.data || response?.data || [];
+      const docMap = { gst: null, pan: null, cancelled_cheque: null, msme: null };
+      docs.forEach((doc) => {
+        if (doc.document_type && doc.document_url) {
+          docMap[doc.document_type] = doc.document_url;
+        }
+      });
+      setHotelDocuments(docMap);
+    } catch (error) {
+      console.error("Error fetching hotel documents:", error);
+    }
   };
 
   // Commented out - Map Users functionality temporarily disabled

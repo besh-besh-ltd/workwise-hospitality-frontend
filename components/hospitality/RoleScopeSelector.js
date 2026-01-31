@@ -34,6 +34,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [userMappings, setUserMappings] = useState([]);
+  const [userMappingsLoaded, setUserMappingsLoaded] = useState(false);
 
   /* ---------------- State ---------------- */
 
@@ -90,9 +91,11 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   useEffect(() => {
     if (!userId || !isEditMode) {
       setUserMappings([]);
+      setUserMappingsLoaded(true);
       return;
     }
 
+    setUserMappingsLoaded(false);
     const loadUserMappings = async () => {
       try {
         const response = await getUserMappings(userId);
@@ -101,6 +104,8 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       } catch (error) {
         console.error("Error loading user mappings:", error);
         setUserMappings([]);
+      } finally {
+        setUserMappingsLoaded(true);
       }
     };
 
@@ -109,16 +114,29 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
 
   // Filter companies and hotels based on user mappings
   useEffect(() => {
-    if (!isEditMode || userMappings.length === 0) {
-      // If not in edit mode or no mappings, show all companies
+    if (!isEditMode) {
+      // If not in edit mode, show all companies
       setCompanies(allCompanies);
+      return;
+    }
+
+    // In edit mode: wait for user mappings to load before showing any companies
+    if (!userMappingsLoaded) {
+      setCompanies([]);
+      return;
+    }
+
+    // In edit mode: if user has no mappings, show no companies
+    // They must first be mapped to a company/hotel before workflow roles can be assigned
+    if (userMappings.length === 0) {
+      setCompanies([]);
       return;
     }
 
     // Extract unique company IDs and hotel IDs from mappings
     const mappedCompanyIds = new Set();
     const mappedHotelIds = new Set();
-    
+
     userMappings.forEach((mapping) => {
       mappedCompanyIds.add(mapping.hospitality_company_id);
       if (mapping.mapping_type === 1 && mapping.hospitality_hotel_id) {
@@ -145,7 +163,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       });
 
     setCompanies(filteredCompanies);
-  }, [userMappings, allCompanies, isEditMode]);
+  }, [userMappings, allCompanies, isEditMode, userMappingsLoaded]);
 
   // Filter departments based on userDepartments in edit mode
   useEffect(() => {
