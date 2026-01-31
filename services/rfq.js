@@ -1341,3 +1341,20 @@ export const submitTechEvalApprovalAction = (payload) => {
     }
   });
 };
+
+/**
+ * Submit approval action for RFQ/Tender (custom endpoint)
+ * Records approval in RFQ/Tender context instead of generic approval
+ * @param {number} rfqId - The RFQ/Tender ID
+ * @param {Object} payload - { approval_instance_id, approval_instance_step_id, action, comment }
+ */
+export const submitRFQApprovalAction = (rfqId, payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/${rfqId}/approve-action`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error?.message || "Failed to submit approval action" });
+    }
+  });
+};

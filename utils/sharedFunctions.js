@@ -608,7 +608,7 @@ export const moneyOrPercent = (input, defaultPercent = false) => {
   } else if (typeof input.value === "number" && !(input.value && input.value.parsedValue != null)) {
     const text = input.value;
     const unit = input.unit || "";
-    
+
     return { value: text, mode: unit === "%" ? "%" : "₹" };
   }
 
@@ -619,4 +619,35 @@ export const moneyOrPercent = (input, defaultPercent = false) => {
     return { value: num, mode: unit === "%" || defaultPercent ? "%" : "₹" };
   }
   return { value: "", mode: "" };
+};
+
+/**
+ * Determines RFQ/Tender publication and approval state
+ * @param {Object} data - RFQ/Tender data object
+ * @returns {Object} State flags and helper values
+ */
+export const getRFQPublishState = (data) => {
+  const isUnpublished = data?.is_published === 0;
+  const isPendingApproval = isUnpublished && data?.status === 3;
+  const isReadyToPublish = isUnpublished && data?.status === 4;
+  const isOpen = data?.status === 1;
+  const isClosed = data?.status === 2;
+  const isPrePublishState = isPendingApproval || isReadyToPublish;
+
+  return {
+    isUnpublished,
+    isPendingApproval,
+    isReadyToPublish,
+    isOpen,
+    isClosed,
+    isPrePublishState,
+    // Helper for edit button visibility
+    canEdit: !isReadyToPublish && (isPendingApproval || isOpen),
+    // Helper for edit URL determination
+    editUrl: (id) => isPendingApproval
+      ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${id}`
+      : `/dashboard/buyer/rfq-management-edit?id=${id}`,
+    // Helper for queries/reminder visibility
+    showVendorActions: !isPrePublishState && !isClosed,
+  };
 };

@@ -1,7 +1,7 @@
 import FullLoader from "@/components/shared/FullLoader";
 import { getPendingApprovalRFQs } from "@/services/rfq";
 import React, { useEffect, useState } from "react";
-import RFQItem from "./Item";
+import RFQCard from "./RFQCard";
 import Pagination from "@/components/shared/Pagination";
 import { Alert } from "react-bootstrap";
 import { BsCheckCircleFill, BsExclamationTriangleFill } from "react-icons/bs";
@@ -78,32 +78,16 @@ const PendingApprovalsList = ({ filterData, setFilterData, onCountChange }) => {
           </div>
         )}
 
-        {/* Table Data */}
+        {/* Card List */}
         {!loading && pendingRFQs.length > 0 && (
-          <div className="table-responsive">
-            <table className="table table-striped">
-              <thead>
-                <tr>
-                  <th>Tender / RFQ No & Project</th>
-                  <th>Products</th>
-                  <th>Timeline</th>
-                  <th>Initiated By</th>
-                  <th>Tender / RFQ Type</th>
-                  <th>Reverse Auction</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingRFQs.map((item) => (
-                  <RFQItem
-                    key={`pending_rfq_${item.id}`}
-                    data={item}
-                    showReminder={false}
-                    isPendingApproval={true}
-                  />
-                ))}
-              </tbody>
-            </table>
+          <div className="d-flex flex-column gap-2">
+            {pendingRFQs.map((item) => (
+              <RFQCard
+                key={`pending_rfq_${item.id}`}
+                data={item}
+                isPendingApproval={true}
+              />
+            ))}
           </div>
         )}
 

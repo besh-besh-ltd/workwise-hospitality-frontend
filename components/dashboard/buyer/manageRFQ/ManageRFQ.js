@@ -1,13 +1,21 @@
 import FullLoader from "@/components/shared/FullLoader";
-import { getRFQS } from "@/services/rfq";
+import { getRFQS, getVendorsForReminder, sendSelectiveReminder } from "@/services/rfq";
 import React, { useEffect, useState } from "react";
-import RFQItem from "./Item";
+import RFQCard from "./RFQCard";
 import Pagination from "@/components/shared/Pagination";
+import VendorSelectionModal from "@/components/modal/VendorSelectionModal";
+import { toast } from "react-toastify";
 
 const ManageRFQ = ({ filterData, setFilterData }) => {
   const [loading, setloading] = useState(false);
   const [myRFQs, setmyRFQs] = useState([]);
   const [totalRFQs, settotalRFQs] = useState(0);
+
+  // Reminder modal state
+  const [showVendorModal, setShowVendorModal] = useState(false);
+  const [selectedRFQ, setSelectedRFQ] = useState(null);
+  const [vendors, setVendors] = useState([]);
+  const [modalLoading, setModalLoading] = useState(false);
 
   const getAllRFQs = () => {
     setloading(true);
@@ -29,37 +37,66 @@ const ManageRFQ = ({ filterData, setFilterData }) => {
     getAllRFQs();
   }, [filterData]);
 
+  // Handle send reminder
+  const handleSendReminder = async (rfqData) => {
+    setSelectedRFQ(rfqData);
+    setModalLoading(true);
+    setShowVendorModal(true);
+
+    try {
+      const response = await getVendorsForReminder(rfqData.id);
+      setVendors(response.data || []);
+    } catch (err) {
+      console.error("Error fetching vendors:", err);
+      toast.error("Failed to load vendors. Please try again.");
+      setShowVendorModal(false);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleSendSelectiveReminder = async (selectedVendorIds) => {
+    try {
+      const response = await sendSelectiveReminder(selectedRFQ.id, selectedVendorIds);
+      if (response.message && response.message !== "") {
+        toast.success(response.message);
+      }
+      setShowVendorModal(false);
+    } catch (err) {
+      if (err?.message?.response?.status === 403) {
+        toast.warning(err?.message?.response?.data?.message);
+      } else {
+        toast.error(err?.message?.response?.data?.message || "Failed to send reminder");
+      }
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowVendorModal(false);
+    setVendors([]);
+    setSelectedRFQ(null);
+  };
+
   return (
     <>
       <div className="manage-rfq-con">
-        <div className="details-table hasFullLoader mt-0">
-          {/* Table Data Section */}
+        <div className="hasFullLoader mt-0">
+          {/* Card List Section */}
           {loading && <FullLoader />}
           {!loading && myRFQs.length == 0 && (
-            <p>You haven't created any Tender / RFQ yet!</p>
+            <div className="text-center py-5">
+              <p className="text-muted">You haven't created any Tender / RFQ yet!</p>
+            </div>
           )}
           {!loading && myRFQs && myRFQs.length > 0 && (
-            <div className="table-responsive">
-              <table className="table table-striped ">
-                <thead>
-                  <tr>
-                    <th>Tender / RFQ No & Project</th>
-                    <th>Products</th>
-                    <th>Timeline</th>
-                    <th>Created By</th>
-                    <th>Tender / RFQ Type</th>
-                    <th>Reverse Auction</th>
-                    <th>Action</th>
-                    <th>Query</th>
-                    <th>Reminder for Quotes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {myRFQs.map((item) => {
-                    return <RFQItem key={`rfq_item_${item.id}`} data={item} />;
-                  })}
-                </tbody>
-              </table>
+            <div className="d-flex flex-column gap-2">
+              {myRFQs.map((item) => (
+                <RFQCard
+                  key={`rfq_card_${item.id}`}
+                  data={item}
+                  onSendReminder={handleSendReminder}
+                />
+              ))}
             </div>
           )}
 
@@ -78,6 +115,14 @@ const ManageRFQ = ({ filterData, setFilterData }) => {
           )}
         </div>
       </div>
+
+      <VendorSelectionModal
+        isOpen={showVendorModal}
+        onClose={handleCloseModal}
+        onSendReminder={handleSendSelectiveReminder}
+        vendors={vendors}
+        loading={modalLoading}
+      />
     </>
   );
 };
