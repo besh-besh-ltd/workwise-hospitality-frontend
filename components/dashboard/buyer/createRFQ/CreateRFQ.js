@@ -3006,31 +3006,27 @@ useEffect(() => {
                                   </>
                                 )}
 
-                                {rfqFormDataFromStore.is_tender === 0 && (
-                                  <>
-                                    <div className="col-md-4">
-                                      <FormikField
-                                        id="select_project-create_rfq_page"
-                                        label="Select Project"
-                                        value={rfqFormDataFromStore.project_id}
-                                        enableHandleChange={true}
-                                        handleChange={handleFormFieldChange}
-                                        type="select"
-                                        selectOptions={[
-                                          { label: "Select Project", value: "" },
-                                          ...projects.map((project) => ({
-                                            label: project.label,
-                                            value: project.value,
-                                          })),
-                                        ]}
-                                        isRequired={true}
-                                        name="project_id"
-                                        touched={touched}
-                                        errors={errors}
-                                      />
-                                    </div>
-                                  </>
-                                )}
+                                <div className="col-md-4">
+                                  <FormikField
+                                    id="select_project-create_rfq_page"
+                                    label="Select Project"
+                                    value={rfqFormDataFromStore.project_id}
+                                    enableHandleChange={true}
+                                    handleChange={handleFormFieldChange}
+                                    type="select"
+                                    selectOptions={[
+                                      { label: "Select Project", value: "" },
+                                      ...projects.map((project) => ({
+                                        label: project.label,
+                                        value: project.value,
+                                      })),
+                                    ]}
+                                    isRequired={true}
+                                    name="project_id"
+                                    touched={touched}
+                                    errors={errors}
+                                  />
+                                </div>
 
                                 {rfqFormDataFromStore.project_id && rfqFormDataFromStore.project_id !== -1 && rfqFormDataFromStore.project_id !== "" && (
                                   <div className="col-md-4">
