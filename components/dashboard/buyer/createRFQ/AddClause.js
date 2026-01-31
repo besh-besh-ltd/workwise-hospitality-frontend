@@ -64,28 +64,20 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         setLoading(true);
         try {
             const res = await getClausesByRfqProductId(payload);
-            // Response structure: 
-            // Service returns axios response: { data: { success, vendor_response, minimum_passing_score, data: [...] } }
-            // So res.data is the backend response object
+            // Response structure (axios interceptor unwraps response.data):
+            // res = { success, vendor_response, minimum_passing_score, data: [...] }
             let clausesData = [];
-            if (res && res.data) {
-                // Backend returns: { success, vendor_response, minimum_passing_score, data: [...] }
-                if (res.data.data && Array.isArray(res.data.data)) {
-                    clausesData = res.data.data;
-                } else if (Array.isArray(res.data)) {
-                    clausesData = res.data;
-                }
+            if (res && res.data && Array.isArray(res.data)) {
+                clausesData = res.data;
             }
-            
+
             // Show all clauses (both regular and sampling)
             setPreviousClauses(clausesData);
-            
+
             // Fetch minimum passing score from response
-            // Axios response structure: { data: { success, vendor_response, minimum_passing_score, data: [...] } }
-            // So res.data is the backend response object: { success: true, minimum_passing_score: 20, data: [...] }
-            const backendResponse = res?.data;
-            const minimumScore = backendResponse?.minimum_passing_score;
-            
+            // res is already the backend response (axios interceptor unwraps it)
+            const minimumScore = res?.minimum_passing_score;
+
             if (minimumScore !== undefined && minimumScore !== null) {
                 // Convert to number to ensure proper handling (including 0)
                 const score = Number(minimumScore);

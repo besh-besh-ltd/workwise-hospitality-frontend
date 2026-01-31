@@ -17,7 +17,7 @@ const initialValues = {
   countryCode: "+91",
   password: "",
   confirmPassword: "",
-  employee_type: "",
+  employee_type: null,
   employee_code: "",
   payroll_company_id: "",
   department_id: []
@@ -72,7 +72,9 @@ const CreateAccountPage = () => {
       }
       
       if (appState.isHospitalityCompany) {
-        apiData.employee_type = normalizeEmployeeType(values.employee_type);
+        // Extract value from select option object
+        const employeeTypeValue = values.employee_type?.value || values.employee_type;
+        apiData.employee_type = normalizeEmployeeType(employeeTypeValue);
         apiData.employee_code = values.employee_code || null;
 
         // Handle payroll_company_id from select (can be object or value)
@@ -283,8 +285,17 @@ const CreateAccountPage = () => {
                                 <CommonFormInput
                                   name="employee_type"
                                   label="Employee Type"
+                                  type="select"
+                                  options={[
+                                    { value: "full-time", label: "Full Time" },
+                                    { value: "part-time", label: "Part Time" },
+                                    { value: "freelance", label: "Freelance" },
+                                    { value: "contracted", label: "Contracted" },
+                                    { value: "other", label: "Other" }
+                                  ]}
                                   touched={touched}
                                   errors={errors}
+                                  values={values.employee_type}
                                   required={true}
                                 />
                               </div>

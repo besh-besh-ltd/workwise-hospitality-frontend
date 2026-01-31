@@ -562,7 +562,7 @@ export const updateUserAccount = (userId, accountData) => {
                 // Handle object format from the form
                 statusValue = accountData.status?.value === "active" ? 1 : 0;
             }
-            
+
             const payload = {
                 user_id: userId,
                 name: accountData.name,
@@ -576,7 +576,17 @@ export const updateUserAccount = (userId, accountData) => {
             if (Array.isArray(accountData.department_ids)) {
                 payload.department_ids = accountData.department_ids;
             }
-            
+            // Include employee_type, employee_code, and payroll_company_id
+            if (accountData.employee_type !== undefined) {
+                payload.employee_type = accountData.employee_type;
+            }
+            if (accountData.employee_code !== undefined) {
+                payload.employee_code = accountData.employee_code;
+            }
+            if (accountData.payroll_company_id !== undefined) {
+                payload.payroll_company_id = accountData.payroll_company_id;
+            }
+
             let response = await axiosInstance.put(`users/update-user-detail`, payload);
             resolve(response);
         } catch (error) {

@@ -144,6 +144,18 @@ export const updateHospitalityHotel = (companyId, hotelId, payload, files = {}) 
     }
   });
 
+export const getHotelDocuments = (hotelId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/hospitality/hotels/${hotelId}/documents`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 export const mapHospitalityUsers = (companyId, payload) =>
   new Promise(async (resolve, reject) => {
     try {
