@@ -1,12 +1,13 @@
 import { getVendorsForReminder, sendSelectiveReminder } from "@/services/rfq";
-import { textCapitalize, formatRFQNumber } from "@/utils/sharedFunctions";
+import { textCapitalize, formatRFQNumber, getRFQPublishState } from "@/utils/sharedFunctions";
 import moment from "moment";
 import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { Badge } from "react-bootstrap";
-import { BsExclamationCircleFill } from "react-icons/bs";
+import { BsExclamationCircleFill, BsClockFill, BsCheckCircleFill } from "react-icons/bs";
 import VendorSelectionModal from "@/components/modal/VendorSelectionModal";
+import PublishDateTimer from "@/components/shared/PublishDateTimer";
 const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
   const [loading, setloading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -84,6 +85,9 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
   };
   const isRecievedFromAll = data.vendors[0]?.total_vendors == data.vendors[0]?.quote_received;
 
+  // Get RFQ publish state for status badges and button visibility
+  const publishState = getRFQPublishState(data);
+
   // Pending approval row styling
   const rowStyle = isPendingApproval
     ? {
@@ -118,11 +122,43 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
           </span>
           <span>
             <b className="fw-semibold ">Status: </b>
-            {data.status == 1
-              ? <span className="badge rounded-pill text-bg-success ms-5">Open</span>
-              : <span className="badge rounded-pill text-bg-danger ms-5">Closed</span>
-            }
+            {publishState.isPendingApproval ? (
+              <span
+                className="badge rounded-pill ms-2 d-inline-flex align-items-center gap-1"
+                style={{ backgroundColor: '#ffc107', color: '#664d03' }}
+              >
+                <BsClockFill size={10} />
+                Pending Approval
+              </span>
+            ) : publishState.isReadyToPublish ? (
+              <span
+                className="badge rounded-pill ms-2 d-inline-flex align-items-center gap-1"
+                style={{ backgroundColor: '#cff4fc', color: '#055160' }}
+              >
+                <BsCheckCircleFill size={10} />
+                Ready to Publish
+              </span>
+            ) : data.status == 1 ? (
+              <span
+                className="badge rounded-pill ms-5"
+                style={{ backgroundColor: '#d1e7dd', color: '#0f5132' }}
+              >
+                Open
+              </span>
+            ) : (
+              <span
+                className="badge rounded-pill ms-5"
+                style={{ backgroundColor: '#e9ecef', color: '#495057' }}
+              >
+                Closed
+              </span>
+            )}
           </span>
+          {publishState.isUnpublished && data.tender_publish_date && (
+            <span className="d-block mt-1">
+              <PublishDateTimer publishDate={data.tender_publish_date} />
+            </span>
+          )}
         </td>
 
         <td> {data.contact_name} </td>
@@ -150,18 +186,20 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
                 >
                   View
                 </Link>
-                <Link
-                  href={`/dashboard/buyer/rfq-management-edit?id=${data?.id}`}
-                  className="page-link"
-                  id={`edit_rfq_${data?.id}-rfq_actions-manage_rfq_page`}
-                >
-                  Edit
-                </Link>
+                {publishState.canEdit && (
+                  <Link
+                    href={publishState.editUrl(data?.id)}
+                    className="page-link"
+                    id={`edit_rfq_${data?.id}-rfq_actions-manage_rfq_page`}
+                  >
+                    Edit
+                  </Link>
+                )}
               </>
             )}
           </div>
         </td>
-        {!isPendingApproval && (
+        {!isPendingApproval && !publishState.isPrePublishState && (
           <td>
             <Link
               href={`/dashboard/buyer/query?rfq_id=${data?.id}&role=buyer`}
@@ -178,7 +216,7 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
             </Link>
           </td>
         )}
-        {showReminder && (
+        {showReminder && !publishState.isPrePublishState && (
           <td>
 
             {data.vendors.length > 0 && (

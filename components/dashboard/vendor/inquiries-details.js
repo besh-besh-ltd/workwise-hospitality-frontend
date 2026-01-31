@@ -4,7 +4,7 @@ import { faEdit, faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import { Router, useRouter } from "next/router";
-import { closeRFQ, getAllClauses, getRFQById, sendQuotation, fetchVendorAgreement, getTechClearedVendorsResult } from "@/services/rfq";
+import { closeRFQ, getAllClauses, getRFQById, sendQuotation, fetchVendorAgreement, getTechClearedVendorsResult, submitRFQApprovalAction } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
 import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-icons";
@@ -12,7 +12,8 @@ import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
-import { checkBidExpired, extractfileName, formatDate, getEntityLabel } from "@/utils/sharedFunctions";
+import { checkBidExpired, extractfileName, formatDate, getEntityLabel, getRFQPublishState } from "@/utils/sharedFunctions";
+import PublishDateTimer from "@/components/shared/PublishDateTimer";
 import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
@@ -27,7 +28,8 @@ import {
 import { getClarifications } from "@/services/clarification";
 import VendorNegotiationInfo from "./VendorNegotiationInfo";
 import ProductNegotiationBadge from "./ProductNegotiationBadge";
-import { Badge, Button } from "react-bootstrap";
+import { Badge, Button, Alert } from "react-bootstrap";
+import { BsCalendarEvent, BsClockFill, BsCheckCircleFill } from "react-icons/bs";
 
 const TECH_EVAL_STYLES = {
   accepted: { bg: '#d1e7dd', border: '#198754', shadow: '0 2px 8px rgba(25, 135, 84, 0.2)' },
@@ -147,6 +149,46 @@ const RfqManagementPreview = () => {
   const [isLoggedIn, setisLoggedIn] = useState(false);
   const [openTerms, setOpenTerms] = useState(false);
   const [localId, setLocalId] = useState(router.query.id);
+
+  // Custom approval handler for RFQ/TENDER entity type
+  const handleRFQApprove = async (comment, context) => {
+    try {
+      const payload = {
+        approval_instance_id: context.approval_instance_id,
+        approval_instance_step_id: context.approval_instance_step_id,
+        action: 'APPROVE',
+        comment: comment || ''
+      };
+      await submitRFQApprovalAction(id, payload);
+
+      // Refresh RFQ details after approval
+      getRFQdetails();
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error?.message || 'Failed to approve' };
+    }
+  };
+
+  // Custom rejection handler for RFQ/TENDER entity type
+  const handleRFQReject = async (comment, context) => {
+    try {
+      const payload = {
+        approval_instance_id: context.approval_instance_id,
+        approval_instance_step_id: context.approval_instance_step_id,
+        action: 'REJECT',
+        comment: comment || ''
+      };
+      await submitRFQApprovalAction(id, payload);
+
+      // Refresh RFQ details after rejection
+      getRFQdetails();
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error?.message || 'Failed to reject' };
+    }
+  };
 
   useEffect(() => {
     if (id) {
@@ -1285,6 +1327,83 @@ const RfqManagementPreview = () => {
                       />
                     </section>
                   )}
+
+                  {/* Ready to Publish Banner - Shows when RFQ is approved and awaiting publication */}
+                  {enableBuyerView && rfqDetails?.is_published === 0 && rfqDetails?.status === 4 && rfqDetails?.tender_publish_date && (
+                    <Alert
+                      variant="info"
+                      className="border-0 shadow-sm mt-3 mx-1"
+                      style={{
+                        background: "linear-gradient(135deg, #cce5ff 0%, #b8daff 100%)",
+                        borderLeft: "4px solid #0d6efd",
+                      }}
+                    >
+                      <div className="d-flex align-items-center gap-3">
+                        <div
+                          className="d-flex align-items-center justify-content-center rounded-circle"
+                          style={{
+                            width: 40,
+                            height: 40,
+                            backgroundColor: "#0d6efd",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <BsCalendarEvent size={20} className="text-white" />
+                        </div>
+                        <div>
+                          <div className="fw-semibold text-dark d-flex align-items-center gap-2">
+                            <BsCheckCircleFill className="text-success" size={16} />
+                            Ready to Publish
+                          </div>
+                          <div className="text-dark opacity-75 small d-flex align-items-center gap-2">
+                            This {getEntityLabel(rfqDetails?.is_tender).toLowerCase()} has been approved and will be published automatically.
+                            <PublishDateTimer publishDate={rfqDetails.tender_publish_date} variant="badge" showLabel={true} />
+                          </div>
+                        </div>
+                      </div>
+                    </Alert>
+                  )}
+
+                  {/* Pending Approval Banner - Shows when RFQ is submitted for approval */}
+                  {enableBuyerView && rfqDetails?.is_published === 0 && rfqDetails?.status === 3 && (
+                    <Alert
+                      variant="warning"
+                      className="border-0 shadow-sm mt-3 mx-1"
+                      style={{
+                        background: "linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%)",
+                        borderLeft: "4px solid #ffc107",
+                      }}
+                    >
+                      <div className="d-flex align-items-center gap-3">
+                        <div
+                          className="d-flex align-items-center justify-content-center rounded-circle"
+                          style={{
+                            width: 40,
+                            height: 40,
+                            backgroundColor: "#ffc107",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <BsClockFill size={20} className="text-dark" />
+                        </div>
+                        <div>
+                          <div className="fw-semibold text-dark d-flex align-items-center gap-2">
+                            <BsClockFill className="text-warning" size={16} />
+                            Pending Approval
+                          </div>
+                          <div className="text-dark opacity-75 small">
+                            This {getEntityLabel(rfqDetails?.is_tender).toLowerCase()} is currently under review and awaiting approval before publication.
+                            {rfqDetails?.tender_publish_date && (
+                              <span className="ms-2">
+                                <PublishDateTimer publishDate={rfqDetails.tender_publish_date} variant="badge" showLabel={true} />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Alert>
+                  )}
+
                   {/* Negotiation Info Banner */}
                   {rfqDetails?.products?.map((product) => (
                     <VendorNegotiationInfo
@@ -1429,23 +1548,33 @@ const RfqManagementPreview = () => {
                       </span>
 
                       <div>
-                        {type === "buyer-view" && rfqDetails.status === 1 && (
-                          <Link
-                            href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}
-                          >
-                            <button
-                              id="edit_rfq-rfq_header-inquiries_details_page"
-                              type="button"
-                              className="btn btn-primary me-2"
-                              style={{ width: "auto" }}
+                        {/* Edit button - Hidden for Ready to Publish (status=4), redirects to draft for Pending Approval (status=3) */}
+                        {type === "buyer-view" && (
+                          rfqDetails.is_published === 0 && rfqDetails.status === 4 ? null : (
+                            rfqDetails.status === 1 || (rfqDetails.is_published === 0 && rfqDetails.status === 3)
+                          ) && (
+                            <Link
+                              href={
+                                rfqDetails.is_published === 0 && rfqDetails.status === 3
+                                  ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${rfqDetails.id}`
+                                  : `/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`
+                              }
                             >
-                              <FontAwesomeIcon icon={faEdit} className="me-2" />
-                              Edit {getEntityLabel(rfqDetails?.is_tender)}
-                            </button>
-                          </Link>
+                              <button
+                                id="edit_rfq-rfq_header-inquiries_details_page"
+                                type="button"
+                                className="btn btn-primary me-2"
+                                style={{ width: "auto" }}
+                              >
+                                <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                Edit {getEntityLabel(rfqDetails?.is_tender)}
+                              </button>
+                            </Link>
+                          )
                         )}
 
-                        {type == "buyer-view" &&
+                        {/* Compare Quotes - Hidden for pre-publish states */}
+                        {type == "buyer-view" && !(rfqDetails.is_published === 0 && (rfqDetails.status === 3 || rfqDetails.status === 4)) &&
                           (rfqDetails?.is_quotes_present ? (
                             <Link
                               href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}
@@ -1780,6 +1909,14 @@ const RfqManagementPreview = () => {
                             entityType={rfqDetails?.is_tender === 1 ? "TENDER" : "RFQ"}
                             entityId={id}
                             entityLabel={rfqDetails?.is_tender === 1 ? "Tender" : "RFQ"}
+                            hospitalityCompanyId={rfqDetails?.hospitality_company_id}
+                            hotelId={rfqDetails?.hotel_id}
+                            departmentId={rfqDetails?.department_id}
+                            onCustomApprove={handleRFQApprove}
+                            onCustomReject={handleRFQReject}
+                            onActionComplete={() => {
+                              getRFQdetails();
+                            }}
                           />
                         </div>
                       )}
