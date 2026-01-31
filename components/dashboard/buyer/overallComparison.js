@@ -689,7 +689,7 @@ const openModalForVariant = (variantId) => {
                                                 ?.package_price
                                             )}${
                                               item.last_purchase_rate
-                                                ?.freight_mode == "percentage"
+                                                ?.package_mode == "percentage"
                                                 ? "%"
                                                 : ""
                                             }`
@@ -1229,12 +1229,12 @@ const openModalForVariant = (variantId) => {
                                             </tr>
                                             <tr>
                                               <th>
-                                                GST ({tax_mode ? "%" : "IN ₹"})
+                                                GST ({tax_mode === "percentage" ? "%" : "IN ₹"})
                                               </th>
                                               <td>
                                                 {quote_item?.quote_details
                                                   ?.length > 0
-                                                  ? tax_mode
+                                                  ? tax_mode === "percentage"
                                                     ? addCommasToNumber(
                                                         quote_item
                                                           ?.quote_details[0]
