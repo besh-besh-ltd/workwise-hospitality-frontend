@@ -214,16 +214,17 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
   };
 
   useEffect(() => {
+    // Wait for router to be ready before accessing query params
+    if (!router.isReady) return;
+
     if (id) {
       getRFQdetails();
     }
-    
 
-    
     // Update the tech evaluation restriction flag
     const restrictionsEnabled = router.query.showTechEvalRestrictions === 'true';
     setShowTechEvalRestrictions(restrictionsEnabled);
-  }, [router, router.query]);
+  }, [router.isReady, id, router.query.showTechEvalRestrictions]);
 
   // Check for open clarifications (for tenders only)
   useEffect(() => {
@@ -712,7 +713,7 @@ return { deletedTerms, createdTerms, updatedTerms };
         description: "Tender Fees",
         handler: async function (response) {
           try {
-            await verifyTenderPayment(
+            const verifyResponse = await verifyTenderPayment(
               {
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id: response.razorpay_order_id,
@@ -721,25 +722,29 @@ return { deletedTerms, createdTerms, updatedTerms };
               },
               token
             );
+
+            // Check if payment verification was successful
+            if (verifyResponse?.status !== 1) {
+              throw new Error(verifyResponse?.message || "Payment verification failed");
+            }
+
             setTenderPaymentPaid(true);
             toast.success("Tender fees paid successfully.");
-            
+
             // Changes by Agnij [Auto-send quote after successful payment]
             // Don't restore state on success - we want to submit with current form data
             if (shouldAutoSendQuoteRef.current) {
               shouldAutoSendQuoteRef.current = false;
-              // Clear the saved state since payment was successful
-              formStateRef.current = null;
-              // Small delay to ensure payment status is updated
-              setTimeout(() => {
-                handleSubmitQuoteConfirm();
-              }, 300);
+              // Don't clear form state here - wait until quote submission succeeds
+              // Call handleSubmitQuoteConfirm directly since verification is complete
+              handleSubmitQuoteConfirm();
             } else {
               // If auto-send wasn't intended, just refresh RFQ details
+              formStateRef.current = null;
               await getRFQdetails();
             }
           } catch (err) {
-            toast.error("Payment verification failed.");
+            toast.error(err?.message || "Payment verification failed.");
             shouldAutoSendQuoteRef.current = false;
             restoreFormState();
             setTenderPaymentLoading(false);
@@ -891,12 +896,15 @@ return { deletedTerms, createdTerms, updatedTerms };
       updateQuotation(quote_id, payload, token)
         .then((res) => {
           setsubmitLoading(false);
+          // Clear form state only after successful quote update
+          formStateRef.current = null;
           toast.success("Quote updated Successfully...!");
           // setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((error) => {
           setsubmitLoading(false);
+          setTenderPaymentLoading(false);
           // setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
           const errorMessage = error.response?.data?.message || "Unable to update quote. Please try again.";
@@ -951,12 +959,15 @@ return { deletedTerms, createdTerms, updatedTerms };
       sendQuotation(payload, token)
         .then((res) => {
           setsubmitLoading(false);
+          // Clear form state only after successful quote submission
+          formStateRef.current = null;
           toast.success("Quote sent Successfully...!");
           // setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((err) => {
           setsubmitLoading(false);
+          setTenderPaymentLoading(false);
           // setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
           const errorMessage = err.response?.data?.message || "Unable to send quote. Please try again.";

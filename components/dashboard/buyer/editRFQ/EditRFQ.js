@@ -1527,6 +1527,7 @@ const EditRFQ = () => {
                   }
                   return (
                     <Item
+                      is_tender={rfqData?.is_tender}
                       // vendorApprovedList={vendorApprovedList}
                       vendors={product.vendor_details}
                       activeKey={activeKey}
@@ -2044,30 +2045,6 @@ const EditRFQ = () => {
                               setHasUnsavedChanges(true);
                             }}
                             placeholder="Select Reverse Auction"
-                            className="basic-select"
-                            classNamePrefix="select"
-                            isClearable={true}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="col-md-6">
-                        {/* Is Tender */}
-                        <div className="mb-3">
-                          <label className="form-label fw-medium">Is Tender</label>
-                          <Select
-                            options={binaryType}
-                            value={(() => {
-                              const isTender = parseInt(rfqFormDataFromStore.is_tender || 0);
-                              const match = binaryType.find(p => p.value == isTender);
-                              return match ?? null;
-                            })()}
-                            onChange={(selectedOption) => {
-                              const isTender = selectedOption ? parseInt(selectedOption.value) : 0;
-                              dispatch(setOtherFormFields({ is_tender: isTender }));
-                              setHasUnsavedChanges(true);
-                            }}
-                            placeholder="Select Is Tender"
                             className="basic-select"
                             classNamePrefix="select"
                             isClearable={true}
