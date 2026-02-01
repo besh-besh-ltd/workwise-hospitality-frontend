@@ -678,7 +678,8 @@ const openModalForVariant = (variantId) => {
                                       </th>
                                       <td>
                                         {item.last_purchase_rate
-                                          ?.package_price !== null
+                                          ?.package_price !== null &&
+                                        item.last_purchase_rate?.package_price !== undefined
                                           ? `${
                                               item.last_purchase_rate
                                                 ?.package_mode == "absolute"
@@ -693,6 +694,8 @@ const openModalForVariant = (variantId) => {
                                                 ? "%"
                                                 : ""
                                             }`
+                                          : item.last_purchase_rate?.package_mode === "absolute"
+                                          ? "₹0"
                                           : "0%"}
                                       </td>
                                     </tr>
@@ -707,7 +710,8 @@ const openModalForVariant = (variantId) => {
                                       </th>
                                       <td>
                                         {item.last_purchase_rate
-                                          ?.freight_price !== null
+                                          ?.freight_price !== null &&
+                                        item.last_purchase_rate?.freight_price !== undefined
                                           ? `${
                                               item.last_purchase_rate
                                                 ?.freight_mode == "absolute"
@@ -722,6 +726,8 @@ const openModalForVariant = (variantId) => {
                                                 ? "%"
                                                 : ""
                                             }`
+                                          : item.last_purchase_rate?.freight_mode === "absolute"
+                                          ? "₹0"
                                           : "0%"}
                                       </td>
                                     </tr>
@@ -805,7 +811,8 @@ const openModalForVariant = (variantId) => {
                                       </th>
                                       <td>
                                         {item.last_quote_rate?.package_price !==
-                                        null
+                                        null &&
+                                        item.last_quote_rate?.package_price !== undefined
                                           ? `${
                                               item.last_quote_rate
                                                 ?.package_mode == "absolute"
@@ -820,6 +827,8 @@ const openModalForVariant = (variantId) => {
                                                 ? "%"
                                                 : ""
                                             }`
+                                          : item.last_quote_rate?.package_mode === "absolute"
+                                          ? "₹0"
                                           : "0%"}
                                       </td>
                                     </tr>
@@ -834,7 +843,8 @@ const openModalForVariant = (variantId) => {
                                       </th>
                                       <td>
                                         {item.last_quote_rate?.freight_price !==
-                                        null
+                                        null &&
+                                        item.last_quote_rate?.freight_price !== undefined
                                           ? `${
                                               item.last_quote_rate
                                                 ?.freight_mode == "absolute"
@@ -849,6 +859,8 @@ const openModalForVariant = (variantId) => {
                                                 ? "%"
                                                 : ""
                                             }`
+                                          : item.last_quote_rate?.freight_mode === "absolute"
+                                          ? "₹0"
                                           : "0%"}
                                       </td>
                                     </tr>
@@ -1178,7 +1190,7 @@ const openModalForVariant = (variantId) => {
                                             <tr>
                                               <th>
                                                 Packaging (
-                                                {package_mode == "percentage"
+                                                {package_mode === "percentage"
                                                   ? "%"
                                                   : "IN ₹"}
                                                 )
@@ -1186,7 +1198,7 @@ const openModalForVariant = (variantId) => {
                                               <td>
                                                 {quote_item?.quote_details
                                                   ?.length > 0
-                                                  ? package_mode == "percentage"
+                                                  ? package_mode === "percentage"
                                                     ? addCommasToNumber(
                                                         quote_item
                                                           ?.quote_details[0]
@@ -1204,7 +1216,7 @@ const openModalForVariant = (variantId) => {
                                             <tr>
                                               <th>
                                                 Freight (
-                                                {freight_mode == "percentage"
+                                                {freight_mode === "percentage"
                                                   ? "%"
                                                   : "IN ₹"}
                                                 )
@@ -1212,7 +1224,7 @@ const openModalForVariant = (variantId) => {
                                               <td>
                                                 {quote_item?.quote_details
                                                   ?.length > 0
-                                                  ? freight_mode == "percentage"
+                                                  ? freight_mode === "percentage"
                                                     ? addCommasToNumber(
                                                         quote_item
                                                           ?.quote_details[0]
