@@ -109,7 +109,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
       res.data.map((resItem) => {
         cMap.set(resItem.clause_id, false);
         aMap.set(resItem.clause_id, resItem.vendor_response);
-        fMap.set(resItem.clause_id, []);
+        fMap.set(resItem.clause_id, resItem.vendor_response_files || []);
       })
 
       setChatMap(cMap);
