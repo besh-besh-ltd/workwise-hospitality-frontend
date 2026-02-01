@@ -548,7 +548,8 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                   })
                                   .map((vendor) => {
                                     const isCleared = vendor.is_cleared;
-                                    const vendorCode = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : vendor.vendor_name;
+                                    // Always use anonymized vendor code - never show vendor name
+                                    const vendorCode = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
                                     const rankLabel = vendor.rank ? `L${vendor.rank}` : '';
                                     return (
                                       <th
@@ -561,12 +562,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                               {vendorCode}
                                               {rankLabel && <span className="badge bg-primary ms-2">{rankLabel}</span>}
                                             </span>
-                                            {vendor.calculated_score !== undefined && vendor.calculated_score !== null && (
+                                            {/* Only show Score when marks have been given and we have a real score (not default 0 before evaluation) */}
+                                            {vendor.calculated_score !== undefined && vendor.calculated_score !== null && vendor.has_marks && (vendor.calculated_score > 0) && (
                                               <p className="mb-1 mt-1">
                                                 <strong>Score:</strong> {vendor.calculated_score}%
                                               </p>
                                             )}
-                                            {vendor.is_passed !== undefined && vendor.is_passed !== null && (
+                                            {/* Only show Pass/Fail when vendor has been evaluated (has_marks) and not default 0% before any marks */}
+                                            {vendor.is_passed !== undefined && vendor.is_passed !== null && (vendor.has_marks) && (vendor.calculated_score > 0) && (
                                               <p
                                                 className={`badge rounded-pill py-2 px-3 ${
                                                   vendor.is_passed
@@ -580,6 +583,19 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                                 }}
                                               >
                                                 {vendor.is_passed ? "Pass" : "Fail"}
+                                              </p>
+                                            )}
+                                            {/* Show "Not evaluated" when no marks given yet or score is still default 0 (not yet evaluated) */}
+                                            {((!vendor.has_marks && vendor.is_cleared === null) || (Number(vendor.calculated_score) === 0 && vendor.is_cleared === null)) && (
+                                              <p
+                                                className="badge rounded-pill py-2 px-3 text-bg-secondary"
+                                                style={{
+                                                  marginTop: 5,
+                                                  marginBottom: 0,
+                                                  width: "fit-content",
+                                                }}
+                                              >
+                                                Not Evaluated
                                               </p>
                                             )}
                                             <p
@@ -744,22 +760,21 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         ColumnClass="col-md-6"
                                       />
                                     )}
-                                    {/* Show marks if available (for all clause types including sampling) */}
-                                    {(response?.buyer_marks !== null && response?.buyer_marks !== undefined) && (
+                                    {/* Show marks only if buyer has actually saved marks (score_timestamp exists) */}
+                                    {response?.score_timestamp ? (
                                       <p className="mb-1 mt-1">
-                                        <strong>Marks:</strong> {response.buyer_marks} / {clauseItem.weightage || 0}
+                                        <strong>Marks:</strong> {response.buyer_marks ?? 0} / {clauseItem.weightage || 0}
+                                      </p>
+                                    ) : (
+                                      /* Show "No score assigned yet" when buyer hasn't saved marks (avoids showing 0 / weightage) */
+                                      <p className="mb-1 mt-1 text-muted small">
+                                        No score assigned yet
                                       </p>
                                     )}
                                     {/* Show remark for sampling clauses */}
                                     {clauseItem.clause_type === 'sampling' && response?.buyer_remark && (
                                       <p className="mb-1">
                                         <strong>Remark:</strong> {response.buyer_remark}
-                                      </p>
-                                    )}
-                                    {/* For sampling clauses, show message if no marks yet */}
-                                    {clauseItem.clause_type === 'sampling' && (!response || (response?.buyer_marks === null && response?.buyer_marks === undefined)) && (
-                                      <p className="mb-1 mt-1 text-muted small">
-                                        No score assigned yet
                                       </p>
                                     )}
                                     <button
