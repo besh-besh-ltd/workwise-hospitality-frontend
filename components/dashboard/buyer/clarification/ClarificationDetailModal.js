@@ -261,7 +261,9 @@ const ClarificationDetailModal = ({
                 <small className="text-muted d-block">Raised by</small>
                 <p className="mb-0">
                   {(isBuyer || isOwner)
-                    ? clarification.raised_by_vendor_name || "Vendor"
+                    ? (clarification.raised_by_vendor_code
+                        || clarification.raised_by_vendor_name
+                        || "Vendor")
                     : <em className="text-secondary">Anonymous Vendor</em>
                   }
                 </p>
@@ -307,7 +309,9 @@ const ClarificationDetailModal = ({
                   >
                     {isBuyer && (
                       <div style={{ fontSize: "0.7rem", opacity: 0.7, marginBottom: "2px" }}>
-                        {clarification.raised_by_vendor_name || "Vendor"}
+                        {clarification.raised_by_vendor_code
+                          || clarification.raised_by_vendor_name
+                          || "Vendor"}
                       </div>
                     )}
                     <div style={{ whiteSpace: "pre-wrap", fontSize: "0.875rem", lineHeight: 1.35 }}>
