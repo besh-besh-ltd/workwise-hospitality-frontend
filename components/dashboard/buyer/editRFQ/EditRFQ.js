@@ -1985,7 +1985,7 @@ const EditRFQ = () => {
                         {/* Technical Evaluation By */}
                         {rfqFormDataFromStore.project_id && rfqFormDataFromStore.project_id !== -1 && (
                           <div className="mb-3">
-                            <label className="form-label fw-medium">Technical Evaluation By</label>
+                            <label className="form-label fw-medium">Technical Evaluation By <span className="text-danger">*</span></label>
                             <select
                               name="technical_evaluation_by"
                               className="form-select"

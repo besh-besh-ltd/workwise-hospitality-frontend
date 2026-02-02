@@ -1169,8 +1169,20 @@ const RfqManagementPreview = () => {
                     <>
                       {/* Main Clarification Button */}
                       {(() => {
-                        const isWithinClarificationPeriod = rfqDetails?.vendor_clarification_date &&
-                          new Date() < new Date(rfqDetails.vendor_clarification_date);
+                        const now = new Date();
+                        const publishDate = rfqDetails?.tender_publish_date ? new Date(rfqDetails.tender_publish_date) : null;
+                        const clarificationEndDate = rfqDetails?.vendor_clarification_date ? new Date(rfqDetails.vendor_clarification_date) : null;
+                        
+                        // Check if tender is published (status = 1 or is_published = 1)
+                        // If status/is_published fields are not available, assume published if tender_publish_date is null or in the past
+                        const publishState = getRFQPublishState(rfqDetails || {});
+                        const isPublished = publishState?.isOpen || rfqDetails?.is_published === 1 || rfqDetails?.status === 1;
+                        
+                        // If published, only check clarification end date
+                        // If not published, check both publish date and clarification end date
+                        // If publishDate is null, allow clarifications (backward compatibility)
+                        const isWithinClarificationPeriod = clarificationEndDate && now < clarificationEndDate &&
+                          (isPublished || !publishDate || now >= publishDate);
 
                         // Case 1: No open clarification - can raise new one (if within period)
                         if (!hasOpenClarification) {

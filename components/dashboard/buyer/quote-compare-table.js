@@ -473,15 +473,18 @@ const QuoteCompareTable = ({
                           />
                         </Dropdown.Toggle>
                         <Dropdown.Menu>
-                          <Dropdown.Item
-                            target="_blank"
-                            href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item?.quote_details?.vendor_details?.id}`}
-                            className=""
-                            id={`view_vendor_profile_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
-                          >
-                           <FontAwesomeIcon icon={faUser} className="me-2"/> 
-                            View Profile
-                          </Dropdown.Item>
+                          {/* Hide View Profile for tenders to protect vendor identity */}
+                          {!is_tender && (
+                            <Dropdown.Item
+                              target="_blank"
+                              href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item?.quote_details?.vendor_details?.id}`}
+                              className=""
+                              id={`view_vendor_profile_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
+                            >
+                             <FontAwesomeIcon icon={faUser} className="me-2"/>
+                              View Profile
+                            </Dropdown.Item>
+                          )}
                           {!is_tender && !item.quote_details.is_regret == 1 &&
                             (!item.finalization ||
                               item.finalization.winning_vendor.id !=

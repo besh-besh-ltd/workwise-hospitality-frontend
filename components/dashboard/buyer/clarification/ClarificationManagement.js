@@ -186,7 +186,11 @@ const ClarificationManagement = () => {
                         {previewText?.length > 100 ? "..." : ""}
                       </small>
                     </td>
-                    <td>{clarification.raised_by_vendor_name || "Unknown Vendor"}</td>
+                    <td>
+                      {clarification.raised_by_vendor_code
+                        || clarification.raised_by_vendor_name
+                        || "Unknown Vendor"}
+                    </td>
                     <td>
                       <Badge bg="secondary" className="d-flex align-items-center justify-content-center gap-1" style={{ width: "fit-content" }}>
                         <BsChatDots size={12} />
