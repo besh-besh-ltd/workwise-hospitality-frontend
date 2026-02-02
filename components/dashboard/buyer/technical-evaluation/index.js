@@ -169,7 +169,8 @@ useEffect(() => {
       const res = await fetchVendorSelectionOption(payload);
       return res.data.map((vendor) => ({
         value: vendor.vendor_id,
-        label: vendor.company_name || vendor.organization_name || vendor.vendor_name,
+        // Use anonymized vendor code instead of vendor name
+        label: vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`,
       }));
     } catch (error) {
       console.error("Error fetching vendor options:", error);

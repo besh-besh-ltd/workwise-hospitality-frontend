@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { toast, ToastContainer } from 'react-toastify';
@@ -39,6 +39,8 @@ const HotelVendor = () => {
   const [loading, setLoading] = useState(false);
   const [showOtherDeviceModal, setShowOtherDeviceModal] = useState(false);
   const [loginWith, setLoginWith] = useState('');
+  // Use ref instead of state for payment success tracking - refs are synchronous
+  const paymentSuccessfulRef = useRef(false);
 
   // Query param auto-open
   useEffect(() => {
@@ -51,10 +53,13 @@ const HotelVendor = () => {
     }
   }, [register, login]);
 
-  // Cleanup token when component unmounts
+  // Cleanup token when component unmounts (only if payment wasn't successful)
   useEffect(() => {
     return () => {
-      storageInstance.removeStorege('token');
+      // Don't remove token if payment was successful - user needs it to access dashboard
+      if (!paymentSuccessfulRef.current) {
+        storageInstance.removeStorege('token');
+      }
     };
   }, []);
 
@@ -90,6 +95,7 @@ const HotelVendor = () => {
                   const loginResponse = await LoginService(userCredentials, false);
                   if (loginResponse?.token) {
                     storageInstance.setStorage('token', loginResponse.token);
+                    storageInstance.setStorage('current-user-type', 'vendor');
                     SWSubscribe({ subscription: swSubscription, token: loginResponse.token })
                       .catch(() => {});
                   }
@@ -98,6 +104,8 @@ const HotelVendor = () => {
                 }
               }
 
+              // Mark payment as successful so token isn't cleared on unmount (use ref for sync update)
+              paymentSuccessfulRef.current = true;
               toast.success('Payment successful!');
               // Redirect to generic payment success page with summary and invoice link
               router.push({

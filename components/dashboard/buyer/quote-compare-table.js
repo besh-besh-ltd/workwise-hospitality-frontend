@@ -715,9 +715,17 @@ const QuoteCompareTable = ({
               <div>
                 <span>
                   <b>Lowest Bid</b> :{" "}
-                  {lowestQuote?.quote_details?.vendor_details
-                    ?.organization_name ||
-                    lowestQuote?.quote_details?.vendor_details?.name}
+                  {(() => {
+                    // Apply vendor name visibility: show code in product-wise comparison to avoid premature identity exposure
+                    const vdRaw = lowestQuote?.quote_details?.vendor_details;
+                    const vd = Array.isArray(vdRaw) ? vdRaw[0] : vdRaw;
+                    const code = vd?.rfq_product_vendor_id
+                      ? `VEN-${vd.rfq_product_vendor_id}`
+                      : vd?.id && (vendorCodeMap?.[vd.id] ?? vendorCodeMap?.[String(vd.id)])
+                      ? `VEN-${vendorCodeMap[vd.id] ?? vendorCodeMap[String(vd.id)]}`
+                      : 'VEN-NA';
+                    return code;
+                  })()}
                 </span>
                 <span>
                   <Link

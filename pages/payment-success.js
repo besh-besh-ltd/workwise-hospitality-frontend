@@ -1,7 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import Link from "next/link";
+import storageInstance from "../utils/storageInstance";
 
 const PaymentSuccessPage = () => {
   const router = useRouter();
@@ -15,6 +15,9 @@ const PaymentSuccessPage = () => {
     expiry_date
   } = router.query || {};
 
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+
   useEffect(() => {
     // Ensure currency default
     if (!currency && amount) {
@@ -23,8 +26,18 @@ const PaymentSuccessPage = () => {
         query: { ...router.query, currency: "INR" }
       }, undefined, { shallow: true });
     }
+
+    // Check if user is logged in
+    const token = storageInstance.getStorage("token");
+    if (token) {
+      setIsLoggedIn(true);
+      // Set vendor user type for hospitality vendors
+      if (type === "hospitality_vendor") {
+        storageInstance.setStorage("current-user-type", "vendor");
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [type]);
 
   const prettyType =
     type === "hospitality_vendor"
@@ -122,12 +135,24 @@ const PaymentSuccessPage = () => {
                 </div>
 
                 <div className="d-flex flex-wrap gap-2">
-                  <Link href="/dashboard/vendor" legacyBehavior>
-                    <a className="btn btn-success">Go to Vendor Dashboard</a>
-                  </Link>
-                  <Link href="/dashboard" legacyBehavior>
-                    <a className="btn btn-outline-secondary">Go to Main Dashboard</a>
-                  </Link>
+                  <button
+                    className="btn btn-success"
+                    disabled={isNavigating}
+                    onClick={() => {
+                      setIsNavigating(true);
+                      const token = storageInstance.getStorage("token");
+                      if (token) {
+                        // User is logged in, navigate directly
+                        storageInstance.setStorage("current-user-type", "vendor");
+                        window.location.href = "/dashboard/vendor";
+                      } else {
+                        // Not logged in, redirect to login page
+                        router.push("/hotel-vendor?login=true");
+                      }
+                    }}
+                  >
+                    {isNavigating ? "Redirecting..." : "Go To Vendor Dashboard"}
+                  </button>
                 </div>
               </div>
             </div>

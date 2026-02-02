@@ -150,6 +150,13 @@ const RfqManagementPreview = () => {
   const [openTerms, setOpenTerms] = useState(false);
   const [localId, setLocalId] = useState(router.query.id);
 
+  // Update localId when router.query.id becomes available (after hydration)
+  useEffect(() => {
+    if (id && id !== localId) {
+      setLocalId(id);
+    }
+  }, [id]);
+
   // Custom approval handler for RFQ/TENDER entity type
   const handleRFQApprove = async (comment, context) => {
     try {
@@ -1294,9 +1301,14 @@ const RfqManagementPreview = () => {
                       className="btn btn-secondary m-0 p-2"
                       style={{ width: "240px" }}
                       onClick={() => {
-                        // Changes by Agnij 2025-05-05 [Pass update parameter]
+                        // Use localId which is guaranteed to be set after hydration
+                        const rfqId = localId || id;
+                        if (!rfqId) {
+                          toast.error("Unable to load RFQ details. Please refresh the page.");
+                          return;
+                        }
                         router.push(
-                          `/dashboard/vendor/send-quote?type=update-quote&id=${id}${
+                          `/dashboard/vendor/send-quote?type=update-quote&id=${rfqId}${
                             token !== undefined ? `&token=${token}` : ""
                           }&showTechEvalRestrictions=${isReverseAuctionActive}`
                         );
@@ -2064,11 +2076,17 @@ const RfqManagementPreview = () => {
                                         ) : (
                                           <Link
                                             className="mx-auto mt-2"
-                                            href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId}${
+                                            href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
                                               token !== undefined
                                                 ? `&token=${token}`
                                                 : ""
                                             }&showTechEvalRestrictions=${isReverseAuctionActive}`}
+                                            onClick={(e) => {
+                                              if (!localId && !id) {
+                                                e.preventDefault();
+                                                toast.error("Unable to load RFQ details. Please refresh the page.");
+                                              }
+                                            }}
                                           >
                                             <button
                                               type="button"

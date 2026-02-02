@@ -109,7 +109,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
       res.data.map((resItem) => {
         cMap.set(resItem.clause_id, false);
         aMap.set(resItem.clause_id, resItem.vendor_response);
-        fMap.set(resItem.clause_id, []);
+        fMap.set(resItem.clause_id, resItem.vendor_response_files || []);
       })
 
       setChatMap(cMap);
@@ -188,14 +188,19 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
 
   // Initial data fetch
   useEffect(() => {
+    // Ensure currentUserProfile is available before making API calls
+    if (!currentUserProfile?.id || !rfq_id || !product?.id) return;
+
     getTechEvalResult();
     getVendorResponse();
-  }, [rfq_id, product]);
+  }, [rfq_id, product, currentUserProfile]);
 
   useEffect(() => {
-    if (product)
-      getBuyerClauses()
-  }, [product])
+    // Ensure currentUserProfile is available before making API calls
+    if (!currentUserProfile?.id || !product?.id) return;
+
+    getBuyerClauses();
+  }, [product, currentUserProfile])
 
   const hasVendorResponses = Array.isArray(vendorResponse) && vendorResponse.length > 0;
   let clauseTotal = 0;

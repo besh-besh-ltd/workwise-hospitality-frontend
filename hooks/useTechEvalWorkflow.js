@@ -84,7 +84,11 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
     : null;
 
   // Calculate remaining vendors needed
-  const totalPassedVerified = data?.total_passed_verified || 0;
+  // Use the actual passed_verified array length as source of truth (more reliable than stored field)
+  const passedVerifiedCount = data?.vendors?.passed_verified?.length ?? 0;
+  const storedTotalPassedVerified = data?.total_passed_verified ?? 0;
+  // Use the maximum of actual count and stored value to ensure progress is always accurate
+  const totalPassedVerified = Math.max(passedVerifiedCount, storedTotalPassedVerified);
   const requiredPassedVendors = data?.required_passed_vendors || TARGET_PASSED_VENDORS;
   const remainingNeeded = Math.max(0, requiredPassedVendors - totalPassedVerified);
 

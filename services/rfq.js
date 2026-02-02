@@ -1290,7 +1290,9 @@ export const submitTechEvalForApproval = (payload) => {
       let response = await axiosInstance.post(`/rfq/tech-eval/submit-for-approval`, payload);
       resolve(response);
     } catch (error) {
-      reject({ message: error?.response?.data?.message || error?.message || "Failed to submit for approval" });
+      // Check both 'message' and 'error' fields from backend response
+      const errorMsg = error?.response?.data?.message || error?.response?.data?.error || error?.message || "Failed to submit for approval";
+      reject({ message: errorMsg });
     }
   });
 };

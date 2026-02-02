@@ -59,6 +59,9 @@ const VendorTechnicalEvaluation = () => {
 
     // Initial data fetch
     useEffect(() => {
+        // Wait for router to be ready before accessing query params
+        if (!router.isReady) return;
+
         const fetchData = async () => {
             setLoading(true);
             try {
@@ -75,10 +78,10 @@ const VendorTechnicalEvaluation = () => {
             }
         };
 
-        if(token){
+        if (rfq_id && token) {
             fetchData();
         }
-    }, [rfq_id,token]);
+    }, [router.isReady, rfq_id, token]);
 
 
     return (

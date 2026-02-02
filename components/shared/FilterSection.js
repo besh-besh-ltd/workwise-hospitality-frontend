@@ -77,15 +77,28 @@ const FilterSection = ({ title, setFilterData }) => {
 
     const handleHotelSelectionChange = (hotelIds) => {
         setSelectedHotelIds(hotelIds);
-        
+
         // Filter projects based on selected hotels
+        // Include both hotel-specific projects AND company-level projects for selected hotels' companies
         if (!hotelIds || hotelIds.length === 0) {
             setProjects(allProjects);
         } else {
-            const filtered = allProjects.filter(p => hotelIds.includes(p.hotel_id));
+            // Get company IDs for selected hotels
+            const companyIdsForHotels = [...new Set(
+                (userHotelMappings || [])
+                    .filter(h => hotelIds.includes(h.hospitality_hotel_id))
+                    .map(h => h.hospitality_company_id)
+            )];
+
+            const filtered = allProjects.filter(p =>
+                // Include hotel-specific projects
+                hotelIds.includes(p.hotel_id) ||
+                // Include company-level projects (hotel_id is null but company matches)
+                (p.hotel_id == null && p.hospitality_company_id != null && companyIdsForHotels.includes(p.hospitality_company_id))
+            );
             setProjects(filtered);
         }
-        
+
         // Reset project filter
         setFilterData((prevState) => ({
             ...prevState,
