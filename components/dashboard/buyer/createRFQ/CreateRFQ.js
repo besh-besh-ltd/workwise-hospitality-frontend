@@ -3050,7 +3050,7 @@ useEffect(() => {
 
                                 {rfqFormDataFromStore.project_id && rfqFormDataFromStore.project_id !== -1 && rfqFormDataFromStore.project_id !== "" && (
                                   <div className="col-md-4">
-                                    <label className="form-label fw-medium">Technical Evaluation By</label>
+                                    <label className="form-label fw-medium">Technical Evaluation By <span className="text-danger">*</span></label>
                                     <select
                                       id="technical_evaluation_by-select-create_rfq_page"
                                       name="technical_evaluation_by"
