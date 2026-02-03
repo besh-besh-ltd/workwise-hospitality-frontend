@@ -77,6 +77,9 @@ const BuyerTechnicalEvaluation = () => {
   // For technical evaluation, "write" access means either update OR create permission
   const canWrite = canUpdate || canCreate;
 
+  // Track if we've verified permissions for the current RFQ
+  const [permissionsVerified, setPermissionsVerified] = useState(false);
+
   const getAllProjects = () => {
     getProjectList()
         .then((res) => {
@@ -178,50 +181,70 @@ useEffect(() => {
     }
   };
 
-  const listProducts = async () => {
-    if (!rfq_id) return;
-    
+  // Stage 1: Fetch RFQ metadata for permission context (lightweight, no sensitive data)
+  const fetchRFQMetadata = async () => {
+    if (!rfq_id) {
+      setcurrentRfq(null);
+      setPermissionsVerified(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const res = await getAllClauses(rfq_id,"tech_evaluation");
-      setClauseInfo(res?.data ?? null);
-
-      // Get full RFQ details with products from the detailed API
       const rfqDetailsRes = await getRFQById(rfq_id);
-
       const selectedRfq = Array.isArray(rfqDetailsRes.data) ? rfqDetailsRes.data[0] : rfqDetailsRes.data;
 
       if (!selectedRfq) {
         console.error('No RFQ found for ID:', rfq_id);
         setcurrentRfq(null);
-        setLoading(false);
         return;
       }
-      const vMap = new Map();
-      selectedRfq?.products?.map((prodItem) => {
-        vMap.set(prodItem.id, null)
-      })
 
-      let c_map = new Map();
-      selectedRfq?.products?.map((pItem) => {
-        c_map.set(pItem.id, false);
-      })
-
-      res.data?.map((pItem) => {
-        c_map.set(pItem.rfq_product_id, true);
-      })
-      setcurrentRfq(selectedRfq || null);
-      setVendorMap(vMap);
-      setClauseMap(c_map);
-
+      // Set RFQ data for permission context (hotel_id is needed for permission check)
+      setcurrentRfq(selectedRfq);
+      setPermissionsVerified(false); // Reset when RFQ changes
     } catch (error) {
-      console.log(error)
+      console.log(error);
       toast.error(error.message || 'Failed to load RFQ details');
       setcurrentRfq(null);
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  // Stage 2: Fetch full clause/evaluation data only after permissions verified
+  const fetchEvaluationData = async () => {
+    if (!rfq_id || !currentRfq) return;
+
+    try {
+      setLoading(true);
+      const res = await getAllClauses(rfq_id, "tech_evaluation");
+      setClauseInfo(res?.data ?? null);
+
+      const vMap = new Map();
+      currentRfq?.products?.map((prodItem) => {
+        vMap.set(prodItem.id, null);
+      });
+
+      let c_map = new Map();
+      currentRfq?.products?.map((pItem) => {
+        c_map.set(pItem.id, false);
+      });
+
+      res.data?.map((pItem) => {
+        c_map.set(pItem.rfq_product_id, true);
+      });
+
+      setVendorMap(vMap);
+      setClauseMap(c_map);
+      setPermissionsVerified(true);
+    } catch (error) {
+      console.log(error);
+      toast.error(error.message || 'Failed to load evaluation data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     getUserDetails();
@@ -230,18 +253,41 @@ useEffect(() => {
     fetchUserHotelMappings();
   }, []);
 
-
+  // Stage 1: Fetch RFQ metadata when rfq_id changes (for permission context)
   useEffect(() => {
-    if (rfq_id) {
-      listProducts();
-    } else {
-      setcurrentRfq(null);
-    }
+    fetchRFQMetadata();
   }, [rfq_id]);
+
+  // Stage 2: Fetch full evaluation data only after permissions are verified
+  useEffect(() => {
+    if (rfq_id && currentRfq && !permissionsLoading && canRead && !permissionsVerified) {
+      fetchEvaluationData();
+    }
+  }, [rfq_id, currentRfq, permissionsLoading, canRead, permissionsVerified]);
 
   // Access Denied check - show when user has no read permission
   // Only check when an RFQ is selected and we have permission context
   const hasPermissionContext = hotelIds.length > 0 && !!currentRfq;
+
+  // Permission loading state - show loading while permissions are being verified
+  // Data is NOT fetched until permissions are verified
+  if (currentRfq && (permissionsLoading || (!permissionsVerified && canRead))) {
+    return (
+      <section className="quote-common-header compare-received-quote sc-pt-80">
+        <div className="container-fluid">
+          <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
+            <div className="text-center">
+              <div className="spinner-border text-primary mb-3" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+              <p className="text-muted">Verifying permissions...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   if (hasPermissionContext && !permissionsLoading && !canRead) {
     return (
       <AccessDeniedPage

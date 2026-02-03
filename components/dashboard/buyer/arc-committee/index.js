@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { getArcRfqList, getTenderLifecycle, performArcAction } from "@/services/arc";
+import { getRFQById } from "@/services/rfq";
 import { getProjectList } from '@/services/project';
 import { getUserMappings } from '@/services/hospitality';
 import { formatRFQNumber } from "@/utils/sharedFunctions";
@@ -78,6 +79,9 @@ const ArcCommittee = () => {
     enabled: hotelIds.length > 0,
   });
 
+  // Track if we've verified permissions for the current RFQ
+  const [permissionsVerified, setPermissionsVerified] = useState(false);
+
   const lifecycleStages = STAGE_DEFINITIONS.map(s => ({
     value: s.key,
     label: s.label
@@ -98,11 +102,49 @@ const ArcCommittee = () => {
     };
   }, [selectedProject, isTenderFilter, rfqNo, selectedHotelIds]);
 
+  // Stage 1: Fetch RFQ metadata for permission context when rfq_id changes
   useEffect(() => {
-    if (rfq_id) {
-      loadLifecycleData();
-    }
+    const fetchRFQMetadata = async () => {
+      if (!rfq_id) {
+        setCurrentRfq(null);
+        setLifecycleData(null);
+        setPermissionsVerified(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const rfqDetailsRes = await getRFQById(rfq_id);
+        const selectedRfq = Array.isArray(rfqDetailsRes.data) ? rfqDetailsRes.data[0] : rfqDetailsRes.data;
+
+        if (selectedRfq) {
+          setCurrentRfq({
+            id: selectedRfq.id,
+            rfq_no: selectedRfq.rfq_no,
+            is_tender: selectedRfq.is_tender,
+            project_name: selectedRfq.project_name || '',
+            hotel_id: selectedRfq.hotel_id,
+            hospitality_hotel_id: selectedRfq.hospitality_hotel_id
+          });
+        }
+        setPermissionsVerified(false); // Reset when RFQ changes
+      } catch (error) {
+        console.error('Error fetching RFQ metadata:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRFQMetadata();
   }, [rfq_id]);
+
+  // Stage 2: Fetch full lifecycle data only after permissions are verified
+  useEffect(() => {
+    if (rfq_id && currentRfq && !permissionsLoading && canRead && !permissionsVerified) {
+      loadLifecycleData();
+      setPermissionsVerified(true);
+    }
+  }, [rfq_id, currentRfq, permissionsLoading, canRead, permissionsVerified]);
 
   // Set initial active stage when lifecycle data loads
   useEffect(() => {
@@ -315,6 +357,26 @@ const ArcCommittee = () => {
 
   // Check permissions
   const hasPermissionContext = hotelIds.length > 0 && !!rfq_id;
+
+  // Permission loading state - show loading while permissions are being verified
+  // Data is NOT fetched until permissions are verified
+  if (currentRfq && (permissionsLoading || (!permissionsVerified && canRead))) {
+    return (
+      <section className="quote-common-header compare-received-quote sc-pt-80">
+        <div className="container-fluid">
+          <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
+            <div className="text-center">
+              <div className="spinner-border text-primary mb-3" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+              <p className="text-muted">Verifying permissions...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   if (hasPermissionContext && !permissionsLoading && !canRead) {
     return (
       <AccessDeniedPage

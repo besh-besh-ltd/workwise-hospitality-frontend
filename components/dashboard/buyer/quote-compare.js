@@ -130,12 +130,49 @@ const QuoteCompare = () => {
   // Combined loading state
   const permissionsLoading = negotiationPermissionsLoading || quoteComparePermissionsLoading;
 
+  // Track if we've verified permissions for the current RFQ
+  const [permissionsVerified, setPermissionsVerified] = useState(false);
+
+  // Stage 1: Fetch RFQ metadata first to get hotel context for permission check
+  // This is a lightweight call that doesn't expose sensitive quote data
   useEffect(() => {
-    if (rfq) {
+    const fetchRFQMetadata = async () => {
+      if (!rfq) {
+        setcurrentRFQ(null);
+        setPermissionsVerified(false);
+        return;
+      }
+
+      try {
+        // Get RFQ metadata for permission context
+        const response = await getRfqs({ rfq_id: rfq, page: 1, limit: 1 });
+        const rfqData = Array.isArray(response) ? response[0] : response?.data?.[0];
+        if (rfqData) {
+          // Set minimal RFQ data for permission check (hotel_id, hotel_ids)
+          setcurrentRFQ(prev => ({
+            ...prev,
+            id: rfqData.id,
+            hotel_id: rfqData.hotel_id,
+            hotel_ids: rfqData.hotel_ids,
+          }));
+        }
+        setPermissionsVerified(false); // Reset when RFQ changes
+      } catch (error) {
+        console.error("Error fetching RFQ metadata:", error);
+      }
+    };
+
+    fetchRFQMetadata();
+  }, [rfq]);
+
+  // Stage 2: Once permissions are verified, fetch full data only if user has access
+  useEffect(() => {
+    if (rfq && !permissionsLoading && currentRFQ && (canReadNegotiation || canReadQuoteCompare)) {
+      setPermissionsVerified(true);
       getRespectiveQuotes();
       loadNegotiationData();
     }
-  }, [rfq, TA_Filter, freightFilter, normalizeFilter]);
+  }, [rfq, permissionsLoading, canReadNegotiation, canReadQuoteCompare, TA_Filter, freightFilter, normalizeFilter]);
 
   const loadNegotiationData = async () => {
     if (!rfq) return;
@@ -1382,6 +1419,25 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 //   console.log("Submitted Data:", { productId, vendorIds, targetPrice });
 
 // };
+
+  // Permission loading state - show loading while permissions are being verified
+  // This prevents data from being fetched until permissions are checked
+  if (currentRFQ && (permissionsLoading || !permissionsVerified)) {
+    return (
+      <section className="quote-common-header compare-received-quote sc-pt-80">
+        <div className="container-fluid">
+          <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
+            <div className="text-center">
+              <div className="spinner-border text-primary mb-3" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+              <p className="text-muted">Verifying permissions...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   // Access denied check - show only if user has NO permissions for EITHER section
   if (currentRFQ && !permissionsLoading && !canReadNegotiation && !canReadQuoteCompare) {

@@ -24,7 +24,7 @@ const QueryComponent = () => {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [selectedVendorIds, setSelectedVendorIds] = useState([]);
 
-    const selectedVendors = vendors.filter((v) => selectedVendorIds.includes(v.user_id));
+  const selectedVendors = vendors.filter((v) => selectedVendorIds.includes(v.user_id));
 
 
 // Toggle selection
@@ -43,9 +43,40 @@ const handleToggleVendor = (vendorId) => {
     try {
       const payload = { rfq_id, user_name: name };
       const response = await listQueries(payload, token);
-      setVendors(response.data || []);
-      if (!selectedVendor && response.data?.length) {
-        handleSelectVendor(response.data[0]);
+      const rawVendors = response.data || [];
+
+      // Enrich vendors with a display_name that respects Tender anonymity rules.
+      const isTender = rfqDetails?.is_tender === 1 || rfqDetails?.is_tender === "1";
+      const normalizedVendors = rawVendors.map((v, index) => {
+        let display_name;
+        if (isTender) {
+          if (v.vendor_code) {
+            display_name = `Vendor ${v.vendor_code}`;
+          } else if (v.rfq_product_vendor_id) {
+            display_name = `VEN-${v.rfq_product_vendor_id}`;
+          } else if (v.vendor_id) {
+            display_name = `Vendor #${v.vendor_id}`;
+          } else {
+            display_name = `Vendor ${index + 1}`;
+          }
+        } else {
+          display_name =
+            v.company_name ||
+            v.user_name ||
+            v.name ||
+            `Vendor ${index + 1}`;
+        }
+
+        return {
+          ...v,
+          display_name,
+        };
+      });
+
+      setVendors(normalizedVendors);
+
+      if (!selectedVendor && normalizedVendors.length) {
+        handleSelectVendor(normalizedVendors[0]);
       }
     } catch (error) {
       console.error("Error fetching vendors:", error);
@@ -118,6 +149,29 @@ const handleSelectVendor = (vendor) => {
     }
   }, [rfq_id, role]);
 
+  // When RFQ details (particularly is_tender) load after vendors,
+  // re-normalize vendor display names once to respect anonymity rules.
+  useEffect(() => {
+    if (!rfqDetails || vendors.length === 0) return;
+
+    const isTender = rfqDetails.is_tender === 1 || rfqDetails.is_tender === "1";
+    if (!isTender) return; // For RFQs we already show company names
+
+    setVendors(prev =>
+      prev.map((v, index) => {
+        const display_name =
+          v.display_name && v.display_name.startsWith("Vendor")
+            ? v.display_name
+            : v.vendor_code
+            ? `Vendor ${v.vendor_code}`
+            : v.rfq_product_vendor_id
+            ? `VEN-${v.rfq_product_vendor_id}`
+            : `Vendor ${index + 1}`;
+        return { ...v, display_name };
+      })
+    );
+  }, [rfqDetails?.is_tender]);
+
   useEffect(() => {
     loadMessages();
   }, [rfq_id, selectedVendor]);
@@ -181,6 +235,7 @@ const handleSelectVendor = (vendor) => {
     onMessageSent={handleMessageSent}
     vendorwithoutlogintoken={token}
     selectedVendors={selectedVendors}   // <-- PASS THE ARRAY FOR BROADCAST
+    isTender={rfqDetails?.is_tender === 1}
   />
 )}
       </div>

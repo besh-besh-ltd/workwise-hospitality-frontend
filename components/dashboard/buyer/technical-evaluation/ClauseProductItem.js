@@ -643,13 +643,16 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                               >
                                                 Talk with vendor
                                               </Dropdown.Item>
-                                              <Dropdown.Item
-                                                target="_blank"
-                                                href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.vendor_id}`}
-                                                id={`view_vendor_profile_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
-                                              >
-                                                View Profile
-                                              </Dropdown.Item>
+                                              {/* Hide View Profile for tenders to preserve vendor anonymity */}
+                                              {currentRfq?.is_tender !== 1 && (
+                                                <Dropdown.Item
+                                                  target="_blank"
+                                                  href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.vendor_id}`}
+                                                  id={`view_vendor_profile_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
+                                                >
+                                                  View Profile
+                                                </Dropdown.Item>
+                                              )}
                                               {isCleared == null && canWrite && !permissionsLoading && !isPendingApproval && (
                                                 <>
                                                   <Dropdown.Item

@@ -212,7 +212,7 @@ const ClarificationDetailModal = ({
               textAlign: isMyMessage ? "right" : "left",
             }}
           >
-            {moment(msg.created_at).format("hh:mm A")}
+            {moment.utc(msg.created_at).local().format("hh:mm A")}
           </div>
         </div>
       </div>
@@ -270,7 +270,7 @@ const ClarificationDetailModal = ({
               </div>
               <div className="col-md-3">
                 <small className="text-muted d-block">Created</small>
-                <p className="mb-0">{moment(clarification.created_at).format("DD MMM YYYY")}</p>
+                <p className="mb-0">{moment.utc(clarification.created_at).local().format("DD MMM YYYY")}</p>
               </div>
             </div>
           </div>
@@ -335,7 +335,7 @@ const ClarificationDetailModal = ({
                       </div>
                     )}
                     <div style={{ fontSize: "0.65rem", opacity: 0.6, marginTop: "2px", textAlign: isBuyer ? "left" : "right" }}>
-                      {moment(clarification.created_at).format("hh:mm A")}
+                      {moment.utc(clarification.created_at).local().format("hh:mm A")}
                     </div>
                   </div>
                 </div>
@@ -378,7 +378,7 @@ const ClarificationDetailModal = ({
                         </div>
                       )}
                       <div style={{ fontSize: "0.65rem", opacity: 0.6, marginTop: "2px", textAlign: isBuyer ? "right" : "left" }}>
-                        {moment(clarification.responded_at).format("hh:mm A")}
+                        {moment.utc(clarification.responded_at).local().format("hh:mm A")}
                       </div>
                     </div>
                   </div>

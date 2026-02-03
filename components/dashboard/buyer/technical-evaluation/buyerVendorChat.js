@@ -9,7 +9,16 @@ import FileLink from '@/components/shared/FileLink';
 import FullLoader from '@/components/shared/FullLoader';
 
 
-const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token="" ,product , rfq_no}) => {
+const BuyerVendorChat = ({
+  showChat,
+  closeChat,
+  data,
+  userData,
+  otherUser,
+  token = "",
+  product,
+  rfq_no
+}) => {
   const [messages, setMessages] = useState(null);
   const [messageText, setMessageText] = useState("");
   const [files, setFiles] = useState(null);
@@ -20,6 +29,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
   const fileInputRef = useRef(null);
   const [userMap, setUserMap] = useState({}); // userId -> {name, company_name, user_type}
  
+  const isTender = rfq_no?.is_tender === 1 || rfq_no?.is_tender === "1";
 
   const handleFileClick = () => {
     fileInputRef.current.click(); // Trigger the file input when the "Attach file" button is clicked
@@ -75,10 +85,9 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
       text: messageText,
       file_url: files,
       product:product,
-      vendor : otherUser,
-      rfq_no : {
+      vendor: otherUser,
+      rfq_no: {
         ...rfq_no,
-
       }
     }
    
@@ -107,7 +116,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
         let res = await getVendorDetailsByID(userId);
         if (res?.data && res.data.company_name) {
           profile = {
-            user_type: 3,
+            user_type: 3, // vendor
             name: res.data.company_name,
             id: userId,
           };
@@ -194,7 +203,22 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
             {messages &&
               messages.map((msg, idx) => {
                 const sender = userMap[msg.created_by] || {};
-                const senderLabel = sender.name;
+                // For tenders, anonymise vendor identities in the deviation chat.
+                // Buyer / internal users still see their normal names.
+                const senderLabel = (() => {
+                  if (!sender) return "";
+
+                  // Vendor user in tender → hide real company name
+                  if (isTender && sender.user_type === 3) {
+                    // Prefer anonymised label from selected vendor if available (e.g. "VEN-123")
+                    if (otherUser?.label) return otherUser.label;
+                    if (otherUser?.vendor_code) return `Vendor ${otherUser.vendor_code}`;
+                    if (otherUser?.rfq_product_vendor_id) return `VEN-${otherUser.rfq_product_vendor_id}`;
+                    return "Vendor";
+                  }
+
+                  return sender.name;
+                })();
                 return (
                   <div
                     key={`cmnt_${msg.comment_id}`}

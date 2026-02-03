@@ -6,16 +6,24 @@ const VendorSelectionModal = ({
   onClose,
   onSendReminder,
   vendors = [],
-  loading = false
+  loading = false,
+  isTender = false
 }) => {
   const [selectedVendors, setSelectedVendors] = useState([]);
   const [sendLoading, setSendLoading] = useState(false);
 
+  // Reset selection whenever modal closes or vendor list changes
   useEffect(() => {
     if (!isOpen) {
       setSelectedVendors([]);
+      return;
     }
-  }, [isOpen]);
+
+    // For tenders, always pre‑select ALL vendors and keep them selected.
+    if (isTender && vendors.length > 0) {
+      setSelectedVendors(vendors.map(v => v.user_id));
+    }
+  }, [isOpen, isTender, vendors]);
 
   // Calculate total products and handle duplicate names
   const { totalGlobalProducts, processedVendors } = useMemo(() => {
@@ -54,6 +62,9 @@ const VendorSelectionModal = ({
   }, [vendors]);
 
   const handleVendorToggle = (vendorId) => {
+    // For tenders we always send reminders to ALL vendors; do not allow per‑vendor toggling
+    if (isTender) return;
+
     setSelectedVendors(prev => {
       if (prev.includes(vendorId)) {
         return prev.filter(id => id !== vendorId);
@@ -64,6 +75,12 @@ const VendorSelectionModal = ({
   };
 
   const handleSelectAll = () => {
+    // For tenders, "Select All" is effectively always on – nothing to toggle
+    if (isTender) {
+      setSelectedVendors(vendors.map(vendor => vendor.user_id));
+      return;
+    }
+
     if (selectedVendors.length === vendors.length) {
       setSelectedVendors([]);
     } else {
@@ -72,11 +89,16 @@ const VendorSelectionModal = ({
   };
 
   const handleSendReminder = async () => {
-    if (selectedVendors.length === 0) return;
+    // For tenders, reminders must go to ALL visible vendors (no names shown)
+    const targetVendorIds = isTender
+      ? vendors.map(vendor => vendor.user_id)
+      : selectedVendors;
+
+    if (targetVendorIds.length === 0) return;
     
     setSendLoading(true);
     try {
-      await onSendReminder(selectedVendors);
+      await onSendReminder(targetVendorIds);
     } finally {
       setSendLoading(false);
     }
@@ -118,7 +140,9 @@ const VendorSelectionModal = ({
       }}
     >
       <div className="modal-header border-bottom p-3">
-        <h4 className="mb-0 fw-bold">Select Vendors for Reminder</h4>
+        <h4 className="mb-0 fw-bold">
+          {isTender ? "Send Reminder to All Vendors" : "Select Vendors for Reminder"}
+        </h4>
       </div>
 
       <div className="modal-body p-0">
@@ -135,37 +159,58 @@ const VendorSelectionModal = ({
           </div>
         ) : (
           <div className="vendor-modal-content">
-            {/* Select All Checkbox */}
+            {/* Select All Checkbox (disabled for tenders – always all vendors) */}
             <div className="px-3 mb-3">
               <div className="p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
                 <label className="form-check-label d-flex align-items-center">
-                  <input
-                    type="checkbox"
-                    className="form-check-input me-3"
-                    checked={selectedVendors.length === vendors.length && vendors.length > 0}
-                    onChange={handleSelectAll}
-                  />
-                  <strong>Select All ({vendors.length} vendors)</strong>
+                  {!isTender && (
+                    <input
+                      type="checkbox"
+                      className="form-check-input me-3"
+                      checked={selectedVendors.length === vendors.length && vendors.length > 0}
+                      onChange={handleSelectAll}
+                    />
+                  )}
+                  <strong>
+                    {isTender
+                      ? `All ${vendors.length} vendors will receive a reminder`
+                      : `Select All (${vendors.length} vendors)`}
+                  </strong>
                 </label>
+                {isTender && (
+                  <p className="mb-0 mt-1 small text-muted">
+                    Vendor identities are hidden for tenders. Reminders are sent to all listed vendors.
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Vendor List */}
             <div className="vendor-list-container">
               <div className="vendor-list">
-                {processedVendors.map((vendor) => (
+                {processedVendors.map((vendor, index) => (
                   <div key={vendor.user_id} className="vendor-card">
                     <div className="p-3 border rounded shadow-sm" style={{ backgroundColor: 'white' }}>
                       <label className="form-check-label d-flex align-items-start w-100 h-100">
-                        <input
-                          type="checkbox"
-                          className="form-check-input me-3 mt-1"
-                          checked={selectedVendors.includes(vendor.user_id)}
-                          onChange={() => handleVendorToggle(vendor.user_id)}
-                        />
+                        {!isTender && (
+                          <input
+                            type="checkbox"
+                            className="form-check-input me-3 mt-1"
+                            checked={selectedVendors.includes(vendor.user_id)}
+                            onChange={() => handleVendorToggle(vendor.user_id)}
+                          />
+                        )}
                         <div className="flex-grow-1 d-flex flex-column h-100">
                           <div className="mb-2">
-                            <div className="fw-bold text-primary text-break">{vendor.vendor_name}</div>
+                            <div className="fw-bold text-primary text-break">
+                              {isTender
+                                ? (vendor.vendor_code
+                                    ? `Vendor ${vendor.vendor_code}`
+                                    : vendor.rfq_product_vendor_id
+                                      ? `VEN-${vendor.rfq_product_vendor_id}`
+                                      : `Vendor ${index + 1}`)
+                                : vendor.vendor_name}
+                            </div>
                           </div>
                           {vendor.remainingProducts && vendor.remainingProducts.length > 0 && (
                             <div className="mt-auto">
@@ -210,13 +255,15 @@ const VendorSelectionModal = ({
           <button
             onClick={handleSendReminder}
             className="btn btn-primary flex-fill"
-            disabled={selectedVendors.length === 0 || sendLoading}
+            disabled={(!isTender && selectedVendors.length === 0) || sendLoading}
           >
             {sendLoading ? (
               <>
                 <span className="spinner-border spinner-border-sm me-2" role="status"></span>
                 Sending...
               </>
+            ) : isTender ? (
+              `Send Reminder (${vendors.length})`
             ) : (
               `Send Reminder (${selectedVendors.length})`
             )}
