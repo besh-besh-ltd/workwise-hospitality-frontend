@@ -660,6 +660,9 @@ const NegotiationModal = ({
             {roundsHistory.map((round) => {
               const product = products.find(p => p.id === round.rfq_product_id);
               const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
+              // Check if round has ended (ACTIVE but end_date passed)
+              const isEnded = round.status === 'ACTIVE' && round.end_date && moment(round.end_date).isBefore(moment());
+              const displayStatus = isEnded ? 'ENDED' : round.status;
               return (
                 <tr key={round.id}>
                   <td>{productName}</td>
@@ -668,12 +671,13 @@ const NegotiationModal = ({
                   <td>{moment(round.end_date).format('DD/MM/YYYY HH:mm')}</td>
                   <td>
                     <Badge bg={
+                      isEnded ? 'secondary' :
                       round.status === 'ACTIVE' ? 'success' :
                       round.status === 'PENDING_APPROVAL' ? 'warning' :
                       round.status === 'COMPLETED' ? 'info' :
                       'secondary'
                     }>
-                      {round.status}
+                      {displayStatus}
                     </Badge>
                   </td>
                   <td>{round.created_by_name}</td>
