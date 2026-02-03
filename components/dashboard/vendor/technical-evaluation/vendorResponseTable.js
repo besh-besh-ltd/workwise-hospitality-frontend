@@ -342,7 +342,9 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                   <>
                     <tr key={`ven_res_clause_${clauseItem.clause_id}`}>
                       <td>
-                        <ReadMore content={`${index + 1}. ${clauseItem.clause_text}`} maxLines={4} />
+                        <div className="d-flex align-items-center gap-2">
+                          <ReadMore content={`${index + 1}. ${clauseItem.clause_text}`} maxLines={4} />
+                        </div>
                       </td>
                       <td style={{ maxWidth: "260px" }}>
                         {clauseItem.clause_files && clauseItem.clause_files?.length > 0

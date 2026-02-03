@@ -1723,20 +1723,36 @@ const RfqManagementPreview = () => {
                                     }}
                                   >
                                     <div className="row">
-                                      <p className="col-12 mb-1">
-                                        <strong>Size: </strong>
-                                        {size || "----"}
-                                      </p>
-                                      <p
-                                        className="col-12 mb-1 truncate-text"
-                                        style={{
-                                          maxHeight: "100px",
-                                          WebkitLineClamp: 3,
-                                        }}
-                                      >
-                                        <strong>Spec: </strong>
-                                        {spec || "----"}
-                                      </p>
+                                      <div className="col-12 mb-1">
+                                        <div className="d-flex align-items-start" style={{ gap: "0.5rem" }}>
+                                          <strong style={{ whiteSpace: "nowrap" }}>Size: </strong>
+                                          <div style={{ flex: 1, minWidth: 0 }}>
+                                            {size && size !== "----" ? (
+                                              <ReadMore
+                                                content={size}
+                                                maxLines={3}
+                                              />
+                                            ) : (
+                                              "----"
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="col-12 mb-1">
+                                        <div className="d-flex align-items-start" style={{ gap: "0.5rem" }}>
+                                          <strong style={{ whiteSpace: "nowrap" }}>Spec: </strong>
+                                          <div style={{ flex: 1, minWidth: 0 }}>
+                                            {spec && spec !== "----" ? (
+                                              <ReadMore
+                                                content={spec}
+                                                maxLines={3}
+                                              />
+                                            ) : (
+                                              "----"
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
                                       <div className="col-12 d-block  rounded-2 p-2 mb-1">
                                         {item.SPEC_files ? (
                                           <p className="fw-bold mb-1">
