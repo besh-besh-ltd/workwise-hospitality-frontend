@@ -652,12 +652,20 @@ const QuoteCompareTable = ({
                           </span>
                         )}
                     </div>
-                    <div className="table-si-row ">
-                      {item?.comment && (
-                        <ReadMore content={item?.comment} maxLines={2} />
+                    <div className="table-si-row" style={{ minWidth: "300px", wordBreak: "break-word" }}>
+                      {item?.comment ? (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <ReadMore content={item?.comment} maxLines={3} />
+                        </div>
+                      ) : (
+                        "-"
                       )}
-                      {item?.global_comment && (
-                        <ReadMore content={item?.global_comment} maxLines={2} />
+                      {item?.global_comment ? (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <ReadMore content={item?.global_comment} maxLines={3} />
+                        </div>
+                      ) : (
+                        "-"
                       )}
                     </div>
                     <div className="table-si-row table-grey-row">
@@ -675,11 +683,13 @@ const QuoteCompareTable = ({
                         </>
                       )}
                     </div>
-                    <div className="table-si-row table-grey-row">
-                        <ReadMore
-                          content={item?.global_payment_term || ""}
-                          maxLines={2}
-                        />
+                    <div className="table-si-row table-grey-row" style={{ minHeight: "120px", padding: "15px", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "flex-start" }}>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <ReadMore
+                            content={item?.global_payment_term?.[0]?.details || item?.global_payment_term || ""}
+                            maxLines={4}
+                          />
+                        </div>
 
                     {/* Payment terms list */}
                     {(() => {

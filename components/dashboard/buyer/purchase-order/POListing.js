@@ -12,6 +12,7 @@ import { FiExternalLink } from "react-icons/fi";
 import Pagination from "@/components/shared/Pagination";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import POCard from "./POCard";
+import ReadMore from "@/components/shared/ReadMore";
 
 const statusVariants = {
   pending_approval: "warning",
@@ -389,12 +390,17 @@ const POListing = ({
                           {po.status.replace("_", " ")}
                         </span>
                       </td>
-                      <td>
-                        <div className="d-flex flex-column">
-                          {po.product_details.map(p => (
-                            <span>{p.name}</span>
-                          ))}
-                        </div>
+                      <td style={{ maxWidth: "300px", wordBreak: "break-word" }}>
+                        {po.product_details?.length > 0 ? (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <ReadMore
+                              content={po.product_details.map(p => p.name).join("\n")}
+                              maxLines={4}
+                            />
+                          </div>
+                        ) : (
+                          "-"
+                        )}
                       </td>
                       <td>{po.quantity}</td>
                       <td>₹ {addCommasToNumber(po.total_value)}</td>

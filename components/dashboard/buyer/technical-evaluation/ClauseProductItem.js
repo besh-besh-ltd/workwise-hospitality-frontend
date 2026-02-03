@@ -698,12 +698,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                         <tr key={`rfq_prod_clause_${clauseItem.clause_id}`}>
                           {console.log("chcking th e clause id ", clauseItem.clause_id)}
                           <td className="col-4">
-                            <ReadMore
-                              content={`${index + 1}. ${
-                                clauseItem.clause_text
-                              }`}
-                              maxLines={4}
-                            />
+                            <div className="d-flex align-items-center gap-2">
+                              <ReadMore
+                                content={`${index + 1}. ${
+                                  clauseItem.clause_text
+                                }`}
+                                maxLines={4}
+                              />
+                            </div>
                             <p className="text-sm mt-1">
                               <strong>Weightage:</strong> {clauseItem.weightage || 0}
                             </p>
@@ -939,7 +941,9 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                     <>
                                         <tr key={`ven_res_clause_${clauseItem.clause_id}`}>
                                             <td>
-                                                <ReadMore content={`${index + 1}. ${clauseItem.clause_text}`} maxLines={4} />
+                                                <div className="d-flex align-items-center gap-2">
+                                                    <ReadMore content={`${index + 1}. ${clauseItem.clause_text}`} maxLines={4} />
+                                                </div>
                                             </td>
                                             <td>
                                                 <span className={`badge rounded-pill py-1 px-2 ${clauseItem.vendor_response == "I Agree" ? 'text-bg-success' : 'text-bg-danger'}`}>{clauseItem.vendor_response}</span>

@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, Row, Col, Badge, Button, ProgressBar } from 'react-bootstrap';
 import { Calendar, User, Package, Building, Eye, CheckCircle, Upload, AlertTriangle } from 'lucide-react';
 import { addCommasToNumber } from '@/utils/sharedFunctions';
 import Link from 'next/link';
+import ReadMore from '@/components/shared/ReadMore';
 
 const POCard = ({ po, onClick, initiatePO }) => {
+  const productNames = useMemo(() => {
+    return po.product_details?.map(p => p.name).join("\n") || "";
+  }, [po.product_details]);
   // Status color mapping
   const getStatusColor = (status) => {
     const statusMap = {
@@ -135,10 +139,15 @@ const POCard = ({ po, onClick, initiatePO }) => {
                 <div className="d-flex gap-4">
                   <div className="mb-3">
                     <div className="fw-semibold text-dark mb-1">Product(s)</div>
-                    <div className="text-muted d-flex flex-column">
-                      {po.product_details.map(p => (
-                        <span>{p.name}</span>
-                      ))}
+                    <div className="text-muted" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
+                      {productNames ? (
+                        <ReadMore
+                          content={productNames}
+                          maxLines={4}
+                        />
+                      ) : (
+                        "N/A"
+                      )}
                     </div>
                   </div>
 

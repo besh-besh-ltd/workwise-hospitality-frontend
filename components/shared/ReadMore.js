@@ -24,33 +24,85 @@ const ReadMore = ({
   }, [content, maxLines]);
 
   const containerStyles = {
-    display: '-webkit-box',
+    display: isExpanded ? 'block' : '-webkit-box',
     WebkitBoxOrient: 'vertical',
     overflow: 'hidden',
     WebkitLineClamp: isExpanded ? 'unset' : maxLines,
     fontSize,
+    wordBreak: 'break-word',
+    overflowWrap: 'break-word',
     ...additionalStyles,
+  };
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
   };
 
   return (
     <div
-      style={{ cursor: "pointer" }}
-      className="d-flex flex-column align-items-start"
+      style={{
+        cursor: "pointer",
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
+        overflow: "visible",
+        wordBreak: "break-word"
+      }}
+      className="d-flex flex-column"
+      onClick={handleClick}
+      onMouseDown={handleClick}
+      onMouseUp={handleClick}
     >
-      <p
-        onClick={onClick}
-        ref={contentRef}
-        className={`position-relative mb-0 ${additionalClasses}`}
-        style={containerStyles}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
+          overflow: "visible"
+        }}
       >
-        {content}
-      </p>
+        <p
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (onClick) onClick(e);
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseUp={(e) => e.stopPropagation()}
+          ref={contentRef}
+          className={`position-relative mb-0 ${additionalClasses}`}
+          style={{
+            ...containerStyles,
+            width: "100%",
+            maxWidth: "100%",
+            minWidth: 0,
+            marginBottom: isOverflowing ? "4px" : "0",
+            boxSizing: "border-box"
+          }}
+        >
+          {content}
+        </p>
+      </div>
       {isOverflowing && (
         <span
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
             handleToggle();
           }}
-          className="btn-link p-0 text-primary text-sm cursor-pointer align-self-end"
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseUp={(e) => e.stopPropagation()}
+          className="btn-link p-0 text-primary text-sm cursor-pointer"
+          style={{
+            flexShrink: 0,
+            alignSelf: "flex-start",
+            marginTop: "2px",
+            whiteSpace: "nowrap",
+            display: "inline-block"
+          }}
         >
           {isExpanded ? "Read Less" : "Read More"}
         </span>

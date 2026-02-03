@@ -175,20 +175,20 @@ const columnSums = useMemo(() => {
                 <tr key={item.product_id || idx} style={{ borderRadius: 8 }}>
                   <td style={{ borderRadius: 8, maxWidth: 100, width: 100 }}>{idx + 1}</td>
                   <td style={{ minWidth: 120, maxWidth: maxVendors > 2 ? 180 : 300, width: maxVendors > 2 ? 180 : 300, wordBreak: 'break-word' }}>
-                    {productName.length > 30 ? <ReadMore content={productName} maxLength={30} /> : productName}
+                    {productName.length > 30 ? <ReadMore content={productName} maxLines={2} /> : productName}
                   </td>
                   <td style={{ minWidth: 140, maxWidth: maxVendors > 2 ? 220 : 350, width: maxVendors > 2 ? 220 : 350, wordBreak: 'break-word', background: '#f8fafc', borderRadius: 6, verticalAlign: 'middle' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, width: '100%' }}>
-                        <div style={{ fontWeight: 'bold', minWidth: 60, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Size:</div>
-                        <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'left', whiteSpace: 'pre-line' }}>
-                          {size && size.length > 0 ? <ReadMore content={size} maxLength={1000} maxLines={3} /> : size}
+                        <div style={{ fontWeight: 'bold', minWidth: 60, flexShrink: 0, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Size:</div>
+                        <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', textAlign: 'left', whiteSpace: 'pre-line' }}>
+                          {size && size.length > 0 ? <ReadMore content={size} maxLines={3} /> : size}
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, width: '100%' }}>
-                        <div style={{ fontWeight: 'bold', minWidth: 60, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Spec:</div>
-                        <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'left', whiteSpace: 'pre-line' }}>
-                          {spec && spec.length > 0 ? <ReadMore content={spec} maxLength={1000} maxLines={3} /> : spec}
+                        <div style={{ fontWeight: 'bold', minWidth: 60, flexShrink: 0, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Spec:</div>
+                        <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', textAlign: 'left', whiteSpace: 'pre-line' }}>
+                          {spec && spec.length > 0 ? <ReadMore content={spec} maxLines={3} /> : spec}
                         </div>
                       </div>
                     </div>

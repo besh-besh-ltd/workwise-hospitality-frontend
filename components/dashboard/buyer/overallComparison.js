@@ -588,45 +588,43 @@ const openModalForVariant = (variantId) => {
                                 style={{
                                   display: "flex",
                                   alignItems: "flex-start",
-                                  gap: "0.2rem",
+                                  gap: 8,
                                 }}
                               >
-                                <p style={{ fontWeight: "bold", minWidth: 40 }}>
+                                <p style={{ fontWeight: "bold", minWidth: 40, flexShrink: 0 }}>
                                   Size:
                                 </p>
-                                <span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
                                   {size?.value ? (
                                     <ReadMore
                                       content={size.value}
-                                      maxLength={1000}
                                       maxLines={3}
                                     />
                                   ) : (
                                     "--"
                                   )}
-                                </span>
+                                </div>
                               </div>
                               <div
                                 style={{
                                   display: "flex",
                                   alignItems: "flex-start",
-                                  gap: "0.2rem",
+                                  gap: 8,
                                 }}
                               >
-                                <p style={{ fontWeight: "bold", minWidth: 40 }}>
+                                <p style={{ fontWeight: "bold", minWidth: 40, flexShrink: 0 }}>
                                   Spec:
                                 </p>
-                                <span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
                                   {spec?.value ? (
                                     <ReadMore
                                       content={spec.value}
-                                      maxLength={1000}
                                       maxLines={3}
                                     />
                                   ) : (
                                     "--"
                                   )}
-                                </span>
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -1456,30 +1454,27 @@ const openModalForVariant = (variantId) => {
                     {allvendors &&
                       allvendors.length > 0 &&
                       allvendors.map((item) => {
+                        const globalPaymentTerm = item.global_payment_term?.[0]?.details || "";
+                        const paymentTermsList = item?.payment_terms?.length
+                          ? item.payment_terms.map((t) => {
+                              const label = (t.type || "").toLowerCase() === "other"
+                                ? (t.comment || "")
+                                : `${t.type}${t.days ? ` (${t.days} days)` : ""}`;
+                              return `${label} - ${t.value ?? 0}%`;
+                            }).join("\n")
+                          : "";
+                        const paymentTermsContent = [globalPaymentTerm, paymentTermsList].filter(Boolean).join("\n");
+
                         return (
-                          <td key={`tp_${item.id}_total`}>
-                            <ReadMore
-                              content={
-                                item.global_payment_term[0].details
-                                  ? item.global_payment_term[0].details
-                                  : ""
-                              }
-                            />
-
-                        {item?.payment_terms?.length ? (
-                          <p className="text-start">
-                            {item.payment_terms.map((t,i) => {
-                              const label =
-                                (t.type || "").toLowerCase() === "other"
-                                  ? (t.comment || "")
-                                  : `${t.type}${t.days ? ` (${t.days} days)` : ""}`;
-                              return <span key={t.id ?? i} className="mt-3" >{label} - {t.value ?? 0}%</span>;
-                            })}
-                          </p>
-                        ) : (
-                          item?.global_payment_term?.[0]?.details || "-"
-                        )}
-
+                          <td key={`tp_${item.id}_total`} style={{ maxWidth: "250px", wordBreak: "break-word" }}>
+                            {paymentTermsContent ? (
+                              <ReadMore
+                                content={paymentTermsContent}
+                                maxLines={3}
+                              />
+                            ) : (
+                              "-"
+                            )}
                           </td>
                         );
                       })}
@@ -1493,13 +1488,23 @@ const openModalForVariant = (variantId) => {
                       allvendors.length > 0 &&
                       allvendors.map((item) => {
                         return (
-                          <td key={`tp_${item.id}_total`}>
+                          <td
+                            key={`tp_${item.id}_total`}
+                            style={{
+                              maxWidth: "250px",
+                              wordBreak: "break-word",
+                              whiteSpace: "normal",
+                              overflow: "visible",
+                              textAlign: "left"
+                            }}
+                          >
                             <ReadMore
                               content={
                                 item.global_payment_term[0].comment
                                   ? item.global_payment_term[0].comment
                                   : "-"
                               }
+                              maxLines={3}
                             />
                           </td>
                         );

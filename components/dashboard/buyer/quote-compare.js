@@ -137,7 +137,7 @@ const QuoteCompare = () => {
   // This is a lightweight call that doesn't expose sensitive quote data
   useEffect(() => {
     const fetchRFQMetadata = async () => {
-      if (!rfq) {
+      if (!rfq || rfq === 'undefined' || rfq === 'null') {
         setcurrentRFQ(null);
         setPermissionsVerified(false);
         return;
@@ -145,7 +145,7 @@ const QuoteCompare = () => {
 
       try {
         // Get RFQ metadata for permission context
-        const response = await getRfqs({ rfq_id: rfq, page: 1, limit: 1 });
+        const response = await getRfqs({ rfq_id: String(rfq), page: 1, limit: 1, tech_eval: false });
         const rfqData = Array.isArray(response) ? response[0] : response?.data?.[0];
         if (rfqData) {
           // Set minimal RFQ data for permission check (hotel_id, hotel_ids)
@@ -1947,13 +1947,14 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                         />
                                       </div>
                                       {spec && (
-                                        <div className="sub-heading mb-0 d-flex gap-1">
-                                          <b>Product Specification</b> :{" "}
-                                          <ReadMore
-                                            content={spec}
-                                            maxLength={30}
-                                            maxLines={2}
-                                          />
+                                        <div className="sub-heading mb-0 d-flex align-items-start" style={{ gap: "0.5rem" }}>
+                                          <b style={{ whiteSpace: "nowrap" }}>Spec: </b>
+                                          <div style={{ flex: 1, minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
+                                            <ReadMore
+                                              content={spec}
+                                              maxLines={3}
+                                            />
+                                          </div>
                                         </div>
                                       )}
                                       {selling_price && (
