@@ -122,6 +122,9 @@ const ManageRFQ = ({ filterData, setFilterData }) => {
         onSendReminder={handleSendSelectiveReminder}
         vendors={vendors}
         loading={modalLoading}
+        // For tenders, reminders should go to all vendors and vendor
+        // identities must remain hidden. Pass flag so modal can adapt UI.
+        isTender={selectedRFQ?.is_tender === 1}
       />
     </>
   );

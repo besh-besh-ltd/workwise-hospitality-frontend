@@ -112,9 +112,9 @@ const ClarificationListModal = ({
                         </Badge>
                       </td>
                       <td>
-                        <div>{moment(latestActivityDate).format("DD MMM YYYY")}</div>
+                        <div>{moment.utc(latestActivityDate).local().format("DD MMM YYYY")}</div>
                         <small className="text-muted">
-                          {moment(latestActivityDate).format("hh:mm A")}
+                          {moment.utc(latestActivityDate).local().format("hh:mm A")}
                         </small>
                       </td>
                       <td>

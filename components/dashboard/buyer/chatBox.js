@@ -7,7 +7,16 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faInfoCircle, faLightbulb, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-toastify";
 
-const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutlogintoken, selectedVendors }) => {
+const ChatBox = ({
+  messages,
+  vendor,
+  rfq_id,
+  role,
+  onMessageSent,
+  vendorwithoutlogintoken,
+  selectedVendors,
+  isTender = false,
+}) => {
   const [messageText, setMessageText] = useState("");
   const [files, setFiles] = useState([]);
   const [sendButtonLoading, setSendButtonLoading] = useState(false);
@@ -103,7 +112,7 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
 
         const response = await sendQueryMessage(formData, vendorwithoutlogintoken);
         if (response.status !== 1) {
-          toast.error(`Failed to send to ${singleVendor.company_name}`, {
+          toast.error(`Failed to send to ${singleVendor.display_name || singleVendor.company_name || "vendor"}`, {
             position: "top-right",
           });
         } else {
@@ -128,7 +137,7 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
         <h5 className="me-auto mb-0">
           {isBroadcastMode
             ? `Send message to ${selectedVendors.length} vendors`
-            : vendor?.company_name ?? "Select a vendor to continue the conversation"}
+            : (vendor?.display_name || vendor?.company_name || "Select a vendor to continue the conversation")}
         </h5>
         
         {/* Suggestion toggle button for vendors only */}
@@ -191,7 +200,7 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
             <h6>Selected Vendors:</h6>
             <ul>
               {selectedVendors.map((v) => (
-                <li key={v.user_id}>{v.company_name}</li>
+                <li key={v.user_id}>{v.display_name || v.company_name}</li>
               ))}
             </ul>
           </div>
@@ -231,8 +240,17 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
                   </div>
                 )}
                 <small className="text-muted d-block mt-1">
-                  {message?.sender_name + " -  "}
-                  {formatDate(message.created_at)}
+                  {(() => {
+                    // In tender mode, hide vendor real names from the buyer's view.
+                    if (isTender && role === "buyer" && message.direction === "received") {
+                      if (!isBroadcastMode && vendor?.display_name) {
+                        return `${vendor.display_name} -  ${formatDate(message.created_at)}`;
+                      }
+                      return `Vendor -  ${formatDate(message.created_at)}`;
+                    }
+
+                    return `${message?.sender_name} -  ${formatDate(message.created_at)}`;
+                  })()}
                 </small>
               </div>
             </div>

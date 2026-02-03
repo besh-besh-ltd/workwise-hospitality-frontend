@@ -992,7 +992,10 @@ export const getRfqs = async (params) => {
 
 export const getTechEvalUsers = async (project_id) => {
   const res = await axiosInstance.get(`/rfq/tech-eval-users/${project_id}`);
-  return res.data;
+  const body = res?.data;
+  // Backend responds as: { status: 1, data: [ { id, name, email }, ... ] }
+  // Always return the array so callers can use it directly.
+  return body?.data || body || [];
 };
 
 
