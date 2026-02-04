@@ -832,10 +832,8 @@ const EditRFQ = () => {
       if (rfqData.ra_end_date != formValues.ra_end_date)
         dataToSend.ra_end_date = formValues.ra_end_date;
 
-      // Tender actions: include tender_publish_date and vendor_clarification_date when editing tender
+      // Tender actions: include vendor_clarification_date when editing tender
       if (dataToSend.is_tender === 1) {
-        if (rfqFormDataFromStore.tender_publish_date != null)
-          dataToSend.tender_publish_date = rfqFormDataFromStore.tender_publish_date;
         if (rfqFormDataFromStore.vendor_clarification_date != null)
           dataToSend.vendor_clarification_date = rfqFormDataFromStore.vendor_clarification_date;
       }
@@ -2052,26 +2050,8 @@ const EditRFQ = () => {
                         </div>
                       </div>
 
-                      {/* Tender actions: Tender Publish Date & Vendor Clarification (visible when is_tender) */}
+                      {/* Tender actions: Vendor Clarification Deadline (visible when is_tender) */}
                       {rfqFormDataFromStore.is_tender === 1 && (
-                        <>
-                          <div className="col-md-6">
-                            <label className="form-label fw-medium">Tender Publish Date & Time</label>
-                            <input
-                              type="datetime-local"
-                              name="tender_publish_date"
-                              className="form-control"
-                              value={rfqFormDataFromStore.tender_publish_date
-                                ? formatISOToDateTimeLocal(rfqFormDataFromStore.tender_publish_date)
-                                : ""}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                const formatted = val ? `${val.replace("T", " ")}:00` : "";
-                                dispatch(setOtherFormFields({ tender_publish_date: formatted || null }));
-                                setHasUnsavedChanges(true);
-                              }}
-                            />
-                          </div>
                           <div className="col-md-6">
                             <label className="form-label fw-medium">Vendor Clarification Deadline</label>
                             <input
@@ -2089,7 +2069,6 @@ const EditRFQ = () => {
                               }}
                             />
                           </div>
-                        </>
                       )}
 
                       {rfqFormDataFromStore.is_tender === 1 && departments.length > 0 && (
