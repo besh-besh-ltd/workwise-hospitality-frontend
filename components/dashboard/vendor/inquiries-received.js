@@ -56,20 +56,13 @@ const InquiriesReceived = ({ pageType = 0 }) => {
   const getNegotiationBadge = (rfqId) => {
     const rounds = negotiationRounds[rfqId] || [];
     if (rounds.length === 0) return null;
-    
+
     const activeRounds = rounds.filter(r => r.status === 'ACTIVE');
-    const pendingRounds = rounds.filter(r => r.status === 'PENDING_APPROVAL');
-    
+
     if (activeRounds.length > 0) {
       return (
         <Badge bg="success" className="ms-2" style={{ fontSize: '0.7rem' }}>
           {activeRounds.length} Active Negotiation{activeRounds.length > 1 ? 's' : ''}
-        </Badge>
-      );
-    } else if (pendingRounds.length > 0) {
-      return (
-        <Badge bg="warning" text="dark" className="ms-2" style={{ fontSize: '0.7rem' }}>
-          {pendingRounds.length} Pending Negotiation{pendingRounds.length > 1 ? 's' : ''}
         </Badge>
       );
     }

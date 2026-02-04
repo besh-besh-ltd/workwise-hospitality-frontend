@@ -2940,6 +2940,7 @@ useEffect(() => {
 
                               <div className="row mb-2">
 
+                                    {rfqFormDataFromStore.is_tender === 1 && (
                                     <div className="col-md-4">
                                       <label className="form-label">
                                         Tender Publish Date & Time
@@ -2957,6 +2958,7 @@ useEffect(() => {
                                         onChange={handleFormFieldChange}
                                       />
                                     </div>
+                                    )}
 
                                 <div className="col-md-4">
                                   <FormikField
@@ -2973,6 +2975,7 @@ useEffect(() => {
                                   />
                                 </div>
 
+                                    {rfqFormDataFromStore.is_tender === 1 && (
                                     <div className="col-md-4">
                                       <label className="form-label">
                                         Vendor Clarification Deadline
@@ -2995,6 +2998,7 @@ useEffect(() => {
                                         </div>
                                       )}
                                     </div>
+                                    )}
 
 
                                 {rfqFormDataFromStore.is_tender === 1 && (
