@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Badge } from 'react-bootstrap';
 import { getAllActiveNegotiationRounds, getNegotiationRounds } from '@/services/negotiation';
+import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
+import { getProfile } from '@/services/Auth';
 import NegotiationModal from './NegotiationModal';
 import moment from 'moment';
 
@@ -25,12 +27,13 @@ const NegotiationCompactBanner = ({
   useEffect(() => {
     if (rfq_id) {
       loadActiveRounds();
-      loadRoundsHistory(); // Also load history to get ended rounds count
+      loadRoundsHistory();
     }
-    const userId = localStorage.getItem('userId') || localStorage.getItem('user_id');
-    if (userId) {
-      setCurrentUserId(parseInt(userId));
-    }
+    getProfile().then(res => {
+      if (res?.data?.id) {
+        setCurrentUserId(res.data.id);
+      }
+    }).catch(() => {});
   }, [rfq_id]);
 
   const loadActiveRounds = async () => {
@@ -38,10 +41,10 @@ const NegotiationCompactBanner = ({
       setLoading(true);
       const response = await getAllActiveNegotiationRounds(rfq_id);
       console.log('Active rounds raw response:', response);
-      
+
       // Axios interceptor already returns response.data, so response is the backend response
       let rounds = [];
-      
+
       if (response) {
         if (response.status === 1 && response.data) {
           // Standard format: { status: 1, data: [...] }
@@ -54,8 +57,36 @@ const NegotiationCompactBanner = ({
           rounds = response.data;
         }
       }
-      
+
       console.log('Parsed rounds:', rounds, 'Count:', rounds.length);
+
+      // Enrich PENDING_APPROVAL rounds with approval data from the approval engine
+      for (let i = 0; i < rounds.length; i++) {
+        const round = rounds[i];
+        if (round.status === 'PENDING_APPROVAL' && round.rfq_product_id) {
+          try {
+            const instancesRes = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
+            const instances = instancesRes?.data || instancesRes || [];
+            const pendingInstance = (Array.isArray(instances) ? instances : []).find(inst => inst.status === 'PENDING');
+            if (pendingInstance) {
+              const detailRes = await getApprovalInstanceDetails(pendingInstance.id);
+              const detail = detailRes?.data || detailRes || {};
+              const currentStep = (detail.steps || []).find(s => s.step_order === detail.current_step);
+              if (currentStep && currentStep.approvers) {
+                round.approvals = currentStep.approvers.map(a => ({
+                  approver_user_id: a.user_id,
+                  approver_name: a.user_name,
+                  approver_email: a.user_email,
+                  status: a.status
+                }));
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching approval data for round ' + round.id + ':', err);
+          }
+        }
+      }
+
       setActiveRounds(rounds);
     } catch (error) {
       console.error('Error loading active rounds:', error);
@@ -69,9 +100,9 @@ const NegotiationCompactBanner = ({
     try {
       const response = await getNegotiationRounds(rfq_id);
       console.log('Rounds history raw response:', response);
-      
+
       let rounds = [];
-      
+
       if (response) {
         if (response.status === 1 && response.data) {
           rounds = Array.isArray(response.data) ? response.data : [];
@@ -81,7 +112,7 @@ const NegotiationCompactBanner = ({
           rounds = response.data;
         }
       }
-      
+
       console.log('Parsed history rounds:', rounds, 'Count:', rounds.length);
       setRoundsHistory(rounds);
     } catch (error) {
@@ -158,15 +189,18 @@ const NegotiationCompactBanner = ({
   const pendingApprovalsCount = pendingRounds.filter(round => {
     if (!currentUserId) return false;
     const approvals = round.approvals || [];
-    return approvals.some(a => a.status === 'PENDING' && a.approver_user_id === currentUserId);
+    return approvals.some(a => a.status === 'PENDING' && String(a.approver_user_id) === String(currentUserId));
   }).length;
 
   // Determine background color
   let bgColor = '#e3f2fd'; // Subtle blue - no rounds
   let borderColor = '#90caf9';
-  
-  if (pendingApprovalsCount > 0 || pendingRounds.length > 0) {
-    bgColor = '#fff8e1'; // Subtle yellow - approval required
+
+  if (pendingApprovalsCount > 0) {
+    bgColor = '#fff3f3';
+    borderColor = '#dc3545';
+  } else if (pendingRounds.length > 0) {
+    bgColor = '#fff8e1';
     borderColor = '#ffcc80';
   } else if (activeRoundsList.length > 0) {
     bgColor = '#e8f5e9'; // Subtle green - rounds active, no approval needed
@@ -181,7 +215,7 @@ const NegotiationCompactBanner = ({
       approvals.forEach(approval => {
         if (approval.status === 'PENDING') {
           pendingApprovers.push({
-            name: approval.approver_name || `User ${approval.approver_user_id}`,
+            name: approval.approver_name || ('User ' + approval.approver_user_id),
             email: approval.approver_email,
             roundNumber: round.round_number,
             productId: round.rfq_product_id
@@ -193,7 +227,7 @@ const NegotiationCompactBanner = ({
     const uniqueApprovers = [];
     const seen = new Set();
     pendingApprovers.forEach(approver => {
-      const key = `${approver.name}-${approver.email}`;
+      const key = approver.name + '-' + approver.email;
       if (!seen.has(key)) {
         seen.add(key);
         uniqueApprovers.push(approver);
@@ -223,14 +257,11 @@ const NegotiationCompactBanner = ({
       parts.push(`${pendingRounds.length} pending`);
     }
     statusMessage = parts.length > 0 ? `${parts.join(', ')} round${totalRoundsCount > 1 ? 's' : ''}` : 'No negotiation rounds';
-    if (pendingApprovers.length > 0) {
-      statusMessage += ` (${pendingApprovers.length} approver${pendingApprovers.length > 1 ? 's' : ''} pending)`;
-    }
   }
 
   return (
     <>
-      <div 
+      <div
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -246,7 +277,7 @@ const NegotiationCompactBanner = ({
         {/* Left: Status Message */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {pendingApprovalsCount > 0 && (
+            {pendingApprovalsCount > 0 ? (
               <Badge
                 bg="danger"
                 style={{
@@ -254,19 +285,25 @@ const NegotiationCompactBanner = ({
                   fontWeight: 700,
                 }}
               >
-                ⚠️ Action Required
+                Your Approval Required
               </Badge>
-            )}
+            ) : pendingRounds.length > 0 ? (
+              <Badge
+                bg="warning"
+                text="dark"
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                }}
+              >
+                Approval Pending
+              </Badge>
+            ) : null}
             <span style={{ fontSize: '0.875rem', color: '#333' }}>
               <strong>Negotiation:</strong> {loading ? 'Loading...' : statusMessage}
             </span>
-            {pendingApprovalsCount > 0 && (
-              <Badge bg="warning" text="dark" style={{ fontSize: '0.75rem' }}>
-                {pendingApprovalsCount} needs your approval
-              </Badge>
-            )}
           </div>
-          {pendingApprovers.length > 0 && (
+          {pendingApprovers.length > 0 && pendingApprovalsCount === 0 && (
             <div style={{ fontSize: '0.75rem', color: '#666', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 500 }}>Round approval pending from:</span>
               {pendingApprovers.map((approver, idx) => (
@@ -298,7 +335,7 @@ const NegotiationCompactBanner = ({
             History
           </Button>
           <Button
-            variant={pendingApprovalsCount > 0 ? "warning" : "outline-info"}
+            variant={pendingApprovalsCount > 0 ? "danger" : "outline-info"}
             size="sm"
             onClick={handleViewApproveClick}
             disabled={pendingApprovalsCount > 0 && (!canWrite || permissionsLoading)}
@@ -307,9 +344,9 @@ const NegotiationCompactBanner = ({
               padding: '5px 14px',
               position: 'relative',
               ...(pendingApprovalsCount > 0 ? {
-                backgroundColor: '#ffc107',
-                borderColor: '#ffc107',
-                color: '#000',
+                backgroundColor: '#dc3545',
+                borderColor: '#dc3545',
+                color: '#fff',
                 fontWeight: 600
               } : {})
             }}

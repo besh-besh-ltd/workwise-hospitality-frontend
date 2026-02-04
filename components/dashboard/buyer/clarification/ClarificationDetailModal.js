@@ -260,11 +260,13 @@ const ClarificationDetailModal = ({
               <div className="col-md-3">
                 <small className="text-muted d-block">Raised by</small>
                 <p className="mb-0">
-                  {(isBuyer || isOwner)
+                  {isBuyer
                     ? (clarification.raised_by_vendor_code
                         || clarification.raised_by_vendor_name
                         || "Vendor")
-                    : <em className="text-secondary">Anonymous Vendor</em>
+                    : isOwner
+                      ? "You"
+                      : <em className="text-secondary">Anonymous Vendor</em>
                   }
                 </p>
               </div>
