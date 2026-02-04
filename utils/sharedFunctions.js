@@ -642,7 +642,8 @@ export const getRFQPublishState = (data) => {
     isClosed,
     isPrePublishState,
     // Helper for edit button visibility
-    canEdit: !isReadyToPublish && (isPendingApproval || isOpen),
+    // NOTE: Editing is disabled for pre-publish approval states (status=3/4).
+    canEdit: isOpen,
     // Helper for edit URL determination
     editUrl: (id) => isPendingApproval
       ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${id}`

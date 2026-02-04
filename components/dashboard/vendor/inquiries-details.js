@@ -1572,17 +1572,13 @@ const RfqManagementPreview = () => {
                       </span>
 
                       <div>
-                        {/* Edit button - Hidden for Ready to Publish (status=4), redirects to draft for Pending Approval (status=3) */}
+                        {/* Edit button - Hidden for pre-publish approval states (status=3/4) */}
                         {type === "buyer-view" && (
-                          rfqDetails.is_published === 0 && rfqDetails.status === 4 ? null : (
-                            rfqDetails.status === 1 || (rfqDetails.is_published === 0 && rfqDetails.status === 3)
+                          rfqDetails.is_published === 0 && (rfqDetails.status === 3 || rfqDetails.status === 4) ? null : (
+                            rfqDetails.status === 1
                           ) && (
                             <Link
-                              href={
-                                rfqDetails.is_published === 0 && rfqDetails.status === 3
-                                  ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${rfqDetails.id}`
-                                  : `/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`
-                              }
+                              href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}
                             >
                               <button
                                 id="edit_rfq-rfq_header-inquiries_details_page"
