@@ -209,7 +209,8 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
             </button>
           </Link>
 
-          {publishState.canEdit && (
+          {/* Do not show Edit for pending-approval tenders */}
+          {publishState.canEdit && !isPendingApproval && (
             <Link href={publishState.editUrl(data.id)}>
               <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>
                 Edit
