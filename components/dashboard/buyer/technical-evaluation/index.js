@@ -618,7 +618,7 @@ useEffect(() => {
                                     getVendors={async () => await getVendorSelectionOption(product.id)}
                                     clauseInfo={rfqProduct?.clauses ?? []}
                                     vendors={rfqProduct?.vendors ?? []}
-                                    refetch={listProducts}
+                                    refetch={fetchEvaluationData}
                                     selectedVendor={vendorMap.get(product.id)}
                                     selectedVendors={productSelectedVendors.map(vendor => vendor.value)}
                                     minimumPassingScore={rfqProduct?.minimum_passing_score}

@@ -130,16 +130,18 @@ const QuoteCompare = () => {
   // Combined loading state
   const permissionsLoading = negotiationPermissionsLoading || quoteComparePermissionsLoading;
 
-  // Track if we've verified permissions for the current RFQ
-  const [permissionsVerified, setPermissionsVerified] = useState(false);
+  // Track which rfq has had its metadata loaded — only Stage 1 controls this
+  const [metadataLoadedForRfq, setMetadataLoadedForRfq] = useState(null);
+  const rfqMetadataReady = metadataLoadedForRfq === rfq;
 
   // Stage 1: Fetch RFQ metadata first to get hotel context for permission check
   // This is a lightweight call that doesn't expose sensitive quote data
   useEffect(() => {
+    setMetadataLoadedForRfq(null);
+
     const fetchRFQMetadata = async () => {
       if (!rfq || rfq === 'undefined' || rfq === 'null') {
         setcurrentRFQ(null);
-        setPermissionsVerified(false);
         return;
       }
 
@@ -155,8 +157,8 @@ const QuoteCompare = () => {
             hotel_id: rfqData.hotel_id,
             hotel_ids: rfqData.hotel_ids,
           }));
+          setMetadataLoadedForRfq(rfq);
         }
-        setPermissionsVerified(false); // Reset when RFQ changes
       } catch (error) {
         console.error("Error fetching RFQ metadata:", error);
       }
@@ -167,12 +169,11 @@ const QuoteCompare = () => {
 
   // Stage 2: Once permissions are verified, fetch full data only if user has access
   useEffect(() => {
-    if (rfq && !permissionsLoading && currentRFQ && (canReadNegotiation || canReadQuoteCompare)) {
-      setPermissionsVerified(true);
+    if (rfq && rfqMetadataReady && !permissionsLoading && (canReadNegotiation || canReadQuoteCompare)) {
       getRespectiveQuotes();
       loadNegotiationData();
     }
-  }, [rfq, permissionsLoading, canReadNegotiation, canReadQuoteCompare, TA_Filter, freightFilter, normalizeFilter]);
+  }, [rfq, rfqMetadataReady, permissionsLoading, canReadNegotiation, canReadQuoteCompare, TA_Filter, freightFilter, normalizeFilter]);
 
   const loadNegotiationData = async () => {
     if (!rfq) return;
@@ -1422,7 +1423,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
   // Permission loading state - show loading while permissions are being verified
   // This prevents data from being fetched until permissions are checked
-  if (currentRFQ && (permissionsLoading || !permissionsVerified)) {
+  if (currentRFQ && (permissionsLoading || !rfqMetadataReady)) {
     return (
       <section className="quote-common-header compare-received-quote sc-pt-80">
         <div className="container-fluid">

@@ -642,12 +642,11 @@ export const getRFQPublishState = (data) => {
     isClosed,
     isPrePublishState,
     // Helper for edit button visibility
-    // NOTE: Editing is disabled for pre-publish approval states (status=3/4).
+    // NOTE: Editing is only allowed for OPEN tenders/RFQs.
+    // Pending approval / ready-to-publish items are read-only.
     canEdit: isOpen,
-    // Helper for edit URL determination
-    editUrl: (id) => isPendingApproval
-      ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${id}`
-      : `/dashboard/buyer/rfq-management-edit?id=${id}`,
+    // Helper for edit URL determination (only used when canEdit === true)
+    editUrl: (id) => `/dashboard/buyer/rfq-management-edit?id=${id}`,
     // Helper for queries/reminder visibility
     showVendorActions: !isPrePublishState && !isClosed,
   };
