@@ -655,64 +655,66 @@ const QuoteCompareTable = ({
                     <div className="table-si-row" style={{ minWidth: "300px", wordBreak: "break-word" }}>
                       {item?.comment ? (
                         <div onClick={(e) => e.stopPropagation()}>
-                          <ReadMore content={item?.comment} maxLines={3} />
+                          <ReadMore content={item.comment} maxLines={3} />
                         </div>
-                      ) : (
-                        "-"
-                      )}
-                      {item?.global_comment ? (
+                      ) : item?.global_comment ? (
                         <div onClick={(e) => e.stopPropagation()}>
-                          <ReadMore content={item?.global_comment} maxLines={3} />
+                          <ReadMore content={item.global_comment} maxLines={3} />
                         </div>
                       ) : (
-                        "-"
+                        "--"
                       )}
                     </div>
-                    <div className="table-si-row table-grey-row">
-                      {item.document_files && (
+                    <div className="table-si-row table-grey-row" style={{ minHeight: "54px" }}>
+                      {item.document_files && Array.isArray(item.document_files) && item.document_files.length > 0 ? (
                         <>{renderFileLink(item.document_files)}</>
+                      ) : (
+                        "--"
                       )}
                     </div>
-                    <div className="table-si-row">
-                      {item.global_document_files && (
+                    <div className="table-si-row" style={{ minHeight: "54px" }}>
+                      {item.global_document_files && Array.isArray(item.global_document_files) && item.global_document_files.length > 0 ? (
                         <>
                           {renderFileLink(
                             item.global_document_files,
                             "view file"
                           )}
                         </>
+                      ) : (
+                        "--"
                       )}
                     </div>
                     <div className="table-si-row table-grey-row" style={{ minHeight: "120px", padding: "15px", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "flex-start" }}>
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <ReadMore
-                            content={item?.global_payment_term?.[0]?.details || item?.global_payment_term || ""}
-                            maxLines={4}
-                          />
-                        </div>
-
-                    {/* Payment terms list */}
-                    {(() => {
-                      const terms =item?.payment_terms
-                      return (
-                        <div className="">
-                          {terms.length > 0 && (
-                            <ul className="">
-                              {terms.map((t, i) => (
-                                <li key={t.id ?? i} className="d-flex justify-content-between py-1">
-                                  <span className="text-capitalize">
-                                    {!t.comment ? ` ${t.type} ${t.days ? t.days + ' days' : ''} ` : ""}
-
-                                    {t.comment ? t.comment  : null}
-                                  </span>
-                                  <span className="fw-semibold">{t.value != null && `${t.value}%`}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      );
-                    })()}
+                      {(() => {
+                        const paymentDetail = item?.global_payment_term?.[0]?.details || item?.global_payment_term || "";
+                        const terms = item?.payment_terms;
+                        const hasTerms = terms && Array.isArray(terms) && terms.length > 0;
+                        if (!paymentDetail && !hasTerms) {
+                          return <span className="text-muted">--</span>;
+                        }
+                        return (
+                          <>
+                            {paymentDetail ? (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <ReadMore content={paymentDetail} maxLines={4} />
+                              </div>
+                            ) : null}
+                            {hasTerms ? (
+                              <ul className="list-unstyled mb-0 mt-1">
+                                {terms.map((t, i) => (
+                                  <li key={t.id ?? i} className="d-flex justify-content-between py-1">
+                                    <span className="text-capitalize">
+                                      {!t.comment ? ` ${t.type} ${t.days ? t.days + " days" : ""} ` : ""}
+                                      {t.comment ? t.comment : null}
+                                    </span>
+                                    <span className="fw-semibold">{t.value != null ? `${t.value}%` : ""}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 );

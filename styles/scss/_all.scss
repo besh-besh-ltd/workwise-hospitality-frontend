@@ -7931,6 +7931,20 @@ td:hover .tooltip_custom {
   }
 }
 
+/* Quote Compare: dynamic tabs + toggles — no clipping, responsive */
+.quote-compare-tabs {
+  .quote-compare-tab-link {
+    text-decoration: none;
+  }
+  .quote-compare-toggles {
+    @media (min-width: 992px) {
+      flex-basis: auto !important;
+      margin-top: 0 !important;
+      margin-left: auto;
+    }
+  }
+}
+
 .quote-sec-table-sub {
   padding-top: 20px;
 
