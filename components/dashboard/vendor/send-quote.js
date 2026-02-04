@@ -732,16 +732,15 @@ return { deletedTerms, createdTerms, updatedTerms };
             toast.success("Tender fees paid successfully.");
 
             // Changes by Agnij [Auto-send quote after successful payment]
-            // Don't restore state on success - we want to submit with current form data
+            // Clear saved form state so ondismiss (which fires after modal closes)
+            // won't restore stale state and interfere with quote submission
+            formStateRef.current = null;
+
             if (shouldAutoSendQuoteRef.current) {
               shouldAutoSendQuoteRef.current = false;
-              // Don't clear form state here - wait until quote submission succeeds
-              // Call handleSubmitQuoteConfirm directly since verification is complete
               handleSubmitQuoteConfirm();
             } else {
-              // If auto-send wasn't intended, just refresh RFQ details
-              formStateRef.current = null;
-              await getRFQdetails();
+              getRFQdetails();
             }
           } catch (err) {
             toast.error(err?.message || "Payment verification failed.");
@@ -774,11 +773,12 @@ return { deletedTerms, createdTerms, updatedTerms };
       const paymentObject = new window.Razorpay(options);
       
       // Changes by Agnij [Handle payment failure]
+      // Only show toast here - do NOT reset refs or restore form state.
+      // Razorpay allows retry within the same modal. If user retries and succeeds,
+      // the success handler needs shouldAutoSendQuoteRef to still be true.
+      // ondismiss will handle full cleanup when the modal is actually closed.
       paymentObject.on('payment.failed', function(response) {
         toast.error("Payment failed. Please try again.");
-        shouldAutoSendQuoteRef.current = false;
-        restoreFormState();
-        setTenderPaymentLoading(false);
       });
 
       paymentObject.open();

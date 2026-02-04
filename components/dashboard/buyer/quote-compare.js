@@ -1763,112 +1763,111 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     />
                   )}
                   <div
-                    className="tabs-container"
+                    className="tabs-container quote-compare-tabs"
                     style={{
                       borderBottom: "1px solid #e0e0e0",
                       marginBottom: 16,
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "flex-end",
+                      gap: "12px 8px",
                     }}
                   >
-                    <Link
-                      href="#"
-                      className={`tab ${
-                        activeTab === "product" ? "active" : ""
-                      }`}
-                      style={{
-                        background:
-                          activeTab === "product" ? "#2d5ba7" : "#fff",
-                        color: activeTab === "product" ? "#fff" : "#2d5ba7",
-                        border: "1px solid #2d5ba7",
-                        borderBottom:
-                          activeTab === "product"
-                            ? "none"
-                            : "1px solid #2d5ba7",
-                        borderRadius: "8px 8px 0 0",
-                        marginRight: 4,
-                        padding: "8px 20px",
-                        fontWeight: 500,
-                        position: "relative",
-                        top: activeTab === "product" ? 2 : 0,
-                        zIndex: activeTab === "product" ? 2 : 1,
-                        transition: "background 0.2s, color 0.2s",
-                      }}
-                    onClick={() => setActiveTab('product')}
-                    id="product_tab-quote_tabs-quote_compare_page"
+                    <div className="d-flex flex-shrink-0 gap-1 align-items-stretch" style={{ flexWrap: "nowrap" }}>
+                      <Link
+                        href="#"
+                        className={`tab quote-compare-tab-link ${activeTab === "product" ? "active" : ""}`}
+                        style={{
+                          background: activeTab === "product" ? "#2d5ba7" : "#fff",
+                          color: activeTab === "product" ? "#fff" : "#2d5ba7",
+                          border: "1px solid #2d5ba7",
+                          borderBottom: activeTab === "product" ? "none" : "1px solid #2d5ba7",
+                          borderRadius: "8px 8px 0 0",
+                          padding: "8px 20px",
+                          fontWeight: 500,
+                          position: "relative",
+                          top: activeTab === "product" ? 2 : 0,
+                          zIndex: activeTab === "product" ? 2 : 1,
+                          transition: "background 0.2s, color 0.2s",
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                        }}
+                        onClick={() => setActiveTab("product")}
+                        id="product_tab-quote_tabs-quote_compare_page"
+                      >
+                        Product Wise Comparison
+                      </Link>
+                      <Link
+                        href="#"
+                        className={`tab quote-compare-tab-link ${activeTab === "category" ? "active" : ""}`}
+                        style={{
+                          background: activeTab === "category" ? "#2d5ba7" : "#fff",
+                          color: activeTab === "category" ? "#fff" : "#2d5ba7",
+                          border: "1px solid #2d5ba7",
+                          borderBottom: activeTab === "category" ? "none" : "1px solid #2d5ba7",
+                          borderRadius: "8px 8px 0 0",
+                          padding: "8px 20px",
+                          fontWeight: 500,
+                          position: "relative",
+                          top: activeTab === "category" ? 2 : 0,
+                          zIndex: activeTab === "category" ? 2 : 1,
+                          transition: "background 0.2s, color 0.2s",
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                        }}
+                        onClick={() => setActiveTab("category")}
+                        id="category_tab-quote_tabs-quote_compare_page"
+                      >
+                        Category wise Comparison
+                      </Link>
+                      <Link
+                        href="#"
+                        className={`tab quote-compare-tab-link ${activeTab === "cost" ? "active" : ""}`}
+                        style={{
+                          background: activeTab === "cost" ? "#2d5ba7" : "#fff",
+                          color: activeTab === "cost" ? "#fff" : "#2d5ba7",
+                          border: "1px solid #2d5ba7",
+                          borderBottom: activeTab === "cost" ? "none" : "1px solid #2d5ba7",
+                          borderRadius: "8px 8px 0 0",
+                          padding: "8px 20px",
+                          fontWeight: 500,
+                          position: "relative",
+                          top: activeTab === "cost" ? 2 : 0,
+                          zIndex: activeTab === "cost" ? 2 : 1,
+                          transition: "background 0.2s, color 0.2s",
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                        }}
+                        onClick={() => setActiveTab("cost")}
+                        id="overall_cost_tab-quote_tabs-quote_compare_page"
+                      >
+                        Overall Cost Comparison
+                      </Link>
+                    </div>
+                    <div
+                      className="d-flex flex-column gap-2 quote-compare-toggles"
+                      style={{ flexBasis: "100%", minWidth: 0, marginTop: 4 }}
                     >
-                      Product Wise Comparison
-                    </Link>
-                    <Link
-                      href="#"
-                      className={`tab ${
-                        activeTab === "category" ? "active" : ""
-                      }`}
-                      style={{
-                        background:
-                          activeTab === "category" ? "#2d5ba7" : "#fff",
-                        color: activeTab === "category" ? "#fff" : "#2d5ba7",
-                        border: "1px solid #2d5ba7",
-                        borderBottom:
-                          activeTab === "category"
-                            ? "none"
-                            : "1px solid #2d5ba7",
-                        borderRadius: "8px 8px 0 0",
-                        marginRight: 4,
-                        padding: "8px 20px",
-                        fontWeight: 500,
-                        position: "relative",
-                        top: activeTab === "category" ? 2 : 0,
-                        zIndex: activeTab === "category" ? 2 : 1,
-                        transition: "background 0.2s, color 0.2s",
-                      }}
-                    onClick={() => setActiveTab('category')}
-                    id="category_tab-quote_tabs-quote_compare_page"
-                    >
-                      Category wise Comparison
-                    </Link>
-                    <Link
-                      href="#"
-                      className={`tab ${activeTab === "cost" ? "active" : ""}`}
-                      style={{
-                        background: activeTab === "cost" ? "#2d5ba7" : "#fff",
-                        color: activeTab === "cost" ? "#fff" : "#2d5ba7",
-                        border: "1px solid #2d5ba7",
-                        borderBottom:
-                          activeTab === "cost" ? "none" : "1px solid #2d5ba7",
-                        borderRadius: "8px 8px 0 0",
-                        marginRight: 4,
-                        padding: "8px 20px",
-                        fontWeight: 500,
-                        position: "relative",
-                        top: activeTab === "cost" ? 2 : 0,
-                        zIndex: activeTab === "cost" ? 2 : 1,
-                        transition: "background 0.2s, color 0.2s",
-                      }}
-                    onClick={() => setActiveTab('cost')}
-                    id="overall_cost_tab-quote_tabs-quote_compare_page"
-                    >
-                      Overall Cost Comparison
-                    </Link>
-                    <div className="d-flex flex-column gap-2 ms-auto">
                       {TEavailable && (
-                        <div className="form-check form-switch page-link fs-6">
+                        <div className="form-check form-switch d-flex align-items-center gap-2 m-0">
                           <input
-                            className="form-check-input border-dark-subtle"
+                            className="form-check-input border-dark-subtle flex-shrink-0"
                             type="checkbox"
                             role="switch"
                             checked={TA_Filter}
                             id="ta_filter_toggle-quote_tabs-quote_compare_page"
                             onChange={handleTAFilterChange}
                           />
-                          <label className="form-check-label" for="ta_filter_toggle-quote_tabs-quote_compare_page">
+                          <label className="form-check-label flex-grow-1 m-0" htmlFor="ta_filter_toggle-quote_tabs-quote_compare_page">
                             View Technically Accepted Vendors
                           </label>
                         </div>
                       )}
 
                       {!normalizeFilter && (
-                        <div className="form-check form-switch page-link fs-6">
+                        <div className="form-check form-switch d-flex align-items-center gap-2 m-0">
                           <input
-                            className="form-check-input border-dark-subtle"
+                            className="form-check-input border-dark-subtle flex-shrink-0"
                             type="checkbox"
                             role="switch"
                             checked={freightFilter}
@@ -1876,8 +1875,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             onChange={handleFreightFilterChange}
                           />
                           <label
-                            className="form-check-label"
-                            for="freight_filter_toggle-quote_tabs-quote_compare_page"
+                            className="form-check-label flex-grow-1 m-0"
+                            htmlFor="freight_filter_toggle-quote_tabs-quote_compare_page"
                           >
                             View quotes without freight
                           </label>

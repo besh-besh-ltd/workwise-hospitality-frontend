@@ -1301,6 +1301,7 @@ const RfqManagementPreview = () => {
                   productleftforbid &&
                   isSubmitAble &&
                   rfqDetails.quotations?.length > 0 &&
+                  !(rfqDetails?.is_tender === 1 && hasOpenClarification) &&
                   !rfqDetails.products?.some(
                     (item) =>
                       item.finalization_status ===
