@@ -503,8 +503,9 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
         className="col-12 text-sm mb-3 mt-2 hasFullLoader"
         key={`buyer_rfq_prod_${product.id}`}
       >
+        {/* TODO: Tech eval progress bar disabled — not sure how to fix it and it's not really impactful */}
         {/* Workflow Status Banner - Multi-round evaluation progress */}
-        {!workflowLoading && product?.id && (
+        {/* {!workflowLoading && product?.id && (
           <TechEvalWorkflowStatus
             workflowState={workflowState}
             currentRound={currentRound}
@@ -513,7 +514,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
             remainingNeeded={remainingNeeded}
             blockedInsufficientVendors={blockedInsufficientVendors}
           />
-        )}
+        )} */}
 
         {/* Failed Vendor History - Grouped by round */}
         {failedVerifiedVendors.length > 0 && (
