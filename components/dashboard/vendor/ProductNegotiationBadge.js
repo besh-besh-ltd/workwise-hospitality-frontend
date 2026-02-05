@@ -50,7 +50,7 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
     if (!negotiationStatus?.round?.end_date) return;
 
     const now = moment();
-    const endDate = moment(negotiationStatus.round.end_date);
+    const endDate = moment.utc(negotiationStatus.round.end_date);
     const diff = endDate.diff(now);
 
     if (diff <= 0) {
@@ -81,14 +81,9 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
   const isExpired = round?.isExpired || timeRemaining === 'Expired';
   const isPending = round?.status === 'PENDING_APPROVAL';
 
+  // Don't show anything to vendors if round is pending approval
   if (isPending) {
-    return (
-      <div className="mt-1">
-        <Badge bg="warning" text="dark" style={{ fontSize: '0.7rem' }}>
-          Negotiation Pending Approval
-        </Badge>
-      </div>
-    );
+    return null;
   }
 
   if (round?.status === 'ACTIVE') {

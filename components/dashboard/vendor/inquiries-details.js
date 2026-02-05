@@ -1853,7 +1853,7 @@ const RfqManagementPreview = () => {
                                     <td>
                                       <span>
                                         <Link
-                                          href={`rfq-management-vendor?type=buyer-view&productid=${item.product_id}&variant=${item.variant}&id=${id}&rfq_product_id=${item.id}`}
+                                          href={`/dashboard/buyer/rfq-management-vendor?type=buyer-view&productid=${item.product_id}&variant=${item.variant}&id=${id}&rfq_product_id=${item.id}`}
                                           className="page-link"
                                         >
                                           View selected vendors (

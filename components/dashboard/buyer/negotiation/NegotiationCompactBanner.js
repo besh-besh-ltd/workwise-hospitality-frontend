@@ -146,29 +146,36 @@ const NegotiationCompactBanner = ({
     onRoundChange?.();
   };
 
+  // Helper to check if a round has been rejected via approvals
+  const isRoundRejected = (round) => {
+    return round?.approvals?.some(a => a.status === 'REJECTED');
+  };
+
   // Helper to check if a round has ended based on end_date
+  // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
   const isRoundEnded = (round) => {
     const status = (round?.status || '').toUpperCase();
-    if (status === 'ACTIVE' && round?.end_date && moment(round.end_date).isBefore(moment())) {
+    if (status === 'ACTIVE' && round?.end_date && moment.utc(round.end_date).isBefore(moment())) {
       return true;
     }
     return false;
   };
 
+  // Filter out rejected rounds from pending
   const pendingRounds = (activeRounds || []).filter(r => {
     const status = r?.status?.toUpperCase();
-    return status === 'PENDING_APPROVAL';
+    return status === 'PENDING_APPROVAL' && !isRoundRejected(r);
   });
 
-  // Active rounds: status is ACTIVE and end_date has NOT passed
+  // Active rounds: status is ACTIVE, end_date has NOT passed, and not rejected
   const activeRoundsList = (activeRounds || []).filter(r => {
     const status = r?.status?.toUpperCase();
-    return status === 'ACTIVE' && !isRoundEnded(r);
+    return status === 'ACTIVE' && !isRoundEnded(r) && !isRoundRejected(r);
   });
 
-  // Rounds from activeRounds that have ended (status ACTIVE but end_date passed)
+  // Rounds from activeRounds that have ended (status ACTIVE but end_date passed) and not rejected
   const endedFromActiveRounds = (activeRounds || []).filter(r => {
-    return isRoundEnded(r);
+    return isRoundEnded(r) && !isRoundRejected(r);
   });
 
   // Calculate ended rounds from history (CLOSED or COMPLETED status)

@@ -17,6 +17,8 @@ const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id }) => {
         return <Badge bg="success">Completed</Badge>;
       case 'CANCELLED':
         return <Badge bg="danger">Cancelled</Badge>;
+      case 'REJECTED':
+        return <Badge bg="danger">Rejected</Badge>;
       case 'ACTIVE':
         return <Badge bg="primary">Active</Badge>;
       case 'PENDING_APPROVAL':
@@ -24,6 +26,14 @@ const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id }) => {
       default:
         return <Badge bg="secondary">{status}</Badge>;
     }
+  };
+
+  // Helper to get effective status considering approvals
+  const getEffectiveStatus = (round) => {
+    // Check if any approval is REJECTED - if so, round is rejected
+    const hasRejectedApproval = round.approvals?.some(a => a.status === 'REJECTED');
+    if (hasRejectedApproval) return 'REJECTED';
+    return round.status;
   };
 
   const formatDate = (dateString) => {
@@ -58,7 +68,7 @@ const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id }) => {
                     <div className="d-flex align-items-center gap-3">
                       <Badge bg="primary">Round {round.round_number}</Badge>
                       <span className="fw-semibold">Target: {formatPrice(round.target_price)}</span>
-                      {getStatusBadge(round.status)}
+                      {getStatusBadge(getEffectiveStatus(round))}
                     </div>
                     <i className={`bi bi-chevron-${expandedRounds[round.id] ? 'up' : 'down'}`}></i>
                   </div>

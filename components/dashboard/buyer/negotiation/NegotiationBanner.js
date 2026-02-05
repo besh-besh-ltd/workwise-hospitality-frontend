@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, Badge, Button, Collapse, Alert } from "react-bootstrap";
 import { toast } from "react-toastify";
+import moment from 'moment';
 import {
   getNegotiationRounds,
   getActiveNegotiationRound,
@@ -28,35 +29,35 @@ const NegotiationBanner = ({ rfq_id, currentUser }) => {
 
   useEffect(() => {
     if (activeRound && activeRound.status === 'ACTIVE' && activeRound.end_date) {
-      const interval = setInterval(() => {
-        const now = new Date();
-        const endDate = new Date(activeRound.end_date);
-        const diff = endDate - now;
+      const calculateCountdown = () => {
+        const now = moment();
+        const endDate = moment.utc(activeRound.end_date);
+        const diff = endDate.diff(now);
 
         if (diff <= 0) {
           setCountdown("Expired");
-          clearInterval(interval);
+          return true; // Signal expired
         } else {
-          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-          const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const duration = moment.duration(diff);
+          const days = Math.floor(duration.asDays());
+          const hours = duration.hours();
+          const minutes = duration.minutes();
           setCountdown(`${days}d ${hours}h ${minutes}m`);
+          return false;
         }
-      }, 60000);
+      };
 
-      const now = new Date();
-      const endDate = new Date(activeRound.end_date);
-      const diff = endDate - now;
-      if (diff > 0) {
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        setCountdown(`${days}d ${hours}h ${minutes}m`);
-      } else {
-        setCountdown("Expired");
+      // Initial calculation
+      const isExpiredNow = calculateCountdown();
+
+      if (!isExpiredNow) {
+        const interval = setInterval(() => {
+          const expired = calculateCountdown();
+          if (expired) clearInterval(interval);
+        }, 60000);
+
+        return () => clearInterval(interval);
       }
-
-      return () => clearInterval(interval);
     }
   }, [activeRound]);
 
@@ -73,7 +74,13 @@ const NegotiationBanner = ({ rfq_id, currentUser }) => {
       }
 
       if (activeResponse.status === 1 && activeResponse.data) {
-        setActiveRound(activeResponse.data);
+        // Check if the round has been rejected - if so, don't set it as active
+        const isRejected = activeResponse.data.approvals?.some(a => a.status === 'REJECTED');
+        if (!isRejected) {
+          setActiveRound(activeResponse.data);
+        } else {
+          setActiveRound(null);
+        }
       } else {
         setActiveRound(null);
       }
