@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Card, Badge, Button, Collapse } from 'react-bootstrap';
-import { BsCheckCircleFill, BsClockFill, BsXCircleFill, BsFileBreak, BsChevronDown, BsChevronUp } from 'react-icons/bs';
+import { Card, Badge, Button, Collapse, Spinner } from 'react-bootstrap';
+import { BsCheckCircleFill, BsClockFill, BsXCircleFill, BsFileBreak, BsChevronDown, BsChevronUp, BsArrowCounterclockwise, BsArrowRepeat } from 'react-icons/bs';
 import ApprovalWorkflowSection from '@/components/dashboard/buyer/approval/ApprovalWorkflowSection';
 
 const statusConfig = {
@@ -30,6 +30,15 @@ const statusConfig = {
     badgeVariant: 'danger',
     badgeText: 'white',
     label: 'Rejected'
+  },
+  CANCELLED: {
+    icon: BsArrowCounterclockwise,
+    color: '#6c757d',
+    bgColor: '#e9ecef',
+    borderColor: '#6c757d',
+    badgeVariant: 'secondary',
+    badgeText: 'white',
+    label: 'Sent Back'
   }
 };
 
@@ -40,7 +49,8 @@ const ProductArcCard = ({
   lifecycleData,
   onRefresh,
   arcHandlers,
-  readOnly = false
+  readOnly = false,
+  refreshing = false
 }) => {
   const [expanded, setExpanded] = useState(!readOnly);
 
@@ -56,6 +66,12 @@ const ProductArcCard = ({
   const config = statusConfig[status] || statusConfig.PENDING;
   const StatusIcon = config.icon;
   const documentUrl = arcInstance?.metadata?.award_document_url;
+
+  // For cancelled status, check if there's a target stage info
+  const sentBackTo = arcInstance?.metadata?.sent_back_to || arcInstance?.metadata?.target_stage;
+  const cancelledLabel = sentBackTo
+    ? `Sent to ${sentBackTo.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`
+    : 'Sent Back';
 
   // Custom handlers for ARC approval
   const handleArcApprove = async (comment, context = {}) => {
@@ -77,9 +93,35 @@ const ProductArcCard = ({
       className="product-arc-card"
       style={{
         borderLeft: `4px solid ${config.borderColor}`,
-        backgroundColor: expanded ? config.bgColor : '#fff'
+        backgroundColor: expanded ? config.bgColor : '#fff',
+        position: 'relative',
+        overflow: 'hidden'
       }}
     >
+      {/* Refreshing indicator bar */}
+      {refreshing && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '3px',
+            background: 'linear-gradient(90deg, #0d6efd, #198754, #0d6efd)',
+            backgroundSize: '200% 100%',
+            animation: 'shimmer 1.5s infinite linear'
+          }}
+        />
+      )}
+      <style jsx>{`
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
       <Card.Body className="p-0">
         {/* Header - Always visible */}
         <div
@@ -93,12 +135,17 @@ const ProductArcCard = ({
               style={{
                 width: 40,
                 height: 40,
-                backgroundColor: config.color,
+                backgroundColor: refreshing ? '#6c757d' : config.color,
                 color: 'white',
-                flexShrink: 0
+                flexShrink: 0,
+                transition: 'background-color 0.3s ease'
               }}
             >
-              <StatusIcon size={18} />
+              {refreshing ? (
+                <Spinner animation="border" size="sm" variant="light" />
+              ) : (
+                <StatusIcon size={18} />
+              )}
             </div>
             <div>
               <h6 className="mb-1">{productName}</h6>
@@ -108,8 +155,12 @@ const ProductArcCard = ({
             </div>
           </div>
           <div className="d-flex align-items-center gap-3">
-            <Badge bg={config.badgeVariant} text={config.badgeText}>
-              {config.label}
+            <Badge bg={refreshing ? 'info' : config.badgeVariant} text={config.badgeText}>
+              {refreshing ? (
+                <><BsArrowRepeat className="me-1" style={{ animation: 'spin 1s linear infinite' }} />Updating...</>
+              ) : (
+                status === 'CANCELLED' ? cancelledLabel : config.label
+              )}
             </Badge>
 
             {/* Document link for approved */}
