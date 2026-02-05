@@ -1013,7 +1013,7 @@ useEffect(() => {
         setMainLoading(false);
         toast.success(
           <h6>
-            <b>RFQ #{res.data.rfq_no}:</b> Successfully created!
+            <b>{rfqFormDataFromStore?.is_tender === 1 ? 'Tender' : 'RFQ'} #{res.data.rfq_no}:</b> Successfully created!
           </h6>,
           { position: "top-right" }
         );
