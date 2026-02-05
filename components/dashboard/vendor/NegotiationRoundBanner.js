@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, Badge, Alert } from "react-bootstrap";
 import { getActiveNegotiationRound } from "@/services/negotiation";
+import moment from 'moment';
 
 const VendorNegotiationRoundBanner = ({ rfq_id }) => {
   const [activeRound, setActiveRound] = useState(null);
@@ -16,38 +17,36 @@ const VendorNegotiationRoundBanner = ({ rfq_id }) => {
 
   useEffect(() => {
     if (activeRound && activeRound.status === 'ACTIVE' && activeRound.end_date) {
-      const interval = setInterval(() => {
-        const now = new Date();
-        const endDate = new Date(activeRound.end_date);
-        const diff = endDate - now;
+      const calculateCountdown = () => {
+        const now = moment();
+        const endDate = moment.utc(activeRound.end_date);
+        const diff = endDate.diff(now);
 
         if (diff <= 0) {
           setCountdown("Expired");
           setIsExpired(true);
-          clearInterval(interval);
+          return true; // Signal to clear interval
         } else {
-          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-          const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const duration = moment.duration(diff);
+          const days = Math.floor(duration.asDays());
+          const hours = duration.hours();
+          const minutes = duration.minutes();
           setCountdown(`${days} days, ${hours} hours, ${minutes} minutes`);
+          return false;
         }
-      }, 60000); // Update every minute
+      };
 
       // Initial calculation
-      const now = new Date();
-      const endDate = new Date(activeRound.end_date);
-      const diff = endDate - now;
-      if (diff > 0) {
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        setCountdown(`${days} days, ${hours} hours, ${minutes} minutes`);
-      } else {
-        setCountdown("Expired");
-        setIsExpired(true);
-      }
+      const isExpiredNow = calculateCountdown();
 
-      return () => clearInterval(interval);
+      if (!isExpiredNow) {
+        const interval = setInterval(() => {
+          const expired = calculateCountdown();
+          if (expired) clearInterval(interval);
+        }, 60000); // Update every minute
+
+        return () => clearInterval(interval);
+      }
     }
   }, [activeRound]);
 
@@ -119,7 +118,7 @@ const VendorNegotiationRoundBanner = ({ rfq_id }) => {
             </div>
           )}
           <div className="small text-muted">
-            End Date: {new Date(activeRound.end_date).toLocaleString()}
+            End Date: {moment.utc(activeRound.end_date).local().format('DD/MM/YYYY HH:mm')}
           </div>
         </div>
       </div>

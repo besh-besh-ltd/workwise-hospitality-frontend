@@ -218,7 +218,8 @@ const NegotiationModal = ({
   };
 
   const handleSelectAll = () => {
-    const availableProducts = products.filter(p => !hasActiveRound(p.id) && !isQuoteApproved(p.id));
+    // Only allow selecting products that have quotes, no active round, and quotes not approved
+    const availableProducts = products.filter(p => hasQuotes(p) && !hasActiveRound(p.id) && !isQuoteApproved(p.id));
     if (selectedProducts.length === availableProducts.length) {
       setSelectedProducts([]);
     } else {
@@ -231,8 +232,41 @@ const NegotiationModal = ({
       r.rfq_product_id === productId &&
       r.status === 'ACTIVE' &&
       r.end_date &&
-      moment(r.end_date).isAfter(moment())
+      moment.utc(r.end_date).isAfter(moment()) &&
+      !r.approvals?.some(a => a.status === 'REJECTED') // Exclude rejected rounds
     );
+  };
+
+  // Safely get vendor details from a quotation (supports both legacy and normalized shapes)
+  const getVendorDetailsFromQuote = (q) => {
+    const vdRaw =
+      q.vendor_details ||
+      (q.quote_details && q.quote_details.vendor_details);
+    if (!vdRaw) return null;
+    return Array.isArray(vdRaw) ? vdRaw[0] : vdRaw;
+  };
+
+  // Check if a quotation is marked as regret (supports both legacy and normalized shapes)
+  const isQuoteRegretted = (q) => {
+    const topLevelRegret = q.is_regret;
+    const nestedRegret = q.quote_details && q.quote_details.is_regret;
+    return topLevelRegret == 1 || nestedRegret == 1;
+  };
+
+  // Check if a product has any valid quotes received (not regretted)
+  const hasQuotes = (product) => {
+    const quotations = product?.quotations || [];
+    if (quotations.length === 0) return false;
+
+    // Check for valid quotations (must have an id or quote_id and not be regretted)
+    const validQuotations = quotations.filter(q => {
+      const hasId = q.id != null || q.quote_id != null;
+      if (!hasId) return false;
+      if (isQuoteRegretted(q)) return false;
+      return true;
+    });
+
+    return validQuotations.length > 0;
   };
 
   const handleSubmit = async (e) => {
@@ -357,12 +391,19 @@ const NegotiationModal = ({
     }
   };
 
-  // Helper to get effective round status (considering end_date)
+  // Helper to get effective round status (considering end_date and approvals)
+  // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
   const getEffectiveRoundStatus = (round) => {
     const status = (round?.status || '').toUpperCase();
 
+    // Check if any approval is REJECTED - if so, round is rejected
+    const hasRejectedApproval = round?.approvals?.some(a => a.status === 'REJECTED');
+    if (hasRejectedApproval) {
+      return 'REJECTED';
+    }
+
     // If status is ACTIVE but end_date has passed, treat as ENDED
-    if (status === 'ACTIVE' && round?.end_date && moment(round.end_date).isBefore(moment())) {
+    if (status === 'ACTIVE' && round?.end_date && moment.utc(round.end_date).isBefore(moment())) {
       return 'ENDED';
     }
 
@@ -383,12 +424,14 @@ const NegotiationModal = ({
       pending_approval: 0,
       completed: 0,
       closed: 0,
-      ended: 0
+      ended: 0,
+      rejected: 0
     };
 
     uniqueRounds.forEach(round => {
       const effectiveStatus = getEffectiveRoundStatus(round);
-      if (effectiveStatus === 'ACTIVE') counts.active++;
+      if (effectiveStatus === 'REJECTED') counts.rejected++;
+      else if (effectiveStatus === 'ACTIVE') counts.active++;
       else if (effectiveStatus === 'PENDING_APPROVAL') counts.pending_approval++;
       else if (effectiveStatus === 'COMPLETED') counts.completed++;
       else if (effectiveStatus === 'CLOSED') counts.closed++;
@@ -401,7 +444,7 @@ const NegotiationModal = ({
   // Round status summary component
   const renderRoundStatusSummary = () => {
     const counts = getRoundStatusCounts();
-    const total = counts.active + counts.pending_approval + counts.completed + counts.closed + counts.ended;
+    const total = counts.active + counts.pending_approval + counts.completed + counts.closed + counts.ended + counts.rejected;
 
     if (total === 0) return null;
 
@@ -430,6 +473,12 @@ const NegotiationModal = ({
               <span>Pending Approval</span>
             </Badge>
           )}
+          {counts.rejected > 0 && (
+            <Badge bg="danger" className="d-flex align-items-center gap-1 px-2 py-1">
+              <span className="fw-bold">{counts.rejected}</span>
+              <span>Rejected</span>
+            </Badge>
+          )}
           {counts.completed > 0 && (
             <Badge bg="info" className="d-flex align-items-center gap-1 px-2 py-1">
               <span className="fw-bold">{counts.completed}</span>
@@ -454,32 +503,47 @@ const NegotiationModal = ({
   const getVendorCodes = (product) => {
     const quotations = product?.quotations || [];
     if (quotations.length === 0) return 'No quotes';
-    
+
     // Filter out regretted quotes and those without valid data
-    const validQuotations = quotations.filter(q => 
-      q.id != null && 
-      q.is_regret !== 1 && 
-      q.vendor_details
-    );
-    
+    const validQuotations = quotations.filter(q => {
+      const vendorDetails = getVendorDetailsFromQuote(q);
+      return q.id != null && !isQuoteRegretted(q) && vendorDetails;
+    });
+
     if (validQuotations.length === 0) return 'No quotes';
-    
+
     const codes = validQuotations.slice(0, 3).map(q => {
-      // vendor_details is an array at quotation level, not inside quote_details
-      const vendorDetails = Array.isArray(q.vendor_details) ? q.vendor_details[0] : q.vendor_details;
+      // vendor details can come from either legacy or normalized shapes
+      const vendorDetails = getVendorDetailsFromQuote(q);
       if (vendorDetails?.rfq_product_vendor_id) {
         return `VEN-${vendorDetails.rfq_product_vendor_id}`;
       }
-      // Fallback: try to get from all_vendors using created_by
-      if (q.created_by && product?.all_vendors) {
-        const allVendor = product.all_vendors.find(v => v.id === q.created_by);
-        if (allVendor?.rfq_product_vendor_id) {
-          return `VEN-${allVendor.rfq_product_vendor_id}`;
+      // Fallback: try to get from all_vendors using vendorDetails.id/user_id or created_by
+      if (product?.all_vendors) {
+        if (vendorDetails?.id || vendorDetails?.user_id) {
+          const allVendorByDetails = product.all_vendors.find(
+            v =>
+              v.id === vendorDetails.id ||
+              v.user_id === vendorDetails.user_id
+          );
+          if (allVendorByDetails?.rfq_product_vendor_id) {
+            return `VEN-${allVendorByDetails.rfq_product_vendor_id}`;
+          }
+        }
+        if (q.created_by) {
+          const allVendor = product.all_vendors.find(
+            v =>
+              v.id === q.created_by ||
+              v.user_id === q.created_by
+          );
+          if (allVendor?.rfq_product_vendor_id) {
+            return `VEN-${allVendor.rfq_product_vendor_id}`;
+          }
         }
       }
       return null;
     }).filter(Boolean);
-    
+
     if (validQuotations.length > 3) {
       return codes.length > 0 ? `${codes.join(', ')} +${validQuotations.length - 3} more` : 'No vendor codes';
     }
@@ -510,17 +574,18 @@ const NegotiationModal = ({
   };
 
   const renderCreateForm = () => {
-    const availableProducts = products.filter(p => !hasActiveRound(p.id) && !isQuoteApproved(p.id));
-    
+    // Products that can have negotiation: have quotes, no active round, quotes not approved
+    const availableProducts = products.filter(p => hasQuotes(p) && !hasActiveRound(p.id) && !isQuoteApproved(p.id));
+
     return (
       <Form onSubmit={handleSubmit}>
         <Form.Group className="mb-3">
           <div className="d-flex justify-content-between align-items-center mb-2">
             <Form.Label className="mb-0 fw-bold">Select Product</Form.Label>
             {availableProducts.length > 1 && (
-              <Button 
-                variant="link" 
-                size="sm" 
+              <Button
+                variant="link"
+                size="sm"
                 onClick={handleSelectAll}
                 className="p-0"
               >
@@ -528,7 +593,7 @@ const NegotiationModal = ({
               </Button>
             )}
           </div>
-          
+
           <Table bordered hover size="sm" className="mb-0">
             <thead className="table-light">
               <tr>
@@ -545,7 +610,8 @@ const NegotiationModal = ({
               {products.map((product) => {
                 const hasRound = hasActiveRound(product.id);
                 const quoteApproved = isQuoteApproved(product.id);
-                const isDisabled = hasRound || quoteApproved;
+                const noQuotes = !hasQuotes(product);
+                const isDisabled = hasRound || quoteApproved || noQuotes;
                 const isSelected = selectedProducts.includes(product.id);
                 const details = getProductDetails(product);
 
@@ -578,6 +644,11 @@ const NegotiationModal = ({
                       {hasRound && !quoteApproved && (
                         <Badge bg="warning" text="dark" className="ms-2" style={{ fontSize: '0.65rem' }}>
                           Active
+                        </Badge>
+                      )}
+                      {noQuotes && !hasRound && !quoteApproved && (
+                        <Badge bg="secondary" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                          No Quotes
                         </Badge>
                       )}
                     </td>
@@ -660,24 +731,24 @@ const NegotiationModal = ({
             {roundsHistory.map((round) => {
               const product = products.find(p => p.id === round.rfq_product_id);
               const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
-              // Check if round has ended (ACTIVE but end_date passed)
-              const isEnded = round.status === 'ACTIVE' && round.end_date && moment(round.end_date).isBefore(moment());
-              const displayStatus = isEnded ? 'ENDED' : round.status;
+              // Get effective status considering approvals and end_date
+              const effectiveStatus = getEffectiveRoundStatus(round);
               return (
                 <tr key={round.id}>
                   <td>{productName}</td>
                   <td>{round.round_number}</td>
                   <td>₹{parseFloat(round.target_price).toLocaleString()}</td>
-                  <td>{moment(round.end_date).format('DD/MM/YYYY HH:mm')}</td>
+                  <td>{moment.utc(round.end_date).local().format('DD/MM/YYYY HH:mm')}</td>
                   <td>
                     <Badge bg={
-                      isEnded ? 'secondary' :
-                      round.status === 'ACTIVE' ? 'success' :
-                      round.status === 'PENDING_APPROVAL' ? 'warning' :
-                      round.status === 'COMPLETED' ? 'info' :
+                      effectiveStatus === 'REJECTED' ? 'danger' :
+                      effectiveStatus === 'ENDED' ? 'secondary' :
+                      effectiveStatus === 'ACTIVE' ? 'success' :
+                      effectiveStatus === 'PENDING_APPROVAL' ? 'warning' :
+                      effectiveStatus === 'COMPLETED' ? 'info' :
                       'secondary'
                     }>
-                      {displayStatus}
+                      {effectiveStatus}
                     </Badge>
                   </td>
                   <td>{round.created_by_name}</td>
@@ -691,20 +762,29 @@ const NegotiationModal = ({
   );
 
   const renderViewApprove = () => {
+    // Helper to check if a round has been rejected via approvals
+    const isRoundRejected = (round) => {
+      return round?.approvals?.some(a => a.status === 'REJECTED');
+    };
+
     // Helper to check if a round has ended based on end_date
+    // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
     const isRoundEnded = (round) => {
       const status = (round?.status || '').toUpperCase();
-      if (status === 'ACTIVE' && round?.end_date && moment(round.end_date).isBefore(moment())) {
+      if (status === 'ACTIVE' && round?.end_date && moment.utc(round.end_date).isBefore(moment())) {
         return true;
       }
       return false;
     };
 
-    const pendingRounds = activeRounds.filter(r => r.status === 'PENDING_APPROVAL' || r.status === 'pending_approval');
-    // Active rounds: status is ACTIVE and end_date has NOT passed
+    // Exclude rejected rounds from pending
+    const pendingRounds = activeRounds.filter(r =>
+      (r.status === 'PENDING_APPROVAL' || r.status === 'pending_approval') && !isRoundRejected(r)
+    );
+    // Active rounds: status is ACTIVE, end_date has NOT passed, and not rejected
     const activeRoundsList = activeRounds.filter(r => {
       const status = (r?.status || '').toUpperCase();
-      return status === 'ACTIVE' && !isRoundEnded(r);
+      return status === 'ACTIVE' && !isRoundEnded(r) && !isRoundRejected(r);
     });
 
     return (
@@ -813,7 +893,7 @@ const NegotiationModal = ({
                         </div>
                         <div className="col-md-6">
                           <small className="text-muted">End Date:</small>
-                          <div>{moment(round.end_date).format('DD/MM/YYYY HH:mm')}</div>
+                          <div>{moment.utc(round.end_date).local().format('DD/MM/YYYY HH:mm')}</div>
                         </div>
                       </div>
                       
@@ -900,7 +980,7 @@ const NegotiationModal = ({
                         </div>
                         <div className="col-md-6">
                           <small className="text-muted">End Date:</small>
-                          <div>{moment(round.end_date).format('DD/MM/YYYY HH:mm')}</div>
+                          <div>{moment.utc(round.end_date).local().format('DD/MM/YYYY HH:mm')}</div>
                         </div>
                       </div>
                     </div>

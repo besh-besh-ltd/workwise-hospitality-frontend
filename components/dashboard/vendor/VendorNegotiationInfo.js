@@ -50,8 +50,9 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
   const updateTimeRemaining = () => {
     if (!negotiationStatus?.round?.end_date) return;
 
+    // Parse end_date as UTC for consistent comparison
     const now = moment();
-    const endDate = moment(negotiationStatus.round.end_date);
+    const endDate = moment.utc(negotiationStatus.round.end_date);
     const diff = endDate.diff(now);
 
     if (diff <= 0) {
@@ -93,6 +94,11 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
   const vendorQuote = negotiationStatus.vendorQuote;
   const isExpired = round?.isExpired || timeRemaining === 'Expired';
   const isPending = round?.status === 'PENDING_APPROVAL';
+
+  // Don't show anything to vendors if round is pending approval
+  if (isPending) {
+    return null;
+  }
   // Get product name from API response or prop
   const displayProductName = round?.product_name || productName || '';
 
@@ -114,7 +120,7 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
                 <strong>Quoted Price:</strong> ₹{parseFloat(vendorQuote?.quoted_price || 0).toLocaleString()}
               </div>
               <div className="mt-1">
-                <strong>Submitted At:</strong> {moment(vendorQuote?.submitted_at).format('DD/MM/YYYY HH:mm')}
+                <strong>Submitted At:</strong> {moment.utc(vendorQuote?.submitted_at).local().format('DD/MM/YYYY HH:mm')}
               </div>
               <div className="mt-1">
                 <small className="text-muted">
@@ -136,7 +142,7 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
                     <strong>Target Price:</strong> ₹{parseFloat(round.target_price).toLocaleString()}
                   </div>
                   <div className="mt-1">
-                    <strong>End Date:</strong> {moment(round.end_date).format('DD/MM/YYYY HH:mm')}
+                    <strong>End Date:</strong> {moment.utc(round.end_date).local().format('DD/MM/YYYY HH:mm')}
                   </div>
                   {timeRemaining && (
                     <div className="mt-1">

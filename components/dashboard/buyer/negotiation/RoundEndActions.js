@@ -36,13 +36,18 @@ const RoundEndActions = ({
     return [{ id: rfq_product_id, name: productName }];
   }, [fullProduct, rfq_product_id, productName]);
 
+  // Check if round has been rejected via approvals
+  const isRoundRejected = activeRound?.approvals?.some(a => a.status === 'REJECTED');
+
   // Check if round has ended
-  const isRoundEnded = activeRound && (
+  // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
+  const isRoundEnded = activeRound && !isRoundRejected && (
     activeRound.status === 'CLOSED' ||
-    (activeRound.status === 'ACTIVE' && moment(activeRound.end_date).isBefore(moment()))
+    (activeRound.status === 'ACTIVE' && moment.utc(activeRound.end_date).isBefore(moment()))
   );
 
-  if (!activeRound || !isRoundEnded || roundQuotes.length === 0) {
+  // Don't show banner for rejected rounds or if no round/quotes
+  if (!activeRound || !isRoundEnded || roundQuotes.length === 0 || isRoundRejected) {
     return null;
   }
 
