@@ -17,6 +17,7 @@ const ClarificationDetailModal = ({
   clarification,
   isBuyer = false,
   isOwner = false, // true if current vendor raised this clarification
+  isCreator = true, // true if current buyer is the creator of the RFQ/Tender (only relevant for buyers)
   onSuccess,
   token = null, // For vendor access
   onRefresh, // Callback to refresh data after sending
@@ -29,7 +30,8 @@ const ClarificationDetailModal = ({
   const messagesEndRef = useRef(null);
 
   const isOpen = clarification?.status === "OPEN";
-  const canSendMessage = (isBuyer || isOwner) && isOpen;
+  // For buyers: only the creator can send messages. For vendors: only the owner can send messages.
+  const canSendMessage = ((isBuyer && isCreator) || (!isBuyer && isOwner)) && isOpen;
 
   // Get messages array from clarification (new structure) or fallback to old structure
   const messages = clarification?.messages || [];
@@ -457,6 +459,11 @@ const ClarificationDetailModal = ({
             <Alert variant="secondary" className="mt-3 mb-0">
               <BsLock className="me-2" />
               This clarification has been closed. No more messages can be sent.
+            </Alert>
+          ) : isBuyer && !isCreator ? (
+            <Alert variant="warning" className="mt-3 mb-0">
+              <BsLock className="me-2" />
+              Only the creator of this tender can respond to clarifications.
             </Alert>
           ) : (
             <Alert variant="info" className="mt-3 mb-0">

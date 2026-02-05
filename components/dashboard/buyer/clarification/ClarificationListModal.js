@@ -13,6 +13,7 @@ const ClarificationListModal = ({
   onHide,
   clarifications = [],
   isBuyer = false,
+  isCreator = true, // Only relevant for buyers
   onRefresh,
   token = null,
 }) => {
@@ -164,6 +165,7 @@ const ClarificationListModal = ({
         clarification={selectedClarification}
         isBuyer={isBuyer}
         isOwner={!isBuyer}
+        isCreator={isCreator}
         onSuccess={handleDetailModalSuccess}
         token={token}
         onRefresh={onRefresh}
