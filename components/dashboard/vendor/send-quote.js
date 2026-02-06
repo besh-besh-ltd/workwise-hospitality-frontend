@@ -111,18 +111,97 @@ const [negotiationQuoteSubmitted, setNegotiationQuoteSubmitted] = useState({});
 const formStateRef = useRef(null);
 const shouldAutoSendQuoteRef = useRef(false);
 
-// Clarification period window for tenders:
-// Use DATE-only comparison to avoid timezone mismatches.
-// - While today is on or before vendor_clarification_date → quote submission must be blocked.
-const clarificationEndDateStr = rfqDetails?.vendor_clarification_date
-  ? String(rfqDetails.vendor_clarification_date).slice(0, 10) // 'YYYY-MM-DD'
-  : null;
-const todayDateStr = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD' in UTC; safe for lexical compare
+// Clarification period window for tenders (IST-based)
+// We treat vendor_clarification_date as an IST datetime and convert it to a UTC Date,
+// so 6:30 PM IST is compared correctly regardless of the browser/server timezone.
+const IST_OFFSET_MINUTES = 330; // +05:30
+
+const parseISTDateTimeToUTCDate = (dateStr) => {
+  if (!dateStr) return null;
+  const raw = String(dateStr).trim();
+  let datePart;
+  let timePart;
+
+  if (raw.includes("T")) {
+    [datePart, timePart] = raw.split("T");
+  } else if (raw.includes(" ")) {
+    [datePart, timePart] = raw.split(" ");
+  } else {
+    datePart = raw;
+    timePart = "00:00:00";
+  }
+
+  const [year, month, day] = datePart.split("-").map((v) => parseInt(v, 10));
+  const [hourStr, minuteStr, secondStr] = (timePart || "00:00:00").split(":");
+  const hour = parseInt(hourStr || "0", 10);
+  const minute = parseInt(minuteStr || "0", 10);
+  const second = parseInt((secondStr || "0").split(".")[0] || "0", 10);
+
+  const utcMs =
+    Date.UTC(year, month - 1, day, hour, minute, second) -
+    IST_OFFSET_MINUTES * 60 * 1000;
+
+  return new Date(utcMs);
+};
+
+// Track "now" for countdown timers
+const [now, setNow] = useState(new Date());
+
+useEffect(() => {
+  const timerId = setInterval(() => {
+    setNow(new Date());
+  }, 1000);
+  return () => clearInterval(timerId);
+}, []);
+
+const clarificationDeadline =
+  rfqDetails?.is_tender === 1 && rfqDetails?.vendor_clarification_date
+    ? parseISTDateTimeToUTCDate(rfqDetails.vendor_clarification_date)
+    : null;
 
 const isClarificationWindowActive =
   rfqDetails?.is_tender === 1 &&
-  clarificationEndDateStr &&
-  todayDateStr <= clarificationEndDateStr;
+  clarificationDeadline &&
+  now < clarificationDeadline;
+
+const clarificationMsLeft = isClarificationWindowActive
+  ? clarificationDeadline.getTime() - now.getTime()
+  : 0;
+
+const formatISTDateTime = (date) => {
+  if (!date) return "";
+  try {
+    return new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  } catch {
+    return date.toLocaleString("en-IN");
+  }
+};
+
+const formatCountdown = (ms) => {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+  const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(
+    2,
+    "0"
+  );
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
+};
+
+const clarificationDeadlineIST = clarificationDeadline
+  ? formatISTDateTime(clarificationDeadline)
+  : "";
+
+const clarificationCountdown = clarificationMsLeft > 0
+  ? formatCountdown(clarificationMsLeft)
+  : "";
 
   // structured payment terms rows
 const [paymentTermsRows, setPaymentTermsRows] = useState([
@@ -1445,12 +1524,26 @@ return { deletedTerms, createdTerms, updatedTerms };
               <div className="row mb-3">
                 <div className="col-12">
                   {isOwnerOfOpenClarification ? (
-                    <Alert variant="info" className="d-flex align-items-center gap-2 mb-0">
-                      <strong>Your Clarification is Pending</strong> - Your clarification request has been submitted. A response from the tender creator will arrive soon. Quote submission is disabled until the clarification is resolved.
+                    <Alert variant="info" className="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2 mb-0">
+                      <div>
+                        <strong>Your Clarification is Pending</strong> - Your clarification request has been submitted. A response from the tender creator will arrive soon. Quote submission is disabled until the clarification is resolved.
+                      </div>
+                      {clarificationDeadlineIST && (
+                        <div className="small text-muted ms-md-2">
+                          Clarification deadline: {clarificationDeadlineIST} IST
+                        </div>
+                      )}
                     </Alert>
                   ) : (
-                    <Alert variant="warning" className="d-flex align-items-center gap-2 mb-0">
-                      <strong>Clarification in Progress</strong> - A clarification is currently being addressed. Quote submission is temporarily disabled. Please check back later.
+                    <Alert variant="warning" className="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2 mb-0">
+                      <div>
+                        <strong>Clarification in Progress</strong> - A clarification is currently being addressed. Quote submission is temporarily disabled. Please check back later.
+                      </div>
+                      {clarificationDeadlineIST && (
+                        <div className="small text-muted ms-md-2">
+                          Clarification deadline: {clarificationDeadlineIST} IST
+                        </div>
+                      )}
                     </Alert>
                   )}
                 </div>
@@ -1464,13 +1557,21 @@ return { deletedTerms, createdTerms, updatedTerms };
                   <div className="col-12">
                     <Alert
                       variant="info"
-                      className="d-flex align-items-center gap-2 mb-0"
+                      className="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2 mb-0"
                     >
-                      <strong>Clarification Period Active</strong> - You can
-                      raise clarifications until the clarification period ends.
-                      Quote submission will be enabled only after the
-                      clarification date is over and all clarifications are
-                      closed.
+                      <div>
+                        <strong>Clarification Period Active</strong> - You can
+                        raise clarifications until the clarification period ends.
+                        Quote submission will be enabled only after the
+                        clarification date is over and all clarifications are
+                        closed.
+                      </div>
+                      {clarificationDeadlineIST && clarificationCountdown && (
+                        <div className="small text-muted ms-md-2">
+                          Ends at {clarificationDeadlineIST} IST &mdash; Time left:{" "}
+                          {clarificationCountdown}
+                        </div>
+                      )}
                     </Alert>
                   </div>
                 </div>
