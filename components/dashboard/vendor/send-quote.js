@@ -111,28 +111,18 @@ const [negotiationQuoteSubmitted, setNegotiationQuoteSubmitted] = useState({});
 const formStateRef = useRef(null);
 const shouldAutoSendQuoteRef = useRef(false);
 
-// Helper: safely parse backend date strings (supports "YYYY-MM-DD", "YYYY-MM-DD HH:mm:ss" and ISO strings)
-const parseBackendDate = (dateStr) => {
-  if (!dateStr) return null;
-  if (dateStr.includes("T")) return new Date(dateStr);
-  if (dateStr.includes(" ")) {
-    const [datePart, timePart] = dateStr.split(" ");
-    return new Date(`${datePart}T${timePart}`);
-  }
-  return new Date(dateStr);
-};
-
 // Clarification period window for tenders:
-// - Before vendor_clarification_date ends → quote submission must be blocked
-const clarificationEndDate = rfqDetails?.vendor_clarification_date
-  ? parseBackendDate(rfqDetails.vendor_clarification_date)
+// Use DATE-only comparison to avoid timezone mismatches.
+// - While today is on or before vendor_clarification_date → quote submission must be blocked.
+const clarificationEndDateStr = rfqDetails?.vendor_clarification_date
+  ? String(rfqDetails.vendor_clarification_date).slice(0, 10) // 'YYYY-MM-DD'
   : null;
+const todayDateStr = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD' in UTC; safe for lexical compare
 
 const isClarificationWindowActive =
   rfqDetails?.is_tender === 1 &&
-  clarificationEndDate &&
-  !isNaN(clarificationEndDate.getTime()) &&
-  new Date() < clarificationEndDate;
+  clarificationEndDateStr &&
+  todayDateStr <= clarificationEndDateStr;
 
   // structured payment terms rows
 const [paymentTermsRows, setPaymentTermsRows] = useState([
