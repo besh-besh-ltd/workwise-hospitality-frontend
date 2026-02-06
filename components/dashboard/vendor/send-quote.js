@@ -111,6 +111,29 @@ const [negotiationQuoteSubmitted, setNegotiationQuoteSubmitted] = useState({});
 const formStateRef = useRef(null);
 const shouldAutoSendQuoteRef = useRef(false);
 
+// Helper: safely parse backend date strings (supports "YYYY-MM-DD", "YYYY-MM-DD HH:mm:ss" and ISO strings)
+const parseBackendDate = (dateStr) => {
+  if (!dateStr) return null;
+  if (dateStr.includes("T")) return new Date(dateStr);
+  if (dateStr.includes(" ")) {
+    const [datePart, timePart] = dateStr.split(" ");
+    return new Date(`${datePart}T${timePart}`);
+  }
+  return new Date(dateStr);
+};
+
+// Clarification period window for tenders:
+// - Before vendor_clarification_date ends → quote submission must be blocked
+const clarificationEndDate = rfqDetails?.vendor_clarification_date
+  ? parseBackendDate(rfqDetails.vendor_clarification_date)
+  : null;
+
+const isClarificationWindowActive =
+  rfqDetails?.is_tender === 1 &&
+  clarificationEndDate &&
+  !isNaN(clarificationEndDate.getTime()) &&
+  new Date() < clarificationEndDate;
+
   // structured payment terms rows
 const [paymentTermsRows, setPaymentTermsRows] = useState([
   // {id:null, value: "", type: "advance", days: "", comment: ""},
@@ -1443,6 +1466,25 @@ return { deletedTerms, createdTerms, updatedTerms };
                 </div>
               </div>
             )}
+            {/* Clarification window active (no open clarifications yet) */}
+            {rfqDetails?.is_tender === 1 &&
+              !hasOpenClarification &&
+              isClarificationWindowActive && (
+                <div className="row mb-3">
+                  <div className="col-12">
+                    <Alert
+                      variant="info"
+                      className="d-flex align-items-center gap-2 mb-0"
+                    >
+                      <strong>Clarification Period Active</strong> - You can
+                      raise clarifications until the clarification period ends.
+                      Quote submission will be enabled only after the
+                      clarification date is over and all clarifications are
+                      closed.
+                    </Alert>
+                  </div>
+                </div>
+              )}
             {/* Product-specific Negotiation Info */}
             {rfqDetails.id && rfqDetails.products && rfqDetails.products.map((product) => (
               <div key={product.id} className="row mb-2">
@@ -2730,8 +2772,24 @@ return { deletedTerms, createdTerms, updatedTerms };
                           type="submit"
                           className="btn btn-secondary float-end"
                           onClick={handleSendQuote}
-                          disabled={!isAnyFieldFilled() || tenderPaymentLoading || hasOpenClarification || Object.keys(negotiationQuoteSubmitted).length > 0}
-                          title={Object.keys(negotiationQuoteSubmitted).length > 0 ? "Quote submission disabled - Negotiation quote already submitted" : hasOpenClarification ? "Quote submission blocked - Clarification in progress" : ""}
+                          disabled={
+                            !isAnyFieldFilled() ||
+                            tenderPaymentLoading ||
+                            (rfqDetails?.is_tender === 1 &&
+                              (isClarificationWindowActive ||
+                                hasOpenClarification)) ||
+                            Object.keys(negotiationQuoteSubmitted).length > 0
+                          }
+                          title={
+                            Object.keys(negotiationQuoteSubmitted).length > 0
+                              ? "Quote submission disabled - Negotiation quote already submitted"
+                              : rfqDetails?.is_tender === 1 &&
+                                isClarificationWindowActive
+                              ? "Quote submission blocked - Clarification period is still active"
+                              : hasOpenClarification
+                              ? "Quote submission blocked - Clarification in progress"
+                              : ""
+                          }
                         >
                           {Object.keys(negotiationQuoteSubmitted).length > 0 ? 'Quote Submitted' : 'Send Quote'}
                         </button>
