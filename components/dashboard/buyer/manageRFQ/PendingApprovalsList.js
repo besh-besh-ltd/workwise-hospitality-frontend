@@ -15,10 +15,9 @@ const PendingApprovalsList = ({ filterData, setFilterData, onCountChange }) => {
     setLoading(true);
 
     getPendingApprovalRFQs({ ...filterData })
-      .then((res) => {
+      .then((body) => {
         setLoading(false);
         // API returns { status, data: listRfq[], total_items }; axios wraps in res.data
-        const body = res?.data ?? {};
         const list = Array.isArray(body.data) ? body.data : [];
         const total = typeof body.total_items === "number" ? body.total_items : 0;
         setPendingRFQs(list);
@@ -84,7 +83,7 @@ const PendingApprovalsList = ({ filterData, setFilterData, onCountChange }) => {
 
         {/* Card List */}
         {!loading && pendingRFQs.length > 0 && (
-          <div className="d-flex flex-column gap-2">
+          <div className="d-flex flex-column gap-2 my-3">
             {pendingRFQs.map((item) => (
               <RFQCard
                 key={`pending_rfq_${item.id}`}

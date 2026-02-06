@@ -243,7 +243,10 @@ export const createAccountSchema = yup.object().shape({
     .array()
     .min(1, "At least one department is required")
     .required("Department is required"),
-  employee_type: yup.string().required("Employee type is required"),
+  employee_type: yup.object().shape({
+    value: yup.string().required("Employee type is required"),
+    label: yup.string().required("Employee type is required"),
+  }).required("Employee type is required"),
   employee_code: yup.string().required("Employee code is required"),
   password: yup
     .string()
