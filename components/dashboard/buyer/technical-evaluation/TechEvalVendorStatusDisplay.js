@@ -1,23 +1,24 @@
 import React from 'react';
 import { Badge, Card } from 'react-bootstrap';
-import { BsCheckCircleFill, BsXCircleFill } from 'react-icons/bs';
+import { BsCheckCircleFill, BsXCircleFill, BsDashCircleFill } from 'react-icons/bs';
 
 /**
- * Displays vendor pass/fail status from approval metadata
+ * Displays vendor pass/fail/not-evaluated status from approval metadata
  * Used in ApprovalWorkflowSection for TECHNICAL entity type
  */
 const TechEvalVendorStatusDisplay = ({
   vendors = [],
+  notEvaluatedVendors = [],
   roundNumber = 1,
   showSummary = true
 }) => {
-  if (!vendors || vendors.length === 0) {
+  if ((!vendors || vendors.length === 0) && (!notEvaluatedVendors || notEvaluatedVendors.length === 0)) {
     return null;
   }
 
-  // Separate passed and failed vendors
-  const passedVendors = vendors.filter(v => v.is_passed || v.status === 'passed' || v.status === 'PASSED');
-  const failedVendors = vendors.filter(v => !v.is_passed && (v.status === 'failed' || v.status === 'FAILED'));
+  // Separate passed and failed vendors (only from evaluated vendors)
+  const passedVendors = vendors.filter(v => v.is_passed === true || v.status === 'passed' || v.status === 'PASSED');
+  const failedVendors = vendors.filter(v => v.is_passed === false || v.status === 'failed' || v.status === 'FAILED');
 
   return (
     <div className="tech-eval-vendor-status-display mb-3">
@@ -35,6 +36,11 @@ const TechEvalVendorStatusDisplay = ({
                 <Badge bg="danger" className="px-2 py-1">
                   {failedVendors.length} Failed
                 </Badge>
+                {notEvaluatedVendors.length > 0 && (
+                  <Badge bg="secondary" className="px-2 py-1">
+                    {notEvaluatedVendors.length} Not Evaluated
+                  </Badge>
+                )}
               </div>
             )}
           </div>
@@ -50,7 +56,7 @@ const TechEvalVendorStatusDisplay = ({
               <div className="d-flex flex-wrap gap-1">
                 {passedVendors.map((vendor, index) => {
                   const vendorLabel = vendor.vendor_name || `Vendor ${vendor.vendor_id}`;
-                  const score = vendor.calculated_score !== undefined
+                  const score = vendor.calculated_score !== undefined && vendor.calculated_score !== null
                     ? `${vendor.calculated_score}%`
                     : '';
                   return (
@@ -72,7 +78,7 @@ const TechEvalVendorStatusDisplay = ({
 
           {/* Failed Vendors */}
           {failedVendors.length > 0 && (
-            <div>
+            <div className="mb-2">
               <small className="text-danger fw-medium d-block mb-1">
                 <BsXCircleFill className="me-1" />
                 Failed Vendors:
@@ -80,7 +86,7 @@ const TechEvalVendorStatusDisplay = ({
               <div className="d-flex flex-wrap gap-1">
                 {failedVendors.map((vendor, index) => {
                   const vendorLabel = vendor.vendor_name || `Vendor ${vendor.vendor_id}`;
-                  const score = vendor.calculated_score !== undefined
+                  const score = vendor.calculated_score !== undefined && vendor.calculated_score !== null
                     ? `${vendor.calculated_score}%`
                     : '';
                   return (
@@ -100,8 +106,34 @@ const TechEvalVendorStatusDisplay = ({
             </div>
           )}
 
+          {/* Not Evaluated Vendors */}
+          {notEvaluatedVendors.length > 0 && (
+            <div>
+              <small className="text-secondary fw-medium d-block mb-1">
+                <BsDashCircleFill className="me-1" />
+                Not Evaluated:
+              </small>
+              <div className="d-flex flex-wrap gap-1">
+                {notEvaluatedVendors.map((vendor, index) => {
+                  const vendorLabel = vendor.vendor_name || `Vendor ${vendor.vendor_id}`;
+                  return (
+                    <Badge
+                      key={vendor.vendor_id || index}
+                      bg="secondary"
+                      className="px-2 py-1 d-flex align-items-center gap-1"
+                      style={{ fontSize: '0.8rem' }}
+                    >
+                      <BsDashCircleFill size={10} />
+                      {vendorLabel}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* No vendors message */}
-          {passedVendors.length === 0 && failedVendors.length === 0 && (
+          {passedVendors.length === 0 && failedVendors.length === 0 && notEvaluatedVendors.length === 0 && (
             <small className="text-muted">No vendor evaluation data available</small>
           )}
         </Card.Body>

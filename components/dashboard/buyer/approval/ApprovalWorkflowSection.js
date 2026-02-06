@@ -241,9 +241,10 @@ const ApprovalWorkflowSection = ({
             )}
 
             {/* Display vendor evaluation results for TECHNICAL entity type */}
-            {entityType === 'TECHNICAL' && instance?.metadata?.vendors?.length > 0 && (
+            {entityType === 'TECHNICAL' && (instance?.metadata?.vendors?.length > 0 || instance?.metadata?.not_evaluated_vendors?.length > 0) && (
               <TechEvalVendorStatusDisplay
-                vendors={instance.metadata.vendors}
+                vendors={instance.metadata.vendors || []}
+                notEvaluatedVendors={instance.metadata.not_evaluated_vendors || []}
                 roundNumber={instance.metadata.evaluation_round || 1}
                 showSummary={true}
               />
