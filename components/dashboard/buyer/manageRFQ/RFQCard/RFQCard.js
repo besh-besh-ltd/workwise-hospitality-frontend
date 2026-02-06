@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Badge, ProgressBar } from 'react-bootstrap';
+import { Card, Badge } from 'react-bootstrap';
 import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, Folder, Package } from 'lucide-react';
 import Link from 'next/link';
 import moment from 'moment';
@@ -92,14 +92,14 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
               </>
             ) : (
               <span className={styles.productText}>No products</span>
-            )}
+            )}  
           </div>
         </div>
 
         {/* Right Section: Metrics + Date + Actions */}
         <div className={styles.rightSection}>
-          {/* Quote Progress */}
-          <div className={styles.progressBlock}>
+          {/* TODO: Re-enable detailed quote progress when we have time to implement it properly */}
+          {/* <div className={styles.progressBlock}>
             <div className={styles.progressLabel}>Quotes</div>
             <div className={styles.progressWrapper}>
               <ProgressBar
@@ -109,7 +109,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
               />
               <span className={styles.progressText}>{quotesReceived}/{totalVendors}</span>
             </div>
-          </div>
+          </div> */}
 
           {/* Unread Queries */}
           {data.unseen_query_count > 0 && (

@@ -654,7 +654,8 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                                   View Profile
                                                 </Dropdown.Item>
                                               )}
-                                              {isCleared == null && canWrite && !permissionsLoading && !isPendingApproval && (
+                                              {/* Hide per-vendor Accept / Reject for tenders */}
+                                              {currentRfq?.is_tender !== 1 && isCleared == null && canWrite && !permissionsLoading && !isPendingApproval && (
                                                 <>
                                                   <Dropdown.Item
                                                     href="#"
@@ -864,46 +865,51 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                         
                         {/* start : status tag */}
                         <div>
-                            {techEvalStatus == 1 ?
-                                techEvalCleared.status == 1
-                                    ? <span
+                            {techEvalStatus == 1 ? (
+                                techEvalCleared.status == 1 ? (
+                                    <span
                                         className="fw-medium text-bg-success px-3 py-2"
                                         style={{ borderRadius: "18px 0 0 18px", fontSize: "16px" }}
                                     >
                                         Vendor is Technically Accepted
                                     </span>
-                                    : <span
+                                ) : (
+                                    <span
                                         className="fw-medium text-bg-danger px-3 py-2"
                                         style={{ borderRadius: "18px 0 0 18px", fontSize: "16px" }}
                                     >
                                         Vendor is Not Technically Accepted
                                     </span>
-                                :
-                                <>
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary border-0 p-2"
-                                        style={{ width: "220px", marginRight: 10, opacity: (!canWrite || permissionsLoading || isPendingApproval) ? 0.6 : 1 }}
-                                        onClick={() => addToTechnicallyAccepted()}
-                                        disabled={!canWrite || permissionsLoading || isPendingApproval}
-                                        title={isPendingApproval ? "Actions frozen during pending approval" : (!canWrite ? "You don't have permission to accept vendors" : "")}
-                                        id="technically_accept_vendor-vendor_evaluation-technical_evaluation_page"
-                                    >
-                                        Technically Accepted
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn btn-danger border-0 p-2"
-                                        style={{ width: "255px", opacity: (!canWrite || permissionsLoading || isPendingApproval) ? 0.6 : 1 }}
-                                        onClick={() => setShowRejectConfirmModal(true)}
-                                        disabled={!canWrite || permissionsLoading || isPendingApproval}
-                                        title={isPendingApproval ? "Actions frozen during pending approval" : (!canWrite ? "You don't have permission to reject vendors" : "")}
-                                        id="technically_reject_vendor-vendor_evaluation-technical_evaluation_page"
-                                    >
-                                        Technically Not Accepted
-                                    </button>
-                                </>
-                            }
+                                )
+                            ) : (
+                                /* For tenders, hide the big Technically Accepted / Not Accepted buttons */
+                                currentRfq?.is_tender === 1 ? null : (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary border-0 p-2"
+                                            style={{ width: "220px", marginRight: 10, opacity: (!canWrite || permissionsLoading || isPendingApproval) ? 0.6 : 1 }}
+                                            onClick={() => addToTechnicallyAccepted()}
+                                            disabled={!canWrite || permissionsLoading || isPendingApproval}
+                                            title={isPendingApproval ? "Actions frozen during pending approval" : (!canWrite ? "You don't have permission to accept vendors" : "")}
+                                            id="technically_accept_vendor-vendor_evaluation-technical_evaluation_page"
+                                        >
+                                            Technically Accepted
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-danger border-0 p-2"
+                                            style={{ width: "255px", opacity: (!canWrite || permissionsLoading || isPendingApproval) ? 0.6 : 1 }}
+                                            onClick={() => setShowRejectConfirmModal(true)}
+                                            disabled={!canWrite || permissionsLoading || isPendingApproval}
+                                            title={isPendingApproval ? "Actions frozen during pending approval" : (!canWrite ? "You don't have permission to reject vendors" : "")}
+                                            id="technically_reject_vendor-vendor_evaluation-technical_evaluation_page"
+                                        >
+                                            Technically Not Accepted
+                                        </button>
+                                    </>
+                                )
+                            )}
                             </div>
                         {/* end : status tag */}
 
