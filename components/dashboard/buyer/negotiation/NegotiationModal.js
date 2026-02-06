@@ -278,13 +278,17 @@ const NegotiationModal = ({
 
     setSubmitting(true);
     try {
+      // Convert local datetime to UTC ISO string
+      // The datetime-local input gives us local time, we need to send UTC to backend
+      const utcEndDate = moment(formData.end_date).utc().format();
+
       // Create rounds for each selected product
       for (const productId of selectedProducts) {
         await createNegotiationRound({
           rfq_id,
           rfq_product_id: parseInt(productId),
           target_price: parseFloat(formData.target_price),
-          end_date: formData.end_date
+          end_date: utcEndDate
         });
       }
       
@@ -502,52 +506,94 @@ const NegotiationModal = ({
 
   const getVendorCodes = (product) => {
     const quotations = product?.quotations || [];
-    if (quotations.length === 0) return 'No quotes';
+    const allVendors = product?.all_vendors || [];
 
-    // Filter out regretted quotes and those without valid data
+    // If no quotations but we have all_vendors, use that directly
+    if (quotations.length === 0) {
+      // Check if any vendor in all_vendors has submitted a quote (has quote-related data)
+      const vendorsWithQuotes = allVendors.filter(v =>
+        v.rfq_product_vendor_id && (v.has_quote || v.quote_submitted || v.total_price > 0 || v.unit_price > 0)
+      );
+
+      if (vendorsWithQuotes.length > 0) {
+        const codes = vendorsWithQuotes.slice(0, 3).map(v => `VEN-${v.rfq_product_vendor_id}`);
+        if (vendorsWithQuotes.length > 3) {
+          return `${codes.join(', ')} +${vendorsWithQuotes.length - 3} more`;
+        }
+        return codes.join(', ');
+      }
+
+      // Fallback: show all vendors with rfq_product_vendor_id
+      const vendorsWithCodes = allVendors.filter(v => v.rfq_product_vendor_id);
+      if (vendorsWithCodes.length > 0) {
+        const codes = vendorsWithCodes.slice(0, 3).map(v => `VEN-${v.rfq_product_vendor_id}`);
+        if (vendorsWithCodes.length > 3) {
+          return `${codes.join(', ')} +${vendorsWithCodes.length - 3} more`;
+        }
+        return codes.join(', ');
+      }
+
+      return 'No quotes';
+    }
+
+    // Filter out regretted quotes
     const validQuotations = quotations.filter(q => {
-      const vendorDetails = getVendorDetailsFromQuote(q);
-      return q.id != null && !isQuoteRegretted(q) && vendorDetails;
+      const hasId = q.id != null || q.quote_id != null;
+      return hasId && !isQuoteRegretted(q);
     });
 
-    if (validQuotations.length === 0) return 'No quotes';
+    if (validQuotations.length === 0) {
+      // Fallback to all_vendors if quotations exist but all are invalid
+      const vendorsWithCodes = allVendors.filter(v => v.rfq_product_vendor_id);
+      if (vendorsWithCodes.length > 0) {
+        return vendorsWithCodes.slice(0, 3).map(v => `VEN-${v.rfq_product_vendor_id}`).join(', ');
+      }
+      return 'No quotes';
+    }
 
     const codes = validQuotations.slice(0, 3).map(q => {
-      // vendor details can come from either legacy or normalized shapes
+      // 1. Try vendor_details directly
       const vendorDetails = getVendorDetailsFromQuote(q);
       if (vendorDetails?.rfq_product_vendor_id) {
         return `VEN-${vendorDetails.rfq_product_vendor_id}`;
       }
-      // Fallback: try to get from all_vendors using vendorDetails.id/user_id or created_by
-      if (product?.all_vendors) {
-        if (vendorDetails?.id || vendorDetails?.user_id) {
-          const allVendorByDetails = product.all_vendors.find(
-            v =>
-              v.id === vendorDetails.id ||
-              v.user_id === vendorDetails.user_id
-          );
-          if (allVendorByDetails?.rfq_product_vendor_id) {
-            return `VEN-${allVendorByDetails.rfq_product_vendor_id}`;
-          }
-        }
-        if (q.created_by) {
-          const allVendor = product.all_vendors.find(
-            v =>
-              v.id === q.created_by ||
-              v.user_id === q.created_by
-          );
-          if (allVendor?.rfq_product_vendor_id) {
-            return `VEN-${allVendor.rfq_product_vendor_id}`;
-          }
+
+      // 2. Try from all_vendors using created_by
+      if (allVendors.length > 0 && q.created_by) {
+        const allVendor = allVendors.find(
+          v => v.id === q.created_by || v.user_id === q.created_by
+        );
+        if (allVendor?.rfq_product_vendor_id) {
+          return `VEN-${allVendor.rfq_product_vendor_id}`;
         }
       }
+
+      // 3. Try from all_vendors using vendor_details id/user_id
+      if (allVendors.length > 0 && vendorDetails) {
+        const allVendorByDetails = allVendors.find(
+          v => v.id === vendorDetails.id || v.user_id === vendorDetails.user_id
+        );
+        if (allVendorByDetails?.rfq_product_vendor_id) {
+          return `VEN-${allVendorByDetails.rfq_product_vendor_id}`;
+        }
+      }
+
+      // 4. Single vendor fallback
+      if (allVendors.length === 1 && allVendors[0]?.rfq_product_vendor_id) {
+        return `VEN-${allVendors[0].rfq_product_vendor_id}`;
+      }
+
       return null;
     }).filter(Boolean);
 
-    if (validQuotations.length > 3) {
-      return codes.length > 0 ? `${codes.join(', ')} +${validQuotations.length - 3} more` : 'No vendor codes';
+    if (codes.length > 0) {
+      if (validQuotations.length > 3) {
+        return `${codes.join(', ')} +${validQuotations.length - 3} more`;
+      }
+      return codes.join(', ');
     }
-    return codes.length > 0 ? codes.join(', ') : 'No vendor codes';
+
+    return `${validQuotations.length} quote(s)`;
   };
 
   const getProductDetails = (product) => {

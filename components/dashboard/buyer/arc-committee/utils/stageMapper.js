@@ -131,6 +131,101 @@ const getStageEvent = (stageKey, lifecycleHistory) => {
 };
 
 /**
+ * Get ALL events for a stage from lifecycle history (for full history display)
+ * Returns events in chronological order
+ */
+const getAllStageEvents = (stageKey, lifecycleHistory) => {
+  const stageDef = STAGE_DEFINITIONS.find(s => s.key === stageKey);
+  if (!stageDef) return [];
+
+  return lifecycleHistory.filter(h => matchesStageOrAction(h, stageDef));
+};
+
+/**
+ * Get ALL events related to a stage including SENT_TO events targeting it
+ * This gives the full picture: approvals, rejections, send-backs TO this stage
+ */
+const getFullStageHistory = (stageKey, lifecycleHistory) => {
+  const directEvents = getAllStageEvents(stageKey, lifecycleHistory);
+
+  // Also find SENT_TO events that target this stage
+  const sentToEvents = lifecycleHistory.filter(h => {
+    if (!h.stage?.startsWith('SENT_TO_')) return false;
+    const targetStage = h.stage.replace('SENT_TO_', '');
+    return mapStageNameToKey(targetStage) === stageKey;
+  }).map(e => ({ ...e, _isSentBackTo: true }));
+
+  // Also find SENT_TO events FROM this stage (ARC sending back)
+  const sentFromEvents = stageKey === 'ARC_REVIEW' ? lifecycleHistory.filter(h =>
+    h.stage?.startsWith('SENT_TO_') && h.action === 'SEND_TO'
+  ).map(e => ({ ...e, _isSentBackFrom: true })) : [];
+
+  // Merge and sort chronologically
+  const allEvents = [...directEvents, ...sentToEvents, ...sentFromEvents];
+  allEvents.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+  // Deduplicate by id
+  const seen = new Set();
+  return allEvents.filter(e => {
+    if (seen.has(e.id)) return false;
+    seen.add(e.id);
+    return true;
+  });
+};
+
+/**
+ * Get all revert events from lifecycle history
+ * Returns array of { targetStage, timestamp, actor, remarks, fromStage }
+ */
+const getAllRevertEvents = (lifecycleData) => {
+  const history = lifecycleData?.lifecycleHistory || [];
+
+  // Look for all SENT_TO_* events
+  const sentToEvents = history.filter(h => h.stage?.startsWith('SENT_TO_'));
+
+  return sentToEvents.map(event => {
+    const targetStage = event.stage.replace('SENT_TO_', '');
+    return {
+      targetStage,
+      targetStageKey: mapStageNameToKey(targetStage),
+      timestamp: event.created_at,
+      actor: event.performed_by_name,
+      remarks: event.remarks,
+      fromStage: 'ARC_REVIEW', // For now, all reverts come from ARC
+      metadata: event.metadata
+    };
+  });
+};
+
+/**
+ * Map stage name to stage key
+ */
+const mapStageNameToKey = (stageName) => {
+  const mapping = {
+    'TECH_EVAL': 'TECH_EVAL',
+    'TECHNICAL': 'TECH_EVAL',
+    'TECHNICAL_EVALUATION': 'TECH_EVAL',
+    'NEGOTIATION': 'NEGOTIATION',
+    'QUOTES_RECEIVED': 'QUOTES_RECEIVED',
+    'QUOTE_FINALIZED': 'QUOTE_FINALIZED',
+    'PUBLISHED': 'PUBLISHED',
+    'AUTHORITY_APPROVAL': 'AUTHORITY_APPROVAL'
+  };
+  return mapping[stageName] || stageName;
+};
+
+/**
+ * Check if ARC was sent back to a specific stage (latest revert)
+ */
+const getArcSentBackStage = (lifecycleData) => {
+  const revertEvents = getAllRevertEvents(lifecycleData);
+  if (revertEvents.length > 0) {
+    return revertEvents[revertEvents.length - 1].targetStage;
+  }
+  return null;
+};
+
+/**
  * Determine the current stage based on lifecycle data
  */
 const getCurrentStage = (lifecycleData) => {
@@ -139,10 +234,15 @@ const getCurrentStage = (lifecycleData) => {
   // Check ARC status first (most advanced stage)
   if (lifecycleData?.arcApproval?.instances?.length > 0) {
     const hasPending = lifecycleData.arcApproval.instances.some(i => i.status === 'PENDING');
-    const allApproved = lifecycleData.arcApproval.instances.every(i => i.status === 'APPROVED');
+    // Only check non-cancelled instances for completion - cancelled ones are from previous rounds
+    const activeInstances = lifecycleData.arcApproval.instances.filter(i => i.status !== 'CANCELLED');
+    const allApproved = activeInstances.length > 0 && activeInstances.every(i => i.status === 'APPROVED');
 
     if (hasPending) return 'ARC_REVIEW';
     if (allApproved) return 'COMPLETED';
+
+    // If only cancelled instances remain (sent back, no new ARC yet),
+    // fall through to normal stage detection to track redo progress
   }
 
   // Check for vendor finalization
@@ -212,17 +312,22 @@ export const mapLifecycleToStages = (lifecycleData) => {
     const event = getStageEvent(stageDef.key, history);
     const isCurrent = stageDef.key === currentStageKey;
 
+    // Get full event history for this stage
+    const stageHistory = getFullStageHistory(stageDef.key, history);
+
     // Build stage object
     const stage = {
       key: stageDef.key,
       label: stageDef.label,
       shortLabel: stageDef.shortLabel,
-      status: isCurrent ? 'active' : status,
+      // COMPLETED is a terminal state - never mark it as 'active'
+      status: (isCurrent && stageDef.key !== 'COMPLETED') ? 'active' : (isCurrent && stageDef.key === 'COMPLETED') ? 'completed' : status,
       hasApproval: stageDef.hasApproval,
       approvalType: stageDef.approvalType,
       timestamp: event?.created_at || null,
       actor: event?.performed_by_name || null,
       remarks: event?.remarks || null,
+      history: stageHistory,
       details: {}
     };
 
@@ -308,27 +413,106 @@ export const mapLifecycleToStages = (lifecycleData) => {
         };
         break;
 
-      case 'ARC_REVIEW':
-        stage.details = {
-          instances: lifecycleData.arcApproval?.instances || [],
-          products: rfq.products || []
-        };
-        break;
+      case 'ARC_REVIEW': {
+        const arcInstances = lifecycleData.arcApproval?.instances || [];
+        const hasCancelledArc = arcInstances.some(i => i.status === 'CANCELLED');
+        const hasActiveArc = arcInstances.some(i => i.status === 'PENDING' || i.status === 'APPROVED');
+        const sentBackStage = getArcSentBackStage(lifecycleData);
 
-      case 'COMPLETED':
+        // Only mark as reverted if sent back AND no new active instance exists
+        if (hasCancelledArc && sentBackStage && !hasActiveArc) {
+          stage.status = 'reverted';
+          stage.revertedTo = sentBackStage;
+          const sentToEvent = history.find(h => h.stage === `SENT_TO_${sentBackStage}`);
+          if (sentToEvent) {
+            stage.timestamp = sentToEvent.created_at;
+            stage.actor = sentToEvent.performed_by_name;
+            stage.remarks = sentToEvent.remarks;
+          }
+        }
+
         stage.details = {
-          completedAt: event?.created_at
+          instances: arcInstances,
+          products: rfq.products || [],
+          sentBackTo: sentBackStage
         };
         break;
+      }
+
+      case 'COMPLETED': {
+        const arcInstances = lifecycleData.arcApproval?.instances || [];
+        const approvedInstances = arcInstances.filter(i => i.status === 'APPROVED');
+        // Use the latest ARC approval timestamp as completion time if no direct event
+        const lastApproval = approvedInstances.length > 0
+          ? approvedInstances.reduce((latest, inst) => {
+              const instDate = new Date(inst.updated_at || inst.created_at);
+              return instDate > latest ? instDate : latest;
+            }, new Date(0))
+          : null;
+        const completedAt = event?.created_at || (lastApproval ? lastApproval.toISOString() : null);
+
+        // Populate timestamp/actor on the stage itself so timeline header shows them
+        if (!stage.timestamp && completedAt) {
+          stage.timestamp = completedAt;
+        }
+        if (!stage.actor && approvedInstances.length > 0) {
+          const lastInst = approvedInstances[approvedInstances.length - 1];
+          stage.actor = lastInst.performed_by_name || 'ARC Committee';
+        }
+
+        stage.details = {
+          completedAt,
+          products: rfq.products || [],
+          arcInstances: approvedInstances,
+          revertHistory: getAllRevertEvents(lifecycleData),
+          rfqNo: rfq.rfq_no,
+          projectName: rfq.project_name,
+          companyName: rfq.company_name
+        };
+        break;
+      }
     }
 
     return stage;
   });
 
+  // Get all revert events for display
+  const revertHistory = getAllRevertEvents(lifecycleData);
+
+  // Mark stages that need to show revert indicator
+  // Only mark as needsRedo if the redo is still in progress (not yet back to ARC or completed)
+  if (revertHistory.length > 0) {
+    const latestRevert = revertHistory[revertHistory.length - 1];
+    const targetStageIndex = STAGE_DEFINITIONS.findIndex(s => s.key === latestRevert.targetStageKey);
+    const arcStageIndex = STAGE_DEFINITIONS.findIndex(s => s.key === 'ARC_REVIEW');
+
+    // Check if there's a new ARC instance after the last send-back (redo cycle complete)
+    const arcInstances = lifecycleData.arcApproval?.instances || [];
+    const lastSentBackAt = latestRevert.timestamp ? new Date(latestRevert.timestamp) : new Date(0);
+    const hasNewArcAfterSendback = arcInstances.some(i => {
+      if (i.status === 'CANCELLED') return false;
+      const instDate = new Date(i.created_at);
+      return instDate > lastSentBackAt;
+    });
+
+    // Only show needsRedo if redo is still in progress (no new ARC instance yet)
+    if (!hasNewArcAfterSendback && currentStageKey !== 'COMPLETED') {
+      const iterationNumber = revertHistory.length + 1;
+      stages.forEach((stage, idx) => {
+        if (idx >= targetStageIndex && idx < arcStageIndex) {
+          stage.needsRedo = true;
+          stage.revertedFrom = latestRevert;
+          stage.redoIteration = iterationNumber;
+        }
+      });
+    }
+  }
+
   return {
     stages,
     currentStage: currentStageKey,
-    rfq
+    rfq,
+    revertHistory
   };
 };
 

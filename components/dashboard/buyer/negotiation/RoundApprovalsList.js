@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Badge, Card, Collapse } from "react-bootstrap";
+import moment from "moment";
 
 const RoundApprovalsList = ({ approvals, currentUserId, onApprove, onReject }) => {
   const [open, setOpen] = useState(false);
@@ -98,7 +99,7 @@ const RoundApprovalsList = ({ approvals, currentUserId, onApprove, onReject }) =
                     {getStatusBadge(approval.status)}
                     {approval.acted_at && (
                       <span className="text-muted small">
-                        {new Date(approval.acted_at).toLocaleDateString()}
+                        {moment.utc(approval.acted_at).local().format("DD MMM YYYY, hh:mm a")}
                       </span>
                     )}
                   </div>

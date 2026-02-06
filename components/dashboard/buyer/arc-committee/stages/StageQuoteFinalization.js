@@ -3,6 +3,7 @@ import { Badge, Table, Alert } from 'react-bootstrap';
 import moment from 'moment';
 import { BsTrophy, BsCurrencyRupee } from 'react-icons/bs';
 import ApprovalWorkflowSection from '@/components/dashboard/buyer/approval/ApprovalWorkflowSection';
+import StageEventHistory from '../StageEventHistory';
 
 const StageQuoteFinalization = ({ stage, rfq, lifecycleData, onRefresh }) => {
   const { details } = stage;
@@ -95,8 +96,18 @@ const StageQuoteFinalization = ({ stage, rfq, lifecycleData, onRefresh }) => {
         </Alert>
       )}
 
-      {/* Actor info */}
-      {stage.actor && stage.status === 'completed' && (
+      {/* Full Event History */}
+      {stage.history && stage.history.length > 1 && (
+        <div className="mt-3 pt-3 border-top">
+          <StageEventHistory
+            events={stage.history}
+            title="Quote Finalization History"
+          />
+        </div>
+      )}
+
+      {/* Actor info (single event fallback) */}
+      {stage.actor && stage.status === 'completed' && (!stage.history || stage.history.length <= 1) && (
         <div className="pt-3 mt-3 border-top">
           <div className="d-flex justify-content-between align-items-center">
             <div className="text-muted small">
