@@ -3,6 +3,7 @@ import { Badge, Accordion, Alert } from 'react-bootstrap';
 import moment from 'moment';
 import { BsArrowRepeat, BsCurrencyRupee, BsCalendar, BsPeople } from 'react-icons/bs';
 import ApprovalWorkflowSection from '@/components/dashboard/buyer/approval/ApprovalWorkflowSection';
+import StageEventHistory from '../StageEventHistory';
 
 const StageNegotiation = ({ stage, rfq, lifecycleData, onRefresh }) => {
   const { details } = stage;
@@ -141,6 +142,16 @@ const StageNegotiation = ({ stage, rfq, lifecycleData, onRefresh }) => {
           <BsArrowRepeat className="me-2" />
           No negotiation rounds conducted
         </Alert>
+      )}
+
+      {/* Full Event History */}
+      {stage.history && stage.history.length > 1 && (
+        <div className="mt-3 pt-3 border-top">
+          <StageEventHistory
+            events={stage.history}
+            title="Negotiation History"
+          />
+        </div>
       )}
     </div>
   );

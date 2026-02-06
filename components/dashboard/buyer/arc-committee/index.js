@@ -40,6 +40,7 @@ const ArcCommittee = () => {
   const [targetStage, setTargetStage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [activeStageKey, setActiveStageKey] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Mapped stage data
   const stageData = useMemo(() => {
@@ -213,9 +214,13 @@ const ArcCommittee = () => {
     }
   };
 
-  const loadLifecycleData = async () => {
+  const loadLifecycleData = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const response = await getTenderLifecycle(rfq_id);
       if (response.status === 1) {
         setLifecycleData(response.data);
@@ -235,11 +240,12 @@ const ArcCommittee = () => {
       toast.error('Failed to load tender lifecycle data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   const handleRefresh = () => {
-    loadLifecycleData();
+    loadLifecycleData(true);
   };
 
   const handleAction = () => {
@@ -271,7 +277,7 @@ const ArcCommittee = () => {
       if (response.status === 1) {
         toast.success(response.message || 'Tender sent to stage successfully');
         setShowActionModal(false);
-        loadLifecycleData();
+        loadLifecycleData(true);
       } else {
         toast.error(response.message || 'Failed to send tender to stage');
       }
@@ -299,6 +305,7 @@ const ArcCommittee = () => {
         );
 
         if (response.status === 1) {
+          loadLifecycleData(true);
           return { success: true };
         } else {
           return { success: false, error: response.message || 'Failed to approve ARC' };
@@ -321,6 +328,7 @@ const ArcCommittee = () => {
         );
 
         if (response.status === 1) {
+          loadLifecycleData(true);
           return { success: true };
         } else {
           return { success: false, error: response.message || 'Failed to reject ARC' };
@@ -497,11 +505,17 @@ const ArcCommittee = () => {
                               </Badge>
                               {item.approval_status && (
                                 <Badge
-                                  bg={item.approval_status === 'PENDING' ? 'warning' : item.approval_status === 'APPROVED' ? 'success' : 'secondary'}
+                                  bg={
+                                    item.approval_status === 'PENDING' ? 'warning' :
+                                    item.approval_status === 'APPROVED' ? 'success' :
+                                    item.approval_status === 'CANCELLED' ? 'secondary' :
+                                    'secondary'
+                                  }
+                                  text={item.approval_status === 'PENDING' ? 'dark' : undefined}
                                   className="ms-1"
                                   style={{ fontSize: "10px" }}
                                 >
-                                  {item.approval_status}
+                                  {item.approval_status === 'CANCELLED' ? 'SENT BACK' : item.approval_status}
                                 </Badge>
                               )}
                             </div>
@@ -530,6 +544,8 @@ const ArcCommittee = () => {
                     stages={stageData.stages}
                     currentStage={stageData.currentStage}
                     onStageClick={handleStageClick}
+                    revertHistory={stageData.revertHistory || []}
+                    refreshing={refreshing}
                   />
 
                   {/* 3. Current Stage Section - Prominent Action Area */}
@@ -540,6 +556,7 @@ const ArcCommittee = () => {
                     lifecycleData={lifecycleData}
                     onRefresh={handleRefresh}
                     arcHandlers={arcHandlers}
+                    refreshing={refreshing}
                   />
 
                   {/* 4. Stage Timeline - Full History */}
@@ -552,6 +569,8 @@ const ArcCommittee = () => {
                     onStageToggle={setActiveStageKey}
                     onRefresh={handleRefresh}
                     arcHandlers={arcHandlers}
+                    revertHistory={stageData.revertHistory || []}
+                    refreshing={refreshing}
                   />
 
                   {/* 5. Advanced Actions */}

@@ -8,6 +8,7 @@ import {
   BsDashCircleFill,
   BsArrowRight,
 } from "react-icons/bs";
+import moment from "moment";
 
 const statusConfig = {
   APPROVED: {
@@ -47,13 +48,8 @@ const statusConfig = {
 const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
-    return new Date(dateStr).toLocaleString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    // Parse as UTC and convert to local time for display
+    return moment.utc(dateStr).local().format("DD MMM YYYY, hh:mm a");
   };
 
   const getApproverStatus = (status) => {

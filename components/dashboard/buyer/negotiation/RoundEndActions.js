@@ -43,6 +43,7 @@ const RoundEndActions = ({
   // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
   const isRoundEnded = activeRound && !isRoundRejected && (
     activeRound.status === 'CLOSED' ||
+    activeRound.status === 'ENDED' ||
     (activeRound.status === 'ACTIVE' && moment.utc(activeRound.end_date).isBefore(moment()))
   );
 

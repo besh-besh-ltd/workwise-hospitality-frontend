@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Button, Form } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { createNegotiationRound } from "@/services/negotiation";
+import moment from "moment";
 
 const NegotiationRoundForm = ({ rfq_id, onRoundCreated, onCancel }) => {
   const [targetPrice, setTargetPrice] = useState("");
@@ -33,10 +34,14 @@ const NegotiationRoundForm = ({ rfq_id, onRoundCreated, onCancel }) => {
 
     setLoading(true);
     try {
+      // Convert local datetime to UTC ISO string
+      // The datetime-local input gives us local time, we need to send UTC to backend
+      const utcEndDate = moment(endDate).utc().format();
+
       const response = await createNegotiationRound({
         rfq_id: parseInt(rfq_id),
         target_price: price,
-        end_date: endDate
+        end_date: utcEndDate
       });
 
       if (response.status === 1) {

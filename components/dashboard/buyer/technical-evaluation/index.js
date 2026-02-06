@@ -576,7 +576,8 @@ useEffect(() => {
                                       </p> */}
                                     </div>
 
-                                    {/* Vendor Selection */}
+                                    {/* Vendor Selection - Hidden in tender mode (auto-managed via approval workflow) */}
+                                    {currentRfq?.is_tender !== 1 && (
                                     <div className="col-md-3 col-lg-3 text-sm mb-2">
                                       <label>Select Vendor</label>
                                       <AsyncSelect
@@ -604,6 +605,7 @@ useEffect(() => {
                                         id={`select_vendor_${product.id}-vendor_selection-technical_evaluation_page`}
                                       />
                                     </div>
+                                    )}
                                   </div>
 
                                   <ClauseProductItem

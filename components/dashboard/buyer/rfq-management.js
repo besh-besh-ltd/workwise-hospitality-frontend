@@ -8,6 +8,7 @@ import ManageRFQ from "./manageRFQ/ManageRFQ";
 import DraftRFQ from "./draftRFQ/DraftRFQ";
 import PendingApprovalsList from "./manageRFQ/PendingApprovalsList";
 import FilterSection from "@/components/shared/FilterSection";
+import { getPendingApprovalRFQs } from "@/services/rfq";
 
 const RfqManagement = () => {
   const [activeTab, setActiveTab] = useState("pendingRFQs");
@@ -28,6 +29,17 @@ const RfqManagement = () => {
   const handlePendingCountChange = (count) => {
     setPendingCount(count);
   };
+
+  // Fetch pending count on mount so badge is correct even when pending tab is not active
+  useEffect(() => {
+    getPendingApprovalRFQs({ page: 1, limit: 1 })
+      .then((res) => {
+        const body = res?.data ?? {};
+        const total = typeof body.total_items === "number" ? body.total_items : 0;
+        setPendingCount(total);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleBeforeUnload = (event) => {

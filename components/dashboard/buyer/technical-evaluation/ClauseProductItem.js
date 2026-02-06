@@ -654,7 +654,8 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                                   View Profile
                                                 </Dropdown.Item>
                                               )}
-                                              {isCleared == null && canWrite && !permissionsLoading && !isPendingApproval && (
+                                              {/* Hide manual accept/reject for tender mode - uses approval workflow instead */}
+                                              {isCleared == null && canWrite && !permissionsLoading && !isPendingApproval && currentRfq?.is_tender !== 1 && (
                                                 <>
                                                   <Dropdown.Item
                                                     href="#"
@@ -879,6 +880,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         Vendor is Not Technically Accepted
                                     </span>
                                 :
+                                currentRfq?.is_tender === 1 ? (
+                                    <span
+                                        className="fw-medium text-bg-warning px-3 py-2"
+                                        style={{ borderRadius: "18px 0 0 18px", fontSize: "14px" }}
+                                    >
+                                        Pending Approval Workflow
+                                    </span>
+                                ) : (
                                 <>
                                     <button
                                         type="button"
@@ -903,6 +912,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         Technically Not Accepted
                                     </button>
                                 </>
+                                )
                             }
                             </div>
                         {/* end : status tag */}

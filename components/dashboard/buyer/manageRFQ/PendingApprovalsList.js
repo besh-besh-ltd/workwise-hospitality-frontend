@@ -17,11 +17,15 @@ const PendingApprovalsList = ({ filterData, setFilterData, onCountChange }) => {
     getPendingApprovalRFQs({ ...filterData })
       .then((res) => {
         setLoading(false);
-        setPendingRFQs(res.data || []);
-        setTotalRFQs(res.total_items || 0);
+        // API returns { status, data: listRfq[], total_items }; axios wraps in res.data
+        const body = res?.data ?? {};
+        const list = Array.isArray(body.data) ? body.data : [];
+        const total = typeof body.total_items === "number" ? body.total_items : 0;
+        setPendingRFQs(list);
+        setTotalRFQs(total);
         // Notify parent of count change for badge
         if (onCountChange) {
-          onCountChange(res.total_items || 0);
+          onCountChange(total);
         }
       })
       .catch((err) => {
