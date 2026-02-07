@@ -435,9 +435,17 @@ useEffect(() => {
                       <h3 className="fs-5 mb-1 fw-bold">
                         {currentRfq.title}
                       </h3>}
-                    <h3 className="fs-5 mb-1">
-                      <span className="fw-semibold">{currentRfq.is_tender === 1 ? 'Tender' : 'RFQ'} No : </span>{currentRfq.rfq_no}
-                    </h3>
+                    <div className="d-flex align-items-center gap-3 mb-1">
+                      <h3 className="fs-5 mb-0">
+                        <span className="fw-semibold">{currentRfq.is_tender === 1 ? 'Tender' : 'RFQ'} No : </span>{currentRfq.rfq_no}
+                      </h3>
+                      <Link
+                        href={`/dashboard/buyer/rfq-management?tab=manage-rfq&rfq_id=${rfq_id}`}
+                        className="btn btn-sm btn-outline-primary"
+                      >
+                        View {currentRfq.is_tender === 1 ? 'Tender' : 'RFQ'}
+                      </Link>
+                    </div>
                     {currentRfq.project_name && currentRfq.project_name != "" &&
                       <p className="sub-heading fs-6 mb-2">
                         {currentRfq.project_name}

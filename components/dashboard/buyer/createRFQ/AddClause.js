@@ -106,7 +106,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         }
 
         if (!weightage || weightage === "") {
-            toast.error("Weightage is required");
+            toast.error("Marks is required");
             return;
         }
 
@@ -154,7 +154,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
         }
 
         if (!samplingWeightage || samplingWeightage === "") {
-            toast.error("Weightage is required for sampling clause");
+            toast.error("Marks is required for sampling clause");
             return;
         }
 
@@ -193,7 +193,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
 
     const handleUpdateClause = async () => {
         if (!weightage || weightage === "") {
-            toast.error("Weightage is required");
+            toast.error("Marks is required");
             return;
         }
 
@@ -266,14 +266,14 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
 
     const handleUpdateMinimumScore = async () => {
         if (!tempMinimumScore || tempMinimumScore === "") {
-            toast.error("Please enter minimum passing score");
+            toast.error("Please enter minimum passing percentage");
             return;
         }
 
         const newMinimumScore = parseInt(tempMinimumScore);
-        
+
         if (newMinimumScore < 0 || newMinimumScore > 100) {
-            toast.error("Minimum passing score must be between 0 and 100");
+            toast.error("Minimum passing percentage must be between 0 and 100");
             return;
         }
 
@@ -291,7 +291,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                 const savedScore = parseInt(tempMinimumScore);
                 // Immediately update the state so button shows the value
                 setMinimumPassingScore(savedScore);
-                toast.success(res.message || "Minimum passing score updated successfully");
+                toast.success(res.message || "Minimum passing percentage updated successfully");
                 setShowMinimumScoreInput(false);
                 setTempMinimumScore("");
                 // Refresh clauses to ensure data is in sync - wait a bit for DB to update
@@ -299,10 +299,10 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                     await getPreviousClauses();
                 }, 300);
             } else {
-                toast.error(res?.message || "Failed to update minimum passing score");
+                toast.error(res?.message || "Failed to update minimum passing percentage");
             }
         } catch (error) {
-            toast.error(error.message || "Failed to update minimum passing score");
+            toast.error(error.message || "Failed to update minimum passing percentage");
         } finally {
             setLoading(false);
         }
@@ -443,8 +443,8 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                             onClick={handleOpenMinimumScoreInput}
                         >
                             {(minimumPassingScore !== null && minimumPassingScore !== undefined)
-                                ? `Edit minimum score (${minimumPassingScore})` 
-                                : "Set minimum score"}
+                                ? `Edit minimum passing percentage (${minimumPassingScore})`
+                                : "Set minimum passing percentage"}
                         </button>
                     )}
                 </Modal.Title>
@@ -452,15 +452,15 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             <Modal.Body style={{ minHeight: "200px" }}>
                 {showMinimumScoreInput ? (
                     <div className="d-flex flex-column gap-3 p-3">
-                        <h5 className="mb-0">Set minimum passing score (out of 100)</h5>
+                        <h5 className="mb-0">Set minimum passing percentage (out of 100)</h5>
                         <div className="alert alert-info p-2" style={{ fontSize: "12px" }}>
-                            <strong>Minimum passing score:</strong> Enter a value between 0 and 100
+                            <strong>Minimum passing percentage:</strong> Enter a value between 0 and 100
                             <br />
-                            <small>This score will be used to determine if vendors pass the technical evaluation.</small>
+                            <small>This percentage will be used to determine if vendors pass the technical evaluation.</small>
                         </div>
                         <Form.Control
                             type="number"
-                            placeholder="Enter minimum passing score (0-100)"
+                            placeholder="Enter minimum passing percentage (0-100)"
                             min="0"
                             max="100"
                             value={tempMinimumScore}
@@ -468,7 +468,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                         />
                         {tempMinimumScore && !isNaN(parseInt(tempMinimumScore)) && (parseInt(tempMinimumScore) < 0 || parseInt(tempMinimumScore) > 100) && (
                             <small className="text-danger">
-                                Minimum passing score must be between 0 and 100
+                                Minimum passing percentage must be between 0 and 100
                             </small>
                         )}
                         <div className="d-flex gap-2 justify-content-end">
@@ -535,7 +535,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                                     {hasSamplingClause ? (
                                         <div className="d-flex align-items-center gap-2">
                                             <span className="badge bg-success">Added</span>
-                                            <span className="small text-muted">Weightage: {existingSamplingClause.weightage || 0}</span>
+                                            <span className="small text-muted">Marks: {existingSamplingClause.weightage || 0}</span>
                                             <button
                                                 type="button"
                                                 className="btn btn-sm btn-outline-danger p-2"
@@ -549,7 +549,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                                         <div className="d-flex flex-column align-items-center gap-2">
                                             <Form.Control
                                                 type="number"
-                                                placeholder="Weightage"
+                                                placeholder="Marks"
                                                 size="sm"
                                                 min="0"
                                                 value={samplingWeightage}
@@ -601,7 +601,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                                 />
                                 <Form.Control
                                     type="number"
-                                    placeholder="Weightage"
+                                    placeholder="Marks"
                                     className="me-2"
                                     min="0"
                                     value={weightage}
@@ -672,7 +672,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                                                     <strong>Message:</strong> {clause.clause_text}
                                                 </p>
                                                 <p className="text-sm mb-1">
-                                                    <strong>Weightage:</strong> {clause.weightage || 0}
+                                                    <strong>Marks:</strong> {clause.weightage || 0}
                                                 </p>
                                                 {clause.files.length > 0 && (
                                                     <div className="d-flex gap-2 align-items-start text-sm mb-1">

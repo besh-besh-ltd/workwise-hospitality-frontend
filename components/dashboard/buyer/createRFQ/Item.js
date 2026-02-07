@@ -859,7 +859,7 @@ const Item = ({
 
                   {minimumPassingScore !== null && minimumPassingScore !== undefined && (
                     <div className="d-flex align-items-center gap-2 p-2 border rounded" style={{ backgroundColor: "#f8f9fa" }}>
-                      <span className="small fw-semibold">Minimum Score:</span>
+                      <span className="small fw-semibold">Minimum Passing Percentage:</span>
                       <span className="badge bg-primary">{minimumPassingScore}</span>
                       <button
                         type="button"

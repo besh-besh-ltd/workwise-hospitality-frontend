@@ -740,7 +740,7 @@ const EditRFQ = () => {
         return;
       }
 
-      // Validate project selection (required for both RFQ and Tender)
+      // Project is optional
       const currentProjectId =
         formValues.project_id !== undefined && formValues.project_id !== null
           ? formValues.project_id
@@ -753,11 +753,6 @@ const EditRFQ = () => {
         !isNaN(parseInt(currentProjectId))
           ? parseInt(currentProjectId)
           : null;
-
-      if (!parsedProjectId || parsedProjectId === -1) {
-        toast.error("Please select a project");
-        return;
-      }
 
       if (
         rfqData.products.filter(product => !updatableData.products.deletable.includes(product.id)).some(
@@ -1935,9 +1930,10 @@ const EditRFQ = () => {
                           )}
                         </div>
                         
-                        {/* Select Project */}
+                        {/* Select Project - only for RFQ, not Tender */}
+                        {rfqData?.is_tender !== 1 && (
                         <div className="mb-3">
-                          <label className="form-label fw-medium">Select Project <span className="text-danger">*</span></label>
+                          <label className="form-label fw-medium">Select Project</label>
                           <Select
                             key={`project-select-${rfqFormDataFromStore.project_id || 'none'}`}
                             options={projects}
@@ -1967,25 +1963,6 @@ const EditRFQ = () => {
                             isClearable={true}
                           />
                         </div>
-
-                        {/* Technical Evaluation By */}
-                        {rfqFormDataFromStore.project_id && rfqFormDataFromStore.project_id !== -1 && (
-                          <div className="mb-3">
-                            <label className="form-label fw-medium">Technical Evaluation By <span className="text-danger">*</span></label>
-                            <select
-                              name="technical_evaluation_by"
-                              className="form-select"
-                              value={rfqFormDataFromStore.technical_evaluation_by || ""}
-                              onChange={handleTechEvalUserChange}
-                            >
-                              <option value="">Select User</option>
-                              {techEvalUsers.map((user) => (
-                                <option key={user.id} value={user.id}>
-                                  {user.name} ({user.email})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
                         )}
                       </div>
 

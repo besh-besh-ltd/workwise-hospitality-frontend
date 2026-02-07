@@ -907,12 +907,7 @@ useEffect(() => {
       }
     }
 
-    // Validate project selection (required for both RFQ and Tender)
-    if (!formDataCopy.project_id || formDataCopy.project_id === -1 || formDataCopy.project_id === '') {
-      toast.error("Please select a project");
-      setMainLoading(false);
-      return false;
-    }
+    // Project is optional - no validation needed
 
 
     if (!validateVendors()) {
@@ -3011,6 +3006,7 @@ useEffect(() => {
                                   </>
                                 )}
 
+                                {rfqFormDataFromStore.is_tender !== 1 && (
                                 <div className="col-md-4">
                                   <FormikField
                                     id="select_project-create_rfq_page"
@@ -3026,31 +3022,12 @@ useEffect(() => {
                                         value: project.value,
                                       })),
                                     ]}
-                                    isRequired={true}
+                                    isRequired={false}
                                     name="project_id"
                                     touched={touched}
                                     errors={errors}
                                   />
                                 </div>
-
-                                {rfqFormDataFromStore.project_id && rfqFormDataFromStore.project_id !== -1 && rfqFormDataFromStore.project_id !== "" && (
-                                  <div className="col-md-4">
-                                    <label className="form-label fw-medium">Technical Evaluation By <span className="text-danger">*</span></label>
-                                    <select
-                                      id="technical_evaluation_by-select-create_rfq_page"
-                                      name="technical_evaluation_by"
-                                      className="form-select"
-                                      value={rfqFormDataFromStore.technical_evaluation_by || ""}
-                                      onChange={handleTechEvalUserChange}
-                                    >
-                                      <option value="">Select User</option>
-                                      {techEvalUsers.map((user) => (
-                                        <option key={user.id} value={user.id}>
-                                          {user.name} ({user.email})
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
                                 )}
 
 
