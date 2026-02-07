@@ -1010,7 +1010,8 @@ return { deletedTerms, createdTerms, updatedTerms };
         allFinalizedProducts.push(item.product_id)
       );
       let filteredquoteProducts = quoteProducts.filter((item) => {
-        if (!allFinalizedProducts.includes(item.product_id)) {
+        // Exclude finalized products and products with negotiation quotes already submitted
+        if (!allFinalizedProducts.includes(item.product_id) && !negotiationQuoteSubmitted[item.id]) {
           return item;
         }
       });
@@ -1856,7 +1857,7 @@ return { deletedTerms, createdTerms, updatedTerms };
 
                               {/* TAX */}
                               <div className="col-12 col-sm-4">
-                                <label className="form-label">TAX</label>
+                                <label className="form-label">TAX/VAT</label>
                                 <input
                                   type="number"
                                   className="form-control"
@@ -2145,6 +2146,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                                   techStatus.has_tech_eval === true &&
                                   techStatus.is_accepted !== true;
 
+                                // Check if this specific product has a negotiation quote already submitted
+                                const isNegotiationSubmittedForProduct = !!negotiationQuoteSubmitted[item.id];
+                                const isProductDisabled = isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct;
+
                                 return (
                                   <tr
                                     key={`q_${item.id}_${item.product_id}_${item.variant}`}
@@ -2160,6 +2165,11 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           rfq_id={rfqDetails.id}
                                           rfq_product_id={item.id}
                                         />
+                                      )}
+                                      {isNegotiationSubmittedForProduct && (
+                                        <span className="badge bg-success mt-1" style={{ fontSize: "0.7rem" }}>
+                                          Negotiation Quote Submitted
+                                        </span>
                                       )}
                                       <p className="text-sm mb-1">
                                         {getProductSpecValueByTitle(
@@ -2242,7 +2252,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             )
                                           }
                                           onWheel={(e) => e.target.blur()}
-                                          disabled={isTechEvalPendingOrRejected}
+                                          disabled={isProductDisabled}
                                         />
 
                                         {isTechEvalPendingOrRejected && (
@@ -2300,9 +2310,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               )
                                             }
                                             onWheel={(e) => e.target.blur()}
-                                            disabled={
-                                              isTechEvalPendingOrRejected
-                                            }
+                                            disabled={isProductDisabled}
                                           />
 
                                           <PercentageAbsoluteToggle
@@ -2398,9 +2406,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               )
                                             }
                                             onWheel={(e) => e.target.blur()}
-                                            disabled={
-                                              isTechEvalPendingOrRejected
-                                            }
+                                            disabled={isProductDisabled}
                                           />
 
                                           <PercentageAbsoluteToggle
@@ -2457,7 +2463,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           className="d-block fw-bold mb-1"
                                           style={{ fontSize: "0.9rem", }}
                                         >
-                                          Taxes
+                                          Taxes/VAT
                                         </small>
 
                                         <div className="d-flex align-items-center">
@@ -2493,9 +2499,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               )
                                             }
                                             onWheel={(e) => e.target.blur()}
-                                            disabled={
-                                              isTechEvalPendingOrRejected
-                                            }
+                                            disabled={isProductDisabled}
                                           />
 
                                           <PercentageAbsoluteToggle
@@ -2642,9 +2646,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                                 )
                                               )
                                             }
-                                            disabled={
-                                              isTechEvalPendingOrRejected
-                                            }
+                                            disabled={isProductDisabled}
                                           ></textarea>
                                           <span htmlFor="comment">0/300</span>
                                         </div>
@@ -2684,7 +2686,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           );
                                         }}
                                         onWheel={(e) => e.target.blur()}
-                                        disabled={isTechEvalPendingOrRejected}
+                                        disabled={isProductDisabled}
                                       />
                                       {isTechEvalPendingOrRejected && (
                                         <small
@@ -2716,7 +2718,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             uploadQuoteItemFiles(e, item)
                                           }
                                           multiple={true}
-                                          disabled={isTechEvalPendingOrRejected}
+                                          disabled={isProductDisabled}
                                         />
                                       </label>
                                       {alreadyQuoted && (
@@ -2842,11 +2844,14 @@ return { deletedTerms, createdTerms, updatedTerms };
                       </div>
                       <div className="col-md-6">
                         {/* Changes by Agnij 2024-07-30 [Disable send quote button when no fields are filled] */}
-                        {/* Check if any product has a negotiation quote already submitted */}
+                        {/* Show info if some products have negotiation quotes submitted */}
                         {Object.keys(negotiationQuoteSubmitted).length > 0 && (
-                          <Alert variant="danger" className="mb-3 py-2">
+                          <Alert variant={Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0) ? "danger" : "info"} className="mb-3 py-2">
                             <small>
-                              <strong>Quote Submission Disabled:</strong> You have already submitted negotiation quotes for {Object.keys(negotiationQuoteSubmitted).length} product(s). No further quote updates are allowed during the active negotiation round.
+                              {Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0)
+                                ? <><strong>Quote Submission Disabled:</strong> You have submitted negotiation quotes for all products.</>
+                                : <><strong>Note:</strong> You have submitted negotiation quotes for {Object.keys(negotiationQuoteSubmitted).length} product(s). Those products are locked. You can still submit quotes for remaining products.</>
+                              }
                             </small>
                           </Alert>
                         )}
@@ -2869,11 +2874,11 @@ return { deletedTerms, createdTerms, updatedTerms };
                             (rfqDetails?.is_tender === 1 &&
                               (isClarificationWindowActive ||
                                 hasOpenClarification)) ||
-                            Object.keys(negotiationQuoteSubmitted).length > 0
+                            (Object.keys(negotiationQuoteSubmitted).length > 0 && Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0))
                           }
                           title={
-                            Object.keys(negotiationQuoteSubmitted).length > 0
-                              ? "Quote submission disabled - Negotiation quote already submitted"
+                            (Object.keys(negotiationQuoteSubmitted).length > 0 && Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0))
+                              ? "Quote submission disabled - Negotiation quotes submitted for all products"
                               : rfqDetails?.is_tender === 1 &&
                                 isClarificationWindowActive
                               ? "Quote submission blocked - Clarification period is still active"
@@ -2882,7 +2887,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                               : ""
                           }
                         >
-                          {Object.keys(negotiationQuoteSubmitted).length > 0 ? 'Quote Submitted' : 'Send Quote'}
+                          {(Object.keys(negotiationQuoteSubmitted).length > 0 && Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0)) ? 'All Quotes Submitted' : 'Send Quote'}
                         </button>
                       </div>
                     </div>

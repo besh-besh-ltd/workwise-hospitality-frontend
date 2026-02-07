@@ -551,7 +551,6 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                     const isCleared = vendor.is_cleared;
                                     // Always use anonymized vendor code - never show vendor name
                                     const vendorCode = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
-                                    const rankLabel = vendor.rank ? `L${vendor.rank}` : '';
                                     return (
                                       <th
                                         key={vendor.vendor_id}
@@ -561,7 +560,6 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                           <div className="d-flex flex-column align-items-center w-100">
                                             <span>
                                               {vendorCode}
-                                              {rankLabel && <span className="badge bg-primary ms-2">{rankLabel}</span>}
                                             </span>
                                             {/* Only show Score when marks have been given and we have a real score (not default 0 before evaluation) */}
                                             {vendor.calculated_score !== undefined && vendor.calculated_score !== null && vendor.has_marks && (vendor.calculated_score > 0) && (
@@ -784,6 +782,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         <strong>Remark:</strong> {response.buyer_remark}
                                       </p>
                                     )}
+                                    {clauseItem.clause_type !== 'sampling' && (
                                     <button
                                       type="button"
                                       className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
@@ -804,6 +803,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                     >
                                      Deviation
                                     </button>
+                                    )}
                                     <button
                                       type="button"
                                       className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
@@ -962,6 +962,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                                 }
                                             </td>
                                             <td>
+                                                {clauseItem.clause_type !== 'sampling' && (
                                                 <button
                                                     type="button"
                                                     className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
@@ -979,6 +980,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                                 >
                                                     Explanation / Deviation
                                                 </button>
+                                                )}
                                             </td>
 
                                         </tr>
