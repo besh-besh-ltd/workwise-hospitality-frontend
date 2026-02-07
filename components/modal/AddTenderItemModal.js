@@ -10,20 +10,23 @@ const AddTenderItemModal = ({
   addRfqIdParam,
   hotelIds = [],
   onSuccess,        // optional callback
+  isTender = true,  // whether this is a tender or RFQ
 }) => {
   const [loading, setLoading] = useState(false);
 
   if (!open || !product) return null;
+
+  const entityLabel = isTender ? 'tender' : 'RFQ';
 
   const handleConfirm = async () => {
     try {
       setLoading(true);
 
       const payload = {
-        is_tender: 1,
+        is_tender: isTender ? 1 : 0,
         variant_id: product.variant_id,
         hotel_ids: hotelIds,
-        vendors: [], // same API, no vendors at this stage
+        vendors: [], // auto-add all vendors
       };
 
       if (rfqId) payload.rfq_id = parseInt(rfqId);
@@ -37,16 +40,16 @@ const AddTenderItemModal = ({
 
       toast.success(
         <h6>
-          <b>{product.name}</b> added to tender successfully
+          <b>{product.name}</b> added to {entityLabel} successfully
         </h6>
       );
 
       onClose();
       onSuccess?.();
     } catch (error) {
-      console.log(" error adding item to tender: ", error); 
+      console.log(` error adding item to ${entityLabel}: `, error);
         toast.error(
-        <h6>Failed to add item to tender. Please try again.</h6>
+        <h6>Failed to add item to {entityLabel}. Please try again.</h6>
       );
     } finally {
       setLoading(false);
@@ -62,11 +65,11 @@ const AddTenderItemModal = ({
       }}
     >
       <div className="bg-white rounded shadow p-4" style={{ width: 420 }}>
-        <h5 className="fw-bold mb-3">Add Item to Tender</h5>
+        <h5 className="fw-bold mb-3">Add Item to {isTender ? 'Tender' : 'RFQ'}</h5>
 
         <p className="mb-4">
           Do you want to add{" "}
-          <strong>{product.name}</strong> to this tender?
+          <strong>{product.name}</strong> to this {entityLabel}?
         </p>
 
         <div className="d-flex justify-content-end gap-2">

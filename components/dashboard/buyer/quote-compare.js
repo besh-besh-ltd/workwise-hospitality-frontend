@@ -629,7 +629,7 @@ const generateExcelFile = (api_data) => {
   let filesArray = ["Attached Files", "", "", ""];
 
   allVendors.map((item) => {
-    heading_array[0].push(getVendorCode(item));
+    heading_array[0].push(item.organization_name || item.name || item.email || 'Unknown Vendor');
     heading_array[0].push("");
     heading_array[0].push("");
     heading_array[0].push("");
@@ -2422,6 +2422,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         normalizeFilter={normalizeFilter}
                         freightFilter={freightFilter}
                         RFQ_no={currentRFQ?.rfq_no}
+                        is_tender={currentRFQ?.is_tender === 1 || currentRFQ?.is_tender === true}
                       />
                     )}
                   </div>
