@@ -231,6 +231,29 @@ const getArcSentBackStage = (lifecycleData) => {
 const getCurrentStage = (lifecycleData) => {
   const history = lifecycleData?.lifecycleHistory || [];
 
+  // Check if there's an active send-back that hasn't been resolved yet
+  // If ARC was sent back to a previous stage and no new ARC instance exists,
+  // the current stage should be the send-back target (not ARC/COMPLETED)
+  const sentBackStage = getArcSentBackStage(lifecycleData);
+  if (sentBackStage) {
+    const arcInstances = lifecycleData?.arcApproval?.instances || [];
+    const revertEvents = getAllRevertEvents(lifecycleData);
+    const lastSentBackAt = revertEvents.length > 0
+      ? new Date(revertEvents[revertEvents.length - 1].timestamp)
+      : new Date(0);
+    const hasNewArcAfterSendback = arcInstances.some(i => {
+      if (i.status === 'CANCELLED') return false;
+      const instDate = new Date(i.created_at);
+      return instDate > lastSentBackAt;
+    });
+
+    // If sent back and no new ARC instance yet, current stage is the target
+    if (!hasNewArcAfterSendback) {
+      const targetKey = mapStageNameToKey(sentBackStage);
+      if (targetKey) return targetKey;
+    }
+  }
+
   // Check ARC status first (most advanced stage)
   if (lifecycleData?.arcApproval?.instances?.length > 0) {
     const hasPending = lifecycleData.arcApproval.instances.some(i => i.status === 'PENDING');
@@ -307,6 +330,9 @@ export const mapLifecycleToStages = (lifecycleData) => {
   // Get the index of current stage to determine which stages are "completed" by position
   const currentStageIndex = STAGE_DEFINITIONS.findIndex(s => s.key === currentStageKey);
 
+  // Get all revert events early so they can be used in stage mapping
+  const revertHistory = getAllRevertEvents(lifecycleData);
+
   const stages = STAGE_DEFINITIONS.map((stageDef, stageIndex) => {
     let status = getStageStatus(stageDef.key, history);
     const event = getStageEvent(stageDef.key, history);
@@ -359,8 +385,28 @@ export const mapLifecycleToStages = (lifecycleData) => {
 
     // Position-based fallback: if current stage is beyond this stage, mark as completed
     // This handles test data with out-of-order timestamps
+    // But do NOT mark stages after a send-back target as completed
     if (status === 'pending' && !isCurrent && stageIndex < currentStageIndex) {
       stage.status = 'completed';
+    }
+
+    // If there's an active send-back, stages AFTER the target should revert to pending
+    // (they need to be redone)
+    if (revertHistory.length > 0) {
+      const latestRevert = revertHistory[revertHistory.length - 1];
+      const targetIdx = STAGE_DEFINITIONS.findIndex(s => s.key === latestRevert.targetStageKey);
+      const arcIdx = STAGE_DEFINITIONS.findIndex(s => s.key === 'ARC_REVIEW');
+      const arcInstances = lifecycleData.arcApproval?.instances || [];
+      const lastSentBackAt = latestRevert.timestamp ? new Date(latestRevert.timestamp) : new Date(0);
+      const hasNewArcAfterSendback = arcInstances.some(i => {
+        if (i.status === 'CANCELLED') return false;
+        return new Date(i.created_at) > lastSentBackAt;
+      });
+
+      // Only reset if send-back is still active (no new ARC instance)
+      if (!hasNewArcAfterSendback && stageIndex > currentStageIndex) {
+        stage.status = 'pending';
+      }
     }
 
     // Add stage-specific details
@@ -464,7 +510,7 @@ export const mapLifecycleToStages = (lifecycleData) => {
           completedAt,
           products: rfq.products || [],
           arcInstances: approvedInstances,
-          revertHistory: getAllRevertEvents(lifecycleData),
+          revertHistory: revertHistory,
           rfqNo: rfq.rfq_no,
           projectName: rfq.project_name,
           companyName: rfq.company_name
@@ -475,9 +521,6 @@ export const mapLifecycleToStages = (lifecycleData) => {
 
     return stage;
   });
-
-  // Get all revert events for display
-  const revertHistory = getAllRevertEvents(lifecycleData);
 
   // Mark stages that need to show revert indicator
   // Only mark as needsRedo if the redo is still in progress (not yet back to ARC or completed)

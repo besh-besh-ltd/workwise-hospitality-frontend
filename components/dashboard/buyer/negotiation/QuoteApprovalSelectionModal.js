@@ -84,7 +84,7 @@ const QuoteApprovalSelectionModal = ({
     <Modal show={show} onHide={handleClose} size="lg" centered>
       <Modal.Header closeButton className='px-3 py-2'>
         <Modal.Title>
-          Select Quotes for Approval
+          Finalize Vendors
           <div className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
             {productName} - Round {activeRound?.round_number || 1}
           </div>
@@ -117,9 +117,6 @@ const QuoteApprovalSelectionModal = ({
                 const quotedPrice = parseFloat(quote.quoted_price || quote.total_price || 0);
                 const previousPrice = parseFloat(quote.previous_price || 0);
                 const priceDiff = previousPrice > 0 ? quotedPrice - previousPrice : 0;
-                const vendorCode = quote.vendor_id && vendorCodeMap[quote.vendor_id]
-                  ? `VEN-${vendorCodeMap[quote.vendor_id]}`
-                  : `VEN-${quote.vendor_id || 'NA'}`;
 
                 return (
                   <div
@@ -139,7 +136,7 @@ const QuoteApprovalSelectionModal = ({
                       <div className="flex-grow-1">
                         <div className="d-flex justify-content-between align-items-start">
                           <div>
-                            <strong>{vendorCode}</strong>
+                            <strong>{vendorName}</strong>
                             {index === 0 && (
                               <Badge bg="success" className="ms-2">Lowest</Badge>
                             )}
@@ -193,7 +190,7 @@ const QuoteApprovalSelectionModal = ({
           onClick={handleSubmit}
           disabled={submitting || selectedQuotes.length === 0}
         >
-          {submitting ? 'Submitting...' : `Submit ${selectedQuotes.length} Quote(s) for Approval`}
+          {submitting ? 'Submitting...' : `Finalize ${selectedQuotes.length} Vendor(s)`}
         </Button>
       </Modal.Footer>
     </Modal>

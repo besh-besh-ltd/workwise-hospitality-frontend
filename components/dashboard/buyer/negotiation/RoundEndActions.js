@@ -127,7 +127,7 @@ const RoundEndActions = ({
               disabled={!canWrite || permissionsLoading || hasApprovalInProgress}
             >
               <FontAwesomeIcon icon={faCheckCircle} className="me-1" />
-              Approve Best Quotes
+              Finalize Vendors
             </Button>
           )}
         </div>

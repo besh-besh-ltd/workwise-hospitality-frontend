@@ -1842,7 +1842,9 @@ useEffect(() => {
     }, [selectedProduct])
 
   // Dynamic filters inside Single RFQ Product Item
+  // Vendor filters removed - vendors are auto-added for all modes
   const generateDynamicFilter = (product = null) => {
+    return null;
     const isGlobalFilter = !product;
 
     const getFilterValue = (key) => isGlobalFilter ? vendorFilters.global?.[key] : vendorFilters.local?.[product.id]?.[key]
@@ -2421,7 +2423,7 @@ useEffect(() => {
                 <>
                   {/* Project Selection Section */}
                   <div className="row mb-3">
-                    {rfqFormDataFromStore.is_tender === 1 && userHotelMappings.length > 0 && (
+                    {userHotelMappings.length > 0 && (
                       <div className="col-md-3">
                         <label className="form-label fw-medium">Select Hotels</label>
                         <Select
@@ -2582,32 +2584,11 @@ useEffect(() => {
                               onClauseChange={(change) =>
                                 handleClauseChange(product, change)
                               }
-                              handleViewVendorInEdit={() =>
-                                handleShowModalWithProduct(
-                                  "vendorModal",
-                                  product
-                                )
-                              }
+                              handleViewVendorInEdit={null}
                               handleRemoveProductInEdit={() =>
                                 handleRemoveProduct(product)
                               }
-                              handleAddVendorInEdit={
-                                Object.keys(
-                                  vendorFilters.local?.[product.id] ?? []
-                                ).some((key) => {
-                                  const value =
-                                    vendorFilters.local?.[product.id][key];
-                                  return (
-                                    Array.isArray(value) && value.length > 0
-                                  );
-                                })
-                                  ? null
-                                  : () =>
-                                      handleShowModalWithProduct(
-                                        "addVendorModal",
-                                        product
-                                      )
-                              }
+                              handleAddVendorInEdit={null}
                               // Header
                               header={generateDynamicFilter}
                               hasVendorError={errorProducts.has(product.id)}

@@ -397,12 +397,7 @@ const QuoteCompareTable = ({
                         {(() => {
                           const vdRaw = item?.quote_details?.vendor_details || item?.vendor_details;
                           const vd = Array.isArray(vdRaw) ? vdRaw[0] : vdRaw;
-                          const code = vd?.rfq_product_vendor_id
-                            ? `VEN-${vd.rfq_product_vendor_id}`
-                            : vd?.id && (vendorCodeMap?.[vd.id] || vendorCodeMap?.[String(vd.id)])
-                            ? `VEN-${vendorCodeMap[vd.id] || vendorCodeMap[String(vd.id)]}`
-                            : 'VEN-NA';
-                          return code;
+                          return vd?.organization_name || vd?.name || vd?.email || 'Unknown Vendor';
                         })()}
                         {roundQuote && activeRound && !isArcSelected && (
                           <Badge bg="info" className="ms-2" style={{ fontSize: "0.7rem" }}>
@@ -473,18 +468,15 @@ const QuoteCompareTable = ({
                           />
                         </Dropdown.Toggle>
                         <Dropdown.Menu>
-                          {/* Hide View Profile for tenders to protect vendor identity */}
-                          {!is_tender && (
-                            <Dropdown.Item
-                              target="_blank"
-                              href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item?.quote_details?.vendor_details?.id}`}
-                              className=""
-                              id={`view_vendor_profile_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
-                            >
-                             <FontAwesomeIcon icon={faUser} className="me-2"/>
-                              View Profile
-                            </Dropdown.Item>
-                          )}
+                          <Dropdown.Item
+                            target="_blank"
+                            href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item?.quote_details?.vendor_details?.id}`}
+                            className=""
+                            id={`view_vendor_profile_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
+                          >
+                            <FontAwesomeIcon icon={faUser} className="me-2"/>
+                            Vendor profile
+                          </Dropdown.Item>
                           {!is_tender && !item.quote_details.is_regret == 1 &&
                             (!item.finalization ||
                               item.finalization.winning_vendor.id !=

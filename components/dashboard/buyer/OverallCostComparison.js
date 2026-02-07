@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import FullLoader from "@/components/shared/FullLoader";
 import { downloadQuotesDetails } from "@/services/rfq";
 import ReadMore from "@/components/shared/ReadMore";
 import { renderFileLink } from "@/utils/elementFunctions";
 import { calculateTotal, handleNormalize } from "@/utils/sharedFunctions";
-import { Badge } from "react-bootstrap";
+import { Badge, Dropdown } from "react-bootstrap";
 
 
 /**
@@ -16,10 +17,9 @@ const addCommasToNumber = (num) => {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
-const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilter, rfq_product_id, source }) => {
-  const getVendorCode = (vendor = {}) => {
-    if (vendor.rfq_product_vendor_id) return `VEN-${vendor.rfq_product_vendor_id}`;
-    return "VEN-NA";
+const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilter, rfq_product_id, source, is_tender }) => {
+  const getVendorDisplayName = (vendor = {}) => {
+    return vendor.organization_name || vendor.name || vendor.email || 'Unknown Vendor';
   };
 
   const [loading, setLoading] = useState(false);
@@ -234,25 +234,62 @@ const columnSums = useMemo(() => {
                         >
                           <div
                             style={{
-                              fontWeight: 600,
-                              wordBreak: "break-word",
-                              whiteSpace: "normal",
-                              textAlign: "center",
-                              lineHeight: 1.2,
+                              display: "flex",
+                              alignItems: "flex-start",
+                              justifyContent: "center",
+                              gap: 6,
+                              flexWrap: "wrap",
                             }}
                           >
-                            {cost}
                             <div
                               style={{
-                                fontWeight: 400,
-                                fontSize: 13,
-                                marginTop: 2,
+                                fontWeight: 600,
                                 wordBreak: "break-word",
                                 whiteSpace: "normal",
+                                textAlign: "center",
+                                lineHeight: 1.2,
+                                flex: 1,
+                                minWidth: 0,
                               }}
                             >
-                              ({getVendorCode(vendor)})
+                              {cost}
+                              <div
+                                style={{
+                                  fontWeight: 400,
+                                  fontSize: 13,
+                                  marginTop: 2,
+                                  wordBreak: "break-word",
+                                  whiteSpace: "normal",
+                                }}
+                              >
+                                ({getVendorDisplayName(vendor)})
+                              </div>
                             </div>
+                            {!is_tender && (
+                              <Dropdown className="dots-nav-anchor" align="end">
+                                <Dropdown.Toggle
+                                  as="button"
+                                  className="dots-nav p-0 border-0 bg-transparent"
+                                  style={{ cursor: "pointer" }}
+                                >
+                                  <Image
+                                    src="/assets/images/3-dots-nav.svg"
+                                    width={4}
+                                    height={18}
+                                    alt="Actions"
+                                  />
+                                </Dropdown.Toggle>
+                                <Dropdown.Menu>
+                                  <Dropdown.Item
+                                    target="_blank"
+                                    href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${q.created_by}`}
+                                    id={`view_vendor_profile_${q.created_by}-vendor_actions-overall_cost_comparison_page`}
+                                  >
+                                    Vendor profile
+                                  </Dropdown.Item>
+                                </Dropdown.Menu>
+                              </Dropdown>
+                            )}
                           </div>
                           <div style={{ marginTop: 4 }}>
                             <button

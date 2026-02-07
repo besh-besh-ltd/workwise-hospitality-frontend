@@ -23,10 +23,8 @@ import ProductNegotiationBadge from "../vendor/ProductNegotiationBadge";
  * @updated by mukul 08-08-2025 - normilize total
  */
 const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalizeFilter, rfq_product_id, source, vendorCodeMap = {}, productNegotiationData = {} }) => {
-  const getVendorCode = (vendor = {}) => {
-    if (vendor.rfq_product_vendor_id) return `VEN-${vendor.rfq_product_vendor_id}`;
-    if (vendor.id && vendorCodeMap[vendor.id]) return `VEN-${vendorCodeMap[vendor.id]}`;
-    return "VEN-NA";
+  const getVendorDisplayName = (vendor = {}) => {
+    return vendor.organization_name || vendor.name || vendor.email || 'Unknown Vendor';
   };
 
   const [loading, setloading] = useState(false);
@@ -492,7 +490,7 @@ const openModalForVariant = (variantId) => {
                     {allvendors &&
                       allvendors.length > 0 &&
                       allvendors.map((item) => {
-                        const vendorCode = getVendorCode(item);
+                        const vendorName = getVendorDisplayName(item);
                         return (
                           <th
                             key={`v_${item.id}`}
@@ -504,7 +502,7 @@ const openModalForVariant = (variantId) => {
                               color: "white"
                             }}
                           >
-                            {vendorCode}
+                            {vendorName}
                           </th>
                         );
                       })}

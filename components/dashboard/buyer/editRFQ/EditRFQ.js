@@ -1688,20 +1688,8 @@ const EditRFQ = () => {
                           }
                         }))
                       }}
-                      handleViewVendorInEdit={rfqData?.is_tender !== 1 ? () => {
-                        setShowVendorModal(true);
-                        setSelectedProduct({
-                          product,
-                          vendors: product.vendor_details,
-                        });
-                      } : undefined}
-                      handleAddVendorInEdit={rfqData?.is_tender !== 1 ? () => {
-                        setShowAddVendorModal(true);
-                        setSelectedProduct({
-                          product,
-                          vendors: product.vendor_details,
-                        });
-                      } : undefined}
+                      handleViewVendorInEdit={null}
+                      handleAddVendorInEdit={null}
                       handleRemoveProductInEdit={(data) => {
                         if((updatableData.products.deletable.length + 1) === rfqData?.products?.length)
                           toast.warning(`You cannot delete all products from ${getEntityLabel(rfqData?.is_tender)}, at least one product is required`);

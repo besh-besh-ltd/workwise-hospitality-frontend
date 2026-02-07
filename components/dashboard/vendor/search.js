@@ -431,8 +431,8 @@ useEffect(() => {
 
   const filters = JSON.parse(filterSnapshot);
 
-   // No vendor/product API calls in tender
-    if (queryMeta.orderType === 'tender') {
+   // No vendor/product API calls in tender or RFQ mode (vendors are auto-added)
+    if (queryMeta.orderType === 'tender' || queryMeta.orderType === 'rfq' || queryMeta.rfq_id) {
     return;
   }
 
@@ -1002,14 +1002,14 @@ const getVendorTypeList = () => {
     return;
   }
 
-  //  if tender then open tender modal and set product
-  if (queryMeta.orderType === "tender") {
+  //  if tender or RFQ, open modal and add product directly (one-click, auto-add all vendors)
+  if (queryMeta.orderType === "tender" || queryMeta.orderType === "rfq" || queryMeta.rfq_id) {
     setTenderProduct({
       name: item.variant_name || item.product_name,
       variant_id: item.variant_id,
     });
     setOpenTenderItemModal(true);
-    return; // ⛔ no vendor search, no API here
+    return; // ⛔ no vendor search, no API here - vendors auto-added
   }
 
   setOpen(prev => ({ ...prev, input: false }));
@@ -1158,7 +1158,7 @@ const clearLocationFilter = () => {
 
 
 {/*START:  select order type modal - tender/rfq */}
-{ !queryMeta.orderType && (
+{ !queryMeta.orderType && !queryMeta.rfq_id && (
   <div
     className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
     style={{
@@ -1268,7 +1268,7 @@ const clearLocationFilter = () => {
                                   : "View My Drafts"}
                               </Link>
 
- {queryMeta.orderType !== 'tender' && (
+ {queryMeta.orderType !== 'tender' && queryMeta.orderType !== 'rfq' && !queryMeta.rfq_id && (
             <Link
               href="/dashboard/buyer/boq-automation"
               id="generate_rfq_from_boq-vendor_header-vendor_search_page"
@@ -1478,8 +1478,8 @@ const clearLocationFilter = () => {
       {/* END: SEARCHBAR */}
 
 
-{/* display this section only for rfq */}
- {queryMeta.orderType !== 'tender' && (
+{/* display this section only when not in tender or rfq mode */}
+ {queryMeta.orderType !== 'tender' && queryMeta.orderType !== 'rfq' && !queryMeta.rfq_id && (
   <>
        {/* -----------------------------
          Vendor List with Filter Section
@@ -2264,6 +2264,7 @@ const clearLocationFilter = () => {
   rfqId={queryMeta.rfq_id}
   addRfqIdParam={addRfqIdParam}
   hotelIds={selectedHotelIds}
+  isTender={queryMeta.orderType === 'tender'}
 />
 
   
