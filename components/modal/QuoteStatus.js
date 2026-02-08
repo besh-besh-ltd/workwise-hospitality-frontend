@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { getEntityLabel } from "@/utils/sharedFunctions";
 
 const statusMap = {
   QC: {
@@ -26,7 +27,7 @@ const statusMap = {
     text: "#073B3A"
   },
   CLOSED: {
-    label: "Tender / RFQ Closed",
+    label: "Closed",
     icon: "bi-lock-fill",
     color: "#DC3545", // Bootstrap red
     text: "#FFFFFF"
@@ -72,11 +73,14 @@ const QuoteStatus = ({ quoteStatus, onClose }) => {
 
             </div>
 
-            <div className="modal-body px-4 py-4">
+            <div className="modal-body p-2">
               {quoteStatus?.data?.length > 0 ? (
                 <div className="timeline">
                   {quoteStatus.data.map((q, index) => {
                     const statusInfo = statusMap[q.current_status] || statusMap.default;
+                    const statusLabel = q.current_status === "CLOSED"
+                      ? `${getEntityLabel(quoteStatus?.is_tender)} Closed`
+                      : statusInfo.label;
                     return (
                       <div key={q.id} className="timeline-item">
                         <div className="timeline-marker">
@@ -95,7 +99,7 @@ const QuoteStatus = ({ quoteStatus, onClose }) => {
                             className="fw-semibold d-block mb-1"
                             style={{ color: statusInfo.color }}
                           >
-                            {statusInfo.label}
+                            {statusLabel}
                           </span>
                           <small className="text-muted">
                             {new Date(q.created_at).toLocaleString()}
@@ -121,7 +125,7 @@ const QuoteStatus = ({ quoteStatus, onClose }) => {
                           className="fw-semibold d-block mb-1"
                           style={{ color: statusMap.CLOSED.color }}
                         >
-                          {statusMap.CLOSED.label}
+                          {getEntityLabel(quoteStatus?.is_tender)} Closed
                         </span>
                         <small className="text-muted">
                           {new Date().toLocaleString()} {/* Or use closed_at if you have it */}

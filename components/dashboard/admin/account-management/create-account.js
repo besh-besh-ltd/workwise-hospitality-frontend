@@ -70,6 +70,10 @@ const CreateAccountPage = () => {
       } else {
         apiData.department_ids = [];
       }
+
+      if (!apiData.department_ids || apiData.department_ids.length === 0) {
+        throw new Error("Please select at least one department.");
+      }
       
       if (appState.isHospitalityCompany) {
         // Extract value from select option object

@@ -12,6 +12,7 @@ const QuoteApprovalSelectionModal = ({
   rfq_product_id,
   productName,
   vendorCodeMap = {},
+  vendorNameMap = {},
   onSuccess,
   department_id = null
 }) => {
@@ -113,7 +114,7 @@ const QuoteApprovalSelectionModal = ({
               {sortedQuotes.map((quote, index) => {
                 const quoteId = quote.quote_id || quote.id;
                 const isSelected = selectedQuotes.includes(quoteId);
-                const vendorName = quote.vendor_name || quote.vendor?.organization_name || quote.vendor?.name || `Vendor ${quote.vendor_id}`;
+                const vendorName = quote.vendor_name || quote.vendor?.organization_name || quote.vendor?.name || (quote.vendor_id && vendorNameMap[quote.vendor_id]) || `Vendor ${quote.vendor_id}`;
                 const quotedPrice = parseFloat(quote.quoted_price || quote.total_price || 0);
                 const previousPrice = parseFloat(quote.previous_price || 0);
                 const priceDiff = previousPrice > 0 ? quotedPrice - previousPrice : 0;

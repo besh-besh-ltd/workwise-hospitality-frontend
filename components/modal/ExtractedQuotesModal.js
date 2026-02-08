@@ -83,7 +83,7 @@ export const QuotesOverrideModal = ({
               </div>
             </div>
 
-            <div className="modal-body pt-0">
+            <div className="modal-body p-2 pt-0">
               <div
                 className="alert alert-warning d-flex align-items-center gap-1"
                 role="alert"
@@ -177,7 +177,7 @@ export const QuotesOverrideModal = ({
               </div>
             </div>
 
-            <div className="modal-footer justify-content-between ms-2">
+            <div className="modal-footer justify-content-between ms-2 p-2">
               <small className="text-muted">This AI can make mistakes, please review every field carefully before confirming any overrides.</small>
               <div className="d-flex gap-3">
                 <button

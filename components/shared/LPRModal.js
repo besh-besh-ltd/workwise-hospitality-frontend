@@ -1,5 +1,5 @@
 import { getLastPurchaseDetails } from '@/services/rfq';
-import { addCommasToNumber } from '@/utils/sharedFunctions';
+import { addCommasToNumber, getEntityLabel } from '@/utils/sharedFunctions';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Table, Badge } from 'react-bootstrap';
 
@@ -114,7 +114,7 @@ const LPRModal = ({ show, onHide, variantId , RFQ_no }) => {
           </div>
         </Modal.Header>
 
-        <Modal.Body>
+        <Modal.Body className="p-2">
           {error && (
             <div className="alert alert-danger m-3 d-flex justify-content-between align-items-center">
               <span>{error}</span>
@@ -145,7 +145,7 @@ const LPRModal = ({ show, onHide, variantId , RFQ_no }) => {
                 <Table striped hover className="mb-0">
                   <thead className="sticky-top bg-white">
                     <tr>
-                      <th className='"bg-light'>Tender / RFQ No.</th>
+                      <th className='"bg-light'>No.</th>
                       <th className="bg-light">Vendor Details</th>
                       <th className="bg-light">Finalized By</th>
                       <th className="bg-light">Date</th>
@@ -163,14 +163,14 @@ const LPRModal = ({ show, onHide, variantId , RFQ_no }) => {
                    filteredData.map((item, index) => (
                       <tr key={index}>
                         <td>
+                          #{item.rfq_no}
                           <Badge
                             bg={item.is_tender === 1 || item.is_tender === true ? "info" : "secondary"}
-                            className="me-2"
+                            className="ms-2"
                             style={{ fontSize: '0.7rem' }}
                           >
-                            {item.is_tender === 1 || item.is_tender === true ? "Tender" : "RFQ"}
+                            {getEntityLabel(item.is_tender)}
                           </Badge>
-                          #{item.rfq_no}
                         </td>
                         <td>
                           <div className="fw-medium">{item.vendor_name}</div>

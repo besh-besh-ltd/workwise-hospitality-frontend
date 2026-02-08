@@ -50,7 +50,8 @@ const ApprovalWorkflowSection = ({
   onCustomApprove,    // Optional: Custom approve handler (for negotiation)
   onCustomReject,     // Optional: Custom reject handler (for negotiation)
   onActionComplete,   // Optional: Callback after action completes
-  vendorCodeMap = {}  // Optional: For displaying vendor codes in selected quotes
+  vendorCodeMap = {},  // Optional: For displaying vendor codes in selected quotes
+  vendorNameMap = {}  // Optional: For displaying vendor names in selected quotes
 }) => {
   const {
     instance,
@@ -236,6 +237,7 @@ const ApprovalWorkflowSection = ({
               <SelectedQuotesDisplay
                 quotes={instance.metadata.selected_quotes}
                 vendorCodeMap={vendorCodeMap}
+                vendorNameMap={vendorNameMap}
                 status={status}
               />
             )}
@@ -268,7 +270,7 @@ const ApprovalWorkflowSection = ({
                   Review the {entityLabel.toLowerCase()} details above and choose to approve or reject.
                   {" "}A comment is optional for approval but required for rejection.
                 </p>
-                <div className="d-flex gap-2">
+                <div className="d-flex flex-wrap gap-2">
                   <Button
                     variant="success"
                     className="p-2"
@@ -305,7 +307,7 @@ const ApprovalWorkflowSection = ({
                 <div className="d-flex align-items-start gap-3">
                   <BsXCircleFill size={24} className="flex-shrink-0 mt-1" />
                   <div className="flex-grow-1">
-                    <div className="fw-bold mb-2">Your Tender / RFQ has been rejected</div>
+                    <div className="fw-bold mb-2">Your {entityLabel} has been rejected</div>
                     <p className="mb-2">
                       This {entityLabel.toLowerCase()} was rejected during the approval process. 
                       Please review the rejection reason in the timeline above, make necessary changes, and resubmit for approval.

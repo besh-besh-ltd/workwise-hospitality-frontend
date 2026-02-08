@@ -66,6 +66,21 @@ const ProductArcCard = ({
   const config = statusConfig[status] || statusConfig.PENDING;
   const StatusIcon = config.icon;
   const documentUrl = arcInstance?.metadata?.award_document_url;
+  const vendorFromInstance =
+    arcInstance?.metadata?.vendor_name ||
+    arcInstance?.metadata?.organization_name ||
+    arcInstance?.vendor_name ||
+    arcInstance?.organization_name;
+  const vendorFromRankings = (() => {
+    const rankings = lifecycleData?.vendorRankings || {};
+    const matchKey = Object.keys(rankings).find((key) => {
+      const keyId = parseInt(String(key).split("_")[0], 10);
+      return keyId === product.id || String(key) === String(product.id);
+    });
+    const topRanking = matchKey ? rankings[matchKey]?.[0] : null;
+    return topRanking?.vendor_name || topRanking?.organization_name || null;
+  })();
+  const displayName = vendorFromInstance || vendorFromRankings || productName;
 
   // For cancelled status, check if there's a target stage info
   const sentBackTo = arcInstance?.metadata?.sent_back_to || arcInstance?.metadata?.target_stage;
@@ -148,8 +163,9 @@ const ProductArcCard = ({
               )}
             </div>
             <div>
-              <h6 className="mb-1">{productName}</h6>
+              <h6 className="mb-1">{displayName}</h6>
               <div className="text-muted small">
+                {displayName !== productName && <span>Product: {productName} </span>}
                 {qty && <>Qty: {qty} {unit}</>} {size && `| Size: ${size}`}
               </div>
             </div>

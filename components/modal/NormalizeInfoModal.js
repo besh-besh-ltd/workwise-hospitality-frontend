@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from "react";
+import { getEntityLabel } from "@/utils/sharedFunctions";
 
 const DURATION = 15;   // seconds
 const SPARKLE_MS = 1500;
 
-const NormalizeInfoModal = ({ show, onClose }) => {
+const NormalizeInfoModal = ({ show, onClose, is_tender }) => {
   const [secondsLeft, setSecondsLeft] = useState(DURATION);
   const [showSparkle, setShowSparkle] = useState(false);
   const [showPanel, setShowPanel] = useState(false); // controls modal body visibility
@@ -96,7 +97,7 @@ const NormalizeInfoModal = ({ show, onClose }) => {
            <div style={{ marginBottom: 12 }}>
              <p style={{ fontWeight: 500, marginBottom: 4 }}>2. How we normalize cost</p>
              <ul style={{ margin: 0, paddingLeft: 18 }}>
-               <li>Fills in missing heads (freight, packaging, taxes) using project defaults/RFQ baseline</li>
+              <li>Fills in missing heads (freight, packaging, taxes) using project defaults/{getEntityLabel(is_tender)} baseline</li>
                <li>Highlights assumed values so you can review/edit</li>
              </ul>
            </div>
@@ -216,7 +217,7 @@ const styles = {
     cursor: "pointer",
     color: "#6b7280",
   },
-  body: { padding: "16px 22px" },
+  body: { padding: "8px" },
   lead: { margin: "0 0 12px", color: "#111827", fontSize: 17, fontWeight: 600 },
   list: {
     margin: 0,

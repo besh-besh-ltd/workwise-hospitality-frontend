@@ -975,12 +975,12 @@ const generateExcelFile = (api_data) => {
   const infoRow1 = padToCols([
     "Project",
     currentRFQ?.project_name ?? "-",
-    "Bid End Date",
+    "Quote Submission Deadline",
     currentRFQ?.bid_end_date ?? "-",
   ]);
 
   const infoRow2 = padToCols([
-    "POC For RFQ",
+    `POC For ${getEntityLabel(currentRFQ?.is_tender)}`,
     currentRFQ?.contact_name ?? "-",
     "Contact",
     currentRFQ?.contact_number ?? "-",
@@ -1314,7 +1314,8 @@ const generateExcelFile = (api_data) => {
   XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
 
   try {
-    const filename = `${currentRFQ?.rfq_no}_quotes.xlsx`;
+    const entityLabel = getEntityLabel(currentRFQ?.is_tender);
+    const filename = `${entityLabel}_${currentRFQ?.rfq_no}_quotes.xlsx`.replace(/\s+/g, "_");
     const excelBuffer = XLSX.write(wb, {
       bookType: "xlsx",
       type: "array",
@@ -1520,12 +1521,12 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       <span id="close_rfq_actions-quote_compare_page" onClick={handleRFqClose}>
                         {closeRFqLoading
                           ? "Processing request..."
-                          : `Mark ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender)} as Closed`}
+                          : `Mark ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)} as Closed`}
                       </span>
                     )}
                     {quotes[0]?.rfq[0]?.status == 2 && (
                       <span className="disabled-button">
-                        {getEntityLabel(quotes[0]?.rfq[0]?.is_tender)} has been closed
+                        {getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)} has been closed
                       </span>
                     )}
                   </>
@@ -1547,7 +1548,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 <p className="px-1 pt-3 fs-6 mb-1 fw-medium">Quotes Received</p>
                 {loading && <FullLoader />}
                 <div className="py-1">
-                  <label>Search Tender / RFQ No.</label>
+                  <label>Search {getEntityLabel(currentRFQ?.is_tender)} No.</label>
                   <input
                     className="form-control react-select"
                     style={{
@@ -1626,7 +1627,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   />
                 </div>
                 {!loading && myRFQs && myRFQs.length === 0 ? (
-                  <p style={{ textAlign: "center" }}>No Tender / RFQs yet!</p>
+                  <p style={{ textAlign: "center" }}>No {getEntityLabel(currentRFQ?.is_tender, true)} yet!</p>
                 ) : !loading && myRFQs && myRFQs.length > 0 ? (
                   <ul
                     className="overflow-y-auto mt-1"
@@ -1719,7 +1720,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       </h3>
                     )}
                     <h3 className="fs-5 mb-1">
-                      <span className="fw-semibold">{currentRFQ?.is_tender === 1 ? 'Tender' : 'RFQ'} No : </span>
+                      <span className="fw-semibold">{getEntityLabel(currentRFQ?.is_tender)} No : </span>
                       {currentRFQ?.rfq_no}
                     </h3>
                     {currentRFQ.project_name &&
@@ -1775,11 +1776,11 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         )}
                         {currentRFQ.rfq_type && currentRFQ.rfq_type != "" && (
                           <p className="sub-heading mb-0">
-                            <b>Tender / RFQ Type</b> : {currentRFQ.rfq_type}
+                          <b>{getEntityLabel(currentRFQ?.is_tender)} Type</b> : {currentRFQ.rfq_type}
                           </p>
                         )}
                         <p className="sub-heading mb-0">
-                          <b>Bid End Date</b> : {currentRFQ.bid_end_date}
+                          <b>Quote Submission Deadline</b> : {currentRFQ.bid_end_date}
                         </p>
                         {currentRFQ.comment && currentRFQ.comment != "" && (
                           <p className="sub-heading mb-0">
@@ -2077,13 +2078,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                       <div className="d-flex justify-content-between align-items-center px-2 mb-2">
                                         <div className="flex-grow-1 text-center">
                                           <p className="sub-heading mb-0">
-                                            <Badge
-                                              bg={item?.last_purchase_rate?.is_tender === 1 || item?.last_purchase_rate?.is_tender === true ? "info" : "secondary"}
-                                              className="me-2"
-                                              style={{ fontSize: '0.7rem' }}
-                                            >
-                                              {item?.last_purchase_rate?.is_tender === 1 || item?.last_purchase_rate?.is_tender === true ? "Tender" : "RFQ"}
-                                            </Badge>
                                             <b>Last Purchase Details :</b>
                                           </p>
                                         </div>
@@ -2437,6 +2431,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         show={showNormalizeModal}
         // secondsLeft={normSecondsLeft}
         onClose={handleCloseNormalizeModal}
+        is_tender={currentRFQ?.is_tender}
       />
 
       {/* Close Tender / RFQ Confirmation Modal */}
@@ -2444,10 +2439,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         isOpen={showCloseConfirmModal}
         onClose={handleCloseCancel}
         onConfirm={handleCloseConfirm}
-        title={`Close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender)}`}
-        description={`Are you sure you want to close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender)} #${quotes[0]?.rfq[0]?.rfq_no || ''}?\nOnce closed, vendors will no longer be able to submit quotes.`}
+        title={`Close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)}`}
+        description={`Are you sure you want to close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)} #${quotes[0]?.rfq[0]?.rfq_no || ''}?\nOnce closed, vendors will no longer be able to submit quotes.`}
         confirmButtonColor="warning"
-        confirmButtonText={`Close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender)}`}
+        confirmButtonText={`Close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)}`}
         cancelButtonText="Cancel"
       />
     </>

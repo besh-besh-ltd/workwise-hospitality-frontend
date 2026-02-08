@@ -26,6 +26,7 @@ const statusConfig = {
 const SelectedQuotesDisplay = ({
   quotes = [],
   vendorCodeMap = {},
+  vendorNameMap = {},
   status = 'PENDING'
 }) => {
   if (!quotes || quotes.length === 0) return null;
@@ -52,11 +53,9 @@ const SelectedQuotesDisplay = ({
         <strong className="small">Selected Quotes:</strong>
         <div className="d-flex flex-wrap gap-2 mt-2">
           {sortedQuotes.map((quote, index) => {
-            const vendorCode = quote.vendor_id && vendorCodeMap[quote.vendor_id]
-              ? `VEN-${vendorCodeMap[quote.vendor_id]}`
-              : quote.rfq_product_vendor_id
-                ? `VEN-${quote.rfq_product_vendor_id}`
-                : `VEN-${quote.vendor_id || 'NA'}`;
+            const vendorName = quote.vendor_name || quote.vendor?.organization_name || quote.vendor?.name
+              || (quote.vendor_id && vendorNameMap[quote.vendor_id])
+              || 'Unknown Vendor';
 
             const quotedPrice = parseFloat(quote.quoted_price || quote.total_price || 0);
             const previousPrice = parseFloat(quote.previous_price || 0);
@@ -72,7 +71,7 @@ const SelectedQuotesDisplay = ({
                 }}
               >
                 <div className="fw-bold d-flex align-items-center gap-1">
-                  {vendorCode}
+                  {vendorName}
                   {index === 0 && (
                     <Badge bg="success" style={{ fontSize: '0.65rem' }}>Lowest</Badge>
                   )}

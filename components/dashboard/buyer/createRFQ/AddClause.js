@@ -10,7 +10,7 @@ import { addClause, addClauseUsingFile, getClausesByRfqProductId, removeClause, 
 import FullLoader from "@/components/shared/FullLoader";
 
 
-function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
+function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openToMinimumScore = false }) {
     const [clauseFile, setClauseFile] = useState(null);
     const [active, setActive] = useState('clause');
     const [message, setMessage] = useState("");
@@ -329,19 +329,17 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
 
     useEffect(() => {
         if(show) {
-            // Reset input state when modal opens
-            setShowMinimumScoreInput(false);
             setTempMinimumScore("");
+            // Open directly to minimum score view when requested
+            setShowMinimumScoreInput(!!openToMinimumScore);
             // Fetch clauses and minimum passing score - this will set minimumPassingScore
             getPreviousClauses();
         } else {
-            // Reset state when modal closes
             setShowMinimumScoreInput(false);
             setTempMinimumScore("");
-            // Don't reset minimumPassingScore here - let it persist until next fetch
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [show, product.id])
+    }, [show, product.id, openToMinimumScore])
 
     // Sync tempMinimumScore when minimumPassingScore changes and input is shown
     useEffect(() => {
@@ -432,15 +430,17 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             setShowSamplingForm(false);
             setSamplingWeightage("");
             onClose();
-        }} centered size="lg">
-            <Modal.Header closeButton>
-                <Modal.Title className="text-right w-100 p-3 d-flex justify-content-between align-items-center">
-                    <span>Technical and Sampling Clause for - {product.name}</span>
+        }} centered size="lg" dialogClassName="add-clause-modal-dialog">
+            <style>{`.add-clause-modal-dialog { max-width: 950px; }`}</style>
+            <Modal.Header closeButton className="p-3">
+                <Modal.Title className="w-100 d-flex justify-content-between align-items-center gap-3">
+                    <span className="text-truncate me-2">Technical and Sampling Clause for - {product.name}</span>
                     {!showMinimumScoreInput && (
                         <button
                             type="button"
-                            className="btn btn-primary btn-sm"
+                            className="btn btn-outline-primary btn-sm text-nowrap flex-shrink-0 px-3 py-2"
                             onClick={handleOpenMinimumScoreInput}
+                            style={{ minWidth: "max-content" }}
                         >
                             {(minimumPassingScore !== null && minimumPassingScore !== undefined)
                                 ? `Edit minimum passing percentage (${minimumPassingScore})`
@@ -449,7 +449,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                     )}
                 </Modal.Title>
             </Modal.Header>
-            <Modal.Body style={{ minHeight: "200px" }}>
+            <Modal.Body className="p-2" style={{ minHeight: "200px" }}>
                 {showMinimumScoreInput ? (
                     <div className="d-flex flex-column gap-3 p-3">
                         <h5 className="mb-0">Set minimum passing percentage (out of 100)</h5>

@@ -19,6 +19,7 @@ const RoundEndActions = ({
   permissionsLoading = false,
   is_tender = false,
   vendorCodeMap = {},
+  vendorNameMap = {},
   fullProduct = null,
   quoteApprovalStatus = null,
   department_id = null
@@ -160,6 +161,7 @@ const RoundEndActions = ({
           rfq_product_id={rfq_product_id}
           productName={productName}
           vendorCodeMap={vendorCodeMap}
+          vendorNameMap={vendorNameMap}
           onSuccess={handleQuoteApprovalSuccess}
           department_id={department_id}
         />

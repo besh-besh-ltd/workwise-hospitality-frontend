@@ -57,6 +57,7 @@ const Item = ({
   );
   const [comment, setComment] = useState(data?.comment);
   const [isModelOpen, setIsModalOpen] = useState(false);
+  const [openToMinimumScore, setOpenToMinimumScore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [buyerClauses, setBuyerClauses] = useState(null);
   const [minimumPassingScore, setMinimumPassingScore] = useState(null);
@@ -283,11 +284,18 @@ const Item = ({
   }, [data.id]);
 
   const handleOpenModal = () => {
+    setOpenToMinimumScore(false);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenModalToMinimumScore = () => {
+    setOpenToMinimumScore(true);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    setOpenToMinimumScore(false);
     getProductClauses();
   };
 
@@ -818,71 +826,51 @@ const Item = ({
           </div>
           {/*end: product spec qty and unit  */}
 
-          {/*  */}
-          <div className="  ">
-            {/* fix here */}
+          {/* Tech Evaluation & Comments */}
+          <div className="mt-3">
+            <h6 className="text-dark fw-semibold mb-2">Tech Evaluation</h6>
+            <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+              <button
+                id={buyerClauses?.length > 0 ? `view_clauses_${rfqProduct?.id}-tech_evaluation-${pageRoute}` : `add_clauses_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
+                className="btn btn-outline-warning btn-sm d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap text-dark w-auto"
+                style={{ minWidth: "180px" }}
+                onClick={handleOpenModal}
+                disabled={readOnly}
+                title={readOnly ? "You don't have permission to add clauses" : ""}
+              >
+                <FontAwesomeIcon icon={faEye} />
+                {buyerClauses?.length > 0 ? `View and Edit (${buyerClauses.length} clauses)` : "View and Edit"}
+              </button>
 
-            <div className="d-flex flex-wrap gap-4 ">
-              {/* start tech evaluation container */}
-              <div>
-                <span> Tech Evaluation </span>
-                <div
-                  className="d-flex flex-column gap-2"
-                  style={{
-                    // border: "1px solid #dcdbeb",  p-2
-                    // borderRadius: "5px",
-                    height: "fit-content",
-                  }}
+              {minimumPassingScore !== null && minimumPassingScore !== undefined ? (
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap w-auto"
+                  style={{ minWidth: "180px" }}
+                  onClick={handleOpenModalToMinimumScore}
+                  disabled={readOnly}
+                  id={`edit_min_score_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
                 >
-                  <button
-                    id={`add_clauses_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
-                    className="upload  btn btn-secondary  "
-                    // style={{ height: "40px" }} btn-sm  pt-2
-                    onClick={handleOpenModal}
-                    disabled={readOnly}
-                    title={readOnly ? "You don't have permission to add clauses" : ""}
-                  >
-                    <FontAwesomeIcon icon={faPlusCircle} /> Add Clauses
-                  </button>
-
-                  {buyerClauses?.length > 0 && (
-                    <button
-                      id={`view_clauses_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
-                      className="upload btn btn-warning text-white pt-2 btn-sm"
-                      style={{ height: "40px" }}
-                      onClick={handleOpenModal}
-                    >
-                      <FontAwesomeIcon icon={faEye} />{" "}
-                      {`View ${buyerClauses.length} Clauses`}
-                    </button>
-                  )}
-
-                  {minimumPassingScore !== null && minimumPassingScore !== undefined && (
-                    <div className="d-flex align-items-center gap-2 p-2 border rounded" style={{ backgroundColor: "#f8f9fa" }}>
-                      <span className="small fw-semibold">Minimum Passing Percentage:</span>
-                      <span className="badge bg-primary">{minimumPassingScore}</span>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary ms-auto"
-                        onClick={handleOpenModal}
-                        disabled={readOnly}
-                      >
-                        <FontAwesomeIcon icon={faEdit} /> Edit
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {/* end tech evaluation container */}
-
-              {/* <div>
-              <span> Vendors </span> */}
-
-              {/* Vendor buttons removed - vendors are auto-added for all modes */}
-              
+                  <FontAwesomeIcon icon={faEdit} className="opacity-75" />
+                  <span>Minimum score</span>
+                  <span className="badge bg-primary rounded-pill px-2">{minimumPassingScore}/100</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap w-auto"
+                  style={{ minWidth: "180px" }}
+                  onClick={handleOpenModalToMinimumScore}
+                  disabled={readOnly}
+                  id={`set_min_score_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
+                >
+                  <FontAwesomeIcon icon={faEdit} className="opacity-75" />
+                  Set minimum score
+                </button>
+              )}
             </div>
 
-            <div className="mt-4">
+            <div>
               <CommonFormInput
                 type="simple-text"
                 name={"comment"}
@@ -890,7 +878,7 @@ const Item = ({
                 values={comment}
                 onChange={handleaddProductComment}
                 placeholder="Add Comments..."
-                className="form-control me-0 mb-3"
+                className="form-control me-0 mb-0"
                 disabled={readOnly}
               />
             </div>
@@ -906,6 +894,7 @@ const Item = ({
                 product={data}
                 rfq_id={rfq_id}
                 onClauseChange={onClauseChange}
+                openToMinimumScore={openToMinimumScore}
               />
             )}
           </div>

@@ -275,7 +275,7 @@ const DownloadReportsForBuyer = (props) => {
       ws_data.push(["Company Name", rfq.company_name]);
       ws_data.push(["Contact Name", rfq.contact_name]);
       ws_data.push(["Contact Number", rfq.contact_number]);
-      ws_data.push(["Bid End Date", rfq.bid_end_date]);
+      ws_data.push(["Quote Submission Deadline", rfq.bid_end_date]);
       ws_data.push(["Location", rfq.location]);
       ws_data.push([]); // Blank line to separate sections
 
@@ -355,7 +355,7 @@ const DownloadReportsForBuyer = (props) => {
       ["Company Name", rfq.company_name],
       ["Contact Name", rfq.contact_name],
       ["Contact Number", rfq.contact_number],
-      ["Bid End Date", rfq.bid_end_date],
+      ["Quote Submission Deadline", rfq.bid_end_date],
       ["Location", rfq.location],
       ["RFQ Status", rfq.status],
       ["RFQ Type", rfq.rfq_type],
