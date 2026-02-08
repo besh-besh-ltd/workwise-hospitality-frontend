@@ -210,9 +210,9 @@ const NegotiationModal = ({
   const handleProductToggle = (productId) => {
     setSelectedProducts(prev => {
       if (prev.includes(productId)) {
-        return prev.filter(id => id !== productId);
+        return [];
       } else {
-        return [...prev, productId];
+        return [productId];
       }
     });
   };
@@ -272,7 +272,7 @@ const NegotiationModal = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedProducts.length === 0 || !formData.target_price || !formData.end_date) {
-      toast.error('Please select at least one product and fill all fields');
+      toast.error('Please select a product and fill all fields');
       return;
     }
 
@@ -292,7 +292,7 @@ const NegotiationModal = ({
         });
       }
       
-      toast.success(`Negotiation round${selectedProducts.length > 1 ? 's' : ''} created successfully`);
+      toast.success('Negotiation round created successfully');
       onRefresh();
       onHide();
     } catch (error) {
@@ -504,93 +504,75 @@ const NegotiationModal = ({
     return product?.product_details?.[0]?.name || `Product ${product.id}`;
   };
 
-  const getVendorCodes = (product) => {
+  const getVendorDisplayName = (v) =>
+    v?.organization_name || v?.company_name || v?.vendor_company_name || v?.name || v?.email || 'Unknown Vendor';
+
+  const getVendorNames = (product) => {
     const quotations = product?.quotations || [];
     const allVendors = product?.all_vendors || [];
 
-    // If no quotations but we have all_vendors, use that directly
     if (quotations.length === 0) {
-      // Check if any vendor in all_vendors has submitted a quote (has quote-related data)
       const vendorsWithQuotes = allVendors.filter(v =>
         v.rfq_product_vendor_id && (v.has_quote || v.quote_submitted || v.total_price > 0 || v.unit_price > 0)
       );
-
       if (vendorsWithQuotes.length > 0) {
-        const codes = vendorsWithQuotes.slice(0, 3).map(v => `VEN-${v.rfq_product_vendor_id}`);
+        const names = vendorsWithQuotes.slice(0, 3).map(v => getVendorDisplayName(v));
         if (vendorsWithQuotes.length > 3) {
-          return `${codes.join(', ')} +${vendorsWithQuotes.length - 3} more`;
+          return `${names.join(', ')} +${vendorsWithQuotes.length - 3} more`;
         }
-        return codes.join(', ');
+        return names.join(', ');
       }
-
-      // Fallback: show all vendors with rfq_product_vendor_id
       const vendorsWithCodes = allVendors.filter(v => v.rfq_product_vendor_id);
       if (vendorsWithCodes.length > 0) {
-        const codes = vendorsWithCodes.slice(0, 3).map(v => `VEN-${v.rfq_product_vendor_id}`);
+        const names = vendorsWithCodes.slice(0, 3).map(v => getVendorDisplayName(v));
         if (vendorsWithCodes.length > 3) {
-          return `${codes.join(', ')} +${vendorsWithCodes.length - 3} more`;
+          return `${names.join(', ')} +${vendorsWithCodes.length - 3} more`;
         }
-        return codes.join(', ');
+        return names.join(', ');
       }
-
       return 'No quotes';
     }
 
-    // Filter out regretted quotes
     const validQuotations = quotations.filter(q => {
       const hasId = q.id != null || q.quote_id != null;
       return hasId && !isQuoteRegretted(q);
     });
 
     if (validQuotations.length === 0) {
-      // Fallback to all_vendors if quotations exist but all are invalid
       const vendorsWithCodes = allVendors.filter(v => v.rfq_product_vendor_id);
       if (vendorsWithCodes.length > 0) {
-        return vendorsWithCodes.slice(0, 3).map(v => `VEN-${v.rfq_product_vendor_id}`).join(', ');
+        return vendorsWithCodes.slice(0, 3).map(v => getVendorDisplayName(v)).join(', ');
       }
       return 'No quotes';
     }
 
-    const codes = validQuotations.slice(0, 3).map(q => {
-      // 1. Try vendor_details directly
+    const names = validQuotations.slice(0, 3).map(q => {
       const vendorDetails = getVendorDetailsFromQuote(q);
-      if (vendorDetails?.rfq_product_vendor_id) {
-        return `VEN-${vendorDetails.rfq_product_vendor_id}`;
+      if (vendorDetails) {
+        const name = getVendorDisplayName(vendorDetails);
+        if (name !== 'Unknown Vendor') return name;
       }
-
-      // 2. Try from all_vendors using created_by
       if (allVendors.length > 0 && q.created_by) {
         const allVendor = allVendors.find(
           v => v.id === q.created_by || v.user_id === q.created_by
         );
-        if (allVendor?.rfq_product_vendor_id) {
-          return `VEN-${allVendor.rfq_product_vendor_id}`;
-        }
+        if (allVendor) return getVendorDisplayName(allVendor);
       }
-
-      // 3. Try from all_vendors using vendor_details id/user_id
       if (allVendors.length > 0 && vendorDetails) {
         const allVendorByDetails = allVendors.find(
           v => v.id === vendorDetails.id || v.user_id === vendorDetails.user_id
         );
-        if (allVendorByDetails?.rfq_product_vendor_id) {
-          return `VEN-${allVendorByDetails.rfq_product_vendor_id}`;
-        }
+        if (allVendorByDetails) return getVendorDisplayName(allVendorByDetails);
       }
-
-      // 4. Single vendor fallback
-      if (allVendors.length === 1 && allVendors[0]?.rfq_product_vendor_id) {
-        return `VEN-${allVendors[0].rfq_product_vendor_id}`;
-      }
-
+      if (allVendors.length === 1) return getVendorDisplayName(allVendors[0]);
       return null;
     }).filter(Boolean);
 
-    if (codes.length > 0) {
+    if (names.length > 0) {
       if (validQuotations.length > 3) {
-        return `${codes.join(', ')} +${validQuotations.length - 3} more`;
+        return `${names.join(', ')} +${validQuotations.length - 3} more`;
       }
-      return codes.join(', ');
+      return names.join(', ');
     }
 
     return `${validQuotations.length} quote(s)`;
@@ -628,16 +610,6 @@ const NegotiationModal = ({
         <Form.Group className="mb-3">
           <div className="d-flex justify-content-between align-items-center mb-2">
             <Form.Label className="mb-0 fw-bold">Select Product</Form.Label>
-            {availableProducts.length > 1 && (
-              <Button
-                variant="link"
-                size="sm"
-                onClick={handleSelectAll}
-                className="p-0"
-              >
-                {selectedProducts.length === availableProducts.length ? 'Deselect All' : 'Select All'}
-              </Button>
-            )}
           </div>
 
           <Table bordered hover size="sm" className="mb-0">
@@ -649,7 +621,7 @@ const NegotiationModal = ({
                 <th>Size</th>
                 <th>Quantity</th>
                 <th>Unit</th>
-                <th>Vendor Codes</th>
+                <th>Vendor Names</th>
               </tr>
             </thead>
             <tbody>
@@ -673,7 +645,8 @@ const NegotiationModal = ({
                   >
                     <td className="text-center align-middle">
                       <Form.Check
-                        type="checkbox"
+                        type="radio"
+                        name="selectedProduct"
                         checked={isSelected}
                         disabled={isDisabled}
                         onChange={() => {}}
@@ -703,7 +676,7 @@ const NegotiationModal = ({
                     <td className="align-middle">{details.quantity}</td>
                     <td className="align-middle">{details.unit}</td>
                     <td className="align-middle">
-                      <small className="text-muted">{getVendorCodes(product)}</small>
+                      <small className="text-muted">{getVendorNames(product)}</small>
                     </td>
                   </tr>
                 );
@@ -712,7 +685,7 @@ const NegotiationModal = ({
           </Table>
           {selectedProducts.length > 0 && (
             <Form.Text className="text-success mt-2 d-block">
-              {selectedProducts.length} product{selectedProducts.length > 1 ? 's' : ''} selected
+              1 product selected
             </Form.Text>
           )}
         </Form.Group>
@@ -749,7 +722,7 @@ const NegotiationModal = ({
             Cancel
           </Button>
           <Button variant="primary" type="submit" disabled={submitting || selectedProducts.length === 0 || !canWrite || permissionsLoading}>
-            {submitting ? <Spinner size="sm" /> : `Create Round${selectedProducts.length > 1 ? 's' : ''}`}
+            {submitting ? <Spinner size="sm" /> : 'Create Round'}
           </Button>
         </div>
       </Form>

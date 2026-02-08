@@ -534,10 +534,10 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                             <strong>Minimum Passing Score (out of 100):</strong> {minimumPassingScore}
                           </p>
                         )}
-                        <table className="table table-bordered table-striped">
+                        <table className="table table-bordered table-striped" style={{ tableLayout: "fixed", width: "100%" }}>
                           <thead>
                             <tr className="table-dark">
-                              <th className="col-4 align-middle">Clause And Files</th>
+                              <th style={{ width: "30%" }} className="align-middle">Clause And Files</th>
                               {vendors && vendors.length > 0 &&
                                 vendors
                                   .filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id))
@@ -554,7 +554,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                     return (
                                       <th
                                         key={vendor.vendor_id}
-                                        className="col-3 align-middle"
+                                        className="align-middle"
                                       >
                                         <div className="d-flex justify-content-between gap-2 align-items-center">
                                           <div className="d-flex flex-column align-items-center w-100">
@@ -697,7 +697,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                         <>
                         <tr key={`rfq_prod_clause_${clauseItem.clause_id}`}>
                           {console.log("chcking th e clause id ", clauseItem.clause_id)}
-                          <td className="col-4">
+                          <td>
                             <div className="d-flex align-items-center gap-2">
                               <ReadMore
                                 content={`${index + 1}. ${
@@ -733,7 +733,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                               );
                               console.log("checking the console for vendor", vendor);
                               return (
-                                <td key={vendor.vendor_id} className="col-3">
+                                <td key={vendor.vendor_id}>
                                   <div
                                     style={{
                                       display: "flex",
@@ -776,12 +776,6 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         No score assigned yet
                                       </p>
                                     )}
-                                    {/* Show remark for sampling clauses */}
-                                    {clauseItem.clause_type === 'sampling' && response?.buyer_remark && (
-                                      <p className="mb-1">
-                                        <strong>Remark:</strong> {response.buyer_remark}
-                                      </p>
-                                    )}
                                     {clauseItem.clause_type !== 'sampling' && (
                                     <button
                                       type="button"
@@ -819,8 +813,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                       title={isPendingApproval ? "Actions frozen during pending approval" : (!canWrite ? "You don't have permission to add marks" : "")}
                                       id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-clause_actions-technical_evaluation_page`}
                                     >
-                                      Add Marks/Remark
+                                      {clauseItem.clause_type === 'sampling' ? 'Add Marks/Remarks' : 'Add Marks'}
                                     </button>
+                                    {/* Show remark for sampling clauses - at the bottom */}
+                                    {clauseItem.clause_type === 'sampling' && response?.buyer_remark && (
+                                      <p className="mb-1 mt-2">
+                                        <strong>Remark:</strong> {response.buyer_remark}
+                                      </p>
+                                    )}
 
                                   </div>
                                 </td>

@@ -980,7 +980,7 @@ const generateExcelFile = (api_data) => {
   ]);
 
   const infoRow2 = padToCols([
-    "POC For RFQ",
+    `POC For ${getEntityLabel(currentRFQ?.is_tender)}`,
     currentRFQ?.contact_name ?? "-",
     "Contact",
     currentRFQ?.contact_number ?? "-",
@@ -1314,7 +1314,8 @@ const generateExcelFile = (api_data) => {
   XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
 
   try {
-    const filename = `${currentRFQ?.rfq_no}_quotes.xlsx`;
+    const entityLabel = getEntityLabel(currentRFQ?.is_tender);
+    const filename = `${entityLabel}_${currentRFQ?.rfq_no}_quotes.xlsx`.replace(/\s+/g, "_");
     const excelBuffer = XLSX.write(wb, {
       bookType: "xlsx",
       type: "array",
@@ -1520,12 +1521,12 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       <span id="close_rfq_actions-quote_compare_page" onClick={handleRFqClose}>
                         {closeRFqLoading
                           ? "Processing request..."
-                          : `Mark ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender)} as Closed`}
+                          : `Mark ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)} as Closed`}
                       </span>
                     )}
                     {quotes[0]?.rfq[0]?.status == 2 && (
                       <span className="disabled-button">
-                        {getEntityLabel(quotes[0]?.rfq[0]?.is_tender)} has been closed
+                        {getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)} has been closed
                       </span>
                     )}
                   </>
@@ -2438,10 +2439,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         isOpen={showCloseConfirmModal}
         onClose={handleCloseCancel}
         onConfirm={handleCloseConfirm}
-        title={`Close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender)}`}
-        description={`Are you sure you want to close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender)} #${quotes[0]?.rfq[0]?.rfq_no || ''}?\nOnce closed, vendors will no longer be able to submit quotes.`}
+        title={`Close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)}`}
+        description={`Are you sure you want to close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)} #${quotes[0]?.rfq[0]?.rfq_no || ''}?\nOnce closed, vendors will no longer be able to submit quotes.`}
         confirmButtonColor="warning"
-        confirmButtonText={`Close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender)}`}
+        confirmButtonText={`Close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)}`}
         cancelButtonText="Cancel"
       />
     </>

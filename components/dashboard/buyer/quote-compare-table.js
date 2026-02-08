@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -47,6 +47,17 @@ const QuoteCompareTable = ({
   hotelId = null, // For approval workflow
   departmentId = null, // For approval workflow
 }) => {
+  // Map vendor id -> display name for quote compare (no vendor codes on UI)
+  const vendorNameMap = useMemo(() => {
+    const m = {};
+    (proditem?.all_vendors || []).forEach((v) => {
+      const name = v.organization_name || v.name || v.email || "Unknown Vendor";
+      m[v.id] = name;
+      if (v.user_id) m[v.user_id] = name;
+    });
+    return m;
+  }, [proditem?.all_vendors]);
+
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
 
@@ -228,6 +239,7 @@ const QuoteCompareTable = ({
           permissionsLoading={permissionsLoading}
           is_tender={is_tender}
           vendorCodeMap={vendorCodeMap}
+          vendorNameMap={vendorNameMap}
           fullProduct={proditem}
           quoteApprovalStatus={quoteApprovalStatus}
           department_id={departmentId}
@@ -247,6 +259,7 @@ const QuoteCompareTable = ({
           onCustomReject={handleCustomQuoteReject}
           onActionComplete={handleApprovalActionComplete}
           vendorCodeMap={vendorCodeMap}
+          vendorNameMap={vendorNameMap}
         />
       )}
 
@@ -723,15 +736,9 @@ const QuoteCompareTable = ({
                 <span>
                   <b>Lowest Bid</b> :{" "}
                   {(() => {
-                    // Apply vendor name visibility: show code in product-wise comparison to avoid premature identity exposure
                     const vdRaw = lowestQuote?.quote_details?.vendor_details;
                     const vd = Array.isArray(vdRaw) ? vdRaw[0] : vdRaw;
-                    const code = vd?.rfq_product_vendor_id
-                      ? `VEN-${vd.rfq_product_vendor_id}`
-                      : vd?.id && (vendorCodeMap?.[vd.id] ?? vendorCodeMap?.[String(vd.id)])
-                      ? `VEN-${vendorCodeMap[vd.id] ?? vendorCodeMap[String(vd.id)]}`
-                      : 'VEN-NA';
-                    return code;
+                    return (vd?.organization_name || vd?.name || vd?.email || 'Unknown Vendor');
                   })()}
                 </span>
                 <span>

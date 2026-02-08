@@ -50,7 +50,8 @@ const ApprovalWorkflowSection = ({
   onCustomApprove,    // Optional: Custom approve handler (for negotiation)
   onCustomReject,     // Optional: Custom reject handler (for negotiation)
   onActionComplete,   // Optional: Callback after action completes
-  vendorCodeMap = {}  // Optional: For displaying vendor codes in selected quotes
+  vendorCodeMap = {},  // Optional: For displaying vendor codes in selected quotes
+  vendorNameMap = {}  // Optional: For displaying vendor names in selected quotes
 }) => {
   const {
     instance,
@@ -236,6 +237,7 @@ const ApprovalWorkflowSection = ({
               <SelectedQuotesDisplay
                 quotes={instance.metadata.selected_quotes}
                 vendorCodeMap={vendorCodeMap}
+                vendorNameMap={vendorNameMap}
                 status={status}
               />
             )}

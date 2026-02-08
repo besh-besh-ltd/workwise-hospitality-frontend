@@ -26,8 +26,7 @@ import {
   ClarificationListModal,
 } from "@/components/dashboard/buyer/clarification";
 import { getClarifications } from "@/services/clarification";
-import VendorNegotiationInfo from "./VendorNegotiationInfo";
-import ProductNegotiationBadge from "./ProductNegotiationBadge";
+import NegotiationColumnCell from "@/components/dashboard/buyer/negotiation/NegotiationColumnCell";
 import { Badge, Button, Alert } from "react-bootstrap";
 import { BsCalendarEvent, BsClockFill, BsCheckCircleFill } from "react-icons/bs";
 
@@ -1429,16 +1428,6 @@ const RfqManagementPreview = () => {
                     </Alert>
                   )}
 
-                  {/* Negotiation Info Banner */}
-                  {rfqDetails?.products?.map((product) => (
-                    <VendorNegotiationInfo
-                      key={product.id}
-                      rfq_id={rfqDetails.id}
-                      rfq_product_id={product.id}
-                      productName={product.product_details?.[0]?.name || ''}
-                    />
-                  ))}
-
                   {/* Clarification Blocking Banner - Shows when a clarification is open */}
                   {!enableBuyerView && rfqDetails?.is_tender === 1 && hasOpenClarification && (
                     <section className="mt-3 mx-1">
@@ -1664,10 +1653,8 @@ const RfqManagementPreview = () => {
                               {type == "buyer-view" && !rfqDetails.is_tender ? (
                                 <th>Selected vendors</th>
                               ) : null}
+                              <th>Negotiation</th>
                               {<th>Technical Evaluation</th>}
-                              {rfqDetails?.products?.some(
-                                (product) => product.target_price
-                              ) && <th>Target Price</th>}
                             </tr>
                           </thead>
                           <tbody>
@@ -1704,14 +1691,6 @@ const RfqManagementPreview = () => {
                                 >
                                   <td>
                                     {item?.product_details[0]?.name}
-                                    {rfqDetails?.id && (
-                                      <div className="mt-1">
-                                        <ProductNegotiationBadge
-                                          rfq_id={rfqDetails.id}
-                                          rfq_product_id={item.id}
-                                        />
-                                      </div>
-                                    )}
                                   </td>
                                   <td
                                     style={{
@@ -1863,6 +1842,12 @@ const RfqManagementPreview = () => {
                                     </td>
                                   )}
 
+                                  <NegotiationColumnCell
+                                    rfq_id={rfqDetails?.id}
+                                    rfq_product_id={item.id}
+                                    productName={item?.product_details[0]?.name || ''}
+                                  />
+
                                   <td
                                     style={getTechEvalCellStyle(
                                       productTechEvalDetails[item.id],
@@ -1922,16 +1907,6 @@ const RfqManagementPreview = () => {
                                       <span className="text-muted">N/A</span>
                                     )}
                                   </td>
-
-                                  {item.target_price && (
-                                    <td className="position-relative">
-                                      <div className="target-price-badge bg-warning text-dark fw-bold px-3 py-2 rounded shadow-sm border border-warning-subtle">
-                                        <i className="bi bi-bullseye me-2"></i>₹
-                                        {item?.target_price?.toLocaleString()}
-                                        <span className="target-price-pulse"></span>
-                                      </div>
-                                    </td>
-                                  )}
                                 </tr>
                               );
                             })}
