@@ -432,15 +432,17 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             setShowSamplingForm(false);
             setSamplingWeightage("");
             onClose();
-        }} centered size="lg">
-            <Modal.Header closeButton>
-                <Modal.Title className="text-right w-100 p-3 d-flex justify-content-between align-items-center">
-                    <span>Technical and Sampling Clause for - {product.name}</span>
+        }} centered size="lg" dialogClassName="add-clause-modal-dialog">
+            <style>{`.add-clause-modal-dialog { max-width: 950px; }`}</style>
+            <Modal.Header closeButton className="p-3">
+                <Modal.Title className="w-100 d-flex justify-content-between align-items-center gap-3">
+                    <span className="text-truncate me-2">Technical and Sampling Clause for - {product.name}</span>
                     {!showMinimumScoreInput && (
                         <button
                             type="button"
-                            className="btn btn-outline-primary btn-sm text-nowrap"
+                            className="btn btn-outline-primary btn-sm text-nowrap flex-shrink-0 px-3 py-2"
                             onClick={handleOpenMinimumScoreInput}
+                            style={{ minWidth: "max-content" }}
                         >
                             {(minimumPassingScore !== null && minimumPassingScore !== undefined)
                                 ? `Edit minimum passing percentage (${minimumPassingScore})`
