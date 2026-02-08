@@ -10,7 +10,7 @@ import { addClause, addClauseUsingFile, getClausesByRfqProductId, removeClause, 
 import FullLoader from "@/components/shared/FullLoader";
 
 
-function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
+function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openToMinimumScore = false }) {
     const [clauseFile, setClauseFile] = useState(null);
     const [active, setActive] = useState('clause');
     const [message, setMessage] = useState("");
@@ -329,19 +329,17 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
 
     useEffect(() => {
         if(show) {
-            // Reset input state when modal opens
-            setShowMinimumScoreInput(false);
             setTempMinimumScore("");
+            // Open directly to minimum score view when requested
+            setShowMinimumScoreInput(!!openToMinimumScore);
             // Fetch clauses and minimum passing score - this will set minimumPassingScore
             getPreviousClauses();
         } else {
-            // Reset state when modal closes
             setShowMinimumScoreInput(false);
             setTempMinimumScore("");
-            // Don't reset minimumPassingScore here - let it persist until next fetch
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [show, product.id])
+    }, [show, product.id, openToMinimumScore])
 
     // Sync tempMinimumScore when minimumPassingScore changes and input is shown
     useEffect(() => {

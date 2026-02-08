@@ -2077,13 +2077,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                       <div className="d-flex justify-content-between align-items-center px-2 mb-2">
                                         <div className="flex-grow-1 text-center">
                                           <p className="sub-heading mb-0">
-                                            <Badge
-                                              bg={item?.last_purchase_rate?.is_tender === 1 || item?.last_purchase_rate?.is_tender === true ? "info" : "secondary"}
-                                              className="me-2"
-                                              style={{ fontSize: '0.7rem' }}
-                                            >
-                                              {item?.last_purchase_rate?.is_tender === 1 || item?.last_purchase_rate?.is_tender === true ? "Tender" : "RFQ"}
-                                            </Badge>
                                             <b>Last Purchase Details :</b>
                                           </p>
                                         </div>
