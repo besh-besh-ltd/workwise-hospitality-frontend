@@ -462,8 +462,8 @@ const EditRFQ = () => {
         setInitialDataLoaded(true);
       }
     } catch (error) {
-      setDataFetchError(error.message || "Failed to load Tender / RFQ data");
-      toast.error("Failed to load Tender / RFQ data. Please try again.");
+      setDataFetchError(error.message || `Failed to load ${getEntityLabel(rfqData?.is_tender)} data`);
+      toast.error(`Failed to load ${getEntityLabel(rfqData?.is_tender)} data. Please try again.`);
       console.error("Error loading RFQ data:", error);
     } finally {
       setRfqLoading(false);
@@ -1424,7 +1424,7 @@ const EditRFQ = () => {
     return (
       <div className="container-fluid">
         <div className="alert alert-warning">
-          <p>Unable to load Tender / RFQ data. Please try again.</p>
+          <p>Unable to load {getEntityLabel(rfqData?.is_tender)} data. Please try again.</p>
           <button
             className="btn btn-primary"
             onClick={() => window.location.reload()}
@@ -1909,9 +1909,9 @@ const EditRFQ = () => {
                           )}
                         </div>
 
-                        {/* Procurement End Date */}
+                        {/* Quote Submission Deadline */}
                         <div className="mb-3">
-                          <label className="form-label fw-medium">Procurement End Date <span className="text-danger">*</span></label>
+                          <label className="form-label fw-medium">Quote Submission Deadline <span className="text-danger">*</span></label>
                           <input
                             type="date"
                             name="bid_end_date"
@@ -1969,7 +1969,7 @@ const EditRFQ = () => {
                       <div className="col-md-6">
                         {/* Tender / RFQ Type */}
                         <div className="mb-3">
-                          <label className="form-label fw-medium">Tender / RFQ Type  </label>
+                          <label className="form-label fw-medium">{getEntityLabel(rfqFormDataFromStore?.is_tender)} Type</label>
                           <Select
                             options={rfqTypes}
                             value={(() => {

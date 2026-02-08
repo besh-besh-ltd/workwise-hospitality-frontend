@@ -439,7 +439,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                     {!showMinimumScoreInput && (
                         <button
                             type="button"
-                            className="btn btn-primary btn-sm"
+                            className="btn btn-outline-primary btn-sm text-nowrap"
                             onClick={handleOpenMinimumScoreInput}
                         >
                             {(minimumPassingScore !== null && minimumPassingScore !== undefined)
@@ -449,7 +449,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                     )}
                 </Modal.Title>
             </Modal.Header>
-            <Modal.Body style={{ minHeight: "200px" }}>
+            <Modal.Body className="p-2" style={{ minHeight: "200px" }}>
                 {showMinimumScoreInput ? (
                     <div className="d-flex flex-column gap-3 p-3">
                         <h5 className="mb-0">Set minimum passing percentage (out of 100)</h5>

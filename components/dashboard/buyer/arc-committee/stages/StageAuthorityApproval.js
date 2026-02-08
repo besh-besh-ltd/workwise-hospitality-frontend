@@ -34,7 +34,7 @@ const StageAuthorityApproval = ({ stage, rfq, lifecycleData, onRefresh }) => {
                 <div className="d-flex align-items-start gap-2">
                   <BsCalendar className="text-primary mt-1" />
                   <div>
-                    <div className="text-muted small">Bid End Date</div>
+                    <div className="text-muted small">Quote Submission Deadline</div>
                     <div className="fw-semibold">
                       {moment(details.bidEndDate).format('DD MMM YYYY')}
                     </div>

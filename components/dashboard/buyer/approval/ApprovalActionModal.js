@@ -48,7 +48,7 @@ const ApprovalActionModal = ({
       </Modal.Header>
 
       <Form onSubmit={handleSubmit}>
-        <Modal.Body>
+        <Modal.Body className="p-2">
           {/* Confirmation Message */}
           <Alert
             variant={isReject ? "danger" : "success"}
@@ -112,7 +112,7 @@ const ApprovalActionModal = ({
           )}
         </Modal.Body>
 
-        <Modal.Footer className="border-0">
+        <Modal.Footer className="border-0 p-2">
           <Button
             variant="outline-secondary"
             className="p-2"

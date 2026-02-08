@@ -1502,7 +1502,7 @@ const RfqManagementPreview = () => {
 
                 {rfqDetails?.bid_end_date && (
                         <div className=" col-md-2 col-sm-6 ">
-                          <strong>Procurement End Date:</strong>
+                          <strong>Quote Submission Deadline:</strong>
                           <div>{rfqDetails.bid_end_date}</div>
                         </div>
                       )}

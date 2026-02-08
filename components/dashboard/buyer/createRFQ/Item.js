@@ -858,16 +858,18 @@ const Item = ({
                   )}
 
                   {minimumPassingScore !== null && minimumPassingScore !== undefined && (
-                    <div className="d-flex align-items-center gap-2 p-2 border rounded" style={{ backgroundColor: "#f8f9fa" }}>
-                      <span className="small fw-semibold">Minimum Passing Percentage:</span>
-                      <span className="badge bg-primary">{minimumPassingScore}</span>
+                    <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 p-2 border rounded bg-white shadow-sm">
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="small text-muted">Minimum Score</span>
+                        <span className="badge bg-primary">{minimumPassingScore}/100</span>
+                      </div>
                       <button
                         type="button"
-                        className="btn btn-sm btn-outline-primary ms-auto"
+                        className="btn btn-sm btn-outline-primary"
                         onClick={handleOpenModal}
                         disabled={readOnly}
                       >
-                        <FontAwesomeIcon icon={faEdit} /> Edit
+                        <FontAwesomeIcon icon={faEdit} /> Edit Score
                       </button>
                     </div>
                   )}

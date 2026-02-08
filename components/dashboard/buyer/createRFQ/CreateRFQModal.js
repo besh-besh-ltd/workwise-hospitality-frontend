@@ -1,4 +1,5 @@
 import React from "react";
+import { getEntityLabel } from "@/utils/sharedFunctions";
 import { Modal, Button, ListGroup, Badge } from "react-bootstrap";
 
 const CreateRFQModal = ({
@@ -8,7 +9,9 @@ const CreateRFQModal = ({
   selectedSheets,
   setSelectedSheets,
   onConfirm,
+  is_tender,
 }) => {
+  const entityLabel = getEntityLabel(is_tender);
   return (
     <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header
@@ -20,11 +23,11 @@ const CreateRFQModal = ({
         }}
       >
         <Modal.Title style={{ fontWeight: 600, fontSize: "1.6rem" }}>
-          Create Tender / RFQ
+          Create {entityLabel}
         </Modal.Title>
       </Modal.Header>
 
-      <Modal.Body style={{ padding: "0 2rem 1.5rem 2rem" }}>
+      <Modal.Body className="p-2" style={{ padding: "0 2rem 1.5rem 2rem" }}>
         <h4
           style={{
             fontWeight: 500,
@@ -33,7 +36,7 @@ const CreateRFQModal = ({
             color: "#343a40",
           }}
         >
-          Heads Up! This will create a Tender / RFQ for only the
+          Heads Up! This will create a {entityLabel} for only the
           selected <strong>processed</strong> sheet's data
         </h4>
 
@@ -98,13 +101,13 @@ const CreateRFQModal = ({
           className="text-muted"
           style={{ fontSize: "1rem", lineHeight: "1.5" }}
         >
-          Select from the <strong>Processed Sheets</strong>, only for which you want to create the Tender / RFQ.
+          Select from the <strong>Processed Sheets</strong>, only for which you want to create the {entityLabel}.
         </p>
         <p
           className="text-muted"
           style={{ fontSize: "1rem", lineHeight: "1.5" }}
         >
-          Upon clicking the <strong>Create Tender / RFQ</strong> button, a Tender / RFQ will be
+          Upon clicking the <strong>Create {entityLabel}</strong> button, a {entityLabel} will be
           created with all the details provided in the selected processed sheets.
         </p>
         <p
@@ -116,6 +119,7 @@ const CreateRFQModal = ({
       </Modal.Body>
 
       <Modal.Footer
+        className="p-2"
         style={{
           borderTop: "none",
           padding: "1rem 2rem 1.5rem 2rem",
@@ -125,7 +129,7 @@ const CreateRFQModal = ({
           Cancel
         </Button>
         <Button variant="primary" size="sm" onClick={onConfirm}>
-          Create Tender / RFQ
+          Create {entityLabel}
         </Button>
       </Modal.Footer>
     </Modal>

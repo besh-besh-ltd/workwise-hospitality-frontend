@@ -145,7 +145,7 @@ const VendorSelectionModal = ({
         </h4>
       </div>
 
-      <div className="modal-body p-0">
+      <div className="modal-body p-2">
         {loading ? (
           <div className="text-center py-5">
             <div className="spinner-border" role="status">
@@ -155,7 +155,7 @@ const VendorSelectionModal = ({
           </div>
         ) : vendors.length === 0 ? (
           <div className="text-center py-4 px-3">
-            <p className="mb-0">No vendors need reminders for this Tender / RFQ.</p>
+            <p className="mb-0">No vendors need reminders for this {isTender ? "Tender" : "RFQ"}.</p>
           </div>
         ) : (
           <div className="vendor-modal-content">

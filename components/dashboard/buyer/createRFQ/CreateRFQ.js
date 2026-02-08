@@ -26,7 +26,7 @@ import { getDepartments } from "@/services/rbac";
 import HotelFilter from "@/components/shared/HotelFilter";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
-import { extractfileName, handleFileUpload, formatISOToDateTimeLocal, getDataWithLoading } from "@/utils/sharedFunctions";
+import { extractfileName, handleFileUpload, formatISOToDateTimeLocal, getDataWithLoading, getEntityLabel } from "@/utils/sharedFunctions";
 import { Accordion } from "react-bootstrap";
 import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import axiosInstance from "@/lib/axios";
@@ -590,7 +590,7 @@ const CreateRFQ = () => {
     if (name === 'bid_end_date' && value) {
       const selectedDate = new Date(value);
       if (selectedDate < today) {
-        error = 'Bid End Date cannot be in the past.';
+        error = 'Quote Submission End Date cannot be in the past.';
       }
       // Changes by Agnij 2025-05-03 [Removed bid end must be before RA start constraint]
       // No constraint between bid end date and reverse auction start
@@ -610,7 +610,7 @@ const CreateRFQ = () => {
           const diffInDays = (raStartDateOnly - bidEndDateOnly) / (1000 * 60 * 60 * 24);
         
           if (diffInDays < 1) {
-            error = 'Auction Start Date must be at least one day after the Procurement End Date.';
+            error = 'Auction Start Date must be at least one day after the Quote Submission End Date.';
           } else if (selectedStartDate < today) {
             error = 'Auction Start Date/Time cannot be in the past.';
         }}
@@ -633,14 +633,14 @@ const CreateRFQ = () => {
 
         // Rule 1: Must be after tender publish date
         if (publishDate && clarificationDate <= publishDate) {
-          error = 'Clarification deadline must be after the tender publish date.';
+          error = 'Clarification End Date must be after the tender publish date.';
         }
 
         // Rule 2: Must be at least 5 days before bid end date
         if (!error && bidEndDate) {
           const diffInDays = (bidEndDate - clarificationDate) / (1000 * 60 * 60 * 24);
           if (diffInDays < 5) {
-            error = 'Clarification deadline must be at least 5 days before procurement end date.';
+            error = 'Clarification End Date must be at least 5 days before the quote submission End Date.';
           }
         }
     } else if (name === 'reverse_auction' && !value) {
@@ -666,7 +666,7 @@ const CreateRFQ = () => {
       if(value){
         const selectedDate = new Date(value);
         if (selectedDate <= today) {
-            toast.error(`Project procurement end date must be greater than ${today.toISOString().slice(0, 10)}`);;
+            toast.error(`Quote submission End Date must be after ${today.toISOString().slice(0, 10)}`);
             return;
         }
       }
@@ -676,7 +676,7 @@ const CreateRFQ = () => {
         const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
         const diffInDays = (bidEndDate - clarificationDate) / (1000 * 60 * 60 * 24);
         if (diffInDays < 5) {
-          toast.warning("Clarification deadline is now less than 5 days before procurement end date. Please update it.");
+          toast.warning("Clarification End Date is now less than 5 days before the quote submission End Date. Please update it.");
         }
       }
     }
@@ -689,7 +689,7 @@ const CreateRFQ = () => {
       if (rfqFormDataFromStore.tender_publish_date) {
         const publishDate = new Date(rfqFormDataFromStore.tender_publish_date);
         if (clarificationDate <= publishDate) {
-          toast.error("Clarification deadline must be after the tender publish date.");
+          toast.error("Clarification End Date must be after the tender publish date.");
           return;
         }
       }
@@ -699,7 +699,7 @@ const CreateRFQ = () => {
         const bidEndDate = new Date(rfqFormDataFromStore.bid_end_date);
         const diffInDays = (bidEndDate - clarificationDate) / (1000 * 60 * 60 * 24);
         if (diffInDays < 5) {
-          toast.error("Clarification deadline must be at least 5 days before procurement end date.");
+          toast.error("Clarification End Date must be at least 5 days before the quote submission End Date.");
           return;
         }
       }
@@ -710,7 +710,7 @@ const CreateRFQ = () => {
       const publishDate = new Date(value);
       const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
       if (clarificationDate <= publishDate) {
-        toast.warning("Clarification deadline is now invalid. Please update it.");
+        toast.warning("Clarification End Date is now invalid. Please update it.");
       }
     }
 
@@ -1008,7 +1008,7 @@ useEffect(() => {
         setMainLoading(false);
         toast.success(
           <h6>
-            <b>{rfqFormDataFromStore?.is_tender === 1 ? 'Tender' : 'RFQ'} #{res.data.rfq_no}:</b> Successfully created!
+            <b>{getEntityLabel(rfqFormDataFromStore?.is_tender)} #{res.data.rfq_no}:</b> Successfully created!
           </h6>,
           { position: "top-right" }
         );
@@ -1033,7 +1033,7 @@ useEffect(() => {
         setHasUnsavedChanges(true);
         
         const errorData = err?.message?.response?.data;
-        const errorMessage = errorData?.message || "Failed to create RFQ. Please check your form and try again.";
+        const errorMessage = errorData?.message || `Failed to create ${getEntityLabel(rfqFormDataFromStore?.is_tender)}. Please check your form and try again.`;
 
         if (errorData?.status === 2 && Array.isArray(errorData.details)) {
           const missingVendorIds = errorData.details.map(d => d.rfqProductId);
@@ -1223,7 +1223,7 @@ useEffect(() => {
       })
       toast.success(
         <h6>
-          <b>RFQ Draft #{res.message?.rfq?.rfq_no}:</b> Changes saved successfully!
+          <b>{getEntityLabel(rfqFormDataFromStore?.is_tender)} Draft #{res.message?.rfq?.rfq_no}:</b> Changes saved successfully!
         </h6>,
         { position: "top-right" }
       );
@@ -1285,7 +1285,7 @@ useEffect(() => {
             }
           } catch (error) {
             console.error("Error fetching magic search sheets:", error);
-            toast.error("Failed to load sheet data for this RFQ");
+            toast.error(`Failed to load sheet data for this ${getEntityLabel(rfqFormDataFromStore?.is_tender)}`);
           }
         }
         
@@ -1344,19 +1344,19 @@ useEffect(() => {
           });
 
         // Update document title
-        document.title = `Edit Draft RFQ #${id}`;
+        document.title = `Edit Draft ${getEntityLabel(rfqFormDataFromStore?.is_tender)} #${id}`;
         
         // Set up other form-related data
         getTermsData();
       } else {
         console.error("No data found in draft response");
-        toast.error("Failed to load draft RFQ data");
+        toast.error(`Failed to load draft ${getEntityLabel(rfqFormDataFromStore?.is_tender)} data`);
       }
       setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Error loading draft by ID:", error);
       // Changes by Agnij 2025-06-17 [Improved error message with specific details]
-      toast.error(error.message || "Error loading draft RFQ");
+      toast.error(error.message || `Error loading draft ${getEntityLabel(rfqFormDataFromStore?.is_tender)}`);
     } finally {
       dispatch(setStoreLoading(false));
     }
@@ -1372,7 +1372,7 @@ useEffect(() => {
       if (draftRfqId && draftRfqId !== -1) {
         draftRes = await getDraftById(draftRfqId, selectedSheet?.value);
         console.log("DRAFT PRODUCTS: ", draftRes.data.products)
-        document.title = `Edit Draft RFQ #${draftRfqId}`;
+        document.title = `Edit Draft ${getEntityLabel(rfqFormDataFromStore?.is_tender)} #${draftRfqId}`;
 
         const isMagicRfqFromFlag = draftRes?.data?.rfq_form_data?.rfq_added_from === 'magic';
         const hasMagicSheets = draftRes?.data?.sheets && Array.isArray(draftRes.data.sheets) && draftRes.data.sheets.length > 0;
@@ -1391,7 +1391,7 @@ useEffect(() => {
               } else {
               }
             } catch (error) {
-              toast.error("Failed to load sheet data for this RFQ");
+              toast.error(`Failed to load sheet data for this ${getEntityLabel(rfqFormDataFromStore?.is_tender)}`);
             }
           }
           
@@ -1419,7 +1419,7 @@ useEffect(() => {
       } else {
         // Changes by Agnij 2025-06-17 [Using fresh=true to always create a new RFQ when opening the Create RFQ page]
         draftRes = await getDraftData(true);
-        document.title = "Create New RFQ";
+        document.title = `Create New ${getEntityLabel(rfqFormDataFromStore?.is_tender)}`;
       }
 
       if (draftRes?.data?.rfq_form_data?.contact_number) {
@@ -1458,7 +1458,7 @@ useEffect(() => {
       }
 
     } catch (error) {
-      toast.error(error.message || "Error loading draft RFQ");
+      toast.error(error.message || `Error loading draft ${getEntityLabel(rfqFormDataFromStore?.is_tender)}`);
     } finally {
       dispatch(setStoreLoading(false));
     }
@@ -1598,7 +1598,7 @@ useEffect(() => {
       rfqProducts?.length
     )
       toast.warning(
-        "You cannot delete all products from RFQ, at least one product is required"
+        `You cannot delete all products from ${getEntityLabel(rfqFormDataFromStore?.is_tender)}, at least one product is required`
       );
     else {
       setPendingProductToRemove(product);
@@ -2171,11 +2171,11 @@ useEffect(() => {
         try {
           const draftRes = await getDraftData(true);
           dispatch(intializeRfq(draftRes.data));
-          document.title = "Create New RFQ";
+          document.title = `Create New ${getEntityLabel(rfqFormDataFromStore?.is_tender)}`;
           getTermsData();
         } catch (error) {
           console.error("Error creating fresh draft:", error);
-          toast.error(error.message || "Error creating fresh RFQ draft");
+          toast.error(error.message || `Error creating fresh ${getEntityLabel(rfqFormDataFromStore?.is_tender)} draft`);
         } finally {
           dispatch(setStoreLoading(false));
         }
@@ -2416,73 +2416,8 @@ useEffect(() => {
                 </div>
               ) : (
                 <>
-                  {/* Project Selection Section */}
-                  <div className="row mb-3">
-                    {userHotelMappings.length > 0 && (
-                      <div className="col-md-3">
-                        <label className="form-label fw-medium">Select Hotels</label>
-                        <Select
-                          id="select_hotels-create_rfq_page"
-                          isMulti
-                          options={userHotelMappings}
-                          value={userHotelMappings.filter(opt =>
-                            selectedHotelIds.includes(opt.hospitality_hotel_id)
-                          )}
-                          onChange={(selectedOptions) => {
-                            const ids = selectedOptions
-                              ? selectedOptions.map(opt => opt.hospitality_hotel_id)
-                              : [];
-                            handleHotelSelectionChange(ids);
-                          }}
-                          placeholder="Select Hotels..."
-                          closeMenuOnSelect={false}
-                          classNamePrefix="react-select"
-                          isClearable
-                          formatOptionLabel={(option) => (
-                            <div>
-                              <span>{option.hotel_name}</span>
-                            </div>
-                          )}
-                          getOptionValue={(option) => option.hospitality_hotel_id}
-                        />
-                      </div>
-                    )}
-
-                    <div className="col-md-3">
-                      <label className="form-label fw-medium">{rfqFormDataFromStore.is_tender === 1 ? 'Tender' : 'RFQ'} Title <span className="text-danger">*</span></label>
-                      <input
-                        type="text"
-                        id="title-input-create_rfq_page"
-                        name="title"
-                        className="form-control"
-                        value={rfqFormDataFromStore.title || ""}
-                        onChange={handleFormFieldChange}
-                        placeholder={`Enter ${rfqFormDataFromStore.is_tender === 1 ? 'Tender' : 'RFQ'} Title`}
-                      />
-                    </div>
-
-                    {rfqFormDataFromStore.is_tender === 1 && departments.length > 0 && (
-                      <div className="col-md-3">
-                        <label className="form-label fw-medium">Department</label>
-                        <Select
-                          id="select_department-create_rfq_page"
-                          options={departments}
-                          value={departments.find(d => d.value === rfqFormDataFromStore.department_id) || null}
-                          onChange={(selected) => {
-                            dispatch(setOtherFormFields({
-                              field_name: "department_id",
-                              value: selected?.value || null
-                            }));
-                            setHasUnsavedChanges(true);
-                          }}
-                          placeholder="Select Department"
-                          classNamePrefix="react-select"
-                          isClearable
-                        />
-                      </div>
-                    )}
-
-                    {isMagicRfq && sheetNameList.length > 0 && (
+                  {isMagicRfq && sheetNameList.length > 0 && (
+                    <div className="row mb-3">
                       <div className="col-md-3">
                         <label className="form-label fw-medium">Select Sheet</label>
                         <Select
@@ -2495,8 +2430,8 @@ useEffect(() => {
                           className="sheet-selector"
                         />
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
 
                   {rfqFormDataFromStore.is_tender !== 1 && (
@@ -2784,6 +2719,71 @@ useEffect(() => {
                                 </div>
                               </div>
 
+                              <div className="row mt-3">
+                                {userHotelMappings.length > 0 && (
+                                  <div className="col-md-4">
+                                    <label className="form-label fw-medium">Select Hotels</label>
+                                    <Select
+                                      id="select_hotels-create_rfq_page"
+                                      isMulti
+                                      options={userHotelMappings}
+                                      value={userHotelMappings.filter(opt =>
+                                        selectedHotelIds.includes(opt.hospitality_hotel_id)
+                                      )}
+                                      onChange={(selectedOptions) => {
+                                        const ids = selectedOptions
+                                          ? selectedOptions.map(opt => opt.hospitality_hotel_id)
+                                          : [];
+                                        handleHotelSelectionChange(ids);
+                                      }}
+                                      placeholder="Select Hotels..."
+                                      closeMenuOnSelect={false}
+                                      classNamePrefix="react-select"
+                                      isClearable
+                                      formatOptionLabel={(option) => (
+                                        <div>
+                                          <span>{option.hotel_name}</span>
+                                        </div>
+                                      )}
+                                      getOptionValue={(option) => option.hospitality_hotel_id}
+                                    />
+                                  </div>
+                                )}
+
+                                <div className="col-md-4">
+                                  <label className="form-label fw-medium">{getEntityLabel(rfqFormDataFromStore.is_tender)} Title <span className="text-danger">*</span></label>
+                                  <input
+                                    type="text"
+                                    id="title-input-create_rfq_page"
+                                    name="title"
+                                    className="form-control"
+                                    value={rfqFormDataFromStore.title || ""}
+                                    onChange={handleFormFieldChange}
+                                    placeholder={`Enter ${getEntityLabel(rfqFormDataFromStore.is_tender)} Title`}
+                                  />
+                                </div>
+
+                                {rfqFormDataFromStore.is_tender === 1 && departments.length > 0 && (
+                                  <div className="col-md-4">
+                                    <label className="form-label fw-medium">Department</label>
+                                    <Select
+                                      id="select_department-create_rfq_page"
+                                      options={departments}
+                                      value={departments.find(d => d.value === rfqFormDataFromStore.department_id) || null}
+                                      onChange={(selected) => {
+                                        dispatch(setOtherFormFields({
+                                          field_name: "department_id",
+                                          value: selected?.value || null
+                                        }));
+                                        setHasUnsavedChanges(true);
+                                      }}
+                                      placeholder="Select Department"
+                                      classNamePrefix="react-select"
+                                      isClearable
+                                    />
+                                  </div>
+                                )}
+                              </div>
 
                               <div className="row mt-2">
                                 <div className="col-md-6">
@@ -2939,7 +2939,7 @@ useEffect(() => {
                                 <div className="col-md-4">
                                   <FormikField
                                     id="procurement_end_date-rfq_details-create_rfq_page"
-                                    label="Procurement end date"
+                                    label="Quote Submission End Date"
                                     value={rfqFormDataFromStore.bid_end_date}
                                     enableHandleChange={true}
                                     handleChange={handleFormFieldChange}
@@ -2954,7 +2954,7 @@ useEffect(() => {
                                     {rfqFormDataFromStore.is_tender === 1 && (
                                     <div className="col-md-4">
                                       <label className="form-label">
-                                        Vendor Clarification Deadline
+                                        Vendor Clarification End Date
                                       </label>
                                       <input
                                         id="vendor_clarification_date-rfq_details-create_rfq_page"
@@ -3355,6 +3355,7 @@ useEffect(() => {
         sheets={sheetNameList}
         selectedSheets={selectedSheetsForRFQ}
         setSelectedSheets={setSelectedSheetsForRFQ}
+        is_tender={rfqFormDataFromStore?.is_tender}
       />
 
       {/* Submit RFQ Confirmation Modal */}
@@ -3362,8 +3363,8 @@ useEffect(() => {
         isOpen={showCreateConfirmModal}
         onClose={handleCreateCancel}
         onConfirm={handleCreateConfirm}
-        title="Submit RFQ"
-        description="Are you sure you want to submit this RFQ?\nThis action will send the RFQ to selected vendors."
+        title={`Submit ${getEntityLabel(rfqFormDataFromStore?.is_tender)}`}
+        description={`Are you sure you want to submit this ${getEntityLabel(rfqFormDataFromStore?.is_tender)}?\nThis action will send the ${getEntityLabel(rfqFormDataFromStore?.is_tender)} to selected vendors.`}
         confirmButtonColor="success"
         confirmButtonText="Submit"
         cancelButtonText="Cancel"
@@ -3375,7 +3376,7 @@ useEffect(() => {
         onClose={handleRemoveProductCancel}
         onConfirm={handleRemoveProductConfirm}
         title="Remove Product"
-        description={`Are you sure you want to remove this product from the RFQ?\nThis action will remove the product and all its associated data.`}
+        description={`Are you sure you want to remove this product from the ${getEntityLabel(rfqFormDataFromStore?.is_tender)}?\nThis action will remove the product and all its associated data.`}
         confirmButtonColor="danger"
         confirmButtonText="Remove"
         cancelButtonText="Cancel"

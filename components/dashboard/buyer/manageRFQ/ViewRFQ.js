@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
+import { getEntityLabel } from "@/utils/sharedFunctions";
 
 const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
   console.log("RFQ Data in ViewRFQ:", data);
@@ -27,7 +28,7 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <span className="title">
                     {data.title && <span className="d-block fw-bold">{data.title}</span>}
-                    Tender / RFQ #{data.rfq_no} details
+                    {getEntityLabel(data?.is_tender)} #{data.rfq_no} details
                   </span>
                   
                   <div className="d-flex gap-2">
@@ -535,7 +536,7 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
                           className="btn btn-primary"
                           id="edit_rfq-rfq_actions-view_rfq_page"
                         >
-                          Edit Tender / RFQ
+                          Edit {getEntityLabel(data?.is_tender)}
                         </Link>
                       )}
                       {rfqStatus === 1 && (
@@ -546,12 +547,12 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
                           onClick={onCloseRFQ}
                           disabled={closeLoading}
                         >
-                          {closeLoading ? "Processing..." : "Mark Tender / RFQ as Closed"}
+                          {closeLoading ? "Processing..." : `Mark ${getEntityLabel(data?.is_tender)} as Closed`}
                         </button>
                       )}
                       {rfqStatus === 2 && (
                         <button type="button" className="btn btn-danger" disabled id="rfq_closed-rfq_status-view_rfq_page">
-                          Tender / RFQ is Closed
+                          {getEntityLabel(data?.is_tender)} is Closed
                         </button>
                       )}
                     </div>

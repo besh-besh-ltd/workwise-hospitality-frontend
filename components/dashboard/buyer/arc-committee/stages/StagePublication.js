@@ -30,7 +30,7 @@ const StagePublication = ({ stage, rfq }) => {
             <div className="d-flex align-items-start gap-2">
               <BsCalendar className="text-warning mt-1" />
               <div>
-                <div className="text-muted small">Bid End Date</div>
+                <div className="text-muted small">Quote Submission Deadline</div>
                 <div className="fw-semibold">
                   {moment(details.bidEndDate || rfq?.bid_end_date).format('DD MMM YYYY')}
                 </div>

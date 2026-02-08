@@ -95,8 +95,8 @@ const ConfirmationModal = ({
                     </div>
                 )}
 
-                <div className="modal-body text-center">
-                    <div className='p-4 d-flex flex-column' style={{ minHeight: '200px' }}>
+                <div className="modal-body text-center p-2">
+                    <div className='p-2 d-flex flex-column' style={{ minHeight: '200px' }}>
                         {/* Title */}
                         <div className="mb-4">
                             <h4 className='fw-bold'>{title}</h4>
@@ -116,7 +116,7 @@ const ConfirmationModal = ({
                         {customFooter}
 
                         {/* Buttons */}
-                        <div className='d-flex justify-content-center gap-3 mt-4'>
+                        <div className='d-flex flex-wrap justify-content-center gap-3 mt-4'>
                             <button 
                                 onClick={onClose} 
                                 className="btn btn-outline-secondary p-2"

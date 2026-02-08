@@ -435,15 +435,16 @@ useEffect(() => {
                       <h3 className="fs-5 mb-1 fw-bold">
                         {currentRfq.title}
                       </h3>}
-                    <div className="d-flex align-items-center gap-3 mb-1">
-                      <h3 className="fs-5 mb-0">
-                        <span className="fw-semibold">{currentRfq.is_tender === 1 ? 'Tender' : 'RFQ'} No : </span>{currentRfq.rfq_no}
+                    <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                      <h3 className="fs-5 mb-1">
+                        <span className="fw-semibold">{getEntityLabel(currentRfq?.is_tender)} No : </span>{currentRfq.rfq_no}
                       </h3>
                       <Link
-                        href={`/dashboard/buyer/rfq-management?tab=manage-rfq&rfq_id=${rfq_id}`}
-                        className="btn btn-sm btn-outline-primary"
+                        href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${currentRfq.id}`}
+                        className="btn btn-outline-primary btn-sm"
+                        id="view_rfq_details-technical_eval_page"
                       >
-                        View {currentRfq.is_tender === 1 ? 'Tender' : 'RFQ'}
+                        View {getEntityLabel(currentRfq?.is_tender)}
                       </Link>
                     </div>
                     {currentRfq.project_name && currentRfq.project_name != "" &&
@@ -497,11 +498,11 @@ useEffect(() => {
                         )}
                         {currentRfq.rfq_type && currentRfq.rfq_type != "" &&
                           <p className="sub-heading mb-0">
-                            <b>Tender / RFQ Type</b> :{" "}
+                          <b>{getEntityLabel(currentRfq?.is_tender)} Type</b> :{" "}
                             {currentRfq.rfq_type}
                           </p>}
                         <p className="sub-heading mb-0">
-                          <b>Bid End Date</b> :{" "}
+                          <b>Quote Submission Deadline</b> :{" "}
                           {currentRfq.bid_end_date}
                         </p>
 
