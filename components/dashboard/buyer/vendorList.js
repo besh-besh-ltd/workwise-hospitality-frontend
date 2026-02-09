@@ -103,8 +103,12 @@ const VendorList = ({
 
               {/* Vendor info */}
               <div style={{ flex: 1 }}>
+                {vendor?.vendor_code && (
+                  <span className="text-muted fw-semibold d-block" style={{ fontSize: "0.8rem" }}>
+                    {vendor.vendor_code}
+                  </span>
+                )}
                 <h6 className="mb-2" style={{ fontSize: "1.1rem" }}>
-                  {/* Prefer anonymised / precomputed display name when available */}
                   {vendor?.display_name ?? vendor?.company_name ?? "-"}
                 </h6>
                 <p
