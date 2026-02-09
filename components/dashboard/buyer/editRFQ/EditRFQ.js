@@ -135,7 +135,6 @@ const EditRFQ = () => {
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [showAddVendorModal, setShowAddVendorModal] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
-  const [showAddVendorForProductModal, setShowAddVendorForProductModal] = useState(false);
   const [showAddSpecModal, setShowAddSpecModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState([]);
   const [activeKey, setActiveKey] = useState(null);
@@ -154,9 +153,9 @@ const EditRFQ = () => {
       quantity: 1,
       unit: 'nos',
     },
-    vendors: [],
   })
   const [vendors, setVendors] = useState([]);
+  const [productsWithNoVendors, setProductsWithNoVendors] = useState(new Set());
   const [termsChanged, setTermsChanged] = useState(false);
 
   // Promps a confirmation if any product is going to be deleted
@@ -735,7 +734,7 @@ const EditRFQ = () => {
   const handleUpdateRFQ = async (formValues) => {
     try {
       if (!rfqData || !rfqData.id) {
-        toast.error("Original RFQ data not available");
+        toast.error(`Original ${getEntityLabel(rfqData?.is_tender)} data not available`);
         return;
       }
 
@@ -784,15 +783,19 @@ const EditRFQ = () => {
         termsChanged,
         selectedTerms,
         title: formValues.title !== undefined ? formValues.title : rfqData.title || null,
+        comment: formValues.comment !== undefined ? formValues.comment : rfqData.comment,
        };
 
       // Always include validated project_id (for both RFQ and Tender)
       dataToSend.project_id = parsedProjectId;
 
-      if (formValues.rfq_type && rfqTypes.some(type => formValues.rfq_type == type.value)) {
-        dataToSend.rfq_type = formValues.rfq_type;
-      } else if (rfqData.rfq_type) {
-        dataToSend.rfq_type = rfqData.rfq_type;
+      // rfq_type (Firm/Budgetary) is only for RFQs, not tenders
+      if (rfqData?.is_tender !== 1) {
+        if (formValues.rfq_type && rfqTypes.some(type => formValues.rfq_type == type.value)) {
+          dataToSend.rfq_type = formValues.rfq_type;
+        } else if (rfqData.rfq_type) {
+          dataToSend.rfq_type = rfqData.rfq_type;
+        }
       }
 
       if (formValues.location) {
@@ -829,6 +832,11 @@ const EditRFQ = () => {
       if (dataToSend.is_tender === 1) {
         if (rfqFormDataFromStore.vendor_clarification_date != null)
           dataToSend.vendor_clarification_date = rfqFormDataFromStore.vendor_clarification_date;
+      }
+
+      // Include hotel_ids for vendor recomputation on hotel change
+      if (rfqData.mappedHotels && rfqData.mappedHotels.length > 0) {
+        dataToSend.hotel_ids = rfqData.mappedHotels.map(h => h.hotel_id);
       }
 
   //  try {
@@ -868,7 +876,19 @@ const EditRFQ = () => {
              
           if (isSuccess) {
             toast.info(`${getEntityLabel(rfqData?.is_tender)} has been updated, you can change something else or go back!`);
-            
+
+            // Handle vendor recomputation warnings after hotel change
+            const recompResult = response?.data?.vendorRecomputationResult || response?.vendorRecomputationResult;
+            if (recompResult && recompResult.recomputed) {
+              if (recompResult.productsWithNoVendors && recompResult.productsWithNoVendors.length > 0) {
+                const names = recompResult.productsWithNoVendors.map(p => p.product_name).filter(Boolean).join(', ');
+                toast.warn(`Warning: Products ${names ? `'${names}'` : ''} have no eligible vendors for the selected hotels`);
+                setProductsWithNoVendors(new Set(recompResult.productsWithNoVendors.map(p => p.rfq_product_id)));
+              } else {
+                setProductsWithNoVendors(new Set());
+              }
+            }
+
             // Reset initialization flag so we'll re-initialize terms on fetch
             termsInitializedRef.current = false;
             
@@ -880,6 +900,7 @@ const EditRFQ = () => {
               contact_number: formValues.contact_number,
               response_email: formValues.response_email,
               bid_end_date: formValues.bid_end_date,
+              comment: formValues.comment !== undefined ? formValues.comment : prevData.comment,
               project_id: parsedProjectId,
               // Update auction dates if they were changed
               ra_start_date: formValues.ra_start_date || prevData.ra_start_date,
@@ -901,7 +922,7 @@ const EditRFQ = () => {
                 response_email: formValues.response_email,
                 location: rfqData.location || '',
                 bid_end_date: formValues.bid_end_date,
-                comment: rfqData.comment, // Keep original comment
+                comment: formValues.comment !== undefined ? formValues.comment : rfqData.comment,
                 project_id: parsedProjectId,
                 // Update auction dates in Redux store
                 ra_start_date: formValues.ra_start_date || rfqData.ra_start_date,
@@ -1003,40 +1024,57 @@ const EditRFQ = () => {
       },
     }));
     setShowAddSpecModal(false);
-    setShowAddVendorForProductModal(true);
+    // Directly add the product with auto-mapped vendors (no vendor modal step)
+    handleAddProduct(specData);
   };
 
-  const handleAddVendorForProduct = (vendor) => {
-    console.log(vendor)
-    setProductAddData(prev => ({
-      ...prev,
-      vendors: [...prev.vendors, vendor.id]
-    }))
-  }
+  const handleAddProduct = async (specData) => {
+    if(!rfqData || !rfqData.id) return;
 
-  const handleAddProduct = async () => {
-    if(!rfqData || !rfqData.id || productAddData.vendors.length <= 0) return;
+    const hotel_ids = rfqData.mappedHotels
+      ? rfqData.mappedHotels.map(h => h.hotel_id)
+      : [];
 
     const payload = {
       rfqId: rfqData.id,
-      ...productAddData
+      variant_id: productAddData.variant_id,
+      specs: specData || productAddData.specs,
+      hotel_ids,
+      is_tender: rfqData.is_tender,
     }
 
-    const data = await addProductToExistingRfq(payload)
-    await fetchInitialData()
-    toast.success(`Product added ${productAddData.vendors.length > 0 ? 'with' : 'without'} vendors`)
-    setProductAddData({
-      variant_id: -1,
-      vendors: [],
-    })
-    setUpdatableData(prev => ({
-      ...prev,
-      products: {
-        ...prev.products,
-        addable: [...prev.products.addable, data.rfqProductId]
+    try {
+      const data = await addProductToExistingRfq(payload)
+      await fetchInitialData()
+      const vendorCount = data?.vendor_count ?? 0;
+      if (vendorCount > 0) {
+        toast.success(`Product added with ${vendorCount} vendor(s)`);
+      } else {
+        toast.warn("Product added but no eligible vendors found for the selected hotels");
+        setProductsWithNoVendors(prev => {
+          const next = new Set(prev);
+          if (data?.rfqProductId) next.add(data.rfqProductId);
+          return next;
+        });
       }
-    }))
-    setShowAddVendorForProductModal(false)
+      setProductAddData({
+        variant_id: -1,
+        specs: {
+          quantity: 1,
+          unit: 'nos',
+        },
+      })
+      setUpdatableData(prev => ({
+        ...prev,
+        products: {
+          ...prev.products,
+          addable: [...prev.products.addable, data.rfqProductId]
+        }
+      }))
+    } catch (error) {
+      const errorMsg = error?.response?.data?.message || error?.message || "Failed to add product";
+      toast.error(errorMsg);
+    }
   }
 
 
@@ -1517,6 +1555,12 @@ const EditRFQ = () => {
                     return null;
                   }
                   return (
+                    <React.Fragment key={`product-wrapper-${product.id}`}>
+                    {productsWithNoVendors.has(product.id) && (
+                      <small className="text-danger fw-bold d-block mb-1">
+                        No eligible vendors for selected hotels
+                      </small>
+                    )}
                     <Item
                       is_tender={rfqData?.is_tender}
                       // vendorApprovedList={vendorApprovedList}
@@ -1701,6 +1745,7 @@ const EditRFQ = () => {
                       type="edit"
                       readOnly={hotelIds.length > 0 && !canUpdate}
                     />
+                    </React.Fragment>
                   );
                 })}
             </Accordion>
@@ -1745,6 +1790,7 @@ const EditRFQ = () => {
                 contact_number: onecountrycode + "-" +values.contact_number,
                 response_email: values.response_email,
                 bid_end_date: values.bid_end_date,
+                comment: values.comment !== undefined ? values.comment : rfqFormDataFromStore.comment,
               };
               setPendingFormValues(updatedFormData);
               setShowUpdateConfirmModal(true);
@@ -1963,10 +2009,11 @@ const EditRFQ = () => {
                         )}
                       </div>
 
+                      {rfqData?.is_tender !== 1 && (
                       <div className="col-md-6">
-                        {/* Tender / RFQ Type */}
+                        {/* RFQ Type - only for RFQs, not tenders */}
                         <div className="mb-3">
-                          <label className="form-label fw-medium">{getEntityLabel(rfqFormDataFromStore?.is_tender)} Type</label>
+                          <label className="form-label fw-medium">RFQ Type</label>
                           <Select
                             options={rfqTypes}
                             value={(() => {
@@ -1987,6 +2034,7 @@ const EditRFQ = () => {
                           />
                         </div>
                       </div>
+                      )}
 
                       <div className="col-md-6">
                         {/* Reverse Auction */}
@@ -2197,18 +2245,26 @@ const EditRFQ = () => {
                       </div>
                     </div>
 
-                    {/* Additional Terms - Now Read Only */}
+                    {/* Additional Terms - Editable */}
                     <div>
-                      <h6 className="mb-3 fw-medium">Additional Terms  </h6>
-                      <div className="border rounded p-3 bg-light">
-                        {rfqData.comment && rfqData.comment.trim() ? (
-                          <div className="mb-0">
-                            {rfqData.comment}
-                          </div>
-                        ) : (
-                          <p className="text-muted mb-0">No additional terms specified.</p>
-                        )}
-                      </div>
+                      <h6 className="mb-3 fw-medium">Additional Terms</h6>
+                      <textarea
+                        name="comment"
+                        className="form-control border rounded p-3"
+                        rows={4}
+                        placeholder="Enter additional terms and conditions (optional)"
+                        value={values.comment ?? ""}
+                        onChange={(e) => {
+                          setFieldValue("comment", e.target.value);
+                          dispatch(
+                            setOtherFormFields({
+                              comment: e.target.value,
+                            })
+                          );
+                          setHasUnsavedChanges(true);
+                        }}
+                        onBlur={handleBlur}
+                      />
                     </div>
                     
                     {/* Term & Condition Files - If present */}
@@ -2459,41 +2515,7 @@ const EditRFQ = () => {
         ]?.addable) ?? []}
       />
 
-      {/* This one is to add vendors to new product */}
-      <AddVendorModal
-        headerTitle={`Add Vendors for ${selectedProduct?.product?.variant_name ?? "-"}`}
-        vendors={vendors}
-        productData={selectedProduct}
-        updatableData={updatableData}
-        isOpen={showAddVendorForProductModal}
-        onClose={() => setShowAddVendorForProductModal(false)}
-        onAdd={handleAddVendorForProduct}
-        fetchVendors={fetchAvailableVendorsForProduct}
-        onSelectAll={(isChecked) => {
-          setUpdatableData((prev) => ({
-            ...prev,
-            vendors: {
-              ...prev.vendors,
-              [selectedProduct.product.id]: {
-                ...(prev.vendors?.[selectedProduct.product.id] ?? {
-                  product_id: selectedProduct.product.product_id,
-                  variant: selectedProduct.product.variant,
-                }),
-                addable: [
-                  ...(isChecked ? vendors.map(vendor => vendor.id) : [])
-                ],
-              },
-            },
-          }));
-        }}
-        onRemove={(item) => setProductAddData(prev => ({
-          ...prev,
-          vendors: prev.vendors.filter(vendorId => vendorId != item.id)
-        }))}
-        onSubmit={productAddData.vendors.length > 0 ? handleAddProduct : null}
-        addedVendorsList={productAddData?.vendors ?? []}
-        submitText={"Add Product"}
-      />
+      {/* Vendor modal for new products removed — vendors are now auto-mapped */}
       <AddProductModal
         headerTitle={`Add Vendors to ${getEntityLabel(rfqData?.is_tender)} #${rfqData.rfq_no}`}
         rfqData={rfqData}

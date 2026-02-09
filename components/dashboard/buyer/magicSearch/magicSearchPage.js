@@ -290,7 +290,7 @@ const closeRFQConfirmModal = () => {
     // setApiData(response);
   } catch (error) {
     console.error("RFQ Preview fetch failed:", error);
-    toast.error("Failed to generate RFQ preview.");
+    toast.error("Failed to generate Tender / RFQ preview.");
   } finally {
     setLoading(false);
   }

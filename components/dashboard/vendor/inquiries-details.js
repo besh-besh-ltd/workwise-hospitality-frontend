@@ -1316,7 +1316,7 @@ const RfqManagementPreview = () => {
                         // Use localId which is guaranteed to be set after hydration
                         const rfqId = localId || id;
                         if (!rfqId) {
-                          toast.error("Unable to load RFQ details. Please refresh the page.");
+                          toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
                           return;
                         }
                         router.push(
@@ -2084,7 +2084,7 @@ const RfqManagementPreview = () => {
                                             onClick={(e) => {
                                               if (!localId && !id) {
                                                 e.preventDefault();
-                                                toast.error("Unable to load RFQ details. Please refresh the page.");
+                                                toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
                                               }
                                             }}
                                           >

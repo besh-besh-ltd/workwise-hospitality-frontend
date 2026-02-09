@@ -163,7 +163,7 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
 
         <td> {data.contact_name} </td>
 
-        <td>{(data.rfq_type == "" || data.rfq_type == null) ? "---" : textCapitalize(data.rfq_type)}</td>
+        <td>{data.is_tender === 1 ? "---" : ((data.rfq_type == "" || data.rfq_type == null) ? "---" : textCapitalize(data.rfq_type))}</td>
         <td>{data.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
         <td>
           <div className="d-flex flex-column gap-2">

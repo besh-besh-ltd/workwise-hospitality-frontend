@@ -1,72 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faUserTie,
-  faClipboardList,
-  faCogs,
-  faFileInvoiceDollar,
   faUsers,
   faFolderPlus,
   faUserPlus,
-  faUserCheck,
 } from "@fortawesome/free-solid-svg-icons";
-import { getBuyerAccountLimits } from "@/services/Auth";
-import FullLoader from "@/components/shared/FullLoader";
-
-const accountCards = [
-  {
-    label: "Management",
-    icon: faUserTie,
-    keyUsed: "used_top_management",
-    keyMax: "max_top_management",
-    color: "secondary",
-  },
-  {
-    label: "Procurement",
-    icon: faClipboardList,
-    keyUsed: "used_procurement",
-    keyMax: "max_procurement",
-    color: "secondary",
-  },
-  {
-    label: "Engineering",
-    icon: faCogs,
-    keyUsed: "used_engineering",
-    keyMax: "max_engineering",
-    color: "secondary",
-  },
-  {
-    label: "Finance",
-    icon: faFileInvoiceDollar,
-    keyUsed: "used_finance",
-    keyMax: "max_finance",
-    color: "secondary",
-  },
-];
 
 const AdminDashboard = () => {
-  const [accountLimits, setAccountLimits] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchAccountLimits = async () => {
-      try {
-        setLoading(true);
-        const response = await getBuyerAccountLimits();
-        if (response && response.status) {
-          setAccountLimits(response.data);
-        }
-      } catch (err) {
-        console.error("Error fetching account limits:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAccountLimits();
-  }, []);
-
   return (
     <>
       <section className="buyer-common-header sc-pt-80">
@@ -74,44 +15,6 @@ const AdminDashboard = () => {
           <h1 className="heading">Dashboard</h1>
         </div>
       </section>
-
-      {loading && (
-        <section className="buyer-sec-1 mb-3">
-          <div className="card-body p-4 hasFullLoader">
-            <FullLoader />
-          </div>
-        </section>
-      )}
-
-      {/* START: account summer section */}
-      {!loading && accountLimits && (
-        <section className="buyer-sec-1">
-          <div className="container-fluid">
-            <div className="row">
-              <div className="col-12 mb-4">
-                <h3 className="mb-2">Account Summary</h3>
-                <p className="text-muted">
-                  Manage purchased and active user accounts for your company
-                  roles.
-                </p>
-              </div>
-            </div>
-            <div className="row">
-              {accountCards.map((card) => (
-                <RoleCard
-                  key={card.label}
-                  icon={card.icon}
-                  label={card.label}
-                  used={accountLimits[card.keyUsed] || 0}
-                  max={accountLimits[card.keyMax] || 0}
-                  color={card.color}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-      {/* END: account summer section */}
 
       <section className="buyer-sec-1">
         <div className="container-fluid">
@@ -176,29 +79,3 @@ const AdminDashboard = () => {
 
 export default AdminDashboard;
 //  AdminDashboard over here
-
-
-
-// role card component
-const RoleCard = ({ icon, label, used, max }) => {
-  return (
-    <div className="col-lg-3 col-md-6 ">
-      <div className="card h-100">
-        <div className="card-body">
-          <h5 className="card-title">
-            <FontAwesomeIcon icon={icon} className={`me-2 `} />
-            <strong>{label}</strong>
-          </h5>
-          <div className="">
-            {/* <FontAwesomeIcon icon={faUserCheck} className="me-2 text-success" /> */}
-            Active Accounts: {used}
-          </div>
-          <div className="mt-1">
-            {/* <FontAwesomeIcon icon={faUsers} className="me-2 text-primary" /> */}
-            Purchased Accounts: {max}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};

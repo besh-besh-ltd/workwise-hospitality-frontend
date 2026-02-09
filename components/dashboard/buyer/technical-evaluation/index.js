@@ -205,7 +205,7 @@ useEffect(() => {
       setPermissionsVerified(false); // Reset when RFQ changes
     } catch (error) {
       console.log(error);
-      toast.error(error.message || 'Failed to load RFQ details');
+      toast.error(error.message || `Failed to load ${getEntityLabel(currentRfq?.is_tender)} details`);
       setcurrentRfq(null);
     } finally {
       setLoading(false);
@@ -496,9 +496,9 @@ useEffect(() => {
                             </p>
                           </>
                         )}
-                        {currentRfq.rfq_type && currentRfq.rfq_type != "" &&
+                        {currentRfq.is_tender !== 1 && currentRfq.rfq_type && currentRfq.rfq_type != "" &&
                           <p className="sub-heading mb-0">
-                          <b>{getEntityLabel(currentRfq?.is_tender)} Type</b> :{" "}
+                          <b>RFQ Type</b> :{" "}
                             {currentRfq.rfq_type}
                           </p>}
                         <p className="sub-heading mb-0">

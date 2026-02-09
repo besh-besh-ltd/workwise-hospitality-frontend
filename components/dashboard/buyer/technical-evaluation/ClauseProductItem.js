@@ -817,9 +817,15 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                     </button>
                                     {/* Show remark for sampling clauses - at the bottom */}
                                     {clauseItem.clause_type === 'sampling' && response?.buyer_remark && (
-                                      <p className="mb-1 mt-2">
-                                        <strong>Remark:</strong> {response.buyer_remark}
-                                      </p>
+                                      <div className="mb-1 mt-2">
+                                        <strong>Remark:</strong>{" "}
+                                        <ReadMore
+                                          content={response.buyer_remark}
+                                          maxLines={3}
+                                          additionalClasses="text-sm"
+                                          additionalStyles={{ marginTop: "2px" }}
+                                        />
+                                      </div>
                                     )}
 
                                   </div>
