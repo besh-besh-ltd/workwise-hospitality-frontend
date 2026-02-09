@@ -185,12 +185,12 @@ const QuoteCompare = () => {
 
   const loadNegotiationData = async () => {
     if (!rfq) return;
-    
+
     try {
       // Load all active rounds for this RFQ
       const response = await getAllActiveNegotiationRounds(rfq);
       let activeRounds = [];
-      
+
       if (response) {
         if (response.status === 1 && response.data) {
           activeRounds = Array.isArray(response.data) ? response.data : [];

@@ -343,9 +343,11 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
         if (response?.status === 1 && response?.data) {
           const statusMap = {};
           response.data.forEach((round) => {
-            // Only block regular submission if the latest round is active and vendor already submitted
-            const isRoundActive = round.isActive || (round.status === 'ACTIVE' && !round.isExpired);
-            if (round.hasSubmittedQuote && isRoundActive) {
+            // Block regular submission if vendor has submitted for the LATEST round.
+            // Only unblock if a NEW round was created and vendor hasn't submitted for it yet.
+            // The backend returns the latest round per product, so if hasSubmittedQuote is true,
+            // the vendor already submitted for the most recent round - keep them blocked.
+            if (round.hasSubmittedQuote) {
               statusMap[round.rfq_product_id] = {
                 hasSubmitted: true,
                 quotedPrice: round.vendor_quoted_price,

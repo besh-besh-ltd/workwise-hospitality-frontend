@@ -122,7 +122,6 @@ const QuoteCompareTable = ({
         setQuoteApprovalStatus(response.data);
       }
     } catch (error) {
-      // No approval status found, which is fine
       setQuoteApprovalStatus(null);
     }
   };
@@ -223,13 +222,39 @@ const QuoteCompareTable = ({
   const isTenderAwaitingApproval = is_tender && (quoteApprovalStatus && quoteApprovalStatus?.approval_instance?.status !== 'APPROVED');
   const canFinalizeForTender = !is_tender || (quoteApprovalStatus?.approval_instance?.status === 'APPROVED');
 
+  // Build effective round quotes: if no negotiation round quotes, use regular quotations as fallback
+  const effectiveRoundQuotes = useMemo(() => {
+    if (negotiationRoundQuotes && negotiationRoundQuotes.length > 0) {
+      return { quotes: negotiationRoundQuotes, source: 'negotiation' };
+    }
+    // Map regular quotations to a format RoundEndActions can use
+    if (quotations && quotations.length > 0) {
+      const regularQuotes = quotations
+        .filter(q => q.quote_details?.is_regret != 1 && parseFloat(q.unit_price) > 0)
+        .map(q => ({
+          id: q.quote_id,
+          quote_id: q.quote_id,
+          vendor_id: q.quote_details?.vendor_details?.id || q.quote_details?.created_by,
+          vendor_name: q.quote_details?.vendor_details?.organization_name || q.quote_details?.vendor_details?.name || 'Unknown',
+          organization_name: q.quote_details?.vendor_details?.organization_name,
+          quoted_price: q.total_price || q.unit_price,
+          previous_price: null,
+          rfq_product_id: proditem?.id,
+          is_regular_quote: true
+        }));
+      return { quotes: regularQuotes, source: 'regular' };
+    }
+    return { quotes: [], source: 'none' };
+  }, [negotiationRoundQuotes, quotations, proditem?.id]);
+
   return (
     <>
       {/* Round End Actions - Show if round has ended */}
       {activeRound && (
         <RoundEndActions
           activeRound={activeRound}
-          roundQuotes={negotiationRoundQuotes}
+          roundQuotes={effectiveRoundQuotes.quotes}
+          roundQuotesSource={effectiveRoundQuotes.source}
           rfq_id={rfq}
           rfq_product_id={proditem.id}
           productName={productName}

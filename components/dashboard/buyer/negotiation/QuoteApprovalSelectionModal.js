@@ -7,6 +7,7 @@ const QuoteApprovalSelectionModal = ({
   show,
   onHide,
   roundQuotes = [],
+  roundQuotesSource = 'negotiation', // 'negotiation' | 'regular'
   activeRound,
   rfq_id,
   rfq_product_id,
@@ -50,6 +51,7 @@ const QuoteApprovalSelectionModal = ({
         rfq_id,
         rfq_product_id,
         quote_ids: selectedQuotes,
+        quote_source: roundQuotesSource,
         remarks: remarks.trim() || undefined,
         department_id
       });
