@@ -816,7 +816,7 @@ const ProjectDetails = () => {
                                   <td>{index + 1}</td>
                                   <td>{rfqItem.rfq_details?.rfq_no}</td>
                                   <td>
-                                    {rfqItem.rfq_details?.rfq_type || "---"}
+                                    {rfqItem.rfq_details?.is_tender === 1 ? "---" : (rfqItem.rfq_details?.rfq_type || "---")}
                                   </td>
                                   <td>
                                     {rfqItem.rfq_details?.reverse_auction == 1

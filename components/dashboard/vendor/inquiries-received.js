@@ -361,7 +361,9 @@ const getQuoteStatus = async (rfq_id) => {
                                         : "--"}
                                     </td>
                                     <td>
-                                      {item.rfq_type == "firm"
+                                      {item.is_tender === 1
+                                        ? "---"
+                                        : item.rfq_type == "firm"
                                         ? "Firm"
                                         : item.rfq_type == "budgetary"
                                         ? "Budgetary"
