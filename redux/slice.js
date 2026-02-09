@@ -41,7 +41,6 @@ const initialState = {
     department_id: null,
     // RFQ Title & Technical Evaluation
     title: "",
-    technical_evaluation_by: null,
   }
 };
 
