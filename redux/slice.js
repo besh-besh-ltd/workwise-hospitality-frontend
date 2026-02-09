@@ -39,7 +39,7 @@ const initialState = {
     hospitality_company_id: null,
     hotel_id: null,
     department_id: null,
-    // RFQ Title & Technical Evaluation
+    // RFQ Title
     title: "",
   }
 };

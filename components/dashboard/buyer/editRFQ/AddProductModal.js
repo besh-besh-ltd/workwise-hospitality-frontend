@@ -17,14 +17,22 @@ const AddProductModal = ({
   isOpen,
   onClose,
   onAdd,
+  existingProducts = [],
+  selectedHotelIds = [],
 }) => {
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const fetchProducts = async () => {
+    // Use selected hotel IDs from the edit page (reflects user changes),
+    // falling back to rfqData.mappedHotels for the original mapping
+    const hotel_ids = selectedHotelIds.length > 0
+      ? selectedHotelIds
+      : rfqData?.mappedHotels?.map(h => h.hotel_id) || [];
     const values = {
       search_key: productSearchTerm,
+      hotel_ids,
     };
     try {
       const response = await searchProductsV2(values);
@@ -36,6 +44,14 @@ const AddProductModal = ({
       setLoading(false);
     }
   };
+
+  // Clear search state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setProductSearchTerm("");
+      setProducts([]);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (productSearchTerm.length < 3) return;
@@ -124,8 +140,24 @@ const AddProductModal = ({
                   {loading && (
                     <p className="mb-4">Fetching products...</p>
                   )}
-                  {!loading && products && products.length > 0 && (
-                    <>
+                  {!loading && products && products.length > 0 && (() => {
+                    // Build a set of existing variant_ids to hide already-added products
+                    const existingVariantIds = new Set(
+                      existingProducts.map(p => p.variant_id ?? p.variant)
+                    );
+                    const filteredProducts = products.filter(
+                      item => !existingVariantIds.has(item.variant_id)
+                    );
+
+                    if (filteredProducts.length === 0) {
+                      return (
+                        <p className="text-muted mb-4">
+                          All matching products are already added to this RFQ.
+                        </p>
+                      );
+                    }
+
+                    return (
                       <table className="table table-striped">
                         <thead>
                           <tr>
@@ -137,54 +169,44 @@ const AddProductModal = ({
                           </tr>
                         </thead>
                         <tbody>
-                          {products.map((item) => {
-                            return (
-                              <>
-                                <tr key={`vendor-${item.product_name}`}>
-                                  <td style={{ maxWidth: "250px" }}>
-                                    {item.variant_id}
-                                  </td>
-                                  <td
-                                    className="text-truncate"
-                                    style={{ maxWidth: "300px" }}
-                                  >
-                                    {item.variant_name}
-                                  </td>
-                                  <td
-                                    className="text-truncate"
-                                    style={{ maxWidth: "300px" }}
-                                  >
-                                    {item.product_name}
-                                  </td>
-                                  <td>{item.category_name}</td>
-                                  {/* <td>
-                                    {item.organization_name
-                                      ? item.organization_name
-                                      : "N/A"}
-                                  </td> */}
-                                  <td className="d-flex flex-column justify-content-center gap-2 h-100">
-                                    <button
-                                    href="#"
-                                    className="page-linkd remove-icon d-flex gap-2 align-items-center"
-                                    style={{
-                                        border: "none",
-                                        background: "transparent",
-                                        color: "green",
-                                    }}
-                                    onClick={() => onAdd(item)}
-                                    >
-                                    <FontAwesomeIcon icon={faAdd} />
-                                    Select
-                                    </button>
-                                  </td>
-                                </tr>
-                              </>
-                            );
-                          })}
+                          {filteredProducts.map((item) => (
+                            <tr key={`product-${item.variant_id}`}>
+                              <td style={{ maxWidth: "250px" }}>
+                                {item.variant_id}
+                              </td>
+                              <td
+                                className="text-truncate"
+                                style={{ maxWidth: "300px" }}
+                              >
+                                {item.variant_name}
+                              </td>
+                              <td
+                                className="text-truncate"
+                                style={{ maxWidth: "300px" }}
+                              >
+                                {item.product_name}
+                              </td>
+                              <td>{item.category_name}</td>
+                              <td className="d-flex flex-column justify-content-center gap-2 h-100">
+                                <button
+                                  className="page-linkd remove-icon d-flex gap-2 align-items-center"
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "green",
+                                  }}
+                                  onClick={() => onAdd(item)}
+                                >
+                                  <FontAwesomeIcon icon={faAdd} />
+                                  Select
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
-                    </>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>

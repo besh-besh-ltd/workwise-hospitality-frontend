@@ -229,7 +229,7 @@ const getQuoteStatus = async (rfq_id) => {
                             <th>Company</th>
                             <th>Received Date</th>
                             <th>End Date</th>
-                            <th>Tender / RFQ Type</th>
+                            <th>RFQ Type</th>
                             <th>Quote Sent</th>
                             <th>Reverse Auction</th>
                             <th>Tender / RFQ Status</th>

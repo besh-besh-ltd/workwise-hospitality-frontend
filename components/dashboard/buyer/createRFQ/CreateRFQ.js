@@ -17,6 +17,7 @@ import {
   setTermFiles,
   setAllTerms,
   setStoreLoading,
+  removeRfqProduct,
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
@@ -1609,18 +1610,35 @@ useEffect(() => {
   };
 
   const handleRemoveProductConfirm = () => {
-    if (pendingProductToRemove) {
+    if (!pendingProductToRemove) return;
+
+    // If the product does NOT have a persisted RFQ product id yet,
+    // remove it directly from the Redux rfqProducts list using product_id + variant.
+    if (!pendingProductToRemove.id) {
+      dispatch(
+        removeRfqProduct({
+          product_id: pendingProductToRemove.product_id,
+          variant: pendingProductToRemove.variant,
+        })
+      );
+    } else {
+      // For existing RFQ products (with an id), mark them as deletable so
+      // they are hidden in UI and sent to backend in updatableData.deletable.
       setUpdatableData((prev) => ({
         ...prev,
         products: {
           ...prev.products,
-          deletable: [...(prev.products?.deletable ?? []), pendingProductToRemove.id],
+          deletable: [
+            ...(prev.products?.deletable ?? []),
+            pendingProductToRemove.id,
+          ],
         },
       }));
-      setHasUnsavedChanges(true);
-      setShowRemoveProductConfirmModal(false);
-      setPendingProductToRemove(null);
     }
+
+    setHasUnsavedChanges(true);
+    setShowRemoveProductConfirmModal(false);
+    setPendingProductToRemove(null);
   };
 
   const handleRemoveProductCancel = () => {

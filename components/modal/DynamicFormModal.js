@@ -485,6 +485,7 @@ Example:
         // Handle project edit form submission
         const processProjectEdit = (values, resetForm) => {
             const projectData = {
+                name: values.name,
                 description: values.description,
                 location: values.location,
                 rfq_type: values.rfq_type,

@@ -260,12 +260,12 @@ const locationBaseSlug = useMemo(() => {
   const hasRedirected = useRef(false);
   const prevFiltersRef = useRef(null);
   const debouncedFetchSuggestions = useRef(
-  debounce(async (val) => {
+  debounce(async (val, hotelIds) => {
     const trimmed = val.trim();
 
     setSuggestionLoading(true);
     try {
-      const rsp = await searchProductsV2({ search_key: trimmed }, "products");
+      const rsp = await searchProductsV2({ search_key: trimmed, hotel_ids: hotelIds || [] }, "products");
       setSuggestions(rsp.data || []);
       setSearchCategories(rsp.categoryData || []);
     } catch (error) {
@@ -859,6 +859,7 @@ const getProducts = async (s_key = searchProduct.trim()) => {
       {
         search_key: s_key,
         vendor_name: vendorName,
+        hotel_ids: (queryMeta.orderType === 'tender' || queryMeta.orderType === 'rfq') ? selectedHotelIds : [],
         // is_private: is_private,
         // preferred_vendor: preferred_vendor,
       },
@@ -958,9 +959,20 @@ const getVendorTypeList = () => {
   const val = e.target.value;
   setSearchProduct(val);                    // User is typing → update input instantly
 
+  // Block API call if in tender/rfq mode without hotel selection — dropdown still opens
+  if ((queryMeta.orderType === 'tender' || queryMeta.orderType === 'rfq') && selectedHotelIds.length === 0) {
+    debouncedFetchSuggestions.cancel();
+    setSuggestions([]);
+    setSearchCategories([]);
+    if (val.length > 2) {
+      setOpen({ ...open, input: true });
+    }
+    return;
+  }
+
   // Fetch suggestions only if length > 2
   if (val.length > 2) {
-    debouncedFetchSuggestions(val);
+    debouncedFetchSuggestions(val, selectedHotelIds);
     setOpen({ ...open, input: true });     // Show dropdown
   } else {
     debouncedFetchSuggestions.cancel();
@@ -1218,14 +1230,13 @@ const clearLocationFilter = () => {
           <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mt-3">
 
 {/* START: Select Hotels Dropdown */}
-          <div style={{ maxWidth: "400px", zIndex:"999" }}>
-  {/* <strong className=" text-white  ">Select Hotels</strong> */}
+          <div style={{ minWidth: "300px", maxWidth: "420px", zIndex:"999" }}>
 
 <Select
   isMulti
-  options={userHotelMappings}
+  options={userHotelMappings.filter(opt => opt.hotel_name)}
   value={userHotelMappings.filter(opt =>
-    selectedHotelIds.includes(opt.hospitality_hotel_id)
+    opt.hotel_name && selectedHotelIds.includes(opt.hospitality_hotel_id)
   )}
   onChange={(selectedOptions) => {
     const ids = selectedOptions
@@ -1236,17 +1247,59 @@ const clearLocationFilter = () => {
   placeholder="Select hotels..."
   closeMenuOnSelect={false}
   classNamePrefix="react-select"
-
-  /* ✅ ADD THESE TWO LINES */
   getOptionValue={(option) => option.hospitality_hotel_id}
   getOptionLabel={(option) => option.hotel_name}
-
   formatOptionLabel={(option) => (
-    <div>
-      <span>{option.hotel_name}</span>
-    </div>
+    <span>{option.hotel_name}</span>
   )}
+  styles={{
+    control: (base, state) => ({
+      ...base,
+      backgroundColor: 'rgba(255, 255, 255, 0.22)',
+      backdropFilter: 'blur(8px)',
+      border: state.isFocused ? '1px solid rgba(255,255,255,0.6)' : '1px solid rgba(255,255,255,0.35)',
+      borderRadius: '10px',
+      boxShadow: state.isFocused ? '0 0 0 3px rgba(255,255,255,0.15)' : 'none',
+      minHeight: '44px',
+      color: '#fff',
+      '&:hover': { borderColor: 'rgba(255,255,255,0.5)' },
+    }),
+    placeholder: (base) => ({ ...base, color: 'rgba(255,255,255,0.85)', fontWeight: 500 }),
+    input: (base) => ({ ...base, color: '#fff' }),
+    multiValue: (base) => ({
+      ...base,
+      backgroundColor: 'rgba(255,255,255,0.3)',
+      borderRadius: '6px',
+    }),
+    multiValueLabel: (base) => ({ ...base, color: '#fff', fontWeight: 600 }),
+    multiValueRemove: (base) => ({
+      ...base,
+      color: 'rgba(255,255,255,0.85)',
+      '&:hover': { backgroundColor: 'rgba(255,255,255,0.4)', color: '#fff' },
+    }),
+    menu: (base) => ({
+      ...base,
+      backgroundColor: '#34495e',
+      border: '1px solid rgba(255,255,255,0.25)',
+      borderRadius: '10px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+    }),
+    option: (base, state) => ({
+      ...base,
+      backgroundColor: state.isFocused ? 'rgba(255,255,255,0.15)' : 'transparent',
+      color: '#fff',
+      fontWeight: 500,
+      '&:active': { backgroundColor: 'rgba(255,255,255,0.2)' },
+    }),
+    dropdownIndicator: (base) => ({ ...base, color: 'rgba(255,255,255,0.85)' }),
+    clearIndicator: (base) => ({ ...base, color: 'rgba(255,255,255,0.85)' }),
+  }}
 />
+{selectedHotelIds.length === 0 && (
+  <small style={{ color: '#ffdd57', fontWeight: 500, marginTop: '4px', display: 'block' }}>
+    * Please select hotel(s) to search products
+  </small>
+)}
 
 </div>
 {/* END: Select Hotels Dropdown */}
@@ -1329,6 +1382,18 @@ const clearLocationFilter = () => {
                     {/* Product Dropdown opens on typing */}
                       {open.input && (
                         <div className="search_results_autocomplete">
+                          {/* Hotel selection required message for tender/rfq mode */}
+                          {(queryMeta.orderType === 'tender' || queryMeta.orderType === 'rfq') &&
+                            selectedHotelIds.length === 0 ? (
+                            <div className="d-flex flex-column align-items-center justify-content-center py-4">
+                              <p className="mb-1 fw-semibold" style={{ fontSize: '1.05rem' }}>
+                                Please select at least one hotel to search products
+                              </p>
+                              <small className="text-muted">
+                                Use the hotel dropdown above to get started
+                              </small>
+                            </div>
+                          ) : (<>
                           {suggestionLoading && (
                             <div>
                               {" "}
@@ -1361,7 +1426,7 @@ const clearLocationFilter = () => {
                             }
                           {!suggestionLoading &&
                             searchProduct !== "" &&
-                            (suggestions.length > 0 || searchCategories.length > 0) && (
+                            suggestions.length > 0 && (
                               <>
                                 <p
                                   className="text-center fw-bold "
@@ -1371,7 +1436,7 @@ const clearLocationFilter = () => {
                                 </p>
                                 <div className="row">
                                   {/* Product List Column */}
-                                  <div className="col-7">
+                                  <div className="col-12">
                                     <div className="container">
                                       <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2 bg-black" >
                                         Product List
@@ -1412,52 +1477,10 @@ const clearLocationFilter = () => {
                                       </ul>
                                     </div>
                                   </div>
-                                  {/* Category List Column */}
-                                  <div className="col-5">
-                                    <div className="container">
-                                      <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">
-                                        Category List
-                                      </h2>
-                                      <ul>
-                                        {searchCategories.map((item, index) => {
-                                          return (
-                                            <li
-                                              key={`search_cat_${index}`}
-                                              onClick={() =>
-                                                getCategoriesById(
-                                                  item.category_id,
-                                                  item.category_name
-                                                )
-                                              }
-                                              title={`${item.category_name}`}
-                                              id={`category_list_item_${item.category_id}-category_list-vendor_search_page`}
-                                            >
-                                              <i>
-                                                <FontAwesomeIcon
-                                                  icon={faPlus}
-                                                />
-                                              </i>
-                                              <div>
-                                                <h3>{item.category_name}</h3>
-                                                <p>
-                                                  <small>
-                                                    <b>
-                                                      {
-                                                        item.parent_category_name
-                                                      }{" "}
-                                                    </b>
-                                                  </small>
-                                                </p>
-                                              </div>
-                                            </li>
-                                          );
-                                        })}
-                                      </ul>
-                                    </div>
-                                  </div>
                                 </div>
                               </>
                             )}
+                          </>)}
                         </div>
                       )}
                       {open.input && (
