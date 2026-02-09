@@ -19,7 +19,6 @@ import { IoMdInformationCircleOutline } from "react-icons/io";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal";
-import VendorNegotiationInfo from "./VendorNegotiationInfo";
 import ProductNegotiationBadge from "./ProductNegotiationBadge";
 import { checkOpenClarification } from "@/services/clarification";
 import { getAllVendorNegotiationStatus } from "@/services/negotiation";
@@ -344,13 +343,16 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
         if (response?.status === 1 && response?.data) {
           const statusMap = {};
           response.data.forEach((round) => {
-            if (round.hasSubmittedQuote) {
+            // Only block regular submission if the latest round is active and vendor already submitted
+            const isRoundActive = round.isActive || (round.status === 'ACTIVE' && !round.isExpired);
+            if (round.hasSubmittedQuote && isRoundActive) {
               statusMap[round.rfq_product_id] = {
                 hasSubmitted: true,
                 quotedPrice: round.vendor_quoted_price,
                 submittedAt: round.vendor_submitted_at,
                 targetPrice: round.target_price,
-                roundId: round.id
+                roundId: round.id,
+                roundNumber: round.round_number
               };
             }
           });
@@ -1577,18 +1579,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                   </div>
                 </div>
               )}
-            {/* Product-specific Negotiation Info */}
-            {rfqDetails.id && rfqDetails.products && rfqDetails.products.map((product) => (
-              <div key={product.id} className="row mb-2">
-                <div className="col-12">
-                  <VendorNegotiationInfo 
-                    rfq_id={rfqDetails.id} 
-                    rfq_product_id={product.id}
-                    productName={product.product_details?.[0]?.name || ''}
-                  />
-                </div>
-              </div>
-            ))}
             <div className="row">
               <div className="col-md-12">
                 <div className="quote-sec-table">

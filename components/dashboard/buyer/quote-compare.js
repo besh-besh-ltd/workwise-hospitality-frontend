@@ -155,12 +155,15 @@ const QuoteCompare = () => {
         const response = await getRfqs({ rfq_id: String(rfq), page: 1, limit: 1, tech_eval: false });
         const rfqData = Array.isArray(response) ? response[0] : response?.data?.[0];
         if (rfqData) {
-          // Set minimal RFQ data for permission check (hotel_id, hotel_ids)
+          // Set minimal RFQ data for permission check (hotel_id, hotel_ids) and is_tender for UI
           setcurrentRFQ(prev => ({
             ...prev,
             id: rfqData.id,
             hotel_id: rfqData.hotel_id,
             hotel_ids: rfqData.hotel_ids,
+            is_tender: rfqData.is_tender,
+            hospitality_company_id: rfqData.hospitality_company_id,
+            department_id: rfqData.department_id,
           }));
           setMetadataLoadedForRfq(rfq);
         }
@@ -197,14 +200,19 @@ const QuoteCompare = () => {
       }
 
       // For each active round, load quotes and organize by product
+      // Rounds are ordered by rfq_product_id, round_number DESC so the first
+      // round we encounter per product is the most recent one — skip older rounds.
       const negotiationData = {};
-      
+
       for (const round of activeRounds) {
         if (round.rfq_product_id) {
+          // Only keep the most recent round per product (first encountered due to DESC order)
+          if (negotiationData[round.rfq_product_id]) continue;
+
           try {
             const quotesResponse = await getRoundQuotes(round.id);
             let roundQuotes = [];
-            
+
             if (quotesResponse) {
               if (quotesResponse.status === 1 && quotesResponse.data) {
                 roundQuotes = Array.isArray(quotesResponse.data) ? quotesResponse.data : [];
@@ -1507,7 +1515,9 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
   useEffect(() => {
     if (rfq && myRFQs) {
       const rfq_details = myRFQs.find((rfq_item) => rfq_item.id == rfq);
-      setcurrentRFQ(rfq_details);
+      if (rfq_details) {
+        setcurrentRFQ(rfq_details);
+      }
     }
   }, [rfq, myRFQs])
 

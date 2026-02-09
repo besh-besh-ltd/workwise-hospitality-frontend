@@ -15,7 +15,7 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
   }, [rfq_id, rfq_product_id]);
 
   useEffect(() => {
-    if (negotiationStatus?.hasActiveRound && negotiationStatus?.round?.status === 'ACTIVE') {
+    if (negotiationStatus?.round?.status === 'ACTIVE' && !negotiationStatus?.round?.isExpired) {
       const interval = setInterval(() => {
         updateTimeRemaining();
       }, 1000);
@@ -33,7 +33,7 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
       if (response) {
         if (response.status === 1 && response.data) {
           statusData = response.data;
-        } else if (response.hasActiveRound !== undefined) {
+        } else if (response.hasActiveRound !== undefined || response.hasRound !== undefined) {
           statusData = response;
         }
       }
@@ -72,7 +72,7 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
     }
   };
 
-  if (loading || !negotiationStatus?.hasActiveRound) {
+  if (loading || !negotiationStatus?.round) {
     return null;
   }
 
@@ -80,40 +80,42 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
   const hasSubmittedQuote = negotiationStatus.hasSubmittedQuote;
   const isExpired = round?.isExpired || timeRemaining === 'Expired';
   const isPending = round?.status === 'PENDING_APPROVAL';
+  const isActive = round?.status === 'ACTIVE' && !isExpired;
+  const isClosed = round?.status === 'CLOSED' || round?.status === 'COMPLETED';
 
   // Don't show anything to vendors if round is pending approval
   if (isPending) {
     return null;
   }
 
-  if (round?.status === 'ACTIVE') {
-    return (
-      <div className="mt-1 d-flex align-items-center gap-1 flex-wrap">
-        {hasSubmittedQuote ? (
-          <Badge bg="success" style={{ fontSize: '0.7rem' }}>
-            Negotiation Quote Submitted
+  return (
+    <div className="mt-1 d-flex align-items-center gap-1 flex-wrap">
+      {hasSubmittedQuote ? (
+        <Badge bg="success" style={{ fontSize: '0.7rem' }}>
+          Negotiation Quote Submitted (R{round.round_number})
+        </Badge>
+      ) : isActive ? (
+        <>
+          <Badge bg="info" style={{ fontSize: '0.7rem' }}>
+            R{round.round_number} - Target: ₹{parseFloat(round.target_price).toLocaleString()}
           </Badge>
-        ) : isExpired ? (
-          <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>
-            Negotiation Ended
-          </Badge>
-        ) : (
-          <>
-            <Badge bg="info" style={{ fontSize: '0.7rem' }}>
-              Target: ₹{parseFloat(round.target_price).toLocaleString()}
+          {timeRemaining && (
+            <Badge bg="warning" text="dark" style={{ fontSize: '0.7rem' }}>
+              {timeRemaining}
             </Badge>
-            {timeRemaining && (
-              <Badge bg="warning" text="dark" style={{ fontSize: '0.7rem' }}>
-                {timeRemaining}
-              </Badge>
-            )}
-          </>
-        )}
-      </div>
-    );
-  }
-
-  return null;
+          )}
+        </>
+      ) : (isExpired && round?.status === 'ACTIVE') ? (
+        <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>
+          Negotiation R{round.round_number} Ended
+        </Badge>
+      ) : isClosed ? (
+        <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>
+          Negotiation R{round.round_number} {round.status === 'COMPLETED' ? 'Completed' : 'Closed'}
+        </Badge>
+      ) : null}
+    </div>
+  );
 };
 
 export default ProductNegotiationBadge;

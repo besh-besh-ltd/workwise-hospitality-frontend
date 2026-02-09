@@ -8,6 +8,7 @@ const CARD_STYLES = {
   expired: { backgroundColor: '#fee2e2', border: '1px solid #ef4444' },
   submitted: { backgroundColor: '#dbeafe', border: '1px solid #3b82f6' },
   pending: { backgroundColor: '#fef3c7', border: '1px solid #f59e0b' },
+  closed: { backgroundColor: '#f3f4f6', border: '1px solid #9ca3af' },
 };
 
 const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
@@ -25,7 +26,7 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
   }, [rfq_id, rfq_product_id]);
 
   useEffect(() => {
-    if (negotiationStatus?.hasActiveRound && negotiationStatus?.round?.status === 'ACTIVE') {
+    if (negotiationStatus?.round?.status === 'ACTIVE' && !negotiationStatus?.round?.isExpired) {
       const interval = setInterval(() => {
         updateTimeRemaining();
       }, 1000);
@@ -43,7 +44,7 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
       if (response) {
         if (response.status === 1 && response.data) {
           statusData = response.data;
-        } else if (response.hasActiveRound !== undefined) {
+        } else if (response.hasActiveRound !== undefined || response.hasRound !== undefined) {
           statusData = response;
         }
       }
@@ -138,7 +139,8 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
     return null;
   }
 
-  if (!negotiationStatus?.hasActiveRound) {
+  // No round at all - hide completely
+  if (!negotiationStatus?.round) {
     return null;
   }
 
@@ -148,6 +150,7 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
   const isExpired = round?.isExpired || timeRemaining === 'Expired';
   const isPending = round?.status === 'PENDING_APPROVAL';
   const isActive = round?.status === 'ACTIVE' && !isExpired;
+  const isClosed = round?.status === 'CLOSED' || round?.status === 'COMPLETED';
 
   if (isPending) {
     return null;
@@ -157,8 +160,10 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
 
   let cardStyle = CARD_STYLES.active;
   if (hasSubmittedQuote) cardStyle = CARD_STYLES.submitted;
-  else if (isExpired) cardStyle = CARD_STYLES.expired;
-  else if (isPending) cardStyle = CARD_STYLES.pending;
+  else if (isActive) cardStyle = CARD_STYLES.active;
+  else if (isExpired && round?.status === 'ACTIVE') cardStyle = CARD_STYLES.expired;
+  else if (isClosed) cardStyle = CARD_STYLES.closed;
+  else cardStyle = CARD_STYLES.expired;
 
   return (
     <>
@@ -183,10 +188,12 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
         <div className="d-flex align-items-center gap-1">
           {hasSubmittedQuote ? (
             <Badge bg="primary" style={{ fontSize: '0.7rem' }}>Submitted</Badge>
-          ) : isExpired ? (
-            <Badge bg="danger" style={{ fontSize: '0.7rem' }}>Expired</Badge>
           ) : isActive ? (
             <Badge bg="success" style={{ fontSize: '0.7rem' }}>Active</Badge>
+          ) : (isExpired && round?.status === 'ACTIVE') ? (
+            <Badge bg="danger" style={{ fontSize: '0.7rem' }}>Expired</Badge>
+          ) : isClosed ? (
+            <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>{round.status === 'COMPLETED' ? 'Completed' : 'Closed'}</Badge>
           ) : null}
           {round?.round_number && (
             <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>R{round.round_number}</span>
@@ -209,9 +216,13 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
           <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 500 }}>
             {timeRemaining} left
           </span>
-        ) : isExpired ? (
+        ) : (isExpired && round?.status === 'ACTIVE') ? (
           <span style={{ fontSize: '0.75rem', color: '#dc2626' }}>
             Round ended
+          </span>
+        ) : isClosed ? (
+          <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+            Round {round.status.toLowerCase()}
           </span>
         ) : null}
 
@@ -233,20 +244,22 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
             <div
               className="p-3 mb-3 rounded"
               style={{
-                backgroundColor: isExpired ? '#fef2f2' : hasSubmittedQuote ? '#eff6ff' : '#ecfdf5',
-                border: `1px solid ${isExpired ? '#fecaca' : hasSubmittedQuote ? '#bfdbfe' : '#a7f3d0'}`,
+                backgroundColor: isActive ? '#ecfdf5' : hasSubmittedQuote ? '#eff6ff' : (isExpired && round?.status === 'ACTIVE') ? '#fef2f2' : '#f9fafb',
+                border: `1px solid ${isActive ? '#a7f3d0' : hasSubmittedQuote ? '#bfdbfe' : (isExpired && round?.status === 'ACTIVE') ? '#fecaca' : '#e5e7eb'}`,
               }}
             >
               <div className="d-flex justify-content-between align-items-center mb-2">
                 <div className="fw-bold" style={{ fontSize: '0.95rem' }}>
-                  Current Round {round.round_number}
+                  Latest Round {round.round_number}
                 </div>
                 {hasSubmittedQuote ? (
                   <Badge bg="primary">Quote Submitted</Badge>
-                ) : isExpired ? (
+                ) : isActive ? (
+                  <Badge bg="success">Active</Badge>
+                ) : (isExpired && round?.status === 'ACTIVE') ? (
                   <Badge bg="danger">Expired</Badge>
                 ) : (
-                  <Badge bg="success">Active</Badge>
+                  <Badge bg="secondary">{round.status}</Badge>
                 )}
               </div>
               <div className="row g-2" style={{ fontSize: '0.85rem' }}>
@@ -261,9 +274,15 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
                 <div className="col-md-3">
                   <div className="text-muted" style={{ fontSize: '0.75rem' }}>Time Remaining</div>
                   <div>
-                    <Badge bg={isExpired ? 'danger' : 'success'} style={{ fontSize: '0.8rem' }}>
-                      {timeRemaining || 'Expired'}
-                    </Badge>
+                    {isActive ? (
+                      <Badge bg="success" style={{ fontSize: '0.8rem' }}>
+                        {timeRemaining || 'Calculating...'}
+                      </Badge>
+                    ) : (
+                      <Badge bg={isExpired ? 'danger' : 'secondary'} style={{ fontSize: '0.8rem' }}>
+                        {isExpired ? 'Expired' : round.status}
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 {hasSubmittedQuote && vendorQuote?.quoted_price && (

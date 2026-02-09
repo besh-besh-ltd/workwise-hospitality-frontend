@@ -8,6 +8,7 @@ const CELL_STYLES = {
   expired: { backgroundColor: '#fee2e2', border: '1px solid #ef4444', cursor: 'pointer' },
   submitted: { backgroundColor: '#dbeafe', border: '1px solid #3b82f6', cursor: 'pointer' },
   pending: { backgroundColor: '#fef3c7', border: '1px solid #f59e0b', cursor: 'pointer' },
+  closed: { backgroundColor: '#f3f4f6', border: '1px solid #9ca3af', cursor: 'pointer' },
   none: { backgroundColor: 'transparent', border: 'none' },
 };
 
@@ -26,7 +27,7 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName }) => {
   }, [rfq_id, rfq_product_id]);
 
   useEffect(() => {
-    if (negotiationStatus?.hasActiveRound && negotiationStatus?.round?.status === 'ACTIVE') {
+    if (negotiationStatus?.round?.status === 'ACTIVE' && !negotiationStatus?.round?.isExpired) {
       const interval = setInterval(() => {
         updateTimeRemaining();
       }, 1000);
@@ -43,7 +44,7 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName }) => {
       if (response) {
         if (response.status === 1 && response.data) {
           statusData = response.data;
-        } else if (response.hasActiveRound !== undefined) {
+        } else if (response.hasActiveRound !== undefined || response.hasRound !== undefined) {
           statusData = response;
         }
       }
@@ -103,7 +104,8 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName }) => {
   };
 
   const handleCellClick = () => {
-    if (!negotiationStatus?.hasActiveRound) return;
+    // Allow click if any round exists (not just active)
+    if (!negotiationStatus?.round) return;
     setShowModal(true);
     loadHistory();
   };
@@ -137,7 +139,8 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName }) => {
     );
   }
 
-  if (!negotiationStatus?.hasActiveRound) {
+  // No round exists at all for this product
+  if (!negotiationStatus?.round) {
     return (
       <td style={{ minWidth: '140px', verticalAlign: 'middle' }}>
         <span className="text-muted">N/A</span>
@@ -150,12 +153,15 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName }) => {
   const isExpired = round?.isExpired || timeRemaining === 'Expired';
   const isPending = round?.status === 'PENDING_APPROVAL';
   const isActive = round?.status === 'ACTIVE' && !isExpired;
+  const isClosed = round?.status === 'CLOSED' || round?.status === 'COMPLETED';
 
   let cellStyle = CELL_STYLES.none;
   if (hasSubmittedQuote) cellStyle = CELL_STYLES.submitted;
-  else if (isExpired) cellStyle = CELL_STYLES.expired;
-  else if (isPending) cellStyle = CELL_STYLES.pending;
   else if (isActive) cellStyle = CELL_STYLES.active;
+  else if (isExpired && round?.status === 'ACTIVE') cellStyle = CELL_STYLES.expired;
+  else if (isPending) cellStyle = CELL_STYLES.pending;
+  else if (isClosed) cellStyle = CELL_STYLES.closed;
+  else cellStyle = CELL_STYLES.expired;
 
   return (
     <>
@@ -171,13 +177,17 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName }) => {
           <div className="d-flex align-items-center gap-1">
             {hasSubmittedQuote ? (
               <Badge bg="primary" style={{ fontSize: '0.7rem' }}>Submitted</Badge>
-            ) : isExpired ? (
+            ) : isActive ? (
+              <Badge bg="success" style={{ fontSize: '0.7rem' }}>Active</Badge>
+            ) : isExpired && round?.status === 'ACTIVE' ? (
               <Badge bg="danger" style={{ fontSize: '0.7rem' }}>Expired</Badge>
             ) : isPending ? (
               <Badge bg="warning" text="dark" style={{ fontSize: '0.7rem' }}>Pending</Badge>
-            ) : isActive ? (
-              <Badge bg="success" style={{ fontSize: '0.7rem' }}>Active</Badge>
-            ) : null}
+            ) : isClosed ? (
+              <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>{round.status === 'COMPLETED' ? 'Completed' : 'Closed'}</Badge>
+            ) : (
+              <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>{round.status}</Badge>
+            )}
             {round?.round_number && (
               <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>R{round.round_number}</span>
             )}
@@ -199,9 +209,13 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName }) => {
             <div style={{ fontSize: '0.7rem', color: '#059669' }}>
               {timeRemaining} left
             </div>
-          ) : isExpired ? (
+          ) : (isExpired && round?.status === 'ACTIVE') ? (
             <div style={{ fontSize: '0.7rem', color: '#dc2626' }}>
               Round ended
+            </div>
+          ) : isClosed ? (
+            <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+              Round {round.status.toLowerCase()}
             </div>
           ) : null}
 
@@ -219,27 +233,29 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName }) => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {/* Current Round Summary */}
+          {/* Current/Latest Round Summary */}
           {round && (
             <div
               className="p-3 mb-3 rounded"
               style={{
-                backgroundColor: isExpired ? '#fef2f2' : hasSubmittedQuote ? '#eff6ff' : '#ecfdf5',
-                border: `1px solid ${isExpired ? '#fecaca' : hasSubmittedQuote ? '#bfdbfe' : '#a7f3d0'}`,
+                backgroundColor: isActive ? '#ecfdf5' : hasSubmittedQuote ? '#eff6ff' : (isExpired && round?.status === 'ACTIVE') ? '#fef2f2' : '#f9fafb',
+                border: `1px solid ${isActive ? '#a7f3d0' : hasSubmittedQuote ? '#bfdbfe' : (isExpired && round?.status === 'ACTIVE') ? '#fecaca' : '#e5e7eb'}`,
               }}
             >
               <div className="d-flex justify-content-between align-items-center mb-2">
                 <div className="fw-bold" style={{ fontSize: '0.95rem' }}>
-                  Current Round {round.round_number}
+                  Latest Round {round.round_number}
                 </div>
                 {hasSubmittedQuote ? (
                   <Badge bg="primary">Quote Submitted</Badge>
-                ) : isExpired ? (
+                ) : isActive ? (
+                  <Badge bg="success">Active</Badge>
+                ) : (isExpired && round?.status === 'ACTIVE') ? (
                   <Badge bg="danger">Expired</Badge>
                 ) : isPending ? (
                   <Badge bg="warning" text="dark">Pending Approval</Badge>
                 ) : (
-                  <Badge bg="success">Active</Badge>
+                  <Badge bg="secondary">{round.status}</Badge>
                 )}
               </div>
               <div className="row g-2" style={{ fontSize: '0.85rem' }}>
@@ -254,9 +270,15 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName }) => {
                 <div className="col-md-3">
                   <div className="text-muted" style={{ fontSize: '0.75rem' }}>Time Remaining</div>
                   <div>
-                    <Badge bg={isExpired ? 'danger' : 'success'} style={{ fontSize: '0.8rem' }}>
-                      {timeRemaining || 'Expired'}
-                    </Badge>
+                    {isActive ? (
+                      <Badge bg="success" style={{ fontSize: '0.8rem' }}>
+                        {timeRemaining || 'Calculating...'}
+                      </Badge>
+                    ) : (
+                      <Badge bg={isExpired ? 'danger' : 'secondary'} style={{ fontSize: '0.8rem' }}>
+                        {isExpired ? 'Expired' : round.status}
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 {hasSubmittedQuote && negotiationStatus.vendorQuote?.quoted_price && (
