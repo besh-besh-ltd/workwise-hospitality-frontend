@@ -951,15 +951,6 @@ Example:
                                     id="name"
                                     name="name"
                                     placeholder="Demo Project Name"
-                                    disabled={type === "edit-project"}
-                                    style={
-                                      type === "edit-project"
-                                        ? {
-                                            backgroundColor: "#f8f9fa",
-                                            cursor: "not-allowed",
-                                          }
-                                        : {}
-                                    }
                                   />
                                   {touched.name && errors.name && (
                                     <div className="form-error">

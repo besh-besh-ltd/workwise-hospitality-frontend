@@ -109,9 +109,11 @@ const DraftRFQItem = ({ data , refetch }) => {
         </td>
 
         <td>
-          {data.rfq_type == "" || data.rfq_type == null
+          {data.is_tender === 1
             ? "---"
-            : textCapitalize(data.rfq_type)}
+            : (data.rfq_type == "" || data.rfq_type == null)
+              ? "---"
+              : textCapitalize(data.rfq_type)}
         </td>
         <td>{data.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
         <td>

@@ -967,6 +967,8 @@ useEffect(() => {
     } else if (formDataCopy.is_tender === 1) {
       // Ensure entered tender_fees from store is used; use 0 when cleared (null)
       formDataCopy.tender_fees = rfqFormDataFromStore.tender_fees != null ? rfqFormDataFromStore.tender_fees : (formDataCopy.tender_fees ?? 0);
+      // rfq_type (Firm/Budgetary) is not applicable for tenders
+      delete formDataCopy.rfq_type;
     }
     
     // IMPORTANT: Normalize terms to ensure proper format for backend

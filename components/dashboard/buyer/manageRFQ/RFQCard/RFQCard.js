@@ -159,9 +159,11 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
             <User size={14} />
             <span>Created by: <strong>{data.contact_name || '---'}</strong></span>
           </div>
+          {data.is_tender !== 1 && (
           <div className={styles.metaItem}>
             <span>Type: <strong>{textCapitalize(data.rfq_type) || 'N/A'}</strong></span>
           </div>
+          )}
           <div className={styles.metaItem}>
             <span>Reverse Auction: <strong>{data.reverse_auction === 1 ? 'Enabled' : 'Disabled'}</strong></span>
           </div>

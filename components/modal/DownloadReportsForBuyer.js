@@ -358,7 +358,7 @@ const DownloadReportsForBuyer = (props) => {
       ["Quote Submission Deadline", rfq.bid_end_date],
       ["Location", rfq.location],
       ["RFQ Status", rfq.status],
-      ["RFQ Type", rfq.rfq_type],
+      ...(rfq.is_tender !== 1 ? [["RFQ Type", rfq.rfq_type]] : []),
       ["Reverse Auction", rfq.reverse_auction ? "Yes" : "No"],
     ];
 

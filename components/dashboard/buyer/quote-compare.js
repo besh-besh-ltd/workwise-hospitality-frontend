@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import FullLoader from "@/components/shared/FullLoader";
 import useModulePermissions from "@/hooks/useModulePermissions";
@@ -14,6 +14,7 @@ import {
   handleUploadFileInFormData,
   saveExcelInDB,
   updateTargetPrice,
+  getTechEvalStatus,
 } from "@/services/rfq";
 import { useRouter } from "next/router";
 import * as XLSX from "xlsx-js-style";
@@ -66,6 +67,8 @@ const QuoteCompare = () => {
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
   const [TA_Filter, setTA_Filter] = useState(false);
   const [TEavailable, setTEavailable] = useState(false);
+  const [hasTEAcceptedVendors, setHasTEAcceptedVendors] = useState(false);
+  const tenderTAInitializedRef = useRef(false);
   const [freightFilter, setFreightFilter] = useState(false);
   const [normalizeFilter, setNormalizeFilter] = useState(false);
   const [rfqNo, setRfqNo] =useState(null);
@@ -422,7 +425,13 @@ const openModalForVariant = (variantId) => {
   }
 
   const handleTAFilterChange = (e) => {
-    setTA_Filter(e.target.checked);
+    const isTender = currentRFQ?.is_tender === 1 || currentRFQ?.is_tender === true;
+    if (isTender && hasTEAcceptedVendors) {
+      // Reversed logic: toggle ON = show all (TA_Filter false), toggle OFF = show accepted only (TA_Filter true)
+      setTA_Filter(!e.target.checked);
+    } else {
+      setTA_Filter(e.target.checked);
+    }
   }
 
   const handleFreightFilterChange = (e) => {
@@ -492,12 +501,14 @@ const handleCloseNormalizeModal = () => {
     setquotes([]);
     setTEavailable(false);
 
+    let loadedData = [];
     getQuotes(rfq, TA_Filter, freightFilter, rfq_product_id, source , 'quote_compare')
       .then((res) => {
         // Store original data before normalization for highlighting logic
         setOriginalQuotes(res.data);
 
         const data = normalizeFilter ? normalizeFlatQuotationData(res.data) : res.data;
+        loadedData = data;
 
         setquotes(data);
 
@@ -526,17 +537,57 @@ const handleCloseNormalizeModal = () => {
       })
       .finally(() => {
         setquotesLoading(false);
-        getRFQClauses();
+        getRFQClauses(loadedData);
       })
   };
 
-  const getRFQClauses = async () => {
+  const getRFQClauses = async (quotesData = []) => {
     try {
       const res = await getAllClauses(rfq);
-      if(res.data && res.data.length > 0)
+      if(res.data && res.data.length > 0) {
         setTEavailable(true);
+
+        // For tenders: auto-enable TA filter if tech eval has accepted vendors
+        const isTender = currentRFQ?.is_tender === 1 || currentRFQ?.is_tender === true;
+        if (isTender && !tenderTAInitializedRef.current) {
+          tenderTAInitializedRef.current = true;
+          await checkTenderTEAcceptedVendors(quotesData);
+        }
+      }
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const checkTenderTEAcceptedVendors = async (quotesData) => {
+    try {
+      const productIds = quotesData.map(q => q.id).filter(Boolean);
+      let hasAccepted = false;
+
+      for (const productId of productIds) {
+        try {
+          const response = await getTechEvalStatus(productId);
+          if (response?.status === 1 && response?.data) {
+            const { total_passed_verified, rounds } = response.data;
+            const hasCompletedRound = rounds?.some(r =>
+              r.approval_status === 'APPROVED' || r.status === 'COMPLETED'
+            );
+            if (hasCompletedRound && total_passed_verified > 0) {
+              hasAccepted = true;
+              break;
+            }
+          }
+        } catch {
+          // No tech eval for this product, skip
+        }
+      }
+
+      if (hasAccepted) {
+        setHasTEAcceptedVendors(true);
+        setTA_Filter(true);
+      }
+    } catch (error) {
+      console.error("Error checking tech eval accepted vendors:", error);
     }
   };
 
@@ -1448,6 +1499,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       setTA_Filter(false);
       setFreightFilter(false);
       setNormalizeFilter(false);
+      setHasTEAcceptedVendors(false);
+      tenderTAInitializedRef.current = false;
     }
   }, [rfq]);
 
@@ -1774,9 +1827,9 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             </p>
                           </>
                         )}
-                        {currentRFQ.rfq_type && currentRFQ.rfq_type != "" && (
+                        {currentRFQ.is_tender !== 1 && currentRFQ.rfq_type && currentRFQ.rfq_type != "" && (
                           <p className="sub-heading mb-0">
-                          <b>{getEntityLabel(currentRFQ?.is_tender)} Type</b> : {currentRFQ.rfq_type}
+                          <b>RFQ Type</b> : {currentRFQ.rfq_type}
                           </p>
                         )}
                         <p className="sub-heading mb-0">
@@ -1920,12 +1973,19 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             className="form-check-input border-dark-subtle flex-shrink-0"
                             type="checkbox"
                             role="switch"
-                            checked={TA_Filter}
+                            checked={
+                              (currentRFQ?.is_tender === 1 || currentRFQ?.is_tender === true) && hasTEAcceptedVendors
+                                ? !TA_Filter  // Reversed: checked = show all quotes
+                                : TA_Filter   // Normal: checked = show accepted only
+                            }
                             id="ta_filter_toggle-quote_tabs-quote_compare_page"
                             onChange={handleTAFilterChange}
                           />
                           <label className="form-check-label flex-grow-1 m-0" htmlFor="ta_filter_toggle-quote_tabs-quote_compare_page">
-                            View Technically Accepted Vendors
+                            {(currentRFQ?.is_tender === 1 || currentRFQ?.is_tender === true) && hasTEAcceptedVendors
+                              ? "Show All Quotes"
+                              : "View Technically Accepted Vendors"
+                            }
                           </label>
                         </div>
                       )}
