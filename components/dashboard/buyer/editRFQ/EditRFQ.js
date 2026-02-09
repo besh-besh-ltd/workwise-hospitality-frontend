@@ -502,7 +502,6 @@ const EditRFQ = () => {
   const handleTechEvalUserChange = (e) => {
     const value = e.target.value;
     const parsedValue = value ? Number(value) : null;
-    dispatch(setOtherFormFields({ technical_evaluation_by: parsedValue }));
     setHasUnsavedChanges(true);
   };
 
@@ -784,7 +783,6 @@ const EditRFQ = () => {
         termsChanged,
         selectedTerms,
         title: formValues.title !== undefined ? formValues.title : rfqData.title || null,
-        technical_evaluation_by: formValues.technical_evaluation_by !== undefined ? formValues.technical_evaluation_by : rfqData.technical_evaluation_by || null,
         comment: formValues.comment !== undefined ? formValues.comment : rfqData.comment,
        };
 
@@ -2000,7 +1998,6 @@ const EditRFQ = () => {
                                 } catch (err) { setTechEvalUsers([]); }
                               } else {
                                 setTechEvalUsers([]);
-                                dispatch(setOtherFormFields({ technical_evaluation_by: null }));
                               }
                             }}
                             placeholder="Select Project"

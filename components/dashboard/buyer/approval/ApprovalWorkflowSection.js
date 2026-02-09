@@ -1,11 +1,14 @@
-import React, { useState } from "react";
-import { Accordion, Badge, Button, Alert, Spinner } from "react-bootstrap";
+import React, { useState, useEffect } from "react";
+import { Badge, Button, Alert, Spinner, Collapse } from "react-bootstrap";
 import { toast } from "react-toastify";
 import {
   BsCheckCircleFill,
   BsXCircleFill,
   BsClockFill,
   BsArrowRepeat,
+  BsChevronDown,
+  BsShieldCheck,
+  BsShieldX,
 } from "react-icons/bs";
 import useApprovalWorkflow from "@/hooks/useApprovalWorkflow";
 import ApprovalTimeline from "./ApprovalTimeline";
@@ -19,24 +22,32 @@ const statusConfig = {
     label: "Pending Approval",
     icon: BsClockFill,
     color: "#ffc107",
+    accentColor: "#ffc107",
+    accentGradient: "linear-gradient(90deg, #ffc107 0%, #ffdb4d 100%)",
   },
   APPROVED: {
     variant: "success",
     label: "Approved",
     icon: BsCheckCircleFill,
     color: "#198754",
+    accentColor: "#198754",
+    accentGradient: "linear-gradient(90deg, #198754 0%, #20c070 100%)",
   },
   REJECTED: {
     variant: "danger",
     label: "Rejected",
     icon: BsXCircleFill,
     color: "#dc3545",
+    accentColor: "#dc3545",
+    accentGradient: "linear-gradient(90deg, #dc3545 0%, #e8606d 100%)",
   },
   CANCELLED: {
     variant: "secondary",
     label: "Cancelled",
     icon: BsXCircleFill,
     color: "#6c757d",
+    accentColor: "#6c757d",
+    accentGradient: "linear-gradient(90deg, #6c757d 0%, #8c939a 100%)",
   },
 };
 
@@ -47,11 +58,11 @@ const ApprovalWorkflowSection = ({
   hospitalityCompanyId,
   hotelId,
   departmentId,
-  onCustomApprove,    // Optional: Custom approve handler (for negotiation)
-  onCustomReject,     // Optional: Custom reject handler (for negotiation)
-  onActionComplete,   // Optional: Callback after action completes
-  vendorCodeMap = {},  // Optional: For displaying vendor codes in selected quotes
-  vendorNameMap = {}  // Optional: For displaying vendor names in selected quotes
+  onCustomApprove,
+  onCustomReject,
+  onActionComplete,
+  vendorCodeMap = {},
+  vendorNameMap = {}
 }) => {
   const {
     instance,
@@ -70,6 +81,14 @@ const ApprovalWorkflowSection = ({
 
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState(null);
+  const [expanded, setExpanded] = useState(false);
+
+  // Auto-expand when action is required
+  useEffect(() => {
+    if (canUserApprove && status === "PENDING") {
+      setExpanded(true);
+    }
+  }, [canUserApprove, status]);
 
   const openActionModal = (type) => {
     setActionType(type);
@@ -79,19 +98,16 @@ const ApprovalWorkflowSection = ({
   const handleAction = async (comment) => {
     let result;
 
-    // Build context object with instance data for custom handlers
     const handlerContext = {
       approval_instance_id: instance?.id,
       approval_instance_step_id: instance?.user_approval_step_id,
     };
 
-    // Use custom handlers if provided (for ARC, negotiation modules)
     if (actionType === "APPROVE" && onCustomApprove) {
       result = await onCustomApprove(comment, handlerContext);
     } else if (actionType === "REJECT" && onCustomReject) {
       result = await onCustomReject(comment, handlerContext);
     } else {
-      // Default behavior using hook's handleApprovalAction
       result = await handleApprovalAction(actionType, comment);
     }
 
@@ -100,11 +116,9 @@ const ApprovalWorkflowSection = ({
         `${entityLabel} ${actionType === "APPROVE" ? "approved" : "rejected"} successfully`
       );
       setShowActionModal(false);
-      // Call action complete callback if provided
       if (onActionComplete) {
         onActionComplete();
       }
-      // Refresh workflow state
       refetch();
     } else {
       toast.error(result.error || `Failed to ${actionType.toLowerCase()}`);
@@ -114,9 +128,9 @@ const ApprovalWorkflowSection = ({
   // Loading state
   if (loading) {
     return (
-      <div className="border rounded-md p-4 text-center">
-        <Spinner animation="border" variant="primary" className="mb-3" />
-        <p className="text-muted mb-0">Loading approval workflow...</p>
+      <div className="text-center py-4" style={{ color: "#adb5bd" }}>
+        <Spinner animation="border" size="sm" className="me-2" style={{ color: "#adb5bd" }} />
+        <span className="small">Loading approval workflow...</span>
       </div>
     );
   }
@@ -124,229 +138,338 @@ const ApprovalWorkflowSection = ({
   // Error state
   if (error) {
     return (
-      <Alert variant="warning" className="mb-0">
+      <Alert variant="warning" className="mb-0 py-2">
         <div className="d-flex justify-content-between align-items-center">
           <div>
-            <strong>Unable to load approval status</strong>
-            <p className="mb-0 small">{error}</p>
+            <strong className="small">Unable to load approval status</strong>
+            <p className="mb-0 small text-muted">{error}</p>
           </div>
           <Button variant="outline-warning" size="sm" onClick={refetch}>
-            <BsArrowRepeat className="me-1" /> Retry
+            <BsArrowRepeat className="me-1" size={12} /> Retry
           </Button>
         </div>
       </Alert>
     );
   }
 
-  // No approval instance - don't render anything
   if (!instance) {
     return null;
   }
 
   const statusInfo = statusConfig[status] || statusConfig.PENDING;
   const StatusIcon = statusInfo.icon;
-
-  // Determine accordion header background color
-  // Warning (yellow) if pending and action required from current user
-  // Success (green) if approved or no action required
   const isActionRequired = canUserApprove && status === "PENDING";
-  const headerBgColor = isActionRequired
-    ? "#fff3cd"  // Bootstrap warning light
-    : (status === "APPROVED" ? "#d1e7dd" : "#f8f9fa");  // Bootstrap success light or default gray
 
   return (
     <>
-      <style jsx global>{`
-        .approval-workflow-accordion .accordion-button {
-          background-color: ${headerBgColor} !important;
-          width: 100% !important;
-          margin: 0 !important;
+      <style jsx>{`
+        .aws-card {
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+          overflow: hidden;
+          border: 1px solid #e9ecef;
+          transition: box-shadow 0.3s ease;
+          position: relative;
         }
-        .approval-workflow-accordion .accordion-button:not(.collapsed) {
-          background-color: ${headerBgColor} !important;
-          box-shadow: none;
+        .aws-card:hover {
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
-        .approval-workflow-accordion .accordion-button:focus {
-          box-shadow: none;
+        .aws-card.aws-action-required {
+          border-color: #ffeeba;
+          box-shadow: 0 2px 12px rgba(255,193,7,0.12);
+        }
+        .aws-card.aws-action-required:hover {
+          box-shadow: 0 4px 24px rgba(255,193,7,0.18);
+        }
+        .aws-accent {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+        }
+        .aws-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 20px;
+          cursor: pointer;
+          user-select: none;
+          transition: background 0.15s ease;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .aws-header:hover {
+          background: rgba(0,0,0,0.012);
+        }
+        .aws-card.aws-action-required .aws-header {
+          background: linear-gradient(135deg, #fffdf5 0%, #fff8e1 100%);
+        }
+        .aws-card.aws-action-required .aws-header:hover {
+          background: linear-gradient(135deg, #fffcf0 0%, #fff5d6 100%);
+        }
+        .aws-header-left {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          min-width: 0;
+        }
+        .aws-header-right {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+        .aws-icon-wrap {
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: transform 0.2s ease;
+        }
+        .aws-header:hover .aws-icon-wrap {
+          transform: scale(1.06);
+        }
+        .aws-title {
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: #2d3436;
+          white-space: nowrap;
+        }
+        .aws-step-info {
+          font-size: 0.75rem;
+          color: #6c757d;
+          font-weight: 500;
+        }
+        .aws-progress-track {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          padding: 3px;
+          background: #f0f0f0;
+          border-radius: 10px;
+        }
+        .aws-card.aws-action-required .aws-progress-track {
+          background: rgba(255,193,7,0.12);
+        }
+        .aws-progress-pip {
+          width: 18px;
+          height: 5px;
+          border-radius: 3px;
+          transition: all 0.3s ease;
+        }
+        .aws-chevron {
+          transition: transform 0.3s ease;
+          color: #adb5bd;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 6px;
+          transition: all 0.2s ease;
+        }
+        .aws-chevron:hover {
+          background: rgba(0,0,0,0.05);
+          color: #6c757d;
+        }
+        .aws-chevron.open {
+          transform: rotate(180deg);
+        }
+        .aws-body {
+          padding: 0 20px 20px;
+          border-top: 1px solid #f0f0f0;
+        }
+        .aws-card.aws-action-required .aws-body {
+          border-top-color: rgba(255,193,7,0.15);
+        }
+        .aws-body-inner {
+          padding-top: 16px;
+        }
+        .aws-status-line {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 14px;
+          border-radius: 8px;
+          margin-top: 14px;
+          font-size: 0.82rem;
+          font-weight: 500;
+        }
+        .aws-status-approved {
+          background: linear-gradient(135deg, #d1e7dd 0%, #e8f5e9 100%);
+          color: #0f5132;
+        }
+        .aws-status-rejected {
+          background: linear-gradient(135deg, #f8d7da 0%, #fce4ec 100%);
+          color: #842029;
+        }
+        .aws-status-pending {
+          background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
+          color: #6c757d;
+        }
+        .aws-action-btn {
+          font-size: 0.78rem;
+          font-weight: 600;
+          padding: 6px 16px;
+          border-radius: 7px;
+          transition: all 0.15s ease;
+          letter-spacing: 0.01em;
+        }
+        .aws-action-btn:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
       `}</style>
-      <Accordion className="approval-workflow-accordion">
-        <Accordion.Item eventKey="0" className="border rounded-md overflow-hidden">
-          {/* Accordion Header */}
-          <Accordion.Header>
-            <div className="d-flex justify-content-between align-items-center w-100 me-3 py-1">
-              <div className="d-flex align-items-center gap-3">
-                <div
-                  className="d-flex align-items-center justify-content-center rounded-circle"
-                  style={{
-                    width: 45,
-                    height: 45,
-                    backgroundColor: statusInfo.color,
-                    color: "white",
-                  }}
-                >
-                  <StatusIcon size={22} />
-                </div>
-                <div>
-                  <h6 className="mb-1 fw-bold text-dark" style={{ fontSize: "1rem" }}>Approval Workflow</h6>
-                  <div className="d-flex align-items-center gap-2 flex-wrap">
-                    <small className="text-secondary">
-                      {totalSteps > 0 ? `Step ${currentStep} of ${totalSteps}` : "No steps configured"}
-                    </small>
-                    <Badge bg={statusInfo.variant} className="px-2 py-1" style={{ fontSize: "0.75rem" }}>
-                      {statusInfo.label}
-                    </Badge>
-                    {isActionRequired && (
-                      <Badge bg="danger" className="px-2 py-1" style={{ fontSize: "0.75rem" }}>
-                        Action Required
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
 
+      <div className={`aws-card approval-workflow-section approval-workflow-accordion ${isActionRequired ? 'aws-action-required' : ''}`}>
+        {/* Top gradient accent bar */}
+        <div className="aws-accent" style={{ background: statusInfo.accentGradient }} />
+
+        {/* Header */}
+        <div className="aws-header" onClick={() => setExpanded(!expanded)}>
+          <div className="aws-header-left">
+            <div
+              className="aws-icon-wrap"
+              style={{ background: `${statusInfo.color}12` }}
+            >
+              <StatusIcon size={19} style={{ color: statusInfo.color }} />
+            </div>
+            <div>
               <div className="d-flex align-items-center gap-2">
-                {/* Status Badge - Larger */}
+                <span className="aws-title">Approval Workflow</span>
                 <Badge
                   bg={statusInfo.variant}
-                  className="px-3 py-2"
-                  style={{ fontSize: "0.9rem" }}
+                  style={{ fontSize: "0.68rem", fontWeight: 500, padding: "3px 8px" }}
                 >
                   {statusInfo.label}
                 </Badge>
               </div>
+              {totalSteps > 0 && (
+                <div className="d-flex align-items-center gap-2 mt-1">
+                  <span className="aws-step-info">Step {currentStep} of {totalSteps}</span>
+                  <div className="aws-progress-track">
+                    {steps.map((step) => {
+                      const pipColor =
+                        step.status === "APPROVED" ? "#198754" :
+                        step.status === "REJECTED" ? "#dc3545" :
+                        step.status === "PENDING" && step.step_order === currentStep ? "#ffc107" :
+                        "#dee2e6";
+                      return (
+                        <div key={step.id} className="aws-progress-pip" style={{ backgroundColor: pipColor }} />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
-          </Accordion.Header>
+          </div>
 
-          {/* Accordion Body */}
-          <Accordion.Body className="py-4">
-            {/* Action Required Notice */}
-            {canUserApprove && status === "PENDING" && (
-              <Alert variant="warning" className="mb-3 py-2 border-0">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <strong>Action Required:</strong> You are the current approver.
-                    Please review and take action below.
+          <div className="aws-header-right" onClick={(e) => e.stopPropagation()}>
+            {isActionRequired && (
+              <>
+                <Button
+                  variant="success"
+                  size="sm"
+                  className="aws-action-btn p-2 px-4 m-0"
+                  onClick={() => openActionModal("APPROVE")}
+                  disabled={actionLoading}
+                >
+                  <BsShieldCheck size={13} className="me-2" />
+                  Approve
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  className="aws-action-btn p-2 px-4 m-0"
+                  onClick={() => openActionModal("REJECT")}
+                  disabled={actionLoading}
+                >
+                  <BsShieldX size={13} className="me-2" />
+                  Reject
+                </Button>
+              </>
+            )}
+            <span
+              className={`aws-chevron ${expanded ? "open" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            >
+              <BsChevronDown size={14} />
+            </span>
+          </div>
+        </div>
+
+        {/* Collapsible Body */}
+        <Collapse in={expanded}>
+          <div>
+            <div className="aws-body">
+              <div className="aws-body-inner">
+                {/* Metadata displays */}
+                {instance?.metadata?.selected_quotes?.length > 0 && (
+                  <SelectedQuotesDisplay
+                    quotes={instance.metadata.selected_quotes}
+                    vendorCodeMap={vendorCodeMap}
+                    vendorNameMap={vendorNameMap}
+                    status={status}
+                  />
+                )}
+
+                {entityType === 'TECHNICAL' && (instance?.metadata?.vendors?.length > 0 || instance?.metadata?.not_evaluated_vendors?.length > 0) && (
+                  <TechEvalVendorStatusDisplay
+                    vendors={instance.metadata.vendors || []}
+                    notEvaluatedVendors={instance.metadata.not_evaluated_vendors || []}
+                    roundNumber={instance.metadata.evaluation_round || 1}
+                    showSummary={true}
+                  />
+                )}
+
+                {/* Timeline */}
+                <ApprovalTimeline
+                  steps={steps}
+                  currentStep={currentStep}
+                  initiatedBy={initiatedBy}
+                />
+
+                {/* Status messages */}
+                {status === "APPROVED" && (
+                  <div className="aws-status-line aws-status-approved">
+                    <BsCheckCircleFill size={15} />
+                    <span>Fully approved — ready to proceed.</span>
                   </div>
-                </div>
-              </Alert>
-            )}
+                )}
 
-            {/* Display selected quotes from metadata (for quote approvals) */}
-            {instance?.metadata?.selected_quotes?.length > 0 && (
-              <SelectedQuotesDisplay
-                quotes={instance.metadata.selected_quotes}
-                vendorCodeMap={vendorCodeMap}
-                vendorNameMap={vendorNameMap}
-                status={status}
-              />
-            )}
-
-            {/* Display vendor evaluation results for TECHNICAL entity type */}
-            {entityType === 'TECHNICAL' && (instance?.metadata?.vendors?.length > 0 || instance?.metadata?.not_evaluated_vendors?.length > 0) && (
-              <TechEvalVendorStatusDisplay
-                vendors={instance.metadata.vendors || []}
-                notEvaluatedVendors={instance.metadata.not_evaluated_vendors || []}
-                roundNumber={instance.metadata.evaluation_round || 1}
-                showSummary={true}
-              />
-            )}
-
-            {/* Timeline */}
-            <ApprovalTimeline
-              steps={steps}
-              currentStep={currentStep}
-              initiatedBy={initiatedBy}
-            />
-
-            {/* Action Buttons for Current Approver */}
-            {canUserApprove && status === "PENDING" && (
-              <div
-                className="mt-4 pt-4 border-top"
-                style={{ backgroundColor: "#fffbeb", margin: "-1rem", padding: "1.5rem", marginTop: "1.5rem" }}
-              >
-                <h6 className="fw-bold mb-1 fs-5">Take Action</h6>
-                <p className="text-muted mb-3">
-                  Review the {entityLabel.toLowerCase()} details above and choose to approve or reject.
-                  {" "}A comment is optional for approval but required for rejection.
-                </p>
-                <div className="d-flex flex-wrap gap-2">
-                  <Button
-                    variant="success"
-                    className="p-2"
-                    onClick={() => openActionModal("APPROVE")}
-                    disabled={actionLoading}
-                  >
-                    Approve {entityLabel}
-                  </Button>
-                  <Button
-                    variant="outline-danger"
-                    className="p-2"
-                    onClick={() => openActionModal("REJECT")}
-                    disabled={actionLoading}
-                  >
-                    Reject {entityLabel}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Status Messages */}
-            {status === "APPROVED" && (
-              <Alert variant="success" className="mt-4 mb-0 d-flex align-items-center gap-2">
-                <BsCheckCircleFill size={20} />
-                <div>
-                  <strong>Approved!</strong> This {entityLabel.toLowerCase()} has been fully approved
-                  and can proceed to the next stage.
-                </div>
-              </Alert>
-            )}
-
-            {status === "REJECTED" && (
-              <Alert variant="danger" className="mt-4 mb-0">
-                <div className="d-flex align-items-start gap-3">
-                  <BsXCircleFill size={24} className="flex-shrink-0 mt-1" />
-                  <div className="flex-grow-1">
-                    <div className="fw-bold mb-2">Your {entityLabel} has been rejected</div>
-                    <p className="mb-2">
-                      This {entityLabel.toLowerCase()} was rejected during the approval process. 
-                      Please review the rejection reason in the timeline above, make necessary changes, and resubmit for approval.
-                    </p>
-                    <div className="d-flex gap-2 mt-3">
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => {
-                          // Navigate to edit page - adjust route based on entity type
-                          const editRoute = entityType === 'TENDER' || entityType === 'RFQ' 
-                            ? `/dashboard/buyer/rfq-management-edit?id=${entityId}`
-                            : `#`;
-                          if (editRoute !== '#') {
-                            window.location.href = editRoute;
-                          }
-                        }}
+                {status === "REJECTED" && (
+                  <div className="aws-status-line aws-status-rejected">
+                    <BsXCircleFill size={15} />
+                    <span>Rejected — review comments above.</span>
+                    {(entityType === 'TENDER' || entityType === 'RFQ') && (
+                      <a
+                        href={`/dashboard/buyer/rfq-management-edit?id=${entityId}`}
+                        className="ms-auto small"
+                        style={{ color: "#842029", textDecoration: "underline", fontWeight: 600, whiteSpace: "nowrap" }}
                       >
-                        <BsArrowRepeat className="me-1" />
                         Edit & Resubmit
-                      </Button>
-                    </div>
+                      </a>
+                    )}
                   </div>
-                </div>
-              </Alert>
-            )}
+                )}
 
-            {status === "PENDING" && !canUserApprove && (
-              <Alert variant="info" className="mt-4 mb-0 d-flex align-items-center gap-2">
-                <BsClockFill size={20} />
-                <div>
-                  <strong>Pending Approval.</strong> This {entityLabel.toLowerCase()} is waiting
-                  for approval from the designated approver(s). You will be notified when it's your turn.
-                </div>
-              </Alert>
-            )}
-          </Accordion.Body>
-        </Accordion.Item>
-      </Accordion>
+                {status === "PENDING" && !canUserApprove && (
+                  <div className="aws-status-line aws-status-pending">
+                    <BsClockFill size={15} />
+                    <span>Waiting for approver action.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Collapse>
+      </div>
 
       {/* Action Modal */}
       <ApprovalActionModal

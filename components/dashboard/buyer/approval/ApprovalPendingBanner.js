@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { Alert, Button, Spinner } from "react-bootstrap";
+import { Button } from "react-bootstrap";
 import { toast } from "react-toastify";
-import { BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill } from "react-icons/bs";
+import { BsShieldExclamation, BsClockHistory, BsShieldCheck, BsShieldX, BsArrowDown } from "react-icons/bs";
 import useApprovalWorkflow from "@/hooks/useApprovalWorkflow";
 import ApprovalActionModal from "./ApprovalActionModal";
 
 /**
- * A prominent banner to be placed at the TOP of the page
+ * Compact, modern banner placed at the TOP of the page
  * Shows when user has pending approval action required
  */
 const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item" }) => {
@@ -42,88 +42,143 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item" }) =
   };
 
   const scrollToApprovalSection = () => {
-    const section = document.querySelector(".approval-workflow-accordion");
+    const section = document.querySelector(".approval-workflow-section") || document.querySelector(".approval-workflow-accordion");
     if (section) {
       section.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
-  // Don't show anything while loading
-  if (loading) {
+  if (loading || !instance || status !== "PENDING") {
     return null;
   }
 
-  // Don't show if no instance or not pending
-  if (!instance || status !== "PENDING") {
-    return null;
-  }
-
-  // Show banner when user CAN approve (they are in line for approval)
+  // Action-required banner (current approver)
   if (canUserApprove) {
     return (
       <>
-        <Alert
-          variant="warning"
-          className="border-0 shadow-sm"
-          style={{
-            background: "linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%)",
-            borderLeft: "4px solid #ffc107 !important",
-          }}
-        >
-          <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
-            <div className="d-flex align-items-center gap-3">
-              <div
-                className="d-flex align-items-center justify-content-center rounded-circle"
-                style={{
-                  width: 48,
-                  height: 48,
-                  backgroundColor: "#ffc107",
-                  flexShrink: 0,
-                }}
-              >
-                <BsExclamationCircleFill size={24} className="text-dark" />
-              </div>
-              <div>
-                <div className="fw-bold text-dark">
-                  Your Approval is Required
-                </div>
-                <div className="text-dark opacity-75 text-sm">
-                  This {entityLabel.toLowerCase()} is waiting for your approval (Step {currentStep} of {totalSteps}).
-                  Please review and take action.
-                </div>
-              </div>
-            </div>
+        <style jsx>{`
+          .apb-action {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 12px 18px;
+            margin-bottom: 16px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #fffdf5 0%, #fff8e1 100%);
+            border: 1px solid #ffeeba;
+            border-left: 4px solid #ffc107;
+            box-shadow: 0 2px 12px rgba(255, 193, 7, 0.10);
+            transition: box-shadow 0.25s ease;
+            position: relative;
+            overflow: hidden;
+          }
+          .apb-action::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #ffc107 0%, #ffdb4d 50%, #ffc107 100%);
+            background-size: 200% 100%;
+            animation: apb-shimmer 3s linear infinite;
+          }
+          @keyframes apb-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+          .apb-action:hover {
+            box-shadow: 0 4px 18px rgba(255, 193, 7, 0.18);
+          }
+          .apb-action-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+          }
+          .apb-action-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,193,7,0.18);
+            flex-shrink: 0;
+          }
+          .apb-action-text {
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: #664d03;
+          }
+          .apb-action-sub {
+            font-size: 0.72rem;
+            color: #856404;
+            font-weight: 400;
+            margin-top: 1px;
+          }
+          .apb-action-btns {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+          }
+          .apb-btn {
+            font-size: 0.76rem;
+            font-weight: 600;
+            padding: 5px 14px;
+            border-radius: 7px;
+            transition: all 0.15s ease;
+          }
+          .apb-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+          }
+        `}</style>
 
-            <div className="d-flex gap-2 flex-shrink-0">
-              <Button
-                variant="success"
-                size="sm"
-                className="p-2"
-                onClick={() => openActionModal("APPROVE")}
-                disabled={actionLoading}
-              >
-                Approve
-              </Button>
-              <Button
-                variant="outline-danger"
-                size="sm"
-                className="p-2"
-                onClick={() => openActionModal("REJECT")}
-                disabled={actionLoading}
-              >
-                Reject
-              </Button>
-              <Button
-                variant="outline-dark"
-                size="sm"
-                className="p-2"
-                onClick={scrollToApprovalSection}
-              >
-                View Details
-              </Button>
+        <div className="apb-action">
+          <div className="apb-action-left">
+            <div className="apb-action-icon">
+              <BsShieldExclamation size={17} style={{ color: "#d97706" }} />
+            </div>
+            <div>
+              <div className="apb-action-text">Your approval is required</div>
+              <div className="apb-action-sub">Step {currentStep} of {totalSteps}</div>
             </div>
           </div>
-        </Alert>
+          <div className="apb-action-btns">
+            <Button
+              variant="success"
+              size="sm"
+              className="apb-btn p-2"
+              onClick={() => openActionModal("APPROVE")}
+              disabled={actionLoading}
+            >
+              <BsShieldCheck size={13} className="me-1" />
+              Approve
+            </Button>
+            <Button
+              variant="outline-danger"
+              size="sm"
+              className="apb-btn p-2"
+              onClick={() => openActionModal("REJECT")}
+              disabled={actionLoading}
+            >
+              <BsShieldX size={13} className="me-1" />
+              Reject
+            </Button>
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              className="apb-btn p-2"
+              onClick={scrollToApprovalSection}
+            >
+              <BsArrowDown size={13} className="me-1" />
+              Details
+            </Button>
+          </div>
+        </div>
 
         <ApprovalActionModal
           show={showActionModal}
@@ -137,47 +192,78 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item" }) =
     );
   }
 
-  // Show info banner when approval is pending but user is NOT the current approver
+  // Info banner (non-approver)
   return (
-    <Alert
-      variant="info"
-      className="border-0"
-      style={{
-        background: "linear-gradient(135deg, #cce5ff 0%, #b8daff 100%)",
-        borderLeft: "4px solid #0d6efd !important",
-      }}
-    >
-      <div className="d-flex align-items-center gap-3">
-        <div
-          className="d-flex align-items-center justify-content-center rounded-circle"
-          style={{
-            width: 40,
-            height: 40,
-            backgroundColor: "#0d6efd",
-            flexShrink: 0,
-          }}
-        >
-          <Spinner animation="border" size="sm" variant="light" />
-        </div>
-        <div>
-          <div className="fw-semibold text-dark">
-            Approval In Progress
+    <>
+      <style jsx>{`
+        .apb-info {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 10px;
+          padding: 10px 16px;
+          margin-bottom: 16px;
+          border-radius: 10px;
+          background: #ffffff;
+          border: 1px solid #cfe2ff;
+          border-left: 4px solid #0d6efd;
+          box-shadow: 0 2px 8px rgba(13, 110, 253, 0.06);
+        }
+        .apb-info-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+        .apb-info-icon {
+          width: 30px;
+          height: 30px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #e7f0ff;
+          flex-shrink: 0;
+        }
+        .apb-info-text {
+          font-size: 0.82rem;
+          color: #495057;
+        }
+        .apb-info-text strong {
+          color: #2d3436;
+          font-weight: 600;
+        }
+        .apb-info-btn {
+          font-size: 0.73rem;
+          font-weight: 500;
+          padding: 4px 10px;
+          border-radius: 6px;
+        }
+      `}</style>
+
+      <div className="apb-info">
+        <div className="apb-info-left">
+          <div className="apb-info-icon">
+            <BsClockHistory size={14} style={{ color: "#0d6efd" }} />
           </div>
-          <div className="text-dark opacity-75 small">
-            This {entityLabel.toLowerCase()} is pending approval (Step {currentStep} of {totalSteps}).
-            You are not the current approver.
+          <div className="apb-info-text">
+            <strong>Pending approval</strong>
+            <span className="ms-1" style={{ color: "#6c757d" }}>
+              — Step {currentStep} of {totalSteps} · Waiting for designated approver
+            </span>
           </div>
         </div>
         <Button
           variant="outline-primary"
           size="sm"
-          className="ms-auto p-2"
+          className="apb-info-btn p-2"
           onClick={scrollToApprovalSection}
         >
-          View Status
+          View
         </Button>
       </div>
-    </Alert>
+    </>
   );
 };
 

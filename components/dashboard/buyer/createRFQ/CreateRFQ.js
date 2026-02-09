@@ -801,7 +801,6 @@ const CreateRFQ = () => {
 
     if (name === "project_id" && (value === -1 || value === "" || value === null)) {
       setTechEvalUsers([]);
-      dispatch(setOtherFormFields({ field_name: "technical_evaluation_by", value: null }));
     }
 
     dispatch(setOtherFormFields({ field_name: name, value }));
@@ -811,7 +810,6 @@ const CreateRFQ = () => {
   const handleTechEvalUserChange = (e) => {
     const value = e.target.value;
     const parsedValue = value ? Number(value) : null;
-    dispatch(setOtherFormFields({ field_name: "technical_evaluation_by", value: parsedValue }));
     setHasUnsavedChanges(true);
   };
 
@@ -993,6 +991,8 @@ useEffect(() => {
       termFilesChanged,
       hotel_ids: selectedHotelIds,
     };
+
+    console.log("PAYLOAD:", payload);
 
     // Remove country_code if it exists
     if (payload.hasOwnProperty("country_code")) {
