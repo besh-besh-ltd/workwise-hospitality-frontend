@@ -186,13 +186,14 @@ export const getAllVendorNegotiationStatus = (rfq_id) => {
  * @param {Array<number>} params.quote_ids - Array of selected quote IDs
  * @param {string} [params.remarks] - Optional remarks for the approval
  */
-export const submitQuotesForApproval = ({ rfq_id, rfq_product_id, quote_ids, remarks, department_id }) => {
+export const submitQuotesForApproval = ({ rfq_id, rfq_product_id, quote_ids, quote_source, remarks, department_id }) => {
   return new Promise(async (resolve, reject) => {
     try {
       const payload = {
         rfq_id,
         rfq_product_id,
-        quote_ids
+        quote_ids,
+        quote_source: quote_source || 'negotiation' // 'negotiation' or 'regular'
       };
       if (remarks) {
         payload.remarks = remarks;

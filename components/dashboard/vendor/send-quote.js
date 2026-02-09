@@ -19,7 +19,6 @@ import { IoMdInformationCircleOutline } from "react-icons/io";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal";
-import VendorNegotiationInfo from "./VendorNegotiationInfo";
 import ProductNegotiationBadge from "./ProductNegotiationBadge";
 import { checkOpenClarification } from "@/services/clarification";
 import { getAllVendorNegotiationStatus } from "@/services/negotiation";
@@ -344,13 +343,18 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
         if (response?.status === 1 && response?.data) {
           const statusMap = {};
           response.data.forEach((round) => {
+            // Block regular submission if vendor has submitted for the LATEST round.
+            // Only unblock if a NEW round was created and vendor hasn't submitted for it yet.
+            // The backend returns the latest round per product, so if hasSubmittedQuote is true,
+            // the vendor already submitted for the most recent round - keep them blocked.
             if (round.hasSubmittedQuote) {
               statusMap[round.rfq_product_id] = {
                 hasSubmitted: true,
                 quotedPrice: round.vendor_quoted_price,
                 submittedAt: round.vendor_submitted_at,
                 targetPrice: round.target_price,
-                roundId: round.id
+                roundId: round.id,
+                roundNumber: round.round_number
               };
             }
           });
@@ -1577,18 +1581,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                   </div>
                 </div>
               )}
-            {/* Product-specific Negotiation Info */}
-            {rfqDetails.id && rfqDetails.products && rfqDetails.products.map((product) => (
-              <div key={product.id} className="row mb-2">
-                <div className="col-12">
-                  <VendorNegotiationInfo 
-                    rfq_id={rfqDetails.id} 
-                    rfq_product_id={product.id}
-                    productName={product.product_details?.[0]?.name || ''}
-                  />
-                </div>
-              </div>
-            ))}
             <div className="row">
               <div className="col-md-12">
                 <div className="quote-sec-table">

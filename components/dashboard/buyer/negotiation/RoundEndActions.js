@@ -10,6 +10,7 @@ import QuoteApprovalSelectionModal from './QuoteApprovalSelectionModal';
 const RoundEndActions = ({
   activeRound,
   roundQuotes = [],
+  roundQuotesSource = 'negotiation', // 'negotiation' | 'regular' | 'none'
   rfq_id,
   rfq_product_id,
   productName,
@@ -156,6 +157,7 @@ const RoundEndActions = ({
           show={showQuoteApprovalModal}
           onHide={() => setShowQuoteApprovalModal(false)}
           roundQuotes={roundQuotes}
+          roundQuotesSource={roundQuotesSource}
           activeRound={activeRound}
           rfq_id={rfq_id}
           rfq_product_id={rfq_product_id}
