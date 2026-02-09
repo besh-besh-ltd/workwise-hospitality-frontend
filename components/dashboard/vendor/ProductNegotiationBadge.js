@@ -28,7 +28,7 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
     try {
       setLoading(true);
       const response = await getVendorNegotiationStatus(rfq_id, rfq_product_id);
-      
+
       let statusData = null;
       if (response) {
         if (response.status === 1 && response.data) {
@@ -37,7 +37,7 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
           statusData = response;
         }
       }
-      
+
       setNegotiationStatus(statusData);
     } catch (error) {
       setNegotiationStatus(null);
@@ -93,6 +93,10 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
           <Badge bg="success" style={{ fontSize: '0.7rem' }}>
             Negotiation Quote Submitted
           </Badge>
+        ) : isExpired ? (
+          <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>
+            Negotiation Ended
+          </Badge>
         ) : (
           <>
             <Badge bg="info" style={{ fontSize: '0.7rem' }}>
@@ -113,4 +117,3 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
 };
 
 export default ProductNegotiationBadge;
-

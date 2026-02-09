@@ -57,16 +57,28 @@ const InquiriesReceived = ({ pageType = 0 }) => {
     const rounds = negotiationRounds[rfqId] || [];
     if (rounds.length === 0) return null;
 
-    const activeRounds = rounds.filter(r => r.status === 'ACTIVE');
+    const now = moment();
+    const activeRounds = rounds.filter(r =>
+      r.status === 'ACTIVE' && r.end_date && moment.utc(r.end_date).isAfter(now)
+    );
+    const expiredRounds = rounds.filter(r =>
+      r.status === 'ACTIVE' && r.end_date && moment.utc(r.end_date).isBefore(now)
+    );
 
-    if (activeRounds.length > 0) {
-      return (
-        <Badge bg="success" className="ms-2" style={{ fontSize: '0.7rem' }}>
-          {activeRounds.length} Active Negotiation{activeRounds.length > 1 ? 's' : ''}
-        </Badge>
-      );
-    }
-    return null;
+    return (
+      <>
+        {activeRounds.length > 0 && (
+          <Badge bg="success" className="ms-2" style={{ fontSize: '0.7rem' }}>
+            {activeRounds.length} Active Negotiation{activeRounds.length > 1 ? 's' : ''}
+          </Badge>
+        )}
+        {expiredRounds.length > 0 && activeRounds.length === 0 && (
+          <Badge bg="secondary" className="ms-2" style={{ fontSize: '0.7rem' }}>
+            Negotiation Ended
+          </Badge>
+        )}
+      </>
+    );
   };
 
   const getRFQs = () => {
