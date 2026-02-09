@@ -5,6 +5,7 @@ import DraftRFQItem from "./Item";
 import Pagination from "@/components/shared/Pagination";
 import FilterSection from "@/components/shared/FilterSection";
 import { toast } from "react-toastify";
+import { getEntityLabel } from "@/utils/sharedFunctions";
 
 const initialFilterData = {
   project_id: -1,
@@ -36,12 +37,12 @@ const DraftRFQ = () => {
         } else {
           setMyDraftRFQs([]);
           setTotalDraftRFQs(0);
-          toast.error("Failed to fetch draft RFQs");
+          toast.error(`Failed to fetch draft ${getEntityLabel(filterData?.is_tender, true)}`);
         }
       })
       .catch((err) => {
         setloading(false);
-        toast.error("Error fetching draft RFQs");
+        toast.error(`Error fetching draft ${getEntityLabel(filterData?.is_tender, true)}`);
         setMyDraftRFQs([]);
         setTotalDraftRFQs(0);
       });

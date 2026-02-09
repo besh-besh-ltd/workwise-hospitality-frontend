@@ -10,7 +10,7 @@ import {
   removeRfqProduct,
   setUserSelectedDefaultFile,
 } from "@/redux/slice";
-import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
+import { extractfileName, handleFileUpload, getEntityLabel } from "@/utils/sharedFunctions";
 import { faEye, faFile, faEdit } from "@fortawesome/free-regular-svg-icons";
 import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -247,7 +247,7 @@ const Item = ({
       
       getDraftInitialData();
     } catch (error) {
-      toast.error(<h6>Failed to add vendors to RFQ. Please try again.</h6>, {
+      toast.error(<h6>Failed to add vendors to {getEntityLabel(is_tender)}. Please try again.</h6>, {
         position: "top-right",
       });
     } finally {
