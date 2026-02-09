@@ -5,7 +5,7 @@ import { Button } from "react-bootstrap";
 import { deleteDraft } from "@/services/rfq";
 import { toast } from "react-toastify";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
-import { formatRFQNumber } from "@/utils/sharedFunctions";
+import { formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
 
 const DraftRFQItem = ({ data , refetch }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -16,16 +16,16 @@ const DraftRFQItem = ({ data , refetch }) => {
       // Call the deleteDraft service function
       const response = await deleteDraft(draft_id);
       if (response && response.status === 1) {
-        toast.success("Draft RFQ deleted successfully");
+        toast.success(`Draft ${getEntityLabel(data?.is_tender)} deleted successfully`);
         // Refetch the draft RFQs after successful deletion
         if (refetch && typeof refetch === "function") {
           refetch();
         }
       } else {
-        toast.error("Failed to delete draft RFQ");  
+        toast.error(`Failed to delete draft ${getEntityLabel(data?.is_tender)}`);
       }
     } catch (error) {
-      toast.error("Error deleting draft RFQ");
+      toast.error(`Error deleting draft ${getEntityLabel(data?.is_tender)}`);
     }
   };
 

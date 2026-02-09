@@ -735,7 +735,7 @@ const EditRFQ = () => {
   const handleUpdateRFQ = async (formValues) => {
     try {
       if (!rfqData || !rfqData.id) {
-        toast.error("Original RFQ data not available");
+        toast.error(`Original ${getEntityLabel(rfqData?.is_tender)} data not available`);
         return;
       }
 

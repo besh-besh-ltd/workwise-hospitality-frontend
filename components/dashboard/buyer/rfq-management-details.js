@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import { getRFQById, closeRFQ } from "@/services/rfq";
 import ViewRFQ from "./manageRFQ/ViewRFQ";
 import { toast } from "react-toastify";
+import { getEntityLabel } from "@/utils/sharedFunctions";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 const RfqManagementDetails = () => {
@@ -31,16 +32,16 @@ const RfqManagementDetails = () => {
     try {
       const response = await closeRFQ(id);
       if (response && response.status === 1) {
-        toast.success("RFQ closed successfully");
+        toast.success(`${getEntityLabel(rfqDetails?.is_tender)} closed successfully`);
         // Refresh RFQ data to show updated status
         const updatedRfq = await getRFQById(id);
         setrfqDetails(updatedRfq.data);
       } else {
-        toast.error("Failed to close RFQ");
+        toast.error(`Failed to close ${getEntityLabel(rfqDetails?.is_tender)}`);
       }
     } catch (error) {
       console.error("Error closing RFQ:", error);
-      toast.error("Error closing RFQ");
+      toast.error(`Error closing ${getEntityLabel(rfqDetails?.is_tender)}`);
     } finally {
       setCloseLoading(false);
       setShowCloseConfirmModal(false);

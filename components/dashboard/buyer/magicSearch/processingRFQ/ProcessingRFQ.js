@@ -38,12 +38,12 @@ const ProcessingRFQ = ({ handleCreateRFQ }) => {
         } else {
           setMyProcessingRFQs([]);
           setTotalProcessingRFQs(0);
-          toast.error("Failed to fetch processing RFQs");
+          toast.error("Failed to fetch processing Tenders / RFQs");
         }
       })
       .catch((err) => {
         setloading(false);
-        toast.error("Error fetching processing RFQs");
+        toast.error("Error fetching processing Tenders / RFQs");
         setMyProcessingRFQs([]);
         setTotalProcessingRFQs(0);
       });

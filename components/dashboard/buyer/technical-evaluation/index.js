@@ -205,7 +205,7 @@ useEffect(() => {
       setPermissionsVerified(false); // Reset when RFQ changes
     } catch (error) {
       console.log(error);
-      toast.error(error.message || 'Failed to load RFQ details');
+      toast.error(error.message || `Failed to load ${getEntityLabel(currentRfq?.is_tender)} details`);
       setcurrentRfq(null);
     } finally {
       setLoading(false);
