@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import Select from 'react-select';
-import { updateRfq,  getTerms, vendorApproveList, getRFQById, getVendorsForProduct, addProductToExistingRfq, getTechEvalUsers } from "@/services/rfq";
+import { updateRfq, getTerms, vendorApproveList, getRFQById, getVendorsForProduct, addProductToExistingRfq } from "@/services/rfq";
 import { Form, Formik } from "formik";
 import { getProfile } from "@/services/Auth";
 import Loader from "@/components/shared/Loader";
@@ -19,6 +19,7 @@ import { toast } from "react-toastify";
 import { getProjectList } from "@/services/project";
 import { getDepartments } from "@/services/rbac";
 import { getCountryCodes } from "@/services/cms";
+import { getUserMappings, getRFQHotels } from "@/services/hospitality";
 import * as Yup from "yup";
 import { formatISOToDateTimeLocal, getEntityLabel } from "@/utils/sharedFunctions";
 import ViewVendorModal from "./ViewVendorModal";
@@ -163,14 +164,18 @@ const EditRFQ = () => {
   const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
   const [pendingFormValues, setPendingFormValues] = useState(null);
 
-  const [techEvalUsers, setTechEvalUsers] = useState([]);
+  // Hotel selection state
+  const [userHotelMappings, setUserHotelMappings] = useState([]);
+  const [selectedHotelIds, setSelectedHotelIds] = useState([]);
 
   // Add a ref to track if terms have been initialized
   const termsInitializedRef = useRef(false);
 
   // Permission management - fetch permissions based on mapped hotels
   // Dynamic module key based on is_tender field (1 = tender, 0 = rfq)
-  const hotelIds = rfqData?.mappedHotels?.map(h => h.hotel_id) || [];
+  const hotelIds = selectedHotelIds.length > 0
+    ? selectedHotelIds
+    : rfqData?.mappedHotels?.map(h => h.hotel_id) || [];
   const moduleKey = rfqData?.is_tender === 1 ? "tender" : "rfq";
   const {
     canRead,
@@ -206,6 +211,16 @@ const EditRFQ = () => {
       setDepartments(depts);
     } catch (error) {
       console.error("Error fetching departments:", error);
+    }
+  };
+
+  const fetchUserHotelMappings = async () => {
+    try {
+      const response = await getUserMappings();
+      const mappings = response?.data || [];
+      setUserHotelMappings(mappings);
+    } catch (error) {
+      console.error("Error fetching hotel mappings:", error);
     }
   };
 
@@ -283,6 +298,7 @@ const EditRFQ = () => {
       fetchInitialData();
       fetchCountryCodes();
       fetchDepartments();
+      fetchUserHotelMappings();
     }
     
     // Handle beforeunload event
@@ -400,8 +416,21 @@ const EditRFQ = () => {
         dispatch(setTermsData([]));
       }
 
+      // getRfqById doesn't include mappedHotels — fetch them separately
+      try {
+        const rfqHotelRes = await getRFQHotels(id);
+        rfqData.mappedHotels = rfqHotelRes?.data || [];
+      } catch (_) {
+        rfqData.mappedHotels = [];
+      }
+
       setRfqData(rfqData);
       setProducts(rfqData?.products ?? []);
+
+      // Pre-fill selected hotel IDs from mapped hotels
+      if (rfqData.mappedHotels && rfqData.mappedHotels.length > 0) {
+        setSelectedHotelIds(rfqData.mappedHotels.map(h => h.hotel_id));
+      }
 
       // Extract country code and number from contact_number
       if (rfqData.contact_number) {
@@ -446,16 +475,6 @@ const EditRFQ = () => {
 
       termsInitializedRef.current = true;
 
-      // Fetch tech eval users if project is selected
-      if (rfqData.project_id && rfqData.project_id !== -1) {
-        try {
-          const teRes = await getTechEvalUsers(rfqData.project_id);
-          setTechEvalUsers(teRes || []);
-        } catch (err) {
-          toast.error("Failed to fetch technical evaluation users");
-        }
-      }
-
       if (!isRefetch) {
         setInitialized(true);
         setInitialDataLoaded(true);
@@ -498,14 +517,6 @@ const EditRFQ = () => {
       toast.error("Failed to update field. Please try again.");
     }
   };
-
-  const handleTechEvalUserChange = (e) => {
-    const value = e.target.value;
-    const parsedValue = value ? Number(value) : null;
-    dispatch(setOtherFormFields({ technical_evaluation_by: parsedValue }));
-    setHasUnsavedChanges(true);
-  };
-
 
   const handleSpecChange = (product, change) => {
     setRfqData((prev) => ({
@@ -784,7 +795,6 @@ const EditRFQ = () => {
         termsChanged,
         selectedTerms,
         title: formValues.title !== undefined ? formValues.title : rfqData.title || null,
-        technical_evaluation_by: formValues.technical_evaluation_by !== undefined ? formValues.technical_evaluation_by : rfqData.technical_evaluation_by || null,
         comment: formValues.comment !== undefined ? formValues.comment : rfqData.comment,
        };
 
@@ -837,7 +847,9 @@ const EditRFQ = () => {
       }
 
       // Include hotel_ids for vendor recomputation on hotel change
-      if (rfqData.mappedHotels && rfqData.mappedHotels.length > 0) {
+      if (selectedHotelIds.length > 0) {
+        dataToSend.hotel_ids = selectedHotelIds;
+      } else if (rfqData.mappedHotels && rfqData.mappedHotels.length > 0) {
         dataToSend.hotel_ids = rfqData.mappedHotels.map(h => h.hotel_id);
       }
 
@@ -1033,9 +1045,11 @@ const EditRFQ = () => {
   const handleAddProduct = async (specData) => {
     if(!rfqData || !rfqData.id) return;
 
-    const hotel_ids = rfqData.mappedHotels
-      ? rfqData.mappedHotels.map(h => h.hotel_id)
-      : [];
+    const hotel_ids = selectedHotelIds.length > 0
+      ? selectedHotelIds
+      : rfqData.mappedHotels
+        ? rfqData.mappedHotels.map(h => h.hotel_id)
+        : [];
 
     const payload = {
       rfqId: rfqData.id,
@@ -1807,8 +1821,8 @@ const EditRFQ = () => {
                   </div>
                   <div className="card-body">
                     <div className="row g-3">
+                      {/* Company Name - Read Only */}
                       <div className="col-md-6">
-                        {/* Company Name - Now Read Only */}
                         <div className="mb-3">
                           <label className="form-label fw-medium">Company Name</label>
                           <input
@@ -1818,119 +1832,10 @@ const EditRFQ = () => {
                             disabled
                           />
                         </div>
-
-                        {/* RFQ/Tender Title */}
-                        <div className="mb-3">
-                          <label className="form-label fw-medium">{rfqFormDataFromStore.is_tender === 1 ? 'Tender' : 'RFQ'} Title <span className="text-danger">*</span></label>
-                          <input
-                            type="text"
-                            name="title"
-                            className="form-control"
-                            value={rfqFormDataFromStore.title || ""}
-                            onChange={(e) => {
-                              handleChange(e);
-                              handleFormFieldChange(e);
-                            }}
-                            placeholder={`Enter ${rfqFormDataFromStore.is_tender === 1 ? 'Tender' : 'RFQ'} Title`}
-                          />
-                          {touched.title && errors.title && (
-                            <div className="invalid-feedback d-block">
-                              {errors.title}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Contact Number */}
-                        <div className="mb-3">
-                          <label className="form-label fw-medium">
-                            Contact Number <span className="text-danger">*</span>
-                          </label>
-                          <div className="d-flex">
-                            {/* Country Code Dropdown */}
-                            <select
-                              name="countryCode"
-                              className="form-select"
-                              style={{
-                                maxWidth: "130px",
-                                marginRight: "6px",
-                                maxHeight: "44px",
-                              }}
-                              value={onecountrycode}
-                              onChange={(e) => {
-                                setonecountrycode(e.target.value);
-                                setHasUnsavedChanges(true);
-                              }}
-                            >
-                              {countryCode.map((country) => (
-                                <option
-                                  key={country.id}
-                                  value={country.phone_code}
-                                >
-                                  {country.country_code} ({country.phone_code})
-                                </option>
-                              ))}
-                            </select>
-
-                            {/* Mobile Number Input */}
-                            <input
-                              type="text"
-                              name="contact_number"
-                              className={`form-control ${
-                                touched.contact_number && errors.contact_number
-                                  ? "is-invalid"
-                                  : ""
-                              }`}
-                              placeholder="Enter mobile number"
-                              value={values.contact_number}
-                              onChange={(e) => {
-                                // Only allow numeric input for phone number
-                                const numericValue = e.target.value.replace(/[^0-9]/g, '');
-                                setFieldValue('contact_number', numericValue);
-                                
-                                // Also update form data in Redux store
-                                dispatch(
-                                  setOtherFormFields({
-                                    contact_number: numericValue
-                                  })
-                                );
-                                
-                                setHasUnsavedChanges(true);
-                              }}
-                              onBlur={handleBlur}
-                            />
-                          </div>
-                          {touched.contact_number && errors.contact_number && (
-                            <div className="invalid-feedback d-block">
-                              {errors.contact_number}
-                            </div>
-                          )}
-     
-                        </div>
-                        
-                        {/* Response Email */}
-                        <div className="mb-3">
-                          <label className="form-label fw-medium">Response Email <span className="text-danger">*</span></label>
-                          <input
-                            type="email"
-                            name="response_email"
-                            className="form-control"
-                            value={values.response_email}
-                            onChange={(e) => {
-                              handleChange(e);
-                              handleFormFieldChange(e);
-                            }}
-                            onBlur={handleBlur}
-                          />
-                          {touched.response_email && errors.response_email && (
-                            <div className="invalid-feedback d-block">
-                              {errors.response_email}
-                            </div>
-                          )}
-                        </div>
                       </div>
-                      
+
+                      {/* Contact Name */}
                       <div className="col-md-6">
-                        {/* Contact Name */}
                         <div className="mb-3">
                           <label className="form-label fw-medium">Contact Name <span className="text-danger">*</span></label>
                           <input
@@ -1954,8 +1859,33 @@ const EditRFQ = () => {
                             </div>
                           )}
                         </div>
+                      </div>
 
-                        {/* Quote Submission Deadline */}
+                      {/* RFQ/Tender Title */}
+                      <div className="col-md-6">
+                        <div className="mb-3">
+                          <label className="form-label fw-medium">{rfqFormDataFromStore.is_tender === 1 ? 'Tender' : 'RFQ'} Title <span className="text-danger">*</span></label>
+                          <input
+                            type="text"
+                            name="title"
+                            className="form-control"
+                            value={rfqFormDataFromStore.title || ""}
+                            onChange={(e) => {
+                              handleChange(e);
+                              handleFormFieldChange(e);
+                            }}
+                            placeholder={`Enter ${rfqFormDataFromStore.is_tender === 1 ? 'Tender' : 'RFQ'} Title`}
+                          />
+                          {touched.title && errors.title && (
+                            <div className="invalid-feedback d-block">
+                              {errors.title}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Quote Submission Deadline */}
+                      <div className="col-md-6">
                         <div className="mb-3">
                           <label className="form-label fw-medium">Quote Submission Deadline <span className="text-danger">*</span></label>
                           <input
@@ -1975,42 +1905,153 @@ const EditRFQ = () => {
                             </div>
                           )}
                         </div>
-                        
-                        {/* Select Project - only for RFQ, not Tender */}
-                        {rfqData?.is_tender !== 1 && (
-                        <div className="mb-3">
-                          <label className="form-label fw-medium">Select Project</label>
-                          <Select
-                            key={`project-select-${rfqFormDataFromStore.project_id || 'none'}`}
-                            options={projects}
-                            value={(() => {
-                              if (!rfqFormDataFromStore.project_id) return null;
-                              const projectId = parseInt(rfqFormDataFromStore.project_id);
-                              const match = projects.find(p => parseInt(p.value) === projectId);
-                              return match || null;
-                            })()}
-                            onChange={async (selectedOption) => {
-                              const projectId = selectedOption ? parseInt(selectedOption.value) : null;
-                              dispatch(setOtherFormFields({ project_id: projectId }));
-                              setHasUnsavedChanges(true);
-                              if (projectId) {
-                                try {
-                                  const teRes = await getTechEvalUsers(projectId);
-                                  setTechEvalUsers(teRes || []);
-                                } catch (err) { setTechEvalUsers([]); }
-                              } else {
-                                setTechEvalUsers([]);
-                                dispatch(setOtherFormFields({ technical_evaluation_by: null }));
-                              }
-                            }}
-                            placeholder="Select Project"
-                            className="basic-select"
-                            classNamePrefix="select"
-                            isClearable={true}
-                          />
-                        </div>
-                        )}
                       </div>
+
+                      {/* Contact Number */}
+                      <div className="col-md-6">
+                        <div className="mb-3">
+                          <label className="form-label fw-medium">
+                            Contact Number <span className="text-danger">*</span>
+                          </label>
+                          <div className="d-flex">
+                            <select
+                              name="countryCode"
+                              className="form-select"
+                              style={{
+                                maxWidth: "130px",
+                                marginRight: "6px",
+                                maxHeight: "44px",
+                              }}
+                              value={onecountrycode}
+                              onChange={(e) => {
+                                setonecountrycode(e.target.value);
+                                setHasUnsavedChanges(true);
+                              }}
+                            >
+                              {countryCode.map((country) => (
+                                <option
+                                  key={country.id}
+                                  value={country.phone_code}
+                                >
+                                  {country.country_code} ({country.phone_code})
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="text"
+                              name="contact_number"
+                              className={`form-control ${
+                                touched.contact_number && errors.contact_number
+                                  ? "is-invalid"
+                                  : ""
+                              }`}
+                              placeholder="Enter mobile number"
+                              value={values.contact_number}
+                              onChange={(e) => {
+                                const numericValue = e.target.value.replace(/[^0-9]/g, '');
+                                setFieldValue('contact_number', numericValue);
+                                dispatch(
+                                  setOtherFormFields({
+                                    contact_number: numericValue
+                                  })
+                                );
+                                setHasUnsavedChanges(true);
+                              }}
+                              onBlur={handleBlur}
+                            />
+                          </div>
+                          {touched.contact_number && errors.contact_number && (
+                            <div className="invalid-feedback d-block">
+                              {errors.contact_number}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Response Email */}
+                      <div className="col-md-6">
+                        <div className="mb-3">
+                          <label className="form-label fw-medium">Response Email <span className="text-danger">*</span></label>
+                          <input
+                            type="email"
+                            name="response_email"
+                            className="form-control"
+                            value={values.response_email}
+                            onChange={(e) => {
+                              handleChange(e);
+                              handleFormFieldChange(e);
+                            }}
+                            onBlur={handleBlur}
+                          />
+                          {touched.response_email && errors.response_email && (
+                            <div className="invalid-feedback d-block">
+                              {errors.response_email}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Select Hotels */}
+                      {userHotelMappings.length > 0 && (
+                        <div className="col-md-6">
+                          <div className="mb-3">
+                            <label className="form-label fw-medium">Select Hotels</label>
+                            <Select
+                              id="select_hotels-edit_rfq_page"
+                              isMulti
+                              options={userHotelMappings}
+                              value={userHotelMappings.filter(opt =>
+                                selectedHotelIds.includes(opt.hospitality_hotel_id)
+                              )}
+                              onChange={(selectedOptions) => {
+                                const ids = selectedOptions
+                                  ? selectedOptions.map(opt => opt.hospitality_hotel_id)
+                                  : [];
+                                setSelectedHotelIds(ids);
+                                setHasUnsavedChanges(true);
+                              }}
+                              placeholder="Select Hotels..."
+                              closeMenuOnSelect={false}
+                              classNamePrefix="react-select"
+                              isClearable
+                              formatOptionLabel={(option) => (
+                                <div>
+                                  <span>{option.hotel_name}</span>
+                                </div>
+                              )}
+                              getOptionValue={(option) => option.hospitality_hotel_id}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Select Project - only for RFQ, not Tender */}
+                      {rfqData?.is_tender !== 1 && (
+                        <div className="col-md-6">
+                          <div className="mb-3">
+                            <label className="form-label fw-medium">Select Project</label>
+                            <Select
+                              key={`project-select-${rfqFormDataFromStore.project_id || 'none'}`}
+                              options={projects}
+                              value={(() => {
+                                if (!rfqFormDataFromStore.project_id) return null;
+                                const projectId = parseInt(rfqFormDataFromStore.project_id);
+                                const match = projects.find(p => parseInt(p.value) === projectId);
+                                return match || null;
+                              })()}
+                              onChange={(selectedOption) => {
+                                const projectId = selectedOption ? parseInt(selectedOption.value) : null;
+                                dispatch(setOtherFormFields({ project_id: projectId }));
+                                setHasUnsavedChanges(true);
+                              }}
+                              placeholder="Select Project"
+                              className="basic-select"
+                              classNamePrefix="select"
+                              isClearable={true}
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       {rfqData?.is_tender !== 1 && (
                       <div className="col-md-6">
@@ -2526,6 +2567,8 @@ const EditRFQ = () => {
         onClose={() => setShowAddProductModal(false)}
         onAdd={handleSelectProduct}
         updatableData={updatableData}
+        existingProducts={rfqData?.products || []}
+        selectedHotelIds={selectedHotelIds}
       />
       <AddSpecModal
         headerTitle={`Add Mandatory Specs for Product`}

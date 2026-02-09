@@ -47,7 +47,8 @@ export const searchProductsV2 = (values, type = "products", axiosConfig = {}) =>
       // category_id: values.cat_id,
       search_key: values.search_key,
       vendor_name: values.vendor_name,
-      include_variants: true
+      include_variants: true,
+      hotel_ids: values.hotel_ids || [],
     };
 
     return new Promise(async (resolve, reject) => {

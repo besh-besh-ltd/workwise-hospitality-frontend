@@ -48,9 +48,19 @@ const AddTenderItemModal = ({
       onSuccess?.();
     } catch (error) {
       console.log(` error adding item to ${entityLabel}: `, error);
+      const errData = error?.response?.data || error?.message?.response?.data;
+      if (errData?.errors?.vendors) {
+        toast.warning(
+          <h6>
+            <b>{product.name}</b> has no eligible vendors for the selected hotel(s).
+            Please check vendor subscriptions.
+          </h6>
+        );
+      } else {
         toast.error(
-        <h6>Failed to add item to {entityLabel}. Please try again.</h6>
-      );
+          <h6>Failed to add item to {entityLabel}. Please try again.</h6>
+        );
+      }
     } finally {
       setLoading(false);
     }
