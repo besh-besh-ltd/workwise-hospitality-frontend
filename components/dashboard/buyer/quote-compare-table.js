@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheckCircle, faEnvelope, faUser } from "@fortawesome/free-regular-svg-icons";
-import { faAward, faHistory, faPhone } from "@fortawesome/free-solid-svg-icons";
+import { faAward, faComments, faHistory, faPhone } from "@fortawesome/free-solid-svg-icons";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "react-bootstrap/Dropdown";
 import CommonModal from "@/components/modal/CommonModal";
@@ -489,6 +489,13 @@ const QuoteCompareTable = ({
                           >
                             <FontAwesomeIcon icon={faUser} className="me-2"/>
                             Vendor profile
+                          </Dropdown.Item>
+                          <Dropdown.Item
+                            href={`/dashboard/buyer/query?rfq_id=${rfq}&role=buyer&vendor_id=${item?.quote_details?.created_by}`}
+                            id={`talk_with_vendor_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
+                          >
+                            <FontAwesomeIcon icon={faComments} className="me-2"/>
+                            Talk with vendor
                           </Dropdown.Item>
                           {!is_tender && !item.quote_details.is_regret == 1 &&
                             (!item.finalization ||

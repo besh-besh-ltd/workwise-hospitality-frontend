@@ -637,7 +637,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                             </Dropdown.Toggle>
                                             <Dropdown.Menu>
                                               <Dropdown.Item
-                                                href={`/dashboard/buyer/query?rfq_id=${rfq_id}&role=buyer`}
+                                                href={`/dashboard/buyer/query?rfq_id=${rfq_id}&role=buyer&vendor_id=${vendor.vendor_id}`}
                                                 id={`talk_with_vendor_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
                                               >
                                                 Talk with vendor

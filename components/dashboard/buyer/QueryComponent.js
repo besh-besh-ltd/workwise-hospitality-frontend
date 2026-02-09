@@ -12,7 +12,7 @@ import { getEntityLabel } from "@/utils/sharedFunctions";
 
 const QueryComponent = () => {
   const router = useRouter();
-  const { rfq_id, role, token } = router.query;
+  const { rfq_id, role, token, vendor_id } = router.query;
 
   const [vendors, setVendors] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -45,38 +45,37 @@ const handleToggleVendor = (vendorId) => {
       const response = await listQueries(payload, token);
       const rawVendors = response.data || [];
 
-      // Enrich vendors with a display_name that respects Tender anonymity rules.
+      // Enrich vendors with a display_name and vendor_code
       const isTender = rfqDetails?.is_tender === 1 || rfqDetails?.is_tender === "1";
       const normalizedVendors = rawVendors.map((v, index) => {
+        const vendor_code = `Vendor ${index + 1}`;
+
         let display_name;
         if (isTender) {
-          if (v.vendor_code) {
-            display_name = `Vendor ${v.vendor_code}`;
-          } else if (v.rfq_product_vendor_id) {
-            display_name = `VEN-${v.rfq_product_vendor_id}`;
-          } else if (v.vendor_id) {
-            display_name = `Vendor #${v.vendor_id}`;
-          } else {
-            display_name = `Vendor ${index + 1}`;
-          }
+          display_name = vendor_code;
         } else {
           display_name =
             v.company_name ||
             v.user_name ||
             v.name ||
-            `Vendor ${index + 1}`;
+            vendor_code;
         }
 
         return {
           ...v,
           display_name,
+          vendor_code: isTender ? vendor_code : null,
         };
       });
 
       setVendors(normalizedVendors);
 
+      // Auto-select vendor from URL param, otherwise pick first
       if (!selectedVendor && normalizedVendors.length) {
-        handleSelectVendor(normalizedVendors[0]);
+        const vendorFromUrl = vendor_id
+          ? normalizedVendors.find(v => String(v.user_id) === String(vendor_id))
+          : null;
+        handleSelectVendor(vendorFromUrl || normalizedVendors[0]);
       }
     } catch (error) {
       console.error("Error fetching vendors:", error);
@@ -159,15 +158,8 @@ const handleSelectVendor = (vendor) => {
 
     setVendors(prev =>
       prev.map((v, index) => {
-        const display_name =
-          v.display_name && v.display_name.startsWith("Vendor")
-            ? v.display_name
-            : v.vendor_code
-            ? `Vendor ${v.vendor_code}`
-            : v.rfq_product_vendor_id
-            ? `VEN-${v.rfq_product_vendor_id}`
-            : `Vendor ${index + 1}`;
-        return { ...v, display_name };
+        const vendor_code = `Vendor ${index + 1}`;
+        return { ...v, display_name: vendor_code, vendor_code };
       })
     );
   }, [rfqDetails?.is_tender]);
