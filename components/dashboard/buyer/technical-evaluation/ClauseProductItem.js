@@ -48,6 +48,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     const [isSubmittedForApproval, setIsSubmittedForApproval] = useState(false);
     const [isApproved, setIsApproved] = useState(false);
     const [approvalStatusLoading, setApprovalStatusLoading] = useState(false);
+    const [approvalRefreshKey, setApprovalRefreshKey] = useState(0);
     // const [summarisedDeviation , setSummarisedDeviation] = useState();
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
@@ -248,6 +249,9 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
 
             // Refresh the approval status to update UI
             await fetchApprovalStatus();
+
+            // Trigger ApprovalWorkflowSection to refetch
+            setApprovalRefreshKey(prev => prev + 1);
 
             // Refresh the data to show updated approval status
             if (refetch) refetch();
@@ -782,17 +786,17 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                       className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
                                       style={{
                                         maxWidth: "100px",
-                                        backgroundColor: isPendingApproval ? "#cccccc" : "var(--primary-color)",
+                                        backgroundColor: (isPendingApproval && !canApprove) ? "#cccccc" : "var(--primary-color)",
                                         color: "#ffffff",
                                         fontSize: "13px",
-                                        cursor: isPendingApproval ? "not-allowed" : "pointer",
+                                        cursor: (isPendingApproval && !canApprove) ? "not-allowed" : "pointer",
                                       }}
                                       onClick={() => {
                                         toggleChat(clauseItem.clause_id);
                                         setSelectedVendor(vendor);
                                       }}
-                                      disabled={isPendingApproval}
-                                      title={isPendingApproval ? "Actions frozen during pending approval" : ""}
+                                      disabled={isPendingApproval && !canApprove}
+                                      title={(isPendingApproval && !canApprove) ? "Actions frozen during pending approval" : ""}
                                       id={`view_deviation_${clauseItem.clause_id}_${vendor.vendor_id}-deviation_actions-technical_evaluation_page`}
                                     >
                                      Deviation
@@ -974,14 +978,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                                     className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
                                                     style={{
                                                         width: "100px",
-                                                        backgroundColor: isPendingApproval ? "#cccccc" : "var(--primary-color)",
+                                                        backgroundColor: (isPendingApproval && !canApprove) ? "#cccccc" : "var(--primary-color)",
                                                         color: "#ffffff",
                                                         fontSize: "13px",
-                                                        cursor: isPendingApproval ? "not-allowed" : "pointer"
+                                                        cursor: (isPendingApproval && !canApprove) ? "not-allowed" : "pointer"
                                                     }}
                                                     onClick={() => toggleChat(clauseItem.clause_id)}
-                                                    disabled={isPendingApproval}
-                                                    title={isPendingApproval ? "Actions frozen during pending approval" : ""}
+                                                    disabled={isPendingApproval && !canApprove}
+                                                    title={(isPendingApproval && !canApprove) ? "Actions frozen during pending approval" : ""}
                                                     id={`explanation_deviation_${clauseItem.clause_id}-clause_actions-technical_evaluation_page`}
                                                 >
                                                     Explanation / Deviation
@@ -1125,40 +1129,91 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
           </Modal.Footer>
         </Modal>
 
+        {/* Fully Approved Banner - shown when workflow is complete */}
+        {workflowComplete && (
+          <div
+            style={{
+              margin: '20px 0 16px',
+              padding: '16px 24px',
+              background: 'linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%)',
+              border: '1px solid #c8e6c9',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+            }}
+          >
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #43a047, #66bb6a)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: '0 2px 8px rgba(67, 160, 71, 0.3)',
+              }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '15px', color: '#2e7d32', marginBottom: '2px' }}>
+                Technical Evaluation Fully Approved
+              </div>
+              <div style={{ fontSize: '13px', color: '#558b2f' }}>
+                {totalPassedVerified} of {requiredPassedVendors} required vendors have been verified and approved across {currentRound} {currentRound === 1 ? 'round' : 'rounds'}.
+              </div>
+            </div>
+            <div
+              style={{
+                padding: '6px 14px',
+                borderRadius: '20px',
+                backgroundColor: '#43a047',
+                color: '#fff',
+                fontSize: '12px',
+                fontWeight: 600,
+                letterSpacing: '0.5px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              COMPLETED
+            </div>
+          </div>
+        )}
+
         {/* Submit for Approval Button - Product Level (Multi-round support) */}
+        {canWrite && !permissionsLoading && !workflowComplete && !isPendingApproval && (
         <div className="d-flex justify-content-end mt-4 mb-3">
           <button
             type="button"
             className={`btn btn-sm p-2 ${
-              workflowComplete ? 'btn-success' :
               workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL ? 'btn-warning' :
               'btn-primary'
             }`}
             style={{width: 260}}
             onClick={() => setShowSubmitModal(true)}
             disabled={
-              !canWrite ||
-              permissionsLoading ||
               submitLoading ||
-              workflowComplete ||
               workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL ||
               pendingEvaluationVendors.length === 0
             }
             title={
-              workflowComplete ? `Completed (${totalPassedVerified}/${requiredPassedVendors} vendors cleared)` :
               workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL ? `Round ${currentRound} pending approval` :
               pendingEvaluationVendors.length === 0 ? "No vendors pending evaluation" :
-              !canWrite ? "You don't have permission to submit for approval" :
               "Submit evaluation for approval"
             }
             id={`submit_for_approval_product_${product?.id}-technical_evaluation_page`}
           >
             {submitLoading ? "Submitting..." :
-             workflowComplete ? `Completed (${totalPassedVerified}/${requiredPassedVendors})` :
              workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL ? `Round ${currentRound} Pending Approval` :
-             `Submit Round ${currentRound} for Approval`}
+             `Submit for approval`}
           </button>
         </div>
+        )}
 
         {/* Approval Workflow Section - Round Level (Multi-round support) */}
         {latestRound?.round_id && (
@@ -1177,6 +1232,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                 refetchWorkflow();
                 if (refetch) refetch();
               }}
+              refreshTrigger={approvalRefreshKey}
             />
           </div>
         )}
@@ -1193,6 +1249,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
               departmentId={currentRfq?.department_id}
               onCustomApprove={handleTechEvalApprove}
               onCustomReject={handleTechEvalReject}
+              refreshTrigger={approvalRefreshKey}
             />
           </div>
         )}
