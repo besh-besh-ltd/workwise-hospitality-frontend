@@ -284,28 +284,6 @@ const NegotiationCompactBanner = ({
         {/* Left: Status Message */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {pendingApprovalsCount > 0 ? (
-              <Badge
-                bg="danger"
-                style={{
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                }}
-              >
-                Your Approval Required
-              </Badge>
-            ) : pendingRounds.length > 0 ? (
-              <Badge
-                bg="warning"
-                text="dark"
-                style={{
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                }}
-              >
-                Approval Pending
-              </Badge>
-            ) : null}
             <span style={{ fontSize: '0.875rem', color: '#333' }}>
               <strong>Negotiation:</strong> {loading ? 'Loading...' : statusMessage}
             </span>
@@ -339,46 +317,24 @@ const NegotiationCompactBanner = ({
             onClick={handleHistoryClick}
             style={{ fontSize: '0.8rem', padding: '5px 14px' }}
           >
-            History
+            View All
           </Button>
-          <Button
-            variant={pendingApprovalsCount > 0 ? "danger" : "outline-info"}
-            size="sm"
-            onClick={handleViewApproveClick}
-            disabled={pendingApprovalsCount > 0 && (!canWrite || permissionsLoading)}
-            style={{
-              fontSize: '0.8rem',
-              padding: '5px 14px',
-              position: 'relative',
-              ...(pendingApprovalsCount > 0 ? {
-                backgroundColor: '#dc3545',
-                borderColor: '#dc3545',
-                color: '#fff',
+          {pendingApprovalsCount > 0 && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleViewApproveClick}
+              disabled={!canWrite || permissionsLoading}
+              style={{
+                fontSize: '0.8rem',
+                padding: '5px 14px',
+                whiteSpace: 'nowrap',
                 fontWeight: 600
-              } : {})
-            }}
-          >
-            View
-            {pendingApprovalsCount > 0 && (
-              <Badge
-                bg="danger"
-                pill
-                style={{
-                  position: 'absolute',
-                  top: '-8px',
-                  right: '-8px',
-                  fontSize: '0.65rem',
-                  minWidth: '18px',
-                  height: '18px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                {pendingApprovalsCount}
-              </Badge>
-            )}
-          </Button>
+              }}
+            >
+              View ( Approval Required )
+            </Button>
+          )}
         </div>
       </div>
 

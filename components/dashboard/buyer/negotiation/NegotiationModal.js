@@ -14,6 +14,7 @@ import { toast } from 'react-toastify';
 import moment from 'moment';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
 import ApprovalActionModal from '../approval/ApprovalActionModal';
+import ApprovalTimeline from '../approval/ApprovalTimeline';
 
 const NegotiationModal = ({
   show,
@@ -52,6 +53,9 @@ const NegotiationModal = ({
   // Quote approval status (for checking if quotes are already approved)
   const [quoteApprovalStatuses, setQuoteApprovalStatuses] = useState({}); // Map of productId -> approval status
   const [loadingQuoteApprovals, setLoadingQuoteApprovals] = useState(false);
+  // Approval journey: all instances (including rejected) per round entity
+  const [approvalJourneys, setApprovalJourneys] = useState({}); // Map of roundId -> { loading, instances[] }
+  const [expandedApprovalJourney, setExpandedApprovalJourney] = useState(null); // roundId of expanded journey
 
   useEffect(() => {
     // Load current user ID when modal opens
@@ -191,6 +195,53 @@ const NegotiationModal = ({
   const isQuoteApproved = (productId) => {
     const approvalInstance = quoteApprovalStatuses[productId];
     return approvalInstance?.status === 'APPROVED';
+  };
+
+  // Load full approval journey (all instances) for a round
+  const loadApprovalJourney = async (round) => {
+    const roundId = round.id;
+    setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: true, instances: [] } }));
+
+    try {
+      const response = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
+      const instanceList = response?.data?.data || response?.data || [];
+      const allInstances = Array.isArray(instanceList) ? instanceList : [];
+
+      // Fetch details for each instance
+      const detailedInstances = [];
+      for (const inst of allInstances) {
+        try {
+          const detailRes = await getApprovalInstanceDetails(inst.id);
+          const detail = detailRes?.data?.data || detailRes?.data || detailRes;
+          detailedInstances.push(detail);
+        } catch (err) {
+          // If detail fetch fails, use basic instance data
+          detailedInstances.push(inst);
+        }
+      }
+
+      // Sort by id ascending (oldest first to show the journey chronologically)
+      detailedInstances.sort((a, b) => (a.id || 0) - (b.id || 0));
+
+      setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: detailedInstances } }));
+    } catch (error) {
+      console.error('Error loading approval journey for round:', roundId, error);
+      setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: [] } }));
+    }
+  };
+
+  // Toggle approval journey expansion for a round
+  const toggleApprovalJourney = (round) => {
+    const roundId = round.id;
+    if (expandedApprovalJourney === roundId) {
+      setExpandedApprovalJourney(null);
+      return;
+    }
+    setExpandedApprovalJourney(roundId);
+    // Load if not already loaded
+    if (!approvalJourneys[roundId]) {
+      loadApprovalJourney(round);
+    }
   };
 
   const loadRoundQuotes = async (roundId) => {
@@ -389,7 +440,7 @@ const NegotiationModal = ({
   const getModalTitle = () => {
     switch (mode) {
       case 'create': return 'Create Negotiation Round';
-      case 'history': return 'Negotiation Rounds History';
+      case 'history': return 'Negotiation Rounds';
       case 'view-approve': return 'View & Approve Negotiation Rounds';
       default: return 'Negotiation';
     }
@@ -729,56 +780,454 @@ const NegotiationModal = ({
     );
   };
 
-  const renderHistory = () => (
-    <div>
-      {renderRoundStatusSummary()}
-      {roundsHistory.length === 0 ? (
-        <Alert variant="info">No negotiation rounds found</Alert>
-      ) : (
-        <Table striped bordered hover size="sm">
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Round #</th>
-              <th>Target Price</th>
-              <th>End Date</th>
-              <th>Status</th>
-              <th>Created By</th>
-            </tr>
-          </thead>
-          <tbody>
-            {roundsHistory.map((round) => {
-              const product = products.find(p => p.id === round.rfq_product_id);
-              const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
-              // Get effective status considering approvals and end_date
-              const effectiveStatus = getEffectiveRoundStatus(round);
+  // Status config for consistent styling
+  const statusConfig = {
+    ACTIVE: { bg: '#e8f5e9', color: '#2e7d32', border: '#a5d6a7', label: 'Active', icon: '●' },
+    PENDING_APPROVAL: { bg: '#fff8e1', color: '#f57f17', border: '#ffcc80', label: 'Pending Approval', icon: '◷' },
+    ENDED: { bg: '#fff3e0', color: '#e65100', border: '#ffab91', label: 'Ended', icon: '■' },
+    COMPLETED: { bg: '#e3f2fd', color: '#1565c0', border: '#90caf9', label: 'Completed', icon: '✓' },
+    CLOSED: { bg: '#f3e5f5', color: '#6a1b9a', border: '#ce93d8', label: 'Closed', icon: '✓' },
+    REJECTED: { bg: '#fce4ec', color: '#c62828', border: '#ef9a9a', label: 'Rejected', icon: '✗' },
+  };
+
+  const getStatusStyle = (status) => statusConfig[status] || statusConfig.CLOSED;
+
+  // Get time remaining text for active rounds
+  const getTimeRemaining = (endDate) => {
+    if (!endDate) return null;
+    const end = moment.utc(endDate);
+    const now = moment();
+    if (end.isBefore(now)) return null;
+    const duration = moment.duration(end.diff(now));
+    const days = Math.floor(duration.asDays());
+    const hours = duration.hours();
+    const mins = duration.minutes();
+    if (days > 0) return `${days}d ${hours}h remaining`;
+    if (hours > 0) return `${hours}h ${mins}m remaining`;
+    return `${mins}m remaining`;
+  };
+
+  const renderHistory = () => {
+    // Merge activeRounds (which have enriched approval data) with roundsHistory
+    const allRounds = [...activeRounds, ...roundsHistory];
+    const uniqueRounds = allRounds.filter((round, index, self) =>
+      index === self.findIndex(r => r.id === round.id)
+    );
+
+    // Group by product
+    const grouped = {};
+    uniqueRounds.forEach(round => {
+      const productId = round.rfq_product_id;
+      if (!grouped[productId]) {
+        const product = products.find(p => p.id === productId);
+        grouped[productId] = {
+          productName: round.product_name || (product ? getProductName(product) : `Product ${productId}`),
+          productDetails: product ? getProductDetails(product) : null,
+          rounds: []
+        };
+      }
+      grouped[productId].rounds.push(round);
+    });
+
+    // Sort rounds within each group by round_number descending (latest first)
+    Object.values(grouped).forEach(group => {
+      group.rounds.sort((a, b) => (b.round_number || 0) - (a.round_number || 0));
+    });
+
+    const productGroups = Object.entries(grouped);
+
+    // Summary counts
+    const counts = getRoundStatusCounts();
+    const total = Object.values(counts).reduce((s, c) => s + c, 0);
+
+    return (
+      <div>
+        {/* Status summary pills */}
+        {total > 0 && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            {Object.entries(counts).map(([key, count]) => {
+              if (count === 0) return null;
+              const statusKey = key === 'pending_approval' ? 'PENDING_APPROVAL' : key.toUpperCase();
+              const cfg = getStatusStyle(statusKey);
               return (
-                <tr key={round.id}>
-                  <td>{productName}</td>
-                  <td>{round.round_number}</td>
-                  <td>₹{parseFloat(round.target_price).toLocaleString()}</td>
-                  <td>{moment.utc(round.end_date).local().format('DD/MM/YYYY HH:mm')}</td>
-                  <td>
-                    <Badge bg={
-                      effectiveStatus === 'REJECTED' ? 'danger' :
-                      effectiveStatus === 'ENDED' ? 'secondary' :
-                      effectiveStatus === 'ACTIVE' ? 'success' :
-                      effectiveStatus === 'PENDING_APPROVAL' ? 'warning' :
-                      effectiveStatus === 'COMPLETED' ? 'info' :
-                      'secondary'
-                    }>
-                      {effectiveStatus}
-                    </Badge>
-                  </td>
-                  <td>{round.created_by_name}</td>
-                </tr>
+                <div
+                  key={key}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    backgroundColor: cfg.bg,
+                    border: `1px solid ${cfg.border}`,
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: cfg.color,
+                  }}
+                >
+                  <span style={{ fontSize: '0.7rem' }}>{cfg.icon}</span>
+                  <span>{count}</span>
+                  <span style={{ fontWeight: 400 }}>{cfg.label}</span>
+                </div>
               );
             })}
-          </tbody>
-        </Table>
-      )}
-    </div>
-  );
+          </div>
+        )}
+
+        {uniqueRounds.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#999' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '8px', opacity: 0.5 }}>📋</div>
+            <div style={{ fontSize: '0.95rem', fontWeight: 500 }}>No negotiation rounds yet</div>
+            <div style={{ fontSize: '0.8rem', marginTop: '4px', color: '#aaa' }}>Rounds will appear here once created</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {productGroups.map(([productId, group]) => (
+              <div key={productId}>
+                {/* Product header */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '10px',
+                  paddingBottom: '6px',
+                  borderBottom: '2px solid #e9ecef',
+                }}>
+                  <div style={{
+                    width: '6px',
+                    height: '20px',
+                    borderRadius: '3px',
+                    backgroundColor: '#0d6efd',
+                  }} />
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>
+                    {group.productName}
+                  </span>
+                  <span style={{
+                    fontSize: '0.7rem',
+                    color: '#888',
+                    backgroundColor: '#f0f0f0',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                  }}>
+                    {group.rounds.length} round{group.rounds.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {/* Round cards */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '14px' }}>
+                  {group.rounds.map((round) => {
+                    const effectiveStatus = getEffectiveRoundStatus(round);
+                    const cfg = getStatusStyle(effectiveStatus);
+                    const timeLeft = effectiveStatus === 'ACTIVE' ? getTimeRemaining(round.end_date) : null;
+                    const approvals = round.approvals || [];
+                    const canApprove = effectiveStatus === 'PENDING_APPROVAL' && currentUserId &&
+                      approvals.some(a => a.status === 'PENDING' && String(a.approver_user_id) === String(currentUserId));
+
+                    return (
+                      <div
+                        key={round.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'stretch',
+                          borderRadius: '8px',
+                          border: `1px solid ${cfg.border}`,
+                          backgroundColor: '#fff',
+                          overflow: 'hidden',
+                          transition: 'box-shadow 0.2s',
+                        }}
+                      >
+                        {/* Left color strip */}
+                        <div style={{
+                          width: '4px',
+                          minHeight: '100%',
+                          backgroundColor: cfg.color,
+                          flexShrink: 0,
+                        }} />
+
+                        {/* Round content */}
+                        <div style={{ flex: 1, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {/* Top row: round number, status, time */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '50%',
+                                backgroundColor: cfg.bg,
+                                border: `1.5px solid ${cfg.border}`,
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                color: cfg.color,
+                              }}>
+                                {round.round_number || '?'}
+                              </span>
+                              <span style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                color: cfg.color,
+                                backgroundColor: cfg.bg,
+                                padding: '2px 10px',
+                                borderRadius: '12px',
+                              }}>
+                                {cfg.icon} {cfg.label}
+                              </span>
+                              {timeLeft && (
+                                <span style={{
+                                  fontSize: '0.7rem',
+                                  color: '#2e7d32',
+                                  fontWeight: 500,
+                                }}>
+                                  ⏱ {timeLeft}
+                                </span>
+                              )}
+                            </div>
+                            {canApprove && (
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <Button
+                                  variant="success"
+                                  size="sm"
+                                  style={{ fontSize: '0.75rem', padding: '3px 12px' }}
+                                  onClick={() => openActionModal(round, 'APPROVE')}
+                                  disabled={submitting || !canWrite || permissionsLoading}
+                                >
+                                  Approve
+                                </Button>
+                                <Button
+                                  variant="outline-danger"
+                                  size="sm"
+                                  style={{ fontSize: '0.75rem', padding: '3px 12px' }}
+                                  onClick={() => openActionModal(round, 'REJECT')}
+                                  disabled={submitting || !canWrite || permissionsLoading}
+                                >
+                                  Reject
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Details row */}
+                          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '0.8rem', color: '#555' }}>
+                            <div>
+                              <span style={{ color: '#999', fontSize: '0.7rem' }}>Target</span>
+                              <div style={{ fontWeight: 600, color: '#333' }}>
+                                ₹{parseFloat(round.target_price || 0).toLocaleString()}
+                              </div>
+                            </div>
+                            <div>
+                              <span style={{ color: '#999', fontSize: '0.7rem' }}>End Date</span>
+                              <div>{moment.utc(round.end_date).local().format('DD MMM YYYY, hh:mm A')}</div>
+                            </div>
+                            {round.created_by_name && (
+                              <div>
+                                <span style={{ color: '#999', fontSize: '0.7rem' }}>Created By</span>
+                                <div>{round.created_by_name}</div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Approval Workflow Journey */}
+                          {(effectiveStatus === 'PENDING_APPROVAL' || effectiveStatus === 'REJECTED' || effectiveStatus === 'APPROVED') && (
+                            <div style={{ borderTop: '1px solid #f0f0f0', marginTop: '2px', paddingTop: '6px' }}>
+                              <div
+                                onClick={() => toggleApprovalJourney(round)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.75rem',
+                                  color: '#0d6efd',
+                                  fontWeight: 500,
+                                  padding: '2px 0',
+                                }}
+                              >
+                                <span style={{ fontSize: '0.7rem' }}>
+                                  {expandedApprovalJourney === round.id ? '▼' : '▶'}
+                                </span>
+                                Approval Workflow
+                                {approvals.length > 0 && (
+                                  <span style={{
+                                    fontSize: '0.65rem',
+                                    color: '#888',
+                                    fontWeight: 400,
+                                  }}>
+                                    ({approvals.filter(a => a.status === 'PENDING').length} pending)
+                                  </span>
+                                )}
+                              </div>
+
+                              {expandedApprovalJourney === round.id && (
+                                <div style={{ marginTop: '8px' }}>
+                                  {approvalJourneys[round.id]?.loading ? (
+                                    <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                                      <Spinner size="sm" />
+                                      <span style={{ fontSize: '0.75rem', color: '#888', marginLeft: '8px' }}>Loading approval history...</span>
+                                    </div>
+                                  ) : approvalJourneys[round.id]?.instances?.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
+                                      {approvalJourneys[round.id].instances.map((instance, instIdx) => {
+                                        const isLast = instIdx === approvalJourneys[round.id].instances.length - 1;
+                                        const instStatus = (instance.status || '').toUpperCase();
+                                        const attemptNum = instIdx + 1;
+
+                                        // Determine instance status style
+                                        const instColor = instStatus === 'APPROVED' ? '#198754' :
+                                                         instStatus === 'REJECTED' ? '#dc3545' :
+                                                         instStatus === 'CANCELLED' ? '#6c757d' : '#f59f00';
+                                        const instBg = instStatus === 'APPROVED' ? '#e8f5e9' :
+                                                      instStatus === 'REJECTED' ? '#fce4ec' :
+                                                      instStatus === 'CANCELLED' ? '#f0f0f0' : '#fff8e1';
+                                        const instBorder = instStatus === 'APPROVED' ? '#a5d6a7' :
+                                                          instStatus === 'REJECTED' ? '#ef9a9a' :
+                                                          instStatus === 'CANCELLED' ? '#d0d0d0' : '#ffcc80';
+                                        const instIcon = instStatus === 'APPROVED' ? '✓' :
+                                                        instStatus === 'REJECTED' ? '✗' :
+                                                        instStatus === 'CANCELLED' ? '—' : '◷';
+                                        const instLabel = instStatus === 'PENDING' ? 'In Progress' :
+                                                         instStatus.charAt(0) + instStatus.slice(1).toLowerCase();
+
+                                        return (
+                                          <div key={instance.id || instIdx}>
+                                            {/* Instance card */}
+                                            <div style={{
+                                              border: `1px solid ${instBorder}`,
+                                              borderRadius: '8px',
+                                              backgroundColor: isLast && instStatus === 'PENDING' ? '#fffdf5' : '#fff',
+                                              overflow: 'hidden',
+                                              ...(isLast && instStatus === 'PENDING' ? {
+                                                boxShadow: '0 0 0 1px rgba(255,193,7,0.15), 0 2px 8px rgba(255,193,7,0.08)',
+                                              } : {}),
+                                            }}>
+                                              {/* Instance header */}
+                                              <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '8px 12px',
+                                                backgroundColor: instBg,
+                                                borderBottom: `1px solid ${instBorder}`,
+                                              }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                  <span style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    width: '22px',
+                                                    height: '22px',
+                                                    borderRadius: '50%',
+                                                    backgroundColor: '#fff',
+                                                    border: `2px solid ${instColor}`,
+                                                    fontSize: '0.65rem',
+                                                    fontWeight: 700,
+                                                    color: instColor,
+                                                  }}>
+                                                    {instIcon}
+                                                  </span>
+                                                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#333' }}>
+                                                    Attempt {attemptNum}
+                                                  </span>
+                                                  <span style={{
+                                                    fontSize: '0.68rem',
+                                                    fontWeight: 600,
+                                                    color: instColor,
+                                                    backgroundColor: '#fff',
+                                                    padding: '1px 8px',
+                                                    borderRadius: '10px',
+                                                    border: `1px solid ${instBorder}`,
+                                                  }}>
+                                                    {instLabel}
+                                                  </span>
+                                                  {isLast && instStatus === 'PENDING' && (
+                                                    <span style={{
+                                                      fontSize: '0.6rem',
+                                                      fontWeight: 700,
+                                                      color: '#664d03',
+                                                      backgroundColor: '#ffc107',
+                                                      padding: '1px 6px',
+                                                      borderRadius: '4px',
+                                                      textTransform: 'uppercase',
+                                                      letterSpacing: '0.03em',
+                                                    }}>
+                                                      Current
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+
+                                              {/* Instance steps - use ApprovalTimeline */}
+                                              <div style={{ padding: '10px 12px' }}>
+                                                {instance.steps && instance.steps.length > 0 ? (
+                                                  <ApprovalTimeline
+                                                    steps={instance.steps}
+                                                    currentStep={instance.current_step}
+                                                    initiatedBy={instance.initiated_by}
+                                                  />
+                                                ) : (
+                                                  <div style={{ fontSize: '0.75rem', color: '#999', textAlign: 'center', padding: '8px 0' }}>
+                                                    No step details available
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+
+                                            {/* Connector between instances */}
+                                            {!isLast && (
+                                              <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '4px 0',
+                                              }}>
+                                                <div style={{
+                                                  display: 'flex',
+                                                  flexDirection: 'column',
+                                                  alignItems: 'center',
+                                                  gap: '0px',
+                                                }}>
+                                                  <div style={{ width: '2px', height: '8px', backgroundColor: '#dee2e6' }} />
+                                                  <div style={{
+                                                    fontSize: '0.6rem',
+                                                    color: '#aaa',
+                                                    fontWeight: 500,
+                                                    padding: '1px 8px',
+                                                    backgroundColor: '#f8f9fa',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #e9ecef',
+                                                  }}>
+                                                    resubmitted
+                                                  </div>
+                                                  <div style={{ width: '2px', height: '8px', backgroundColor: '#dee2e6' }} />
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <div style={{ fontSize: '0.75rem', color: '#999', textAlign: 'center', padding: '12px 0' }}>
+                                      No approval workflow data found
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderViewApprove = () => {
     // Helper to check if a round has been rejected via approvals
@@ -1051,7 +1500,7 @@ const NegotiationModal = ({
     <>
     <Modal show={show} onHide={onHide} size="lg" centered>
       <Modal.Header closeButton className='py-2 px-3 pb-0'>
-        <Modal.Title>{getModalTitle()}</Modal.Title>
+        <Modal.Title style={{ fontSize: '1.1rem', fontWeight: 600 }}>{getModalTitle()}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {loading ? (

@@ -51,6 +51,171 @@ const statusConfig = {
   },
 };
 
+// Compact display of previous rejected/cancelled approval attempts
+const PreviousAttemptsSection = ({ instances }) => {
+  const [expandedAttempt, setExpandedAttempt] = useState(null);
+
+  if (!instances || instances.length === 0) return null;
+
+  const attemptStatusConfig = {
+    REJECTED: { color: '#dc3545', bg: '#fce4ec', border: '#ef9a9a', icon: '✗', label: 'Rejected' },
+    CANCELLED: { color: '#6c757d', bg: '#f0f0f0', border: '#d0d0d0', icon: '—', label: 'Cancelled' },
+    APPROVED: { color: '#198754', bg: '#e8f5e9', border: '#a5d6a7', icon: '✓', label: 'Approved' },
+    PENDING: { color: '#f59f00', bg: '#fff8e1', border: '#ffcc80', icon: '◷', label: 'In Progress' },
+  };
+
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      <div style={{
+        fontSize: '0.72rem',
+        fontWeight: 600,
+        color: '#888',
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
+        marginBottom: '8px',
+      }}>
+        Previous Attempts
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
+        {instances.map((inst, idx) => {
+          const instStatus = (inst.status || 'PENDING').toUpperCase();
+          const cfg = attemptStatusConfig[instStatus] || attemptStatusConfig.CANCELLED;
+          const isExpanded = expandedAttempt === inst.id;
+          const attemptNum = idx + 1;
+
+          // Find rejection comment from approvers
+          const rejectionComment = instStatus === 'REJECTED'
+            ? inst.steps?.flatMap(s => s.approvers || []).find(a => a.status === 'REJECTED')?.comment
+            : null;
+
+          return (
+            <div key={inst.id || idx}>
+              <div
+                style={{
+                  border: `1px solid ${cfg.border}`,
+                  borderRadius: '8px',
+                  backgroundColor: '#fff',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* Attempt header - clickable */}
+                <div
+                  onClick={() => setExpandedAttempt(isExpanded ? null : inst.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    backgroundColor: cfg.bg,
+                    cursor: 'pointer',
+                    gap: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '50%',
+                      backgroundColor: '#fff',
+                      border: `2px solid ${cfg.color}`,
+                      fontSize: '0.65rem',
+                      fontWeight: 700,
+                      color: cfg.color,
+                      flexShrink: 0,
+                    }}>
+                      {cfg.icon}
+                    </span>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#333' }}>
+                      Attempt {attemptNum}
+                    </span>
+                    <span style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 600,
+                      color: cfg.color,
+                      backgroundColor: '#fff',
+                      padding: '1px 8px',
+                      borderRadius: '10px',
+                      border: `1px solid ${cfg.border}`,
+                    }}>
+                      {cfg.label}
+                    </span>
+                    {rejectionComment && !isExpanded && (
+                      <span style={{
+                        fontSize: '0.7rem',
+                        color: '#999',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        flex: 1,
+                        minWidth: 0,
+                      }}>
+                        — "{rejectionComment}"
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '0.65rem', color: '#aaa', flexShrink: 0 }}>
+                    {isExpanded ? '▲' : '▼'}
+                  </span>
+                </div>
+
+                {/* Expanded: show full ApprovalTimeline */}
+                {isExpanded && (
+                  <div style={{ padding: '12px' }}>
+                    {inst.steps && inst.steps.length > 0 ? (
+                      <ApprovalTimeline
+                        steps={inst.steps}
+                        currentStep={inst.current_step}
+                        initiatedBy={inst.initiated_by}
+                      />
+                    ) : (
+                      <div style={{ fontSize: '0.75rem', color: '#999', textAlign: 'center', padding: '8px 0' }}>
+                        No step details available
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Connector to next attempt */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '3px 0',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                }}>
+                  <div style={{ width: '2px', height: '6px', backgroundColor: '#dee2e6' }} />
+                  <div style={{
+                    fontSize: '0.58rem',
+                    color: '#aaa',
+                    fontWeight: 500,
+                    padding: '1px 8px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '8px',
+                    border: '1px solid #e9ecef',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em',
+                  }}>
+                    resubmitted
+                  </div>
+                  <div style={{ width: '2px', height: '6px', backgroundColor: '#dee2e6' }} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const ApprovalWorkflowSection = ({
   entityType,
   entityId,
@@ -62,10 +227,12 @@ const ApprovalWorkflowSection = ({
   onCustomReject,
   onActionComplete,
   vendorCodeMap = {},
-  vendorNameMap = {}
+  vendorNameMap = {},
+  refreshTrigger = 0
 }) => {
   const {
     instance,
+    previousInstances,
     loading,
     error,
     actionLoading,
@@ -77,7 +244,7 @@ const ApprovalWorkflowSection = ({
     initiatedBy,
     handleApprovalAction,
     refetch,
-  } = useApprovalWorkflow({ entityType, entityId, enabled: !!entityId });
+  } = useApprovalWorkflow({ entityType, entityId, enabled: !!entityId, refreshTrigger });
 
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState(null);
@@ -426,6 +593,39 @@ const ApprovalWorkflowSection = ({
                     roundNumber={instance.metadata.evaluation_round || 1}
                     showSummary={true}
                   />
+                )}
+
+                {/* Previous approval attempts (rejected/cancelled history) */}
+                {previousInstances.length > 0 && (
+                  <PreviousAttemptsSection instances={previousInstances} />
+                )}
+
+                {/* Current attempt label when there's history */}
+                {previousInstances.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '12px',
+                  }}>
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      color: statusInfo.color,
+                      backgroundColor: `${statusInfo.color}10`,
+                      border: `1px solid ${statusInfo.color}30`,
+                      padding: '4px 12px',
+                      borderRadius: '6px',
+                    }}>
+                      <span>Attempt {previousInstances.length + 1}</span>
+                      <Badge bg={statusInfo.variant} style={{ fontSize: '0.62rem', fontWeight: 500 }}>
+                        Current
+                      </Badge>
+                    </div>
+                  </div>
                 )}
 
                 {/* Timeline */}
