@@ -585,36 +585,6 @@ useEffect(() => {
                                       </p> */}
                                     </div>
 
-                                    {/* Vendor Selection - hide for tenders to avoid per-vendor dropdown */}
-                                    {currentRfq?.is_tender !== 1 && (
-                                      <div className="col-md-3 col-lg-3 text-sm mb-2">
-                                        <label>Select Vendor</label>
-                                        <AsyncSelect
-                                          isMulti
-                                          cacheOptions
-                                          loadOptions={() => getVendorSelectionOption(product.id)}
-                                          defaultOptions
-                                          placeholder="Select"
-                                          isClearable
-                                          value={productSelectedVendors}
-                                          onChange={(selectedOptions) => {
-                                            setSelectedVendorsMap(prev => new Map(prev).set(product.id, selectedOptions || []));
-                                            // Also update vendorMap for single vendor selection
-                                            if (selectedOptions && selectedOptions.length > 0) {
-                                              setVendorMap(prev => new Map(prev).set(product.id, selectedOptions[0]));
-                                            } else {
-                                              setVendorMap(prev => {
-                                                const newMap = new Map(prev);
-                                                newMap.delete(product.id);
-                                                return newMap;
-                                              });
-                                            }
-                                          }}
-                                          noOptionsMessage={() => "No vendors responded"}
-                                          id={`select_vendor_${product.id}-vendor_selection-technical_evaluation_page`}
-                                        />
-                                      </div>
-                                    )}
                                   </div>
 
                                   <ClauseProductItem
