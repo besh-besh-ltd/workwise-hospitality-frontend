@@ -846,11 +846,13 @@ const EditRFQ = () => {
           dataToSend.vendor_clarification_date = rfqFormDataFromStore.vendor_clarification_date;
       }
 
-      // Include hotel_ids for vendor recomputation on hotel change
-      if (selectedHotelIds.length > 0) {
-        dataToSend.hotel_ids = selectedHotelIds;
-      } else if (rfqData.mappedHotels && rfqData.mappedHotels.length > 0) {
-        dataToSend.hotel_ids = rfqData.mappedHotels.map(h => h.hotel_id);
+      // Include hotel_ids for vendor recomputation on hotel change (skip if published to avoid validation error)
+      if (rfqData?.is_published !== 1) {
+        if (selectedHotelIds.length > 0) {
+          dataToSend.hotel_ids = selectedHotelIds;
+        } else if (rfqData.mappedHotels && rfqData.mappedHotels.length > 0) {
+          dataToSend.hotel_ids = rfqData.mappedHotels.map(h => h.hotel_id);
+        }
       }
 
   //  try {
@@ -1995,7 +1997,7 @@ const EditRFQ = () => {
                       {userHotelMappings.length > 0 && (
                         <div className="col-md-6">
                           <div className="mb-3">
-                            <label className="form-label fw-medium">Select Hotels</label>
+                            <label className="form-label fw-medium">Hotels</label>
                             <Select
                               id="select_hotels-edit_rfq_page"
                               isMulti
@@ -2013,7 +2015,8 @@ const EditRFQ = () => {
                               placeholder="Select Hotels..."
                               closeMenuOnSelect={false}
                               classNamePrefix="react-select"
-                              isClearable
+                              isClearable={rfqData?.is_published !== 1}
+                              isDisabled={rfqData?.is_published === 1}
                               formatOptionLabel={(option) => (
                                 <div>
                                   <span>{option.hotel_name}</span>
@@ -2125,7 +2128,7 @@ const EditRFQ = () => {
                           </div>
                       )}
 
-                      {rfqFormDataFromStore.is_tender === 1 && departments.length > 0 && (
+                      {rfqFormDataFromStore.is_tender === 1 && (departments.length > 0 || rfqFormDataFromStore.department_id) && (
                         <div className="col-md-6">
                           {/* Department */}
                           <div className="mb-3">
@@ -2143,7 +2146,8 @@ const EditRFQ = () => {
                               placeholder="Select Department"
                               className="basic-select"
                               classNamePrefix="select"
-                              isClearable={true}
+                              isClearable={rfqData?.is_published !== 1}
+                              isDisabled={rfqData?.is_published === 1}
                             />
                           </div>
                         </div>
