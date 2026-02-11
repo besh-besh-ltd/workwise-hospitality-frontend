@@ -855,7 +855,7 @@ const Item = ({
                 >
                   <FontAwesomeIcon icon={faEdit} className="opacity-75" />
                   <span>Minimum score</span>
-                  <span className="badge bg-primary rounded-pill px-2">{minimumPassingScore}/100</span>
+                  <span className="badge bg-primary rounded-pill px-2">{minimumPassingScore}%</span>
                 </button>
               ) : (
                 <button

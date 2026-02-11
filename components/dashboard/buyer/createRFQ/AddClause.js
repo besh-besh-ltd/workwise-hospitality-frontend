@@ -443,7 +443,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
                             style={{ minWidth: "max-content" }}
                         >
                             {(minimumPassingScore !== null && minimumPassingScore !== undefined)
-                                ? `Edit minimum passing percentage (${minimumPassingScore})`
+                                ? `Edit minimum passing percentage (${minimumPassingScore}%)`
                                 : "Set minimum passing percentage"}
                         </button>
                     )}
@@ -452,20 +452,23 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
             <Modal.Body className="p-2" style={{ minHeight: "200px" }}>
                 {showMinimumScoreInput ? (
                     <div className="d-flex flex-column gap-3 p-3">
-                        <h5 className="mb-0">Set minimum passing percentage (out of 100)</h5>
+                        <h5 className="mb-0">Set minimum passing percentage</h5>
                         <div className="alert alert-info p-2" style={{ fontSize: "12px" }}>
                             <strong>Minimum passing percentage:</strong> Enter a value between 0 and 100
                             <br />
                             <small>This percentage will be used to determine if vendors pass the technical evaluation.</small>
                         </div>
-                        <Form.Control
-                            type="number"
-                            placeholder="Enter minimum passing percentage (0-100)"
-                            min="0"
-                            max="100"
-                            value={tempMinimumScore}
-                            onChange={(e) => setTempMinimumScore(e.target.value)}
-                        />
+                        <div className="d-flex align-items-center gap-2" style={{ maxWidth: "200px" }}>
+                            <Form.Control
+                                type="number"
+                                placeholder="0-100"
+                                min="0"
+                                max="100"
+                                value={tempMinimumScore}
+                                onChange={(e) => setTempMinimumScore(e.target.value)}
+                            />
+                            <span className="fw-semibold text-muted" style={{ fontSize: "16px" }}>%</span>
+                        </div>
                         {tempMinimumScore && !isNaN(parseInt(tempMinimumScore)) && (parseInt(tempMinimumScore) < 0 || parseInt(tempMinimumScore) > 100) && (
                             <small className="text-danger">
                                 Minimum passing percentage must be between 0 and 100

@@ -2684,6 +2684,7 @@ useEffect(() => {
                                 errors={errors}
                                 enableHandleChange={true}
                                 handleChange={handleFormFieldChange}
+                                showOptionalLabel={false}
                               />
                               <div className="row mt-2">
                                 <div className="custom-file">
@@ -2691,7 +2692,7 @@ useEffect(() => {
                                     htmlFor="customFile"
                                     className="custom-file-label"
                                   >
-                                    Upload Your Terms (Optional)
+                                    Upload Your Terms
                                   </label>
                                   <input
                                     id="upload_terms-create_rfq_page"
@@ -3046,6 +3047,7 @@ useEffect(() => {
                                     name="project_id"
                                     touched={touched}
                                     errors={errors}
+                                    showOptionalLabel={false}
                                   />
                                 </div>
                                 )}
@@ -3150,6 +3152,7 @@ useEffect(() => {
                                     name="location"
                                     touched={touched}
                                     errors={errors}
+                                    showOptionalLabel={false}
                                   />
                                 </div>
                               </div>

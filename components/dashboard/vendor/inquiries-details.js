@@ -1830,14 +1830,8 @@ const RfqManagementPreview = () => {
 
                                   {type == "buyer-view" && !rfqDetails.is_tender && (
                                     <td>
-                                      <span>
-                                        <Link
-                                          href={`/dashboard/buyer/rfq-management-vendor?type=buyer-view&productid=${item.product_id}&variant=${item.variant}&id=${id}&rfq_product_id=${item.id}`}
-                                          className="page-link"
-                                        >
-                                          View selected vendors (
-                                          {item.vendors_count})
-                                        </Link>
+                                      <span className="fw-semibold">
+                                        Selected vendors ({item.vendors_count})
                                       </span>
                                     </td>
                                   )}
