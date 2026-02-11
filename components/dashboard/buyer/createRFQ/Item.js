@@ -191,14 +191,16 @@ const Item = ({
 
   const handleRemoveProduct = (e) => {
     e.stopPropagation();
-    setShowRemoveConfirmModal(true);
+    if (handleRemoveProductInEdit) {
+      // Let the parent (CreateRFQ) handle validation and confirmation
+      handleRemoveProductInEdit(data);
+    } else {
+      setShowRemoveConfirmModal(true);
+    }
   };
 
   const handleRemoveConfirm = () => {
-    if(handleRemoveProductInEdit)
-      handleRemoveProductInEdit(data)
-    else
-      dispatch(removeRfqProduct(data));
+    dispatch(removeRfqProduct(data));
     setHasUnsavedChanges(true);
     setShowRemoveConfirmModal(false);
   };
