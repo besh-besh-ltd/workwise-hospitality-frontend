@@ -216,6 +216,16 @@ const originalPaymentTermsListRef = useRef(null);
   );
   const grandTotalIncludingGSTText = formatPrice(grandTotalIncludingGST);
 
+  // Check if any quoteable product has pending/incomplete tech eval
+  const hasPendingTechEval = rfqDetails?.products?.some(p => {
+    if (rfqDetails.finalizations && rfqDetails.finalizations.length > 0) {
+      const itemFound = rfqDetails.finalizations.find((f) => f.product_id == p.product_id && f.variant == p.variant);
+      if (itemFound) return false;
+    }
+    const ts = techEvalStatuses[p.id];
+    return ts && ts.has_tech_eval && !ts.all_clauses_responded;
+  }) || false;
+
   /**
    * Main transformer
    * @param {Array<object>} items
@@ -423,7 +433,8 @@ const loadRazorpayScript = () => {
         if (product.tech_evaluation_status) {
           techStatuses[product.id] = {
             has_tech_eval: product.tech_evaluation_status.has_tech_eval === true,
-            is_accepted: product.tech_evaluation_status.is_accepted === true
+            is_accepted: product.tech_evaluation_status.is_accepted === true,
+            all_clauses_responded: product.tech_evaluation_status.all_clauses_responded === true
           };
         }
       });
@@ -2863,13 +2874,16 @@ return { deletedTerms, createdTerms, updatedTerms };
                           disabled={
                             !isAnyFieldFilled() ||
                             tenderPaymentLoading ||
+                            hasPendingTechEval ||
                             (rfqDetails?.is_tender === 1 &&
                               (isClarificationWindowActive ||
                                 hasOpenClarification)) ||
                             (Object.keys(negotiationQuoteSubmitted).length > 0 && Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0))
                           }
                           title={
-                            (Object.keys(negotiationQuoteSubmitted).length > 0 && Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0))
+                            hasPendingTechEval
+                              ? "Quote submission disabled - Technical evaluation is pending"
+                              : (Object.keys(negotiationQuoteSubmitted).length > 0 && Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0))
                               ? "Quote submission disabled - Negotiation quotes submitted for all products"
                               : rfqDetails?.is_tender === 1 &&
                                 isClarificationWindowActive
