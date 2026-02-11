@@ -2380,7 +2380,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         onRoundEnded={loadNegotiationData}
                         canWrite={canWriteQuoteCompare}
                         permissionsLoading={quoteComparePermissionsLoading}
-                        is_tender={currentRFQ?.is_tender === 1 || currentRFQ?.is_tender === true}
+                        is_tender={currentRFQ?.is_tender == 1 || currentRFQ?.is_tender === true}
                         hospitalityCompanyId={currentRFQ?.hospitality_company_id}
                         hotelId={currentRFQ?.hotel_id}
                         departmentId={currentRFQ?.department_id}
@@ -2413,7 +2413,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         normalizeFilter={normalizeFilter}
                         freightFilter={freightFilter}
                         RFQ_no={currentRFQ?.rfq_no}
-                        is_tender={currentRFQ?.is_tender === 1 || currentRFQ?.is_tender === true}
+                        is_tender={currentRFQ?.is_tender == 1 || currentRFQ?.is_tender === true}
                       />
                     )}
                   </div>
