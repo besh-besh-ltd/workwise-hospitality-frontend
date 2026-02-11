@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import FullLoader from "@/components/shared/FullLoader";
 import useModulePermissions from "@/hooks/useModulePermissions";
@@ -14,7 +14,6 @@ import {
   handleUploadFileInFormData,
   saveExcelInDB,
   updateTargetPrice,
-  getTechEvalStatus,
 } from "@/services/rfq";
 import { useRouter } from "next/router";
 import * as XLSX from "xlsx-js-style";
@@ -67,8 +66,6 @@ const QuoteCompare = () => {
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
   const [TA_Filter, setTA_Filter] = useState(false);
   const [TEavailable, setTEavailable] = useState(false);
-  const [hasTEAcceptedVendors, setHasTEAcceptedVendors] = useState(false);
-  const tenderTAInitializedRef = useRef(false);
   const [freightFilter, setFreightFilter] = useState(false);
   const [normalizeFilter, setNormalizeFilter] = useState(false);
   const [rfqNo, setRfqNo] =useState(null);
@@ -432,16 +429,6 @@ const openModalForVariant = (variantId) => {
     setSelectedproject(null);
   }
 
-  const handleTAFilterChange = (e) => {
-    const isTender = currentRFQ?.is_tender === 1 || currentRFQ?.is_tender === true;
-    if (isTender && hasTEAcceptedVendors) {
-      // Reversed logic: toggle ON = show all (TA_Filter false), toggle OFF = show accepted only (TA_Filter true)
-      setTA_Filter(!e.target.checked);
-    } else {
-      setTA_Filter(e.target.checked);
-    }
-  }
-
   const handleFreightFilterChange = (e) => {
     setFreightFilter(e.target.checked);
   }
@@ -554,48 +541,11 @@ const handleCloseNormalizeModal = () => {
       const res = await getAllClauses(rfq);
       if(res.data && res.data.length > 0) {
         setTEavailable(true);
-
-        // For tenders: auto-enable TA filter if tech eval has accepted vendors
-        const isTender = currentRFQ?.is_tender === 1 || currentRFQ?.is_tender === true;
-        if (isTender && !tenderTAInitializedRef.current) {
-          tenderTAInitializedRef.current = true;
-          await checkTenderTEAcceptedVendors(quotesData);
-        }
-      }
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const checkTenderTEAcceptedVendors = async (quotesData) => {
-    try {
-      const productIds = quotesData.map(q => q.id).filter(Boolean);
-      let hasAccepted = false;
-
-      for (const productId of productIds) {
-        try {
-          const response = await getTechEvalStatus(productId);
-          if (response?.status === 1 && response?.data) {
-            const { total_passed_verified, rounds } = response.data;
-            const hasCompletedRound = rounds?.some(r =>
-              r.approval_status === 'APPROVED' || r.status === 'COMPLETED'
-            );
-            if (hasCompletedRound && total_passed_verified > 0) {
-              hasAccepted = true;
-              break;
-            }
-          }
-        } catch {
-          // No tech eval for this product, skip
-        }
-      }
-
-      if (hasAccepted) {
-        setHasTEAcceptedVendors(true);
+        // Always filter to show only technically accepted vendors when tech eval exists
         setTA_Filter(true);
       }
     } catch (error) {
-      console.error("Error checking tech eval accepted vendors:", error);
+      console.error(error);
     }
   };
 
@@ -1507,8 +1457,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       setTA_Filter(false);
       setFreightFilter(false);
       setNormalizeFilter(false);
-      setHasTEAcceptedVendors(false);
-      tenderTAInitializedRef.current = false;
     }
   }, [rfq]);
 
@@ -1977,28 +1925,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       className="d-flex flex-column gap-2 quote-compare-toggles"
                       style={{ flexBasis: "100%", minWidth: 0, marginTop: 4 }}
                     >
-                      {TEavailable && (
-                        <div className="form-check form-switch d-flex align-items-center gap-2 m-0">
-                          <input
-                            className="form-check-input border-dark-subtle flex-shrink-0"
-                            type="checkbox"
-                            role="switch"
-                            checked={
-                              (currentRFQ?.is_tender === 1 || currentRFQ?.is_tender === true) && hasTEAcceptedVendors
-                                ? !TA_Filter  // Reversed: checked = show all quotes
-                                : TA_Filter   // Normal: checked = show accepted only
-                            }
-                            id="ta_filter_toggle-quote_tabs-quote_compare_page"
-                            onChange={handleTAFilterChange}
-                          />
-                          <label className="form-check-label flex-grow-1 m-0" htmlFor="ta_filter_toggle-quote_tabs-quote_compare_page">
-                            {(currentRFQ?.is_tender === 1 || currentRFQ?.is_tender === true) && hasTEAcceptedVendors
-                              ? "Show All Quotes"
-                              : "View Technically Accepted Vendors"
-                            }
-                          </label>
-                        </div>
-                      )}
+                      {/* Tech eval filter is always on when tech eval exists - no toggle needed */}
 
                       {!normalizeFilter && (
                         <div className="form-check form-switch d-flex align-items-center gap-2 m-0">

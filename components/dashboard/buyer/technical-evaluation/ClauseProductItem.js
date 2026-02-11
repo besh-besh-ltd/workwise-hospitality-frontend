@@ -621,9 +621,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                                   : "Technically Not Accepted"
                                                 : ""}
                                             </p>
-                                            {isCleared != null && vendor?.evaluated_by && (
+                                            {isCleared != null && (vendor?.evaluated_by || vendor?.approved_by) && (
                                               <div className="text-light mt-2 fw-normal">
-                                                <strong>Evaluated by: </strong> {vendor?.evaluated_by}
+                                                {vendor?.evaluated_by && (
+                                                  <div><strong>Evaluated by: </strong> {vendor.evaluated_by}</div>
+                                                )}
+                                                {vendor?.approved_by && (
+                                                  <div><strong>Approved by: </strong> {vendor.approved_by}</div>
+                                                )}
                                               </div>
                                             )}
                                           </div>
@@ -656,34 +661,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                                   View Profile
                                                 </Dropdown.Item>
                                               )}
-                                              {/* Hide per-vendor Accept / Reject for tenders */}
-                                              {currentRfq?.is_tender !== 1 && isCleared == null && canWrite && !permissionsLoading && !isPendingApproval && (
-                                                <>
-                                                  <Dropdown.Item
-                                                    href="#"
-                                                    onClick={() =>
-                                                      addToTechnicallyAccepted(vendor)
-                                                    }
-                                                    id={`accept_vendor_${vendor.vendor_id}-vendor_evaluation-technical_evaluation_page`}
-                                                  >
-                                                    Accept
-                                                  </Dropdown.Item>
-
-                                                  <Dropdown.Item
-                                                    href="#"
-                                                    onClick={() => {
-                                                      setSelectedVendor({
-                                                        label: vendor.vendor_name,
-                                                        value: vendor.vendor_id,
-                                                      });
-                                                      setOpenModal(true);
-                                                    }}
-                                                    id={`reject_vendor_${vendor.vendor_id}-vendor_evaluation-technical_evaluation_page`}
-                                                  >
-                                                    Reject
-                                                  </Dropdown.Item>
-                                                </>
-                                              )}
+                                              {/* Accept / Reject removed from dropdown - use dedicated buttons below instead */}
                                             </Dropdown.Menu>
                                           </Dropdown>
                                         </div>
@@ -924,10 +902,15 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                         {/* end : status tag */}
 
 
-                          {/* Display evaluated_by only when available */}
-                          {techEvalStatus == 1 && techEvalCleared?.evaluated_by && (
-                            <div className="text-muted mt-2 ">
-                              <strong>Evaluated by: </strong> {techEvalCleared.evaluated_by}
+                          {/* Display evaluated_by and approved_by when available */}
+                          {techEvalStatus == 1 && (techEvalCleared?.evaluated_by || techEvalCleared?.approved_by) && (
+                            <div className="text-muted mt-2">
+                              {techEvalCleared?.evaluated_by && (
+                                <div><strong>Evaluated by: </strong> {techEvalCleared.evaluated_by}</div>
+                              )}
+                              {techEvalCleared?.approved_by && (
+                                <div><strong>Approved by: </strong> {techEvalCleared.approved_by}</div>
+                              )}
                             </div>
                           )}
                         </div>

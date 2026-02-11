@@ -20,13 +20,14 @@ const FormikField = ({
   handleChange = (e) => {
     console.log(e.target.value);
   },
+  showOptionalLabel = true,
 }) => {
   return (
     <>
       <div className="form-group">
         {!nolabel && (
           <label htmlFor="username">
-            {label} {isRequired ? <sup>*</sup> : <>(Optional)</>}
+            {label} {isRequired ? <sup>*</sup> : (showOptionalLabel ? <>(Optional)</> : null)}
           </label>
         )}
 

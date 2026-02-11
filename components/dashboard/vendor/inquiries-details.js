@@ -12,7 +12,7 @@ import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
-import { checkBidExpired, extractfileName, formatDate, getEntityLabel, getRFQPublishState } from "@/utils/sharedFunctions";
+import { checkBidExpired, extractfileName, formatDate, formatPrice, getEntityLabel, getRFQPublishState } from "@/utils/sharedFunctions";
 import PublishDateTimer from "@/components/shared/PublishDateTimer";
 import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
@@ -127,6 +127,7 @@ const RfqManagementPreview = () => {
   const [wasEndDatePassed, setWasEndDatePassed] = useState(false);
   const [raStatusChanged, setRaStatusChanged] = useState(false);
   const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
+  const [hasPendingTechEval, setHasPendingTechEval] = useState(false);
   // Enhanced tech eval status tracking for detailed status display
   const [productTechEvalDetails, setProductTechEvalDetails] = useState({});
   const [loadingTechEvalDetails, setLoadingTechEvalDetails] = useState({});
@@ -631,6 +632,13 @@ const RfqManagementPreview = () => {
           fetchProductTechEvalDetails(product.id, id);
         }
       });
+
+      // Check if any product has pending/incomplete tech eval (blocks quote submission)
+      const pendingTechEval = products.some(product => {
+        const te = product.tech_evaluation_status;
+        return te && te.has_tech_eval === true && te.all_clauses_responded !== true;
+      });
+      setHasPendingTechEval(pendingTechEval);
 
       // Determine if lowest quotation should be visible based on technical evaluation
       const hasLowestQuotation = products.some(product => {
@@ -1281,6 +1289,7 @@ const RfqManagementPreview = () => {
                       }`}
                       onClick={goToQuoteCreation}
                       disabled={
+                        hasPendingTechEval ||
                         (quoteDisabled &&
                           statusMessage !== "Reverse Auction is Active") ||
                         rfqDetails.status == 2 ||
@@ -1291,8 +1300,9 @@ const RfqManagementPreview = () => {
                             item.finalization_status === "You are finalized"
                         )
                       }
+                      title={hasPendingTechEval ? "Technical evaluation is pending - complete all tech eval responses first" : ""}
                     >
-                      {isReverseAuctionActive ? "Send Quote" : statusMessage}
+                      {hasPendingTechEval ? "Tech Eval Pending" : isReverseAuctionActive ? "Send Quote" : statusMessage}
                     </button>
                   )}
                   {rfqDetails.status == 1 &&
@@ -1312,6 +1322,8 @@ const RfqManagementPreview = () => {
                       type="button"
                       className="btn btn-secondary m-0 p-2"
                       style={{ width: "240px" }}
+                      disabled={hasPendingTechEval}
+                      title={hasPendingTechEval ? "Technical evaluation is pending - complete all tech eval responses first" : ""}
                       onClick={() => {
                         // Use localId which is guaranteed to be set after hydration
                         const rfqId = localId || id;
@@ -1328,7 +1340,7 @@ const RfqManagementPreview = () => {
                     >
                       <>
                         <FontAwesomeIcon icon={faEdit} className="me-2" />
-                        Update Your Quote
+                        {hasPendingTechEval ? "Tech Eval Pending" : "Update Your Quote"}
                       </>
                     </button>
                   ) : null}
@@ -1830,14 +1842,8 @@ const RfqManagementPreview = () => {
 
                                   {type == "buyer-view" && !rfqDetails.is_tender && (
                                     <td>
-                                      <span>
-                                        <Link
-                                          href={`/dashboard/buyer/rfq-management-vendor?type=buyer-view&productid=${item.product_id}&variant=${item.variant}&id=${id}&rfq_product_id=${item.id}`}
-                                          className="page-link"
-                                        >
-                                          View selected vendors (
-                                          {item.vendors_count})
-                                        </Link>
+                                      <span className="fw-semibold">
+                                        Selected vendors ({item.vendors_count})
                                       </span>
                                     </td>
                                   )}
@@ -2021,6 +2027,17 @@ const RfqManagementPreview = () => {
                                             .format("hh:mm A - DD/MM/YYYY")}
                                         </h4>
 
+                                        {rfqDetails.quotations[0]?.products?.length > 0 && (
+                                          <p className="text-muted mb-2" style={{ fontSize: "0.9rem" }}>
+                                            <strong>Grand Total (incl. GST):</strong>{" "}
+                                            {formatPrice(
+                                              rfqDetails.quotations[0].products.reduce(
+                                                (sum, p) => sum + (Number(p.total_price) || 0), 0
+                                              )
+                                            )}
+                                          </p>
+                                        )}
+
                                         {rfqDetails.status === 2 ||
                                         !productleftforbid ||
                                         quoteDisabled ||
@@ -2073,7 +2090,21 @@ const RfqManagementPreview = () => {
                                               : statusMessage ||
                                                 "All Products are Finalized"}
                                           </button>
-                                        ) : (
+                                        ) : hasPendingTechEval ? (
+                                            <button
+                                              type="button"
+                                              className="btn btn-secondary m-0"
+                                              style={{ width: "240px", opacity: "0.5" }}
+                                              disabled
+                                              title="Technical evaluation is pending - complete all tech eval responses first"
+                                            >
+                                              <FontAwesomeIcon
+                                                icon={faCircleExclamation}
+                                                className="me-2"
+                                              />
+                                              Tech Eval Pending
+                                            </button>
+                                          ) : (
                                           <Link
                                             className="mx-auto mt-2"
                                             href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
