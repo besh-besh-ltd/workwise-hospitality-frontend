@@ -487,8 +487,11 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
                           </div>
                           <div className="at-approver-info">
                             <span className="at-approver-name">{approver.user_name}</span>
-                            {approver.user_email && (
-                              <span className="at-approver-meta">{approver.user_email}</span>
+                            {approver.employee_code && (
+                              <span className="at-approver-meta">{approver.employee_code}</span>
+                            )}
+                            {approver.designation && (
+                              <span className="at-approver-meta">· {approver.designation}</span>
                             )}
                             {approver.acted_at && (
                               <span className="at-approver-meta">· {formatDate(approver.acted_at)}</span>

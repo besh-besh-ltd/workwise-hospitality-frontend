@@ -78,6 +78,7 @@ const AuthModal = (props) => {
             closeModal={props.closeModal}
             setEmail={props.setEmail}
             setPassword={props.setPassword}
+            setEmployeeCode={props.setEmployeeCode}
             loading={props.loading}
             setloading={props.setloading}
             loginSubmitHandler={props.loginSubmitHandler}

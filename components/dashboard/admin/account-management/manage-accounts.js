@@ -62,6 +62,9 @@ const ManageAccountsPage = () => {
 
   const [filters, setFilters] = useState({
     status: null,
+    search: "",
+    companyId: null,
+    hotelId: null,
   });
 
   const [data, setData] = useState({
@@ -153,7 +156,7 @@ const ManageAccountsPage = () => {
           ...prev,
           selectedCompanyId: defaultCompanyId,
         }));
-        loadCompanyHotels(defaultCompanyId);
+        list.forEach((company) => loadCompanyHotels(company.id));
       }
     } catch (error) {
       setHospitalityCompanies([]);
@@ -420,15 +423,41 @@ const ManageAccountsPage = () => {
 
   useEffect(() => {
     let filtered = data.accounts;
+
     if (filters.status)
       filtered = filtered.filter((u) => u.status === filters.status.value);
+
+    if (filters.search.trim()) {
+      const q = filters.search.trim().toLowerCase();
+      filtered = filtered.filter((u) =>
+        (u.name || "").toLowerCase().includes(q) ||
+        (u.email || "").toLowerCase().includes(q) ||
+        (u.employee_code || "").toLowerCase().includes(q)
+      );
+    }
+
+    if (filters.companyId) {
+      const companyId = filters.companyId.value;
+      filtered = filtered.filter((u) => {
+        const mappings = userHospitalityMappings[u.id] || [];
+        return mappings.some((m) => m.hospitality_company_id == companyId);
+      });
+    }
+
+    if (filters.hotelId) {
+      const hotelId = filters.hotelId.value;
+      filtered = filtered.filter((u) => {
+        const mappings = userHospitalityMappings[u.id] || [];
+        return mappings.some((m) => m.hospitality_hotel_id == hotelId);
+      });
+    }
 
     setData((prev) => ({ ...prev, filteredAccounts: filtered }));
     setUiState((prev) => ({
       ...prev,
-      pagination: { ...prev.pagination, totalData: filtered.length },
+      pagination: { ...prev.pagination, page: 1, totalData: filtered.length },
     }));
-  }, [filters, data.accounts]);
+  }, [filters, data.accounts, userHospitalityMappings]);
 
   useEffect(() => {
     if (data.accounts.length) {
@@ -475,6 +504,21 @@ const ManageAccountsPage = () => {
       </div>
     );
   };
+
+  const companyOptions = hospitalityCompanies.map((c) => ({
+    value: c.id,
+    label: c.name,
+  }));
+
+  const hotelOptions = filters.companyId
+    ? (hotelsByCompany[filters.companyId.value] || []).map((h) => ({
+        value: h.id,
+        label: h.name,
+      }))
+    : Object.values(hotelsByCompany).flat().map((h) => ({
+        value: h.id,
+        label: h.name,
+      }));
 
   const selectedAccount = uiState.modals.selectedAccount;
   const selectedAccountId = selectedAccount?.id;
@@ -534,11 +578,59 @@ const ManageAccountsPage = () => {
             <div className="col-md-12">
               <div className="vendor-mngt-con">
                 <div className="filter-section">
-                  <div className="row mb-4 text-sm">
+                  <div className="row mb-3 text-sm">
+                    <div className="col-md-3">
+                      <label>Search</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Name, Email or Employee Code"
+                        value={filters.search}
+                        onChange={(e) =>
+                          setFilters((prev) => ({ ...prev, search: e.target.value }))
+                        }
+                        id="search_users-account_filters-manage_accounts_page"
+                      />
+                    </div>
+                    {isHospitalityCompany && (
+                      <div className="col-md-3">
+                        <label>Company Name</label>
+                        <Select
+                          options={companyOptions}
+                          value={filters.companyId}
+                          onChange={(val) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              companyId: val,
+                              hotelId: null,
+                            }))
+                          }
+                          placeholder="All Companies"
+                          isClearable
+                          id="filter_by_company-account_filters-manage_accounts_page"
+                        />
+                      </div>
+                    )}
+                    {isHospitalityCompany && (
+                      <div className="col-md-3">
+                        <label>Business Unit</label>
+                        <Select
+                          options={hotelOptions}
+                          value={filters.hotelId}
+                          onChange={(val) =>
+                            setFilters((prev) => ({ ...prev, hotelId: val }))
+                          }
+                          placeholder="All Hotels"
+                          isClearable
+                          id="filter_by_hotel-account_filters-manage_accounts_page"
+                        />
+                      </div>
+                    )}
                     <div className="col-md-3">
                       <label>Filter by Status</label>
                       <Select
                         options={statusOptions}
+                        value={filters.status}
                         onChange={(status) =>
                           setFilters((prev) => ({ ...prev, status }))
                         }
@@ -547,8 +639,9 @@ const ManageAccountsPage = () => {
                         id="filter_by_status-account_filters-manage_accounts_page"
                       />
                     </div>
-
-                    <div className="col-md-6 d-flex align-items-end justify-content-end">
+                  </div>
+                  <div className="row mb-4 text-sm">
+                    <div className="col-md-12 d-flex align-items-end justify-content-end">
                       <SmartButton
                         label="Custom Roles & Permissions"
                         theme="primary"
@@ -601,19 +694,40 @@ const ManageAccountsPage = () => {
                         </thead>
                         <tbody>
                           {getPaginatedData().map((account) => {
-                            const roleInfo = getRoleInfo(account.role);
+                            const isActive = account.status === "active";
                             return (
-                              <tr key={account.id}>
-                                <td>{account.name}</td>
-                                <td>{account.email}</td>
-                                <td>{account.mobile}</td>
+                              <tr
+                                key={account.id}
+                                style={{
+                                  borderLeft: `3px solid ${isActive ? '#28a745' : '#6c757d'}`,
+                                  backgroundColor: isActive ? 'transparent' : '#f8f9fa'
+                                }}
+                              >
+                                <td style={{ opacity: isActive ? 1 : 0.65, }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span
+                                      style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        borderRadius: '50%',
+                                        backgroundColor: isActive ? '#28a745' : '#6c757d',
+                                        display: 'inline-block',
+                                        flexShrink: 0
+                                      }}
+                                      title={isActive ? 'Active' : 'Inactive'}
+                                    />
+                                    <span>{account.name}</span>
+                                  </div>
+                                </td>
+                                <td style={{ opacity: isActive ? 1 : 0.65, }}>{account.email}</td>
+                                <td style={{ opacity: isActive ? 1 : 0.65, }}>{account.mobile}</td>
                                 {isHospitalityCompany && (
                                   <td>{renderUserWorkflowRoles(account.id)}</td>
                                 )}
-                                <td>{renderUserDepartments(account.id)}</td>
-                                <td>{formatDate(account.created_at)}</td>
+                                <td style={{ opacity: isActive ? 1 : 0.65, }}>{renderUserDepartments(account.id)}</td>
+                                <td style={{ opacity: isActive ? 1 : 0.65, }}>{formatDate(account.created_at)}</td>
                                 {isHospitalityCompany && (
-                                  <td>{renderUserHospitalitySummary(account.id)}</td>
+                                  <td style={{ opacity: isActive ? 1 : 0.65, }}>{renderUserHospitalitySummary(account.id)}</td>
                                 )}
                                 <td>
                                   <SmartButton

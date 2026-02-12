@@ -14,6 +14,7 @@ import { formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
+import { Badge } from "react-bootstrap";
 
 
 
@@ -149,7 +150,8 @@ useEffect(() => {
         project_id: selectedproject ? selectedproject : -1,
         rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
         sort: 'DESC',
-        is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null
+        is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null,
+        module_keys: "technical"
       });
       const newData = Array.isArray(res) ? res : [];
       setRfqList(newData);
@@ -395,15 +397,18 @@ useEffect(() => {
                   <p style={{ textAlign: "center" }}>No Tender / RFQs yet!</p>
                 ) : (
                   <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
-                    {rfqList.map((item) => (
+                    {rfqList.map((item) => {
+                      const isSelected = item.id === currentRfq?.id;
+                      return (
                       <li
-                        className={item.id === currentRfq?.id ? "active" : ""}
+                        className={isSelected ? "active" : ""}
                         key={`rfq_no_${item.rfq_no}`}
+                        style={!isSelected && item.approval_required ? { backgroundColor: '#fff3f3', borderLeft: '3px solid #dc3545' } : {}}
                       >
                         <Link
                           href={`/dashboard/buyer/technical-evaluation?rfq_id=${item.id}`}
                           className={
-                            item.id === currentRfq?.id ? "text-white" : "text-dark"
+                            isSelected ? "text-white" : "text-dark"
                           }
                           id={`rfq_${item.rfq_no}-rfq_list-technical_evaluation_page`}
                         >
@@ -411,14 +416,20 @@ useEffect(() => {
                             <span className="d-block fw-bold" style={{ fontSize: "14px" }}>
                               {item.title}
                             </span>}
-                          {formatRFQNumber(item.rfq_no, item.is_tender)}
+                          <span className="d-flex align-items-center gap-1 flex-wrap">
+                            {formatRFQNumber(item.rfq_no, item.is_tender)}
+                            {!isSelected && item.approval_required && (
+                              <Badge bg="danger" style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Your Approval Required</Badge>
+                            )}
+                          </span>
                           {item.project_name && item.project_name != "" &&
                             <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
                               {item.project_name}
                             </b>}
                         </Link>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 )}
               </div>
