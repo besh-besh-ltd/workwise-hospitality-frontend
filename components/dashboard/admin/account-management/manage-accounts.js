@@ -595,7 +595,7 @@ const ManageAccountsPage = () => {
                             {isHospitalityCompany && <th>Workflow Roles</th>}
                             <th>Department</th>
                             <th>Created</th>
-                            {isHospitalityCompany && <th>Company & Hotel Access</th>}
+                            {isHospitalityCompany && <th>Company & Business Unit Access</th>}
                             <th>Actions</th>
                           </tr>
                         </thead>

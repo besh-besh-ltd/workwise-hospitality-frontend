@@ -53,7 +53,7 @@ const HospitalityManagerPage = () => {
               <div className="card-body text-center py-5">
                 <h4 className="mb-3">Hospitality access not enabled</h4>
                 <p className="text-muted mb-4">
-                  Only hospitality companies can manage hotel networks. Please contact Workwise support to enable hospitality access for your organization.
+                  Only hospitality companies can manage business unit networks. Please contact Workwise support to enable hospitality access for your organization.
                 </p>
                 <button
                   className="btn btn-outline-primary"

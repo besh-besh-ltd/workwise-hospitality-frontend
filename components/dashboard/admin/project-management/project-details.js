@@ -753,7 +753,7 @@ const ProjectDetailsPage = () => {
                               <thead>
                                 <tr>
                                   <th>Scope</th>
-                                  <th>Company / Hotel</th>
+                                  <th>Company / Business Unit</th>
                                   <th>Mapped On</th>
                                   <th className="text-end">Action</th>
                                 </tr>
@@ -769,7 +769,7 @@ const ProjectDetailsPage = () => {
                                             : "bg-success"
                                         }`}
                                       >
-                                        {mapping.mapping_type === 0 ? "Company" : "Hotel"}
+                                        {mapping.mapping_type === 0 ? "Company" : "Business Unit"}
                                       </span>
                                     </td>
                                     <td>
@@ -836,12 +836,12 @@ const ProjectDetailsPage = () => {
                                 }
                               >
                                 <option value="company">Company</option>
-                                <option value="hotel">Specific Hotel</option>
+                                <option value="hotel">Specific Business Unit</option>
                               </select>
                             </div>
                             {hospitalityForm.mappingLevel === "hotel" && (
                               <div className="col-md-3">
-                                <label className="form-label">Hotel</label>
+                                <label className="form-label">Business Unit</label>
                                 <select
                                   className="form-select"
                                   value={hospitalityForm.hotelId}
@@ -852,7 +852,7 @@ const ProjectDetailsPage = () => {
                                     }))
                                   }
                                 >
-                                  <option value="">Select Hotel</option>
+                                  <option value="">Select Business Unit</option>
                                   {currentCompanyHotels.map((hotel) => (
                                     <option key={hotel.id} value={hotel.id}>
                                       {hotel.name}
@@ -860,7 +860,7 @@ const ProjectDetailsPage = () => {
                                   ))}
                                   {currentCompanyHotels.length === 0 && (
                                     <option value="" disabled>
-                                      No hotels for this company
+                                      No business units for this company
                                     </option>
                                   )}
                                 </select>

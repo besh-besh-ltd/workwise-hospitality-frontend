@@ -508,7 +508,7 @@ useEffect(() => {
 
                       {currentRfq?.hotel_name && (
                         <p className="sub-heading mb-0  "> 
-                          <strong>Business Units : quote-compare</strong>{" "}
+                          <strong>Business Units :</strong>{" "}
                           {currentRfq.hotel_name}
                         </p>
                       )}

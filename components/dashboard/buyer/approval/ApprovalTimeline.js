@@ -401,7 +401,14 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
           <span>
             Initiated by <strong>{initiatedBy.name}</strong>
             {initiatedBy.email && (
-              <span className="ms-1" style={{ opacity: 0.65 }}>({initiatedBy.email})</span>
+              <span className="ms-1 at-initiator-meta">({initiatedBy.email})</span>
+            )}
+            {(initiatedBy.designation || initiatedBy.department) && (
+              <span className="ms-1 at-initiator-meta">
+                {initiatedBy.designation}
+                {initiatedBy.designation && initiatedBy.department && " · "}
+                {initiatedBy.department}
+              </span>
             )}
           </span>
         </div>
@@ -489,6 +496,13 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
                             <span className="at-approver-name">{approver.user_name}</span>
                             {approver.user_email && (
                               <span className="at-approver-meta">{approver.user_email}</span>
+                            )}
+                            {(approver.user_designation || approver.user_department) && (
+                              <span className="at-approver-meta">
+                                {approver.user_designation}
+                                {approver.user_designation && approver.user_department && " · "}
+                                {approver.user_department}
+                              </span>
                             )}
                             {approver.acted_at && (
                               <span className="at-approver-meta">· {formatDate(approver.acted_at)}</span>

@@ -689,6 +689,11 @@ const RfqManagementPreview = () => {
     const raEndDate = rfqDetails?.ra_end_date ? new Date(rfqDetails.ra_end_date) : null;
 
     const isReverseAuction = rfqDetails?.reverse_auction == 1;
+    const clarificationEndDate = rfqDetails?.vendor_clarification_date
+      ? new Date(rfqDetails.vendor_clarification_date)
+      : null;
+    const isClarificationWindowActive =
+      clarificationEndDate && now < clarificationEndDate;
     const isRfqClosed = rfqDetails?.status == 2;
     const areAllProductsFinalized = !productleftforbid; // Assumes productleftforbid is boolean/truthy
 
@@ -704,7 +709,11 @@ const RfqManagementPreview = () => {
       isDisabled = true;
       message = `${getEntityLabel(rfqDetails?.is_tender)} is Closed`;
     }
-    // Priority 1.5: Open Clarification blocks quote submission
+    // Priority 1.5: Clarification window active or open clarification blocks quote submission
+    else if (rfqDetails?.vendor_clarification_date && isClarificationWindowActive) {
+      isDisabled = true;
+      message = "Clarification Window Active";
+    }
     else if (hasOpenClarification) {
       isDisabled = true;
       message = "Clarification in Progress";
@@ -1622,8 +1631,8 @@ const RfqManagementPreview = () => {
                             </button>
                           ))}
 
-                        {/* Clarifications Button - For Buyer View on Tenders */}
-                        {type == "buyer-view" && rfqDetails?.is_tender === 1 && (
+                        {/* Clarifications Button - For Buyer View on RFQs and Tenders */}
+                        {type == "buyer-view" && rfqDetails?.vendor_clarification_date && (
                           <Link
                             href={`/dashboard/buyer/clarification-management?rfq_id=${rfqDetails.id}`}
                           >

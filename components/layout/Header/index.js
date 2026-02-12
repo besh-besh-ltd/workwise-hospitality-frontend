@@ -960,9 +960,6 @@ const Header = () => {
                             ))}
                           </div>
                         )}
-                        <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2, textTransform: "capitalize" }}>
-                          {currentUserType || "User"}
-                        </div>
                       </div>
                       <ul className="vertical-links">
                         {currentRoleMenu

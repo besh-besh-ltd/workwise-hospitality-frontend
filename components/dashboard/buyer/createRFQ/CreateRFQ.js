@@ -1145,8 +1145,13 @@ useEffect(() => {
 
   // list any spec keys you want validated on Save Changes
   const specFieldsToValidate = ["quantity", "unit"]; 
-  // highlight when Save Changes clicked and any product has any specified empty field
-  const hasEmptySpecFields = rfqProducts.some((p) => specFieldsToValidate.some((f) => isSpecFieldEmpty(p, f)));
+  // highlight when Save Changes clicked and any *active* product has any specified empty field
+  // skip products that are marked deletable (removed from RFQ)
+  const hasEmptySpecFields = rfqProducts.some(
+    (p) =>
+      !updatableData.products.deletable.includes(p.id) &&
+      specFieldsToValidate.some((f) => isSpecFieldEmpty(p, f))
+  );
 
   const handleSaveDraft = async () => {
     if (!validateVendors()) {

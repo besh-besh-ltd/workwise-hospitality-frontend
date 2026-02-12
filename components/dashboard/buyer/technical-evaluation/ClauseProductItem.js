@@ -18,6 +18,7 @@ import { useTechEvalWorkflow } from '@/hooks/useTechEvalWorkflow';
 import TechEvalWorkflowStatus from './TechEvalWorkflowStatus';
 import TechEvalFailedHistory from './TechEvalFailedHistory';
 import { TECH_EVAL_WORKFLOW_STATES } from '@/utils/constants/techEvalWorkflow';
+import { checkBidExpired } from '@/utils/sharedFunctions';
 
 
 const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, currentRfq ,  vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors, minimumPassingScore: _minimumPassingScore, canWrite = true, canApprove = false, permissionsLoading = false }) => {
@@ -74,6 +75,9 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
 
     // Derived: Check if approval is pending (freeze all actions)
     const isPendingApproval = workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL || isSubmittedForApproval;
+
+    // Derived: Check if quote submission deadline has passed (lock tech eval edits)
+    const isBidEndPassed = currentRfq?.bid_end_date ? checkBidExpired(currentRfq.bid_end_date) : false;
 
     // Fetch approval status for this product
     const fetchApprovalStatus = async () => {
@@ -791,8 +795,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         cursor: (!canWrite || permissionsLoading || isPendingApproval) ? "not-allowed" : "pointer",
                                       }}
                                       onClick={() => openRemarkModal(clauseItem, vendor)}
-                                      disabled={!canWrite || permissionsLoading || isPendingApproval}
-                                      title={isPendingApproval ? "Actions frozen during pending approval" : (!canWrite ? "You don't have permission to add marks" : "")}
+                                      disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed}
+                                      title={
+                                        isPendingApproval
+                                          ? "Actions frozen during pending approval"
+                                          : isBidEndPassed
+                                            ? "Technical evaluation edits are locked after the quote submission deadline"
+                                            : (!canWrite ? "You don't have permission to add marks" : "")
+                                      }
                                       id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-clause_actions-technical_evaluation_page`}
                                     >
                                       {clauseItem.clause_type === 'sampling' ? 'Add Marks/Remarks' : 'Add Marks'}
@@ -876,10 +886,16 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         <button
                                             type="button"
                                             className="btn btn-secondary border-0 p-2"
-                                            style={{ width: "220px", marginRight: 10, opacity: (!canWrite || permissionsLoading || isPendingApproval) ? 0.6 : 1 }}
+                                            style={{ width: "220px", marginRight: 10, opacity: (!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed) ? 0.6 : 1 }}
                                             onClick={() => addToTechnicallyAccepted()}
-                                            disabled={!canWrite || permissionsLoading || isPendingApproval}
-                                            title={isPendingApproval ? "Actions frozen during pending approval" : (!canWrite ? "You don't have permission to accept vendors" : "")}
+                                            disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed}
+                                            title={
+                                              isPendingApproval
+                                                ? "Actions frozen during pending approval"
+                                                : isBidEndPassed
+                                                  ? "Technical acceptance is locked after the quote submission deadline"
+                                                  : (!canWrite ? "You don't have permission to accept vendors" : "")
+                                            }
                                             id="technically_accept_vendor-vendor_evaluation-technical_evaluation_page"
                                         >
                                             Technically Accepted
@@ -887,10 +903,16 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         <button
                                             type="button"
                                             className="btn btn-danger border-0 p-2"
-                                            style={{ width: "255px", opacity: (!canWrite || permissionsLoading || isPendingApproval) ? 0.6 : 1 }}
+                                            style={{ width: "255px", opacity: (!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed) ? 0.6 : 1 }}
                                             onClick={() => setShowRejectConfirmModal(true)}
-                                            disabled={!canWrite || permissionsLoading || isPendingApproval}
-                                            title={isPendingApproval ? "Actions frozen during pending approval" : (!canWrite ? "You don't have permission to reject vendors" : "")}
+                                            disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed}
+                                            title={
+                                              isPendingApproval
+                                                ? "Actions frozen during pending approval"
+                                                : isBidEndPassed
+                                                  ? "Technical rejection is locked after the quote submission deadline"
+                                                  : (!canWrite ? "You don't have permission to reject vendors" : "")
+                                            }
                                             id="technically_reject_vendor-vendor_evaluation-technical_evaluation_page"
                                         >
                                             Technically Not Accepted
@@ -1104,8 +1126,12 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
               type="button"
               className="btn btn-primary"
               onClick={handleSaveBuyerMarks}
-              disabled={loading || !canWrite || permissionsLoading}
-              title={!canWrite ? "You don't have permission to save marks" : ""}
+              disabled={loading || !canWrite || permissionsLoading || isBidEndPassed}
+              title={
+                isBidEndPassed
+                  ? "Technical evaluation edits are locked after the quote submission deadline"
+                  : (!canWrite ? "You don't have permission to save marks" : "")
+              }
             >
               {loading ? "Saving..." : "Save"}
             </button>
