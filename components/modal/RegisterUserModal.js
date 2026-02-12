@@ -36,9 +36,9 @@ export default function RegisterUserModal({
   const getStepSubtitle = () => {
     if (currentStep === 1) return "Tell us about yourself";
     if (currentStep === 2) return "Share where you operate";
-    if (currentStep === 3 && isHospitality) return "Select hotels";
+    if (currentStep === 3 && isHospitality) return "Select business units";
     if (currentStep === 4 && isHospitality) return "Bank details & documents";
-    return "Select hotels";
+    return "Select business units";
   };
 
   return (

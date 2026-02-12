@@ -750,6 +750,12 @@ const EditRFQ = () => {
         return;
       }
 
+      // Block update if any product has no vendors
+      if (productsWithNoVendors.size > 0) {
+        toast.error("At least one vendor is required for each product. Products without vendors cannot be submitted.");
+        return;
+      }
+
       // Project is optional
       const currentProjectId =
         formValues.project_id !== undefined && formValues.project_id !== null
@@ -840,11 +846,11 @@ const EditRFQ = () => {
       if (rfqData.ra_end_date != formValues.ra_end_date)
         dataToSend.ra_end_date = formValues.ra_end_date;
 
-      // Tender actions: include vendor_clarification_date when editing tender
-      if (dataToSend.is_tender === 1) {
-        if (rfqFormDataFromStore.vendor_clarification_date != null)
-          dataToSend.vendor_clarification_date = rfqFormDataFromStore.vendor_clarification_date;
-      }
+      // Include publish date and vendor clarification date for both RFQs and tenders
+      if (rfqFormDataFromStore.vendor_clarification_date != null)
+        dataToSend.vendor_clarification_date = rfqFormDataFromStore.vendor_clarification_date;
+      if (rfqFormDataFromStore.tender_publish_date != null)
+        dataToSend.tender_publish_date = rfqFormDataFromStore.tender_publish_date;
 
       // Include hotel_ids for vendor recomputation on hotel change (skip if published to avoid validation error)
       if (rfqData?.is_published !== 1) {
@@ -895,10 +901,10 @@ const EditRFQ = () => {
 
             // Handle vendor recomputation warnings after hotel change
             const recompResult = response?.data?.vendorRecomputationResult || response?.vendorRecomputationResult;
-            if (recompResult && recompResult.recomputed) {
+              if (recompResult && recompResult.recomputed) {
               if (recompResult.productsWithNoVendors && recompResult.productsWithNoVendors.length > 0) {
                 const names = recompResult.productsWithNoVendors.map(p => p.product_name).filter(Boolean).join(', ');
-                toast.warn(`Warning: Products ${names ? `'${names}'` : ''} have no eligible vendors for the selected hotels`);
+                toast.warn(`Warning: Products ${names ? `'${names}'` : ''} have no eligible vendors for the selected business units`);
                 setProductsWithNoVendors(new Set(recompResult.productsWithNoVendors.map(p => p.rfq_product_id)));
               } else {
                 setProductsWithNoVendors(new Set());
@@ -1068,7 +1074,7 @@ const EditRFQ = () => {
       if (vendorCount > 0) {
         toast.success(`Product added with ${vendorCount} vendor(s)`);
       } else {
-        toast.warn("Product added but no eligible vendors found for the selected hotels");
+        toast.warn("Product added but no eligible vendors found for the selected business units");
         setProductsWithNoVendors(prev => {
           const next = new Set(prev);
           if (data?.rfqProductId) next.add(data.rfqProductId);
@@ -1506,7 +1512,7 @@ const EditRFQ = () => {
     return (
       <AccessDeniedPage
         title="Access Denied"
-        message={`You do not have permission to view this ${getEntityLabel(rfqData?.is_tender)}. This may be because you are not assigned to the hotels associated with this ${getEntityLabel(rfqData?.is_tender)}.`}
+        message={`You do not have permission to view this ${getEntityLabel(rfqData?.is_tender)}. This may be because you are not assigned to the business units associated with this ${getEntityLabel(rfqData?.is_tender)}.`}
       />
     );
   }
@@ -1576,7 +1582,7 @@ const EditRFQ = () => {
                     <React.Fragment key={`product-wrapper-${product.id}`}>
                     {productsWithNoVendors.has(product.id) && (
                       <small className="text-danger fw-bold d-block mb-1">
-                        No eligible vendors for selected hotels
+                        No eligible vendors for selected business units
                       </small>
                     )}
                     <Item
@@ -1993,11 +1999,11 @@ const EditRFQ = () => {
                         </div>
                       </div>
 
-                      {/* Select Hotels */}
+                      {/* Select Business Units */}
                       {userHotelMappings.length > 0 && (
                         <div className="col-md-6">
                           <div className="mb-3">
-                            <label className="form-label fw-medium">Hotels</label>
+                            <label className="form-label fw-medium">Business Units</label>
                             <Select
                               id="select_hotels-edit_rfq_page"
                               isMulti
@@ -2012,7 +2018,7 @@ const EditRFQ = () => {
                                 setSelectedHotelIds(ids);
                                 setHasUnsavedChanges(true);
                               }}
-                              placeholder="Select Hotels..."
+                              placeholder="Select Business Units..."
                               closeMenuOnSelect={false}
                               classNamePrefix="react-select"
                               isClearable={rfqData?.is_published !== 1}
@@ -2107,26 +2113,43 @@ const EditRFQ = () => {
                         </div>
                       </div>
 
-                      {/* Tender actions: Vendor Clarification Deadline (visible when is_tender) */}
-                      {rfqFormDataFromStore.is_tender === 1 && (
-                          <div className="col-md-6">
-                            <label className="form-label fw-medium">Vendor Clarification Deadline</label>
-                            <input
-                              type="datetime-local"
-                              name="vendor_clarification_date"
-                              className="form-control"
-                              value={rfqFormDataFromStore.vendor_clarification_date
-                                ? formatISOToDateTimeLocal(rfqFormDataFromStore.vendor_clarification_date)
-                                : ""}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                const formatted = val ? `${val.replace("T", " ")}:00` : "";
-                                dispatch(setOtherFormFields({ vendor_clarification_date: formatted || null }));
-                                setHasUnsavedChanges(true);
-                              }}
-                            />
-                          </div>
-                      )}
+                      {/* Publish Date & Time */}
+                      <div className="col-md-6">
+                        <label className="form-label fw-medium">Publish Date & Time</label>
+                        <input
+                          type="datetime-local"
+                          name="tender_publish_date"
+                          className="form-control"
+                          value={rfqFormDataFromStore.tender_publish_date
+                            ? formatISOToDateTimeLocal(rfqFormDataFromStore.tender_publish_date)
+                            : ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const formatted = val ? `${val.replace("T", " ")}:00` : "";
+                            dispatch(setOtherFormFields({ tender_publish_date: formatted || null }));
+                            setHasUnsavedChanges(true);
+                          }}
+                        />
+                      </div>
+
+                      {/* Vendor Clarification Deadline */}
+                      <div className="col-md-6">
+                        <label className="form-label fw-medium">Vendor Clarification Deadline</label>
+                        <input
+                          type="datetime-local"
+                          name="vendor_clarification_date"
+                          className="form-control"
+                          value={rfqFormDataFromStore.vendor_clarification_date
+                            ? formatISOToDateTimeLocal(rfqFormDataFromStore.vendor_clarification_date)
+                            : ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const formatted = val ? `${val.replace("T", " ")}:00` : "";
+                            dispatch(setOtherFormFields({ vendor_clarification_date: formatted || null }));
+                            setHasUnsavedChanges(true);
+                          }}
+                        />
+                      </div>
 
                       {rfqFormDataFromStore.is_tender === 1 && (departments.length > 0 || rfqFormDataFromStore.department_id) && (
                         <div className="col-md-6">

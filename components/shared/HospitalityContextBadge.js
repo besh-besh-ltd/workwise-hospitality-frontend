@@ -28,7 +28,7 @@ const HospitalityContextBadge = ({ className = "" }) => {
       </div>
       {context.hotelId ? (
         <div>
-          Hotel: <strong>{context.hotelName}</strong>
+          Business Unit: <strong>{context.hotelName}</strong>
         </div>
       ) : (
         <div>Company-wide access</div>

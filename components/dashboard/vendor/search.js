@@ -1010,7 +1010,7 @@ const getVendorTypeList = () => {
     !queryMeta.rfq_id &&
     selectedHotelIds.length === 0
   ) {
-    toast.info("Please select hotel(s) before choosing products.");
+    toast.info("Please select business unit(s) before choosing products.");
     return;
   }
 
@@ -1244,7 +1244,7 @@ const clearLocationFilter = () => {
       : [];
     setSelectedHotelIds(ids);
   }}
-  placeholder="Select hotels..."
+  placeholder="Select business units..."
   closeMenuOnSelect={false}
   classNamePrefix="react-select"
   getOptionValue={(option) => option.hospitality_hotel_id}
@@ -1297,7 +1297,7 @@ const clearLocationFilter = () => {
 />
 {selectedHotelIds.length === 0 && (
   <small style={{ color: '#ffdd57', fontWeight: 500, marginTop: '4px', display: 'block' }}>
-    * Please select hotel(s) to search products
+    * Please select business unit(s) to search products
   </small>
 )}
 
@@ -1387,10 +1387,10 @@ const clearLocationFilter = () => {
                             selectedHotelIds.length === 0 ? (
                             <div className="d-flex flex-column align-items-center justify-content-center py-4">
                               <p className="mb-1 fw-semibold" style={{ fontSize: '1.05rem' }}>
-                                Please select at least one hotel to search products
+                                Please select at least one business unit to search products
                               </p>
                               <small className="text-muted">
-                                Use the hotel dropdown above to get started
+                                Use the business unit dropdown above to get started
                               </small>
                             </div>
                           ) : (<>
@@ -1461,6 +1461,11 @@ const clearLocationFilter = () => {
                                                 <h3>
                                                   {item.variant_name ??
                                                     item.product_name}
+                                                  {item.vendor_count !== undefined && parseInt(item.vendor_count) === 0 && (
+                                                    <span className="badge bg-warning text-dark ms-2" style={{ fontSize: '0.6em', verticalAlign: 'middle' }}>
+                                                      No vendors
+                                                    </span>
+                                                  )}
                                                 </h3>
                                                 <p>
                                                   <small>

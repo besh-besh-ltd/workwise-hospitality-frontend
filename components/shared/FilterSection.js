@@ -133,7 +133,7 @@ const FilterSection = ({ title, setFilterData }) => {
 
                 {userHotelMappings.length > 0 && (
                     <div className="col-md-2 col-lg-2">
-                        <label>Select Hotels</label>
+                        <label>Select Business Units</label>
                         <Select
                             id="select_hotels_filter-filter_section-manage_rfq_page"
                             isMulti
@@ -147,7 +147,7 @@ const FilterSection = ({ title, setFilterData }) => {
                                     : [];
                                 handleHotelSelectionChange(ids);
                             }}
-                            placeholder="Select Hotels..."
+                            placeholder="Select Business Units..."
                             closeMenuOnSelect={false}
                             classNamePrefix="react-select"
                             isClearable

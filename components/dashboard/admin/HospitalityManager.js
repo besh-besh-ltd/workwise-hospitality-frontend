@@ -1213,17 +1213,6 @@ const HospitalityManager = () => {
                     placeholder="Address for deliveries"
                   />
                 </div>
-                <div className="col-md-6">
-                  <label className="form-label">Number of Rooms/Keys</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={hotelForm.keys}
-                    onChange={(e) => setHotelForm((prev) => ({ ...prev, keys: e.target.value }))}
-                    placeholder="Number of rooms"
-                    min={0}
-                  />
-                </div>
               </div>
             </div>
 

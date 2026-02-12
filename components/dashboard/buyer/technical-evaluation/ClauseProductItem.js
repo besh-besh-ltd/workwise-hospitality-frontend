@@ -324,7 +324,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
         const payload = {
             clause_id: selectedClauseForRemark.clause_id,
             vendor_id: selectedVendorForRemark.vendor_id || selectedVendorForRemark.value,
-            buyer_marks: buyerMarks ? parseInt(buyerMarks) : null,
+            buyer_marks: buyerMarks !== "" && buyerMarks !== null && buyerMarks !== undefined ? parseInt(buyerMarks) : null,
             buyer_remark: selectedClauseForRemark.clause_type === 'sampling' ? (buyerRemark || null) : null
         }
 
@@ -565,14 +565,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                             <span>
                                               {vendorCode}
                                             </span>
-                                            {/* Only show Score when marks have been given and we have a real score (not default 0 before evaluation) */}
-                                            {vendor.calculated_score !== undefined && vendor.calculated_score !== null && vendor.has_marks && (vendor.calculated_score > 0) && (
+                                            {/* Only show Score when marks have been given (has_marks from score_timestamp) */}
+                                            {vendor.calculated_score !== undefined && vendor.calculated_score !== null && vendor.has_marks && (
                                               <p className="mb-1 mt-1">
                                                 <strong>Score:</strong> {vendor.calculated_score}%
                                               </p>
                                             )}
-                                            {/* Only show Pass/Fail when vendor has been evaluated (has_marks) and not default 0% before any marks */}
-                                            {vendor.is_passed !== undefined && vendor.is_passed !== null && (vendor.has_marks) && (vendor.calculated_score > 0) && (
+                                            {/* Only show Pass/Fail when vendor has been evaluated (has_marks from score_timestamp) */}
+                                            {vendor.is_passed !== undefined && vendor.is_passed !== null && vendor.has_marks && (
                                               <p
                                                 className={`badge rounded-pill py-2 px-3 ${
                                                   vendor.is_passed
@@ -588,8 +588,8 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                                 {vendor.is_passed ? "Pass" : "Fail"}
                                               </p>
                                             )}
-                                            {/* Show "Not evaluated" when no marks given yet or score is still default 0 (not yet evaluated) */}
-                                            {((!vendor.has_marks && vendor.is_cleared === null) || (Number(vendor.calculated_score) === 0 && vendor.is_cleared === null)) && (
+                                            {/* Show "Not evaluated" only when buyer has not saved any marks (no score_timestamp) */}
+                                            {!vendor.has_marks && vendor.is_cleared === null && (
                                               <p
                                                 className="badge rounded-pill py-2 px-3 text-bg-secondary"
                                                 style={{

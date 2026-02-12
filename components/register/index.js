@@ -244,7 +244,7 @@ const Register = ({
           setHotelOptions(mappedHotels);
         } catch (error) {
           console.error("Error fetching hotels:", error);
-          toast.error("Failed to load hotels. Please try again.");
+          toast.error("Failed to load business units. Please try again.");
         } finally {
           setLoadingHotels(false);
         }
@@ -604,7 +604,7 @@ const Register = ({
       baseShape.hotels = yup
         .array()
         .of(yup.number().nullable())
-        .min(1, "Select at least one hotel");
+        .min(1, "Select at least one business unit");
     }
 
     if (isHospitality) {
@@ -1436,7 +1436,7 @@ const Register = ({
                 <>
                   <div className="form-group">
                     <label>
-                      Select Hotels <sup>*</sup>
+                      Select Business Units <sup>*</sup>
                     </label>
                     <Select
                       isMulti
@@ -1451,7 +1451,7 @@ const Register = ({
                           : [];
                         setFieldValue("hotels", ids);
                       }}
-                      placeholder="Please select hotels"
+                      placeholder="Please select business units"
                       isClearable
                       isSearchable
                       isLoading={loadingHotels}
