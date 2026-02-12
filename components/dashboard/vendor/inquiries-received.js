@@ -247,7 +247,7 @@ const getQuoteStatus = async (rfq_id) => {
                             <th>Tender / RFQ Status</th>
                             <th>Action</th>
                             <th>Query</th>
-                            <th>Follow Up</th>
+                            {/* <th>Follow Up</th> */}
                           </tr>
                         </thead>
                         <tbody>
@@ -343,7 +343,7 @@ const getQuoteStatus = async (rfq_id) => {
                               <th>Tender / RFQ Status</th>
                               <th>Action</th>
                               <th>Query</th>
-                              <th>Follow Up</th>
+                              {/* <th>Follow Up</th> */}
                             </tr>
                           </thead>
                           <tbody>
@@ -462,7 +462,7 @@ const getQuoteStatus = async (rfq_id) => {
                                           : "View Queries"}
                                       </Link>
                                     </td>
-                                    <td>
+                                    {/* <td>
                                       <button
                                         className="btn btn-secondary gap-1 px-3 py-1 rounded-pill "
                                         onClick={() =>
@@ -476,7 +476,7 @@ const getQuoteStatus = async (rfq_id) => {
                                         <i className="bi bi-bell me-1"></i>
                                         Reminder
                                       </button>
-                                    </td>
+                                    </td> */}
                                   </tr>
                                 );
                               })}

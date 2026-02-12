@@ -3,13 +3,15 @@ import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 
 const LoginWithOtherDeviceModal = (props) => {
-    const { onHide, show, email, password, loginSubmitHandler, loginWithGoogle, loginWith } = props;
+    const { onHide, show, email, password, employeeCode, loginSubmitHandler, loginWithGoogle, loginWith } = props;
     const handleLogin = () => {
-        const values = {
-            email,
-            password,
-        };
-        loginWith === 'google' ? loginWithGoogle() : loginSubmitHandler(values, true);
+        if (loginWith === 'google') {
+            loginWithGoogle();
+        } else if (loginWith === 'employee_code') {
+            loginSubmitHandler({ employee_code: employeeCode, password }, true);
+        } else {
+            loginSubmitHandler({ email, password }, true);
+        }
     }
     return (
         <Modal

@@ -35,9 +35,7 @@ import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import NegotiationCompactBanner from "./negotiation/NegotiationCompactBanner";
 import ProductNegotiationBadge from "../vendor/ProductNegotiationBadge";
-import { getProfile } from "@/services/Auth";
-import { getAllActiveNegotiationRounds, getActiveNegotiationRound, getRoundQuotes } from "@/services/negotiation";
-import { getEntityApprovalInstances, getApprovalInstanceDetails } from "@/services/approval";
+import { getAllActiveNegotiationRounds, getRoundQuotes } from "@/services/negotiation";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -92,9 +90,7 @@ const QuoteCompare = () => {
  const [openModalId, setOpenModalId] = useState(null);
  const[openInputModal , setOpenInputModal] =useState(false)
  const [showNormalizeModal, setShowNormalizeModal] = useState(false);
- const [currentUser, setCurrentUser] = useState(null);
  const [productNegotiationData, setProductNegotiationData] = useState({}); // { productId: { activeRound, roundQuotes } }
- const [sidebarNegotiationMap, setSidebarNegotiationMap] = useState({}); // { rfqId: { hasActive, hasPending, userNeedsToApprove } }
 
   // Permission-based authorization for Negotiation and Quote-Compare sections
   // Memoize hotelIds to prevent infinite re-renders in useModulePermissions
@@ -239,69 +235,11 @@ const QuoteCompare = () => {
     getAllRFQs();
   }, [page, selectedproject, isTenderFilter]);
 
-  // Load negotiation status for sidebar RFQs (for highlighting)
-  useEffect(() => {
-    if (myRFQs && myRFQs.length > 0 && currentUser?.id) {
-      const loadSidebarNegotiationData = async () => {
-        const map = {};
-        const userId = currentUser.id;
-        await Promise.all(
-          myRFQs.map(async (rfqItem) => {
-            try {
-              const response = await getAllActiveNegotiationRounds(rfqItem.id);
-              const rounds = (response?.status === 1 && Array.isArray(response.data)) ? response.data : [];
-              const hasActive = rounds.some(r => r.status === 'ACTIVE');
-              const pendingRounds = rounds.filter(r => r.status === 'PENDING_APPROVAL');
-              let userNeedsToApprove = false;
-
-              // Check if current user is an approver for any pending round
-              for (const round of pendingRounds) {
-                if (!round.rfq_product_id) continue;
-                try {
-                  const instancesRes = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
-                  const instances = instancesRes?.data || instancesRes || [];
-                  const pendingInstance = (Array.isArray(instances) ? instances : []).find(i => i.status === 'PENDING');
-                  if (pendingInstance) {
-                    const detailRes = await getApprovalInstanceDetails(pendingInstance.id);
-                    const detail = detailRes?.data || detailRes || {};
-                    const currentStep = (detail.steps || []).find(s => s.step_order === detail.current_step);
-                    if (currentStep?.approvers?.some(a => String(a.user_id) === String(userId) && a.status === 'PENDING')) {
-                      userNeedsToApprove = true;
-                      break;
-                    }
-                  }
-                } catch {
-                  // ignore
-                }
-              }
-
-              map[rfqItem.id] = { hasActive, hasPending: pendingRounds.length > 0, userNeedsToApprove };
-            } catch {
-              // ignore
-            }
-          })
-        );
-        setSidebarNegotiationMap(map);
-      };
-      loadSidebarNegotiationData();
-    }
-  }, [myRFQs, currentUser]);
-
   useEffect(() => {
     getAllProjects();
     fetchUserHotelMappings();
     // getPricehistory();
-    loadCurrentUser();
   }, [rfq]);
-
-  const loadCurrentUser = async () => {
-    try {
-      const res = await getProfile();
-      setCurrentUser(res.data);
-    } catch (error) {
-      console.error("Error loading user:", error);
-    }
-  };
 
 
   useEffect(() => {
@@ -457,7 +395,7 @@ const handleCloseNormalizeModal = () => {
  
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
-    getRfqs({ tech_eval: false, page, limit, project_id: selectedproject ? selectedproject : -1, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null })
+    getRfqs({ tech_eval: false, page, limit, project_id: selectedproject ? selectedproject : -1, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote" })
       .then((res) => {
         setloading(false);
         const newData = Array.isArray(res) ? res : [];
@@ -1645,7 +1583,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     style={{ maxHeight: "70vh" }}
                   >
                     {myRFQs.map((item) => {
-                      const negStatus = sidebarNegotiationMap[item.id] || {};
                       const isSelected = item.id == rfq;
                       return (
                         <li
@@ -1653,7 +1590,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                           className={`${
                             isSelected ? "active rounded" : ""
                           }`}
-                          style={!isSelected && negStatus.userNeedsToApprove ? { backgroundColor: '#fff3f3', borderLeft: '3px solid #dc3545' } : !isSelected && negStatus.hasPending ? { backgroundColor: '#fff8e1', borderLeft: '3px solid #ffc107' } : !isSelected && negStatus.hasActive ? { borderLeft: '3px solid #28a745' } : {}}
+                          style={!isSelected && item.approval_required ? { backgroundColor: '#fff3f3', borderLeft: '3px solid #dc3545' } : {}}
                         >
                           <Link
                             href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
@@ -1672,14 +1609,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             )}
                             <span className="d-flex align-items-center gap-1 flex-wrap">
                               {formatRFQNumber(item?.rfq_no, item?.is_tender)}
-                              {!isSelected && negStatus.userNeedsToApprove && (
+                              {!isSelected && item.approval_required && (
                                 <Badge bg="danger" style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Your Approval Required</Badge>
-                              )}
-                              {!isSelected && negStatus.hasPending && !negStatus.userNeedsToApprove && (
-                                <Badge bg="warning" text="dark" style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Approval Pending</Badge>
-                              )}
-                              {!isSelected && negStatus.hasActive && !negStatus.hasPending && (
-                                <Badge bg="info" style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Negotiation</Badge>
                               )}
                             </span>
                             {item.project_name && item.project_name != "" && (

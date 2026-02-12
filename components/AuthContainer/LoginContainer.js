@@ -17,6 +17,7 @@ const LoginContainer = (props) => {
     const [showModal, setShowModal] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [employeeCode, setEmployeeCode] = useState("");
     const [loginWith, setLoginWith] = useState("");
     const [, setIsHospitalityPaymentLoading] = useState(false);
     
@@ -106,6 +107,9 @@ const LoginContainer = (props) => {
 
     const loginSubmitHandler = (values, isFromOtherModal = false) => {
         props.setloading(true);
+        if (values.employee_code) {
+            setEmployeeCode(values.employee_code);
+        }
         LoginService(values, isFromOtherModal)
             .then((response) => {
                 props.setloading(false);
@@ -184,7 +188,7 @@ const LoginContainer = (props) => {
                     }, 1000);
 
                     setTimeout(() => {
-                        setLoginWith("email");
+                        setLoginWith(values.employee_code ? "employee_code" : "email");
                         handleOtherDeviceLoginModalOpen();
                     }, 1000);
                 } else if (error?.message?.response?.data) {
@@ -290,6 +294,7 @@ const LoginContainer = (props) => {
                 setActiveTab={handleChange(props.setActiveAuthTab)}
                 setEmail={setEmail}
                 setPassword={setPassword}
+                setEmployeeCode={setEmployeeCode}
                 loading={props.loading}
                 setloading={props.setloading}
                 loginSubmitHandler={loginSubmitHandler}
@@ -300,6 +305,7 @@ const LoginContainer = (props) => {
                 onHide={handleClose}
                 email={email}
                 password={password}
+                employeeCode={employeeCode}
                 loginSubmitHandler={loginSubmitHandler}
                 loginWithGoogle={loginWithGoogle}
                 loginWith={loginWith}

@@ -75,7 +75,7 @@ const ArcCommittee = () => {
     canApprove,
     loading: permissionsLoading,
   } = useModulePermissions({
-    moduleKey: "arc",
+    moduleKey: "awarding",
     hotelIds: hotelIds,
     enabled: hotelIds.length > 0,
   });
@@ -200,7 +200,8 @@ const ArcCommittee = () => {
         limit: 100,
         project_id: selectedProject || -1,
         is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null,
-        rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null
+        rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
+        module_keys: "arc"
       };
       const response = await getArcRfqList(params);
       if (response.status === 1) {
@@ -481,19 +482,26 @@ const ArcCommittee = () => {
                   <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
                     {rfqList.map((item) => {
                       const rfqId = item.rfq_id || item.id;
+                      const isSelected = rfqId === currentRfq?.id;
                       return (
                       <li
-                        className={rfqId === currentRfq?.id ? "active" : ""}
+                        className={isSelected ? "active" : ""}
                         key={`rfq_no_${item.rfq_no}-${item.rfq_product_id || ''}`}
+                        style={!isSelected && item.approval_required ? { backgroundColor: '#fff3f3', borderLeft: '3px solid #dc3545' } : {}}
                       >
                         <Link
                           href={`/dashboard/buyer/arc-committee?rfq_id=${rfqId}`}
                           className={
-                            rfqId === currentRfq?.id ? "text-white" : "text-dark"
+                            isSelected ? "text-white" : "text-dark"
                           }
                           id={`rfq_${item.rfq_no}-rfq_list-arc_committee_page`}
                         >
-                          {formatRFQNumber(item.rfq_no, item.is_tender)}
+                          <span className="d-flex align-items-center gap-1 flex-wrap">
+                            {formatRFQNumber(item.rfq_no, item.is_tender)}
+                            {!isSelected && item.approval_required && (
+                              <Badge bg="danger" style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Your Approval Required</Badge>
+                            )}
+                          </span>
                           {item.project_name && item.project_name != "" &&
                             <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
                               {item.project_name}

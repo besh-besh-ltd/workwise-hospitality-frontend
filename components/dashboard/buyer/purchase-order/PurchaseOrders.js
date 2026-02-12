@@ -12,6 +12,7 @@ import { getCompanyUsers } from "@/services/Auth";
 import RejectRemarksModal from "./RejectRemarksModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import UpdateGRNModal from "./UpdateGRNModal";
+import { Badge } from "react-bootstrap";
 
 const PurchaseOrders = () => {
   const router = useRouter();
@@ -70,6 +71,7 @@ const PurchaseOrders = () => {
       project_id: selectedproject ? selectedproject : -1,
       rfq_no: rfqNo ? parseInt(rfqNo.replace("#", "")) : null,
       sort: "DESC",
+      module_keys: "po",
     })
       .then((res) => {
         setRFQLoading(false);
@@ -346,17 +348,19 @@ const PurchaseOrders = () => {
                     style={{ maxHeight: "70vh" }}
                   >
                     {myRFQs.map((item) => {
+                      const isSelected = item.id == rfq;
                       return (
                         <li
                           key={item.id}
                           className={`${
-                            item.id == rfq ? "active rounded" : ""
+                            isSelected ? "active rounded" : ""
                           }`}
+                          style={!isSelected && item.approval_required ? { backgroundColor: '#fff3f3', borderLeft: '3px solid #dc3545' } : {}}
                         >
                           <Link
                             href={`/dashboard/buyer/purchase-order/?rfq=${item?.id}`}
                             className={`${
-                              item.id == rfq ? "text-white" : "text-dark"
+                              isSelected ? "text-white" : "text-dark"
                             }`}
                             id={`rfq_item_${item.rfq_no}-rfq_selection-purchase_order_page`}
                           >
@@ -368,7 +372,12 @@ const PurchaseOrders = () => {
                                 {item.title}
                               </span>
                             )}
-                            RFQ #{item?.rfq_no}
+                            <span className="d-flex align-items-center gap-1 flex-wrap">
+                              RFQ #{item?.rfq_no}
+                              {!isSelected && item.approval_required && (
+                                <Badge bg="danger" style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Your Approval Required</Badge>
+                              )}
+                            </span>
                             {item.project_name && item.project_name != "" && (
                               <b
                                 className="d-block fw-semibold"

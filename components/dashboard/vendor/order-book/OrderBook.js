@@ -11,6 +11,7 @@ import { toast } from "react-toastify";
 import { getCompanyUsers } from "@/services/Auth";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import RaiseInvoiceModal from "./RaiseInvoiceModal";
+import { Badge } from "react-bootstrap";
 
 const OrderBook = () => {
   const router = useRouter();
@@ -65,6 +66,7 @@ const OrderBook = () => {
       limit,
       rfq_no: rfqNo ? parseInt(rfqNo.replace("#", "")) : null,
       sort: "DESC",
+      module_keys: "po",
     })
       .then((res) => {
         setRFQLoading(false);
@@ -273,21 +275,28 @@ const OrderBook = () => {
                     style={{ maxHeight: "70vh" }}
                   >
                     {myRFQs.map((item) => {
+                      const isSelected = item.id == rfq;
                       return (
                         <li
                           key={item.id}
                           className={`${
-                            item.id == rfq ? "active rounded" : ""
+                            isSelected ? "active rounded" : ""
                           }`}
+                          style={!isSelected && item.approval_required ? { backgroundColor: '#fff3f3', borderLeft: '3px solid #dc3545' } : {}}
                         >
                           <Link
                             href={`/dashboard/vendor/order-book/?rfq=${item?.id}`}
                             className={`${
-                              item.id == rfq ? "text-white" : "text-dark"
+                              isSelected ? "text-white" : "text-dark"
                             }`}
                             id={`rfq_item_${item.rfq_no}-rfq_selection-purchase_order_page`}
                           >
-                            RFQ #{item?.rfq_no}
+                            <span className="d-flex align-items-center gap-1 flex-wrap">
+                              RFQ #{item?.rfq_no}
+                              {!isSelected && item.approval_required && (
+                                <Badge bg="danger" style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Your Approval Required</Badge>
+                              )}
+                            </span>
                             {item.project_name && item.project_name != "" && (
                               <b
                                 className="d-block fw-semibold"

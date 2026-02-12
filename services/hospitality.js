@@ -326,4 +326,14 @@ export const getAllHotels = () =>
     }
   });
 
+export const getVendorMappings = () =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/hospitality/vendor/my-mappings`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 

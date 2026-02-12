@@ -191,7 +191,7 @@ const CreateRFQ = () => {
 
   // Permission management - fetch permissions based on selected hotels
   // Dynamic module key based on is_tender field (1 = tender, 0 = rfq)
-  const moduleKey = rfqFormDataFromStore?.is_tender === 1 ? "tender" : "rfq";
+  const moduleKey = rfqFormDataFromStore?.is_tender === 1 ? "boq" : "rfq";
   const {
     canRead,
     canUpdate,
