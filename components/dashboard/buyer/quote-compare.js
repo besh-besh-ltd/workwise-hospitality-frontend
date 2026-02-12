@@ -1515,7 +1515,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 </div>
                 {userHotelMappings.length > 0 && (
                   <div className="py-2">
-                    <label>Select Hotels</label>
+                    <label>Select Business Units</label>
                     <Select
                       isMulti
                       options={userHotelMappings}
@@ -1528,7 +1528,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                           : [];
                         handleHotelSelectionChange(ids);
                       }}
-                      placeholder="Select Hotels..."
+                      placeholder="Select Business Units..."
                       closeMenuOnSelect={false}
                       classNamePrefix="react-select"
                       isClearable

@@ -154,14 +154,12 @@ useEffect(() => {
 }, []);
 
 const clarificationDeadline =
-  rfqDetails?.is_tender === 1 && rfqDetails?.vendor_clarification_date
+  rfqDetails?.vendor_clarification_date
     ? parseISTDateTimeToUTCDate(rfqDetails.vendor_clarification_date)
     : null;
 
 const isClarificationWindowActive =
-  rfqDetails?.is_tender === 1 &&
-  clarificationDeadline &&
-  now < clarificationDeadline;
+  clarificationDeadline && now < clarificationDeadline;
 
 const clarificationMsLeft = isClarificationWindowActive
   ? clarificationDeadline.getTime() - now.getTime()
@@ -2875,9 +2873,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                             !isAnyFieldFilled() ||
                             tenderPaymentLoading ||
                             hasPendingTechEval ||
-                            (rfqDetails?.is_tender === 1 &&
-                              (isClarificationWindowActive ||
-                                hasOpenClarification)) ||
+                            (rfqDetails?.vendor_clarification_date &&
+                              (isClarificationWindowActive || hasOpenClarification)) ||
                             (Object.keys(negotiationQuoteSubmitted).length > 0 && Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0))
                           }
                           title={
@@ -2885,7 +2882,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                               ? "Quote submission disabled - Technical evaluation is pending"
                               : (Object.keys(negotiationQuoteSubmitted).length > 0 && Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0))
                               ? "Quote submission disabled - Negotiation quotes submitted for all products"
-                              : rfqDetails?.is_tender === 1 &&
+                              : rfqDetails?.vendor_clarification_date &&
                                 isClarificationWindowActive
                               ? "Quote submission blocked - Clarification period is still active"
                               : hasOpenClarification

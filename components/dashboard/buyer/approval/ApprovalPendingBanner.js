@@ -9,7 +9,7 @@ import ApprovalActionModal from "./ApprovalActionModal";
  * Compact, modern banner placed at the TOP of the page
  * Shows when user has pending approval action required
  */
-const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item" }) => {
+const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isPublished = false }) => {
   const {
     instance,
     loading,
@@ -175,6 +175,117 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item" }) =
               onClick={scrollToApprovalSection}
             >
               <BsArrowDown size={13} className="me-1" />
+              Details
+            </Button>
+          </div>
+        </div>
+
+        <ApprovalActionModal
+          show={showActionModal}
+          actionType={actionType}
+          onClose={() => setShowActionModal(false)}
+          onSubmit={handleAction}
+          loading={actionLoading}
+          entityLabel={entityLabel}
+        />
+      </>
+    );
+  }
+
+  // Published but approval still pending - show "Approval Skipped" warning
+  if (isPublished) {
+    const initiatedByName = instance?.initiated_by?.name || instance?.initiated_by_name || "Unknown";
+    return (
+      <>
+        <style jsx>{`
+          .apb-skipped {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px 16px;
+            margin-bottom: 16px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+            border: 1px solid #f5c6cb;
+            border-left: 4px solid #e74c3c;
+            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.08);
+          }
+          .apb-skipped-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+          }
+          .apb-skipped-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(231, 76, 60, 0.12);
+            flex-shrink: 0;
+          }
+          .apb-skipped-text {
+            font-size: 0.82rem;
+            color: #495057;
+          }
+          .apb-skipped-text strong {
+            color: #c0392b;
+            font-weight: 600;
+          }
+        `}</style>
+
+        <div className="apb-skipped">
+          <div className="apb-skipped-left">
+            <div className="apb-skipped-icon">
+              <BsShieldExclamation size={14} style={{ color: "#e74c3c" }} />
+            </div>
+            <div className="apb-skipped-text">
+              <strong>Approval Pending</strong>
+              <span className="ms-1" style={{ color: "#6c757d" }}>
+                — Published without completed approval · Step {currentStep} of {totalSteps}
+                {canUserApprove && " · Your approval is required"}
+              </span>
+              <div style={{ fontSize: "0.72rem", color: "#856404", marginTop: 2 }}>
+                Submitted by: <strong>{initiatedByName}</strong>
+              </div>
+            </div>
+          </div>
+          <div className="d-flex gap-2">
+            {canUserApprove && (
+              <>
+                <Button
+                  variant="success"
+                  size="sm"
+                  style={{ fontSize: "0.73rem", fontWeight: 600, padding: "4px 10px", borderRadius: 6 }}
+                  onClick={() => openActionModal("APPROVE")}
+                  disabled={actionLoading}
+                >
+                  <BsShieldCheck size={12} className="me-1" />
+                  Approve Now
+                </Button>
+                <Button
+                  variant="outline-danger"
+                  size="sm"
+                  style={{ fontSize: "0.73rem", fontWeight: 600, padding: "4px 10px", borderRadius: 6 }}
+                  onClick={() => openActionModal("REJECT")}
+                  disabled={actionLoading}
+                >
+                  <BsShieldX size={12} className="me-1" />
+                  Reject
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              style={{ fontSize: "0.73rem", fontWeight: 500, padding: "4px 10px", borderRadius: 6 }}
+              onClick={scrollToApprovalSection}
+            >
+              <BsArrowDown size={12} className="me-1" />
               Details
             </Button>
           </div>

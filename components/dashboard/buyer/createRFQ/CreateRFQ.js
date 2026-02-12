@@ -958,11 +958,10 @@ useEffect(() => {
       formDataCopy.ra_end_date = null;
     }
     
-    // Handle tender fields - clear them if is_tender is 0
+    // Handle tender-specific fields
     if (formDataCopy.is_tender === 0 || !formDataCopy.is_tender) {
       formDataCopy.tender_fees = 0;
-      formDataCopy.tender_publish_date = null;
-      formDataCopy.vendor_clarification_date = null;
+      // tender_publish_date and vendor_clarification_date are now supported for both RFQs and tenders
     } else if (formDataCopy.is_tender === 1) {
       // Ensure entered tender_fees from store is used; use 0 when cleared (null)
       formDataCopy.tender_fees = rfqFormDataFromStore.tender_fees != null ? rfqFormDataFromStore.tender_fees : (formDataCopy.tender_fees ?? 0);
@@ -1146,8 +1145,13 @@ useEffect(() => {
 
   // list any spec keys you want validated on Save Changes
   const specFieldsToValidate = ["quantity", "unit"]; 
-  // highlight when Save Changes clicked and any product has any specified empty field
-  const hasEmptySpecFields = rfqProducts.some((p) => specFieldsToValidate.some((f) => isSpecFieldEmpty(p, f)));
+  // highlight when Save Changes clicked and any *active* product has any specified empty field
+  // skip products that are marked deletable (removed from RFQ)
+  const hasEmptySpecFields = rfqProducts.some(
+    (p) =>
+      !updatableData.products.deletable.includes(p.id) &&
+      specFieldsToValidate.some((f) => isSpecFieldEmpty(p, f))
+  );
 
   const handleSaveDraft = async () => {
     if (!validateVendors()) {
@@ -2391,7 +2395,7 @@ useEffect(() => {
     return (
       <AccessDeniedPage
         title="Access Denied"
-        message="You do not have permission to create or edit this for the selected hotels."
+        message="You do not have permission to create or edit this for the selected business units."
         backUrl="/dashboard/buyer/rfq-management"
         backLabel="Back to RFQ Management"
       />
@@ -2406,7 +2410,7 @@ useEffect(() => {
       {selectedHotelIds.length > 0 && !hasPermission && canRead && (
         <ReadOnlyBanner
           title="View Only Mode"
-          message="You don't have create/edit permissions for the selected hotels. Contact your administrator to request access."
+          message="You don't have create/edit permissions for the selected business units. Contact your administrator to request access."
         />
       )}
 
@@ -2743,7 +2747,7 @@ useEffect(() => {
                               <div className="row mt-3">
                                 {userHotelMappings.length > 0 && (
                                   <div className="col-md-4">
-                                    <label className="form-label fw-medium">Select Hotels</label>
+                                    <label className="form-label fw-medium">Select Business Units</label>
                                     <Select
                                       id="select_hotels-create_rfq_page"
                                       isMulti
@@ -2757,7 +2761,7 @@ useEffect(() => {
                                           : [];
                                         handleHotelSelectionChange(ids);
                                       }}
-                                      placeholder="Select Hotels..."
+                                      placeholder="Select Business Units..."
                                       closeMenuOnSelect={false}
                                       classNamePrefix="react-select"
                                       isClearable
@@ -2937,10 +2941,9 @@ useEffect(() => {
 
                               <div className="row mb-2">
 
-                                    {rfqFormDataFromStore.is_tender === 1 && (
                                     <div className="col-md-4">
                                       <label className="form-label">
-                                        Tender Publish Date & Time
+                                        Publish Date & Time
                                       </label>
                                       <input
                                         id="tender_publish_date-rfq_details-create_rfq_page"
@@ -2955,7 +2958,6 @@ useEffect(() => {
                                         onChange={handleFormFieldChange}
                                       />
                                     </div>
-                                    )}
 
                                 <div className="col-md-4">
                                   <FormikField
@@ -2972,7 +2974,6 @@ useEffect(() => {
                                   />
                                 </div>
 
-                                    {rfqFormDataFromStore.is_tender === 1 && (
                                     <div className="col-md-4">
                                       <label className="form-label">
                                         Vendor Clarification End Date
@@ -2995,7 +2996,6 @@ useEffect(() => {
                                         </div>
                                       )}
                                     </div>
-                                    )}
 
 
                                 {rfqFormDataFromStore.is_tender === 1 && (

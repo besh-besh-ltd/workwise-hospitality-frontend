@@ -326,6 +326,56 @@ export const getAllHotels = () =>
     }
   });
 
+export const sendHotelPaymentLink = (companyId, hotelId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(
+        `/hospitality/company/${companyId}/hotels/${hotelId}/send-payment-link`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const getHotelPaymentInfo = (hotelId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/hospitality/hotel-payment/${hotelId}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const createHotelPaymentOrder = (hotelId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(
+        `/hospitality/hotel-payment/create-order`,
+        { hotel_id: hotelId }
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const verifyHotelPayment = (payload) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(
+        `/hospitality/hotel-payment/verify`,
+        payload
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 export const getVendorMappings = () =>
   new Promise(async (resolve, reject) => {
     try {

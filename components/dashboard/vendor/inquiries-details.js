@@ -203,9 +203,9 @@ const RfqManagementPreview = () => {
     }
   }, [id]);
 
-  // Fetch clarifications for tenders
+  // Fetch clarifications for RFQs and tenders
   const fetchClarifications = useCallback(async () => {
-    if (!id || !rfqDetails?.is_tender) return;
+    if (!id) return;
 
     setClarificationsLoading(true);
     try {
@@ -228,14 +228,14 @@ const RfqManagementPreview = () => {
     } finally {
       setClarificationsLoading(false);
     }
-  }, [id, token, rfqDetails?.is_tender]);
+  }, [id, token]);
 
-  // Fetch clarifications when RFQ details are loaded (for tenders only)
+  // Fetch clarifications when RFQ details are loaded
   useEffect(() => {
-    if (rfqDetails?.is_tender === 1) {
+    if (rfqDetails) {
       fetchClarifications();
     }
-  }, [rfqDetails?.is_tender, fetchClarifications]);
+  }, [rfqDetails, fetchClarifications]);
 
   useEffect(() => {
     if (type === "buyer-view") {
@@ -689,6 +689,11 @@ const RfqManagementPreview = () => {
     const raEndDate = rfqDetails?.ra_end_date ? new Date(rfqDetails.ra_end_date) : null;
 
     const isReverseAuction = rfqDetails?.reverse_auction == 1;
+    const clarificationEndDate = rfqDetails?.vendor_clarification_date
+      ? new Date(rfqDetails.vendor_clarification_date)
+      : null;
+    const isClarificationWindowActive =
+      clarificationEndDate && now < clarificationEndDate;
     const isRfqClosed = rfqDetails?.status == 2;
     const areAllProductsFinalized = !productleftforbid; // Assumes productleftforbid is boolean/truthy
 
@@ -704,8 +709,12 @@ const RfqManagementPreview = () => {
       isDisabled = true;
       message = `${getEntityLabel(rfqDetails?.is_tender)} is Closed`;
     }
-    // Priority 1.5: Open Clarification blocks quote submission (for tenders only)
-    else if (rfqDetails?.is_tender === 1 && hasOpenClarification) {
+    // Priority 1.5: Clarification window active or open clarification blocks quote submission
+    else if (rfqDetails?.vendor_clarification_date && isClarificationWindowActive) {
+      isDisabled = true;
+      message = "Clarification Window Active";
+    }
+    else if (hasOpenClarification) {
       isDisabled = true;
       message = "Clarification in Progress";
     }
@@ -1171,8 +1180,8 @@ const RfqManagementPreview = () => {
                     )}
                   </button>
 
-                  {/* Clarification Button - Only for Tenders */}
-                  {rfqDetails?.is_tender === 1 && (
+                  {/* Clarification Button - For RFQs and Tenders with vendor_clarification_date */}
+                  {rfqDetails?.vendor_clarification_date && (
                     <>
                       {/* Main Clarification Button */}
                       {(() => {
@@ -1180,8 +1189,7 @@ const RfqManagementPreview = () => {
                         const publishDate = rfqDetails?.tender_publish_date ? new Date(rfqDetails.tender_publish_date) : null;
                         const clarificationEndDate = rfqDetails?.vendor_clarification_date ? new Date(rfqDetails.vendor_clarification_date) : null;
                         
-                        // Check if tender is published (status = 1 or is_published = 1)
-                        // If status/is_published fields are not available, assume published if tender_publish_date is null or in the past
+                        // Check if RFQ/tender is published (status = 1 or is_published = 1)
                         const publishState = getRFQPublishState(rfqDetails || {});
                         const isPublished = publishState?.isOpen || rfqDetails?.is_published === 1 || rfqDetails?.status === 1;
                         
@@ -1310,7 +1318,7 @@ const RfqManagementPreview = () => {
                   productleftforbid &&
                   isSubmitAble &&
                   rfqDetails.quotations?.length > 0 &&
-                  !(rfqDetails?.is_tender === 1 && hasOpenClarification) &&
+                  !hasOpenClarification &&
                   !rfqDetails.products?.some(
                     (item) =>
                       item.finalization_status ===
@@ -1360,6 +1368,7 @@ const RfqManagementPreview = () => {
                         entityType={rfqDetails?.is_tender === 1 ? "TENDER" : "RFQ"}
                         entityId={id}
                         entityLabel={rfqDetails?.is_tender === 1 ? "Tender" : "RFQ"}
+                        isPublished={rfqDetails?.is_published === 1 || rfqDetails?.status === 1}
                       />
                     </section>
                   )}
@@ -1441,7 +1450,7 @@ const RfqManagementPreview = () => {
                   )}
 
                   {/* Clarification Blocking Banner - Shows when a clarification is open */}
-                  {!enableBuyerView && rfqDetails?.is_tender === 1 && hasOpenClarification && (
+                  {!enableBuyerView && hasOpenClarification && (
                     <section className="mt-3 mx-1">
                       <ClarificationBlockingBanner
                         clarification={openClarification}
@@ -1468,7 +1477,7 @@ const RfqManagementPreview = () => {
                       {/* hotel list : currently usiing only company data here to display, need to change */}
                       {rfqDetails?.hotel_name && (
                         <div className="  col-md-2 col-sm-6"> 
-                          <strong>Hotels:</strong>
+                          <strong>Business Units:</strong>
                           <div>{rfqDetails.hotel_name}</div>
                         </div>
                       )}
@@ -1510,7 +1519,7 @@ const RfqManagementPreview = () => {
 
                 {rfqDetails?.tender_publish_date && (
                         <div className=" col-md-2 col-sm-6 ">
-                          <strong>Tender Publish Date:</strong>
+                          <strong>Publish Date:</strong>
                           <div>{rfqDetails.tender_publish_date}</div>
                         </div>
                       )}
@@ -1622,8 +1631,8 @@ const RfqManagementPreview = () => {
                             </button>
                           ))}
 
-                        {/* Clarifications Button - For Buyer View on Tenders */}
-                        {type == "buyer-view" && rfqDetails?.is_tender === 1 && (
+                        {/* Clarifications Button - For Buyer View on RFQs and Tenders */}
+                        {type == "buyer-view" && rfqDetails?.vendor_clarification_date && (
                           <Link
                             href={`/dashboard/buyer/clarification-management?rfq_id=${rfqDetails.id}`}
                           >

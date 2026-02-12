@@ -17,7 +17,7 @@ import {
   setStoredHospitalityContext,
   subscribeHospitalityContext,
 } from "@/utils/hospitalityContext";
-import { getMyHospitalityContexts } from "@/services/hospitality";
+import { getMyHospitalityContexts, getUserMappings } from "@/services/hospitality";
 
 const initialMainNavs = [
   "/",
@@ -365,6 +365,7 @@ const Header = () => {
   const [hospitalityContext, setHospitalityContextState] = useState(
     getStoredHospitalityContext()
   );
+  const [userBusinessUnits, setUserBusinessUnits] = useState([]);
 
   const togglePopover = () => {
     setPopoverVisible(!popoverVisible);
@@ -531,6 +532,18 @@ const Header = () => {
           setStoredHospitalityContext(null);
         }
 
+        // Fetch user business unit mappings for the header display
+        if (hospitalityEnabled) {
+          try {
+            const mappingsRes = await getUserMappings();
+            if (isMounted) {
+              setUserBusinessUnits(mappingsRes?.data || []);
+            }
+          } catch (_) {
+            if (isMounted) setUserBusinessUnits([]);
+          }
+        }
+
         // Permissions are now fetched per-page using the bulk endpoint
         // No need to fetch global permissions here
       } catch (error) {
@@ -538,6 +551,7 @@ const Header = () => {
           setIsHospitalityCompany(false);
           setHospitalityContexts([]);
           setStoredHospitalityContext(null);
+          setUserBusinessUnits([]);
         }
       }
     };
@@ -878,16 +892,75 @@ const Header = () => {
                           </button>
                         </li>
                       )}
-                      <li className="">
-                        <Link href="" onClick={handleUserIconClick} id="user_icon-user_menu-header">
-                          <FontAwesomeIcon icon={faUser} style={{ fontSize: 'calc(1em + 5px)' }} />
-                        </Link>
+                      <li>
+                        <button
+                          onClick={handleUserIconClick}
+                          id="user_icon-user_menu-header"
+                          className="d-flex align-items-center gap-2 border-0 bg-transparent"
+                          style={{
+                            cursor: "pointer",
+                            padding: "4px 12px",
+                            borderRadius: "8px",
+                            background: popoverVisible ? "#f0f4ff" : "transparent",
+                            transition: "background 0.2s",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: "50%",
+                              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: "#fff",
+                              fontWeight: 600,
+                              fontSize: 14,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {loggedinUser?.name?.charAt(0)?.toUpperCase() || "U"}
+                          </div>
+                          <div className="d-flex flex-column" style={{ lineHeight: 1.2, textAlign: "left" }}>
+                            <span style={{ fontWeight: 600, fontSize: 13, color: "#1a1a2e", whiteSpace: "nowrap" }}>
+                              {loggedinUser?.name || "User"}
+                            </span>
+                            {userBusinessUnits.length > 0 && (
+                              <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
+                                {userBusinessUnits.length === 1
+                                  ? userBusinessUnits[0].hotel_name || userBusinessUnits[0].company_name || ""
+                                  : `${userBusinessUnits.length} Business Units`
+                                }
+                              </span>
+                            )}
+                          </div>
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, opacity: 0.5, transform: popoverVisible ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+                            <path d="M3 4.5L6 7.5L9 4.5" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
                       </li>
                     </ul>
                   </nav>
 
                   {popoverVisible && (
                     <div className="popover-account" ref={popoverRef}>
+                      {/* User info header */}
+                      <div style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: "#1a1a2e" }}>
+                          {loggedinUser?.name || "User"}
+                        </div>
+                        {userBusinessUnits.length > 0 && (
+                          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                            {userBusinessUnits.map((bu, i) => (
+                              <span key={i}>
+                                {bu.hotel_name || bu.company_name}
+                                {i < userBusinessUnits.length - 1 ? ", " : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <ul className="vertical-links">
                         {currentRoleMenu
                           ?.filter((menuType) => menuType.targetMenu == "popup")

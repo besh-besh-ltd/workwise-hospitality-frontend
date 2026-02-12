@@ -32,7 +32,7 @@ const SubscriptionModal = (props) => {
     } = selectedSubscription?.costBreakdown || {};
 
     const calculationText = numHotels > 0
-      ? `${numCategories} categories × ₹${perCategoryFee} × ${numHotels} hotels`
+      ? `${numCategories} categories × ₹${perCategoryFee} × ${numHotels} business units`
       : `${numCategories} categories × ₹${perCategoryFee}`;
     let getSubscriptionDuration = {
         "-1": "Lifetime",
@@ -99,18 +99,18 @@ const SubscriptionModal = (props) => {
                       <div className="mt-4">
                         <h6 className="fw-semibold mb-3" style={{ fontSize: "1rem" }}>Cost Breakdown</h6>
                         
-                        {/* Tabular format: Categories on left, Hotels on right */}
+                        {/* Tabular format: Categories on left, Business Units on right */}
                         <div className="border rounded p-3" style={{ backgroundColor: "#f8f9fa" }}>
                           <div className="row mb-2" style={{ fontSize: "0.85rem", fontWeight: "600", color: "#6c757d", borderBottom: "1px solid #dee2e6", paddingBottom: "8px" }}>
                             <div className="col-6">
                               <span>Categories</span>
                             </div>
                             <div className="col-6">
-                              <span>Hotels Selected</span>
+                              <span>Business Units Selected</span>
                             </div>
                           </div>
                           
-                          {/* Categories and Hotels mapping */}
+                          {/* Categories and Business Units mapping */}
                           <div className="row align-items-start">
                             <div className="col-6">
                               <div style={{ fontSize: "0.9rem" }}>
@@ -137,7 +137,7 @@ const SubscriptionModal = (props) => {
                                     </div>
                                   </div>
                                 ))}
-                                {hotelNames.length === 0 && <EmptyState label="hotels" />}
+                                {hotelNames.length === 0 && <EmptyState label="business units" />}
                               </div>
                             </div>
                           </div>
@@ -153,7 +153,7 @@ const SubscriptionModal = (props) => {
                               <span className="fw-medium">₹ {perCategoryFee}</span>
                             </div>
                             <div className="d-flex justify-content-between align-items-center mb-2">
-                              <span className="text-muted">Number of Hotels:</span>
+                              <span className="text-muted">Number of Business Units:</span>
                               <span className="fw-medium">{numHotels}</span>
                             </div>
                             <div className="d-flex justify-content-between align-items-center mb-2" style={{ fontSize: "0.85rem", color: "#6c757d" }}>

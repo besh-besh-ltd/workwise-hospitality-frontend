@@ -174,7 +174,7 @@ const HospitalityContextModal = ({
               </div>
             </div>
             <div className="col-md-8">
-              <h6 className="mb-3">Hotels / Scope</h6>
+              <h6 className="mb-3">Business Units / Scope</h6>
               {renderHotelOptions()}
             </div>
           </div>

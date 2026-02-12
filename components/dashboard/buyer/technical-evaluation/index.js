@@ -339,7 +339,7 @@ useEffect(() => {
                 </div>
                 {userHotelMappings.length > 0 && (
                   <div className="py-2">
-                    <label>Select Hotels</label>
+                    <label>Select Business Units</label>
                     <Select
                       isMulti
                       options={userHotelMappings}
@@ -352,7 +352,7 @@ useEffect(() => {
                           : [];
                         handleHotelSelectionChange(ids);
                       }}
-                      placeholder="Select Hotels..."
+                      placeholder="Select Business Units..."
                       closeMenuOnSelect={false}
                       classNamePrefix="react-select"
                       isClearable
@@ -517,9 +517,9 @@ useEffect(() => {
                           {currentRfq.bid_end_date}
                         </p>
 
-                       {currentRfq?.hotel_name && (
+                      {currentRfq?.hotel_name && (
                         <p className="sub-heading mb-0  "> 
-                          <strong  >Hotels : quote-compare</strong> {" "}
+                          <strong>Business Units :</strong>{" "}
                           {currentRfq.hotel_name}
                         </p>
                       )}

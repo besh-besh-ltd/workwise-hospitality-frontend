@@ -394,7 +394,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                         <strong>Company:</strong> {companyMeta?.name || 'N/A'}
                       </div>
                       <div className="text-muted">
-                        <strong>Hotel:</strong> {hotelMeta?.name || 'All Hotels'}
+                        <strong>Business Unit:</strong> {hotelMeta?.name || 'All Business Units'}
                       </div>
                       <div className="text-muted">
                         <strong>Dept:</strong> {deptMeta?.title || 'All Departments'}
@@ -461,7 +461,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
         </div>
 
         <div className="col-md-4">
-          <label className="form-label">Select Hotel (optional)</label>
+          <label className="form-label">Select Business Unit (optional)</label>
           <select
             className="form-select"
             disabled={!selectedCompany || !selectedRole}
@@ -475,7 +475,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                 setSelectedDepartment(null);
             }}
           >
-            <option value="">All Hotels</option>
+            <option value="">All Business Units</option>
             {selectedCompany?.hotels.map(h => (
               <option key={h.id} value={h.id}>
                 {h.name}

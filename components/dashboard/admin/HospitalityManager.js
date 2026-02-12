@@ -38,8 +38,7 @@ const defaultCompanyForm = {
 const defaultHotelForm = {
   name: "",
   city: "",
-  keys: "",
-  status: "Active",
+  status: "Pending Onboarding",
   full_address: "",
   state: "",
   gst: "",
@@ -50,6 +49,8 @@ const defaultHotelForm = {
   account_holder_name: "",
   msme: "",
   delivery_address: "",
+  email: "",
+  fee_amount: "500",
 };
 
 const defaultUserMappingForm = {
@@ -236,7 +237,7 @@ const HospitalityManager = () => {
       setHotels(hotelsData);
     } catch (error) {
       console.error(error);
-      toast.error("Failed to load hotels");
+      toast.error("Failed to load business units");
     } finally {
       setIsLoadingHotels(false);
     }
@@ -607,7 +608,6 @@ const HospitalityManager = () => {
       const payload = {
         name: hotelForm.name.trim(),
         city: hotelForm.city.trim() || "",
-        keys: hotelForm.keys ? parseInt(hotelForm.keys, 10) : 0,
         status: hotelForm.status,
         full_address: hotelForm.full_address.trim() || "",
         state: hotelForm.state.trim() || "",
@@ -619,6 +619,8 @@ const HospitalityManager = () => {
         account_holder_name: hotelForm.account_holder_name.trim() || "",
         msme: hotelForm.msme.trim() || "",
         delivery_address: hotelForm.delivery_address.trim() || "",
+        email: hotelForm.email.trim() || "",
+        fee_amount: hotelForm.fee_amount ? parseInt(hotelForm.fee_amount, 10) : 500,
       };
 
       if (editingHotel) {
@@ -654,8 +656,7 @@ const HospitalityManager = () => {
     setHotelForm({
       name: hotel.name || "",
       city: hotel.city || "",
-      keys: hotel.keys || "",
-      status: hotel.status || "Active",
+      status: hotel.status || "Pending Onboarding",
       full_address: hotel.full_address || "",
       state: hotel.state || "",
       gst: hotel.gst || "",
@@ -666,6 +667,8 @@ const HospitalityManager = () => {
       account_holder_name: hotel.account_holder_name || "",
       msme: hotel.msme || "",
       delivery_address: hotel.delivery_address || "",
+      email: hotel.email || "",
+      fee_amount: hotel.fee_amount || "500",
     });
     // Reset documents first, then fetch existing ones
     setHotelDocuments({ gst: null, pan: null, cancelled_cheque: null, msme: null });
@@ -1181,17 +1184,47 @@ const HospitalityManager = () => {
                     placeholder="Ex: Rajasthan"
                   />
                 </div>
+                {editingHotel && (
+                  <div className="col-md-6">
+                    <label className="form-label">Status</label>
+                    <select
+                      className="form-select"
+                      value={hotelForm.status}
+                      onChange={(e) =>
+                        setHotelForm((prev) => ({ ...prev, status: e.target.value }))
+                      }
+                    >
+                      <option value="Pending Onboarding">Pending Onboarding</option>
+                      <option value="Pending Payment">Pending Payment</option>
+                      <option value="Active">Active</option>
+                    </select>
+                    <small className="text-muted mt-1">
+                      Status can be adjusted here for exceptional cases. It will also be
+                      updated automatically after successful payment.
+                    </small>
+                  </div>
+                )}
                 <div className="col-md-6">
-                  <label className="form-label">Status</label>
-                  <select
-                    className="form-select"
-                    value={hotelForm.status}
-                    onChange={(e) => setHotelForm((prev) => ({ ...prev, status: e.target.value }))}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="In Review">In Review</option>
-                    <option value="Pending Onboarding">Pending Onboarding</option>
-                  </select>
+                  <label className="form-label">Contact Email</label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={hotelForm.email}
+                    onChange={(e) => setHotelForm((prev) => ({ ...prev, email: e.target.value }))}
+                    placeholder="business-unit@example.com"
+                  />
+                  <small className="text-muted">Payment link will be sent to this email</small>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Onboarding Fee (₹)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={hotelForm.fee_amount}
+                    onChange={(e) => setHotelForm((prev) => ({ ...prev, fee_amount: e.target.value }))}
+                    placeholder="500"
+                    min="0"
+                  />
                 </div>
                 <div className="col-12">
                   <label className="form-label">Full Address</label>
@@ -1211,17 +1244,6 @@ const HospitalityManager = () => {
                     value={hotelForm.delivery_address}
                     onChange={(e) => setHotelForm((prev) => ({ ...prev, delivery_address: e.target.value }))}
                     placeholder="Address for deliveries"
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label">Number of Rooms/Keys</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={hotelForm.keys}
-                    onChange={(e) => setHotelForm((prev) => ({ ...prev, keys: e.target.value }))}
-                    placeholder="Number of rooms"
-                    min={0}
                   />
                 </div>
               </div>
@@ -1928,8 +1950,8 @@ const HospitalityManager = () => {
                                 <tr>
                                   <th className="border-0 py-3 ps-4">Business Unit</th>
                                   <th className="border-0 py-3">Location</th>
-                                  <th className="border-0 py-3">Keys</th>
                                   <th className="border-0 py-3">Status</th>
+                                  <th className="border-0 py-3">Payment</th>
                                   <th className="border-0 py-3">Users</th>
                                   <th className="border-0 py-3 text-end pe-4">Action</th>
                                 </tr>
@@ -1947,7 +1969,6 @@ const HospitalityManager = () => {
                                           {[hotel.city, hotel.state].filter(Boolean).join(", ")}
                                         </span>
                                       </td>
-                                      <td className="py-3">{hotel.keys || 0}</td>
                                       <td className="py-3">
                                         <span
                                           className="badge"
@@ -1970,10 +1991,44 @@ const HospitalityManager = () => {
                                         </span>
                                       </td>
                                       <td className="py-3">
+                                        {hotel.payment_status === "active" ? (
+                                          <span className="badge" style={{ backgroundColor: "#dcfce7", color: "#166534" }}>Paid</span>
+                                        ) : hotel.payment_status === "pending" ? (
+                                          <span className="badge" style={{ backgroundColor: "#fef3c7", color: "#92400e" }}>Pending</span>
+                                        ) : (
+                                          <span className="badge" style={{ backgroundColor: "#f3f4f6", color: "#374151" }}>
+                                            {hotel.email ? "Onboarding" : "No Email"}
+                                          </span>
+                                        )}
+                                        {hotel.fee_amount > 0 && (
+                                          <small className="d-block text-muted" style={{ fontSize: "11px" }}>₹{hotel.fee_amount}</small>
+                                        )}
+                                      </td>
+                                      <td className="py-3">
                                         <span className="text-muted">{hotelUsers.length} users</span>
                                       </td>
                                       <td className="py-3 text-end pe-4">
                                         <div className="d-flex gap-2 justify-content-end">
+                                          {hotel.email && hotel.payment_status !== "active" && (
+                                            <button
+                                              type="button"
+                                              className="btn btn-sm btn-outline-success"
+                                              onClick={async () => {
+                                                try {
+                                                  const { sendHotelPaymentLink } = await import("@/services/hospitality");
+                                                  await sendHotelPaymentLink(selectedCompanyId, hotel.id);
+                                                  toast.success("Payment link sent to " + hotel.email);
+                                                  loadHotels(selectedCompanyId);
+                                                } catch (error) {
+                                                  toast.error("Failed to send payment link");
+                                                }
+                                              }}
+                                              title="Send Payment Link"
+                                            >
+                                              <i className="bi bi-envelope"></i>
+                                              <span className="ms-1 d-none d-md-inline">Send Link</span>
+                                            </button>
+                                          )}
                                           <button
                                             type="button"
                                             className="btn btn-sm btn-outline-secondary"

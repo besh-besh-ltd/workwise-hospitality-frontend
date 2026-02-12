@@ -3,7 +3,7 @@ import Select from 'react-select';
 import { getUserMappings } from '@/services/hospitality';
 
 /**
- * Reusable Hotel/Company Filter Component
+ * Reusable Business Unit/Company Filter Component
  * 
  * @param {Object} props
  * @param {Array} props.selectedHotelIds - Array of selected hotel IDs
@@ -16,7 +16,7 @@ const HotelFilter = ({
   selectedHotelIds = [], 
   onSelectionChange, 
   isMulti = true,
-  placeholder = "Select Hotels...",
+  placeholder = "Select Business Units...",
   className = ""
 }) => {
   const [userHotelMappings, setUserHotelMappings] = useState([]);

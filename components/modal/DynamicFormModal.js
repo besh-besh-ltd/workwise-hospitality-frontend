@@ -1153,9 +1153,9 @@ Example:
                                     <div className="card border-0 shadow-sm">
                                       <div className="card-body">
                                         <div className="d-flex justify-content-between align-items-center mb-3">
-                                          <h5 className="mb-0">Company & Hotel Access</h5>
+                                          <h5 className="mb-0">Company & Business Unit Access</h5>
                                           <span className="text-muted small">
-                                            Manage company/hotel scope for this user
+                                            Manage company/business unit scope for this user
                                           </span>
                                         </div>
                                         {(hospitalityProps.mappings || []).length === 0 ? (
@@ -1192,7 +1192,7 @@ Example:
                                                     <tr>
                                                       <th>Company</th>
                                                       <th>Scope</th>
-                                                      <th>Hotel / Company Level</th>
+                                                      <th>Business Unit / Company Level</th>
                                                       <th>Auto Map Projects</th>
                                                       <th className="text-end">Action</th>
                                                     </tr>
@@ -1207,14 +1207,14 @@ Example:
                                                               <strong>{group.companyName}</strong>
                                                               <br />
                                                               <small className="text-muted">
-                                                                {group.hotelMappings.length} hotel{group.hotelMappings.length !== 1 ? 's' : ''}
+                                                                {group.hotelMappings.length} business unit{group.hotelMappings.length !== 1 ? 's' : ''}
                                                               </small>
                                                             </td>
                                                             <td>
                                                               <span className="badge bg-primary">Company</span>
                                                             </td>
                                                             <td>
-                                                              <span className="text-muted">All Hotels</span>
+                                                              <span className="text-muted">All Business Units</span>
                                                             </td>
                                                             <td>
                                                               <span
@@ -1248,12 +1248,12 @@ Example:
                                                                 <strong>{group.companyName}</strong>
                                                                 <br />
                                                                 <small className="text-muted">
-                                                                  {group.hotelMappings.length} hotel{group.hotelMappings.length !== 1 ? 's' : ''}
+                                                                  {group.hotelMappings.length} business unit{group.hotelMappings.length !== 1 ? 's' : ''}
                                                                 </small>
                                                               </td>
                                                             )}
                                                             <td>
-                                                              <span className="badge bg-success">Hotel</span>
+                                                              <span className="badge bg-success">Business Unit</span>
                                                             </td>
                                                             <td>
                                                               {mapping.hotel_name || "N/A"}
@@ -1326,12 +1326,12 @@ Example:
                                                 }
                                               >
                                                 <option value="company">Company</option>
-                                                <option value="hotel">Specific Hotel</option>
+                                                <option value="hotel">Specific Business Unit</option>
                                               </select>
                                             </div>
                                             {hospitalityFormState.mappingLevel === "hotel" && (
                                               <div className="col-12">
-                                                <label className="form-label">Hotel</label>
+                                                <label className="form-label">Business Unit</label>
                                                 <select
                                                   className="form-select"
                                                   value={hospitalityFormState.hotelId}
@@ -1339,7 +1339,7 @@ Example:
                                                     hospitalityProps.onHotelChange(e.target.value)
                                                   }
                                                 >
-                                                  <option value="">Select Hotel</option>
+                                                  <option value="">Select Business Unit</option>
                                                   {hospitalityProps.hotels?.map((hotel) => (
                                                     <option key={hotel.id} value={hotel.id}>
                                                       {hotel.name}
