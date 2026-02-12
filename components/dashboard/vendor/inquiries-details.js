@@ -1929,25 +1929,6 @@ const RfqManagementPreview = () => {
                         </table>
                       </div>
 
-                      {/* Approval Workflow Section - Only visible to buyers */}
-                      {enableBuyerView && rfqDetails?.id && (
-                        <div className="approval-workflow-section">
-                          <ApprovalWorkflowSection
-                            entityType={rfqDetails?.is_tender === 1 ? "TENDER" : "RFQ"}
-                            entityId={id}
-                            entityLabel={rfqDetails?.is_tender === 1 ? "Tender" : "RFQ"}
-                            hospitalityCompanyId={rfqDetails?.hospitality_company_id}
-                            hotelId={rfqDetails?.hotel_id}
-                            departmentId={rfqDetails?.department_id}
-                            onCustomApprove={handleRFQApprove}
-                            onCustomReject={handleRFQReject}
-                            onActionComplete={() => {
-                              getRFQdetails();
-                            }}
-                          />
-                        </div>
-                      )}
-
                       <form>
                         <div className="row">
                           <div className="col-md-12">
@@ -2245,6 +2226,25 @@ const RfqManagementPreview = () => {
                             </>
                           )}
                         </div>
+
+                        {/* Approval Workflow Section - Only visible to buyers */}
+                        {enableBuyerView && rfqDetails?.id && (
+                          <div className="approval-workflow-section mt-4">
+                            <ApprovalWorkflowSection
+                              entityType={rfqDetails?.is_tender === 1 ? "TENDER" : "RFQ"}
+                              entityId={id}
+                              entityLabel={rfqDetails?.is_tender === 1 ? "Tender" : "RFQ"}
+                              hospitalityCompanyId={rfqDetails?.hospitality_company_id}
+                              hotelId={rfqDetails?.hotel_id}
+                              departmentId={rfqDetails?.department_id}
+                              onCustomApprove={handleRFQApprove}
+                              onCustomReject={handleRFQReject}
+                              onActionComplete={() => {
+                                getRFQdetails();
+                              }}
+                            />
+                          </div>
+                        )}
                       </form>
                     </div>
                   </div>

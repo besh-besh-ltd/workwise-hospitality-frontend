@@ -176,7 +176,7 @@ const EditRFQ = () => {
   const hotelIds = selectedHotelIds.length > 0
     ? selectedHotelIds
     : rfqData?.mappedHotels?.map(h => h.hotel_id) || [];
-  const moduleKey = rfqData?.is_tender === 1 ? "tender" : "rfq";
+  const moduleKey = rfqData?.is_tender === 1 ? "boq" : "rfq";
   const {
     canRead,
     canUpdate,

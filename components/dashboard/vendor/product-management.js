@@ -16,6 +16,8 @@ import axiosFormData from "@/lib/axiosFormData";
 import { useRouter } from "next/router";
 import { ToastContainer, toast } from "react-toastify";
 import { Image } from "react-bootstrap";
+import { getVendorMappings } from "@/services/hospitality";
+import { BsBuilding, BsChevronDown, BsChevronRight, BsGrid3X3Gap, BsTag } from "react-icons/bs";
 
 const ProductManagement = () => {
   const router = useRouter();
@@ -32,6 +34,29 @@ const ProductManagement = () => {
   const [enableBulkUpload, setEnableBulkUpload] = useState(false);
   const [file, setFile] = useState(null);
   const [uploadProgress, setuploadProgress] = useState(0);
+  const [vendorMappings, setVendorMappings] = useState({ hotels: [], categories: { main_categories: [], standalone_subcategories: [] } });
+  const [mappingsLoading, setMappingsLoading] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState({});
+
+  const fetchVendorMappings = async () => {
+    setMappingsLoading(true);
+    try {
+      const response = await getVendorMappings();
+      const mappingsData = response?.data || response;
+      setVendorMappings({
+        hotels: mappingsData?.hotels || [],
+        categories: mappingsData?.categories || { main_categories: [], standalone_subcategories: [] },
+      });
+    } catch (err) {
+      console.error("Error fetching vendor mappings:", err);
+    } finally {
+      setMappingsLoading(false);
+    }
+  };
+
+  const toggleCategory = (categoryId) => {
+    setExpandedCategories((prev) => ({ ...prev, [categoryId]: !prev[categoryId] }));
+  };
 
   const uploadToClient = (event) => {
     if (event.target.files && event.target.files[0]) {
@@ -224,6 +249,7 @@ const ProductManagement = () => {
   useEffect(() => {
     getProducts();
     getVendorApproveLists();
+    fetchVendorMappings();
   }, []);
   useEffect(() => {
     getProducts();
@@ -360,6 +386,256 @@ const ProductManagement = () => {
                   )}
                 </div>
 
+                {/* Vendor Mappings Section */}
+                {!mappingsLoading && (vendorMappings.hotels.length > 0 || vendorMappings.categories.main_categories.length > 0 || vendorMappings.categories.standalone_subcategories.length > 0) && (
+                  <div style={{ marginTop: '24px', marginBottom: '8px' }}>
+                    <span className="title pb-2">Your Hotel & Category Mappings</span>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: vendorMappings.hotels.length > 0 && (vendorMappings.categories.main_categories.length > 0 || vendorMappings.categories.standalone_subcategories.length > 0) ? '1fr 1fr' : '1fr',
+                      gap: '16px',
+                      marginTop: '12px',
+                    }}>
+                      {/* Hotels Section */}
+                      {vendorMappings.hotels.length > 0 && (
+                        <div style={{
+                          background: '#fff',
+                          border: '1px solid #e9ecef',
+                          borderRadius: '10px',
+                          overflow: 'hidden',
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '14px 18px',
+                            borderBottom: '1px solid #f0f0f0',
+                            background: 'linear-gradient(135deg, #f8f9fa 0%, #fff 100%)',
+                          }}>
+                            <div style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              background: '#e8f4fd',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}>
+                              <BsBuilding size={16} style={{ color: '#0d6efd' }} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#2d3436' }}>Mapped Hotels</div>
+                              <div style={{ fontSize: '0.72rem', color: '#6c757d' }}>{vendorMappings.hotels.length} hotel{vendorMappings.hotels.length !== 1 ? 's' : ''}</div>
+                            </div>
+                          </div>
+                          <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {vendorMappings.hotels.map((hotel) => (
+                              <div
+                                key={hotel.id || hotel.hotel_id}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '10px',
+                                  padding: '10px 14px',
+                                  borderRadius: '8px',
+                                  background: '#f8f9fa',
+                                  border: '1px solid #e9ecef',
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                <div style={{
+                                  width: '8px',
+                                  height: '8px',
+                                  borderRadius: '50%',
+                                  background: '#28a745',
+                                  flexShrink: 0,
+                                }} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: '0.84rem', fontWeight: 500, color: '#2d3436' }}>
+                                    {hotel.hotel_name || hotel.name}
+                                  </div>
+                                  {(hotel.city || hotel.location) && (
+                                    <div style={{ fontSize: '0.72rem', color: '#6c757d', marginTop: '2px' }}>
+                                      {hotel.city || hotel.location}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Categories Section */}
+                      {(vendorMappings.categories.main_categories.length > 0 || vendorMappings.categories.standalone_subcategories.length > 0) && (
+                        <div style={{
+                          background: '#fff',
+                          border: '1px solid #e9ecef',
+                          borderRadius: '10px',
+                          overflow: 'hidden',
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '14px 18px',
+                            borderBottom: '1px solid #f0f0f0',
+                            background: 'linear-gradient(135deg, #f8f9fa 0%, #fff 100%)',
+                          }}>
+                            <div style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              background: '#e8f5e9',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}>
+                              <BsGrid3X3Gap size={16} style={{ color: '#198754' }} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#2d3436' }}>Subscribed Categories</div>
+                              <div style={{ fontSize: '0.72rem', color: '#6c757d' }}>
+                                {vendorMappings.categories.main_categories.length} categor{vendorMappings.categories.main_categories.length !== 1 ? 'ies' : 'y'}
+                                {vendorMappings.categories.standalone_subcategories.length > 0 && (
+                                  <> · {vendorMappings.categories.standalone_subcategories.length} additional sub-categor{vendorMappings.categories.standalone_subcategories.length !== 1 ? 'ies' : 'y'}</>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {/* Main Categories with Sub-categories */}
+                            {vendorMappings.categories.main_categories.map((cat) => {
+                              const isExpanded = !!expandedCategories[cat.category_id];
+                              const hasSubs = cat.sub_categories && cat.sub_categories.length > 0;
+                              return (
+                                <div key={cat.category_id} style={{
+                                  borderRadius: '8px',
+                                  border: '1px solid #e9ecef',
+                                  overflow: 'hidden',
+                                  background: isExpanded ? '#fafbfc' : '#f8f9fa',
+                                  transition: 'all 0.15s ease',
+                                }}>
+                                  <div
+                                    onClick={() => hasSubs && toggleCategory(cat.category_id)}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '10px',
+                                      padding: '10px 14px',
+                                      cursor: hasSubs ? 'pointer' : 'default',
+                                      userSelect: 'none',
+                                    }}
+                                  >
+                                    {hasSubs ? (
+                                      isExpanded
+                                        ? <BsChevronDown size={12} style={{ color: '#6c757d', flexShrink: 0 }} />
+                                        : <BsChevronRight size={12} style={{ color: '#6c757d', flexShrink: 0 }} />
+                                    ) : (
+                                      <BsTag size={12} style={{ color: '#6c757d', flexShrink: 0 }} />
+                                    )}
+                                    <span style={{ fontSize: '0.84rem', fontWeight: 500, color: '#2d3436', flex: 1 }}>
+                                      {cat.category_name}
+                                    </span>
+                                    {hasSubs && (
+                                      <span style={{
+                                        fontSize: '0.68rem',
+                                        fontWeight: 500,
+                                        color: '#6c757d',
+                                        background: '#e9ecef',
+                                        padding: '2px 8px',
+                                        borderRadius: '10px',
+                                      }}>
+                                        {cat.sub_categories.length} sub
+                                      </span>
+                                    )}
+                                  </div>
+                                  {isExpanded && hasSubs && (
+                                    <div style={{
+                                      padding: '0 14px 10px 36px',
+                                      display: 'flex',
+                                      flexWrap: 'wrap',
+                                      gap: '6px',
+                                    }}>
+                                      {cat.sub_categories.map((sub) => (
+                                        <span
+                                          key={sub.category_id}
+                                          style={{
+                                            fontSize: '0.76rem',
+                                            fontWeight: 500,
+                                            color: '#495057',
+                                            background: '#fff',
+                                            border: '1px solid #dee2e6',
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                          }}
+                                        >
+                                          {sub.category_name}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {/* Standalone Sub-categories */}
+                            {vendorMappings.categories.standalone_subcategories.length > 0 && (
+                              <>
+                                {vendorMappings.categories.main_categories.length > 0 && (
+                                  <div style={{
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                    color: '#adb5bd',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.04em',
+                                    marginTop: '6px',
+                                    marginBottom: '2px',
+                                  }}>
+                                    Other Sub-Categories
+                                  </div>
+                                )}
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                  {vendorMappings.categories.standalone_subcategories.map((sub) => (
+                                    <span
+                                      key={sub.category_id}
+                                      style={{
+                                        fontSize: '0.76rem',
+                                        fontWeight: 500,
+                                        color: '#495057',
+                                        background: '#f8f9fa',
+                                        border: '1px solid #e9ecef',
+                                        padding: '5px 12px',
+                                        borderRadius: '6px',
+                                      }}
+                                    >
+                                      {sub.category_name}
+                                      {sub.parent_category_name && (
+                                        <span style={{ color: '#adb5bd', marginLeft: '4px', fontSize: '0.7rem' }}>
+                                          ({sub.parent_category_name})
+                                        </span>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {mappingsLoading && (
+                  <div style={{ marginTop: '24px', marginBottom: '8px' }}>
+                    <span className="title pb-2">Your Hotel & Category Mappings</span>
+                    <div style={{ textAlign: 'center', padding: '24px', color: '#adb5bd', fontSize: '0.85rem' }}>
+                      Loading mappings...
+                    </div>
+                  </div>
+                )}
+
                 <span className="title pt-5 pb-2">Your Product List</span>
                 <div className="details-table p-4 ">
                   {loading && <Loader />}
@@ -375,7 +651,7 @@ const ProductManagement = () => {
                         }
                       />
                       <Select
-                        id={id}
+                        id="approved_by_filter-product_management-vendor_product_management_page"
                         options={vendorApproveList}
                         placeholder="Approved by"
                         styles={customSelectStyles}
@@ -385,7 +661,6 @@ const ProductManagement = () => {
                         onChange={(e) =>
                           setSelectedVendor(e ? e.value : "")
                         }
-                        id="approved_by_filter-product_management-vendor_product_management_page"
                       />
 
                       <div className="action-btm ">
