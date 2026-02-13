@@ -4,6 +4,7 @@ import { faMessage } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import React, { useEffect, useRef, useState } from 'react'
 import BuyerVendorChat from './buyerVendorChat';
+import VendorDeviationModal from './VendorDeviationModal';
 import FullLoader from '@/components/shared/FullLoader';
 import TE_Modal from './TE_Modal';
 import { toast } from 'react-toastify';
@@ -21,14 +22,32 @@ import { TECH_EVAL_WORKFLOW_STATES } from '@/utils/constants/techEvalWorkflow';
 import { checkBidExpired } from '@/utils/sharedFunctions';
 
 
-const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, currentRfq ,  vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors, minimumPassingScore: _minimumPassingScore, canWrite = true, canApprove = false, permissionsLoading = false }) => {
-    
+const ClauseProductItem = ({
+  rfq_id,
+  product,
+  currentUserProfile,
+  clauseInfo,
+  currentRfq,
+  vendors : _vendors,
+  refetch,
+  selectedVendor : _selectedVendor = null,
+  selectedVendors,
+  minimumPassingScore: _minimumPassingScore,
+  canWrite = true,
+  canApprove = false,
+  permissionsLoading = false,
+  onEvaluationStatusChange // Callback to notify parent about evaluation status
+}) => {
+
   const multipleVendorsSelected = selectedVendors && selectedVendors.length > 1;
   
     const [buyerClauses, setBuyerClauses] = useState(clauseInfo);
     const [vendorResponse, setVendorResponse] = useState(null);
     const [openModal, setOpenModal] = useState(false);
     const [chatMap, setChatMap] = useState(null);
+    const [showDeviationModal, setShowDeviationModal] = useState(false);
+    const [selectedDeviationClause, setSelectedDeviationClause] = useState(null);
+    const [selectedDeviationVendor, setSelectedDeviationVendor] = useState(null);
     const [techEvalStatus, setTechEvalStatus] = useState(0);
     const [techEvalCleared, setTechEvalCleared] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -207,6 +226,18 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                 return newMap;
             }
         });
+    };
+
+    const openDeviationModal = (clause, vendor) => {
+        setSelectedDeviationClause(clause);
+        setSelectedDeviationVendor(vendor);
+        setShowDeviationModal(true);
+    };
+
+    const closeDeviationModal = () => {
+        setShowDeviationModal(false);
+        setSelectedDeviationClause(null);
+        setSelectedDeviationVendor(null);
     };
 
     const getBuyerClauses = async () => {
@@ -506,6 +537,28 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     }
 }, [_selectedVendor, selectedVendors]);
 
+    // Notify parent about evaluation status for this product
+    useEffect(() => {
+        if (onEvaluationStatusChange && vendors && clauseInfo) {
+            // Check if all clauses are evaluated for vendors
+            const allVendors = vendors || [];
+            const evaluatedVendorCount = allVendors.filter(v => v.has_marks).length;
+            const totalClauses = clauseInfo.length;
+
+            // A product is fully evaluated if all vendors have scores for all clauses
+            const isFullyEvaluated = evaluatedVendorCount > 0 && allVendors.length > 0 &&
+                allVendors.every(vendor => vendor.has_marks);
+
+            onEvaluationStatusChange(product.id, {
+                isFullyEvaluated,
+                evaluatedVendorCount,
+                totalVendors: allVendors.length,
+                isPendingApproval,
+                workflowComplete
+            });
+        }
+    }, [vendors, clauseInfo, isPendingApproval, workflowComplete]);
+
     return (
       <div
         className="col-12 text-sm mb-3 mt-2 hasFullLoader"
@@ -650,7 +703,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                             </Dropdown.Toggle>
                                             <Dropdown.Menu>
                                               <Dropdown.Item
-                                                href={`/dashboard/buyer/query?rfq_id=${rfq_id}&role=buyer&vendor_id=${vendor.vendor_id}`}
+                                                href={`/dashboard/buyer/query?rfq_id=${rfq_id}&role=buyer&vendor_id=${vendor.vendor_id}&from_tech_eval=1&vendor_code=${vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`}`}
                                                 id={`talk_with_vendor_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
                                               >
                                                 Talk with vendor
@@ -765,34 +818,63 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                     {clauseItem.clause_type !== 'sampling' && (
                                     <button
                                       type="button"
-                                      className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
+                                      className="d-flex justify-content-center align-items-center border-0 mt-2"
                                       style={{
-                                        maxWidth: "100px",
-                                        backgroundColor: (isPendingApproval && !canApprove) ? "#cccccc" : "var(--primary-color)",
+                                        padding: "8px 14px",
+                                        borderRadius: "6px",
+                                        background: (isPendingApproval && !canApprove)
+                                          ? "linear-gradient(135deg, #9e9e9e 0%, #757575 100%)"
+                                          : "linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%)",
                                         color: "#ffffff",
-                                        fontSize: "13px",
+                                        fontSize: "12px",
+                                        fontWeight: "600",
                                         cursor: (isPendingApproval && !canApprove) ? "not-allowed" : "pointer",
+                                        transition: "all 0.2s ease",
+                                        opacity: (isPendingApproval && !canApprove) ? 0.6 : 1,
+                                        boxShadow: (isPendingApproval && !canApprove)
+                                          ? "none"
+                                          : "0 2px 4px rgba(13, 110, 253, 0.2)",
+                                        whiteSpace: "nowrap",
                                       }}
-                                      onClick={() => {
-                                        toggleChat(clauseItem.clause_id);
-                                        setSelectedVendor(vendor);
-                                      }}
+                                      onClick={() => openDeviationModal(clauseItem, vendor)}
                                       disabled={isPendingApproval && !canApprove}
-                                      title={(isPendingApproval && !canApprove) ? "Actions frozen during pending approval" : ""}
+                                      title={(isPendingApproval && !canApprove) ? "Actions frozen during pending approval" : "View deviation"}
                                       id={`view_deviation_${clauseItem.clause_id}_${vendor.vendor_id}-deviation_actions-technical_evaluation_page`}
+                                      onMouseEnter={(e) => {
+                                        if (!(isPendingApproval && !canApprove)) {
+                                          e.currentTarget.style.transform = 'translateY(-1px)';
+                                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(13, 110, 253, 0.3)';
+                                        }
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        if (!(isPendingApproval && !canApprove)) {
+                                          e.currentTarget.style.transform = 'translateY(0)';
+                                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(13, 110, 253, 0.2)';
+                                        }
+                                      }}
                                     >
                                      Deviation
                                     </button>
                                     )}
                                     <button
                                       type="button"
-                                      className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
+                                      className="d-flex justify-content-center align-items-center border-0 mt-2"
                                       style={{
-                                        maxWidth: "120px",
-                                        backgroundColor: (!canWrite || permissionsLoading || isPendingApproval) ? "#cccccc" : "var(--primary-color)",
+                                        padding: "8px 14px",
+                                        borderRadius: "6px",
+                                        background: (!canWrite || permissionsLoading || isPendingApproval)
+                                          ? "linear-gradient(135deg, #9e9e9e 0%, #757575 100%)"
+                                          : "linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%)",
                                         color: "#ffffff",
-                                        fontSize: "13px",
+                                        fontSize: "12px",
+                                        fontWeight: "600",
                                         cursor: (!canWrite || permissionsLoading || isPendingApproval) ? "not-allowed" : "pointer",
+                                        transition: "all 0.2s ease",
+                                        opacity: (!canWrite || permissionsLoading || isPendingApproval) ? 0.6 : 1,
+                                        boxShadow: (!canWrite || permissionsLoading || isPendingApproval)
+                                          ? "none"
+                                          : "0 2px 4px rgba(13, 110, 253, 0.2)",
+                                        whiteSpace: "nowrap",
                                       }}
                                       onClick={() => openRemarkModal(clauseItem, vendor)}
                                       disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed}
@@ -804,6 +886,18 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                             : (!canWrite ? "You don't have permission to add marks" : "")
                                       }
                                       id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-clause_actions-technical_evaluation_page`}
+                                      onMouseEnter={(e) => {
+                                        if (canWrite && !permissionsLoading && !isPendingApproval && !isBidEndPassed) {
+                                          e.currentTarget.style.transform = 'translateY(-1px)';
+                                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(13, 110, 253, 0.3)';
+                                        }
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        if (canWrite && !permissionsLoading && !isPendingApproval && !isBidEndPassed) {
+                                          e.currentTarget.style.transform = 'translateY(0)';
+                                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(13, 110, 253, 0.2)';
+                                        }
+                                      }}
                                     >
                                       {clauseItem.clause_type === 'sampling' ? 'Add Marks/Remarks' : 'Add Marks'}
                                     </button>
@@ -980,18 +1074,40 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                                 {clauseItem.clause_type !== 'sampling' && (
                                                 <button
                                                     type="button"
-                                                    className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
+                                                    className="d-flex justify-content-center align-items-center border-0"
                                                     style={{
-                                                        width: "100px",
-                                                        backgroundColor: (isPendingApproval && !canApprove) ? "#cccccc" : "var(--primary-color)",
+                                                        padding: "8px 14px",
+                                                        borderRadius: "6px",
+                                                        background: (isPendingApproval && !canApprove)
+                                                          ? "linear-gradient(135deg, #9e9e9e 0%, #757575 100%)"
+                                                          : "linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%)",
                                                         color: "#ffffff",
-                                                        fontSize: "13px",
-                                                        cursor: (isPendingApproval && !canApprove) ? "not-allowed" : "pointer"
+                                                        fontSize: "12px",
+                                                        fontWeight: "600",
+                                                        cursor: (isPendingApproval && !canApprove) ? "not-allowed" : "pointer",
+                                                        transition: "all 0.2s ease",
+                                                        opacity: (isPendingApproval && !canApprove) ? 0.6 : 1,
+                                                        boxShadow: (isPendingApproval && !canApprove)
+                                                          ? "none"
+                                                          : "0 2px 4px rgba(13, 110, 253, 0.2)",
+                                                        whiteSpace: "nowrap",
                                                     }}
                                                     onClick={() => toggleChat(clauseItem.clause_id)}
                                                     disabled={isPendingApproval && !canApprove}
-                                                    title={(isPendingApproval && !canApprove) ? "Actions frozen during pending approval" : ""}
+                                                    title={(isPendingApproval && !canApprove) ? "Actions frozen during pending approval" : "View explanation / deviation"}
                                                     id={`explanation_deviation_${clauseItem.clause_id}-clause_actions-technical_evaluation_page`}
+                                                    onMouseEnter={(e) => {
+                                                      if (!(isPendingApproval && !canApprove)) {
+                                                        e.currentTarget.style.transform = 'translateY(-1px)';
+                                                        e.currentTarget.style.boxShadow = '0 4px 8px rgba(13, 110, 253, 0.3)';
+                                                      }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                      if (!(isPendingApproval && !canApprove)) {
+                                                        e.currentTarget.style.transform = 'translateY(0)';
+                                                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(13, 110, 253, 0.2)';
+                                                      }
+                                                    }}
                                                 >
                                                     Explanation / Deviation
                                                 </button>
@@ -1194,85 +1310,21 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
           </div>
         )}
 
-        {/* Submit for Approval Button - Product Level (Multi-round support) */}
-        {canWrite && !permissionsLoading && !workflowComplete && !isPendingApproval && (
-        <div className="d-flex justify-content-end mt-4 mb-3">
-          <button
-            type="button"
-            className={`btn btn-sm p-2 ${
-              workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL ? 'btn-warning' :
-              'btn-primary'
-            }`}
-            style={{width: 260}}
-            onClick={() => setShowSubmitModal(true)}
-            disabled={
-              submitLoading ||
-              workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL ||
-              pendingEvaluationVendors.length === 0
-            }
-            title={
-              workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL ? `Round ${currentRound} pending approval` :
-              pendingEvaluationVendors.length === 0 ? "No vendors pending evaluation" :
-              "Submit evaluation for approval"
-            }
-            id={`submit_for_approval_product_${product?.id}-technical_evaluation_page`}
-          >
-            {submitLoading ? "Submitting..." :
-             workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL ? `Round ${currentRound} Pending Approval` :
-             `Submit for approval`}
-          </button>
-        </div>
-        )}
+        {/* Submit for Approval Button - Moved to main index.js for unified approval */}
 
-        {/* Approval Workflow Section - Round Level (Multi-round support) */}
-        {latestRound?.round_id && (
-          <div className="buyer-rfq-approval-sec mt-3 mb-3">
-            <ApprovalWorkflowSection
-              entityType="TECHNICAL"
-              entityId={latestRound.round_id}
-              entityLabel={`Round ${latestRound.round_number || currentRound} Evaluation`}
-              hospitalityCompanyId={currentRfq?.hospitality_company_id}
-              hotelId={currentRfq?.hotel_id}
-              departmentId={currentRfq?.department_id}
-              onCustomApprove={handleTechEvalApprove}
-              onCustomReject={handleTechEvalReject}
-              onActionComplete={() => {
-                // Refresh workflow status after approval action
-                refetchWorkflow();
-                if (refetch) refetch();
-              }}
-              refreshTrigger={approvalRefreshKey}
-            />
-          </div>
-        )}
+        {/* Approval Workflow Section - Moved to main index.js for unified approval */}
 
-        {/* Fallback: Show approval for product if no round exists yet (legacy support) */}
-        {!latestRound?.round_id && product?.id && (
-          <div className="buyer-rfq-approval-sec mt-3 mb-3">
-            <ApprovalWorkflowSection
-              entityType="TECHNICAL"
-              entityId={product.id}
-              entityLabel={`Evaluation of ${product?.product_details?.[0]?.name || 'Product'}`}
-              hospitalityCompanyId={currentRfq?.hospitality_company_id}
-              hotelId={currentRfq?.hotel_id}
-              departmentId={currentRfq?.department_id}
-              onCustomApprove={handleTechEvalApprove}
-              onCustomReject={handleTechEvalReject}
-              refreshTrigger={approvalRefreshKey}
-            />
-          </div>
-        )}
+        {/* Submit for Approval Confirmation Modal - Moved to main index.js */}
 
-        {/* Submit for Approval Confirmation Modal */}
-        <ConfirmationModal
-          isOpen={showSubmitModal}
-          onClose={() => setShowSubmitModal(false)}
-          onConfirm={handleSubmitForApproval}
-          title="Submit for Approval"
-          description={`Are you sure you want to submit the technical evaluation for "${product?.product_details?.[0]?.name || 'this product'}" for approval?\n\nOnce submitted, it will be sent to the technical approver for review.`}
-          confirmButtonColor="primary"
-          confirmButtonText={submitLoading ? "Submitting..." : "Submit"}
-          cancelButtonText="Cancel"
+        {/* Vendor Deviation Modal - NEW: Vendor-specific chat */}
+        <VendorDeviationModal
+          show={showDeviationModal}
+          onHide={closeDeviationModal}
+          vendor={selectedDeviationVendor}
+          clause={selectedDeviationClause}
+          userData={currentUserProfile}
+          product={product}
+          rfq_no={currentRfq}
         />
 
         <hr />

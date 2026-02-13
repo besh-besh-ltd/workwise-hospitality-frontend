@@ -12,7 +12,7 @@ import { getEntityLabel } from "@/utils/sharedFunctions";
 
 const QueryComponent = () => {
   const router = useRouter();
-  const { rfq_id, role, token, vendor_id } = router.query;
+  const { rfq_id, role, token, vendor_id, from_tech_eval, vendor_code } = router.query;
 
   const [vendors, setVendors] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -23,6 +23,9 @@ const QueryComponent = () => {
   const [vendorsLoading, setVendorsLoading] = useState(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [selectedVendorIds, setSelectedVendorIds] = useState([]);
+
+  // Check if we're in tech evaluation mode
+  const isFromTechEval = from_tech_eval === '1';
 
   const selectedVendors = vendors.filter((v) => selectedVendorIds.includes(v.user_id));
 
@@ -68,14 +71,19 @@ const handleToggleVendor = (vendorId) => {
         };
       });
 
-      setVendors(normalizedVendors);
+      // If from tech evaluation, filter to show only selected vendor
+      const filteredVendors = isFromTechEval && vendor_id
+        ? normalizedVendors.filter(v => String(v.user_id) === String(vendor_id))
+        : normalizedVendors;
+
+      setVendors(filteredVendors);
 
       // Auto-select vendor from URL param, otherwise pick first
-      if (!selectedVendor && normalizedVendors.length) {
+      if (!selectedVendor && filteredVendors.length) {
         const vendorFromUrl = vendor_id
-          ? normalizedVendors.find(v => String(v.user_id) === String(vendor_id))
+          ? filteredVendors.find(v => String(v.user_id) === String(vendor_id))
           : null;
-        handleSelectVendor(vendorFromUrl || normalizedVendors[0]);
+        handleSelectVendor(vendorFromUrl || filteredVendors[0]);
       }
     } catch (error) {
       console.error("Error fetching vendors:", error);
@@ -189,14 +197,18 @@ const handleSelectVendor = (vendor) => {
   <section className="small-size-heading buyer-common-header ">
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center">
-        <h1 className="heading">{`Queries for ${getEntityLabel(rfqDetails?.is_tender)}#${rfqDetails?.rfq_no}`}</h1>
+        <h1 className="heading">
+          {isFromTechEval
+            ? `Technical Evaluation Query - ${vendor_code || 'Vendor'}`
+            : `Queries for ${getEntityLabel(rfqDetails?.is_tender)}#${rfqDetails?.rfq_no}`}
+        </h1>
       </div>
     </div>
   </section>
 
   <div className="container-fluid">
     <div className="row">
-      {role === "buyer" ? (
+      {role === "buyer" && !isFromTechEval ? (
         <div className="col-md-4 my-3">
           <VendorList
   vendors={vendors}
@@ -211,7 +223,7 @@ const handleSelectVendor = (vendor) => {
       ) : null}
 
       <div
-        className={`col-md-${role === "buyer" ? "8" : "12"} p-3 my-3 border rounded shadow-sm`}
+        className={`col-md-${role === "buyer" && !isFromTechEval ? "8" : "12"} p-3 my-3 border rounded shadow-sm`}
         style={{ height: "65vh" }}
       >
         {messagesLoading ? (
@@ -221,7 +233,7 @@ const handleSelectVendor = (vendor) => {
 ) : (
   <ChatBox
     messages={messages}
-    vendor={selectedVendor}
+    vendor={isFromTechEval && vendor_code ? { ...selectedVendor, display_name: vendor_code } : selectedVendor}
     rfq_id={rfq_id}
     role={role}
     onMessageSent={handleMessageSent}

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import AsyncSelect from "react-select/async";
 import { useRouter } from "next/router";
-import { getRfqs, fetchVendorSelectionOption, getAllClauses, getRFQById } from "@/services/rfq";
+import { getRfqs, fetchVendorSelectionOption, getAllClauses, getRFQById, submitTechEvalForApproval } from "@/services/rfq";
 import { getProfile } from "@/services/Auth";
 import FullLoader from "@/components/shared/FullLoader";
 import ClauseProductItem from "./ClauseProductItem";
@@ -14,7 +14,10 @@ import { formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
-import { Badge } from "react-bootstrap";
+import { Badge, Modal } from "react-bootstrap";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import EvaluationProgressTracker from "./EvaluationProgressTracker";
+import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 
 
 
@@ -36,6 +39,9 @@ const BuyerTechnicalEvaluation = () => {
   const [clauseInfo, setClauseInfo] = useState(null);
   const [selectedVendorsMap, setSelectedVendorsMap] = useState(new Map());
   const [isTenderFilter, setIsTenderFilter] = useState(null);
+  const [productEvaluationStatus, setProductEvaluationStatus] = useState(new Map());
+  const [showUnifiedSubmitModal, setShowUnifiedSubmitModal] = useState(false);
+  const [unifiedSubmitLoading, setUnifiedSubmitLoading] = useState(false);
 
   // Extract hotel IDs for permission checks - use hotel_id from RFQ data
   const hotelIds = useMemo(() => {
@@ -245,6 +251,78 @@ useEffect(() => {
       toast.error(error.message || 'Failed to load evaluation data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handler for evaluation status changes from child components
+  const handleEvaluationStatusChange = (productId, status) => {
+    setProductEvaluationStatus(prev => {
+      const newMap = new Map(prev);
+      newMap.set(productId, status);
+      return newMap;
+    });
+  };
+
+  // Check if all products are fully evaluated
+  const areAllProductsEvaluated = useMemo(() => {
+    if (!clauseInfo || clauseInfo.length === 0) return false;
+
+    // Get all product IDs that have clauses
+    const productIds = clauseInfo.map(item => item.rfq_product_id);
+
+    // Check if all products are fully evaluated
+    return productIds.every(productId => {
+      const status = productEvaluationStatus.get(productId);
+      return status?.isFullyEvaluated && !status?.isPendingApproval;
+    });
+  }, [clauseInfo, productEvaluationStatus]);
+
+  // Check if any product has pending approval
+  const hasAnyPendingApproval = useMemo(() => {
+    const statuses = Array.from(productEvaluationStatus.values());
+    return statuses.some(status => status?.isPendingApproval);
+  }, [productEvaluationStatus]);
+
+  // Check vendor count constraint (at most 5 vendors)
+  const vendorCountValid = useMemo(() => {
+    if (!clauseInfo || clauseInfo.length === 0) return true;
+
+    // Check each product has at most 5 vendors evaluated
+    return clauseInfo.every(rfqProduct => {
+      const vendors = rfqProduct?.vendors || [];
+      const evaluatedVendors = vendors.filter(v => v.has_marks);
+      return evaluatedVendors.length > 0 && evaluatedVendors.length <= 5;
+    });
+  }, [clauseInfo]);
+
+  // Unified submit handler for all products
+  const handleUnifiedSubmitForApproval = async () => {
+    if (!currentRfq || !clauseInfo) return;
+
+    try {
+      setUnifiedSubmitLoading(true);
+
+      // Submit each product for approval
+      const promises = clauseInfo.map(async (rfqProduct) => {
+        const payload = {
+          rfq_id: parseInt(rfq_id),
+          rfq_product_id: rfqProduct.rfq_product_id,
+          is_tender: currentRfq?.is_tender === 1,
+        };
+        return await submitTechEvalForApproval(payload);
+      });
+
+      await Promise.all(promises);
+
+      toast.success("All products submitted for approval successfully!");
+      setShowUnifiedSubmitModal(false);
+
+      // Refresh data
+      await fetchEvaluationData();
+    } catch (error) {
+      toast.error(error?.message || "Failed to submit for approval");
+    } finally {
+      setUnifiedSubmitLoading(false);
     }
   };
 
@@ -555,6 +633,14 @@ useEffect(() => {
                         <hr />
                       </>}
 
+                    {/* Evaluation Progress Tracker */}
+                    {clauseInfo && clauseInfo.length > 0 && (
+                      <EvaluationProgressTracker
+                        clauseInfo={clauseInfo}
+                        productEvaluationStatus={productEvaluationStatus}
+                      />
+                    )}
+
                     {currentRfq && clauseInfo &&
                       clauseInfo.map((rfqProduct, productIndex) => {
                         if (clauseMap.get(rfqProduct.rfq_product_id)) {
@@ -617,6 +703,7 @@ useEffect(() => {
                                     canWrite={canWrite}
                                     canApprove={canApprove}
                                     permissionsLoading={permissionsLoading}
+                                    onEvaluationStatusChange={handleEvaluationStatusChange}
                                   />
 
                                 </div>
@@ -626,6 +713,23 @@ useEffect(() => {
                         }
                       }
                       )}
+
+                    {/* Unified Submit for Approval Button */}
+                    {clauseInfo && clauseInfo.length > 0 && (
+                      <UnifiedSubmitForApproval
+                        canWrite={canWrite}
+                        permissionsLoading={permissionsLoading}
+                        areAllProductsEvaluated={areAllProductsEvaluated}
+                        hasAnyPendingApproval={hasAnyPendingApproval}
+                        vendorCountValid={vendorCountValid}
+                        unifiedSubmitLoading={unifiedSubmitLoading}
+                        showUnifiedSubmitModal={showUnifiedSubmitModal}
+                        onSubmitClick={() => setShowUnifiedSubmitModal(true)}
+                        onConfirm={handleUnifiedSubmitForApproval}
+                        onCancel={() => setShowUnifiedSubmitModal(false)}
+                        productCount={clauseInfo.length}
+                      />
+                    )}
                   </>
                 </div>
               </div>
