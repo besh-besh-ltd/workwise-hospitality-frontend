@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { Card, Badge } from 'react-bootstrap';
-import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, Folder, Package } from 'lucide-react';
+import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, Folder, Package, FileText, Gavel, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import moment from 'moment';
 import { getRFQPublishState, formatRFQNumber, textCapitalize } from '@/utils/sharedFunctions';
 import PublishDateTimer from '@/components/shared/PublishDateTimer';
-import { getStatusConfig } from './statusConfig';
+import { getStatusConfig, STATUS_CONFIG } from './statusConfig';
 import styles from './RFQCard.module.scss';
 
 const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const publishState = getRFQPublishState(data);
-  const statusConfig = getStatusConfig(data, publishState);
+  const isTender = data.is_tender === 1 || data.is_tender === true;
+  const isBacklog = isPendingApproval && data.is_published === 1 && data.status === 1;
+  const statusConfig = isBacklog ? STATUS_CONFIG.PUBLISHED_WITHOUT_APPROVAL : getStatusConfig(data, publishState);
   const StatusIcon = statusConfig.icon;
 
   // Calculate quote progress
@@ -45,7 +47,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
 
   return (
     <Card
-      className={`${styles.rfqCard} ${isExpanded ? styles.expanded : ''} ${statusConfig.pulse ? styles.pulse : ''}`}
+      className={`${styles.rfqCard} ${isExpanded ? styles.expanded : ''} ${statusConfig.pulse ? styles.pulse : ''} ${isBacklog ? styles.backlogCard : ''}`}
       style={{
         borderLeftColor: statusConfig.borderColor,
       }}
@@ -54,6 +56,12 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
       <div className={styles.compactView} onClick={handleToggleExpand}>
         {/* Left Section: Status + Title */}
         <div className={styles.leftSection}>
+          {/* Entity Type Badge */}
+          <span className={`${styles.typeBadge} ${isTender ? styles.tenderType : styles.rfqType}`}>
+            {isTender ? <Gavel size={11} /> : <FileText size={11} />}
+            {isTender ? 'Tender' : 'RFQ'}
+          </span>
+
           {/* Status Badge */}
           <span
             className={`${styles.statusBadge} ${statusConfig.pulse ? styles.pulseAnimation : ''}`}
@@ -151,6 +159,19 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
         </div>
       </div>
 
+      {/* Backlog Warning Banner */}
+      {isBacklog && (
+        <div className={styles.backlogBanner}>
+          <div className={styles.backlogIcon}>
+            <AlertTriangle size={14} />
+          </div>
+          <div className={styles.backlogText}>
+            <strong>Published without your approval.</strong>{' '}
+            This {isTender ? 'tender' : 'RFQ'} was auto-published as the approval was not completed in time. No action is required from you.
+          </div>
+        </div>
+      )}
+
       {/* Expanded View - Shown on Click */}
       <div className={`${styles.expandedView} ${isExpanded ? styles.visible : ''}`}>
         {/* Meta Information */}
@@ -240,7 +261,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
             </button>
           )}
 
-          {isPendingApproval && (
+          {isPendingApproval && !isBacklog && (
             <Link href={`/dashboard/vendor/inquiries-details?type=buyer-view&id=${data.id}`}>
               <button className={`btn btn-sm ${styles.actionBtn} ${styles.approveBtn}`}>
                 View & Approve
