@@ -24,6 +24,7 @@ import { toast } from "react-toastify";
 import { getProjectList, getProjectTableDataById, getProjectsByHospitalityContext, getProjectHospitalityContext, getRfqFilters } from "@/services/project";
 import { getMyHospitalityContexts, getUserMappings } from "@/services/hospitality";
 import { getDepartments } from "@/services/rbac";
+import { getApprovalProcesses } from "@/services/process";
 import HotelFilter from "@/components/shared/HotelFilter";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
@@ -127,6 +128,7 @@ const CreateRFQ = () => {
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [processes, setProcesses] = useState([]);
 
   const storeLoading = useSelector((data) => data.storeLoading);
   const rfqDetails = useSelector((data) => data.rfq_id);
@@ -338,6 +340,19 @@ const CreateRFQ = () => {
       setDepartments(depts);
     } catch (error) {
       console.error("Error fetching departments:", error);
+    }
+  };
+
+  const fetchProcesses = async () => {
+    try {
+      const response = await getApprovalProcesses();
+      const procs = (response?.data?.data || response?.data || []).map((p) => ({
+        value: p.id,
+        label: p.name,
+      }));
+      setProcesses(procs);
+    } catch (error) {
+      console.error("Error fetching processes:", error);
     }
   };
 
@@ -2178,6 +2193,7 @@ useEffect(() => {
       fetchCountryCodes();
       fetchHospitalityContexts();
       fetchDepartments();
+      fetchProcesses();
     } catch (error) {
       console.log("SOMETHING WENT WRONG DURING INITIAL FETCHING");
       toast.error(error.message)
@@ -2803,6 +2819,27 @@ useEffect(() => {
                                         setHasUnsavedChanges(true);
                                       }}
                                       placeholder="Select Department"
+                                      classNamePrefix="react-select"
+                                      isClearable
+                                    />
+                                  </div>
+                                )}
+
+                                {processes.length > 0 && (
+                                  <div className="col-md-4">
+                                    <label className="form-label fw-medium">Process</label>
+                                    <Select
+                                      id="select_process-create_rfq_page"
+                                      options={processes}
+                                      value={processes.find(p => p.value === rfqFormDataFromStore.process_id) || null}
+                                      onChange={(selected) => {
+                                        dispatch(setOtherFormFields({
+                                          field_name: "process_id",
+                                          value: selected?.value || null
+                                        }));
+                                        setHasUnsavedChanges(true);
+                                      }}
+                                      placeholder="Select Process"
                                       classNamePrefix="react-select"
                                       isClearable
                                     />
