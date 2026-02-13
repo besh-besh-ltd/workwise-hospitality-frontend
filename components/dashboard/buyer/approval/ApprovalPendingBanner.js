@@ -9,7 +9,7 @@ import ApprovalActionModal from "./ApprovalActionModal";
  * Compact, modern banner placed at the TOP of the page
  * Shows when user has pending approval action required
  */
-const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isPublished = false }) => {
+const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isPublished = false, hideTopButtons = false, isBacklog = false }) => {
   const {
     instance,
     loading,
@@ -148,26 +148,30 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
             </div>
           </div>
           <div className="apb-action-btns">
-            <Button
-              variant="success"
-              size="sm"
-              className="apb-btn p-2"
-              onClick={() => openActionModal("APPROVE")}
-              disabled={actionLoading}
-            >
-              <BsShieldCheck size={13} className="me-1" />
-              Approve
-            </Button>
-            <Button
-              variant="outline-danger"
-              size="sm"
-              className="apb-btn p-2"
-              onClick={() => openActionModal("REJECT")}
-              disabled={actionLoading}
-            >
-              <BsShieldX size={13} className="me-1" />
-              Reject
-            </Button>
+            {!hideTopButtons && (
+              <>
+                <Button
+                  variant="success"
+                  size="sm"
+                  className="apb-btn p-2"
+                  onClick={() => openActionModal("APPROVE")}
+                  disabled={actionLoading}
+                >
+                  <BsShieldCheck size={13} className="me-1" />
+                  Approve
+                </Button>
+                <Button
+                  variant="outline-danger"
+                  size="sm"
+                  className="apb-btn p-2"
+                  onClick={() => openActionModal("REJECT")}
+                  disabled={actionLoading}
+                >
+                  <BsShieldX size={13} className="me-1" />
+                  Reject
+                </Button>
+              </>
+            )}
             <Button
               variant="outline-secondary"
               size="sm"
@@ -192,8 +196,8 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
     );
   }
 
-  // Published but approval still pending - show "Approval Skipped" warning
-  if (isPublished) {
+  // Published but approval still pending - show "Approval Skipped" warning (backlog)
+  if (isPublished || isBacklog) {
     const initiatedByName = instance?.initiated_by?.name || instance?.initiated_by_name || "Unknown";
     return (
       <>
@@ -204,13 +208,30 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 10px;
-            padding: 10px 16px;
+            padding: 12px 18px;
             margin-bottom: 16px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+            border-radius: 12px;
+            background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%);
             border: 1px solid #f5c6cb;
-            border-left: 4px solid #e74c3c;
-            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.08);
+            border-left: 5px solid #dc3545;
+            box-shadow: 0 2px 12px rgba(220, 53, 69, 0.12);
+            position: relative;
+            overflow: hidden;
+          }
+          .apb-skipped::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #dc3545 0%, #e74c3c 50%, #dc3545 100%);
+            background-size: 200% 100%;
+            animation: apb-shimmer-red 3s linear infinite;
+          }
+          @keyframes apb-shimmer-red {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
           }
           .apb-skipped-left {
             display: flex;
@@ -219,73 +240,53 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
             min-width: 0;
           }
           .apb-skipped-icon {
-            width: 30px;
-            height: 30px;
-            border-radius: 8px;
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(231, 76, 60, 0.12);
+            background: rgba(220, 53, 69, 0.15);
             flex-shrink: 0;
           }
           .apb-skipped-text {
-            font-size: 0.82rem;
+            font-size: 0.86rem;
             color: #495057;
           }
           .apb-skipped-text strong {
-            color: #c0392b;
+            color: #842029;
             font-weight: 600;
+          }
+          .apb-skipped-sub {
+            font-size: 0.72rem;
+            color: #856404;
+            font-weight: 400;
+            margin-top: 2px;
           }
         `}</style>
 
         <div className="apb-skipped">
           <div className="apb-skipped-left">
             <div className="apb-skipped-icon">
-              <BsShieldExclamation size={14} style={{ color: "#e74c3c" }} />
+              <BsShieldExclamation size={17} style={{ color: "#dc3545" }} />
             </div>
-            <div className="apb-skipped-text">
-              <strong>Approval Pending</strong>
-              <span className="ms-1" style={{ color: "#6c757d" }}>
-                — Published without completed approval · Step {currentStep} of {totalSteps}
-                {canUserApprove && " · Your approval is required"}
-              </span>
-              <div style={{ fontSize: "0.72rem", color: "#856404", marginTop: 2 }}>
-                Submitted by: <strong>{initiatedByName}</strong>
+            <div>
+              <div className="apb-skipped-text">
+                <strong>Published without your approval.</strong>
+              </div>
+              <div className="apb-skipped-sub">
+                This {entityLabel.toLowerCase()} was auto-published as the approval was not completed in time. No action is required from you.
               </div>
             </div>
           </div>
           <div className="d-flex gap-2">
-            {canUserApprove && (
-              <>
-                <Button
-                  variant="success"
-                  size="sm"
-                  style={{ fontSize: "0.73rem", fontWeight: 600, padding: "4px 10px", borderRadius: 6 }}
-                  onClick={() => openActionModal("APPROVE")}
-                  disabled={actionLoading}
-                >
-                  <BsShieldCheck size={12} className="me-1" />
-                  Approve Now
-                </Button>
-                <Button
-                  variant="outline-danger"
-                  size="sm"
-                  style={{ fontSize: "0.73rem", fontWeight: 600, padding: "4px 10px", borderRadius: 6 }}
-                  onClick={() => openActionModal("REJECT")}
-                  disabled={actionLoading}
-                >
-                  <BsShieldX size={12} className="me-1" />
-                  Reject
-                </Button>
-              </>
-            )}
             <Button
               variant="outline-secondary"
               size="sm"
-              style={{ fontSize: "0.73rem", fontWeight: 500, padding: "4px 10px", borderRadius: 6 }}
+              style={{ fontSize: "0.76rem", fontWeight: 600, padding: "5px 14px", borderRadius: 7 }}
               onClick={scrollToApprovalSection}
             >
-              <BsArrowDown size={12} className="me-1" />
+              <BsArrowDown size={13} className="me-1" />
               Details
             </Button>
           </div>

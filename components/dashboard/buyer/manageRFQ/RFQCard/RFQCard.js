@@ -241,7 +241,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
             </Link>
           )}
 
-          {!publishState.isPrePublishState && (
+          {!publishState.isPrePublishState && !isPendingApproval && (
             <Link href={`/dashboard/buyer/query?rfq_id=${data.id}&role=buyer`}>
               <button className={`btn btn-sm ${styles.actionBtn} ${styles.queryBtn}`}>
                 Queries
@@ -252,7 +252,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
             </Link>
           )}
 
-          {!publishState.isPrePublishState && !allQuotesReceived && !data.is_finalized && publishState.isOpen && (
+          {!publishState.isPrePublishState && !allQuotesReceived && !data.is_finalized && publishState.isOpen && !isPendingApproval && (
             <button
               className={`btn btn-sm ${styles.actionBtn} ${styles.reminderBtn}`}
               onClick={() => onSendReminder?.(data)}
@@ -264,7 +264,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
           {isPendingApproval && !isBacklog && (
             <Link href={`/dashboard/vendor/inquiries-details?type=buyer-view&id=${data.id}`}>
               <button className={`btn btn-sm ${styles.actionBtn} ${styles.approveBtn}`}>
-                View & Approve
+                View Details
               </button>
             </Link>
           )}

@@ -1369,6 +1369,8 @@ const RfqManagementPreview = () => {
                         entityId={id}
                         entityLabel={rfqDetails?.is_tender === 1 ? "Tender" : "RFQ"}
                         isPublished={rfqDetails?.is_published === 1 || rfqDetails?.status === 1}
+                        hideTopButtons={rfqDetails?.is_published === 0}
+                        isBacklog={rfqDetails?.is_published === 1 && rfqDetails?.status === 1}
                       />
                     </section>
                   )}
@@ -2242,6 +2244,8 @@ const RfqManagementPreview = () => {
                               onActionComplete={() => {
                                 getRFQdetails();
                               }}
+                              hideTopButtons={rfqDetails?.is_published === 0}
+                              isBacklog={rfqDetails?.is_published === 1 && rfqDetails?.status === 1}
                             />
                           </div>
                         )}
