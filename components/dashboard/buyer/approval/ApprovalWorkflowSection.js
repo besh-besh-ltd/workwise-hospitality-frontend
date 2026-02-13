@@ -49,6 +49,14 @@ const statusConfig = {
     accentColor: "#6c757d",
     accentGradient: "linear-gradient(90deg, #6c757d 0%, #8c939a 100%)",
   },
+  BACKLOG: {
+    variant: "danger",
+    label: "Moved to Backlog",
+    icon: BsXCircleFill,
+    color: "#dc3545",
+    accentColor: "#dc3545",
+    accentGradient: "linear-gradient(90deg, #dc3545 0%, #e74c3c 100%)",
+  },
 };
 
 // Compact display of previous rejected/cancelled approval attempts
@@ -228,7 +236,9 @@ const ApprovalWorkflowSection = ({
   onActionComplete,
   vendorCodeMap = {},
   vendorNameMap = {},
-  refreshTrigger = 0
+  refreshTrigger = 0,
+  hideTopButtons = false,
+  isBacklog = false
 }) => {
   const {
     instance,
@@ -323,9 +333,9 @@ const ApprovalWorkflowSection = ({
     return null;
   }
 
-  const statusInfo = statusConfig[status] || statusConfig.PENDING;
+  const statusInfo = isBacklog ? statusConfig.BACKLOG : (statusConfig[status] || statusConfig.PENDING);
   const StatusIcon = statusInfo.icon;
-  const isActionRequired = canUserApprove && status === "PENDING";
+  const isActionRequired = canUserApprove && status === "PENDING" && !isBacklog;
 
   return (
     <>
@@ -348,6 +358,14 @@ const ApprovalWorkflowSection = ({
         }
         .aws-card.aws-action-required:hover {
           box-shadow: 0 4px 24px rgba(255,193,7,0.18);
+        }
+        .aws-card.aws-backlog {
+          border-color: #f5c6cb;
+          box-shadow: 0 2px 12px rgba(220,53,69,0.12);
+          background: linear-gradient(135deg, #fff 0%, #fff5f5 100%);
+        }
+        .aws-card.aws-backlog:hover {
+          box-shadow: 0 4px 24px rgba(220,53,69,0.18);
         }
         .aws-accent {
           position: absolute;
@@ -493,7 +511,7 @@ const ApprovalWorkflowSection = ({
         }
       `}</style>
 
-      <div className={`aws-card approval-workflow-section approval-workflow-accordion ${isActionRequired ? 'aws-action-required' : ''}`}>
+      <div className={`aws-card approval-workflow-section approval-workflow-accordion ${isActionRequired ? 'aws-action-required' : ''} ${isBacklog ? 'aws-backlog' : ''}`}>
         {/* Top gradient accent bar */}
         <div className="aws-accent" style={{ background: statusInfo.accentGradient }} />
 
@@ -537,7 +555,7 @@ const ApprovalWorkflowSection = ({
           </div>
 
           <div className="aws-header-right" onClick={(e) => e.stopPropagation()}>
-            {isActionRequired && (
+            {isActionRequired && !hideTopButtons && !isBacklog && (
               <>
                 <Button
                   variant="success"
@@ -634,6 +652,40 @@ const ApprovalWorkflowSection = ({
                   currentStep={currentStep}
                   initiatedBy={initiatedBy}
                 />
+
+                {/* Action buttons when hidden from top */}
+                {isActionRequired && hideTopButtons && !isBacklog && (
+                  <div style={{
+                    display: 'flex',
+                    gap: '12px',
+                    marginTop: '16px',
+                    paddingTop: '16px',
+                    borderTop: '1px solid #f0f0f0'
+                  }}>
+                    <Button
+                      variant="success"
+                      size="sm"
+                      className="aws-action-btn"
+                      onClick={() => openActionModal("APPROVE")}
+                      disabled={actionLoading}
+                      style={{ flex: 1 }}
+                    >
+                      <BsShieldCheck size={13} className="me-2" />
+                      Approve
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="aws-action-btn"
+                      onClick={() => openActionModal("REJECT")}
+                      disabled={actionLoading}
+                      style={{ flex: 1 }}
+                    >
+                      <BsShieldX size={13} className="me-2" />
+                      Reject
+                    </Button>
+                  </div>
+                )}
 
                 {/* Status messages */}
                 {status === "APPROVED" && (

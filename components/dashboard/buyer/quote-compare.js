@@ -149,15 +149,17 @@ const QuoteCompare = () => {
         const rfqData = Array.isArray(response) ? response[0] : response?.data?.[0];
         if (rfqData) {
           // Set minimal RFQ data for permission check (hotel_id, hotel_ids) and is_tender for UI
-          setcurrentRFQ(prev => ({
-            ...prev,
+          // IMPORTANT: Don't spread prev to avoid stale state when switching between tender/RFQ
+          setcurrentRFQ({
             id: rfqData.id,
             hotel_id: rfqData.hotel_id,
             hotel_ids: rfqData.hotel_ids,
             is_tender: rfqData.is_tender,
             hospitality_company_id: rfqData.hospitality_company_id,
             department_id: rfqData.department_id,
-          }));
+            rfq_no: rfqData.rfq_no, // Add rfq_no for UI display
+            project_name: rfqData.project_name, // Add project name for UI
+          });
           setMetadataLoadedForRfq(rfq);
         }
       } catch (error) {
@@ -1390,11 +1392,14 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       });
   };
 
+  // Reset filters and negotiation data when switching between RFQs/tenders
   useEffect(() => {
     if (rfq) {
       setTA_Filter(false);
       setFreightFilter(false);
       setNormalizeFilter(false);
+      setProductNegotiationData({}); // Clear negotiation data to prevent stale state
+      setAvailableBudget(null); // Clear budget to prevent showing wrong budget
     }
   }, [rfq]);
 
@@ -1470,12 +1475,12 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       <span id="close_rfq_actions-quote_compare_page" onClick={handleRFqClose}>
                         {closeRFqLoading
                           ? "Processing request..."
-                          : `Mark ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)} as Closed`}
+                          : `Mark ${getEntityLabel(currentRFQ?.is_tender)} as Closed`}
                       </span>
                     )}
                     {quotes[0]?.rfq[0]?.status == 2 && (
                       <span className="disabled-button">
-                        {getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)} has been closed
+                        {getEntityLabel(currentRFQ?.is_tender)} has been closed
                       </span>
                     )}
                   </>
@@ -2367,10 +2372,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         isOpen={showCloseConfirmModal}
         onClose={handleCloseCancel}
         onConfirm={handleCloseConfirm}
-        title={`Close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)}`}
-        description={`Are you sure you want to close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)} #${quotes[0]?.rfq[0]?.rfq_no || ''}?\nOnce closed, vendors will no longer be able to submit quotes.`}
+        title={`Close ${getEntityLabel(currentRFQ?.is_tender)}`}
+        description={`Are you sure you want to close ${getEntityLabel(currentRFQ?.is_tender)} #${quotes[0]?.rfq[0]?.rfq_no || ''}?\nOnce closed, vendors will no longer be able to submit quotes.`}
         confirmButtonColor="warning"
-        confirmButtonText={`Close ${getEntityLabel(quotes[0]?.rfq[0]?.is_tender ?? currentRFQ?.is_tender)}`}
+        confirmButtonText={`Close ${getEntityLabel(currentRFQ?.is_tender)}`}
         cancelButtonText="Cancel"
       />
     </>
