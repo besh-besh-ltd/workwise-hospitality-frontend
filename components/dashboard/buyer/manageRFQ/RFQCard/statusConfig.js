@@ -1,4 +1,4 @@
-import { BsClockFill, BsCheckCircleFill, BsXCircleFill, BsAwardFill } from 'react-icons/bs';
+import { BsClockFill, BsCheckCircleFill, BsXCircleFill, BsAwardFill, BsExclamationOctagonFill } from 'react-icons/bs';
 
 export const STATUS_CONFIG = {
   PENDING_APPROVAL: {
@@ -10,6 +10,16 @@ export const STATUS_CONFIG = {
     badgeBackground: '#ffc107',
     badgeText: '#664d03',
     pulse: true
+  },
+  PUBLISHED_WITHOUT_APPROVAL: {
+    key: 'published_without_approval',
+    label: 'Moved to Backlog',
+    icon: BsExclamationOctagonFill,
+    borderColor: '#dc3545',
+    backgroundColor: '#fff5f5',
+    badgeBackground: '#dc3545',
+    badgeText: '#ffffff',
+    pulse: false
   },
   READY_TO_PUBLISH: {
     key: 'ready_to_publish',

@@ -35,6 +35,83 @@
 }
 
 // ============================================
+// ENTITY TYPE BADGE (RFQ / TENDER)
+// ============================================
+
+.typeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &.rfqType {
+    background: #e8f0fe;
+    color: #1a56db;
+    border: 1px solid #c6d9f7;
+  }
+
+  &.tenderType {
+    background: #f3e8ff;
+    color: #7c3aed;
+    border: 1px solid #ddd0f7;
+  }
+}
+
+// ============================================
+// BACKLOG WARNING BANNER
+// ============================================
+
+.backlogBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);
+  border-top: 1px solid #fecaca;
+  font-size: 0.78rem;
+  color: #991b1b;
+}
+
+.backlogIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fef2f2;
+  border: 1.5px solid #fca5a5;
+  flex-shrink: 0;
+  color: #dc2626;
+}
+
+.backlogText {
+  flex: 1;
+  line-height: 1.4;
+
+  strong {
+    color: #7f1d1d;
+  }
+}
+
+.backlogCard {
+  border-color: #fca5a5 !important;
+  border-left-color: #dc3545 !important;
+  background: #fffbfb;
+
+  @media (max-width: 767px) {
+    border-top-color: #dc3545 !important;
+  }
+}
+
+// ============================================
 // COMPACT VIEW - Header (Always Visible)
 // ============================================
 

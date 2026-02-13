@@ -338,6 +338,19 @@ export const sendHotelPaymentLink = (companyId, hotelId) =>
     }
   });
 
+export const sendBatchPaymentLinks = (payload) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(
+        `/hospitality/company/send-batch-payment-links`,
+        payload
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 export const getHotelPaymentInfo = (hotelId) =>
   new Promise(async (resolve, reject) => {
     try {
