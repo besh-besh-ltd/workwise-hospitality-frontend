@@ -1,0 +1,157 @@
+import React, { useState, useEffect } from "react";
+import Modal from "react-modal";
+import { BRAND_TEAL } from "../constants";
+
+const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) => {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (editingProcess) {
+        setName(editingProcess.name || "");
+        setDescription(editingProcess.description || "");
+      } else {
+        setName("");
+        setDescription("");
+      }
+      setSaving(false);
+    }
+  }, [isOpen, editingProcess]);
+
+  const handleSave = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      await onSave({ name: name.trim(), description: description.trim() || null });
+      onClose();
+    } catch (error) {
+      // Error toast handled by parent hook
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const isEdit = !!editingProcess;
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={saving ? undefined : onClose}
+      ariaHideApp={false}
+      contentLabel={isEdit ? "Edit Process" : "Create Process"}
+      shouldCloseOnOverlayClick={!saving}
+      shouldCloseOnEsc={!saving}
+      style={{
+        overlay: {
+          backgroundColor: "rgba(0, 0, 0, 0.75)",
+          zIndex: 9999,
+        },
+        content: {
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          maxWidth: "480px",
+          width: "90%",
+          border: "none",
+          background: "#fff",
+          overflow: "hidden",
+          padding: "0",
+          borderRadius: "12px",
+          height: "48vh",
+        },
+      }}
+    >
+      <div style={{ borderBottom: "1px solid #e5e7eb", padding: "20px 24px" }}>
+        <div className="d-flex justify-content-between align-items-center">
+          <h5 className="mb-0 fw-bold" style={{ fontSize: "18px" }}>
+            {isEdit ? "Edit Process" : "Create Process"}
+          </h5>
+          <button
+            type="button"
+            className="btn-close"
+            onClick={onClose}
+            disabled={saving}
+            aria-label="Close"
+          />
+        </div>
+      </div>
+
+      <div style={{ padding: "24px" }}>
+        <div className="mb-3">
+          <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+            Process Name <span className="text-danger">*</span>
+          </label>
+          <input
+            type="text"
+            className="form-control"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Renovation, Day to Day Procurement"
+            maxLength={100}
+            autoFocus
+            style={{ borderRadius: "6px" }}
+          />
+        </div>
+        <div className="mb-1">
+          <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+            Description <span className="text-muted fw-normal">(optional)</span>
+          </label>
+          <textarea
+            className="form-control"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Brief description of this process..."
+            rows={3}
+            maxLength={500}
+            style={{ borderRadius: "6px", resize: "none" }}
+          />
+          <small className="text-muted d-block text-end mt-1">{description.length}/500</small>
+        </div>
+      </div>
+
+      <div
+        className="d-flex justify-content-end gap-2"
+        style={{ borderTop: "1px solid #e5e7eb", padding: "16px 24px" }}
+      >
+        <button
+          className="btn btn-outline-secondary"
+          onClick={onClose}
+          disabled={saving}
+          style={{ borderRadius: "6px", padding: "8px 20px", fontSize: "13px" }}
+        >
+          Cancel
+        </button>
+        <button
+          className="btn"
+          onClick={handleSave}
+          disabled={saving || !name.trim()}
+          style={{
+            backgroundColor: BRAND_TEAL,
+            borderColor: BRAND_TEAL,
+            color: "#fff",
+            borderRadius: "6px",
+            padding: "8px 20px",
+            fontSize: "13px",
+            opacity: saving || !name.trim() ? 0.65 : 1,
+          }}
+        >
+          {saving ? (
+            <>
+              <span className="spinner-border spinner-border-sm me-2" role="status" />
+              Saving...
+            </>
+          ) : isEdit ? (
+            "Update Process"
+          ) : (
+            "Create Process"
+          )}
+        </button>
+      </div>
+    </Modal>
+  );
+};
+
+export default ProcessFormModal;

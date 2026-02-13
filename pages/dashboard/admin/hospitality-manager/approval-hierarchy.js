@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { AdminGuard } from "@/utils/authGuard";
-import ApprovalHierarchyPage from "@/components/dashboard/admin/hospitality-manager/ApprovalHierarchyPage";
+import ApprovalHierarchyPage from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy";
 import { getProfile } from "@/services/Auth";
 
 const ApprovalHierarchyPageRoute = () => {
