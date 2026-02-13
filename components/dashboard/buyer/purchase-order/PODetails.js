@@ -122,6 +122,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     finalized_vendor_id,
     finalized_vendor_name,
     finalized_vendor_email,
+    finalized_vendor_phone,
     status,
     quantity,
     unit_price,
@@ -524,7 +525,12 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               <div>
                 <strong>{finalized_vendor_name}</strong>{" "}
                 <small className="text-muted">(Finalized Vendor)</small>
-                <div className="text-muted">{finalized_vendor_email}</div>
+                {finalized_vendor_email && (
+                  <div className="text-muted">{finalized_vendor_email}</div>
+                )}
+                {finalized_vendor_phone && (
+                  <div className="text-muted">+91 {finalized_vendor_phone}</div>
+                )}
               </div>
             </Card.Body>
           </Card>
