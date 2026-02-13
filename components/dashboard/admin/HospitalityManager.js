@@ -121,6 +121,10 @@ const HospitalityManager = () => {
   const [editingHotel, setEditingHotel] = useState(null);
   const [showUserMappingModal, setShowUserMappingModal] = useState(false);
   const [showProjectMappingModal, setShowProjectMappingModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentMode, setPaymentMode] = useState('bu');
+  const [selectedHotels, setSelectedHotels] = useState([]);
+  const [isSendingPaymentLinks, setIsSendingPaymentLinks] = useState(false);
 
   const [companyDocuments, setCompanyDocuments] = useState({
     gst: null,
@@ -1212,8 +1216,13 @@ const HospitalityManager = () => {
                     value={hotelForm.email}
                     onChange={(e) => setHotelForm((prev) => ({ ...prev, email: e.target.value }))}
                     placeholder="business-unit@example.com"
+                    disabled={editingHotel && editingHotel.payment_status === 'active'}
                   />
-                  <small className="text-muted">Payment link will be sent to this email</small>
+                  <small className="text-muted">
+                    {editingHotel && editingHotel.payment_status === 'active'
+                      ? 'Cannot change email after payment is completed'
+                      : 'Payment link will be sent to this email'}
+                  </small>
                 </div>
                 <div className="col-md-6">
                   <label className="form-label">Onboarding Fee (₹)</label>
@@ -1224,7 +1233,11 @@ const HospitalityManager = () => {
                     onChange={(e) => setHotelForm((prev) => ({ ...prev, fee_amount: e.target.value }))}
                     placeholder="500"
                     min="0"
+                    disabled={editingHotel && editingHotel.payment_status === 'active'}
                   />
+                  {editingHotel && editingHotel.payment_status === 'active' && (
+                    <small className="text-muted">Cannot change fee after payment is completed</small>
+                  )}
                 </div>
                 <div className="col-12">
                   <label className="form-label">Full Address</label>
@@ -1657,6 +1670,277 @@ const HospitalityManager = () => {
     );
   }
 
+  function renderPaymentModal() {
+    // For BU mode: only show hotels with emails
+    // For Company mode: show all pending hotels regardless of email (will send to company email)
+    const pendingHotels = selectedCompanyHotels.filter(h => {
+      const isPending = h.payment_status !== 'active' && parseFloat(h.fee_amount || 0) > 0;
+      if (paymentMode === 'bu') {
+        return isPending && h.email; // BU mode requires individual emails
+      }
+      return isPending; // Company mode doesn't require BU emails
+    });
+
+    const selectedHotelData = pendingHotels.filter(h => selectedHotels.includes(h.id));
+    const totalAmount = selectedHotelData.reduce((sum, h) => sum + parseFloat(h.fee_amount || 0), 0);
+
+    const handleSendPaymentLinks = async () => {
+      if (selectedHotels.length === 0) {
+        toast.warning('Please select at least one business unit');
+        return;
+      }
+
+      setIsSendingPaymentLinks(true);
+      try {
+        const { sendBatchPaymentLinks } = await import("@/services/hospitality");
+        await sendBatchPaymentLinks({
+          company_id: selectedCompanyId,
+          payment_mode: paymentMode,
+          hotel_ids: selectedHotels
+        });
+
+        const mode = paymentMode === 'bu' ? 'individual' : 'consolidated';
+        toast.success(`${mode === 'individual' ? 'Individual payment links' : 'Consolidated payment link'} sent successfully!`);
+        setShowPaymentModal(false);
+        setSelectedHotels([]);
+        setPaymentMode('bu');
+        loadHotels(selectedCompanyId);
+      } catch (error) {
+        toast.error(error.message || 'Failed to send payment links');
+      } finally {
+        setIsSendingPaymentLinks(false);
+      }
+    };
+
+    return (
+      <Modal
+        isOpen={showPaymentModal}
+        onRequestClose={() => {
+          setShowPaymentModal(false);
+          setSelectedHotels([]);
+          setPaymentMode('bu');
+        }}
+        ariaHideApp={false}
+        style={{
+          ...modalStyles,
+          content: { ...modalStyles.content, maxWidth: "700px" },
+        }}
+      >
+        <div className="modal-header px-4 py-3 border-bottom" style={{ backgroundColor: "#f8fafc" }}>
+          <div>
+            <h5 className="modal-title mb-1">Send Payment Links</h5>
+            <small className="text-muted">Send onboarding payment links to <strong>{selectedCompany?.name}</strong></small>
+          </div>
+          <button
+            type="button"
+            className="btn-close"
+            onClick={() => {
+              setShowPaymentModal(false);
+              setSelectedHotels([]);
+              setPaymentMode('bu');
+            }}
+          />
+        </div>
+        <div className="modal-body p-4">
+          {pendingHotels.length === 0 ? (
+            <div className="text-center py-5">
+              <i className="bi bi-check-circle-fill text-success" style={{ fontSize: "48px" }}></i>
+              <p className="mt-3 mb-0 text-muted">All business units are either paid or don't have payment details configured.</p>
+            </div>
+          ) : (
+            <>
+              {/* Payment Mode Selection */}
+              <div className="mb-4">
+                <label className="form-label fw-semibold">Who will pay?</label>
+                <div className="d-flex gap-3">
+                  <div className="form-check flex-fill">
+                    <input
+                      className="form-check-input"
+                      type="radio"
+                      name="paymentMode"
+                      id="paymentModeBU"
+                      value="bu"
+                      checked={paymentMode === 'bu'}
+                      onChange={(e) => {
+                        setPaymentMode(e.target.value);
+                        setSelectedHotels([]); // Clear selections when mode changes
+                      }}
+                    />
+                    <label className="form-check-label w-100" htmlFor="paymentModeBU">
+                      <div className="d-flex align-items-start">
+                        <div>
+                          <strong className="d-block">Business Unit</strong>
+                          <small className="text-muted">Individual payment links sent to each BU's contact email</small>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                  <div className="form-check flex-fill">
+                    <input
+                      className="form-check-input"
+                      type="radio"
+                      name="paymentMode"
+                      id="paymentModeCompany"
+                      value="company"
+                      checked={paymentMode === 'company'}
+                      onChange={(e) => {
+                        setPaymentMode(e.target.value);
+                        setSelectedHotels([]); // Clear selections when mode changes
+                      }}
+                    />
+                    <label className="form-check-label w-100" htmlFor="paymentModeCompany">
+                      <div className="d-flex align-items-start">
+                        <div>
+                          <strong className="d-block">Company</strong>
+                          <small className="text-muted">One consolidated payment link with total amount</small>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Business Unit Selection */}
+              <div className="mb-4">
+                <label className="form-label fw-semibold">Select Business Units</label>
+                <div className="border rounded p-3" style={{ maxHeight: "300px", overflowY: "auto" }}>
+                  <div className="form-check mb-2">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="selectAllHotels"
+                      checked={selectedHotels.length === pendingHotels.length && pendingHotels.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedHotels(pendingHotels.map(h => h.id));
+                        } else {
+                          setSelectedHotels([]);
+                        }
+                      }}
+                    />
+                    <label className="form-check-label fw-semibold" htmlFor="selectAllHotels">
+                      Select All ({pendingHotels.length})
+                    </label>
+                  </div>
+                  <hr className="my-2" />
+                  {pendingHotels.map(hotel => (
+                    <div key={hotel.id} className="form-check mb-2">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id={`hotel-${hotel.id}`}
+                        checked={selectedHotels.includes(hotel.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedHotels([...selectedHotels, hotel.id]);
+                          } else {
+                            setSelectedHotels(selectedHotels.filter(id => id !== hotel.id));
+                          }
+                        }}
+                      />
+                      <label className="form-check-label w-100 d-flex justify-content-between" htmlFor={`hotel-${hotel.id}`}>
+                        <span>
+                          <strong>{hotel.name}</strong>
+                          {hotel.city && <small className="text-muted ms-2">({hotel.city})</small>}
+                          <br />
+                          <small className="text-muted">
+                            {hotel.email || (paymentMode === 'company' ? 'No email (will use company email)' : 'No email configured')}
+                          </small>
+                        </span>
+                        <span className="text-nowrap ms-2">
+                          <strong style={{ color: "#158993" }}>₹{hotel.fee_amount}</strong>
+                        </span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Summary */}
+              {selectedHotels.length > 0 && (
+                <div className="alert alert-info border-0" style={{ backgroundColor: "#e0f7fa" }}>
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div className="flex-grow-1">
+                      <strong>{selectedHotels.length} business unit(s) selected</strong>
+                      {paymentMode === 'company' && (
+                        <div className="mt-2">
+                          <small className="d-block mb-1">One consolidated payment link will be sent to:</small>
+                          <div className="d-flex align-items-center gap-2">
+                            <i className="bi bi-envelope-fill" style={{ color: "#158993", fontSize: "14px" }}></i>
+                            <strong style={{ fontSize: "13px" }}>
+                              {selectedCompany?.contact_email || selectedHotelData[0]?.email || 'Company email not configured'}
+                            </strong>
+                          </div>
+                        </div>
+                      )}
+                      {paymentMode === 'bu' && (
+                        <div className="mt-2">
+                          <small className="d-block mb-1">Individual payment links will be sent to:</small>
+                          {selectedHotelData.slice(0, 3).map((hotel, idx) => (
+                            <div key={hotel.id} className="d-flex align-items-center gap-2 mb-1">
+                              <i className="bi bi-envelope" style={{ color: "#158993", fontSize: "12px" }}></i>
+                              <small style={{ fontSize: "12px" }}>
+                                <strong>{hotel.name}:</strong> {hotel.email}
+                              </small>
+                            </div>
+                          ))}
+                          {selectedHotelData.length > 3 && (
+                            <small className="text-muted" style={{ fontSize: "11px" }}>
+                              ... and {selectedHotelData.length - 3} more
+                            </small>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-end ms-3">
+                      <div style={{ fontSize: "11px", color: "#666" }}>Total Amount</div>
+                      <div style={{ fontSize: "24px", fontWeight: "700", color: "#158993" }}>₹{totalAmount.toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="d-flex justify-content-end gap-2 pt-3 border-top">
+                <button
+                  type="button"
+                  className="btn btn-light px-4"
+                  onClick={() => {
+                    setShowPaymentModal(false);
+                    setSelectedHotels([]);
+                    setPaymentMode('bu');
+                  }}
+                  disabled={isSendingPaymentLinks}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary px-4"
+                  onClick={handleSendPaymentLinks}
+                  disabled={isSendingPaymentLinks || selectedHotels.length === 0}
+                  style={{ backgroundColor: "#158993", borderColor: "#158993" }}
+                >
+                  {isSendingPaymentLinks ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-envelope me-2"></i>
+                      Send Payment Link{selectedHotels.length > 1 ? 's' : ''}
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+    );
+  }
+
   return (
     <>
       {/* Header Section */}
@@ -1908,15 +2192,30 @@ const HospitalityManager = () => {
                     <div className="card buyer-card border-0 shadow-sm">
                       <div className="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
                         <h5 className="mb-0">Business Units</h5>
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-sm"
-                          onClick={() => setShowHotelModal(true)}
-                          style={{ backgroundColor: "#158993", borderColor: "#158993" }}
-                        >
-                          <i className="bi bi-plus-lg me-1"></i>
-                          Add Business Unit
-                        </button>
+                        <div className="d-flex gap-2">
+                          {selectedCompanyHotels.filter(h =>
+                            h.payment_status !== 'active' && parseFloat(h.fee_amount || 0) > 0
+                          ).length > 0 && (
+                            <button
+                              type="button"
+                              className="btn btn-outline-success btn-sm"
+                              onClick={() => setShowPaymentModal(true)}
+                              title="Send onboarding payment links"
+                            >
+                              <i className="bi bi-envelope me-1"></i>
+                              Send Payment Links
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => setShowHotelModal(true)}
+                            style={{ backgroundColor: "#158993", borderColor: "#158993" }}
+                          >
+                            <i className="bi bi-plus-lg me-1"></i>
+                            Add Business Unit
+                          </button>
+                        </div>
                       </div>
                       <div className="card-body p-0">
                         {isLoadingHotels ? (
@@ -2009,26 +2308,6 @@ const HospitalityManager = () => {
                                       </td>
                                       <td className="py-3 text-end pe-4">
                                         <div className="d-flex gap-2 justify-content-end">
-                                          {hotel.email && hotel.payment_status !== "active" && (
-                                            <button
-                                              type="button"
-                                              className="btn btn-sm btn-outline-success"
-                                              onClick={async () => {
-                                                try {
-                                                  const { sendHotelPaymentLink } = await import("@/services/hospitality");
-                                                  await sendHotelPaymentLink(selectedCompanyId, hotel.id);
-                                                  toast.success("Payment link sent to " + hotel.email);
-                                                  loadHotels(selectedCompanyId);
-                                                } catch (error) {
-                                                  toast.error("Failed to send payment link");
-                                                }
-                                              }}
-                                              title="Send Payment Link"
-                                            >
-                                              <i className="bi bi-envelope"></i>
-                                              <span className="ms-1 d-none d-md-inline">Send Link</span>
-                                            </button>
-                                          )}
                                           <button
                                             type="button"
                                             className="btn btn-sm btn-outline-secondary"
@@ -2332,6 +2611,7 @@ const HospitalityManager = () => {
       {/* Commented out - Map Users modal temporarily disabled */}
       {/* {renderUserMappingModal()} */}
       {renderProjectMappingModal()}
+      {renderPaymentModal()}
     </>
   );
 };
