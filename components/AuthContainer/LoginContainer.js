@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/router';
 import { LoginService, SWSubscribe, handleSocialLogin } from "@/services/Auth";
 import { hospitalitySubscriptionPayment, loadScript, testRazorPayEndpoint } from "@/services/subscription";
@@ -18,8 +18,8 @@ const LoginContainer = (props) => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [employeeCode, setEmployeeCode] = useState("");
-    const [loginWith, setLoginWith] = useState("");
     const [, setIsHospitalityPaymentLoading] = useState(false);
+    const retryDataRef = useRef(null);
     
     const handleOtherDeviceLoginModalOpen = () => {
         setShowModal(true);
@@ -31,7 +31,7 @@ const LoginContainer = (props) => {
 
     const handleClose = () => {
         setShowModal(false);
-        setLoginWith("");
+        retryDataRef.current = null;
     };
 
     const swSubscription = useSelector((data) => data.swSubscription);
@@ -183,23 +183,16 @@ const LoginContainer = (props) => {
                     error?.message?.response?.status === 400 &&
                     error?.message?.response?.data?.status === 4
                 ) {
+                    retryDataRef.current = {
+                        type: values.employee_code ? "employee_code" : "email",
+                        values: { ...values },
+                    };
+                    props.setOpenAuthModal(false);
                     setTimeout(() => {
-                        handleChange(props.setOpenAuthModal(false));
-                    }, 1000);
-
-                    setTimeout(() => {
-                        setLoginWith(values.employee_code ? "employee_code" : "email");
                         handleOtherDeviceLoginModalOpen();
-                    }, 1000);
+                    }, 300);
                 } else if (error?.message?.response?.data) {
                     toast.error(error?.message?.response?.data?.message, {
-                        position: "top-right",
-                    });
-                }
-
-                if (error?.response?.status === 400) {
-                } else {
-                    toast.error(error?.message, {
                         position: "top-right",
                     });
                 }
@@ -213,10 +206,10 @@ const LoginContainer = (props) => {
                     login_type: "google",
                     access_token: tokenResponse.access_token,
                 },
-                loginWith ? true : false
+                retryDataRef.current?.type === "google" ? true : false
             )
                 .then((response) => {
-                    if (loginWith === "google") {
+                    if (retryDataRef.current?.type === "google") {
                         handleClose();
                     }
                     // subscribe to SW
@@ -263,14 +256,14 @@ const LoginContainer = (props) => {
                         error?.message?.response?.status === 400 &&
                         error?.message?.response?.data?.status === 4
                     ) {
+                        retryDataRef.current = {
+                            type: "google",
+                            values: null,
+                        };
+                        props.setOpenAuthModal(false);
                         setTimeout(() => {
-                            handleChange(props.setOpenAuthModal(false));
-                        }, 2000);
-
-                        setTimeout(() => {
-                            setLoginWith("google");
                             handleOtherDeviceLoginModalOpen();
-                        }, 1000);
+                        }, 300);
                     } else if (error?.message?.response?.data) {
                         toast.error(error?.message?.response?.data?.message, {
                             position: "top-right",
@@ -282,6 +275,16 @@ const LoginContainer = (props) => {
             props.setloading(false);
         },
     });
+
+    const handleRetryLogin = () => {
+        const retryData = retryDataRef.current;
+        if (!retryData) return;
+        if (retryData.type === "google") {
+            loginWithGoogle();
+        } else {
+            loginSubmitHandler(retryData.values, true);
+        }
+    };
 
     return (
         <>
@@ -303,12 +306,7 @@ const LoginContainer = (props) => {
             <LoginWithOtherDeviceModal
                 show={showModal}
                 onHide={handleClose}
-                email={email}
-                password={password}
-                employeeCode={employeeCode}
-                loginSubmitHandler={loginSubmitHandler}
-                loginWithGoogle={loginWithGoogle}
-                loginWith={loginWith}
+                handleRetryLogin={handleRetryLogin}
             />
         </>
     )
