@@ -38,9 +38,9 @@ const HotelVendor = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showOtherDeviceModal, setShowOtherDeviceModal] = useState(false);
-  const [loginWith, setLoginWith] = useState('');
   // Use ref instead of state for payment success tracking - refs are synchronous
   const paymentSuccessfulRef = useRef(false);
+  const retryDataRef = useRef(null);
 
   // Query param auto-open
   useEffect(() => {
@@ -309,6 +309,9 @@ const HotelVendor = () => {
     LoginService(values, isFromOtherModal)
       .then((response) => {
         setLoading(false);
+        if (isFromOtherModal) {
+          handleCloseOtherDeviceModal();
+        }
         if (response?.status === 5 && response?.hospitality_user) {
           toast.warning('Payment required for hospitality vendors. Please complete the payment to activate your account.');
           const payload = {
@@ -383,14 +386,14 @@ const HotelVendor = () => {
           error?.message?.response?.status === 400 &&
           error?.message?.response?.data?.status === 4
         ) {
+          retryDataRef.current = {
+            type: values.employee_code ? 'employee_code' : 'email',
+            values: { ...values },
+          };
+          setShowLoginModal(false);
           setTimeout(() => {
-            setShowLoginModal(false);
-          }, 1000);
-
-          setTimeout(() => {
-            setLoginWith('email');
             setShowOtherDeviceModal(true);
-          }, 1000);
+          }, 300);
         } else if (error?.message?.response?.data) {
           toast.error(error?.message?.response?.data?.message, {
             position: 'top-right',
@@ -460,14 +463,14 @@ const HotelVendor = () => {
             error?.message?.response?.status === 400 &&
             error?.message?.response?.data?.status === 4
           ) {
+            retryDataRef.current = {
+              type: 'google',
+              values: null,
+            };
+            setShowLoginModal(false);
             setTimeout(() => {
-              setShowLoginModal(false);
-            }, 2000);
-
-            setTimeout(() => {
-              setLoginWith('google');
               setShowOtherDeviceModal(true);
-            }, 1000);
+            }, 300);
           } else if (error?.message?.response?.data) {
             toast.error(error?.message?.response?.data?.message, {
               position: 'top-right',
@@ -486,6 +489,21 @@ const HotelVendor = () => {
       });
     },
   });
+
+  const handleRetryLogin = () => {
+    const retryData = retryDataRef.current;
+    if (!retryData) return;
+    if (retryData.type === 'google') {
+      loginWithGoogle();
+    } else {
+      loginSubmitHandler(retryData.values, true);
+    }
+  };
+
+  const handleCloseOtherDeviceModal = () => {
+    setShowOtherDeviceModal(false);
+    retryDataRef.current = null;
+  };
 
   return (
     <>
@@ -636,15 +654,8 @@ const HotelVendor = () => {
 
       <LoginWithOtherDeviceModal
         show={showOtherDeviceModal}
-        onHide={() => {
-          setShowOtherDeviceModal(false);
-          setLoginWith('');
-        }}
-        email={email}
-        password={password}
-        loginSubmitHandler={loginSubmitHandler}
-        loginWithGoogle={loginWithGoogle}
-        loginWith={loginWith}
+        onHide={handleCloseOtherDeviceModal}
+        handleRetryLogin={handleRetryLogin}
       />
 
       <ToastContainer />
