@@ -60,11 +60,14 @@ const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) =>
           overflow: "hidden",
           padding: "0",
           borderRadius: "12px",
-          height: "48vh",
+          maxHeight: "95vh",
+          display: "flex",
+          flexDirection: "column",
         },
       }}
     >
-      <div style={{ borderBottom: "1px solid #e5e7eb", padding: "20px 24px" }}>
+      {/* Header - Fixed */}
+      <div style={{ borderBottom: "1px solid #e5e7eb", padding: "16px 20px", flexShrink: 0 }}>
         <div className="d-flex justify-content-between align-items-center">
           <h5 className="mb-0 fw-bold" style={{ fontSize: "18px" }}>
             {isEdit ? "Edit Process" : "Create Process"}
@@ -79,9 +82,10 @@ const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) =>
         </div>
       </div>
 
-      <div style={{ padding: "24px" }}>
-        <div className="mb-3">
-          <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+      {/* Content - Dynamic shrinking */}
+      <div style={{ padding: "20px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <div className="mb-3" style={{ flexShrink: 0 }}>
+          <label className="form-label fw-semibold" style={{ fontSize: "13px", marginBottom: "6px" }}>
             Process Name <span className="text-danger">*</span>
           </label>
           <input
@@ -95,8 +99,8 @@ const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) =>
             style={{ borderRadius: "6px" }}
           />
         </div>
-        <div className="mb-1">
-          <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <label className="form-label fw-semibold" style={{ fontSize: "13px", marginBottom: "6px", flexShrink: 0 }}>
             Description <span className="text-muted fw-normal">(optional)</span>
           </label>
           <textarea
@@ -104,17 +108,17 @@ const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) =>
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Brief description of this process..."
-            rows={3}
             maxLength={500}
-            style={{ borderRadius: "6px", resize: "none" }}
+            style={{ borderRadius: "6px", resize: "none", flex: 1, minHeight: "60px" }}
           />
-          <small className="text-muted d-block text-end mt-1">{description.length}/500</small>
+          <small className="text-muted d-block text-end mt-1" style={{ flexShrink: 0 }}>{description.length}/500</small>
         </div>
       </div>
 
+      {/* Footer - Fixed */}
       <div
         className="d-flex justify-content-end gap-2"
-        style={{ borderTop: "1px solid #e5e7eb", padding: "16px 24px" }}
+        style={{ borderTop: "1px solid #e5e7eb", padding: "14px 20px", flexShrink: 0 }}
       >
         <button
           className="btn btn-outline-secondary"

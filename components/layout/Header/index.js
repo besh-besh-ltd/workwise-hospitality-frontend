@@ -897,7 +897,7 @@ const Header = () => {
                 {!mainNavs.includes(pathname) && (
                   <div className="header-right header-center align-items-center forLoggedIn" ref={navContainerRef}>
                     <nav className="main-menu">
-                      <ul className="d-flex justify-content-start w-100">
+                      <ul className="d-flex justify-content-center w-100">
                         {currentRoleMenu
                           ?.filter(
                             (menuType) => menuClass || menuType.targetMenu == "nav"
