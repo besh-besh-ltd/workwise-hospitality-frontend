@@ -51,7 +51,16 @@
     }
 }
 
-@media screen and (max-width: 1279px) {
+// Fix overlapping at 1400px - hide normalMenu and show hamburger
+@media screen and (max-width: 1399px) {
+    .main-header {
+        .normalMenu {
+            display: none !important;
+        }
+    }
+}
+
+@media screen and (max-width: 1399px) {
     .main-header {
         &::before {
             content: "";
