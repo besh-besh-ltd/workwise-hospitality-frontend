@@ -24,7 +24,7 @@ const useApprovalData = (companyId, hotelId) => {
       const foundHotel = hotels.find((h) => h.id === parseInt(hotelId));
       if (foundHotel) setHotel(foundHotel);
     } catch (error) {
-      console.error("Error loading hotel:", error);
+      console.error("Error loading business unit:", error);
     }
   };
 

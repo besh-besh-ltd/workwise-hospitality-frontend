@@ -101,7 +101,7 @@ const ApprovalHierarchyPage = () => {
         setCompany({ id: parseInt(companyId) });
       }
     } catch (error) {
-      console.error("Error loading hotel:", error);
+      console.error("Error loading business unit:", error);
     }
   };
 
@@ -532,7 +532,7 @@ const ApprovalHierarchyPage = () => {
                         <div className="mt-2 mb-2">
                           <small className="text-warning">
                             <i className="bi bi-exclamation-triangle me-1"></i>
-                            No users found with this role for this hotel
+                            No users found with this role for this business unit
                           </small>
                         </div>
                       )}
@@ -713,7 +713,7 @@ const ApprovalHierarchyPage = () => {
                     placeholder="Select document type..."
                   />
                   <div className="mt-2 p-2 rounded" style={{ backgroundColor: "#f8f9fa", fontSize: "12px" }}>
-                    <strong>Example:</strong> If you select "Tender Approval", all tenders created for this hotel will follow this workflow.
+                    <strong>Example:</strong> If you select "Tender Approval", all tenders created for this business unit will follow this workflow.
                   </div>
                 </div>
 
@@ -1009,7 +1009,7 @@ const ApprovalHierarchyPage = () => {
                 <i className="bi bi-diagram-3 text-muted" style={{ fontSize: "64px" }}></i>
                 <h5 className="mt-3 mb-2">No Approval Workflows</h5>
                 <p className="text-muted mb-4">
-                  Create an approval workflow to define who needs to approve documents for this hotel
+                  Create an approval workflow to define who needs to approve documents for this business unit
                 </p>
                 <button
                   className="btn btn-primary"

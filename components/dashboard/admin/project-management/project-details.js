@@ -442,7 +442,7 @@ const ProjectDetailsPage = () => {
       hospitalityForm.mappingLevel === "hotel" &&
       !hospitalityForm.hotelId
     ) {
-      toast.error("Select a hotel for hotel-level mapping");
+      toast.error("Select a business unit for business unit-level mapping");
       return;
     }
     try {
@@ -738,7 +738,7 @@ const ProjectDetailsPage = () => {
                           <div>
                             <h3 className="card-title mb-1">Hospitality Mapping</h3>
                             <small className="text-muted">
-                              Map this project to hospitality companies or hotels
+                              Map this project to hospitality companies or business units
                             </small>
                           </div>
                         </div>

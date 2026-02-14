@@ -19,7 +19,7 @@ const EmptyState = ({ onCreateWorkflow, title, subtitle, compact = false }) => {
         {title || "No Approval Workflows"}
       </h5>
       <p className="text-muted mb-4" style={{ fontSize: compact ? "13px" : "14px", maxWidth: "400px", margin: "0 auto 16px" }}>
-        {subtitle || "Create an approval workflow to define who needs to approve documents for this hotel."}
+        {subtitle || "Create an approval workflow to define who needs to approve documents for this business unit."}
       </p>
       {onCreateWorkflow && (
         <button

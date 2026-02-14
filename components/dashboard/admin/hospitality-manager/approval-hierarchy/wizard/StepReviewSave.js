@@ -122,7 +122,7 @@ const StepReviewSave = ({
         </div>
         {hotel && (
           <div className="summary-card">
-            <div className="summary-label">Hotel</div>
+            <div className="summary-label">Business Unit</div>
             <div className="summary-value" style={{ fontSize: "14px" }}>{hotel.name}</div>
           </div>
         )}
@@ -141,7 +141,7 @@ const StepReviewSave = ({
         <BsCheckCircle size={18} style={{ color: "#16a34a", flexShrink: 0 }} />
         <p>
           Once saved, this workflow will apply to all new <strong>{entityConfig.label.replace(" Approval", "")}</strong> documents
-          for this hotel{wizardForm.process_id ? ` under the "${processName}" process` : ""}.
+          for this business unit{wizardForm.process_id ? ` under the "${processName}" process` : ""}.
         </p>
       </div>
     </div>

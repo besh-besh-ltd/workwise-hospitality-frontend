@@ -671,7 +671,7 @@ const handleCreateLocation = async (locationData) => {
                     </p>
                   ) : groupedHospitalityScopes.length === 0 ? (
                     <p className="text-muted mb-0">
-                      You are not mapped to any hospitality company or hotel yet.
+                      You are not mapped to any hospitality company or business unit yet.
                       Contact your administrator to gain access.
                     </p>
                   ) : (
@@ -691,10 +691,10 @@ const handleCreateLocation = async (locationData) => {
                           </div>
                           <span className="text-muted small">
                             {scope.hotels.length
-                              ? `${scope.hotels.length} hotel${
+                              ? `${scope.hotels.length} business unit${
                                   scope.hotels.length > 1 ? "s" : ""
                                 }`
-                              : "No hotel-level mapping"}
+                              : "No business unit-level mapping"}
                           </span>
                         </div>
                         {scope.hotels.length > 0 && (

@@ -328,7 +328,7 @@ const ManageAccountsPage = () => {
       hospitalityForm.mappingLevel === "hotel" &&
       !hospitalityForm.hotelId
     ) {
-      toast.error("Select a hotel for hotel-level mapping");
+      toast.error("Select a business unit for business unit-level mapping");
       return;
     }
     try {
@@ -620,7 +620,7 @@ const ManageAccountsPage = () => {
                           onChange={(val) =>
                             setFilters((prev) => ({ ...prev, hotelId: val }))
                           }
-                          placeholder="All Hotels"
+                          placeholder="All Business Units"
                           isClearable
                           id="filter_by_hotel-account_filters-manage_accounts_page"
                         />

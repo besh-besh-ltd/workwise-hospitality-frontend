@@ -690,7 +690,7 @@ const HospitalityManager = () => {
       });
       setHotelDocuments(docMap);
     } catch (error) {
-      console.error("Error fetching hotel documents:", error);
+      console.error("Error fetching business unit documents:", error);
     }
   };
 
@@ -2187,7 +2187,7 @@ const HospitalityManager = () => {
                     </li>
                   </ul>
 
-                  {/* Hotels Tab Content */}
+                  {/* Business Units Tab Content */}
                   {activeTab === "hotels" && (
                     <div className="card buyer-card border-0 shadow-sm">
                       <div className="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
