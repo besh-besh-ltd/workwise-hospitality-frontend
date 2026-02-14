@@ -366,6 +366,9 @@ const Header = () => {
     getStoredHospitalityContext()
   );
   const [userBusinessUnits, setUserBusinessUnits] = useState([]);
+  const [hiddenNavItems, setHiddenNavItems] = useState([]);
+  const navContainerRef = useRef(null);
+  const navItemsRef = useRef([]);
 
   const togglePopover = () => {
     setPopoverVisible(!popoverVisible);
@@ -593,6 +596,49 @@ const Header = () => {
     }
     return baseMenu;
   }, [currentUserType, isHospitalityCompany]);
+
+  // Simple width-based responsive navigation for logged-in dashboard
+  useEffect(() => {
+    const updateNavVisibility = () => {
+      if (!loggedinUser || !pathname?.startsWith("/dashboard")) {
+        setHiddenNavItems([]);
+        return;
+      }
+
+      const navItems = currentRoleMenu?.filter(
+        (menuType) => menuType.targetMenu == "nav"
+      ) || [];
+
+      const windowWidth = window.innerWidth;
+      let visibleCount = navItems.length;
+
+      // Determine how many items to show based on window width
+      if (windowWidth < 1200) {
+        visibleCount = Math.max(2, Math.floor((windowWidth - 400) / 150));
+      } else if (windowWidth < 1400) {
+        visibleCount = Math.max(3, Math.floor((windowWidth - 400) / 140));
+      } else if (windowWidth < 1600) {
+        visibleCount = Math.max(4, navItems.length - 2);
+      }
+
+      // Ensure we don't try to show more items than we have
+      visibleCount = Math.min(visibleCount, navItems.length);
+
+      // Items beyond visibleCount go to dropdown
+      const itemsToHide = navItems.slice(visibleCount);
+      setHiddenNavItems(itemsToHide);
+    };
+
+    // Initial check
+    updateNavVisibility();
+
+    // Listen for window resize (catches zoom changes too)
+    window.addEventListener('resize', updateNavVisibility);
+
+    return () => {
+      window.removeEventListener('resize', updateNavVisibility);
+    };
+  }, [loggedinUser, pathname, currentRoleMenu]);
 
   // Hospitality scope button removed - hotel selection is now done via filters on each page
   const showHospitalityScopeButton = false;
@@ -849,19 +895,24 @@ const Header = () => {
             {loggedinUser && loggedinUser?.name && (pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")) ? (
               <>
                 {!mainNavs.includes(pathname) && (
-                  <div className="header-right header-center align-items-center forLoggedIn">
+                  <div className="header-right header-center align-items-center forLoggedIn" ref={navContainerRef}>
                     <nav className="main-menu">
                       <ul className="d-flex justify-content-start w-100">
                         {currentRoleMenu
                           ?.filter(
                             (menuType) => menuClass || menuType.targetMenu == "nav"
                           )
-                          ?.map((item) => (
+                          ?.filter(item => !hiddenNavItems.some(hidden => hidden.href === item.href))
+                          ?.map((item, index) => (
                             <li
                               key={item.href}
+                              ref={el => navItemsRef.current[index] = el}
                               className={
                                 pathname === item.href ? "active" : ""
                               }
+                              style={{
+                                display: hiddenNavItems.some(hidden => hidden.href === item.href) ? 'none' : ''
+                              }}
                             >
                               <Link href={item.href}>{item.label}</Link>
                             </li>
@@ -962,6 +1013,43 @@ const Header = () => {
                         )}
                       </div>
                       <ul className="vertical-links">
+                        {/* Show hidden navigation items first (overflow items) */}
+                        {hiddenNavItems.length > 0 && (
+                          <>
+                            <li className="overflow-section-header" style={{
+                              padding: "8px 16px",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: "#9ca3af",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.5px",
+                              borderBottom: "1px solid #e5e7eb",
+                              marginBottom: 0
+                            }}>
+                              Navigation
+                            </li>
+                            {hiddenNavItems.map((item) => (
+                              <li
+                                key={item.href}
+                                className={pathname === item.href ? "active" : ""}
+                              >
+                                <Link
+                                  href={item.href}
+                                  onClick={() => setPopoverVisible(false)}
+                                >
+                                  {item.label}
+                                </Link>
+                              </li>
+                            ))}
+                            <li style={{
+                              height: 1,
+                              backgroundColor: "#e5e7eb",
+                              margin: "8px 0",
+                              padding: 0
+                            }}></li>
+                          </>
+                        )}
+
                         {currentRoleMenu
                           ?.filter((menuType) => menuType.targetMenu == "popup")
                           ?.map((item) => (

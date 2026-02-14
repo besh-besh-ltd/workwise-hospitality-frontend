@@ -410,7 +410,7 @@ textarea {
   padding: 10px;
 }
 
-/* Header */
+/* Header - Fixed to prevent disappearing on browser zoom */
 .main-header {
   position: fixed;
   width: 100%;
@@ -420,6 +420,8 @@ textarea {
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
+  min-height: 60px;
+  overflow: visible !important;
 
   /* Ensure smooth transitions for all child elements */
   * {
@@ -428,10 +430,10 @@ textarea {
 
   /* Reduce horizontal paddings on header container at tighter widths (helps on browser zoom) */
   .container-fluid {
-    padding-left: clamp(12px, 1.8vw, 60px);
-    padding-right: clamp(8px, 1.5vw, 50px);
+    padding-left: clamp(16px, 2vw, 60px);
+    padding-right: clamp(12px, 1.8vw, 50px);
     max-width: 100%;
-    overflow-x: hidden;
+    overflow: visible !important;
   }
 
   /* Transparent state when at top */
@@ -620,12 +622,13 @@ textarea {
     padding: 12px 0;
     transition: var(--primary-transition);
     flex-wrap: nowrap;
-    column-gap: clamp(2px, 0.4vw, 10px);
+    column-gap: clamp(6px, 0.6vw, 12px);
     min-height: 60px;
     width: 100%;
+    overflow: visible !important;
 
     .logo {
-      width: clamp(110px, 12vw, 180px);
+      width: clamp(120px, 12vw, 180px);
       flex-shrink: 0;
       max-width: 200px;
       min-width: 120px;
@@ -636,6 +639,7 @@ textarea {
         transition: filter 0.3s ease;
         max-height: 50px;
         object-fit: contain;
+        min-width: 120px;
       }
 
       .logo-white {
@@ -648,7 +652,7 @@ textarea {
     flex: 1 1 auto;
     min-width: 0;
     max-width: 100%;
-    overflow-x: auto; /* prevent items from going out of screen on heavy zoom */
+    overflow: visible !important;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none; /* Firefox */
     &::-webkit-scrollbar { display: none; } /* Webkit */
@@ -8203,28 +8207,33 @@ td:hover .tooltip_custom {
 
 /* Mobile Navigation Improvements */
 @media (max-width: 991px) {
-  /* Ensure logo and hamburger are always visible */
+  /* Ensure logo and hamburger are always visible at all zoom levels */
   .main-header {
-    overflow-x: hidden;
+    overflow-x: visible !important;
+    min-height: 60px !important;
   }
-  
+
   .main-header .header-container {
     justify-content: space-between !important;
     align-items: center !important;
-    overflow: hidden;
+    overflow: visible !important;
     width: 100%;
+    min-height: 60px !important;
   }
-  
+
   .main-header .logo {
     flex-shrink: 0 !important;
     margin-right: auto !important;
-    width: clamp(65px, 6vw, 80px) !important;
+    width: clamp(80px, 8vw, 160px) !important;
+    min-width: 80px !important;
   }
-  
+
   .main-header .menu-ctrl {
     flex-shrink: 0 !important;
     margin-left: auto !important;
     background: transparent !important;
+    min-width: 40px !important;
+    min-height: 36px !important;
   }
   
   /* Hide login button in tight spaces, keep only book a call */
@@ -8554,33 +8563,38 @@ td:hover .tooltip_custom {
   text-overflow: ellipsis;
 }
 
-/* Additional zoom-level responsive breakpoints */
+/* Additional zoom-level responsive breakpoints - improved to prevent navbar disappearing on zoom */
 @media (max-width: 1100px) {
-  .main-header .logo { width: clamp(80px, 8vw, 80px); }
-  .main-header .main-menu ul li { font-size: clamp(0.9rem, 1vw, 1rem); }
-  .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: clamp(1px, 0.12vw, 2px) clamp(1px, 0.2vw, 2px); }
-  .main-header .supplier-cta .btn-supplier { min-width: clamp(50px, 4.5vw, 70px); font-size: clamp(0.55rem, 0.65vw, 0.65rem); }
-  .main-header .header-right { gap: clamp(1px, 0.1vw, 2px); }
+  .main-header .logo { width: clamp(100px, 10vw, 160px); min-width: 100px; }
+  .main-header .main-menu ul li { font-size: clamp(0.85rem, 1.2vw, 1rem); }
+  .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: clamp(4px, 0.5vw, 8px) clamp(6px, 0.8vw, 12px); }
+  .main-header .supplier-cta .btn-supplier { min-width: clamp(70px, 6vw, 100px); font-size: clamp(0.7rem, 0.9vw, 0.85rem); }
+  .main-header .header-right { gap: clamp(4px, 0.5vw, 8px); }
 }
 
 @media (max-width: 1000px) {
-  .main-header .logo { width: clamp(75px, 7.5vw, 110px); }
-  .main-header .main-menu ul li { font-size: clamp(0.9rem, 1vw, 1rem); }
-  .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: clamp(1px, 0.1vw, 1px) clamp(1px, 0.15vw, 2px); }
-  .main-header .supplier-cta .btn-supplier { min-width: clamp(46px, 4vw, 65px); font-size: clamp(0.52rem, 0.6vw, 0.6rem); }
-  .main-header .header-right { gap: clamp(0px, 0.08vw, 1px); }
+  .main-header .logo { width: clamp(90px, 9vw, 140px); min-width: 90px; }
+  .main-header .main-menu ul li { font-size: clamp(0.8rem, 1.1vw, 0.95rem); }
+  .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: clamp(3px, 0.4vw, 6px) clamp(5px, 0.7vw, 10px); }
+  .main-header .supplier-cta .btn-supplier { min-width: clamp(65px, 5.5vw, 90px); font-size: clamp(0.65rem, 0.85vw, 0.8rem); }
+  .main-header .header-right { gap: clamp(3px, 0.4vw, 6px); }
 }
 
-/* Ensure no horizontal overflow at any zoom level */
+/* Ensure navbar stays visible at any zoom level - prevent disappearing */
 @media (max-width: 900px) {
-  .main-header .header-container {
-    padding: 8px 0;
-    min-height: 50px;
+  .main-header {
+    min-height: 60px !important;
+    overflow: visible !important;
   }
-  .main-header .logo { width: clamp(70px, 7vw, 100px); }
-  .main-header .main-menu ul li { font-size: clamp(0.9rem, 1vw, 1rem); }
-  .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: 1px 1px; }
-  .main-header .supplier-cta .btn-supplier { min-width: clamp(42px, 3.5vw, 60px); font-size: clamp(0.5rem, 0.58vw, 0.58rem); }
+  .main-header .header-container {
+    padding: 10px 0;
+    min-height: 60px !important;
+    overflow: visible !important;
+  }
+  .main-header .logo { width: clamp(85px, 8.5vw, 130px); min-width: 85px; }
+  .main-header .main-menu ul li { font-size: clamp(0.75rem, 1vw, 0.9rem); }
+  .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: clamp(3px, 0.4vw, 6px) clamp(4px, 0.6vw, 8px); }
+  .main-header .supplier-cta .btn-supplier { min-width: clamp(60px, 5vw, 85px); font-size: clamp(0.6rem, 0.8vw, 0.75rem); }
 }
 
 
@@ -8957,4 +8971,104 @@ html, body {
 .outline-badge {
   border: 1px solid var(--bs-dark); /* Use Bootstrap's primary color variable for consistency */
   color: var(--bs-dark) !important; /* Ensure the text color matches the border */
+}
+
+/* Responsive Overflow Navigation - Prevent navbar from going blank on zoom */
+.main-header {
+  /* Ensure header never collapses */
+  .header-container {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  /* Logo must always be visible */
+  .logo {
+    flex-shrink: 0 !important;
+    z-index: 10 !important;
+  }
+
+  /* Navigation container for logged-in users */
+  .header-center {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    margin: 0 12px !important;
+
+    .main-menu {
+      overflow: hidden !important;
+
+      ul {
+        overflow: hidden !important;
+        flex-wrap: nowrap !important;
+        white-space: nowrap !important;
+      }
+
+      ul li {
+        flex-shrink: 1 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+      }
+    }
+  }
+
+  /* Profile dropdown must always be visible */
+  .forLoggedIn.hidemobile {
+    flex-shrink: 0 !important;
+    z-index: 10 !important;
+  }
+}
+
+/* Popover account dropdown styling for overflow items */
+.popover-account {
+  .overflow-section-header {
+    background-color: #f9fafb !important;
+  }
+
+  .vertical-links {
+    max-height: 500px;
+    overflow-y: auto;
+
+    li {
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: #f3f4f6;
+      }
+
+      a {
+        display: block;
+        padding: 10px 16px;
+        color: #374151;
+        text-decoration: none;
+        font-size: 14px;
+
+        &:hover {
+          color: var(--primary-color);
+        }
+      }
+
+      &.active a {
+        color: var(--primary-color);
+        font-weight: 600;
+        background-color: rgba(66, 139, 65, 0.08);
+      }
+    }
+  }
+}
+
+/* Prevent layout shift on zoom - keep minimum sizes */
+@media (min-width: 992px) {
+  .main-header .header-container {
+    min-height: 60px !important;
+  }
+
+  .main-header .logo {
+    min-width: 100px !important;
+  }
+
+  .main-header .forLoggedIn.hidemobile {
+    min-width: 50px !important;
+  }
 }
