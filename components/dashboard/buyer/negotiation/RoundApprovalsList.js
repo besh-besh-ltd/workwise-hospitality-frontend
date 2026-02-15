@@ -99,7 +99,7 @@ const RoundApprovalsList = ({ approvals, currentUserId, onApprove, onReject }) =
                     {getStatusBadge(approval.status)}
                     {approval.acted_at && (
                       <span className="text-muted small">
-                        {moment.utc(approval.acted_at).local().format("DD MMM YYYY, hh:mm a")}
+                        {moment.utc(approval.acted_at).local().format("DD-MM-YYYY hh:mm a")}
                       </span>
                     )}
                   </div>

@@ -9,7 +9,7 @@ import ReadMore from "@/components/shared/ReadMore";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { extractfileName, extractParsedNumber, formatPrice, handleFileUpload, moneyOrPercent, toNumber } from "@/utils/sharedFunctions";
+import { extractfileName, extractParsedNumber, formatDisplayDate, formatPrice, handleFileUpload, moneyOrPercent, toNumber } from "@/utils/sharedFunctions";
 import { faDeleteLeft, faDownload, faMinus, faPlus, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { renderFileLink } from "@/utils/elementFunctions";
 import SmartButton from "@/components/shared/SmartButton";
@@ -23,6 +23,7 @@ import ProductNegotiationBadge from "./ProductNegotiationBadge";
 import { checkOpenClarification } from "@/services/clarification";
 import { getAllVendorNegotiationStatus } from "@/services/negotiation";
 import { Alert } from "react-bootstrap";
+import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
@@ -168,16 +169,9 @@ const clarificationMsLeft = isClarificationWindowActive
 const formatISTDateTime = (date) => {
   if (!date) return "";
   try {
-    return new Intl.DateTimeFormat("en-IN", {
-      timeZone: "Asia/Kolkata",
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
+    return formatDisplayDate(date, { includeTime: true });
   } catch {
-    return date.toLocaleString("en-IN");
+    return formatDisplayDate(date);
   }
 };
 
@@ -213,6 +207,35 @@ const originalPaymentTermsListRef = useRef(null);
     0
   );
   const grandTotalIncludingGSTText = formatPrice(grandTotalIncludingGST);
+
+  const quoteBreakup = useMemo(() => {
+    let totalBase = 0, totalFreight = 0, totalPackaging = 0, totalTax = 0;
+    quoteProducts.forEach(item => {
+      const prod = rfqDetails?.products?.find(pi => pi.id == item.id);
+      const qtySpec = prod?.product_specs?.find(s => s.title === "Quantity");
+      const qty = parseFloat(qtySpec?.value || item.quantity) || 0;
+      const unitPrice = parseFloat(item.unit_price) || 0;
+      const base = unitPrice * qty;
+      const freightMode = chargesMode?.freight?.[item.id] || "percentage";
+      const packageMode = chargesMode?.package?.[item.id] || "percentage";
+      const taxMode = chargesMode?.tax?.[item.id] || "percentage";
+      const freight = freightMode === "percentage"
+        ? (base * (parseFloat(item.freight_price) || 0)) / 100
+        : parseFloat(item.freight_price) || 0;
+      const packaging = packageMode === "percentage"
+        ? (base * (parseFloat(item.package_price) || 0)) / 100
+        : parseFloat(item.package_price) || 0;
+      const subtotal = base + freight + packaging;
+      const tax = taxMode === "percentage"
+        ? (subtotal * (parseFloat(item.tax) || 0)) / 100
+        : parseFloat(item.tax) || 0;
+      totalBase += base;
+      totalFreight += freight;
+      totalPackaging += packaging;
+      totalTax += tax;
+    });
+    return { totalBase, totalFreight, totalPackaging, totalTax };
+  }, [quoteProducts, rfqDetails, chargesMode]);
 
   // Check if any quoteable product has pending/incomplete tech eval
   const hasPendingTechEval = rfqDetails?.products?.some(p => {
@@ -2856,14 +2879,19 @@ return { deletedTerms, createdTerms, updatedTerms };
                             </small>
                           </Alert>
                         )}
-                        {/* Start Grand Total */}
-                        <div className="text-end mb-2">
-                          <small className="text-muted">
-                            <strong>Grand Total (including GST):</strong>{" "}
-                            {grandTotalIncludingGSTText}
-                          </small>
+                        {/* Start Grand Total Breakup */}
+                        <div className="d-flex justify-content-end mb-2">
+                          <GrandTotalBreakup
+                            totalBase={quoteBreakup.totalBase}
+                            totalFreight={quoteBreakup.totalFreight}
+                            totalPackaging={quoteBreakup.totalPackaging}
+                            totalTax={quoteBreakup.totalTax}
+                            grandTotal={grandTotalIncludingGST}
+                            formatPrice={formatPrice}
+                            align="end"
+                          />
                         </div>
-                        {/* End Grand Total */}
+                        {/* End Grand Total Breakup */}
                         <button
                           id="send_quote-quote_actions-send_quote_page"
                           type="submit"

@@ -189,10 +189,78 @@ export const formatISOToDateTimeLocal = (isoString) => {
         const timeParts = timePart.split(':');
         return `${parts[0]}-${parts[1]}-${parts[2]}T${timeParts[0]}:${timeParts[1]}`;
     } else {
-        // If just a date string without time
+        // If just a date string without time, default to 23:59
         parts = isoString.split('-');
-        return `${parts[0]}-${parts[1]}-${parts[2]}T00:00`;
+        return `${parts[0]}-${parts[1]}-${parts[2]}T23:59`;
     }
+};
+
+/**
+ * Formats a date string for display in DD-MM-YYYY format.
+ * @param {string|Date} dateStr - The date string or Date object to format
+ * @param {object} options - Formatting options
+ * @param {boolean} options.includeTime - Include time (HH:mm) in the output
+ * @param {boolean} options.includeSeconds - Include seconds (HH:mm:ss)
+ * @param {boolean} options.use12Hour - Use 12-hour format with AM/PM
+ * @returns {string} Formatted date string in DD-MM-YYYY [HH:mm] format
+ */
+export const formatDisplayDate = (dateStr, options = {}) => {
+    if (!dateStr) return '';
+    const { includeTime = false, includeSeconds = false, use12Hour = true } = options;
+
+    let parsedInput = dateStr;
+    // If input is a string with time component but no timezone info, treat as UTC
+    // Only apply for non-midnight times (midnight = date-only field, no shift needed)
+    if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(dateStr) && !/[+-]\d{4}$/.test(dateStr)) {
+        if (dateStr.includes('T') || /\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(dateStr)) {
+            const timeMatch = dateStr.match(/[T\s](\d{2}):(\d{2})(?::(\d{2}))?/);
+            if (timeMatch) {
+                const h = parseInt(timeMatch[1], 10);
+                const m = parseInt(timeMatch[2], 10);
+                const s = parseInt(timeMatch[3] || '0', 10);
+                // Only treat as UTC if time is not midnight (actual timestamp vs date-only)
+                if (h !== 0 || m !== 0 || s !== 0) {
+                    parsedInput = dateStr.replace(' ', 'T') + 'Z';
+                }
+            }
+        }
+    }
+
+    const date = parsedInput instanceof Date ? parsedInput : new Date(parsedInput);
+    if (isNaN(date.getTime())) return String(dateStr);
+
+    // Detect date-only values (midnight UTC) — use UTC components to avoid timezone shift
+    const isDateOnly = date.getUTCHours() === 0 && date.getUTCMinutes() === 0 &&
+        date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;
+
+    const day = String(isDateOnly ? date.getUTCDate() : date.getDate()).padStart(2, '0');
+    const month = String((isDateOnly ? date.getUTCMonth() : date.getMonth()) + 1).padStart(2, '0');
+    const year = isDateOnly ? date.getUTCFullYear() : date.getFullYear();
+
+    let result = `${day}-${month}-${year}`;
+
+    if (includeTime || includeSeconds) {
+        if (use12Hour) {
+            let hours = isDateOnly ? 0 : date.getHours();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            const mins = String(isDateOnly ? 0 : date.getMinutes()).padStart(2, '0');
+            result += ` ${String(hours).padStart(2, '0')}:${mins}`;
+            if (includeSeconds) {
+                result += `:${String(isDateOnly ? 0 : date.getSeconds()).padStart(2, '0')}`;
+            }
+            result += ` ${ampm}`;
+        } else {
+            const hrs = String(isDateOnly ? 0 : date.getHours()).padStart(2, '0');
+            const mins = String(isDateOnly ? 0 : date.getMinutes()).padStart(2, '0');
+            result += ` ${hrs}:${mins}`;
+            if (includeSeconds) {
+                result += `:${String(isDateOnly ? 0 : date.getSeconds()).padStart(2, '0')}`;
+            }
+        }
+    }
+
+    return result;
 };
 
 const useDebounce = (value, delay = 500) => {

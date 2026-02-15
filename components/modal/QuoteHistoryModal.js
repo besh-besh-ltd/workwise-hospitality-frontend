@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import Modal from "react-modal";
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 
 const QuoteHistoryModal = (props) => {
     console.log(props.quotehistorydata)
@@ -8,31 +9,8 @@ const QuoteHistoryModal = (props) => {
 
 
     const formatTimestampToIST = (timestamp) => {
-        // Parse the timestamp as UTC
-        const date = new Date(timestamp);
-      
-        // Convert to IST by adding 5 hours 30 minutes (19800000 ms)
-        const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
-        const istDate = new Date(date.getTime() + istOffset);
-      
-        // Format the IST date
-        const day = istDate.getDate().toString().padStart(2, "0"); // Two-digit day
-        const month = istDate.toLocaleString("en-US", { month: "short" }); // Abbreviated month name
-        const year = istDate.getFullYear();
-        const hours = istDate.getHours();
-        const minutes = istDate.getMinutes().toString().padStart(2, "0"); // Two-digit minutes
-        const ampm = hours >= 12 ? "PM" : "AM";
-      
-        // Format hours for 12-hour clock
-        const formattedHours = (hours % 12 || 12).toString().padStart(2, "0");
-      
-        // Construct the formatted string
-        return `${day}-${month}-${year} ${formattedHours}:${minutes}${ampm}`;
+        return formatDisplayDate(timestamp, { includeTime: true });
       };
-      
-      // Example usage
-      const timestamp = "2024-12-05T02:40:23.408316";
-      console.log(formatTimestampToIST(timestamp)); // Output: "05-Dec-2024 08:10AM"
       
       
             

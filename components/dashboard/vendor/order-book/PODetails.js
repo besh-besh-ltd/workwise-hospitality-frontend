@@ -22,7 +22,7 @@ import { handleDeleteMilestone, handleDeleteTask, handleGetTasks, handleUpdateGS
 import CreateTaskModal from './CreateTaskModal';
 import Pagination from '@/components/shared/Pagination';
 import { getProjectAvailableBudget } from '@/services/project';
-import { addCommasToNumber, formatToINRShort } from '@/utils/sharedFunctions';
+import { addCommasToNumber, formatDisplayDate, formatToINRShort } from '@/utils/sharedFunctions';
 import Link from 'next/link';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
 import CommonFormInput from '@/components/shared/CommonFormInput';
@@ -97,7 +97,7 @@ const renderDueDateCell = (dueDateStr, isTask = false) => {
 
 
 const formatIST = (dateStr) =>
-  dateStr ? new Date(dateStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A';
+  dateStr ? formatDisplayDate(dateStr, { includeTime: true }) : 'N/A';
 
 const elipsisToLimit = (text, limit = 45) => {
   return text.length > limit ? text.slice(0, limit).concat('...') : text;
@@ -126,7 +126,14 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     gstin: fetchedGST,
     quotations,
     rfq_product_id,
-    poPdfUrl
+    poPdfUrl,
+    buyer_company_name,
+    buyer_business_unit,
+    buyer_gstin,
+    buyer_address,
+    initiated_by_phone,
+    rfq_no,
+    rfq_title
   } = data;
 
   const [selectedMilestone, setSelectedMilestone] = useState(null);
@@ -365,6 +372,32 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           </div>
         )}
   
+        {/* Buyer Details */}
+        <Card className="shadow-sm mb-3">
+          <Card.Body className="d-flex align-items-start">
+            <MdOutlineBusinessCenter className="me-3 fs-2 text-success" />
+            <div>
+              <strong>{buyer_company_name || '-'}</strong>{" "}
+              <small className="text-muted">(Buyer)</small>
+              {buyer_business_unit && (
+                <div className="text-muted">Business Unit: {buyer_business_unit}</div>
+              )}
+              {buyer_address && (
+                <div className="text-muted">{buyer_address}</div>
+              )}
+              {buyer_gstin && (
+                <div className="text-muted">GSTIN: {buyer_gstin}</div>
+              )}
+              {initiated_by_name && (
+                <div className="text-muted">Contact: {initiated_by_name}{initiated_by_email ? ` (${initiated_by_email})` : ''}{initiated_by_phone ? ` | +91 ${initiated_by_phone}` : ''}</div>
+              )}
+              {rfq_no && (
+                <div className="text-muted">RFQ: #{rfq_no}{rfq_title ? ` - ${rfq_title}` : ''}</div>
+              )}
+            </div>
+          </Card.Body>
+        </Card>
+
         {/* PO Overview */}
         <div className="d-flex gap-2 align-items-center justify-content-between">
           <Card className="mb-3 shadow-sm" style={{ width: "100%" }}>

@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import VendorResponseTable from "./vendorResponseTable";
 import { getProfile } from "@/services/Auth";
 import Loader from "@/components/shared/Loader";
+import { checkBidExpired } from "@/utils/sharedFunctions";
 
 const VendorTechnicalEvaluation = () => {
     const router = useRouter();
@@ -130,6 +131,7 @@ const VendorTechnicalEvaluation = () => {
                                                                     currentUserProfile={currentUserProfile}
                                                                     otherUser={otherUser}
                                                                     token={token}
+                                                                    isBidExpired={currentRfq?.bid_end_date ? checkBidExpired(currentRfq.bid_end_date) : false}
                                                                 />
                                                             </div>
                                                         </div>

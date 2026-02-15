@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { faEdit, faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -12,13 +12,14 @@ import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
-import { checkBidExpired, extractfileName, formatDate, formatPrice, getEntityLabel, getRFQPublishState } from "@/utils/sharedFunctions";
+import { checkBidExpired, extractfileName, formatDate, formatDisplayDate, formatPrice, getEntityLabel, getRFQPublishState } from "@/utils/sharedFunctions";
 import PublishDateTimer from "@/components/shared/PublishDateTimer";
 import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { toast } from "react-toastify";
 import { ApprovalWorkflowSection, ApprovalPendingBanner } from "@/components/dashboard/buyer/approval";
+import useApprovalWorkflow from "@/hooks/useApprovalWorkflow";
 import {
   ClarificationBlockingBanner,
   RaiseClarificationModal,
@@ -28,7 +29,8 @@ import {
 import { getClarifications } from "@/services/clarification";
 import NegotiationColumnCell from "@/components/dashboard/buyer/negotiation/NegotiationColumnCell";
 import { Badge, Button, Alert } from "react-bootstrap";
-import { BsCalendarEvent, BsClockFill, BsCheckCircleFill } from "react-icons/bs";
+import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill } from "react-icons/bs";
+import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
 
 const TECH_EVAL_STYLES = {
   accepted: { bg: '#d1e7dd', border: '#198754', shadow: '0 2px 8px rgba(25, 135, 84, 0.2)' },
@@ -106,6 +108,33 @@ const getHelperText = (status, isPartiallySubmitted) => {
   return status.isBuyerView ? "Click to view evaluation" : "Click to start evaluation";
 };
 
+/** Small badge component that shows "Auto Published" tag in the RFQ info card */
+const AutoApprovedBadge = ({ entityType, entityId }) => {
+  const { instance, loading, status, isAutoApproved } = useApprovalWorkflow({ entityType, entityId, enabled: !!entityId });
+
+  if (loading || !instance || !isAutoApproved || status !== "APPROVED") return null;
+
+  const isSchedulerAutoApproved = !!instance?.metadata?.auto_approved_reason;
+  const label = isSchedulerAutoApproved ? "Auto Published (Scheduled)" : "Auto Published";
+
+  return (
+    <div className="col-md-2 col-sm-6">
+      <strong>Approval Status:</strong>
+      <div className="mt-1">
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '4px',
+          fontSize: '0.75rem', fontWeight: 600, color: '#166534',
+          background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+          border: '1px solid #bbf7d0', padding: '3px 10px', borderRadius: '10px',
+        }}>
+          <BsLightningChargeFill size={11} />
+          {label}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 const RfqManagementPreview = () => {
   const router = useRouter();
   const { id, type, token } = router.query;
@@ -149,6 +178,10 @@ const RfqManagementPreview = () => {
   const [isLoggedIn, setisLoggedIn] = useState(false);
   const [openTerms, setOpenTerms] = useState(false);
   const [localId, setLocalId] = useState(router.query.id);
+
+  // Track negotiation column visibility (null=loading, true=show, false=hide)
+  const [showNegotiationCol, setShowNegotiationCol] = useState(null);
+  const negotiationResultsRef = useRef({});
 
   // Update localId when router.query.id becomes available (after hydration)
   useEffect(() => {
@@ -851,6 +884,28 @@ const RfqManagementPreview = () => {
     return parts.join(".");
   };
 
+  // Column visibility: only show if at least one product has data
+  const hasTdsData = rfqDetails?.products?.some(p => p.datasheet_file);
+  const hasQapData = rfqDetails?.products?.some(p => p.qap_file);
+  const hasCommentsData = rfqDetails?.products?.some(p => p.comment && p.comment !== "");
+
+  const handleNegotiationLoaded = useCallback((productId, hasData) => {
+    negotiationResultsRef.current[productId] = hasData;
+    if (hasData) {
+      setShowNegotiationCol(true);
+    } else if (Object.keys(negotiationResultsRef.current).length >= (rfqDetails?.products?.length || 0)) {
+      setShowNegotiationCol(prev => prev === true ? true : false);
+    }
+  }, [rfqDetails?.products?.length]);
+
+  // Reset negotiation tracking when rfqDetails changes
+  useEffect(() => {
+    if (rfqDetails?.products) {
+      negotiationResultsRef.current = {};
+      setShowNegotiationCol(null);
+    }
+  }, [rfqDetails?.id]);
+
   const goToQuoteCreation = () => {
     // Changes by Agnij 2025-05-05 [Pass tech eval restriction flag to quote page]
     router.push(
@@ -1504,32 +1559,38 @@ const RfqManagementPreview = () => {
                         </div>
                       )}
 
-                        <div className="  col-md-2 col-sm-6"> 
+                        <div className="  col-md-2 col-sm-6">
                           <strong>Type:</strong>
                           <div>
                             {Number(rfqDetails.is_tender) == 1 ? "Tender" : `RFQ ${ rfqDetails?.rfq_type ||"" } `}
                           </div>
                         </div>
 
+                      {enableBuyerView && rfqDetails?.id && (
+                        <AutoApprovedBadge
+                          entityType={rfqDetails?.is_tender === 1 ? "TENDER" : "RFQ"}
+                          entityId={id}
+                        />
+                      )}
 
                 {rfqDetails?.bid_end_date && (
                         <div className=" col-md-2 col-sm-6 ">
                           <strong>Quote Submission Deadline:</strong>
-                          <div>{rfqDetails.bid_end_date}</div>
+                          <div>{formatDisplayDate(rfqDetails.bid_end_date, { includeTime: true })}</div>
                         </div>
                       )}
 
                 {rfqDetails?.tender_publish_date && (
                         <div className=" col-md-2 col-sm-6 ">
                           <strong>Publish Date:</strong>
-                          <div>{rfqDetails.tender_publish_date}</div>
+                          <div>{formatDisplayDate(rfqDetails.tender_publish_date, { includeTime: true })}</div>
                         </div>
                       )}
 
                 {rfqDetails?.vendor_clarification_date && (
                         <div className=" col-md-2 col-sm-6 ">
                           <strong>Clarification Date:</strong>
-                          <div>{rfqDetails.vendor_clarification_date}</div>
+                          <div>{formatDisplayDate(rfqDetails.vendor_clarification_date, { includeTime: true })}</div>
                         </div>
                       )}
                       
@@ -1544,25 +1605,11 @@ const RfqManagementPreview = () => {
                         <div className="  col-md-4 col-sm-6 ">
                           <strong>Reverse Auction:</strong>
                           <div>
-                         {new Date(rfqDetails.ra_start_date).toLocaleString("en-GB", {
-                           day: "numeric",
-                           month: "short",
-                           year: "numeric",
-                           hour: "numeric",
-                           minute: "2-digit",
-                           hour12: true,
-                         })}
-                         
+                         {formatDisplayDate(rfqDetails.ra_start_date, { includeTime: true })}
+
                          <strong className="mx-1" > to </strong>
 
-                         {new Date(rfqDetails.ra_end_date).toLocaleString("en-GB", {
-                           day: "numeric",
-                           month: "short",
-                           year: "numeric",
-                           hour: "numeric",
-                           minute: "2-digit",
-                           hour12: true,
-                         })}
+                         {formatDisplayDate(rfqDetails.ra_end_date, { includeTime: true })}
                           </div>
                         </div>
                       )}
@@ -1657,27 +1704,30 @@ const RfqManagementPreview = () => {
                     </div>
 
                     <div className="details-table">
+                      {rfqDetails?.products?.length > 0 && (
                       <div className="table-responsive">
-                        <table className="table table-striped ">
+                        <table className="table table-striped" style={{ tableLayout: "auto", width: "100%" }}>
                           <thead>
                             <tr className="text-nowrap">
-                              <th>Name of product</th>
-                              <th>Size & specifications</th>
-                              <th>Quantity</th>
+                              <th style={{ minWidth: "120px", maxWidth: "200px", width: "auto" }}>Name of product</th>
+                              {rfqDetails?.products?.some(p => p.tech_evaluation_status?.has_tech_eval) && (
+                                <th style={{ minWidth: "160px", maxWidth: "240px", width: "auto" }}>Technical Evaluation</th>
+                              )}
+                              <th style={{ minWidth: "160px", maxWidth: "280px", width: "auto" }}>Size & specifications</th>
+                              <th style={{ minWidth: "70px", maxWidth: "110px", width: "auto" }}>Quantity</th>
                               {isReverseAuctionActive && (
-                                <th>Current Lowest</th>
+                                <th style={{ minWidth: "90px", maxWidth: "130px", width: "auto" }}>Current Lowest</th>
                               )}
-                              <th>TDS</th>
-                              <th>QAP</th>
+                              {hasTdsData && <th style={{ minWidth: "50px", maxWidth: "90px", width: "auto" }}>TDS</th>}
+                              {hasQapData && <th style={{ minWidth: "50px", maxWidth: "90px", width: "auto" }}>QAP</th>}
                               {type != "buyer-view" && (
-                                <th>Finalization Status</th>
+                                <th style={{ minWidth: "120px", maxWidth: "170px", width: "auto" }}>Finalization Status</th>
                               )}
-                              <th>Comments</th>
+                              {hasCommentsData && <th style={{ minWidth: "100px", maxWidth: "220px", width: "auto" }}>Comments</th>}
                               {type == "buyer-view" && !rfqDetails.is_tender ? (
-                                <th>Selected vendors</th>
+                                <th style={{ minWidth: "110px", maxWidth: "150px", width: "auto" }}>Selected vendors</th>
                               ) : null}
-                              <th>Negotiation</th>
-                              {<th>Technical Evaluation</th>}
+                              {showNegotiationCol !== false && <th style={{ minWidth: "90px", maxWidth: "150px", width: "auto" }}>Negotiation</th>}
                             </tr>
                           </thead>
                           <tbody>
@@ -1715,12 +1765,101 @@ const RfqManagementPreview = () => {
                                   <td>
                                     {item?.product_details[0]?.name}
                                   </td>
-                                  <td
-                                    style={{
-                                      minWidth: "300px",
-                                      maxWidth: "500px",
-                                    }}
-                                  >
+
+                                  {/* Technical Evaluation - 2nd column */}
+                                  {rfqDetails?.products?.some(p => p.tech_evaluation_status?.has_tech_eval) && (
+                                    <td
+                                      style={getTechEvalCellStyle(
+                                        productTechEvalDetails[item.id],
+                                        item.tech_evaluation_status?.has_tech_eval,
+                                        loadingTechEvalDetails[item.id],
+                                        item.tech_evaluation_status?.is_accepted
+                                      )}
+                                    >
+                                      {item.tech_evaluation_status?.has_tech_eval ? (
+                                        <div>
+                                          {loadingTechEvalDetails[item.id] ? (
+                                            <div
+                                              className="d-flex align-items-center justify-content-center"
+                                              style={{
+                                                padding: "8px 10px",
+                                                borderRadius: "6px",
+                                                backgroundColor: "#f8f9fa",
+                                                border: "1px solid #dee2e6",
+                                                minWidth: "160px"
+                                              }}
+                                            >
+                                              <span className="badge bg-secondary" style={{ fontSize: "0.8rem", padding: "4px 10px", borderRadius: "4px", fontWeight: "500" }}>Loading...</span>
+                                            </div>
+                                          ) : (
+                                            !isSubmitAble && type !== "buyer-view" && !itemStatus.isAccepted && !itemStatus.isRejected && !itemStatus.allClausesResponded ? (
+                                              <div
+                                                style={{
+                                                  display: "inline-block",
+                                                  width: "100%",
+                                                  opacity: 0.7,
+                                                  cursor: "not-allowed",
+                                                }}
+                                              >
+                                                <div
+                                                  className="d-flex flex-column gap-1"
+                                                  style={{
+                                                    ...getContainerStyle(statusFlags),
+                                                    background: "#f0f0f0",
+                                                    border: "1px solid #dee2e6",
+                                                  }}
+                                                >
+                                                  <span
+                                                    className="badge"
+                                                    style={{ ...getBadgeStyle(statusFlags), backgroundColor: "#6c757d" }}
+                                                  >
+                                                    {getBadgeText(itemStatus, isPartiallySubmitted)}
+                                                  </span>
+                                                  <div style={{ fontSize: "0.68rem", color: "#dc3545", marginTop: "2px", fontWeight: 500 }}>
+                                                    Submission closed — bid end date has passed
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            ) : (
+                                            <a
+                                              href={`/dashboard/${
+                                                type === "buyer-view"
+                                                  ? "buyer"
+                                                  : "vendor"
+                                              }/technical-evaluation?rfq_id=${id}&prod_id=${
+                                                item.id
+                                              }&token=${token}`}
+                                              style={{
+                                                textDecoration: "none",
+                                                display: "inline-block",
+                                                width: "100%"
+                                              }}
+                                            >
+                                              <div
+                                                className="d-flex flex-column gap-1"
+                                                style={getContainerStyle(statusFlags)}
+                                              >
+                                                <span
+                                                  className="badge"
+                                                  style={getBadgeStyle(statusFlags)}
+                                                >
+                                                  {getBadgeText(itemStatus, isPartiallySubmitted)}
+                                                </span>
+                                                <div style={{ fontSize: "0.7rem", color: "#6c757d", marginTop: "2px" }}>
+                                                  {getHelperText(itemStatus, isPartiallySubmitted)}
+                                                </div>
+                                              </div>
+                                            </a>
+                                            )
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted">N/A</span>
+                                      )}
+                                    </td>
+                                  )}
+
+                                  <td>
                                     <div className="row">
                                       <div className="col-12 mb-1">
                                         <div className="d-flex align-items-start" style={{ gap: "0.5rem" }}>
@@ -1795,20 +1934,24 @@ const RfqManagementPreview = () => {
                                       <td>--</td>
                                     ))}
 
-                                  <td>
-                                    {item.datasheet_file ? (
-                                      <>{renderFileLink(item.datasheet_file)}</>
-                                    ) : (
-                                      <span>N/A</span>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {item.qap_file ? (
-                                      <>{renderFileLink(item.qap_file)}</>
-                                    ) : (
-                                      <span>N/A</span>
-                                    )}
-                                  </td>
+                                  {hasTdsData && (
+                                    <td>
+                                      {item.datasheet_file ? (
+                                        <>{renderFileLink(item.datasheet_file)}</>
+                                      ) : (
+                                        <span>N/A</span>
+                                      )}
+                                    </td>
+                                  )}
+                                  {hasQapData && (
+                                    <td>
+                                      {item.qap_file ? (
+                                        <>{renderFileLink(item.qap_file)}</>
+                                      ) : (
+                                        <span>N/A</span>
+                                      )}
+                                    </td>
+                                  )}
                                   {type != "buyer-view" && (
                                     <td>
                                       {item.finalization_status ==
@@ -1834,22 +1977,19 @@ const RfqManagementPreview = () => {
                                       )}
                                     </td>
                                   )}
-                                  <td
-                                    style={{
-                                      minWidth: "250px",
-                                      maxWidth: "400px",
-                                    }}
-                                  >
-                                    {item?.comment && item?.comment != "" ? (
-                                      <ReadMore
-                                        content={item.comment}
-                                        maxLines={4}
-                                        additionalClasses="text-sm"
-                                      />
-                                    ) : (
-                                      "N/A"
-                                    )}
-                                  </td>
+                                  {hasCommentsData && (
+                                    <td>
+                                      {item?.comment && item?.comment != "" ? (
+                                        <ReadMore
+                                          content={item.comment}
+                                          maxLines={4}
+                                          additionalClasses="text-sm"
+                                        />
+                                      ) : (
+                                        "N/A"
+                                      )}
+                                    </td>
+                                  )}
 
                                   {type == "buyer-view" && !rfqDetails.is_tender && (
                                     <td>
@@ -1859,77 +1999,21 @@ const RfqManagementPreview = () => {
                                     </td>
                                   )}
 
-                                  <NegotiationColumnCell
-                                    rfq_id={rfqDetails?.id}
-                                    rfq_product_id={item.id}
-                                    productName={item?.product_details[0]?.name || ''}
-                                  />
-
-                                  <td
-                                    style={getTechEvalCellStyle(
-                                      productTechEvalDetails[item.id],
-                                      item.tech_evaluation_status?.has_tech_eval,
-                                      loadingTechEvalDetails[item.id],
-                                      item.tech_evaluation_status?.is_accepted
-                                    )}
-                                  >
-                                    {item.tech_evaluation_status?.has_tech_eval ? (
-                                      <div>
-                                        {loadingTechEvalDetails[item.id] ? (
-                                          <div
-                                            className="d-flex align-items-center justify-content-center"
-                                            style={{
-                                              padding: "8px 10px",
-                                              borderRadius: "6px",
-                                              backgroundColor: "#f8f9fa",
-                                              border: "1px solid #dee2e6",
-                                              minWidth: "160px"
-                                            }}
-                                          >
-                                            <span className="badge bg-secondary" style={{ fontSize: "0.8rem", padding: "4px 10px", borderRadius: "4px", fontWeight: "500" }}>Loading...</span>
-                                          </div>
-                                        ) : (
-                                          <a
-                                            href={`/dashboard/${
-                                              type === "buyer-view"
-                                                ? "buyer"
-                                                : "vendor"
-                                            }/technical-evaluation?rfq_id=${id}&prod_id=${
-                                              item.id
-                                            }&token=${token}`}
-                                            style={{
-                                              textDecoration: "none",
-                                              display: "inline-block",
-                                              width: "100%"
-                                            }}
-                                          >
-                                            <div
-                                              className="d-flex flex-column gap-1"
-                                              style={getContainerStyle(statusFlags)}
-                                            >
-                                              <span
-                                                className="badge"
-                                                style={getBadgeStyle(statusFlags)}
-                                              >
-                                                {getBadgeText(itemStatus, isPartiallySubmitted)}
-                                              </span>
-                                              <div style={{ fontSize: "0.7rem", color: "#6c757d", marginTop: "2px" }}>
-                                                {getHelperText(itemStatus, isPartiallySubmitted)}
-                                              </div>
-                                            </div>
-                                          </a>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <span className="text-muted">N/A</span>
-                                    )}
-                                  </td>
+                                  {showNegotiationCol !== false && (
+                                    <NegotiationColumnCell
+                                      rfq_id={rfqDetails?.id}
+                                      rfq_product_id={item.id}
+                                      productName={item?.product_details[0]?.name || ''}
+                                      onStatusLoaded={(hasData) => handleNegotiationLoaded(item.id, hasData)}
+                                    />
+                                  )}
                                 </tr>
                               );
                             })}
                           </tbody>
                         </table>
                       </div>
+                      )}
 
                       <form>
                         <div className="row">
@@ -2015,20 +2099,49 @@ const RfqManagementPreview = () => {
                                               rfqDetails?.quotations[0]
                                                 ?.timestamp
                                             )
-                                            .local()
+                                            .utcOffset('+05:30')
                                             .format("hh:mm A - DD/MM/YYYY")}
                                         </h4>
 
-                                        {rfqDetails.quotations[0]?.products?.length > 0 && (
-                                          <p className="text-muted mb-2" style={{ fontSize: "0.9rem" }}>
-                                            <strong>Grand Total (incl. GST):</strong>{" "}
-                                            {formatPrice(
-                                              rfqDetails.quotations[0].products.reduce(
-                                                (sum, p) => sum + (Number(p.total_price) || 0), 0
-                                              )
-                                            )}
-                                          </p>
-                                        )}
+                                        {rfqDetails.quotations[0]?.products?.length > 0 && (() => {
+                                          const products = rfqDetails.quotations[0].products;
+                                          let totalBase = 0, totalFreight = 0, totalPackaging = 0, totalTax = 0, grandTotal = 0;
+                                          products.forEach(p => {
+                                            // Quantity is stored in RFQ product specs, not in quotation products
+                                            const rfqProduct = rfqDetails.products?.find(rp => rp.product_id === p.product_id);
+                                            const qty = parseFloat(rfqProduct?.product_specs?.find(spec => spec?.title === 'Quantity')?.value) || 0;
+                                            const unitPrice = parseFloat(p.unit_price) || 0;
+                                            const base = unitPrice * qty;
+                                            const freight = (p.freight_mode || "percentage") === "percentage"
+                                              ? (base * (parseFloat(p.freight_price) || 0)) / 100
+                                              : parseFloat(p.freight_price) || 0;
+                                            const packaging = (p.package_mode || "percentage") === "percentage"
+                                              ? (base * (parseFloat(p.package_price) || 0)) / 100
+                                              : parseFloat(p.package_price) || 0;
+                                            const subtotal = base + freight + packaging;
+                                            const tax = (p.tax_mode || "percentage") === "percentage"
+                                              ? (subtotal * (parseFloat(p.tax) || 0)) / 100
+                                              : parseFloat(p.tax) || 0;
+                                            totalBase += base;
+                                            totalFreight += freight;
+                                            totalPackaging += packaging;
+                                            totalTax += tax;
+                                            grandTotal += Number(p.total_price) || 0;
+                                          });
+                                          return (
+                                            <div className="mb-2">
+                                              <GrandTotalBreakup
+                                                totalBase={totalBase}
+                                                totalFreight={totalFreight}
+                                                totalPackaging={totalPackaging}
+                                                totalTax={totalTax}
+                                                grandTotal={grandTotal}
+                                                formatPrice={formatPrice}
+                                                align="start"
+                                              />
+                                            </div>
+                                          );
+                                        })()}
 
                                         {rfqDetails.status === 2 ||
                                         !productleftforbid ||
@@ -2137,12 +2250,12 @@ const RfqManagementPreview = () => {
                                             declined
                                           </span>{" "}
                                           the RFQ request on{" "}
-                                          {moment(
-                                            rfqDetails?.quotations[0]?.timestamp
-                                          )
-                                            .add(5, "hours")
-                                            .add(30, "minutes")
-                                            .format("DD/MM/YYYY - hh:mm:ss A")}
+                                          {moment
+                                            .utc(
+                                              rfqDetails?.quotations[0]?.timestamp
+                                            )
+                                            .utcOffset('+05:30')
+                                            .format("DD-MM-YYYY - hh:mm:ss A")}
                                         </h4>
                                       </div>
                                     )}
@@ -2246,6 +2359,7 @@ const RfqManagementPreview = () => {
                               }}
                               hideTopButtons={rfqDetails?.is_published === 0}
                               isBacklog={rfqDetails?.is_published === 1 && rfqDetails?.status === 1}
+                              isPublished={rfqDetails?.is_published === 1 || rfqDetails?.status === 1}
                             />
                           </div>
                         )}

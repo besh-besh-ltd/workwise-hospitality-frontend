@@ -160,6 +160,10 @@ export const useApprovalWorkflow = ({ entityType, entityId, enabled = true, refr
   const steps = instance?.steps || [];
   const initiatedBy = instance?.initiated_by || null;
 
+  // Auto-approved detection
+  const isAutoApproved = instance?.metadata?.auto_approved === true || !!instance?.metadata?.auto_approved_reason;
+  const autoApprovedReason = instance?.metadata?.auto_approved_reason || instance?.metadata?.reason || null;
+
   // Previous instances (rejected/cancelled) — all except the current one
   const previousInstances = allInstances.slice(0, -1);
 
@@ -176,6 +180,8 @@ export const useApprovalWorkflow = ({ entityType, entityId, enabled = true, refr
     totalSteps,
     steps,
     initiatedBy,
+    isAutoApproved,
+    autoApprovedReason,
     handleApprovalAction,
     handleCancelApproval,
     refetch: fetchApprovalInstance,

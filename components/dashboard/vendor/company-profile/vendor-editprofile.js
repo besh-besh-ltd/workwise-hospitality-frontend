@@ -18,6 +18,7 @@ import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import StarRating from "@/components/StarRating";
 import ProductCarousel from "./product-carousel";
 import moment from "moment";
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 import { faFacebook, faLinkedin, faSkype, faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
 import { addSpoc } from "@/services/Auth";
@@ -740,9 +741,7 @@ useEffect(() => {
                                     <div className="mt-2">
                                       <small className="text-muted">
                                         Uploaded:{" "}
-                                        {new Date(
-                                          doc.created_at
-                                        ).toLocaleDateString()}
+                                        {formatDisplayDate(doc.created_at)}
                                       </small>
                                       {doc.is_approved && (
                                         <span className="badge bg-success ms-2">

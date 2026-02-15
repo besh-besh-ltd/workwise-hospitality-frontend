@@ -42,7 +42,7 @@ const StageQuotesReceived = ({ stage, lifecycleData }) => {
                 </td>
                 <td className="text-muted small">{quote.vendor_email}</td>
                 <td>{quote.quote_items?.length || 0} items</td>
-                <td>{moment(quote.created_at).format('DD MMM YYYY')}</td>
+                <td>{moment(quote.created_at).format('DD-MM-YYYY')}</td>
                 <td>
                   <Badge bg={quote.status === 1 ? 'success' : 'secondary'}>
                     {quote.status === 1 ? 'Active' : 'Inactive'}

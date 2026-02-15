@@ -72,7 +72,7 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
-    return moment.utc(dateStr).local().format("DD MMM YYYY, hh:mm a");
+    return moment.utc(dateStr).local().format("DD-MM-YYYY hh:mm a");
   };
 
   const getApproverStatus = (status) => {

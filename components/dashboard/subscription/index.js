@@ -306,7 +306,7 @@ const Subscription = () => {
                           <div className="text-light p-1 d-flex justify-content-center align-items-center">
                             <span>Ends On</span>
                             <span className="badge bg-success ms-2">
-                              {moment(activeItem?.end_date).format("LL")}
+                              {moment(activeItem?.end_date).format("DD-MM-YYYY")}
                             </span>
                           </div>
                         </>

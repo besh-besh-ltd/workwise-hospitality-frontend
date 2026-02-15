@@ -20,6 +20,7 @@ import {
   deleteUserMapping,
 } from "@/services/hospitality";
 import { getUserRoleScopes, getUserDepartments } from "@/services/rbac";
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 
 const dedupeHospitalityMappings = (list = []) => {
   const seen = new Set();
@@ -265,13 +266,7 @@ const ManageAccountsPage = () => {
     };
 
   const formatDate = (d) =>
-    d
-      ? new Date(d).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
-      : "";
+    d ? formatDisplayDate(d) : "";
 
   const handleEditAccount = (account) => {
     if (isHospitalityCompany) {

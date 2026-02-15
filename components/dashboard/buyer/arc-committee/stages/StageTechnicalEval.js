@@ -110,7 +110,7 @@ const StageTechnicalEval = ({ stage, rfq, lifecycleData, onRefresh }) => {
             </div>
             {stage.timestamp && (
               <div className="text-muted small">
-                {moment(stage.timestamp).format('DD MMM YYYY, HH:mm')}
+                {moment(stage.timestamp).format('DD-MM-YYYY hh:mm A')}
               </div>
             )}
           </div>

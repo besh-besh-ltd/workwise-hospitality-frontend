@@ -136,7 +136,7 @@ const StageCompleted = ({ stage }) => {
                 <Badge bg="success" style={{ fontSize: '0.7rem' }}>Approved</Badge>
                 {(inst.updated_at || inst.created_at) && (
                   <span className="small text-muted">
-                    {moment(inst.updated_at || inst.created_at).format('DD MMM YYYY')}
+                    {moment(inst.updated_at || inst.created_at).format('DD-MM-YYYY')}
                   </span>
                 )}
               </div>
@@ -147,7 +147,7 @@ const StageCompleted = ({ stage }) => {
 
       {details.completedAt && (
         <div className="mt-3 pt-2 border-top small text-muted">
-          Completed on {moment(details.completedAt).format('DD MMM YYYY, HH:mm')}
+          Completed on {moment(details.completedAt).format('DD-MM-YYYY hh:mm A')}
           {details.projectName && <span> | Project: {details.projectName}</span>}
         </div>
       )}
@@ -395,7 +395,7 @@ const StageTimeline = ({
               <span className="badge bg-secondary me-2">#{idx + 1}</span>
               Sent back to <strong>{revert.targetStage?.replace(/_/g, ' ')}</strong>
               {revert.actor && <> by {revert.actor}</>}
-              {revert.timestamp && <> on {moment(revert.timestamp).format('DD MMM YYYY, HH:mm')}</>}
+              {revert.timestamp && <> on {moment(revert.timestamp).format('DD-MM-YYYY hh:mm A')}</>}
               {revert.remarks && <div className="ms-4 fst-italic">"{revert.remarks}"</div>}
             </div>
           ))}
@@ -454,7 +454,7 @@ const StageTimeline = ({
                       {stage.timestamp ? (
                         <>
                           {stage.actor && <span>{stage.actor} &middot; </span>}
-                          {moment(stage.timestamp).format('DD MMM YYYY, HH:mm')}
+                          {moment(stage.timestamp).format('DD-MM-YYYY hh:mm A')}
                         </>
                       ) : (
                         <span className="text-muted fst-italic">Not started</span>

@@ -241,31 +241,14 @@ const getQuoteStatus = async (rfq_id) => {
                             <th>Company</th>
                             <th>Received Date</th>
                             <th>End Date</th>
-                            <th>RFQ Type</th>
                             <th>Quote Sent</th>
                             <th>Reverse Auction</th>
-                            <th>Tender / RFQ Status</th>
                             <th>Action</th>
                             <th>Query</th>
-                            {/* <th>Follow Up</th> */}
                           </tr>
                         </thead>
                         <tbody>
                           <tr>
-                            <td>
-                              <PlaceholderLoading
-                                shape="rect"
-                                width={100}
-                                height={50}
-                              />
-                            </td>
-                            <td>
-                              <PlaceholderLoading
-                                shape="rect"
-                                width={100}
-                                height={50}
-                              />
-                            </td>
                             <td>
                               <PlaceholderLoading
                                 shape="rect"
@@ -337,13 +320,10 @@ const getQuoteStatus = async (rfq_id) => {
                               <th>Company</th>
                               <th>Received Date</th>
                               <th>End Date</th>
-                              <th>Tender / RFQ Type</th>
                               <th>Quote Sent</th>
                               <th>Reverse Auction</th>
-                              <th>Tender / RFQ Status</th>
                               <th>Action</th>
                               <th>Query</th>
-                              {/* <th>Follow Up</th> */}
                             </tr>
                           </thead>
                           <tbody>
@@ -361,25 +341,16 @@ const getQuoteStatus = async (rfq_id) => {
                                     <td>
                                       {item.timestamp != ""
                                         ? moment(item.timestamp).format(
-                                            "DD/MM/YYYY"
+                                            "DD-MM-YYYY"
                                           )
                                         : "--"}
                                     </td>
                                     <td>
                                       {item.bid_end_date != ""
                                         ? moment(item.bid_end_date).format(
-                                            "DD/MM/YYYY"
+                                            "DD-MM-YYYY hh:mm A"
                                           )
                                         : "--"}
-                                    </td>
-                                    <td>
-                                      {item.is_tender === 1
-                                        ? "---"
-                                        : item.rfq_type == "firm"
-                                        ? "Firm"
-                                        : item.rfq_type == "budgetary"
-                                        ? "Budgetary"
-                                        : "---"}
                                     </td>
                                     <td>
                                       {item.quote_status &&
@@ -389,17 +360,6 @@ const getQuoteStatus = async (rfq_id) => {
                                       {item.reverse_auction === 1
                                         ? "Enabled"
                                         : "Disabled"}
-                                    </td>
-                                    <td>
-                                      {/* 👇 View Status trigger */}
-                                      <button
-                                        className="minimal-btn bg-transparent btn-link btn-sm p-0 fw-medium text-primary text-decoration-underline"
-                                        onClick={() => getQuoteStatus(item.id)}
-                                        style={{ fontSize: "0.8rem" }}
-                                      >
-                                        <i className="bi bi-eye me-1"></i>
-                                        View Status
-                                      </button>
                                     </td>
                                     <td>
                                       <span>

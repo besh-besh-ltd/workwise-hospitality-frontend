@@ -385,7 +385,7 @@ const Vendor = () => {
                             <h5>
                               <p>
                                 {moment(item.review_date).format(
-                                  "D MMMM, YYYY"
+                                  "DD-MM-YYYY"
                                 )}
                               </p>
                               <span className="">
@@ -432,7 +432,7 @@ const Vendor = () => {
                               <span>
                                 <div className="badge badge-primary">
                                   {moment(item.readable_date_time).format(
-                                    "D MMMM, YYYY on HH:mm:ss A"
+                                    "DD-MM-YYYY hh:mm:ss A"
                                   )}
                                 </div>
                               </span>

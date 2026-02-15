@@ -1,5 +1,6 @@
 import React from "react";
 import Modal from "react-modal";
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faTimes,
@@ -25,19 +26,7 @@ const VendorQuoteHistoryModal = (props) => {
 
   const formatTimestampToIST = (timestamp) => {
     if (!timestamp) return "-";
-    const date = new Date(timestamp);
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const istDate = new Date(date.getTime() + istOffset);
-
-    const day = istDate.getDate().toString().padStart(2, "0");
-    const month = istDate.toLocaleString("en-US", { month: "short" });
-    const year = istDate.getFullYear();
-    const hours = istDate.getHours();
-    const minutes = istDate.getMinutes().toString().padStart(2, "0");
-    const ampm = hours >= 12 ? "PM" : "AM";
-    const formattedHours = (hours % 12 || 12).toString().padStart(2, "0");
-
-    return `${day}-${month}-${year} ${formattedHours}:${minutes}${ampm}`;
+    return formatDisplayDate(timestamp, { includeTime: true });
   };
 
   if (!quoteHistory || quoteHistory.length === 0) {

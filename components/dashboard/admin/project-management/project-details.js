@@ -30,7 +30,7 @@ import {
   getProjectMappings,
 } from "@/services/hospitality";
 import SmartButton from "@/components/shared/SmartButton";
-import { addCommasToNumber } from "@/utils/sharedFunctions";
+import { addCommasToNumber, formatDisplayDate } from "@/utils/sharedFunctions";
 
 // Role options with color coding
 const roleOptions = [
@@ -317,12 +317,7 @@ const ProjectDetailsPage = () => {
     if (!dateString) return "Not specified";
 
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
+      return formatDisplayDate(dateString);
     } catch (error) {
       return dateString;
     }

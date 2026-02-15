@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 
 const TenderSummary = ({ summary }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -10,7 +11,7 @@ const TenderSummary = ({ summary }) => {
     rfqNumber: "CK/A945-000-MC-TN-7601/1002",
     client: "Hindustan Petroleum Corporation Limited (HPCL)",
     consultant: "Engineers India Ltd. (EIL)",
-    generatedDate: new Date().toLocaleDateString(),
+    generatedDate: formatDisplayDate(new Date()),
     projectDuration: "20 months",
     shutdownWindow: "30 days per unit",
     emdAmount: "₹66 lakhs",

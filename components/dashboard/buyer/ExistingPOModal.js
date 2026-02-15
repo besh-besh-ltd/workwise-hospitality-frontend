@@ -1,5 +1,6 @@
 import React from "react";
 import { Modal, Button, Form } from "react-bootstrap";
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 
 const ExistingPOModal = ({
   show,
@@ -42,7 +43,7 @@ const ExistingPOModal = ({
                   <>
                     <strong>PO #{po.po_number}</strong>
                     <br />
-                    <small className="text-muted">Created: {new Date(po.created_at).toLocaleDateString()}</small>
+                    <small className="text-muted">Created: {formatDisplayDate(po.created_at)}</small>
                   </>
                 }
                 checked={selectedPo?.id === po.id}

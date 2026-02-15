@@ -25,7 +25,7 @@ import { handleDeleteMilestone, handleDeleteTask, handleGetTasks, handleUpdateGS
 import CreateTaskModal from './CreateTaskModal';
 import Pagination from '@/components/shared/Pagination';
 import { getProjectAvailableBudget } from '@/services/project';
-import { addCommasToNumber, formatToINRShort } from '@/utils/sharedFunctions';
+import { addCommasToNumber, formatDisplayDate, formatToINRShort } from '@/utils/sharedFunctions';
 import Link from 'next/link';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
 import CommonFormInput from '@/components/shared/CommonFormInput';
@@ -108,7 +108,7 @@ const renderDueDateCell = (dueDateStr, isTask = false) => {
 
 
 const formatIST = (dateStr) =>
-  dateStr ? new Date(dateStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A';
+  dateStr ? formatDisplayDate(dateStr, { includeTime: true }) : 'N/A';
 
 const elipsisToLimit = (text, limit = 45) => {
   return text.length > limit ? text.slice(0, limit).concat('...') : text;
@@ -143,7 +143,15 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     gstin: fetchedGST,
     quotations,
     rfq_product_id,
-    poPdfUrl
+    poPdfUrl,
+    buyer_company_name,
+    buyer_business_unit,
+    buyer_gstin,
+    buyer_address,
+    initiated_by_email,
+    initiated_by_phone,
+    rfq_no,
+    rfq_title
   } = data;
 
   const [selectedMilestone, setSelectedMilestone] = useState(null);
@@ -513,28 +521,56 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           )}
         </div>
   
-        {/* Product Details */}
-        <Link
-          className="w-100"
-          href={`/vendor/vendor-profile?id=${finalized_vendor_id}`}
-          target="__blank"
-        >
-          <Card className="shadow-sm">
-            <Card.Body className="d-flex align-items-center">
-              <BsPerson className="me-3 fs-2 text-primary" />
+        {/* Vendor & Buyer Details */}
+        <div className="d-flex gap-3 mb-3">
+          <Link
+            className="w-100"
+            href={`/vendor/vendor-profile?id=${finalized_vendor_id}`}
+            target="__blank"
+            style={{ textDecoration: 'none' }}
+          >
+            <Card className="shadow-sm h-100">
+              <Card.Body className="d-flex align-items-center">
+                <BsPerson className="me-3 fs-2 text-primary" />
+                <div>
+                  <strong>{finalized_vendor_name}</strong>{" "}
+                  <small className="text-muted">(Finalized Vendor)</small>
+                  {finalized_vendor_email && (
+                    <div className="text-muted">{finalized_vendor_email}</div>
+                  )}
+                  {finalized_vendor_phone && (
+                    <div className="text-muted">+91 {finalized_vendor_phone}</div>
+                  )}
+                </div>
+              </Card.Body>
+            </Card>
+          </Link>
+
+          <Card className="shadow-sm w-100">
+            <Card.Body className="d-flex align-items-start">
+              <MdOutlineBusinessCenter className="me-3 fs-2 text-success" />
               <div>
-                <strong>{finalized_vendor_name}</strong>{" "}
-                <small className="text-muted">(Finalized Vendor)</small>
-                {finalized_vendor_email && (
-                  <div className="text-muted">{finalized_vendor_email}</div>
+                <strong>{buyer_company_name || '-'}</strong>{" "}
+                <small className="text-muted">(Buyer)</small>
+                {buyer_business_unit && (
+                  <div className="text-muted">Business Unit: {buyer_business_unit}</div>
                 )}
-                {finalized_vendor_phone && (
-                  <div className="text-muted">+91 {finalized_vendor_phone}</div>
+                {buyer_address && (
+                  <div className="text-muted">{buyer_address}</div>
+                )}
+                {buyer_gstin && (
+                  <div className="text-muted">GSTIN: {buyer_gstin}</div>
+                )}
+                {initiated_by_name && (
+                  <div className="text-muted">Contact: {initiated_by_name}{initiated_by_email ? ` (${initiated_by_email})` : ''}{initiated_by_phone ? ` | +91 ${initiated_by_phone}` : ''}</div>
+                )}
+                {rfq_no && (
+                  <div className="text-muted">RFQ: #{rfq_no}{rfq_title ? ` - ${rfq_title}` : ''}</div>
                 )}
               </div>
             </Card.Body>
           </Card>
-        </Link>
+        </div>
   
         <div className="my-3 d-flex gap-3">
           <Card className="shadow-sm w-100">

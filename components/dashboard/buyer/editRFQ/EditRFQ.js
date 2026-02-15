@@ -55,20 +55,7 @@ const EditRFQSchema = Yup.object().shape({
   location: Yup.string()
     .nullable()
     .transform(value => value === null || value === '' ? '' : value),
-  // Modified to accept date that could be today or in the future
-  bid_end_date: Yup.date()
-    .required("Procurement end date is required")
-    .test('valid-date', 'End date must be today or in the future', function(value) {
-      if (!value) return true;
-      
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const inputDate = new Date(value);
-      inputDate.setHours(0, 0, 0, 0);
-      
-      return inputDate >= today;
-    }),
+  bid_end_date: Yup.string().required("Procurement end date is required"),
 });
 
 const rfqTypes = [
@@ -1798,7 +1785,7 @@ const EditRFQ = () => {
               contact_number: rfqFormDataFromStore.contact_number || "",
               response_email: rfqFormDataFromStore.response_email || "",
               location: rfqData.location || " ", // Use original location with non-empty fallback
-              bid_end_date: rfqFormDataFromStore.bid_end_date || "",
+              bid_end_date: rfqFormDataFromStore.bid_end_date ? formatISOToDateTimeLocal(rfqFormDataFromStore.bid_end_date) : "",
               comment: rfqFormDataFromStore.comment || "",
               rfq_type: rfqFormDataFromStore.rfq_type || "",
               is_tender: rfqFormDataFromStore.is_tender || 0,
@@ -1897,13 +1884,15 @@ const EditRFQ = () => {
                         <div className="mb-3">
                           <label className="form-label fw-medium">Quote Submission Deadline <span className="text-danger">*</span></label>
                           <input
-                            type="date"
+                            type="datetime-local"
                             name="bid_end_date"
                             className="form-control"
-                            value={values.bid_end_date}
+                            value={values.bid_end_date ? formatISOToDateTimeLocal(values.bid_end_date) : ""}
                             onChange={(e) => {
-                              handleChange(e);
-                              handleFormFieldChange(e);
+                              const val = e.target.value;
+                              const formatted = val.includes('T') ? val.replace('T', ' ') : val;
+                              setFieldValue('bid_end_date', formatted);
+                              handleFormFieldChange({ target: { name: 'bid_end_date', value: formatted } });
                             }}
                             onBlur={handleBlur}
                           />

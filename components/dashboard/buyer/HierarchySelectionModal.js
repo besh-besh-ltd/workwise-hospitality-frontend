@@ -1,4 +1,4 @@
-import { formatToINRShort } from "@/utils/sharedFunctions";
+import { formatDisplayDate, formatToINRShort } from "@/utils/sharedFunctions";
 import React, { useState, useMemo, useEffect } from "react";
 import { Modal, Button, Form, Badge, Card } from "react-bootstrap";
 
@@ -214,7 +214,7 @@ const HierarchySelectionModal = ({
                                 {created && (
                                   <span className="ms-2">
                                     • Created:{" "}
-                                    {new Date(created).toLocaleDateString()}
+                                    {formatDisplayDate(created)}
                                   </span>
                                 )}
                               </div>

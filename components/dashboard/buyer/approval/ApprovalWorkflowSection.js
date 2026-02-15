@@ -9,6 +9,7 @@ import {
   BsChevronDown,
   BsShieldCheck,
   BsShieldX,
+  BsLightningChargeFill,
 } from "react-icons/bs";
 import useApprovalWorkflow from "@/hooks/useApprovalWorkflow";
 import ApprovalTimeline from "./ApprovalTimeline";
@@ -56,6 +57,14 @@ const statusConfig = {
     color: "#dc3545",
     accentColor: "#dc3545",
     accentGradient: "linear-gradient(90deg, #dc3545 0%, #e74c3c 100%)",
+  },
+  AUTO_PUBLISHED: {
+    variant: "success",
+    label: "Auto Published",
+    icon: BsLightningChargeFill,
+    color: "#22c55e",
+    accentColor: "#22c55e",
+    accentGradient: "linear-gradient(90deg, #22c55e 0%, #4ade80 100%)",
   },
 };
 
@@ -238,7 +247,8 @@ const ApprovalWorkflowSection = ({
   vendorNameMap = {},
   refreshTrigger = 0,
   hideTopButtons = false,
-  isBacklog = false
+  isBacklog = false,
+  isPublished = false
 }) => {
   const {
     instance,
@@ -252,6 +262,8 @@ const ApprovalWorkflowSection = ({
     totalSteps,
     steps,
     initiatedBy,
+    isAutoApproved,
+    autoApprovedReason,
     handleApprovalAction,
     refetch,
   } = useApprovalWorkflow({ entityType, entityId, enabled: !!entityId, refreshTrigger });
@@ -333,9 +345,9 @@ const ApprovalWorkflowSection = ({
     return null;
   }
 
-  const statusInfo = isBacklog ? statusConfig.BACKLOG : (statusConfig[status] || statusConfig.PENDING);
+  const statusInfo = isAutoApproved ? statusConfig.AUTO_PUBLISHED : isBacklog ? statusConfig.BACKLOG : (statusConfig[status] || statusConfig.PENDING);
   const StatusIcon = statusInfo.icon;
-  const isActionRequired = canUserApprove && status === "PENDING" && !isBacklog;
+  const isActionRequired = canUserApprove && status === "PENDING" && !isBacklog && !isAutoApproved && !isPublished;
 
   return (
     <>
@@ -688,7 +700,60 @@ const ApprovalWorkflowSection = ({
                 )}
 
                 {/* Status messages */}
-                {status === "APPROVED" && (
+                {status === "APPROVED" && isAutoApproved && (() => {
+                  const isSchedulerAutoApproved = !!instance?.metadata?.auto_approved_reason;
+                  const isCreatorAutoApproved = instance?.metadata?.auto_approved === true && !isSchedulerAutoApproved;
+                  const pendingApprovers = [];
+                  if (isSchedulerAutoApproved && steps?.length > 0) {
+                    steps.forEach(step => {
+                      (step.approvers || []).forEach(approver => {
+                        if (!instance.action_history?.some(a => a.actor?.user_id === approver.user_id && a.action === 'APPROVE')) {
+                          pendingApprovers.push(approver);
+                        }
+                      });
+                    });
+                  }
+                  return (
+                    <div style={{
+                      background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                      border: '1px solid #bbf7d0',
+                      borderRadius: '8px',
+                      padding: '12px 14px',
+                      marginTop: '14px',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                        <BsLightningChargeFill size={15} style={{ color: '#22c55e' }} />
+                        <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#166534' }}>
+                          Auto Published
+                        </span>
+                        <span style={{
+                          fontSize: '0.65rem', fontWeight: 600, color: '#166534',
+                          background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)',
+                          padding: '1px 6px', borderRadius: '8px',
+                        }}>
+                          {isCreatorAutoApproved ? 'Creator is final approver' : 'Publish date arrived'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#4b5563' }}>
+                        {isCreatorAutoApproved
+                          ? 'This was auto-published because the creator is the final approver in the workflow.'
+                          : 'This was auto-published by the system when the scheduled publish date arrived, as the approval was still pending.'
+                        }
+                      </div>
+                      {pendingApprovers.length > 0 && (
+                        <div style={{
+                          fontSize: '0.72rem', color: '#92400e', fontWeight: 500,
+                          background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)',
+                          padding: '4px 8px', borderRadius: '6px', marginTop: '8px',
+                        }}>
+                          Approvers who did not act: {pendingApprovers.map(a => a.user_name || a.name).filter(Boolean).join(', ') || 'Unknown'}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {status === "APPROVED" && !isAutoApproved && (
                   <div className="aws-status-line aws-status-approved">
                     <BsCheckCircleFill size={15} />
                     <span>Fully approved — ready to proceed.</span>

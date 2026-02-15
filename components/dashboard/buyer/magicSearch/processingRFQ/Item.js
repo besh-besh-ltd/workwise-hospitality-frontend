@@ -104,11 +104,11 @@ const DraftRFQItem = ({ data, index, onViewErrors, handleCreateRFQ }) => {
   };
 
   const formattedStart = data.started_at
-    ? moment(data.started_at).format("DD-MM-YY hh:mm A")
+    ? moment(data.started_at).format("DD-MM-YYYY hh:mm A")
     : "—";
 
   const formattedEnd = data.completed_at
-    ? moment(data.completed_at).format("DD-MM-YY hh:mm A")
+    ? moment(data.completed_at).format("DD-MM-YYYY hh:mm A")
     : "—";
 
   const errorTooltip = (

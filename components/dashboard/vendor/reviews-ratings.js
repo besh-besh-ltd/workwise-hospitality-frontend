@@ -89,7 +89,7 @@ const ReviewRating = () => {
                                     onRatingChange={null}
                                   />
                                 </td>
-                                <td>{moment(item.review_date).format('D MMMM, YYYY')}</td>
+                                <td>{moment(item.review_date).format('DD-MM-YYYY')}</td>
                                 {/* <td>
                                   <span>
                                     <FontAwesomeIcon

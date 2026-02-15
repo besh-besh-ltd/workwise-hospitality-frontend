@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "react-bootstrap";
 import { toast } from "react-toastify";
-import { BsShieldExclamation, BsClockHistory, BsShieldCheck, BsShieldX, BsArrowDown } from "react-icons/bs";
+import { BsShieldExclamation, BsClockHistory, BsShieldCheck, BsShieldX, BsArrowDown, BsLightningChargeFill } from "react-icons/bs";
 import useApprovalWorkflow from "@/hooks/useApprovalWorkflow";
 import ApprovalActionModal from "./ApprovalActionModal";
 
@@ -17,8 +17,11 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
     status,
     currentStep,
     totalSteps,
+    steps,
     actionLoading,
     handleApprovalAction,
+    isAutoApproved,
+    autoApprovedReason,
   } = useApprovalWorkflow({ entityType, entityId, enabled: !!entityId });
 
   const [showActionModal, setShowActionModal] = useState(false);
@@ -48,12 +51,249 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
     }
   };
 
-  if (loading || !instance || status !== "PENDING") {
+  if (loading || !instance) {
+    return null;
+  }
+
+  // Auto-approved banner (creator was final approver OR scheduler auto-approved)
+  if (isAutoApproved && status === "APPROVED") {
+    const isSchedulerAutoApproved = !!instance?.metadata?.auto_approved_reason;
+    const isCreatorAutoApproved = instance?.metadata?.auto_approved === true && !isSchedulerAutoApproved;
+
+    // Find approvers who didn't manually approve (for scheduler auto-approval)
+    const pendingApprovers = [];
+    if (isSchedulerAutoApproved && steps?.length > 0) {
+      steps.forEach(step => {
+        (step.approvers || []).forEach(approver => {
+          // In scheduler auto-approval, all approvers were force-set to APPROVED
+          // They didn't actually act - check if there's no matching action_history entry
+          if (!instance.action_history?.some(a => a.actor?.user_id === approver.user_id && a.action === 'APPROVE')) {
+            pendingApprovers.push(approver);
+          }
+        });
+      });
+    }
+
+    return (
+      <>
+        <style jsx>{`
+          .apb-auto-approved {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 12px 18px;
+            margin-bottom: 16px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 1px solid #bbf7d0;
+            border-left: 4px solid #22c55e;
+            box-shadow: 0 2px 12px rgba(34, 197, 94, 0.10);
+            position: relative;
+            overflow: hidden;
+          }
+          .apb-auto-approved-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            flex: 1;
+          }
+          .apb-auto-approved-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(34, 197, 94, 0.18);
+            flex-shrink: 0;
+          }
+          .apb-auto-approved-text {
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: #166534;
+          }
+          .apb-auto-approved-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: #166534;
+            background: rgba(34, 197, 94, 0.15);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 6px;
+          }
+          .apb-auto-approved-sub {
+            font-size: 0.72rem;
+            color: #4b5563;
+            font-weight: 400;
+            margin-top: 2px;
+          }
+          .apb-auto-approved-pending {
+            font-size: 0.70rem;
+            color: #92400e;
+            font-weight: 500;
+            margin-top: 3px;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            padding: 3px 8px;
+            border-radius: 6px;
+            display: inline-block;
+          }
+        `}</style>
+
+        <div className="apb-auto-approved">
+          <div className="apb-auto-approved-left">
+            <div className="apb-auto-approved-icon">
+              <BsLightningChargeFill size={17} style={{ color: "#22c55e" }} />
+            </div>
+            <div>
+              <div className="apb-auto-approved-text">
+                Auto Published
+                <span className="apb-auto-approved-tag">
+                  <BsLightningChargeFill size={9} />
+                  {isCreatorAutoApproved ? "Creator is final approver" : "Scheduled auto-publish"}
+                </span>
+              </div>
+              <div className="apb-auto-approved-sub">
+                {isCreatorAutoApproved
+                  ? `This ${entityLabel.toLowerCase()} was auto-published because the creator is the final approver in the workflow. No additional approval was required.`
+                  : `This ${entityLabel.toLowerCase()} was auto-published when the publish date arrived. The approval was pending and was automatically published by the system.`
+                }
+              </div>
+              {pendingApprovers.length > 0 && (
+                <div className="apb-auto-approved-pending">
+                  Did not approve before auto-publish: {pendingApprovers.map(a => a.user_name || a.name).filter(Boolean).join(", ") || "Unknown approvers"}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="d-flex gap-2">
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              style={{ fontSize: "0.76rem", fontWeight: 600, padding: "5px 14px", borderRadius: 7 }}
+              onClick={scrollToApprovalSection}
+            >
+              <BsArrowDown size={13} className="me-1" />
+              Details
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Don't show banner for non-auto-approved completed statuses
+  if (status !== "PENDING") {
     return null;
   }
 
   // Action-required banner (current approver)
   if (canUserApprove) {
+    // If already published (backlog), don't show approve/reject buttons
+    if (isPublished || isBacklog) {
+      return (
+        <>
+          <style jsx>{`
+            .apb-skipped {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              flex-wrap: wrap;
+              gap: 10px;
+              padding: 12px 18px;
+              margin-bottom: 16px;
+              border-radius: 12px;
+              background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%);
+              border: 1px solid #f5c6cb;
+              border-left: 5px solid #dc3545;
+              box-shadow: 0 2px 12px rgba(220, 53, 69, 0.12);
+              position: relative;
+              overflow: hidden;
+            }
+            .apb-skipped::before {
+              content: '';
+              position: absolute;
+              top: 0;
+              left: 0;
+              right: 0;
+              height: 3px;
+              background: linear-gradient(90deg, #dc3545 0%, #e74c3c 50%, #dc3545 100%);
+              background-size: 200% 100%;
+              animation: apb-shimmer-red 3s linear infinite;
+            }
+            @keyframes apb-shimmer-red {
+              0% { background-position: 200% 0; }
+              100% { background-position: -200% 0; }
+            }
+            .apb-skipped-left {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              min-width: 0;
+            }
+            .apb-skipped-icon {
+              width: 34px;
+              height: 34px;
+              border-radius: 10px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: rgba(220, 53, 69, 0.15);
+              flex-shrink: 0;
+            }
+            .apb-skipped-text {
+              font-size: 0.86rem;
+              color: #495057;
+            }
+            .apb-skipped-text strong {
+              color: #842029;
+              font-weight: 600;
+            }
+            .apb-skipped-sub {
+              font-size: 0.72rem;
+              color: #856404;
+              font-weight: 400;
+              margin-top: 2px;
+            }
+          `}</style>
+
+          <div className="apb-skipped">
+            <div className="apb-skipped-left">
+              <div className="apb-skipped-icon">
+                <BsShieldExclamation size={17} style={{ color: "#dc3545" }} />
+              </div>
+              <div>
+                <div className="apb-skipped-text">
+                  <strong>Published without your approval.</strong>
+                </div>
+                <div className="apb-skipped-sub">
+                  This {entityLabel.toLowerCase()} was auto-published as the approval was not completed in time. No action is required from you.
+                </div>
+              </div>
+            </div>
+            <div className="d-flex gap-2">
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                style={{ fontSize: "0.76rem", fontWeight: 600, padding: "5px 14px", borderRadius: 7 }}
+                onClick={scrollToApprovalSection}
+              >
+                <BsArrowDown size={13} className="me-1" />
+                Details
+              </Button>
+            </div>
+          </div>
+        </>
+      );
+    }
+
     return (
       <>
         <style jsx>{`
@@ -198,7 +438,6 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
 
   // Published but approval still pending - show "Approval Skipped" warning (backlog)
   if (isPublished || isBacklog) {
-    const initiatedByName = instance?.initiated_by?.name || instance?.initiated_by_name || "Unknown";
     return (
       <>
         <style jsx>{`
@@ -291,15 +530,6 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
             </Button>
           </div>
         </div>
-
-        <ApprovalActionModal
-          show={showActionModal}
-          actionType={actionType}
-          onClose={() => setShowActionModal(false)}
-          onSubmit={handleAction}
-          loading={actionLoading}
-          entityLabel={entityLabel}
-        />
       </>
     );
   }

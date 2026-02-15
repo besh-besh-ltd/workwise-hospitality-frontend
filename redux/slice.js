@@ -20,7 +20,7 @@ const initialState = {
     company_name: "",
     terms: [],
     term_and_condition_files: [],
-    bid_end_date: getFuturedate(),
+    bid_end_date: getFuturedate() + " 23:59:00",
     rfq_type: "",
     reverse_auction: 1,
     ra_start_date: getTodayDate(), // Initialize with today's date
