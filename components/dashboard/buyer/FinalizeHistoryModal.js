@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Button, Table } from 'react-bootstrap';
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 
 const FinalizeHistoryModal = ({
   show,
@@ -10,16 +11,7 @@ const FinalizeHistoryModal = ({
 }) => {
 
     const getFormattedDate = (date) => {
-      return new Date(date).toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      });
+      return formatDisplayDate(date, { includeTime: true, includeSeconds: true });
     };
   return (
     <Modal

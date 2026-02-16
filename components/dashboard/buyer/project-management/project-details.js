@@ -12,6 +12,7 @@ import { useRouter } from 'next/router';
 import React, { useEffect, useRef, useState } from 'react'
 import PlaceholderLoading from 'react-placeholder-loading'
 import { toast } from 'react-toastify';
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 
 const ProjectDetails = () => {
     const pathname = usePathname();
@@ -638,9 +639,7 @@ const ProjectDetails = () => {
                                   {item.vendor_name}
                                 </span>
                                 <span style={{ width: "80px" }}>
-                                  {new Date(
-                                    item.updated_at
-                                  ).toLocaleDateString()}
+                                  {formatDisplayDate(item.updated_at)}
                                 </span>
                                 <span className="text-danger fw-bold text-end">
                                   ₹{parseFloat(item.total_value).toFixed(2)}

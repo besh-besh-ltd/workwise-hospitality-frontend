@@ -213,7 +213,7 @@ const ClarificationManagement = () => {
                       </Badge>
                     </td>
                     <td>
-                      <div>{moment.utc(latestActivityDate).local().format("DD MMM YYYY")}</div>
+                      <div>{moment.utc(latestActivityDate).local().format("DD-MM-YYYY")}</div>
                       <small className="text-muted">
                         {moment.utc(latestActivityDate).local().format("hh:mm A")}
                       </small>

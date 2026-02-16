@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal } from 'react-bootstrap';
 import ApprovalWorkflowSection from '../approval/ApprovalWorkflowSection';
 import { approveNegotiationRound, rejectNegotiationRound } from '@/services/negotiation';
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 
 const NegotiationWorkflowModal = ({
   show,
@@ -64,13 +65,7 @@ const NegotiationWorkflowModal = ({
             <div className="col-md-4">
               <small className="text-muted">End Date</small>
               <div className="fw-bold">
-                {round.end_date ? new Date(round.end_date).toLocaleDateString('en-IN', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                }) : 'N/A'}
+                {round.end_date ? formatDisplayDate(round.end_date, { includeTime: true }) : 'N/A'}
               </div>
             </div>
             <div className="col-md-4">

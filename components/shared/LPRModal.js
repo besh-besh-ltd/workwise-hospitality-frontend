@@ -1,5 +1,5 @@
 import { getLastPurchaseDetails } from '@/services/rfq';
-import { addCommasToNumber, getEntityLabel } from '@/utils/sharedFunctions';
+import { addCommasToNumber, formatDisplayDate, getEntityLabel } from '@/utils/sharedFunctions';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Table, Badge } from 'react-bootstrap';
 
@@ -25,12 +25,7 @@ const LPRModal = ({ show, onHide, variantId , RFQ_no }) => {
 
   // Format date string
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    return formatDisplayDate(dateString);
   };
 
   // Fetch data when modal is shown or tab changes

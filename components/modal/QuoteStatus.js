@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getEntityLabel } from "@/utils/sharedFunctions";
+import { formatDisplayDate, getEntityLabel } from "@/utils/sharedFunctions";
 
 const statusMap = {
   QC: {
@@ -102,7 +102,7 @@ const QuoteStatus = ({ quoteStatus, onClose }) => {
                             {statusLabel}
                           </span>
                           <small className="text-muted">
-                            {new Date(q.created_at).toLocaleString()}
+                            {formatDisplayDate(q.created_at, { includeTime: true })}
                           </small>
                         </div>
                       </div>
@@ -128,7 +128,7 @@ const QuoteStatus = ({ quoteStatus, onClose }) => {
                           {getEntityLabel(quoteStatus?.is_tender)} Closed
                         </span>
                         <small className="text-muted">
-                          {new Date().toLocaleString()} {/* Or use closed_at if you have it */}
+                          {formatDisplayDate(new Date(), { includeTime: true })} {/* Or use closed_at if you have it */}
                         </small>
                       </div>
                     </div>

@@ -1018,7 +1018,7 @@ const NegotiationModal = ({
                             </div>
                             <div>
                               <span style={{ color: '#999', fontSize: '0.7rem' }}>End Date</span>
-                              <div>{moment.utc(round.end_date).local().format('DD MMM YYYY, hh:mm A')}</div>
+                              <div>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</div>
                             </div>
                             {round.created_by_name && (
                               <div>
@@ -1361,7 +1361,7 @@ const NegotiationModal = ({
                         </div>
                         <div className="col-md-6">
                           <small className="text-muted">End Date:</small>
-                          <div>{moment.utc(round.end_date).local().format('DD/MM/YYYY HH:mm')}</div>
+                          <div>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</div>
                         </div>
                       </div>
                       
@@ -1448,7 +1448,7 @@ const NegotiationModal = ({
                         </div>
                         <div className="col-md-6">
                           <small className="text-muted">End Date:</small>
-                          <div>{moment.utc(round.end_date).local().format('DD/MM/YYYY HH:mm')}</div>
+                          <div>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</div>
                         </div>
                       </div>
                     </div>
@@ -1482,7 +1482,7 @@ const NegotiationModal = ({
                            <td>{quote.vendor_name || quote.vendor_company_name}</td>
                            <td>₹{parseFloat(quote.quoted_price || 0).toLocaleString()}</td>
                            <td>{quote.previous_price ? `₹${parseFloat(quote.previous_price).toLocaleString()}` : '-'}</td>
-                           <td>{quote.submitted_at ? moment(quote.submitted_at).format('DD/MM/YYYY HH:mm') : '-'}</td>
+                           <td>{quote.submitted_at ? moment(quote.submitted_at).format('DD-MM-YYYY hh:mm A') : '-'}</td>
                          </tr>
                        ))}
                      </tbody>

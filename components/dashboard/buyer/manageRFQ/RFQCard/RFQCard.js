@@ -1,18 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Badge } from 'react-bootstrap';
-import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, Folder, Package, FileText, Gavel, AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, Folder, Package, FileText, Gavel, AlertTriangle, Zap } from 'lucide-react';
 import Link from 'next/link';
 import moment from 'moment';
 import { getRFQPublishState, formatRFQNumber, textCapitalize } from '@/utils/sharedFunctions';
+import { getEntityApprovalInstances } from '@/services/approval';
 import PublishDateTimer from '@/components/shared/PublishDateTimer';
 import { getStatusConfig, STATUS_CONFIG } from './statusConfig';
 import styles from './RFQCard.module.scss';
 
 const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isAutoPublished, setIsAutoPublished] = useState(false);
 
   const publishState = getRFQPublishState(data);
   const isTender = data.is_tender === 1 || data.is_tender === true;
+
+  // Lightweight auto-publish detection (only fetches instance list, not details)
+  useEffect(() => {
+    if (!data?.id || !data?.is_published) return;
+    const entityType = isTender ? 'TENDER' : 'RFQ';
+    getEntityApprovalInstances(entityType, data.id)
+      .then(res => {
+        const instances = res?.data?.data || res?.data || [];
+        if (instances.length > 0) {
+          const latest = instances[0];
+          const meta = typeof latest.metadata === 'string' ? JSON.parse(latest.metadata) : latest.metadata;
+          if (meta?.auto_approved === true || !!meta?.auto_approved_reason) {
+            setIsAutoPublished(true);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [data?.id, data?.is_published, isTender]);
   const isBacklog = isPendingApproval && data.is_published === 1 && data.status === 1;
   const statusConfig = isBacklog ? STATUS_CONFIG.PUBLISHED_WITHOUT_APPROVAL : getStatusConfig(data, publishState);
   const StatusIcon = statusConfig.icon;
@@ -73,6 +93,21 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
             <StatusIcon size={11} />
             <span>{statusConfig.label}</span>
           </span>
+
+          {/* Auto Published Badge */}
+          {isAutoPublished && (
+            <span
+              className={styles.statusBadge}
+              style={{
+                backgroundColor: '#dcfce7',
+                color: '#166534',
+                border: '1px solid #bbf7d0',
+              }}
+            >
+              <Zap size={11} />
+              <span>Auto Published</span>
+            </span>
+          )}
 
           {/* Title & Number */}
           <div className={styles.titleBlock}>
@@ -135,7 +170,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
               <>
                 <div className={styles.dateItem}>
                   <Calendar size={12} />
-                  <span>{data.bid_end_date ? moment(data.bid_end_date).format('DD MMM') : '---'}</span>
+                  <span>{data.bid_end_date ? moment(data.bid_end_date).format('DD-MM-YYYY hh:mm A') : '---'}</span>
                 </div>
                 {daysRemaining && (
                   <Badge
@@ -214,11 +249,11 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
             <>
               <div className={styles.timelineItem}>
                 <Calendar size={14} />
-                <span>Published: <strong>{moment(data.timestamp).format('DD MMM YYYY')}</strong></span>
+                <span>Published: <strong>{moment(data.timestamp).format('DD-MM-YYYY')}</strong></span>
               </div>
               <div className={styles.timelineItem}>
                 <Clock size={14} />
-                <span>Ends: <strong>{data.bid_end_date ? moment(data.bid_end_date).format('DD MMM YYYY') : '---'}</strong></span>
+                <span>Ends: <strong>{data.bid_end_date ? moment(data.bid_end_date).format('DD-MM-YYYY hh:mm A') : '---'}</strong></span>
               </div>
             </>
           )}

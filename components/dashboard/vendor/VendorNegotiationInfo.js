@@ -269,7 +269,7 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
                 </div>
                 <div className="col-md-3">
                   <div className="text-muted" style={{ fontSize: '0.75rem' }}>End Date</div>
-                  <div>{moment.utc(round.end_date).local().format('DD/MM/YYYY HH:mm')}</div>
+                  <div>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</div>
                 </div>
                 <div className="col-md-3">
                   <div className="text-muted" style={{ fontSize: '0.75rem' }}>Time Remaining</div>
@@ -337,7 +337,7 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
                     <tr key={histRound.id}>
                       <td className="fw-semibold">#{histRound.round_number}</td>
                       <td>₹{parseFloat(histRound.target_price).toLocaleString()}</td>
-                      <td>{moment.utc(histRound.end_date).local().format('DD/MM/YYYY HH:mm')}</td>
+                      <td>{moment.utc(histRound.end_date).local().format('DD-MM-YYYY hh:mm A')}</td>
                       <td>{getStatusBadge(effectiveStatus)}</td>
                       <td>{histRound.created_by_name || '-'}</td>
                     </tr>

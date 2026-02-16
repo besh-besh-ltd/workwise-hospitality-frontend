@@ -263,8 +263,8 @@ const StageEventHistory = ({ events = [], title = 'Event History' }) => {
                 <div className="text-muted text-end" style={{ fontSize: '0.72rem', whiteSpace: 'nowrap', marginLeft: '12px' }}>
                   {event.created_at && (
                     <>
-                      <div>{moment(event.created_at).format('DD MMM YYYY')}</div>
-                      <div>{moment(event.created_at).format('HH:mm')}</div>
+                      <div>{moment(event.created_at).format('DD-MM-YYYY')}</div>
+                      <div>{moment(event.created_at).format('hh:mm A')}</div>
                     </>
                   )}
                 </div>

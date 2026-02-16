@@ -118,7 +118,7 @@ const VendorNegotiationRoundBanner = ({ rfq_id }) => {
             </div>
           )}
           <div className="small text-muted">
-            End Date: {moment.utc(activeRound.end_date).local().format('DD/MM/YYYY HH:mm')}
+            End Date: {moment.utc(activeRound.end_date).local().format('DD-MM-YYYY hh:mm A')}
           </div>
         </div>
       </div>

@@ -12,6 +12,7 @@ import {
 import NegotiationRoundForm from "./NegotiationRoundForm";
 import RoundApprovalsList from "./RoundApprovalsList";
 import NegotiationRoundHistoryModal from "./NegotiationRoundHistoryModal";
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 
 const NegotiationBanner = ({ rfq_id, currentUser }) => {
   const [rounds, setRounds] = useState([]);
@@ -248,7 +249,7 @@ const NegotiationBanner = ({ rfq_id, currentUser }) => {
                       </div>
                     )}
                     <div className="text-muted" style={{ fontSize: "12px" }}>
-                      Created by {activeRound.created_by_name} on {new Date(activeRound.created_at).toLocaleDateString()}
+                      Created by {activeRound.created_by_name} on {formatDisplayDate(activeRound.created_at)}
                     </div>
                   </div>
                 </div>
@@ -451,7 +452,7 @@ const NegotiationBanner = ({ rfq_id, currentUser }) => {
                     {getStatusBadge(round.status)}
                   </div>
                   <div className="small text-muted mt-1">
-                    Target: {formatPrice(round.target_price)} • {new Date(round.created_at).toLocaleDateString()}
+                    Target: {formatPrice(round.target_price)} • {formatDisplayDate(round.created_at)}
                   </div>
                 </div>
               ))}

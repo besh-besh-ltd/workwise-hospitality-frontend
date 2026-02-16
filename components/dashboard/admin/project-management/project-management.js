@@ -12,6 +12,7 @@ import { getProfile } from "@/services/Auth";
 import { getProjectMappings } from "@/services/hospitality";
 import { getCountryCodes } from "@/services/cms";
 import SmartButton from "@/components/shared/SmartButton";
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 
 const ProjectManagementPage = () => {
   const [state, setState] = useState({
@@ -34,11 +35,7 @@ const ProjectManagementPage = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    return formatDisplayDate(dateString);
   };
 
   const fetchCountryCodes = async () => {

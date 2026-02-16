@@ -83,7 +83,7 @@ const StageQuoteFinalization = ({ stage, rfq, lifecycleData, onRefresh }) => {
                   </div>
                 </td>
                 <td className="small text-muted">
-                  {moment(ranking.created_at).format('DD MMM YYYY')}
+                  {moment(ranking.created_at).format('DD-MM-YYYY')}
                 </td>
               </tr>
             ))}
@@ -115,7 +115,7 @@ const StageQuoteFinalization = ({ stage, rfq, lifecycleData, onRefresh }) => {
             </div>
             {stage.timestamp && (
               <div className="text-muted small">
-                {moment(stage.timestamp).format('DD MMM YYYY, HH:mm')}
+                {moment(stage.timestamp).format('DD-MM-YYYY hh:mm A')}
               </div>
             )}
           </div>

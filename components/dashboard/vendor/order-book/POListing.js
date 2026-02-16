@@ -1,6 +1,6 @@
 import { getCompanyUsers } from "@/services/Auth";
 import { handlePOApproval } from "@/services/po";
-import useDebounce, { addCommasToNumber } from "@/utils/sharedFunctions";
+import useDebounce, { addCommasToNumber, formatDisplayDate } from "@/utils/sharedFunctions";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { IoMdEye } from "react-icons/io";
@@ -61,8 +61,7 @@ const styles = {
 };
 
 const formatISTDate = (utcString) => {
-  const date = new Date(utcString);
-  return date.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  return formatDisplayDate(utcString, { includeTime: true });
 };
 
 const POListing = ({

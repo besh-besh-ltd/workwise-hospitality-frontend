@@ -603,14 +603,7 @@ const CreateRFQ = () => {
     const raStartDate = currentFormData.ra_start_date ? new Date(currentFormData.ra_start_date) : null;
     const raEndDate = currentFormData.ra_end_date ? new Date(currentFormData.ra_end_date) : null;
 
-    if (name === 'bid_end_date' && value) {
-      const selectedDate = new Date(value);
-      if (selectedDate < today) {
-        error = 'Quote Submission End Date cannot be in the past.';
-      }
-      // Changes by Agnij 2025-05-03 [Removed bid end must be before RA start constraint]
-      // No constraint between bid end date and reverse auction start
-    } else if (name === 'ra_start_date' && value && currentFormData.reverse_auction) {
+    if (name === 'ra_start_date' && value && currentFormData.reverse_auction) {
         const selectedStartDate = new Date(value);
         // Changes by Agnij 2025-05-03 [Removed RA must be after bid end constraint]
         // Removed constraint that RA start must be after bid end date
@@ -678,14 +671,6 @@ const CreateRFQ = () => {
     let value = e?.target?.value || selectedOption?.value || "";
 
     if (name === "bid_end_date"){
-      const today = new Date();
-      if(value){
-        const selectedDate = new Date(value);
-        if (selectedDate <= today) {
-            toast.error(`Quote submission End Date must be after ${today.toISOString().slice(0, 10)}`);
-            return;
-        }
-      }
       // Warn if existing clarification date becomes invalid
       if (value && rfqFormDataFromStore.vendor_clarification_date) {
         const bidEndDate = new Date(value);
@@ -760,7 +745,7 @@ const CreateRFQ = () => {
   }
 
     // Handle datetime-local inputs for auction and tender dates
-    if ((name === 'ra_start_date' || name === 'ra_end_date' || name === 'tender_publish_date' || name === 'vendor_clarification_date') && value) {
+    if ((name === 'bid_end_date' || name === 'ra_start_date' || name === 'ra_end_date' || name === 'tender_publish_date' || name === 'vendor_clarification_date') && value) {
       // Changes by Agnij 2025-05-03 [Fixed timestamp format issue]
       // Convert from datetime-local format to server expected format
       // This preserves the exact time without timezone adjustments
@@ -950,7 +935,15 @@ useEffect(() => {
     
     // Ensure company_name is included from either form values, Redux store, or user profile
     formDataCopy.company_name = values.company_name || formDataCopy.company_name || userProfile?.company_name || "";
-    
+
+    // Ensure bid_end_date is in server expected format (YYYY-MM-DD HH:MM:SS)
+    if (formDataCopy.bid_end_date && !formDataCopy.bid_end_date.includes(' ')) {
+      if (formDataCopy.bid_end_date.includes('T')) {
+        const [date, time] = formDataCopy.bid_end_date.split('T');
+        formDataCopy.bid_end_date = `${date} ${time}`;
+      }
+    }
+
     // Changes by Agnij 2025-05-03 [Validate reverse auction dates without default values]
     if (formDataCopy.reverse_auction === 1) {
       // Ensure dates are in server expected format (YYYY-MM-DD HH:MM:SS)
@@ -2996,20 +2989,23 @@ useEffect(() => {
                                       />
                                     </div>
 
-                                <div className="col-md-4">
-                                  <FormikField
-                                    id="procurement_end_date-rfq_details-create_rfq_page"
-                                    label="Quote Submission End Date"
-                                    value={rfqFormDataFromStore.bid_end_date}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
-                                    type="date"
-                                    isRequired={true}
-                                    name="bid_end_date"
-                                    touched={touched}
-                                    errors={errors}
-                                  />
-                                </div>
+                                    <div className="col-md-4">
+                                      <label className="form-label">
+                                        Quote Submission End Date <span className="text-danger">*</span>
+                                      </label>
+                                      <input
+                                        id="procurement_end_date-rfq_details-create_rfq_page"
+                                        type="datetime-local"
+                                        name="bid_end_date"
+                                        className="form-control"
+                                        value={
+                                          rfqFormDataFromStore.bid_end_date
+                                            ? formatISOToDateTimeLocal(rfqFormDataFromStore.bid_end_date)
+                                            : ""
+                                        }
+                                        onChange={handleFormFieldChange}
+                                      />
+                                    </div>
 
                                     <div className="col-md-4">
                                       <label className="form-label">

@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react'
 import AsyncSelect from "react-select/async";
 import Select from 'react-select';
 import { toast } from 'react-toastify';
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 
 
 const AnalyticsReport = () => {
@@ -107,7 +108,7 @@ const AnalyticsReport = () => {
         }, {});
 
         Object.entries(dateMap).forEach(([date, vendors]) => {
-            const formattedDate = new Date(date).toLocaleDateString('en-IN');
+            const formattedDate = formatDisplayDate(date);
             if (dateDataMap[formattedDate]) {
                 Object.entries(vendors).forEach(([vendor_name, data_value]) => {
                     dateDataMap[formattedDate][vendor_name] = data_value;

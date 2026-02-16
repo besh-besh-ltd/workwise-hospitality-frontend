@@ -274,7 +274,7 @@ const ClarificationDetailModal = ({
               </div>
               <div className="col-md-3">
                 <small className="text-muted d-block">Created</small>
-                <p className="mb-0">{moment.utc(clarification.created_at).local().format("DD MMM YYYY")}</p>
+                <p className="mb-0">{moment.utc(clarification.created_at).local().format("DD-MM-YYYY")}</p>
               </div>
             </div>
           </div>

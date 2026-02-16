@@ -41,11 +41,34 @@ const ArcCommittee = () => {
   const [submitting, setSubmitting] = useState(false);
   const [activeStageKey, setActiveStageKey] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   // Mapped stage data
   const stageData = useMemo(() => {
     return mapLifecycleToStages(lifecycleData);
   }, [lifecycleData]);
+
+  // Deduplicate sidebar list - group by rfq_id so each tender appears once
+  const deduplicatedRfqList = useMemo(() => {
+    const seen = new Map();
+    for (const item of rfqList) {
+      const rfqId = item.rfq_id || item.id;
+      if (!seen.has(rfqId)) {
+        seen.set(rfqId, { ...item, _productCount: 1 });
+      } else {
+        const existing = seen.get(rfqId);
+        existing._productCount += 1;
+        // Keep the most urgent status (PENDING > APPROVED > CANCELLED)
+        if (item.approval_required && !existing.approval_required) {
+          existing.approval_required = true;
+        }
+        if (item.approval_status === 'PENDING' && existing.approval_status !== 'PENDING') {
+          existing.approval_status = 'PENDING';
+        }
+      }
+    }
+    return Array.from(seen.values());
+  }, [rfqList]);
 
   // Extract hotel IDs for permission checks
   const hotelIds = useMemo(() => {
@@ -101,7 +124,7 @@ const ArcCommittee = () => {
     return () => {
       clearTimeout(handler);
     };
-  }, [selectedProject, isTenderFilter, rfqNo, selectedHotelIds]);
+  }, [selectedProject, isTenderFilter, rfqNo, selectedHotelIds, showAll]);
 
   // Stage 1: Fetch RFQ metadata for permission context when rfq_id changes
   useEffect(() => {
@@ -201,7 +224,8 @@ const ArcCommittee = () => {
         project_id: selectedProject || -1,
         is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null,
         rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
-        module_keys: "arc"
+        module_keys: "arc",
+        show_all: showAll ? 1 : 0
       };
       const response = await getArcRfqList(params);
       if (response.status === 1) {
@@ -356,7 +380,7 @@ const ArcCommittee = () => {
         <span className="text-muted">|</span>
         <span><strong>Company:</strong> {rfq.company_name}</span>
         <span className="text-muted">|</span>
-        <span><strong>Bid End:</strong> {moment(rfq.bid_end_date).format('DD/MM/YYYY')}</span>
+        <span><strong>Bid End:</strong> {moment(rfq.bid_end_date).format('DD-MM-YYYY hh:mm A')}</span>
         <Badge bg={rfq.status === 1 ? 'success' : 'secondary'} className="ms-auto">
           {rfq.status === 1 ? 'Open' : 'Closed'}
         </Badge>
@@ -472,21 +496,30 @@ const ArcCommittee = () => {
                         id="select_project_filter-rfq_list-arc_committee_page"
                     />
                 </div>
+                <div className="py-2">
+                  <Form.Check
+                    type="switch"
+                    id="show-all-tenders-toggle"
+                    label={<span style={{ fontSize: "13px" }}>{showAll ? 'All Tenders' : 'Pending Actions Only'}</span>}
+                    checked={showAll}
+                    onChange={(e) => setShowAll(e.target.checked)}
+                  />
+                </div>
                 <Alert variant="info" className="mt-2" style={{ fontSize: "12px" }}>
                   <strong>Note:</strong> ARC approvals are only applicable for tenders.
                 </Alert>
 
-                {!loading && rfqList.length === 0 ? (
+                {!loading && deduplicatedRfqList.length === 0 ? (
                   <p style={{ textAlign: "center" }}>No Tenders yet!</p>
                 ) : (
                   <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
-                    {rfqList.map((item) => {
+                    {deduplicatedRfqList.map((item) => {
                       const rfqId = item.rfq_id || item.id;
                       const isSelected = rfqId === currentRfq?.id;
                       return (
                       <li
                         className={isSelected ? "active" : ""}
-                        key={`rfq_no_${item.rfq_no}-${item.rfq_product_id || ''}`}
+                        key={`rfq_no_${item.rfq_no}`}
                         style={!isSelected && item.approval_required ? { backgroundColor: '#fff3f3', borderLeft: '3px solid #dc3545' } : {}}
                       >
                         <Link
@@ -506,28 +539,30 @@ const ArcCommittee = () => {
                             <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
                               {item.project_name}
                             </b>}
-                          {item.product_name && (
-                            <div className="mt-1" style={{ fontSize: "12px", opacity: 0.9 }}>
+                          <div className="mt-1 d-flex align-items-center gap-1 flex-wrap" style={{ fontSize: "12px", opacity: 0.9 }}>
+                            {item._productCount > 0 && (
                               <Badge bg="info" style={{ fontSize: "10px" }}>
-                                {item.product_name}
+                                {item._productCount} {item._productCount === 1 ? 'Product' : 'Products'}
                               </Badge>
-                              {item.approval_status && (
-                                <Badge
-                                  bg={
-                                    item.approval_status === 'PENDING' ? 'warning' :
-                                    item.approval_status === 'APPROVED' ? 'success' :
-                                    item.approval_status === 'CANCELLED' ? 'secondary' :
-                                    'secondary'
-                                  }
-                                  text={item.approval_status === 'PENDING' ? 'dark' : undefined}
-                                  className="ms-1"
-                                  style={{ fontSize: "10px" }}
-                                >
-                                  {item.approval_status === 'CANCELLED' ? 'SENT BACK' : item.approval_status}
-                                </Badge>
-                              )}
-                            </div>
-                          )}
+                            )}
+                            {item.pending_arc_count > 0 && (
+                              <Badge bg="warning" text="dark" style={{ fontSize: "10px" }}>
+                                {item.pending_arc_count} Pending
+                              </Badge>
+                            )}
+                            {item.approval_status && item.pending_arc_count === 0 && (
+                              <Badge
+                                bg={
+                                  item.approval_status === 'APPROVED' ? 'success' :
+                                  item.approval_status === 'CANCELLED' ? 'secondary' :
+                                  'secondary'
+                                }
+                                style={{ fontSize: "10px" }}
+                              >
+                                {item.approval_status === 'CANCELLED' ? 'SENT BACK' : item.approval_status}
+                              </Badge>
+                            )}
+                          </div>
                         </Link>
                       </li>
                       );

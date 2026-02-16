@@ -157,7 +157,7 @@ const CurrentStageSection = ({
                   <Badge bg="success" style={{ fontSize: '0.7rem' }}>Approved</Badge>
                   {(inst.updated_at || inst.created_at) && (
                     <span className="small text-muted">
-                      {moment(inst.updated_at || inst.created_at).format('DD MMM YYYY, HH:mm')}
+                      {moment(inst.updated_at || inst.created_at).format('DD-MM-YYYY hh:mm A')}
                     </span>
                   )}
                 </div>

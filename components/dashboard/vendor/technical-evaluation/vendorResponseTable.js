@@ -13,7 +13,7 @@ import ReadMore from "@/components/shared/ReadMore";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 
-const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, token }) => {
+const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, token, isBidExpired = false }) => {
 
   const [buyerClauses, setBuyerClauses] = useState(null);
   const [vendorResponse, setVendorResponse] = useState(null);
@@ -219,9 +219,34 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
     clauseIsComplete = clauseResponded === clauseTotal;
   }
 
+  const isDisabled = techEvalStatus == 1 || isBidExpired;
+
   return (
     <>
       {submitLoading && <Loader />}
+
+      {/* Bid End Date Expired Warning */}
+      {isBidExpired && techEvalStatus != 1 && (
+        <div className="my-3" style={{
+          background: "linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%)",
+          border: "1px solid #f5c6cb",
+          borderLeft: "4px solid #dc3545",
+          borderRadius: "8px",
+          padding: "12px 16px",
+        }}>
+          <div className="d-flex align-items-center gap-2">
+            <span style={{ fontSize: "1.1rem" }}>&#9888;</span>
+            <div>
+              <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "#842029" }}>
+                Submission Closed
+              </div>
+              <div style={{ fontSize: "0.78rem", color: "#6c757d" }}>
+                The quote submission deadline has passed. Technical evaluation responses can no longer be submitted or updated.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Technical Evaluation Status */}
       {vendorResponseSent ?
@@ -359,7 +384,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                             className={`border border-success ${agreementMap.get(clauseItem.clause_id) == "I Agree" ? "bg-success text-white" : "bg-white text-success"} px-2 py-1 rounded-3`}
                             style={{ fontSize: "13px" }}
                             onClick={() => handleAgreementChange(clauseItem.clause_id, "I Agree")}
-                            disabled={techEvalStatus == 1}
+                            disabled={isDisabled}
                             id="agree_clause-clause_actions-technical_evaluation_page"
                           >
                             I Agree
@@ -369,7 +394,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                             className={`border border-danger ${agreementMap.get(clauseItem.clause_id) == "I Dont Agree" ? "bg-danger text-white" : "bg-white text-danger"} px-2 py-1 rounded-3`}
                             style={{ fontSize: "13px" }}
                             onClick={() => handleAgreementChange(clauseItem.clause_id, "I Dont Agree")}
-                            disabled={techEvalStatus == 1}
+                            disabled={isDisabled}
                             id="disagree_clause-clause_actions-technical_evaluation_page"
                           >
                             I Dont Agree
@@ -377,7 +402,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                         </span>
                       </td>
                       <td style={{ maxWidth: "260px" }}>
-                        {techEvalStatus == 1 ?
+                        {isDisabled ?
                           clauseItem.vendor_response_files.length > 0 ?
                             <FileLink
                               key={clauseItem.clause_id}
@@ -447,7 +472,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
               </tbody>
             </table>
 
-            {techEvalStatus != 1 && <div className="d-flex justify-content-end">
+            {!isDisabled && <div className="d-flex justify-content-end">
               <button
                 type="button"
                 className="btn btn-secondary border-0"

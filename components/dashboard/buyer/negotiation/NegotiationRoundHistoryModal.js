@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Modal, Badge, Card, Collapse } from "react-bootstrap";
+import { formatDisplayDate } from "@/utils/sharedFunctions";
 
 const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id }) => {
   const [expandedRounds, setExpandedRounds] = useState({});
@@ -38,7 +39,7 @@ const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id }) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleString();
+    return formatDisplayDate(dateString, { includeTime: true });
   };
 
   const formatPrice = (price) => {

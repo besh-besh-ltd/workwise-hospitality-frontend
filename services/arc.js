@@ -12,6 +12,7 @@ export const getArcRfqList = (params = {}) => {
       if (params.project_id) queryParams.append('project_id', params.project_id);
       if (params.is_tender !== undefined) queryParams.append('is_tender', params.is_tender);
       if (params.module_keys) queryParams.append('module_keys', params.module_keys);
+      if (params.show_all !== undefined) queryParams.append('show_all', params.show_all);
 
       const url = `/arc/rfqs${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       const response = await axiosInstance.get(url);

@@ -36,7 +36,7 @@ const StageAuthorityApproval = ({ stage, rfq, lifecycleData, onRefresh }) => {
                   <div>
                     <div className="text-muted small">Quote Submission Deadline</div>
                     <div className="fw-semibold">
-                      {moment(details.bidEndDate).format('DD MMM YYYY')}
+                      {moment(details.bidEndDate).format('DD-MM-YYYY')}
                     </div>
                   </div>
                 </div>
@@ -144,7 +144,7 @@ const StageAuthorityApproval = ({ stage, rfq, lifecycleData, onRefresh }) => {
             </div>
             {stage.timestamp && (
               <div className="text-muted small">
-                {moment(stage.timestamp).format('DD MMM YYYY, HH:mm')}
+                {moment(stage.timestamp).format('DD-MM-YYYY hh:mm A')}
               </div>
             )}
           </div>

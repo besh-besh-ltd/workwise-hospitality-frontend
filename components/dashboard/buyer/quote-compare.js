@@ -20,7 +20,7 @@ import * as XLSX from "xlsx-js-style";
 import QuoteCompareTable from "@/components/dashboard/buyer/quote-compare-table";
 import Loader from "@/components/shared/Loader";
 import OverallComparison from "./overallComparison";
-import { addCommasToNumber, calculateTotal, formatPrice, handleNormalize, normalizeFlatQuotationData, formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
+import { addCommasToNumber, calculateTotal, formatDisplayDate, formatPrice, handleNormalize, normalizeFlatQuotationData, formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
 import PlaceholderLoading from "react-placeholder-loading";
 import { toast } from "react-toastify";
 import { getProjectAvailableBudget, getProjectList } from '@/services/project';
@@ -1727,7 +1727,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                           </p>
                         )}
                         <p className="sub-heading mb-0">
-                          <b>Quote Submission Deadline</b> : {currentRFQ.bid_end_date}
+                          <b>Quote Submission Deadline</b> : {formatDisplayDate(currentRFQ.bid_end_date, { includeTime: true })}
                         </p>
                         {currentRFQ.comment && currentRFQ.comment != "" && (
                           <p className="sub-heading mb-0">

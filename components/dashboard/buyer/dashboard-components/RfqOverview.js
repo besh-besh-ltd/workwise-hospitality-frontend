@@ -9,7 +9,7 @@ import React, { useEffect, useState } from 'react'
 import { toast } from 'react-toastify';
 import FullLoader from '@/components/shared/FullLoader';
 import { getRfqChartData, sendReminder } from '@/services/rfq';
-import { formatDate } from "@/utils/sharedFunctions";
+import { formatDate, formatDisplayDate } from "@/utils/sharedFunctions";
 import { getProjectList } from '@/services/project';
 
 const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
@@ -82,8 +82,8 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
 
         api_data.forEach(item => {
             const formattedPeriod = isMonthly
-                ? new Date(`${item.date}-01`).toLocaleDateString('en-IN')
-                : new Date(item.date).toLocaleDateString('en-IN');
+                ? formatDisplayDate(`${item.date}-01`)
+                : formatDisplayDate(item.date);
 
             if (dateDataMap[formattedPeriod]) {
                 const new_rfqs = parseInt(item.new_rfqs, 10);

@@ -10,7 +10,7 @@ import { toast } from "react-toastify";
 import { getProjectList } from '@/services/project';
 import { getUserMappings } from '@/services/hospitality';
 import Select from 'react-select';
-import { formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
+import { formatDisplayDate, formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
@@ -592,7 +592,7 @@ useEffect(() => {
                           </p>}
                         <p className="sub-heading mb-0">
                           <b>Quote Submission Deadline</b> :{" "}
-                          {currentRfq.bid_end_date}
+                          {formatDisplayDate(currentRfq.bid_end_date, { includeTime: true })}
                         </p>
 
                       {currentRfq?.hotel_name && (

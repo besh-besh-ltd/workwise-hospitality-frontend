@@ -92,12 +92,12 @@ const DraftRFQItem = ({ data , refetch }) => {
         <td style={{ width: "190px" }}>
           <span className="d-flex justify-content-between">
             <b className="fw-semibold">Created: </b>
-            {moment(data.timestamp).format("DD/MM/YYYY")}
+            {moment(data.timestamp).format("DD-MM-YYYY")}
           </span>
           <span className="d-flex justify-content-between">
             <b className="fw-semibold">End Date: </b>
             {data.bid_end_date
-              ? moment(data.bid_end_date).format("DD/MM/YYYY")
+              ? moment(data.bid_end_date).format("DD-MM-YYYY hh:mm A")
               : "---"}
           </span>
           <span>

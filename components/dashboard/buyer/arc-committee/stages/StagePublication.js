@@ -19,7 +19,7 @@ const StagePublication = ({ stage, rfq }) => {
               <div>
                 <div className="text-muted small">Published On</div>
                 <div className="fw-semibold">
-                  {moment(details.publishDate || stage.timestamp).format('DD MMM YYYY, HH:mm')}
+                  {moment(details.publishDate || stage.timestamp).format('DD-MM-YYYY hh:mm A')}
                 </div>
               </div>
             </div>
@@ -32,7 +32,7 @@ const StagePublication = ({ stage, rfq }) => {
               <div>
                 <div className="text-muted small">Quote Submission Deadline</div>
                 <div className="fw-semibold">
-                  {moment(details.bidEndDate || rfq?.bid_end_date).format('DD MMM YYYY')}
+                  {moment(details.bidEndDate || rfq?.bid_end_date).format('DD-MM-YYYY hh:mm A')}
                 </div>
               </div>
             </div>
@@ -49,7 +49,7 @@ const StagePublication = ({ stage, rfq }) => {
             </div>
             {stage.timestamp && (
               <div className="text-muted small">
-                {moment(stage.timestamp).format('DD MMM YYYY, HH:mm')}
+                {moment(stage.timestamp).format('DD-MM-YYYY hh:mm A')}
               </div>
             )}
           </div>

@@ -98,7 +98,7 @@ const StageNegotiation = ({ stage, rfq, lifecycleData, onRefresh }) => {
                         <div>
                           <div className="text-muted small">End Date</div>
                           <div className="fw-semibold">
-                            {moment(round.end_date).format('DD MMM YYYY')}
+                            {moment(round.end_date).format('DD-MM-YYYY')}
                           </div>
                         </div>
                       </div>
