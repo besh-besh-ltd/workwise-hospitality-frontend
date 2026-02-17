@@ -540,7 +540,15 @@ const Header = () => {
           try {
             const mappingsRes = await getUserMappings();
             if (isMounted) {
-              setUserBusinessUnits(mappingsRes?.data || []);
+              const allMappings = mappingsRes?.data || [];
+              const hotelMappings = allMappings.filter(m => m.hospitality_hotel_id != null);
+              const seen = new Set();
+              const uniqueMappings = hotelMappings.filter(m => {
+                if (seen.has(m.hospitality_hotel_id)) return false;
+                seen.add(m.hospitality_hotel_id);
+                return true;
+              });
+              setUserBusinessUnits(uniqueMappings);
             }
           } catch (_) {
             if (isMounted) setUserBusinessUnits([]);

@@ -297,14 +297,15 @@ const CreateRFQ = () => {
     try {
       // Fetch user hotel mappings for the multi-select dropdown
       const mappingsRes = await getUserMappings();
-      const mappings = mappingsRes?.data || [];
+      const mappings = (mappingsRes?.data || []).filter(m => m.hospitality_hotel_id != null);
       setUserHotelMappings(mappings);
 
-      // Also fetch contexts for backward compatibility
+      // Also fetch contexts for the company/hotel hierarchy dropdown
       const res = await getMyHospitalityContexts();
-      if (res?.data?.data) {
+      const companiesData = res?.data || [];
+      if (companiesData.length > 0) {
         const contexts = [];
-        res.data.data.forEach((company) => {
+        companiesData.forEach((company) => {
           contexts.push({ 
             label: company.name, 
             value: `company_${company.id}`, 
