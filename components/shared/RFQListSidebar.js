@@ -221,6 +221,8 @@ const RFQListSidebar = ({
                       isClearable
                       formatOptionLabel={(opt) => <span style={{ fontSize: '12px' }}>{opt.hotel_name}</span>}
                       getOptionValue={(opt) => opt.hospitality_hotel_id}
+                      menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                      styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
                       id={`select_hotels-rfq_sidebar-${pageId}`}
                     />
                   </div>
@@ -234,6 +236,8 @@ const RFQListSidebar = ({
                       placeholder="Select..."
                       isClearable
                       classNamePrefix="react-select"
+                      menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                      styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
                       id={`select_project-rfq_sidebar-${pageId}`}
                     />
                   </div>
@@ -248,6 +252,8 @@ const RFQListSidebar = ({
                       placeholder="All"
                       isClearable
                       classNamePrefix="react-select"
+                      menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                      styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
                       id={`type_filter-rfq_sidebar-${pageId}`}
                     />
                   </div>
@@ -294,13 +300,13 @@ const RFQListSidebar = ({
                   {isTender ? 'Tender' : 'RFQ'}
                 </span>
 
-                {item.title && <p className={styles.rfqTitle}>{item.title}</p>}
+                {item.title && <p className={styles.rfqTitle} title={item.title}>{item.title}</p>}
 
-                <p className={styles.rfqNumber}>
+                <p className={styles.rfqNumber} title={formatRFQNumber(item.rfq_no, item.is_tender)}>
                   {formatRFQNumber(item.rfq_no, item.is_tender)}
                 </p>
 
-                {item.project_name && <p className={styles.rfqProject}>{item.project_name}</p>}
+                {item.project_name && <p className={styles.rfqProject} title={item.project_name}>{item.project_name}</p>}
 
                 {tags.length > 0 && !isSelected && (
                   <div className={styles.rfqMeta}>

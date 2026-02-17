@@ -169,7 +169,7 @@ const HotelPaymentPage = () => {
 
             const verifyRes = await axiosInstance.post("/hospitality/hotel-payment/verify", verifyPayload);
 
-            if (verifyRes?.data?.status === 1) {
+            if (verifyRes?.status === 1) {
               setPaymentSuccess(true);
               toast.success(
                 isConsolidated

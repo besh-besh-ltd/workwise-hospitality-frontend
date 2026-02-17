@@ -27,7 +27,7 @@ import { getProjectAvailableBudget, getProjectList } from '@/services/project';
 import { getUserMappings } from '@/services/hospitality';
 import Select from 'react-select';
 import LPRModal from "@/components/shared/LPRModal";
-import { Button, Badge } from "react-bootstrap";
+import { Button, Badge, Alert } from "react-bootstrap";
 import OverallCostComparison from './OverallCostComparison';
 import ReadMore from "@/components/shared/ReadMore";
 import InputModal from "@/components/shared/InputModal";
@@ -1539,7 +1539,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   {
                     key: 'negotiation_pending',
                     label: 'Negotiation',
-                    filter: (item) => !item.is_finalized && !item.approval_required,
+                    filter: (item) => !item.is_finalized && !item.approval_required && parseInt(item.active_quote_count || 0) > 0,
                   },
                   {
                     key: 'finalization_pending',
@@ -1817,10 +1817,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
                 {!rfq && canReadQuoteCompare && (
                   <div className="quote-sec-main">
-                    <div className="quote-sec-table-sub">
-                      <h4 className="text-center">
-                        Please select a RFQ to view its quotes!
-                      </h4>
+                    <div className="quote-sec-table-sub d-flex align-items-center justify-content-center" style={{ minHeight: '200px' }}>
+                      <Alert variant="info" className="text-center mb-0">
+                        Please select a Tender / RFQ to view its quotes.
+                      </Alert>
                     </div>
                   </div>
                 )}

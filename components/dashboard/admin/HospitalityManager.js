@@ -10,15 +10,12 @@ import {
   getHospitalityCompanies,
   getHospitalityHotels,
   getHotelDocuments,
-  mapHospitalityProjects,
   mapHospitalityUsers,
   getMappedUserIds,
-  getMappedProjectIds,
   getCompanyUserMappings,
   deleteUserMapping,
 } from "@/services/hospitality";
 import { getCompanyUsers } from "@/services/Auth";
-import { getAllProjects } from "@/services/project";
 
 const defaultCompanyForm = {
   name: "",
@@ -58,12 +55,6 @@ const defaultUserMappingForm = {
   hotelId: "",
   users: [],
   autoMapProjects: true,
-};
-
-const defaultProjectMappingForm = {
-  mappingLevel: "company",
-  hotelId: "",
-  projects: [],
 };
 
 const dedupeHospitalityMappings = (list = []) => {
@@ -109,18 +100,15 @@ const HospitalityManager = () => {
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [hotels, setHotels] = useState([]);
   const [companyUsers, setCompanyUsers] = useState([]);
-  const [projects, setProjects] = useState([]);
 
   const [companyForm, setCompanyForm] = useState(defaultCompanyForm);
   const [hotelForm, setHotelForm] = useState(defaultHotelForm);
   const [userMappingForm, setUserMappingForm] = useState(defaultUserMappingForm);
-  const [projectMappingForm, setProjectMappingForm] = useState(defaultProjectMappingForm);
 
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showHotelModal, setShowHotelModal] = useState(false);
   const [editingHotel, setEditingHotel] = useState(null);
   const [showUserMappingModal, setShowUserMappingModal] = useState(false);
-  const [showProjectMappingModal, setShowProjectMappingModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMode, setPaymentMode] = useState('bu');
   const [selectedHotels, setSelectedHotels] = useState([]);
@@ -142,21 +130,15 @@ const HospitalityManager = () => {
   const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
   const [isLoadingHotels, setIsLoadingHotels] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isSubmittingCompany, setIsSubmittingCompany] = useState(false);
   const [isSubmittingHotel, setIsSubmittingHotel] = useState(false);
   const [isMappingUsers, setIsMappingUsers] = useState(false);
-  const [isMappingProjects, setIsMappingProjects] = useState(false);
   const [mappedUserIds, setMappedUserIds] = useState([]);
-  const [mappedProjectIds, setMappedProjectIds] = useState([]);
   const [companyUserMappings, setCompanyUserMappings] = useState([]);
   const [hotelUserMappings, setHotelUserMappings] = useState({});
   const [isLoadingCompanyMappingList, setIsLoadingCompanyMappingList] = useState(false);
   const [hotelUserLoadingMap, setHotelUserLoadingMap] = useState({});
-  const [allProjectMappings, setAllProjectMappings] = useState([]);
   const [userMappingFilter, setUserMappingFilter] = useState("all");
-  const [projectMappingFilter, setProjectMappingFilter] = useState("all");
-  const [projectMappingsData, setProjectMappingsData] = useState([]);
 
   const [activeTab, setActiveTab] = useState("hotels");
 
@@ -174,38 +156,6 @@ const HospitalityManager = () => {
     const filterType = userMappingFilter === "company" ? 0 : 1;
     return companyUserMappings.filter((user) => user.mapping_type === filterType);
   }, [companyUserMappings, userMappingFilter]);
-
-  const filteredProjectMappings = useMemo(() => {
-    if (projectMappingFilter === "all") {
-      return allProjectMappings;
-    }
-    const filterType = projectMappingFilter === "company" ? 0 : 1;
-    const filteredProjectIds = new Set(
-      projectMappingsData
-        .filter((mapping) => mapping.mapping_type === filterType)
-        .map((mapping) => mapping.project_id)
-    );
-    return allProjectMappings.filter((project) => filteredProjectIds.has(project.id));
-  }, [allProjectMappings, projectMappingsData, projectMappingFilter]);
-
-  const getProjectMappingInfo = (projectId) => {
-    const mappings = projectMappingsData.filter((mapping) => mapping.project_id === projectId);
-    if (mappings.length === 0) return null;
-    
-    // If filtering by specific type, show only that type
-    if (projectMappingFilter !== "all") {
-      const filterType = projectMappingFilter === "company" ? 0 : 1;
-      const filteredMappings = mappings.filter((m) => m.mapping_type === filterType);
-      return filteredMappings.length > 0 ? filteredMappings[0] : mappings[0];
-    }
-    
-    // If project is mapped at company level, show that (it has access to all hotels)
-    const companyMapping = mappings.find((m) => m.mapping_type === 0);
-    if (companyMapping) return companyMapping;
-    
-    // Otherwise, return the first hotel mapping
-    return mappings[0];
-  };
 
   const loadCompanies = async () => {
     try {
@@ -259,19 +209,6 @@ const HospitalityManager = () => {
     }
   };
 
-  const loadProjects = async () => {
-    try {
-      setIsLoadingProjects(true);
-      const response = await getAllProjects();
-      const data = response?.data?.data || response?.data || [];
-      setProjects(data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoadingProjects(false);
-    }
-  };
-
   const loadMappedUserIds = async () => {
     if (!selectedCompanyId) {
       setMappedUserIds([]);
@@ -292,33 +229,6 @@ const HospitalityManager = () => {
     }
   };
 
-  const loadMappedProjectIds = async () => {
-    if (!selectedCompanyId) {
-      setMappedProjectIds([]);
-      return;
-    }
-    try {
-      const mappingType = projectMappingForm.mappingLevel === "company" ? 0 : 1;
-      const hotelId =
-        projectMappingForm.mappingLevel === "hotel" && projectMappingForm.hotelId
-          ? parseInt(projectMappingForm.hotelId, 10)
-          : null;
-      const primaryResponse = await getMappedProjectIds(selectedCompanyId, mappingType, hotelId);
-      let ids = primaryResponse?.data?.data || primaryResponse?.data || [];
-
-      if (mappingType === 1) {
-        const companyResponse = await getMappedProjectIds(selectedCompanyId, 0, null);
-        const companyIds = companyResponse?.data?.data || companyResponse?.data || [];
-        ids = [...new Set([...ids, ...companyIds])];
-      }
-
-      setMappedProjectIds(ids);
-    } catch (error) {
-      console.error(error);
-      setMappedProjectIds([]);
-    }
-  };
-
   const loadCompanyUserMappings = async () => {
     if (!selectedCompanyId) {
       setCompanyUserMappings([]);
@@ -335,65 +245,6 @@ const HospitalityManager = () => {
       setCompanyUserMappings([]);
     } finally {
       setIsLoadingCompanyMappingList(false);
-    }
-  };
-
-  const loadAllProjectMappings = async () => {
-    if (!selectedCompanyId) {
-      setAllProjectMappings([]);
-      setProjectMappingsData([]);
-      return;
-    }
-    try {
-      // Fetch company-level project mappings
-      const companyResponse = await getMappedProjectIds(selectedCompanyId, 0, null);
-      const companyProjectIds = companyResponse?.data?.data || companyResponse?.data || [];
-      
-      // Fetch hotel-level project mappings for all hotels
-      const hotelProjectPromises = hotels.map((hotel) =>
-        getMappedProjectIds(selectedCompanyId, 1, hotel.id)
-      );
-      const hotelResponses = await Promise.all(hotelProjectPromises);
-      
-      // Store mapping data with hotel info
-      const hotelMappingsData = [];
-      hotels.forEach((hotel, index) => {
-        const hotelProjectIds = hotelResponses[index]?.data?.data || hotelResponses[index]?.data || [];
-        hotelProjectIds.forEach((projectId) => {
-          hotelMappingsData.push({
-            project_id: projectId,
-            mapping_type: 1,
-            hotel_id: hotel.id,
-            hotel_name: hotel.name,
-          });
-        });
-      });
-      
-      const hotelProjectIds = hotelResponses.flatMap(
-        (response) => response?.data?.data || response?.data || []
-      );
-      
-      // Store company-level mappings
-      const companyMappingsData = companyProjectIds.map((projectId) => ({
-        project_id: projectId,
-        mapping_type: 0,
-        hotel_id: null,
-        hotel_name: null,
-      }));
-      
-      // Combine all mapping data
-      setProjectMappingsData([...companyMappingsData, ...hotelMappingsData]);
-      
-      // Combine and deduplicate project IDs
-      const allProjectIds = [...new Set([...companyProjectIds, ...hotelProjectIds])];
-      
-      // Get project details for mapped projects
-      const mappedProjects = projects.filter((project) => allProjectIds.includes(project.id));
-      setAllProjectMappings(mappedProjects);
-    } catch (error) {
-      console.error(error);
-      setAllProjectMappings([]);
-      setProjectMappingsData([]);
     }
   };
 
@@ -443,7 +294,6 @@ const HospitalityManager = () => {
       toast.success("Mapping removed");
       await loadMappedUserIds();
       await loadCompanyUserMappings();
-      await loadAllProjectMappings();
       if (mapping.mapping_type === 1 && mapping.hospitality_hotel_id) {
         await loadHotelUserMappings(mapping.hospitality_hotel_id);
       } else {
@@ -460,40 +310,21 @@ const HospitalityManager = () => {
   useEffect(() => {
     loadCompanies();
     loadCompanyUsers();
-    loadProjects();
   }, []);
 
   useEffect(() => {
     if (selectedCompanyId) {
       loadHotels(selectedCompanyId);
       setUserMappingForm(defaultUserMappingForm);
-      setProjectMappingForm(defaultProjectMappingForm);
       loadCompanyUserMappings();
       setHotelUserMappings({});
       setUserMappingFilter("all");
-      setProjectMappingFilter("all");
     }
   }, [selectedCompanyId]);
 
   useEffect(() => {
-    if (selectedCompanyId && hotels.length >= 0 && projects.length > 0) {
-      loadAllProjectMappings();
-    }
-  }, [selectedCompanyId, hotels, projects]);
-
-  useEffect(() => {
     loadMappedUserIds();
   }, [selectedCompanyId, userMappingForm.mappingLevel, userMappingForm.hotelId]);
-
-  useEffect(() => {
-    loadMappedProjectIds();
-  }, [selectedCompanyId, projectMappingForm.mappingLevel, projectMappingForm.hotelId]);
-
-  useEffect(() => {
-    if (projectMappingForm.mappingLevel === "hotel" && projectMappingForm.hotelId) {
-      loadAllProjectMappings();
-    }
-  }, [projectMappingForm.hotelId, projectMappingForm.mappingLevel]);
 
   useEffect(() => {
     if (!selectedCompanyId || !selectedCompanyHotels.length) return;
@@ -501,27 +332,6 @@ const HospitalityManager = () => {
       loadHotelUserMappings(hotel.id);
     });
   }, [selectedCompanyId, selectedCompanyHotels]);
-
-  useEffect(() => {
-    if (!projects.length) return;
-    const mappedSelections = projects
-      .filter((project) => mappedProjectIds.includes(project.id))
-      .map((project) => ({
-        value: project.id,
-        label: project.name,
-        isDisabled: true,
-      }));
-    setProjectMappingForm((prev) => {
-      const manualSelections = prev.projects?.filter((project) => !mappedProjectIds.includes(project.value)) || [];
-      return {
-        ...prev,
-        projects: [
-          ...manualSelections,
-          ...mappedSelections.filter((mapped) => !manualSelections.some((item) => item.value === mapped.value)),
-        ],
-      };
-    });
-  }, [mappedProjectIds, projects]);
 
   const handleCompanySubmit = async (event) => {
     event.preventDefault();
@@ -740,81 +550,12 @@ const HospitalityManager = () => {
   //   }
   // };
 
-  const handleProjectMappingSubmit = async (event) => {
-    event.preventDefault();
-    if (!selectedCompanyId) {
-      toast.error("Select a company");
-      return;
-    }
-    if (!projectMappingForm.projects.length) {
-      toast.error("Select at least one project");
-      return;
-    }
-    if (projectMappingForm.mappingLevel === "hotel" && !projectMappingForm.hotelId) {
-      toast.error("Select a business unit for unit-level mapping");
-      return;
-    }
-    try {
-      setIsMappingProjects(true);
-      await mapHospitalityProjects(selectedCompanyId, {
-        mapping_type: projectMappingForm.mappingLevel === "company" ? 0 : 1,
-        hotel_id:
-          projectMappingForm.mappingLevel === "hotel"
-            ? parseInt(projectMappingForm.hotelId, 10)
-            : null,
-        project_ids: projectMappingForm.projects.map((project) => parseInt(project.value, 10)),
-      });
-      toast.success("Projects mapped successfully!");
-      setProjectMappingForm(defaultProjectMappingForm);
-      setShowProjectMappingModal(false);
-      await loadMappedProjectIds();
-      await loadAllProjectMappings();
-    } catch (error) {
-      console.error(error);
-      toast.error(error?.message?.response?.data?.message || "Failed to map projects");
-    } finally {
-      setIsMappingProjects(false);
-    }
-  };
-
   const userOptions = companyUsers
     .filter((user) => !mappedUserIds.includes(user.id))
     .map((user) => ({
       value: user.id,
       label: `${user.name} (${user.email})`,
     }));
-
-  const projectOptions = useMemo(() => {
-    if (projectMappingForm.mappingLevel === "hotel" && projectMappingForm.hotelId) {
-      // For hotel-level mapping, check if project is already mapped to this specific hotel
-      const hotelId = parseInt(projectMappingForm.hotelId, 10);
-      const hotelMappedProjectIds = projectMappingsData
-        .filter((mapping) => mapping.mapping_type === 1 && mapping.hotel_id === hotelId)
-        .map((mapping) => mapping.project_id);
-      
-      return projects.map((project) => {
-        const isMappedToHotel = hotelMappedProjectIds.includes(project.id);
-        return {
-          value: project.id,
-          label: isMappedToHotel ? `${project.name} (Already mapped)` : project.name,
-          isDisabled: isMappedToHotel,
-        };
-      });
-    } else {
-      // For company-level mapping, check if project is already mapped at company level
-      const companyMappedProjectIds = projectMappingsData
-        .filter((mapping) => mapping.mapping_type === 0)
-        .map((mapping) => mapping.project_id);
-      
-      return projects.map((project) => ({
-        value: project.id,
-        label: companyMappedProjectIds.includes(project.id) 
-          ? `${project.name} (Already mapped)` 
-          : project.name,
-        isDisabled: companyMappedProjectIds.includes(project.id),
-      }));
-    }
-  }, [projects, projectMappingsData, projectMappingForm.mappingLevel, projectMappingForm.hotelId]);
 
   const selectStyles = {
     menuPortal: (base) => ({ ...base, zIndex: 9999 }),
@@ -1550,126 +1291,6 @@ const HospitalityManager = () => {
     );
   }
 
-  function renderProjectMappingModal() {
-    return (
-      <Modal
-        isOpen={showProjectMappingModal}
-        onRequestClose={() => setShowProjectMappingModal(false)}
-        ariaHideApp={false}
-        style={{
-          ...modalStyles,
-          content: { ...modalStyles.content, maxWidth: "600px" },
-        }}
-      >
-        <div className="modal-header px-4 py-3 border-bottom" style={{ backgroundColor: "#f8fafc" }}>
-          <div>
-            <h5 className="modal-title mb-1">Map Projects</h5>
-            <small className="text-muted">Assign projects to <strong>{selectedCompany?.name}</strong></small>
-          </div>
-          <button type="button" className="btn-close" onClick={() => setShowProjectMappingModal(false)} />
-        </div>
-        <div className="modal-body p-4">
-          <form onSubmit={handleProjectMappingSubmit}>
-            <div className="mb-3">
-              <label className="form-label">Mapping Level</label>
-              <div className="d-flex gap-3">
-                <div className="form-check">
-                  <input
-                    className="form-check-input"
-                    type="radio"
-                    name="projectMappingLevel"
-                    id="projectCompanyLevel"
-                    value="company"
-                    checked={projectMappingForm.mappingLevel === "company"}
-                    onChange={(e) =>
-                      setProjectMappingForm((prev) => ({
-                        ...prev,
-                        mappingLevel: e.target.value,
-                        hotelId: "",
-                      }))
-                    }
-                  />
-                    <label className="form-check-label" htmlFor="projectCompanyLevel">
-                    <strong>Company Level</strong>
-                    <small className="d-block text-muted">Available to all business units</small>
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    className="form-check-input"
-                    type="radio"
-                    name="projectMappingLevel"
-                    id="projectHotelLevel"
-                    value="hotel"
-                    checked={projectMappingForm.mappingLevel === "hotel"}
-                    onChange={(e) =>
-                      setProjectMappingForm((prev) => ({
-                        ...prev,
-                        mappingLevel: e.target.value,
-                      }))
-                    }
-                  />
-                    <label className="form-check-label" htmlFor="projectHotelLevel">
-                    <strong>Business Unit Level</strong>
-                    <small className="d-block text-muted">Specific to one unit</small>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {projectMappingForm.mappingLevel === "hotel" && (
-              <div className="mb-3">
-                <label className="form-label">Select Business Unit</label>
-                <select
-                  className="form-select"
-                  value={projectMappingForm.hotelId}
-                  onChange={(e) => setProjectMappingForm((prev) => ({ ...prev, hotelId: e.target.value }))}
-                >
-                  <option value="">Choose a business unit...</option>
-                  {selectedCompanyHotels.map((hotel) => (
-                    <option value={hotel.id} key={hotel.id}>
-                      {hotel.name} {hotel.city ? `- ${hotel.city}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="mb-4">
-              <label className="form-label">Select Projects</label>
-              <Select
-                isMulti
-                isSearchable
-                options={projectOptions}
-                value={projectMappingForm.projects}
-                onChange={(selected) => setProjectMappingForm((prev) => ({ ...prev, projects: selected || [] }))}
-                placeholder={isLoadingProjects ? "Loading..." : "Search and select projects..."}
-                isLoading={isLoadingProjects}
-                isOptionDisabled={(option) => option.isDisabled}
-                styles={selectStyles}
-                menuPortalTarget={document.body}
-              />
-            </div>
-
-            <div className="d-flex justify-content-end gap-2 pt-3 border-top">
-              <button type="button" className="btn btn-light px-4" onClick={() => setShowProjectMappingModal(false)}>
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary px-4"
-                disabled={isMappingProjects}
-                style={{ backgroundColor: "#158993", borderColor: "#158993" }}
-              >
-                {isMappingProjects ? "Mapping..." : "Map Projects"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </Modal>
-    );
-  }
-
   function renderPaymentModal() {
     // For BU mode: only show hotels with emails
     // For Company mode: show all pending hotels regardless of email (will send to company email)
@@ -2064,20 +1685,12 @@ const HospitalityManager = () => {
                             <i className="bi bi-people me-1"></i>
                             Map Users
                           </button> */}
-                          <button
-                            type="button"
-                            className="btn btn-outline-primary btn-sm"
-                            onClick={() => setShowProjectMappingModal(true)}
-                          >
-                            <i className="bi bi-folder me-1"></i>
-                            Map Projects
-                          </button>
                         </div>
                       </div>
 
                       {/* Quick Stats */}
                       <div className="row g-3 mt-3">
-                        <div className="col-md-4">
+                        <div className="col-md-6">
                           <div className="p-3 rounded-3" style={{ backgroundColor: "#f0fdfa" }}>
                             <div className="d-flex align-items-center gap-3">
                               <div
@@ -2095,7 +1708,7 @@ const HospitalityManager = () => {
                             </div>
                           </div>
                         </div>
-                        <div className="col-md-4">
+                        <div className="col-md-6">
                           <div className="p-3 rounded-3" style={{ backgroundColor: "#fef3c7" }}>
                             <div className="d-flex align-items-center gap-3">
                               <div
@@ -2108,24 +1721,6 @@ const HospitalityManager = () => {
                                 <div className="text-muted" style={{ fontSize: "12px" }}>Users</div>
                                 <div className="fw-bold" style={{ fontSize: "24px", color: "#f59e0b" }}>
                                   {companyUserMappings.length}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="col-md-4">
-                          <div className="p-3 rounded-3" style={{ backgroundColor: "#ede9fe" }}>
-                            <div className="d-flex align-items-center gap-3">
-                              <div
-                                className="rounded-circle d-flex align-items-center justify-content-center"
-                                style={{ width: "48px", height: "48px", backgroundColor: "#8b5cf6" }}
-                              >
-                                <i className="bi bi-folder text-white" style={{ fontSize: "20px" }}></i>
-                              </div>
-                              <div>
-                                <div className="text-muted" style={{ fontSize: "12px" }}>Projects</div>
-                                <div className="fw-bold" style={{ fontSize: "24px", color: "#8b5cf6" }}>
-                                  {allProjectMappings.length}
                                 </div>
                               </div>
                             </div>
@@ -2167,22 +1762,6 @@ const HospitalityManager = () => {
                       >
                         <i className="bi bi-people me-2"></i>
                         People ({companyUserMappings.length})
-                      </button>
-                    </li>
-                    <li className="nav-item">
-                      <button
-                        className={`nav-link px-4 ${activeTab === "projects" ? "active" : ""}`}
-                        onClick={() => setActiveTab("projects")}
-                        style={{
-                          border: "none",
-                          borderBottom: activeTab === "projects" ? "2px solid #158993" : "2px solid transparent",
-                          color: activeTab === "projects" ? "#158993" : "#6b7280",
-                          fontWeight: activeTab === "projects" ? 600 : 400,
-                          marginBottom: "-2px",
-                        }}
-                      >
-                        <i className="bi bi-folder me-2"></i>
-                        Projects ({allProjectMappings.length})
                       </button>
                     </li>
                   </ul>
@@ -2472,122 +2051,6 @@ const HospitalityManager = () => {
                     </div>
                   )}
 
-                  {/* Projects Tab Content */}
-                  {activeTab === "projects" && (
-                    <div className="card buyer-card border-0 shadow-sm">
-                      <div className="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
-                        <div>
-                          <h5 className="mb-0">Mapped Projects</h5>
-                          <small className="text-muted">Projects mapped to this hospitality company and its business units</small>
-                        </div>
-                        <div className="d-flex align-items-center gap-2">
-                          <select
-                            className="form-select form-select-sm"
-                            value={projectMappingFilter}
-                            onChange={(e) => setProjectMappingFilter(e.target.value)}
-                            style={{ width: "auto", minWidth: "150px" }}
-                          >
-                            <option value="all">All Mappings</option>
-                            <option value="company">Company Level</option>
-                            <option value="hotel">Business Unit Level</option>
-                          </select>
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={() => setShowProjectMappingModal(true)}
-                            style={{ backgroundColor: "#158993", borderColor: "#158993" }}
-                          >
-                            <i className="bi bi-plus-lg me-1"></i>
-                            Map Projects
-                          </button>
-                        </div>
-                      </div>
-                      <div className="card-body p-0">
-                        {filteredProjectMappings.length === 0 ? (
-                          <div className="text-center py-5">
-                            <div className="mb-3">
-                              <i className="bi bi-folder text-muted" style={{ fontSize: "48px" }}></i>
-                            </div>
-                            <h6 className="text-muted">
-                              {projectMappingFilter === "all"
-                                ? "No projects mapped yet"
-                                : projectMappingFilter === "company"
-                                ? "No company-level projects found"
-                                : "No business unit-level projects found"}
-                            </h6>
-                            <p className="text-muted mb-3" style={{ fontSize: "14px" }}>
-                              {projectMappingFilter === "all"
-                                ? "Map projects to make them available to users in this hospitality company"
-                                : "Try changing the filter or map projects at this level"}
-                            </p>
-                            {projectMappingFilter === "all" && (
-                              <button
-                                type="button"
-                                className="btn btn-outline-primary btn-sm"
-                                onClick={() => setShowProjectMappingModal(true)}
-                              >
-                                <i className="bi bi-plus-lg me-1"></i>
-                                Map First Project
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="table-responsive">
-                            <table className="table table-hover mb-0">
-                              <thead style={{ backgroundColor: "#f9fafb" }}>
-                                <tr>
-                                  <th className="border-0 py-3 ps-4">Project Name</th>
-                                  <th className="border-0 py-3">Mapping Level</th>
-                                  <th className="border-0 py-3">Status</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {filteredProjectMappings.map((project) => {
-                                  const projectMapping = getProjectMappingInfo(project.id);
-                                  return (
-                                    <tr key={project.id}>
-                                      <td className="py-3 ps-4">
-                                        <div className="fw-semibold">{project.name}</div>
-                                      </td>
-                                      <td className="py-3">
-                                        {projectMapping ? (
-                                          projectMapping.mapping_type === 0 ? (
-                                            <span className="badge bg-primary">Company Level</span>
-                                          ) : (
-                                            <div className="d-flex flex-column gap-1">
-                                              <span className="badge bg-success">Business Unit Level</span>
-                                              {projectMapping.hotel_name && (
-                                                <small className="text-muted">{projectMapping.hotel_name}</small>
-                                              )}
-                                            </div>
-                                          )
-                                        ) : (
-                                          <span className="text-muted">—</span>
-                                        )}
-                                      </td>
-                                      <td className="py-3">
-                                        <span
-                                          className={`badge ${
-                                            project.status === "Active"
-                                              ? "bg-success"
-                                              : project.status === "Completed"
-                                              ? "bg-info"
-                                              : "bg-secondary"
-                                          }`}
-                                        >
-                                          {project.status}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </>
               ) : (
                 <div className="card buyer-card border-0 shadow-sm">
@@ -2610,7 +2073,6 @@ const HospitalityManager = () => {
       {renderHotelModal()}
       {/* Commented out - Map Users modal temporarily disabled */}
       {/* {renderUserMappingModal()} */}
-      {renderProjectMappingModal()}
       {renderPaymentModal()}
     </>
   );

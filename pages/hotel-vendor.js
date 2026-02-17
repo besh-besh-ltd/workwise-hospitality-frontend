@@ -107,7 +107,7 @@ const HotelVendor = () => {
               // Mark payment as successful so token isn't cleared on unmount (use ref for sync update)
               paymentSuccessfulRef.current = true;
               toast.success('Payment successful!');
-              // Redirect to generic payment success page with summary and invoice link
+              // Redirect to generic payment success page with summary
               router.push({
                 pathname: '/payment-success',
                 query: {
@@ -117,7 +117,6 @@ const HotelVendor = () => {
                   currency: 'INR',
                   description: 'Hospitality Vendor Registration',
                   expiry_date: summary.expiry_date || '',
-                  invoice_url: summary.invoice_url || ''
                 }
               });
             } else {

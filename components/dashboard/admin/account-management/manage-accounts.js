@@ -392,7 +392,7 @@ const ManageAccountsPage = () => {
           >
             {mapping.mapping_type === 0
               ? `Company: ${mapping.company_name || "N/A"}`
-              : `Hotel: ${mapping.hotel_name || "N/A"}`}
+              : `Business Unit: ${mapping.hotel_name || "N/A"}`}
           </span>
         ))}
       </div>

@@ -32,9 +32,11 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalize
   const [data, setdata] = useState([]);
   const [originalData, setOriginalData] = useState([]); // Store original data before normalization
   const [l1total, setl1total] = useState(0);
+  const [l1breakdown, setL1breakdown] = useState({ base: 0, packaging: 0, freight: 0, tax: 0 });
   const [finalizedTotal, setFinalizedTotal] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [breakupStates, setBreakupStates] = useState({});
+  const [footerBreakupStates, setFooterBreakupStates] = useState({});
   const [openModals, setOpenModals] = useState({});
   const [editTargetPrice, setEditTargetPrice] = useState({});
 
@@ -68,7 +70,14 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalize
       ...prev,
       [key]: !prev[key]
     }));
-};
+  };
+
+  const toggleFooterBreakup = (key) => {
+    setFooterBreakupStates(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
 
 const closeModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: false }));
@@ -124,6 +133,7 @@ const openModalForVariant = (variantId) => {
 
   const getLowestBidAmount = (all_data) => {
     let l1totaltemp = 0;
+    let l1base = 0, l1packaging = 0, l1freight = 0, l1tax = 0;
     let totalRFQItems = 0;
 
     let edited_data = all_data.map((item) => {
@@ -184,6 +194,10 @@ const openModalForVariant = (variantId) => {
         const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
 
         l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity, normalizeFilter);
+        l1base += parseInt(lowestQuoteDetails.unit_price || 0) * parseInt(lowestQuantity || 0);
+        l1packaging += parseInt(lowestQuoteDetails.package_price || 0);
+        l1freight += parseInt(lowestQuoteDetails.freight_price || 0);
+        l1tax += parseInt(lowestQuoteDetails.tax || 0);
         item.quotations.map((q) => {
           if (q.id == lowest.id) {
             q.is_lowest = true;
@@ -198,6 +212,7 @@ const openModalForVariant = (variantId) => {
 
     setdata(edited_data);
     setl1total(l1totaltemp);
+    setL1breakdown({ base: l1base, packaging: l1packaging, freight: l1freight, tax: l1tax });
   };
    
 
@@ -1428,9 +1443,27 @@ const openModalForVariant = (variantId) => {
                     {sortedVendors &&
                       sortedVendors.length > 0 &&
                       sortedVendors.map((item) => {
+                        const key = `total_${item.id}`;
+                        const showBreakup = footerBreakupStates[key] || false;
                         return (
-                          <th key={`tp_${item.id}_total`}>
-                            {addCommasToNumber(item.total) ?? "-"}
+                          <th key={`tp_${item.id}_total`} className="total_amt_field">
+                            <label className="view_breakup">
+                              <div className="tooltip_custom">Show/hide Breakup</div>
+                              <span></span>
+                              <input type="checkbox" checked={showBreakup} onChange={() => toggleFooterBreakup(key)} />
+                              {showBreakup && (
+                                <table className="table has_inner_border_table">
+                                  <tbody>
+                                    <tr><th>Base Total</th><td>₹{addCommasToNumber((item.total || 0) - (item.packaging || 0) - (item.freight || 0) - (item.tax || 0))}</td></tr>
+                                    <tr><th>Packaging</th><td>₹{addCommasToNumber(item.packaging || 0)}</td></tr>
+                                    <tr><th>Freight</th><td>₹{addCommasToNumber(item.freight || 0)}</td></tr>
+                                    <tr><th>GST</th><td>₹{addCommasToNumber(item.tax || 0)}</td></tr>
+                                    <tr className="is_lowest"><th>Total</th><td>₹{addCommasToNumber(item.total || 0)}</td></tr>
+                                  </tbody>
+                                </table>
+                              )}
+                              <p>₹{addCommasToNumber(item.total) ?? "-"}</p>
+                            </label>
                           </th>
                         );
                       })}
@@ -1458,9 +1491,25 @@ const openModalForVariant = (variantId) => {
                       <th
                         colSpan={sortedVendors.length}
                         scope="col"
-                        className="l1total"
+                        className="l1total total_amt_field"
                       >
-                        {addCommasToNumber(l1total)}
+                        <label className="view_breakup">
+                          <div className="tooltip_custom">Show/hide Breakup</div>
+                          <span></span>
+                          <input type="checkbox" checked={footerBreakupStates['l1total'] || false} onChange={() => toggleFooterBreakup('l1total')} />
+                          {footerBreakupStates['l1total'] && (
+                            <table className="table has_inner_border_table">
+                              <tbody>
+                                <tr><th>Base Total</th><td>₹{addCommasToNumber(l1breakdown.base || 0)}</td></tr>
+                                <tr><th>Packaging</th><td>₹{addCommasToNumber(l1breakdown.packaging || 0)}</td></tr>
+                                <tr><th>Freight</th><td>₹{addCommasToNumber(l1breakdown.freight || 0)}</td></tr>
+                                <tr><th>GST</th><td>₹{addCommasToNumber(l1breakdown.tax || 0)}</td></tr>
+                                <tr className="is_lowest"><th>Total</th><td>₹{addCommasToNumber(l1total)}</td></tr>
+                              </tbody>
+                            </table>
+                          )}
+                          <p>₹{addCommasToNumber(l1total)}</p>
+                        </label>
                       </th>
                     )}
                   </tr>

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { addVendorAgreement, fetchVendorAgreement, getClausesByRfqProductId, getTechClearedVendorsResult } from "@/services/rfq";
+import { addVendorAgreement, fetchVendorAgreement, getClausesByRfqProductId, getTechClearedVendorsResult, fetchDeviationPreviews } from "@/services/rfq";
 import FileLink from "@/components/shared/FileLink";
 import { toast } from "react-toastify";
 import FullLoader from "@/components/shared/FullLoader";
@@ -28,6 +28,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
   const [responseLoading, setResponseLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [showSubmitConfirmModal, setShowSubmitConfirmModal] = useState(false);
+  const [deviationPreviews, setDeviationPreviews] = useState({});
 
   const fileInputRef = useRef(new Map());
 
@@ -124,14 +125,17 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
   };
 
   const toggleChat = (clause_id) => {
+    const wasOpen = chatMap?.get(clause_id);
     setChatMap((prevMap) => {
       const newMap = new Map(prevMap);
       for (let [key] of prevMap) {
         newMap.set(key, false);
       }
-      newMap.set(clause_id, !prevMap.get(clause_id));
+      newMap.set(clause_id, !wasOpen);
       return newMap;
     });
+    // Refresh previews when closing chat (new messages may have been sent)
+    if (wasOpen) loadDeviationPreviews();
   };
 
   // Handle agreement status change
@@ -201,6 +205,30 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
 
     getBuyerClauses();
   }, [product, currentUserProfile])
+
+  const loadDeviationPreviews = async () => {
+    if (!product?.id || !currentUserProfile?.id) return;
+    try {
+      const res = await fetchDeviationPreviews(product.id, currentUserProfile.id);
+      if (res?.data) {
+        const grouped = {};
+        res.data.forEach(msg => {
+          const key = `${msg.clause_id}`;
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(msg);
+        });
+        setDeviationPreviews(grouped);
+      }
+    } catch (e) {
+      console.error("Failed to load deviation previews:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (product?.id && currentUserProfile?.id && buyerClauses && buyerClauses.length > 0) {
+      loadDeviationPreviews();
+    }
+  }, [product?.id, currentUserProfile?.id, buyerClauses]);
 
   const hasVendorResponses = Array.isArray(vendorResponse) && vendorResponse.length > 0;
   let clauseTotal = 0;
@@ -451,6 +479,20 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                         >
                           Explanation / Deviation
                         </button>
+                        {/* Deviation message preview */}
+                        {deviationPreviews[`${clauseItem.clause_id}`] && deviationPreviews[`${clauseItem.clause_id}`].length > 0 && (
+                          <div style={{ marginTop: "6px", padding: "6px 8px", background: "#f8f9fa", borderRadius: "4px", border: "1px solid #e9ecef", fontSize: "11px", lineHeight: "1.5", maxWidth: "220px" }}>
+                            {deviationPreviews[`${clauseItem.clause_id}`].map((m, i) => {
+                              const name = String(m.sender_id) == String(currentUserProfile?.id) ? "You" : (otherUser?.name || "Buyer");
+                              const text = m.text?.length > 40 ? m.text.substring(0, 40) + "..." : m.text;
+                              return (
+                                <div key={i} style={{ color: "#495057", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={`${name}: ${m.text}`}>
+                                  <strong>{name}:</strong> {text}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </td>
 
                     </tr>

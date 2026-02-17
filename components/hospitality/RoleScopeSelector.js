@@ -333,9 +333,9 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       lines.push(`Department: All Departments`);
     }
     if (hotelMeta?.name) {
-      lines.push(`Hotel: ${hotelMeta.name}`);
+      lines.push(`Business Unit: ${hotelMeta.name}`);
     } else if (!scope.hotel_id) {
-      lines.push(`Hotel: All Hotels`);
+      lines.push(`Business Unit: All Business Units`);
     }
 
     return lines.join("\n");

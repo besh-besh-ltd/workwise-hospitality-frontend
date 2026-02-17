@@ -12,8 +12,9 @@ import { getCompanyUsers } from "@/services/Auth";
 import RejectRemarksModal from "./RejectRemarksModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import UpdateGRNModal from "./UpdateGRNModal";
-import { Badge } from "react-bootstrap";
+import { Badge, Alert } from "react-bootstrap";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
+import { getUserMappings } from "@/services/hospitality";
 
 const PurchaseOrders = () => {
   const router = useRouter();
@@ -46,6 +47,8 @@ const PurchaseOrders = () => {
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(100);
   const [isEditing, setIsEditing] = useState(edit == 'true')
+  const [userHotelMappings, setUserHotelMappings] = useState([]);
+  const [selectedHotelIds, setSelectedHotelIds] = useState([]);
 
   const [poMeta, setPOMeta] = useState({
     page: 1,
@@ -256,6 +259,16 @@ const PurchaseOrders = () => {
       });
   };
 
+  const fetchUserHotelMappings = async () => {
+    try {
+      const response = await getUserMappings();
+      const mappings = response?.data || [];
+      setUserHotelMappings(mappings);
+    } catch (error) {
+      console.error("Error fetching user hotel mappings", error);
+    }
+  };
+
   useEffect(() => {
     getAllRFQs(true);
   }, [selectedproject]);
@@ -287,6 +300,7 @@ const PurchaseOrders = () => {
 
   useEffect(() => {
       getAllProjects();
+      fetchUserHotelMappings();
     }, []);
 
   return (
@@ -327,6 +341,9 @@ const PurchaseOrders = () => {
                 rfqNo={rfqNo}
                 onRfqNoChange={(val) => setRfqNo(val)}
                 searchPlaceholder="Search by number..."
+                userHotelMappings={userHotelMappings}
+                selectedHotelIds={selectedHotelIds}
+                onHotelSelectionChange={(ids) => setSelectedHotelIds(ids)}
                 projects={projects || []}
                 onProjectChange={(val) => setSelectedproject(val)}
                 showTypeFilter={false}
@@ -345,10 +362,10 @@ const PurchaseOrders = () => {
             <div className="col-md-10" style={{ flex: '1 1 0%', width: 'auto', maxWidth: 'none' }}>
               {!rfq && (
                 <div className="quote-sec-table quote-sec-tab mb-0">
-                  <div className="quote-sec-table-sub">
-                    <h4 className="text-center">
-                      Please select a RFQ to view its purchase orders!
-                    </h4>
+                  <div className="quote-sec-table-sub d-flex align-items-center justify-content-center" style={{ minHeight: '200px' }}>
+                    <Alert variant="info" className="text-center mb-0">
+                      Please select a Tender / RFQ to view its purchase orders.
+                    </Alert>
                   </div>
                 </div>
               )}
