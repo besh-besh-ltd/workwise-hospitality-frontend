@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import FullLoader from "@/components/shared/FullLoader";
 import useModulePermissions from "@/hooks/useModulePermissions";
@@ -27,7 +27,7 @@ import { getProjectAvailableBudget, getProjectList } from '@/services/project';
 import { getUserMappings } from '@/services/hospitality';
 import Select from 'react-select';
 import LPRModal from "@/components/shared/LPRModal";
-import { Button, Badge } from "react-bootstrap";
+import { Button, Badge, Alert } from "react-bootstrap";
 import OverallCostComparison from './OverallCostComparison';
 import ReadMore from "@/components/shared/ReadMore";
 import InputModal from "@/components/shared/InputModal";
@@ -36,6 +36,7 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import NegotiationCompactBanner from "./negotiation/NegotiationCompactBanner";
 import ProductNegotiationBadge from "../vendor/ProductNegotiationBadge";
 import { getAllActiveNegotiationRounds, getRoundQuotes } from "@/services/negotiation";
+import RFQListSidebar from "@/components/shared/RFQListSidebar";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -92,6 +93,10 @@ const QuoteCompare = () => {
  const [showNormalizeModal, setShowNormalizeModal] = useState(false);
  const [productNegotiationData, setProductNegotiationData] = useState({}); // { productId: { activeRound, roundQuotes } }
 
+  // Ref to track the latest rfq for stale response detection in async calls
+  const latestRfqRef = useRef(rfq);
+  latestRfqRef.current = rfq;
+
   // Permission-based authorization for Negotiation and Quote-Compare sections
   // Memoize hotelIds to prevent infinite re-renders in useModulePermissions
   const hotelIdsKey = currentRFQ?.hotel_ids?.join(',') || currentRFQ?.hotel_id || '';
@@ -135,6 +140,7 @@ const QuoteCompare = () => {
   // Stage 1: Fetch RFQ metadata first to get hotel context for permission check
   // This is a lightweight call that doesn't expose sensitive quote data
   useEffect(() => {
+    let cancelled = false;
     setMetadataLoadedForRfq(null);
 
     const fetchRFQMetadata = async () => {
@@ -146,9 +152,10 @@ const QuoteCompare = () => {
       try {
         // Get RFQ metadata for permission context
         const response = await getRfqs({ rfq_id: String(rfq), page: 1, limit: 1, tech_eval: false });
+        // Guard against stale response when user switched RFQs quickly
+        if (cancelled) return;
         const rfqData = Array.isArray(response) ? response[0] : response?.data?.[0];
         if (rfqData) {
-          // Set minimal RFQ data for permission check (hotel_id, hotel_ids) and is_tender for UI
           // IMPORTANT: Don't spread prev to avoid stale state when switching between tender/RFQ
           setcurrentRFQ({
             id: rfqData.id,
@@ -157,17 +164,33 @@ const QuoteCompare = () => {
             is_tender: rfqData.is_tender,
             hospitality_company_id: rfqData.hospitality_company_id,
             department_id: rfqData.department_id,
-            rfq_no: rfqData.rfq_no, // Add rfq_no for UI display
-            project_name: rfqData.project_name, // Add project name for UI
+            rfq_no: rfqData.rfq_no,
+            project_name: rfqData.project_name,
+            company_name: rfqData.company_name,
+            hotel_name: rfqData.hotel_name,
+            contact_name: rfqData.contact_name,
+            response_email: rfqData.response_email,
+            contact_number: rfqData.contact_number,
+            location: rfqData.location,
+            reverse_auction: rfqData.reverse_auction,
+            bid_end_date: rfqData.bid_end_date,
+            comment: rfqData.comment,
+            title: rfqData.title,
+            rfq_type: rfqData.rfq_type,
+            reverse_auction_date: rfqData.reverse_auction_date,
+            status: rfqData.status,
           });
           setMetadataLoadedForRfq(rfq);
         }
       } catch (error) {
-        console.error("Error fetching RFQ metadata:", error);
+        if (!cancelled) {
+          console.error("Error fetching RFQ metadata:", error);
+        }
       }
     };
 
     fetchRFQMetadata();
+    return () => { cancelled = true; };
   }, [rfq]);
 
   // Stage 2: Once permissions are verified, fetch full data only if user has access
@@ -180,10 +203,12 @@ const QuoteCompare = () => {
 
   const loadNegotiationData = async () => {
     if (!rfq) return;
+    const fetchRfq = rfq; // capture for stale detection
 
     try {
       // Load all active rounds for this RFQ
       const response = await getAllActiveNegotiationRounds(rfq);
+      if (latestRfqRef.current !== fetchRfq) return; // stale
       let activeRounds = [];
 
       if (response) {
@@ -200,12 +225,14 @@ const QuoteCompare = () => {
       const negotiationData = {};
 
       for (const round of activeRounds) {
+        if (latestRfqRef.current !== fetchRfq) return; // stale
         if (round.rfq_product_id) {
           // Only keep the most recent round per product (first encountered due to DESC order)
           if (negotiationData[round.rfq_product_id]) continue;
 
           try {
             const quotesResponse = await getRoundQuotes(round.id);
+            if (latestRfqRef.current !== fetchRfq) return; // stale
             let roundQuotes = [];
 
             if (quotesResponse) {
@@ -226,8 +253,10 @@ const QuoteCompare = () => {
         }
       }
 
+      if (latestRfqRef.current !== fetchRfq) return; // stale
       setProductNegotiationData(negotiationData);
     } catch (error) {
+      if (latestRfqRef.current !== fetchRfq) return; // stale
       console.error('Error loading negotiation data:', error);
       setProductNegotiationData({});
     }
@@ -432,6 +461,7 @@ const handleCloseNormalizeModal = () => {
   };
 
   const getRespectiveQuotes = () => {
+    const fetchRfq = rfq; // capture current rfq for stale detection
     setquotesLoading(true);
     setquotes([]);
     setTEavailable(false);
@@ -439,6 +469,9 @@ const handleCloseNormalizeModal = () => {
     let loadedData = [];
     getQuotes(rfq, TA_Filter, freightFilter, rfq_product_id, source , 'quote_compare')
       .then((res) => {
+        // Ignore stale response if user has already switched to a different RFQ
+        if (latestRfqRef.current !== fetchRfq) return;
+
         // Store original data before normalization for highlighting logic
         setOriginalQuotes(res.data);
 
@@ -469,22 +502,29 @@ const handleCloseNormalizeModal = () => {
         setVendorCodeMap(codeMap);
       })
       .catch((err) => {
+        // Ignore errors from stale requests
+        if (latestRfqRef.current !== fetchRfq) return;
       })
       .finally(() => {
+        // Ignore completion of stale requests
+        if (latestRfqRef.current !== fetchRfq) return;
         setquotesLoading(false);
         getRFQClauses(loadedData);
       })
   };
 
   const getRFQClauses = async (quotesData = []) => {
+    const fetchRfq = rfq; // capture for stale detection
     try {
       const res = await getAllClauses(rfq);
+      if (latestRfqRef.current !== fetchRfq) return; // stale
       if(res.data && res.data.length > 0) {
         setTEavailable(true);
         // Always filter to show only technically accepted vendors when tech eval exists
         setTA_Filter(true);
       }
     } catch (error) {
+      if (latestRfqRef.current !== fetchRfq) return; // stale
       console.error(error);
     }
   };
@@ -1392,7 +1432,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       });
   };
 
-  // Reset filters and negotiation data when switching between RFQs/tenders
+  // Reset all stale state when switching between RFQs/tenders
   useEffect(() => {
     if (rfq) {
       setTA_Filter(false);
@@ -1400,26 +1440,17 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       setNormalizeFilter(false);
       setProductNegotiationData({}); // Clear negotiation data to prevent stale state
       setAvailableBudget(null); // Clear budget to prevent showing wrong budget
+      setquotes([]); // Clear stale quotes immediately
+      setOriginalQuotes([]); // Clear original quotes
+      setVendorCodeMap({}); // Clear vendor code map
+      setTEavailable(false); // Clear tech eval state
     }
   }, [rfq]);
 
-  useEffect(() => {
-    if (rfq && myRFQs) {
-      const rfq_details = myRFQs.find((rfq_item) => rfq_item.id == rfq);
-      if (rfq_details) {
-        setcurrentRFQ(rfq_details);
-      }
-    }
-  }, [rfq, myRFQs])
-
-  useEffect(() => {
-    getAllRFQs();
-  }, [page, selectedproject, isTenderFilter]);
-  
-// useEffect(()=>{
-//   if(quotes)
-//     console.log("logging here best possible price",quotes[0]?.latest_target_price)
-// },[])
+  // Note: currentRFQ is now set exclusively by Stage 1 (fetchRFQMetadata).
+  // The previous [rfq, myRFQs] effect was removed because it competed with Stage 1
+  // and could overwrite fresh API data with stale sidebar list data whenever myRFQs
+  // changed (debounce refetch, pagination, filter changes).
 
 // const handleTargetPriceSubmit = async ({ productId, vendorIds, targetPrice }) => {
 //   console.log("Submitted Data:", { productId, vendorIds, targetPrice });
@@ -1496,168 +1527,66 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
-          <div className="row">
-            <div className="col-md-2">
-              <div className="hasFullLoader">
-                <p className="px-1 pt-3 fs-6 mb-1 fw-medium">Quotes Received</p>
-                {loading && <FullLoader />}
-                <div className="py-1">
-                  <label>Search {getEntityLabel(currentRFQ?.is_tender)} No.</label>
-                  <input
-                    className="form-control react-select"
-                    style={{
-                      borderRadius: "0.25rem",
-                      borderColor: "#ced4da",
-                      boxShadow: "none",
-                    }}
-                    value={rfqNo}
-                    onChange={(e) => setRfqNo(e.target.value)}
-                    name="rfq_type"
-                    placeholder="Ex. 123456"
-                    isClearable
-                    id="search_rfq_no-quotes_received-compare_quotes_page"
-                  />
-                </div>
-                {userHotelMappings.length > 0 && (
-                  <div className="py-2">
-                    <label>Select Business Units</label>
-                    <Select
-                      isMulti
-                      options={userHotelMappings}
-                      value={userHotelMappings.filter(opt => 
-                        selectedHotelIds.includes(opt.hospitality_hotel_id)
-                      )}
-                      onChange={(selectedOptions) => {
-                        const ids = selectedOptions 
-                          ? selectedOptions.map(opt => opt.hospitality_hotel_id)
-                          : [];
-                        handleHotelSelectionChange(ids);
-                      }}
-                      placeholder="Select Business Units..."
-                      closeMenuOnSelect={false}
-                      classNamePrefix="react-select"
-                      isClearable
-                      formatOptionLabel={(option) => (
-                        <div>
-                          <span>{option.hotel_name}</span>
-                        </div>
-                      )}
-                      getOptionValue={(option) => option.hospitality_hotel_id}
-                      id="select_hotels_filter-quotes_received-compare_quotes_page"
-                    />
-                  </div>
-                )}
-                <div className="py-2">
-                  <label>Select Project</label>
-                  <Select
-                    options={projects}
-                    onChange={(selectedOption, actionMeta) =>
-                      setSelectedproject(
-                        selectedOption?.value ? selectedOption.value : -1
-                      )
-                    }
-                    // value={selectedproject}
-                    name="project_id"
-                    placeholder="Select"
-                    isClearable
-                    id="select_project_filter-quotes_received-compare_quotes_page"
-                  />
-                </div>
-                <div className="py-2">
-                  <label>Type</label>
-                  <Select
-                    options={[
-                        { label: "RFQ", value: "0" },
-                        { label: "Tender", value: "1" }
-                    ]}
-                    onChange={(selectedOption) => {
-                      setIsTenderFilter(selectedOption?.value || null);
-                      setpage(1);
-                    }}
-                    value={isTenderFilter !== null ? { label: isTenderFilter === '1' || isTenderFilter === 1 ? "Tender" : "RFQ", value: isTenderFilter } : null}
-                    placeholder="Select"
-                    isClearable
-                    id="is_tender_filter-quotes_received-compare_quotes_page"
-                  />
-                </div>
-                {!loading && myRFQs && myRFQs.length === 0 ? (
-                  <p style={{ textAlign: "center" }}>No {getEntityLabel(currentRFQ?.is_tender, true)} yet!</p>
-                ) : !loading && myRFQs && myRFQs.length > 0 ? (
-                  <ul
-                    className="overflow-y-auto mt-1"
-                    style={{ maxHeight: "70vh" }}
-                  >
-                    {myRFQs.map((item) => {
-                      const isSelected = item.id == rfq;
-                      return (
-                        <li
-                          key={item.id}
-                          className={`${
-                            isSelected ? "active rounded" : ""
-                          }`}
-                          style={!isSelected && item.approval_required ? { backgroundColor: '#fff3f3', borderLeft: '3px solid #dc3545' } : {}}
-                        >
-                          <Link
-                            href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
-                            className={`${
-                              isSelected ? "text-white" : "text-dark"
-                            }`}
-                            id={`rfq_item_${item.rfq_no}-quotes_received-compare_quotes_page`}
-                          >
-                            {item.title && item.title != "" && (
-                              <span
-                                className="d-block fw-bold"
-                                style={{ fontSize: "14px" }}
-                              >
-                                {item.title}
-                              </span>
-                            )}
-                            <span className="d-flex align-items-center gap-1 flex-wrap">
-                              {formatRFQNumber(item?.rfq_no, item?.is_tender)}
-                              {!isSelected && item.approval_required && (
-                                <Badge bg="danger" style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Your Approval Required</Badge>
-                              )}
-                            </span>
-                            {item.project_name && item.project_name != "" && (
-                              <b
-                                className="d-block fw-semibold"
-                                style={{ fontSize: "14px" }}
-                              >
-                                {item.project_name}
-                              </b>
-                            )}
-                          </Link>
-                        </li>
-                      );
-                    })}
+          <div className="row" style={{ flexWrap: 'nowrap', gap: '8px' }}>
+              <RFQListSidebar
+                title="Quote Comparison"
+                rfqList={myRFQs}
+                loading={loading}
+                selectedRfqId={rfq}
+                linkPrefix="/dashboard/buyer/quote-compare"
+                linkQueryKey="rfq"
+                tabs={[
+                  {
+                    key: 'negotiation_pending',
+                    label: 'Negotiation',
+                    filter: (item) => !item.is_finalized && !item.approval_required && parseInt(item.active_quote_count || 0) > 0,
+                  },
+                  {
+                    key: 'finalization_pending',
+                    label: 'Finalization',
+                    filter: (item) => item.approval_required === true || item.is_finalized,
+                  },
+                  {
+                    key: 'all',
+                    label: 'All',
+                    filter: null,
+                  },
+                ]}
+                defaultTab="all"
+                rfqNo={rfqNo}
+                onRfqNoChange={(val) => setRfqNo(val)}
+                searchPlaceholder="Search by number..."
+                userHotelMappings={userHotelMappings}
+                selectedHotelIds={selectedHotelIds}
+                onHotelSelectionChange={handleHotelSelectionChange}
+                projects={projects || []}
+                onProjectChange={(val) => setSelectedproject(val)}
+                showTypeFilter={true}
+                isTenderFilter={isTenderFilter}
+                onTenderFilterChange={(val) => {
+                  setIsTenderFilter(val);
+                  setpage(1);
+                }}
+                getItemTags={(item, isSelected) => {
+                  if (isSelected) return [];
+                  const tags = [];
+                  if (item.approval_required) {
+                    tags.push({ label: 'Approval Pending', variant: 'warning' });
+                  }
+                  if (item.is_finalized) {
+                    tags.push({ label: 'Finalized', variant: 'success' });
+                  } else {
+                    tags.push({ label: 'In Negotiation', variant: 'info' });
+                  }
+                  return tags;
+                }}
+                showLoadMore={true}
+                hasMore={hasMoreQuotes}
+                onLoadMore={loadMoreRFQs}
+                pageId="quote_compare"
+              />
 
-                    {hasMoreQuotes && !loading && myRFQs.length >= 10 && (
-                      <Link
-                        href="#"
-                        id="load_more_rfqs-quote_list-quote_compare_page" className="d-flex justify-content-end px-3 pe-auto"
-                        onClick={loadMoreRFQs}
-                      >
-                        <span className="link-primary">...Load More</span>
-                      </Link>
-                    )}
-
-                    {hasMoreQuotes && loading && (
-                      <div className="d-flex justify-content-center align-items-center">
-                        Loading ...
-                        <div
-                          className="spinner-border spinner-border-sm text-primary ms-2"
-                          role="status"
-                        >
-                          <span className="visually-hidden">Loading...</span>
-                        </div>
-                      </div>
-                    )}
-                  </ul>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="col-md-10">
+            <div className="col-md-10" style={{ flex: '1 1 0%', width: 'auto', maxWidth: 'none' }}>
               <div className="quote-sec-table quote-sec-tab">
                 {!quotesLoading && currentRFQ && (
                   <div className="mb-3">
@@ -1888,10 +1817,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
                 {!rfq && canReadQuoteCompare && (
                   <div className="quote-sec-main">
-                    <div className="quote-sec-table-sub">
-                      <h4 className="text-center">
-                        Please select a RFQ to view its quotes!
-                      </h4>
+                    <div className="quote-sec-table-sub d-flex align-items-center justify-content-center" style={{ minHeight: '200px' }}>
+                      <Alert variant="info" className="text-center mb-0">
+                        Please select a Tender / RFQ to view its quotes.
+                      </Alert>
                     </div>
                   </div>
                 )}

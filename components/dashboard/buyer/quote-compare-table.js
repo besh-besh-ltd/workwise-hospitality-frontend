@@ -58,6 +58,35 @@ const QuoteCompareTable = ({
     return m;
   }, [proditem?.all_vendors]);
 
+  // Sort quotations by total price ascending (L1 first, regrets/no-price last)
+  const sortedQuotations = useMemo(() => {
+    if (!quotations || quotations.length === 0) return quotations;
+
+    const qty = proditem?.product_details?.[0]?.rfq_details?.find(
+      spec => spec.title === 'Quantity'
+    )?.value;
+
+    return [...quotations].sort((a, b) => {
+      const aRegret = a?.quote_details?.is_regret == 1;
+      const bRegret = b?.quote_details?.is_regret == 1;
+      // Regretted quotes go to the end
+      if (aRegret && !bRegret) return 1;
+      if (!aRegret && bRegret) return -1;
+      if (aRegret && bRegret) return 0;
+
+      const aPrice = parseFloat(a.unit_price) || 0;
+      const bPrice = parseFloat(b.unit_price) || 0;
+      // Quotes with 0 price go after priced quotes
+      if (aPrice > 0 && bPrice <= 0) return -1;
+      if (aPrice <= 0 && bPrice > 0) return 1;
+      if (aPrice <= 0 && bPrice <= 0) return 0;
+
+      const aQty = qty || a.quantity;
+      const bQty = qty || b.quantity;
+      return calculateTotal(a, aQty, normalizeFilter) - calculateTotal(b, bQty, normalizeFilter);
+    });
+  }, [quotations, proditem, normalizeFilter]);
+
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
 
@@ -318,9 +347,9 @@ const QuoteCompareTable = ({
               </div>
               <div className="table-si-row table-grey-row">Payment Terms</div>
             </div>
-            {quotations &&
-              quotations.length > 0 &&
-              quotations.map((item, index) => {
+            {sortedQuotations &&
+              sortedQuotations.length > 0 &&
+              sortedQuotations.map((item, index) => {
                 // Check if the quote is updated
                 let itemUpdated =
                   item.previous_quotes?.length > 0
@@ -435,7 +464,14 @@ const QuoteCompareTable = ({
                         {(() => {
                           const vdRaw = item?.quote_details?.vendor_details || item?.vendor_details;
                           const vd = Array.isArray(vdRaw) ? vdRaw[0] : vdRaw;
-                          return vd?.organization_name || vd?.name || vd?.email || 'Unknown Vendor';
+                          const isRegret = item?.quote_details?.is_regret == 1;
+                          const hasPrice = parseFloat(item?.unit_price) > 0;
+                          return (
+                            <>
+                              {!isRegret && hasPrice && <span style={{ fontSize: "10px", opacity: 0.85, display: "block" }}>L{index + 1}</span>}
+                              {vd?.organization_name || vd?.name || vd?.email || 'Unknown Vendor'}
+                            </>
+                          );
                         })()}
                         {roundQuote && activeRound && !isArcSelected && (
                           <Badge bg="info" className="ms-2" style={{ fontSize: "0.7rem" }}>

@@ -11,7 +11,6 @@ const PaymentSuccessPage = () => {
     currency,
     description,
     order_id,
-    invoice_url,
     expiry_date
   } = router.query || {};
 
@@ -106,33 +105,6 @@ const PaymentSuccessPage = () => {
                   </ul>
                 </div>
 
-                <div className="mb-4">
-                  {invoice_url ? (
-                    <>
-                      <h5 className="mb-2">Invoice</h5>
-                      <p className="text-muted mb-3">
-                        You can download your invoice using the button below. A copy has
-                        also been sent to your registered email address.
-                      </p>
-                      <a
-                        href={invoice_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-primary me-2"
-                      >
-                        Download Invoice
-                      </a>
-                    </>
-                  ) : (
-                    <>
-                      <h5 className="mb-2">Invoice</h5>
-                      <p className="text-muted mb-0">
-                        Your invoice will be emailed to your registered email address once
-                        it is generated.
-                      </p>
-                    </>
-                  )}
-                </div>
 
                 <div className="d-flex flex-wrap gap-2">
                   <button

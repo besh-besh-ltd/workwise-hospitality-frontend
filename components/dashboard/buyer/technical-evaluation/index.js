@@ -18,6 +18,7 @@ import { Badge, Modal } from "react-bootstrap";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
+import RFQListSidebar from "@/components/shared/RFQListSidebar";
 
 
 
@@ -393,128 +394,55 @@ useEffect(() => {
 
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
-          <div className="row">
+          <div className="row" style={{ flexWrap: 'nowrap', gap: '16px' }}>
 
             {/* RFQ List */}
-            <div className="col-md-2">
-              <div className="hasFullLoader">
-                <h5 className="title">List Of Tender / RFQs</h5>
-
-                {loading && <FullLoader />}
-
-                <div className="py-1">
-                    <label>Search Tender / RFQ No.</label>
-                    <input
-                        className="form-control react-select" 
-                        style={{ borderRadius: '0.25rem', borderColor: '#ced4da', boxShadow: 'none' }}
-                        value={rfqNo}
-                        onChange={(e)=> setRfqNo(e.target.value)}
-                        name="rfq_type"
-                        placeholder="Ex. 123456"
-                        isClearable
-                        id="search_rfq_no-rfq_list-technical_evaluation_page"
-                    />
-                </div>
-                {userHotelMappings.length > 0 && (
-                  <div className="py-2">
-                    <label>Select Business Units</label>
-                    <Select
-                      isMulti
-                      options={userHotelMappings}
-                      value={userHotelMappings.filter(opt => 
-                        selectedHotelIds.includes(opt.hospitality_hotel_id)
-                      )}
-                      onChange={(selectedOptions) => {
-                        const ids = selectedOptions 
-                          ? selectedOptions.map(opt => opt.hospitality_hotel_id)
-                          : [];
-                        handleHotelSelectionChange(ids);
-                      }}
-                      placeholder="Select Business Units..."
-                      closeMenuOnSelect={false}
-                      classNamePrefix="react-select"
-                      isClearable
-                      formatOptionLabel={(option) => (
-                        <div>
-                          <span>{option.hotel_name}</span>
-                        </div>
-                      )}
-                      getOptionValue={(option) => option.hospitality_hotel_id}
-                      id="select_hotels_filter-rfq_list-technical_evaluation_page"
-                    />
-                  </div>
-                )}
-                <div className="py-2">
-                    <label>Select Project</label>
-                    <Select
-                        options={projects}
-                        onChange={(selectedOption,actionMeta)=> setSelectedproject(selectedOption?.value ? selectedOption.value : -1)}
-                        // value={selectedproject}
-                        name="project_id"
-                        placeholder="Select"
-                        isClearable
-                        id="select_project_filter-rfq_list-technical_evaluation_page"
-                    />
-                </div>
-                <div className="py-2">
-                    <label>Type</label>
-                    <Select
-                        options={[
-                            { label: "RFQ", value: "0" },
-                            { label: "Tender", value: "1" }
-                        ]}
-                        onChange={(selectedOption) => setIsTenderFilter(selectedOption?.value || null)}
-                        value={isTenderFilter !== null ? { label: isTenderFilter === '1' || isTenderFilter === 1 ? "Tender" : "RFQ", value: isTenderFilter } : null}
-                        placeholder="Select"
-                        isClearable
-                        id="is_tender_filter-rfq_list-technical_evaluation_page"
-                    />
-                </div>
-
-                {!loading && rfqList.length === 0 ? (
-                  <p style={{ textAlign: "center" }}>No Tender / RFQs yet!</p>
-                ) : (
-                  <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
-                    {rfqList.map((item) => {
-                      const isSelected = item.id === currentRfq?.id;
-                      return (
-                      <li
-                        className={isSelected ? "active" : ""}
-                        key={`rfq_no_${item.rfq_no}`}
-                        style={!isSelected && item.approval_required ? { backgroundColor: '#fff3f3', borderLeft: '3px solid #dc3545' } : {}}
-                      >
-                        <Link
-                          href={`/dashboard/buyer/technical-evaluation?rfq_id=${item.id}`}
-                          className={
-                            isSelected ? "text-white" : "text-dark"
-                          }
-                          id={`rfq_${item.rfq_no}-rfq_list-technical_evaluation_page`}
-                        >
-                          {item.title && item.title != "" &&
-                            <span className="d-block fw-bold" style={{ fontSize: "14px" }}>
-                              {item.title}
-                            </span>}
-                          <span className="d-flex align-items-center gap-1 flex-wrap">
-                            {formatRFQNumber(item.rfq_no, item.is_tender)}
-                            {!isSelected && item.approval_required && (
-                              <Badge bg="danger" style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Your Approval Required</Badge>
-                            )}
-                          </span>
-                          {item.project_name && item.project_name != "" &&
-                            <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
-                              {item.project_name}
-                            </b>}
-                        </Link>
-                      </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            </div>
+              <RFQListSidebar
+                title="Technical Evaluation"
+                rfqList={rfqList}
+                loading={loading}
+                selectedRfqId={currentRfq?.id}
+                linkPrefix="/dashboard/buyer/technical-evaluation"
+                linkQueryKey="rfq_id"
+                tabs={[
+                  {
+                    key: 'action_required',
+                    label: 'Action Required',
+                    filter: (item) => item.approval_required === true,
+                  },
+                  {
+                    key: 'action_completed',
+                    label: 'Completed',
+                    filter: (item) => !item.approval_required,
+                  },
+                ]}
+                defaultTab="action_required"
+                rfqNo={rfqNo}
+                onRfqNoChange={(val) => setRfqNo(val)}
+                searchPlaceholder="Search by number..."
+                userHotelMappings={userHotelMappings}
+                selectedHotelIds={selectedHotelIds}
+                onHotelSelectionChange={handleHotelSelectionChange}
+                projects={projects || []}
+                onProjectChange={(val) => setSelectedproject(val)}
+                showTypeFilter={true}
+                isTenderFilter={isTenderFilter}
+                onTenderFilterChange={(val) => setIsTenderFilter(val)}
+                getItemTags={(item, isSelected) => {
+                  if (isSelected) return [];
+                  const tags = [];
+                  if (item.approval_required) {
+                    tags.push({ label: 'Approval Pending', variant: 'warning' });
+                  } else {
+                    tags.push({ label: 'Evaluated', variant: 'success' });
+                  }
+                  return tags;
+                }}
+                pageId="technical_evaluation"
+              />
 
             {/* Main Container */}
-            <div className="col-md-10">
+            <div className="col-md-10" style={{ flex: '1 1 0%', width: 'auto', maxWidth: 'none' }}>
               <div className="quote-sec-table quote-sec-tab">
 
                 {/* RFQ Details */}

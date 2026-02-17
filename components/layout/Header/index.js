@@ -613,7 +613,9 @@ const Header = () => {
       let visibleCount = navItems.length;
 
       // Determine how many items to show based on window width
-      if (windowWidth < 1200) {
+      if (windowWidth < 768) {
+        visibleCount = 0; // All items go to dropdown on very small/zoomed screens
+      } else if (windowWidth < 1200) {
         visibleCount = Math.max(2, Math.floor((windowWidth - 400) / 150));
       } else if (windowWidth < 1400) {
         visibleCount = Math.max(3, Math.floor((windowWidth - 400) / 140));
@@ -1096,6 +1098,18 @@ const Header = () => {
                       </ul>
                     </div>
                   )}
+                </div>
+
+                {/* Mobile hamburger for logged-in dashboard pages */}
+                <div className={`menu-ctrl hideDesktopNav ${menuClass ? "button-active" : ""}`} style={{ marginLeft: '8px' }}>
+                  <label
+                    htmlFor="menu-toggle"
+                    onClick={() => setMenuClass(!menuClass)}
+                  >
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </label>
                 </div>
               </>
             ) : null}

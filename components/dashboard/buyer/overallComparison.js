@@ -7,7 +7,7 @@ import { renderFileLink } from "@/utils/elementFunctions";
 import { calculateTotal, extractfileName, handleNormalize } from "@/utils/sharedFunctions";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Button, Badge } from "react-bootstrap";
 import { IoIosSave } from "react-icons/io";
 import { FaRegEdit } from "react-icons/fa";
@@ -32,9 +32,11 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalize
   const [data, setdata] = useState([]);
   const [originalData, setOriginalData] = useState([]); // Store original data before normalization
   const [l1total, setl1total] = useState(0);
+  const [l1breakdown, setL1breakdown] = useState({ base: 0, packaging: 0, freight: 0, tax: 0 });
   const [finalizedTotal, setFinalizedTotal] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [breakupStates, setBreakupStates] = useState({});
+  const [footerBreakupStates, setFooterBreakupStates] = useState({});
   const [openModals, setOpenModals] = useState({});
   const [editTargetPrice, setEditTargetPrice] = useState({});
 
@@ -68,7 +70,14 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalize
       ...prev,
       [key]: !prev[key]
     }));
-};
+  };
+
+  const toggleFooterBreakup = (key) => {
+    setFooterBreakupStates(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
 
 const closeModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: false }));
@@ -124,6 +133,7 @@ const openModalForVariant = (variantId) => {
 
   const getLowestBidAmount = (all_data) => {
     let l1totaltemp = 0;
+    let l1base = 0, l1packaging = 0, l1freight = 0, l1tax = 0;
     let totalRFQItems = 0;
 
     let edited_data = all_data.map((item) => {
@@ -184,6 +194,10 @@ const openModalForVariant = (variantId) => {
         const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
 
         l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity, normalizeFilter);
+        l1base += parseInt(lowestQuoteDetails.unit_price || 0) * parseInt(lowestQuantity || 0);
+        l1packaging += parseInt(lowestQuoteDetails.package_price || 0);
+        l1freight += parseInt(lowestQuoteDetails.freight_price || 0);
+        l1tax += parseInt(lowestQuoteDetails.tax || 0);
         item.quotations.map((q) => {
           if (q.id == lowest.id) {
             q.is_lowest = true;
@@ -198,6 +212,7 @@ const openModalForVariant = (variantId) => {
 
     setdata(edited_data);
     setl1total(l1totaltemp);
+    setL1breakdown({ base: l1base, packaging: l1packaging, freight: l1freight, tax: l1tax });
   };
    
 
@@ -274,6 +289,42 @@ const openModalForVariant = (variantId) => {
       getDeliveryDetails();
     }
   }, [data]);
+
+  // Sort vendors by total bid ascending (L1 first) and align quotations
+  const sortedVendors = useMemo(() => {
+    if (!allvendors || allvendors.length === 0) return allvendors;
+    return [...allvendors].sort((a, b) => {
+      const aTotal = a.total || 0;
+      const bTotal = b.total || 0;
+      // Vendors with 0 total (no valid quotes) go to the end
+      if (aTotal > 0 && bTotal === 0) return -1;
+      if (aTotal === 0 && bTotal > 0) return 1;
+      return aTotal - bTotal;
+    });
+  }, [allvendors]);
+
+  // Reorder each product's quotations to match the sorted vendor column order
+  const sortedData = useMemo(() => {
+    if (!sortedVendors || sortedVendors.length === 0 || !data || data.length === 0) return data;
+    const vendorOrder = sortedVendors.map(v => v.id);
+    return data.map(item => ({
+      ...item,
+      quotations: vendorOrder.map(vendorId =>
+        item.quotations.find(q => q.created_by == vendorId)
+      ).filter(Boolean)
+    }));
+  }, [sortedVendors, data]);
+
+  // Reorder attached files to match sorted vendor order
+  const sortedAttachedFiles = useMemo(() => {
+    if (!sortedVendors || !allvendors || !attachedFiles) return attachedFiles;
+    // Build old vendor order (before sorting) to map indices
+    const oldOrder = allvendors.map(v => v.id);
+    return sortedVendors.map(v => {
+      const oldIdx = oldOrder.indexOf(v.id);
+      return oldIdx >= 0 ? attachedFiles[oldIdx] : [];
+    });
+  }, [sortedVendors, allvendors, attachedFiles]);
 
   const hasSellingPrice = data?.some(item => {
     const priceObj = item.product_specs.find(
@@ -392,7 +443,7 @@ const openModalForVariant = (variantId) => {
         <FullLoader />
       ) : (
       <div className="quote-sec-table-sub hasFullLoader">
-          {allvendors && allvendors.length > 0 ? (
+          {sortedVendors && sortedVendors.length > 0 ? (
             // ✅ SCROLL CONTAINER (vertical + horizontal)
             <div className="table-scroll-wrap">
               <table className="table table-bordered overall-table">
@@ -404,8 +455,8 @@ const openModalForVariant = (variantId) => {
                   {hasSellingPrice && <col style={{ width: "250px" }} />}
                   <col style={{ width: "250px" }} />
                   <col style={{ width: "250px" }} />
-                  {allvendors.length > 0 &&
-                    allvendors.map((_, index) => {
+                  {sortedVendors.length > 0 &&
+                    sortedVendors.map((_, index) => {
                       return (
                         <col
                           key={`col_item_${index}`}
@@ -421,7 +472,7 @@ const openModalForVariant = (variantId) => {
                     <th
                       scope="col"
                       className="sl_no heading"
-                      colSpan={allvendors.length + 7}
+                      colSpan={sortedVendors.length + 7}
                     >
                       Category Wise Comparison
                       <br />
@@ -487,9 +538,9 @@ const openModalForVariant = (variantId) => {
                     </th>
                     
                     
-                    {allvendors &&
-                      allvendors.length > 0 &&
-                      allvendors.map((item) => {
+                    {sortedVendors &&
+                      sortedVendors.length > 0 &&
+                      sortedVendors.map((item, vRank) => {
                         const vendorName = getVendorDisplayName(item);
                         return (
                           <th
@@ -502,6 +553,7 @@ const openModalForVariant = (variantId) => {
                               color: "white"
                             }}
                           >
+                            <span className="d-block" style={{ fontSize: "10px", opacity: 0.85 }}>L{vRank + 1}</span>
                             {vendorName}
                           </th>
                         );
@@ -511,9 +563,9 @@ const openModalForVariant = (variantId) => {
                    </tr>
                 </thead>
                 <tbody className="last_row">
-                  {data &&
-                    data.length > 0 &&
-                    data.map((item, index) => {
+                  {sortedData &&
+                    sortedData.length > 0 &&
+                    sortedData.map((item, index) => {
                       const isEditing = editTargetPrice[item.id] || false;
                       const rfq_product_id = item.id;
                       const productName =  item.product_details.map((prod)=>prod.name);
@@ -1379,8 +1431,8 @@ const openModalForVariant = (variantId) => {
                     <th scope="col"></th>
                     <th scope="col"></th>
                     <th scope="col"></th>
-                    {allvendors.length > 0 && (
-                      <th scope="col" colSpan={allvendors.length}></th>
+                    {sortedVendors.length > 0 && (
+                      <th scope="col" colSpan={sortedVendors.length}></th>
                     )}
                   </tr>
                   <tr className="last_row">
@@ -1388,12 +1440,30 @@ const openModalForVariant = (variantId) => {
                       TOTAL
                     </th>
 
-                    {allvendors &&
-                      allvendors.length > 0 &&
-                      allvendors.map((item) => {
+                    {sortedVendors &&
+                      sortedVendors.length > 0 &&
+                      sortedVendors.map((item) => {
+                        const key = `total_${item.id}`;
+                        const showBreakup = footerBreakupStates[key] || false;
                         return (
-                          <th key={`tp_${item.id}_total`}>
-                            {addCommasToNumber(item.total) ?? "-"}
+                          <th key={`tp_${item.id}_total`} className="total_amt_field">
+                            <label className="view_breakup">
+                              <div className="tooltip_custom">Show/hide Breakup</div>
+                              <span></span>
+                              <input type="checkbox" checked={showBreakup} onChange={() => toggleFooterBreakup(key)} />
+                              {showBreakup && (
+                                <table className="table has_inner_border_table">
+                                  <tbody>
+                                    <tr><th>Base Total</th><td>₹{addCommasToNumber((item.total || 0) - (item.packaging || 0) - (item.freight || 0) - (item.tax || 0))}</td></tr>
+                                    <tr><th>Packaging</th><td>₹{addCommasToNumber(item.packaging || 0)}</td></tr>
+                                    <tr><th>Freight</th><td>₹{addCommasToNumber(item.freight || 0)}</td></tr>
+                                    <tr><th>GST</th><td>₹{addCommasToNumber(item.tax || 0)}</td></tr>
+                                    <tr className="is_lowest"><th>Total</th><td>₹{addCommasToNumber(item.total || 0)}</td></tr>
+                                  </tbody>
+                                </table>
+                              )}
+                              <p>₹{addCommasToNumber(item.total) ?? "-"}</p>
+                            </label>
                           </th>
                         );
                       })}
@@ -1404,7 +1474,7 @@ const openModalForVariant = (variantId) => {
                     </th>
 
                     <th
-                      colSpan={allvendors.length}
+                      colSpan={sortedVendors.length}
                       scope="col"
                       className="l1total"
                     >
@@ -1417,13 +1487,29 @@ const openModalForVariant = (variantId) => {
                       LOWEST TOTAL ( L1 Total )
                     </th>
 
-                    {allvendors && allvendors.length > 0 && (
+                    {sortedVendors && sortedVendors.length > 0 && (
                       <th
-                        colSpan={allvendors.length}
+                        colSpan={sortedVendors.length}
                         scope="col"
-                        className="l1total"
+                        className="l1total total_amt_field"
                       >
-                        {addCommasToNumber(l1total)}
+                        <label className="view_breakup">
+                          <div className="tooltip_custom">Show/hide Breakup</div>
+                          <span></span>
+                          <input type="checkbox" checked={footerBreakupStates['l1total'] || false} onChange={() => toggleFooterBreakup('l1total')} />
+                          {footerBreakupStates['l1total'] && (
+                            <table className="table has_inner_border_table">
+                              <tbody>
+                                <tr><th>Base Total</th><td>₹{addCommasToNumber(l1breakdown.base || 0)}</td></tr>
+                                <tr><th>Packaging</th><td>₹{addCommasToNumber(l1breakdown.packaging || 0)}</td></tr>
+                                <tr><th>Freight</th><td>₹{addCommasToNumber(l1breakdown.freight || 0)}</td></tr>
+                                <tr><th>GST</th><td>₹{addCommasToNumber(l1breakdown.tax || 0)}</td></tr>
+                                <tr className="is_lowest"><th>Total</th><td>₹{addCommasToNumber(l1total)}</td></tr>
+                              </tbody>
+                            </table>
+                          )}
+                          <p>₹{addCommasToNumber(l1total)}</p>
+                        </label>
                       </th>
                     )}
                   </tr>
@@ -1433,9 +1519,9 @@ const openModalForVariant = (variantId) => {
                       Delivery{" "}
                     </th>
 
-                    {allvendors &&
-                      allvendors.length > 0 &&
-                      allvendors.map((item) => {
+                    {sortedVendors &&
+                      sortedVendors.length > 0 &&
+                      sortedVendors.map((item) => {
                         return (
                           <td key={`tp_${item.id}_total`}>
                             {item?.quoted_products &&
@@ -1449,9 +1535,9 @@ const openModalForVariant = (variantId) => {
                       Payment{" "}
                     </th>
 
-                    {allvendors &&
-                      allvendors.length > 0 &&
-                      allvendors.map((item) => {
+                    {sortedVendors &&
+                      sortedVendors.length > 0 &&
+                      sortedVendors.map((item) => {
                         const globalPaymentTerm = item.global_payment_term?.[0]?.details || "";
                         const paymentTermsList = item?.payment_terms?.length
                           ? item.payment_terms.map((t) => {
@@ -1482,9 +1568,9 @@ const openModalForVariant = (variantId) => {
                       Vendor comment{" "}
                     </th>
 
-                    {allvendors &&
-                      allvendors.length > 0 &&
-                      allvendors.map((item) => {
+                    {sortedVendors &&
+                      sortedVendors.length > 0 &&
+                      sortedVendors.map((item) => {
                         return (
                           <td
                             key={`tp_${item.id}_total`}
@@ -1513,9 +1599,9 @@ const openModalForVariant = (variantId) => {
                       Attached Files{" "}
                     </th>
 
-                    {attachedFiles &&
-                      attachedFiles.length > 0 &&
-                      attachedFiles.map((vendor_files, index) => {
+                    {sortedAttachedFiles &&
+                      sortedAttachedFiles.length > 0 &&
+                      sortedAttachedFiles.map((vendor_files, index) => {
                         return (
                           <td
                             key={`gloal_files_${index}`}

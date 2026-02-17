@@ -1,5 +1,5 @@
 import FileLink from '@/components/shared/FileLink';
-import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getSummarisedDeviation, getTechClearedVendorsResult, updateBuyerMarks, submitTechEvalForApproval, submitTechEvalApprovalAction } from '@/services/rfq';
+import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getSummarisedDeviation, getTechClearedVendorsResult, updateBuyerMarks, submitTechEvalForApproval, submitTechEvalApprovalAction, fetchDeviationPreviews } from '@/services/rfq';
 import { faMessage } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import React, { useEffect, useRef, useState } from 'react'
@@ -48,6 +48,7 @@ const ClauseProductItem = ({
     const [showDeviationModal, setShowDeviationModal] = useState(false);
     const [selectedDeviationClause, setSelectedDeviationClause] = useState(null);
     const [selectedDeviationVendor, setSelectedDeviationVendor] = useState(null);
+    const [deviationPreviews, setDeviationPreviews] = useState({});
     const [techEvalStatus, setTechEvalStatus] = useState(0);
     const [techEvalCleared, setTechEvalCleared] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -238,6 +239,27 @@ const ClauseProductItem = ({
         setShowDeviationModal(false);
         setSelectedDeviationClause(null);
         setSelectedDeviationVendor(null);
+        // Refresh previews after modal closes (new messages may have been sent)
+        if (product?.id) loadDeviationPreviews();
+    };
+
+    const loadDeviationPreviews = async () => {
+        if (!product?.id) return;
+        try {
+            const res = await fetchDeviationPreviews(product.id);
+            if (res?.data) {
+                const grouped = {};
+                res.data.forEach(msg => {
+                    const vendorId = String(msg.sender_id) == String(currentUserProfile?.id) ? String(msg.receiver_id) : String(msg.sender_id);
+                    const key = `${msg.clause_id}_${vendorId}`;
+                    if (!grouped[key]) grouped[key] = [];
+                    grouped[key].push(msg);
+                });
+                setDeviationPreviews(grouped);
+            }
+        } catch (e) {
+            console.error("Failed to load deviation previews:", e);
+        }
     };
 
     const getBuyerClauses = async () => {
@@ -514,6 +536,12 @@ const ClauseProductItem = ({
             setVendors(_vendors);
         }
     }, [_vendors])
+
+    useEffect(() => {
+        if (product?.id && clauseInfo && clauseInfo.length > 0) {
+            loadDeviationPreviews();
+        }
+    }, [product?.id, clauseInfo]);
 
     useEffect(() => {
         if (_minimumPassingScore !== undefined && _minimumPassingScore !== null) {
@@ -856,6 +884,29 @@ const ClauseProductItem = ({
                                      Deviation
                                     </button>
                                     )}
+                                    {/* Deviation message preview */}
+                                    {(() => {
+                                      const previewKey = `${clauseItem.clause_id}_${String(vendor.vendor_id)}`;
+                                      const msgs = deviationPreviews[previewKey];
+                                      if (!msgs || msgs.length === 0) return null;
+                                      const isTender = currentRfq?.is_tender === 1 || currentRfq?.is_tender === "1";
+                                      const vendorLabel = isTender
+                                        ? (vendor.label || `VEN-${vendor.rfq_product_vendor_id || vendor.vendor_id}`)
+                                        : (vendor.vendor_name || vendor.company_name || vendor.label || "Vendor");
+                                      return (
+                                        <div style={{ marginTop: "6px", padding: "6px 8px", background: "#f8f9fa", borderRadius: "4px", border: "1px solid #e9ecef", fontSize: "11px", lineHeight: "1.5", maxWidth: "220px" }}>
+                                          {msgs.map((m, i) => {
+                                            const name = String(m.sender_id) == String(currentUserProfile?.id) ? "You" : vendorLabel;
+                                            const text = m.text?.length > 40 ? m.text.substring(0, 40) + "..." : m.text;
+                                            return (
+                                              <div key={i} style={{ color: "#495057", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={`${name}: ${m.text}`}>
+                                                <strong>{name}:</strong> {text}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })()}
                                     <button
                                       type="button"
                                       className="d-flex justify-content-center align-items-center border-0 mt-2"
