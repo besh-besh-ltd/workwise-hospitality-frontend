@@ -28,10 +28,18 @@ jobs:
           key: ${{ secrets.WORKWISE_SSH_KEY }}
           port: 22
           script_stop: true
-          command_timeout: 30m
+          command_timeout: 35m
           script: |
-            set -e
-            cd /var/www/hospitality/frontend
+            set -euo pipefail
+
+            APP_DIR="/var/www/hospitality/frontend"
+            DEPLOY_BRANCH="main"
+
+            cd "$APP_DIR"
+            git fetch --prune origin "$DEPLOY_BRANCH"
+            git checkout "$DEPLOY_BRANCH"
+            git reset --hard "origin/$DEPLOY_BRANCH"
+
             npm i --no-audit --no-fund
             cat > .env.production << 'EOF'
             ${{ secrets.FRONTEND_ENV_PRODUCTION }}
