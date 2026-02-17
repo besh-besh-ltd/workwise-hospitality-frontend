@@ -1,0 +1,40 @@
+name: Frontend Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-frontend-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy frontend to EC2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.WORKWISE_SSH_HOST }}
+          username: ${{ secrets.WORKWISE_SSH_USER }}
+          key: ${{ secrets.WORKWISE_SSH_KEY }}
+          port: 22
+          script_stop: true
+          command_timeout: 30m
+          script: |
+            set -e
+            cd /var/www/hospitality/frontend
+            npm i --no-audit --no-fund
+            cat > .env.production << 'EOF'
+            ${{ secrets.FRONTEND_ENV_PRODUCTION }}
+            EOF
+            npm run build:prod
+            pm2 restart frontend --update-env
