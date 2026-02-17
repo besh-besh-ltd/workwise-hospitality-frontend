@@ -432,7 +432,7 @@ const Login = (props) => {
             <span className="lf-divider-line" />
           </div>
 
-          <button
+          {/* <button
             type="button"
             className="lf-google"
             onClick={() => {
@@ -443,7 +443,7 @@ const Login = (props) => {
           >
             <FcGoogle style={{ fontSize: '20px' }} />
             Continue with Google
-          </button>
+          </button> */}
         </>
       )}
 
