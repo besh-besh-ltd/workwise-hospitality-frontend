@@ -80,7 +80,7 @@ const Register = ({
         const [codesRes, countriesRes, categoriesRes] = await Promise.all([
           getCountryCodes(),
           getCountries(),
-          nestedCategoryData(0, "", true),
+          nestedCategoryData(0, "", false),
         ]);
 
         setCountryCode(codesRes?.data || []);
@@ -336,7 +336,7 @@ const Register = ({
     
     setLoadingSubcategories(prev => ({ ...prev, [categoryId]: true }));
     try {
-      const response = await nestedCategoryData(categoryId, '', true);
+      const response = await nestedCategoryData(categoryId, '', false);
       const subcategories = Array.isArray(response?.data) ? response.data : [];
       setSubcategoryOptions(prev => ({
         ...prev,
