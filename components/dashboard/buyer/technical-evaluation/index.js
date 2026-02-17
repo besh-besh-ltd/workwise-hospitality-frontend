@@ -106,7 +106,7 @@ const BuyerTechnicalEvaluation = () => {
   const fetchUserHotelMappings = async () => {
     try {
       const response = await getUserMappings();
-      const mappings = response?.data || [];
+      const mappings = (response?.data || []).filter(m => m.hospitality_hotel_id != null);
       setUserHotelMappings(mappings);
     } catch (error) {
       console.error("Error fetching user hotel mappings", error);
