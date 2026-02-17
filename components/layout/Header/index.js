@@ -93,10 +93,10 @@ const roleMenus = {
   ],
   buyer: [ // procurment person 
     { href: "/dashboard/buyer", label: "Dashboard", targetMenu: "nav" },
-    { href: "/vendor/all", label: "Search Vendor", targetMenu: "nav" },
+    { href: "/vendor/all", label: "Create Tender / RFQ", targetMenu: "nav" },
     {
       href: "/dashboard/buyer/rfq-management",
-      label: "RFQ management",
+      label: "Tender / RFQ management",
       targetMenu: "nav",
     },
     {
@@ -138,10 +138,10 @@ const roleMenus = {
   ],
   "management": [ // procurment person 
     { href: "/dashboard/management", label: "Dashboard", targetMenu: "nav" },
-    { href: "/vendor/all", label: "Search Vendor", targetMenu: "nav" },
+    { href: "/vendor/all", label: "Create Tender / RFQ", targetMenu: "nav" },
     {
       href: "/dashboard/buyer/rfq-management",
-      label: "RFQ management",
+      label: "Tender / RFQ management",
       targetMenu: "nav",
     },
     {
