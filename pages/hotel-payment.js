@@ -6,34 +6,89 @@ import axiosInstance from "@/lib/axios";
 
 const HotelPaymentPage = () => {
   const router = useRouter();
-  const { hotel_id } = router.query;
+  const { hotel_id, company_id, hotel_ids } = router.query;
 
-  const [hotelInfo, setHotelInfo] = useState(null);
+  const [paymentInfo, setPaymentInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [isConsolidated, setIsConsolidated] = useState(false);
 
-  const fetchHotelInfo = useCallback(async () => {
-    if (!hotel_id) return;
-    try {
-      setLoading(true);
-      const response = await axiosInstance.get(`/hospitality/hotel-payment/${hotel_id}`);
-      const data = response?.data?.data || response?.data;
-      setHotelInfo(data);
-      if (data?.already_paid) {
-        setPaymentSuccess(true);
+  const fetchPaymentInfo = useCallback(async () => {
+    // Wait for router to be ready
+    if (!router.isReady) return;
+
+    // Check if this is a consolidated company payment
+    if (company_id && hotel_ids) {
+      setIsConsolidated(true);
+      try {
+        setLoading(true);
+        const hotelIdsParam = Array.isArray(hotel_ids) ? hotel_ids.join(',') : hotel_ids;
+        const response = await axiosInstance.get(`/hospitality/hotel-payment/company/info`, {
+          params: {
+            company_id: parseInt(company_id, 10),
+            hotel_ids: hotelIdsParam
+          },
+          timeout: 30000,
+        });
+        const data = response?.data?.data || response?.data;
+        setPaymentInfo(data);
+        if (data?.already_paid) {
+          setPaymentSuccess(true);
+        } else {
+          setPaymentSuccess(false);
+        }
+      } catch (error) {
+        console.error("Error fetching company payment info:", error);
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          toast.error("Request timed out. Please check your connection and try again.");
+        } else if (error.response?.status === 404) {
+          toast.error("Payment link not found. Please check the link.");
+        } else {
+          toast.error("Could not load payment details. Please check the link.");
+        }
+        setPaymentInfo(null);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching hotel payment info:", error);
-      toast.error("Could not load payment details. Please check the link.");
-    } finally {
+    } 
+    // Single hotel payment
+    else if (hotel_id) {
+      setIsConsolidated(false);
+      try {
+        setLoading(true);
+        const response = await axiosInstance.get(`/hospitality/hotel-payment/${hotel_id}`, {
+          timeout: 30000,
+        });
+        const data = response?.data?.data || response?.data;
+        setPaymentInfo(data);
+        if (data?.already_paid) {
+          setPaymentSuccess(true);
+        } else {
+          setPaymentSuccess(false);
+        }
+      } catch (error) {
+        console.error("Error fetching hotel payment info:", error);
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          toast.error("Request timed out. Please check your connection and try again.");
+        } else if (error.response?.status === 404) {
+          toast.error("Payment link not found. Please check the link.");
+        } else {
+          toast.error("Could not load payment details. Please check the link.");
+        }
+        setPaymentInfo(null);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // No valid parameters
       setLoading(false);
     }
-  }, [hotel_id]);
+  }, [router.isReady, hotel_id, company_id, hotel_ids]);
 
   useEffect(() => {
-    fetchHotelInfo();
-  }, [fetchHotelInfo]);
+    fetchPaymentInfo();
+  }, [fetchPaymentInfo]);
 
   const loadRazorpayScript = () => {
     return new Promise((resolve) => {
@@ -50,7 +105,7 @@ const HotelPaymentPage = () => {
   };
 
   const handlePayment = async () => {
-    if (!hotelInfo || !hotel_id) return;
+    if (!paymentInfo) return;
 
     setPaying(true);
     try {
@@ -62,41 +117,69 @@ const HotelPaymentPage = () => {
       }
 
       // Create payment order
-      const orderRes = await axiosInstance.post("/hospitality/hotel-payment/create-order", {
-        hotel_id: parseInt(hotel_id, 10),
-      });
+      let orderRes;
+      if (isConsolidated) {
+        orderRes = await axiosInstance.post("/hospitality/hotel-payment/create-order", {
+          company_id: parseInt(company_id, 10),
+          hotel_ids: paymentInfo.hotel_ids,
+        });
+      } else {
+        orderRes = await axiosInstance.post("/hospitality/hotel-payment/create-order", {
+          hotel_id: parseInt(hotel_id, 10),
+        });
+      }
 
       const orderData = orderRes?.data?.data || orderRes?.data;
 
       if (orderData?.already_paid) {
         setPaymentSuccess(true);
-        toast.success("This business unit has already been paid for.");
+        toast.success(isConsolidated ? "All business units have already been paid for." : "This business unit has already been paid for.");
         setPaying(false);
         return;
       }
 
       const { order, payment_id, razorpay_key } = orderData;
 
+      const description = isConsolidated
+        ? `Business Units Onboarding - ${paymentInfo.company_name}`
+        : `Business Unit Onboarding - ${paymentInfo.name}`;
+
       const options = {
         key: razorpay_key,
         amount: order.amount,
         currency: order.currency,
         name: "WorkWise",
-        description: `Business Unit Onboarding - ${hotelInfo.name}`,
+        description,
         order_id: order.id,
         handler: async (response) => {
           try {
-            const verifyRes = await axiosInstance.post("/hospitality/hotel-payment/verify", {
-              hotel_id: parseInt(hotel_id, 10),
+            const verifyPayload = {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
               payment_id,
-            });
+            };
+
+            if (isConsolidated) {
+              verifyPayload.company_id = parseInt(company_id, 10);
+              verifyPayload.hotel_ids = paymentInfo.hotel_ids;
+            } else {
+              verifyPayload.hotel_id = parseInt(hotel_id, 10);
+            }
+
+            const verifyRes = await axiosInstance.post("/hospitality/hotel-payment/verify", verifyPayload);
 
             if (verifyRes?.data?.status === 1) {
               setPaymentSuccess(true);
-              toast.success("Payment successful! Your business unit is now active.");
+              toast.success(
+                isConsolidated
+                  ? "Payment successful! All business units are now active."
+                  : "Payment successful! Your business unit is now active."
+              );
+              // Refetch payment info to ensure state is updated
+              setTimeout(() => {
+                fetchPaymentInfo();
+              }, 1000);
             } else {
               toast.error("Payment verification failed. Please contact support.");
             }
@@ -113,7 +196,7 @@ const HotelPaymentPage = () => {
           },
         },
         prefill: {
-          email: hotelInfo.email || "",
+          email: isConsolidated ? paymentInfo.company_email || "" : paymentInfo.email || "",
         },
         theme: {
           color: "#158993",
@@ -186,7 +269,7 @@ const HotelPaymentPage = () => {
     );
   }
 
-  if (!hotelInfo) {
+  if (!paymentInfo) {
     return (
       <>
         <Head>
@@ -219,10 +302,20 @@ const HotelPaymentPage = () => {
     );
   }
 
+  const displayTitle = isConsolidated
+    ? "Business Units Onboarding Payment"
+    : "Business Unit Onboarding Payment";
+
+  const successMessage = isConsolidated
+    ? `All business units for ${paymentInfo.company_name} are now active and ready to use.`
+    : `${paymentInfo.name} is now active and ready to use.`;
+
   return (
     <>
       <Head>
-        <title>Complete Payment - {hotelInfo.name} | WorkWise</title>
+        <title>
+          Complete Payment - {isConsolidated ? paymentInfo.company_name : paymentInfo.name} | WorkWise
+        </title>
       </Head>
       <div style={{ ...pageGradient, justifyContent: "center" }}>
         {brandBar}
@@ -245,33 +338,49 @@ const HotelPaymentPage = () => {
             }}
           >
             <h2 style={{ color: "white", margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em" }}>
-            Business Unit Onboarding Payment
+              {displayTitle}
             </h2>
           </div>
 
           {/* Content */}
           <div className="card-body" style={{ padding: "28px" }}>
             {paymentSuccess ? (
-              <div className="text-center" style={{ padding: "12px 0" }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-                <h4 className="mb-2" style={{ color: "#166534", fontSize: 18, fontWeight: 600 }}>
-                  Payment Successful!
-                </h4>
-                <p className="mb-3" style={{ color: "#4b5563", fontSize: 14 }}>
-                  <strong style={{ color: "#111827" }}>{hotelInfo.name}</strong> is now active and ready to use.
-                </p>
+              <div style={{ padding: "8px 0" }}>
                 <div
                   style={{
-                    background: "#f0fdf4",
-                    padding: 16,
-                    borderRadius: 10,
-                    border: "1px solid #bbf7d0",
+                    borderBottom: "1px solid #e5e7eb",
+                    paddingBottom: 20,
+                    marginBottom: 20,
                   }}
                 >
-                  <p className="mb-0" style={{ color: "#166534", fontSize: 13 }}>
-                    You can now close this page or contact your administrator for next steps.
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#158993",
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Payment completed
                   </p>
+                  <h3
+                    className="mb-2"
+                    style={{
+                      color: "#111827",
+                      fontSize: 20,
+                      fontWeight: 600,
+                      marginTop: 6,
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    {successMessage}
+                  </h3>
                 </div>
+                <p className="mb-0" style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.5 }}>
+                  Your payment has been recorded. You may close this page or contact your administrator for next steps.
+                </p>
               </div>
             ) : (
               <>
@@ -284,38 +393,81 @@ const HotelPaymentPage = () => {
                     border: "1px solid #e5e7eb",
                   }}
                 >
-                  <div style={{ marginBottom: 14 }}>
-                    <p style={{ color: "#6b7280", margin: 0, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      Business Unit
-                    </p>
-                    <p style={{ color: "#111827", margin: "4px 0 0", fontSize: 16, fontWeight: 600 }}>
-                      {hotelInfo.name}
-                    </p>
-                  </div>
-                  <div style={{ marginBottom: 14 }}>
-                    <p style={{ color: "#6b7280", margin: 0, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      Company
-                    </p>
-                    <p style={{ color: "#4b5563", margin: "4px 0 0", fontSize: 14, fontWeight: 500 }}>
-                      {hotelInfo.company_name}
-                    </p>
-                  </div>
-                  <div>
-                    <p style={{ color: "#6b7280", margin: 0, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      Amount to Pay
-                    </p>
-                    <h2
-                      style={{
-                        color: "#111827",
-                        margin: "4px 0 0",
-                        fontWeight: 500,
-                        fontSize: 20,
-                        letterSpacing: "-0.02em",
-                      }}
-                    >
-                      ₹ {hotelInfo.fee_amount?.toLocaleString("en-IN")}
-                    </h2>
-                  </div>
+                  {isConsolidated ? (
+                    <>
+                      <div style={{ marginBottom: 14 }}>
+                        <p style={{ color: "#6b7280", margin: 0, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          Company
+                        </p>
+                        <p style={{ color: "#111827", margin: "4px 0 0", fontSize: 16, fontWeight: 600 }}>
+                          {paymentInfo.company_name}
+                        </p>
+                      </div>
+                      <div style={{ marginBottom: 14 }}>
+                        <p style={{ color: "#6b7280", margin: 0, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          Business Units ({paymentInfo.hotels?.length || 0})
+                        </p>
+                        <ul style={{ margin: "8px 0 0", paddingLeft: "20px", color: "#4b5563", fontSize: 14 }}>
+                          {paymentInfo.hotels?.map((hotel) => (
+                            <li key={hotel.id} style={{ marginBottom: "4px" }}>
+                              <strong>{hotel.name}</strong> - ₹{hotel.fee_amount?.toLocaleString("en-IN")}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <p style={{ color: "#6b7280", margin: 0, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          Total Amount to Pay
+                        </p>
+                        <h2
+                          style={{
+                            color: "#111827",
+                            margin: "4px 0 0",
+                            fontWeight: 500,
+                            fontSize: 20,
+                            letterSpacing: "-0.02em",
+                          }}
+                        >
+                          ₹ {paymentInfo.total_amount?.toLocaleString("en-IN")}
+                        </h2>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ marginBottom: 14 }}>
+                        <p style={{ color: "#6b7280", margin: 0, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          Business Unit
+                        </p>
+                        <p style={{ color: "#111827", margin: "4px 0 0", fontSize: 16, fontWeight: 600 }}>
+                          {paymentInfo.name}
+                        </p>
+                      </div>
+                      <div style={{ marginBottom: 14 }}>
+                        <p style={{ color: "#6b7280", margin: 0, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          Company
+                        </p>
+                        <p style={{ color: "#4b5563", margin: "4px 0 0", fontSize: 14, fontWeight: 500 }}>
+                          {paymentInfo.company_name}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ color: "#6b7280", margin: 0, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          Amount to Pay
+                        </p>
+                        <h2
+                          style={{
+                            color: "#111827",
+                            margin: "4px 0 0",
+                            fontWeight: 500,
+                            fontSize: 20,
+                            letterSpacing: "-0.02em",
+                          }}
+                        >
+                          ₹ {paymentInfo.fee_amount?.toLocaleString("en-IN")}
+                        </h2>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div style={{ marginBottom: 16 }}>

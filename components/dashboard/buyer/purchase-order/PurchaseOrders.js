@@ -13,6 +13,7 @@ import RejectRemarksModal from "./RejectRemarksModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import UpdateGRNModal from "./UpdateGRNModal";
 import { Badge } from "react-bootstrap";
+import RFQListSidebar from "@/components/shared/RFQListSidebar";
 
 const PurchaseOrders = () => {
   const router = useRouter();
@@ -302,111 +303,46 @@ const PurchaseOrders = () => {
 
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
-          <div className="row">
-            <div className="col-md-2">
-              <div className="hasFullLoader">
-                <p className="px-1 pt-3 fs-6 mb-1 fw-medium">
-                  Please select a RFQ
-                </p>
-                <div className="py-1">
-                  <label>Search RFQ No.</label>
-                  <input
-                    className="form-control react-select"
-                    style={{
-                      borderRadius: "0.25rem",
-                      borderColor: "#ced4da",
-                      boxShadow: "none",
-                    }}
-                    value={rfqNo}
-                    onChange={(e) => setRfqNo(e.target.value)}
-                    name="rfq_type"
-                    placeholder="Ex. 123456"
-                    isClearable
-                    id="search_rfq_no-rfq_selection-purchase_order_page"
-                  />
-                </div>
-                <div className="py-2">
-                  <label>Select Project</label>
-                  <Select
-                    options={projects}
-                    onChange={(selectedOption) =>
-                      setSelectedproject(
-                        selectedOption?.value ? selectedOption.value : -1
-                      )
-                    }
-                    name="project_id"
-                    placeholder="Select"
-                    isClearable
-                    id="select_project_filter-rfq_selection-purchase_order_page"
-                  />
-                </div>
-                {!rfqLoading && myRFQs && myRFQs.length === 0 ? (
-                  <p style={{ textAlign: "center" }}>No RFQs yet!</p>
-                ) : !rfqLoading && myRFQs && myRFQs.length > 0 ? (
-                  <ul
-                    className="overflow-y-auto mt-1"
-                    style={{ maxHeight: "70vh" }}
-                  >
-                    {myRFQs.map((item) => {
-                      const isSelected = item.id == rfq;
-                      return (
-                        <li
-                          key={item.id}
-                          className={`${
-                            isSelected ? "active rounded" : ""
-                          }`}
-                          style={!isSelected && item.approval_required ? { backgroundColor: '#fff3f3', borderLeft: '3px solid #dc3545' } : {}}
-                        >
-                          <Link
-                            href={`/dashboard/buyer/purchase-order/?rfq=${item?.id}`}
-                            className={`${
-                              isSelected ? "text-white" : "text-dark"
-                            }`}
-                            id={`rfq_item_${item.rfq_no}-rfq_selection-purchase_order_page`}
-                          >
-                            {item?.title && (
-                              <span
-                                className="d-block fw-bold"
-                                style={{ fontSize: "14px" }}
-                              >
-                                {item.title}
-                              </span>
-                            )}
-                            <span className="d-flex align-items-center gap-1 flex-wrap">
-                              RFQ #{item?.rfq_no}
-                              {!isSelected && item.approval_required && (
-                                <Badge bg="danger" style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Your Approval Required</Badge>
-                              )}
-                            </span>
-                            {item.project_name && item.project_name != "" && (
-                              <b
-                                className="d-block fw-semibold"
-                                style={{ fontSize: "14px" }}
-                              >
-                                {item.project_name}
-                              </b>
-                            )}
-                          </Link>
-                        </li>
-                      );
-                    })}
-
-                    {rfqLoading && (
-                      <div className="d-flex justify-content-center align-items-center">
-                        Loading ...
-                        <div
-                          className="spinner-border spinner-border-sm text-primary ms-2"
-                          role="status"
-                        >
-                          <span className="visually-hidden">Loading...</span>
-                        </div>
-                      </div>
-                    )}
-                  </ul>
-                ) : null}
-              </div>
-            </div>
-            <div className="col-md-10">
+          <div className="row" style={{ flexWrap: 'nowrap', gap: '16px' }}>
+              <RFQListSidebar
+                title="Purchase Orders"
+                rfqList={myRFQs}
+                loading={rfqLoading}
+                selectedRfqId={rfq}
+                linkPrefix="/dashboard/buyer/purchase-order"
+                linkQueryKey="rfq"
+                tabs={[
+                  {
+                    key: 'action_required',
+                    label: 'Action Required',
+                    filter: (item) => item.approval_required === true,
+                  },
+                  {
+                    key: 'action_completed',
+                    label: 'Completed',
+                    filter: (item) => !item.approval_required,
+                  },
+                ]}
+                defaultTab="action_required"
+                rfqNo={rfqNo}
+                onRfqNoChange={(val) => setRfqNo(val)}
+                searchPlaceholder="Search by number..."
+                projects={projects || []}
+                onProjectChange={(val) => setSelectedproject(val)}
+                showTypeFilter={false}
+                getItemTags={(item, isSelected) => {
+                  if (isSelected) return [];
+                  const tags = [];
+                  if (item.approval_required) {
+                    tags.push({ label: 'Approval Pending', variant: 'warning' });
+                  } else {
+                    tags.push({ label: 'Processed', variant: 'success' });
+                  }
+                  return tags;
+                }}
+                pageId="purchase_order"
+              />
+            <div className="col-md-10" style={{ flex: '1 1 0%', width: 'auto', maxWidth: 'none' }}>
               {!rfq && (
                 <div className="quote-sec-table quote-sec-tab mb-0">
                   <div className="quote-sec-table-sub">
