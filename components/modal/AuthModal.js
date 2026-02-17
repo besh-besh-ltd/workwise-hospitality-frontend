@@ -55,8 +55,8 @@ const AuthModal = (props) => {
           id="close_auth_modal-modal_header-auth_modal"
         ></button>
       </div>
-      <div className="modal-body" style={{}}>
-        <div className="tabs-container">
+      <div className="modal-body pt-5">
+        {/* <div className="tabs-container">
           <button
             onClick={() => props.setActiveTab("login")}
             className={props.activeTab === "login" ? "active" : ""}
@@ -71,7 +71,7 @@ const AuthModal = (props) => {
           >
             Book A Call
           </button>
-        </div>
+        </div> */}
         {props.activeTab === "login" ? (
           <Login
             setActiveTab={props.setActiveTab}
