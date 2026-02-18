@@ -507,7 +507,7 @@ const HotelVendor = () => {
   return (
     <>
       <Head>
-        <title>Welcome to Phileein</title>
+        <title>Welcome to Phileein Hospitality</title>
         <meta name="description" content="Phileein vendor onboarding" />
       </Head>
 
@@ -537,7 +537,7 @@ const HotelVendor = () => {
               textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
             }}
           >
-            Phileein
+            Phileein Hospitality
           </h1>
           <h2
             style={{
@@ -546,7 +546,7 @@ const HotelVendor = () => {
               textShadow: '1px 1px 2px rgba(0,0,0,0.3)',
             }}
           >
-            Welcome to Phileein
+            Welcome to Phileein Hospitality
           </h2>
         </div>
 
