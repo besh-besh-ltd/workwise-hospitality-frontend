@@ -6,6 +6,7 @@ import { HiPlus } from "react-icons/hi";
 import {
   createHospitalityCompany,
   createHospitalityHotel,
+  createHOBusinessUnit,
   updateHospitalityHotel,
   getHospitalityCompanies,
   getHospitalityHotels,
@@ -298,21 +299,21 @@ const HospitalityManager = () => {
 
   const handleEditHotel = async (hotel) => {
     setEditingHotel(hotel);
-    setHotelDocuments({ gst: null, pan: null, cancelled_cheque: null, msme: null });
-    setShowHotelModal(true);
+    const docMap = { gst: null, pan: null, cancelled_cheque: null, msme: null };
     try {
       const response = await getHotelDocuments(hotel.id);
-      const docs = response?.data?.data || response?.data || [];
-      const docMap = { gst: null, pan: null, cancelled_cheque: null, msme: null };
-      docs.forEach((doc) => {
+      const docs = response?.data || response || [];
+      (Array.isArray(docs) ? docs : []).forEach((doc) => {
         if (doc.document_type && doc.document_url) {
           docMap[doc.document_type] = doc.document_url;
         }
       });
-      setHotelDocuments(docMap);
     } catch (error) {
       console.error("Error fetching business unit documents:", error);
+      toast.error("Could not load existing documents");
     }
+    setHotelDocuments(docMap);
+    setShowHotelModal(true);
   };
 
   const handleSetHierarchy = (hotel) => {
@@ -343,6 +344,32 @@ const HospitalityManager = () => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to remove mapping");
+    }
+  };
+
+  const handleCreateHO = async () => {
+    if (!selectedCompanyId) { toast.error("Select a company first"); return; }
+    const confirmCreate = window.confirm(
+      "This will create a Head Office business unit with the same name and details as the parent company. Continue?"
+    );
+    if (!confirmCreate) return;
+    try {
+      setIsLoadingHotels(true);
+      await createHOBusinessUnit(selectedCompanyId);
+      toast.success("Head Office business unit created successfully!");
+      setCompanies((prev) =>
+        prev.map((company) =>
+          company.id === selectedCompanyId
+            ? { ...company, total_hotels: (company.total_hotels || 0) + 1 }
+            : company
+        )
+      );
+      loadHotels(selectedCompanyId);
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.message?.response?.data?.message || "Failed to create HO business unit");
+    } finally {
+      setIsLoadingHotels(false);
     }
   };
 
@@ -451,6 +478,7 @@ const HospitalityManager = () => {
                     setHotelDocuments({ gst: null, pan: null, cancelled_cheque: null, msme: null });
                     setShowHotelModal(true);
                   }}
+                  onCreateHO={handleCreateHO}
                   onEditHotel={handleEditHotel}
                   onSetHierarchy={handleSetHierarchy}
                   onSendPayment={() => setShowPaymentModal(true)}

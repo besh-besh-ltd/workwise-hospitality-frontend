@@ -144,6 +144,18 @@ export const updateHospitalityHotel = (companyId, hotelId, payload, files = {}) 
     }
   });
 
+export const createHOBusinessUnit = (companyId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(
+        `/hospitality/company/${companyId}/create-ho`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 export const getHotelDocuments = (hotelId) =>
   new Promise(async (resolve, reject) => {
     try {
