@@ -45,7 +45,6 @@ export const roleMenus = {
   admin: [
     { href: "/dashboard/admin/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
     { href: "/dashboard/admin", label: "Dashboard", targetMenu: "nav" },
-    { href: "/dashboard/admin/project-management/project-management", label: "Project Management", targetMenu: "nav" },
     { href: "/dashboard/admin/account-management/manage-accounts", label: "User Management", targetMenu: "nav" },
     { href: "/dashboard/admin/hospitality-manager", label: "Hospitality Network", targetMenu: "nav" },
   ],
@@ -58,7 +57,6 @@ export const roleMenus = {
     { href: "/dashboard/buyer/arc-committee", label: "ARC Committee", targetMenu: "nav" },
     { href: "/dashboard/buyer/purchase-order", label: "Purchase Orders", targetMenu: "nav" },
     { href: "/dashboard/buyer/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
-    { href: "/dashboard/buyer/project-management", label: "Project Management", targetMenu: "popup", icon: "folder" },
     { href: "/dashboard/buyer/vendor-management", label: "Vendor Management", targetMenu: "popup", icon: "people" },
   ],
   management: [
