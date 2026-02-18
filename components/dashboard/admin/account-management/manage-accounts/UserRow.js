@@ -59,6 +59,12 @@ const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, on
         </div>
       </td>
       <td>
+        <span className={styles.userMobile}>{account.employee_code || "—"}</span>
+      </td>
+      <td>
+        <span className={styles.userMobile}>{account.designation || "—"}</span>
+      </td>
+      <td>
         <span className={styles.userMobile}>{account.mobile || "—"}</span>
       </td>
       <td>
