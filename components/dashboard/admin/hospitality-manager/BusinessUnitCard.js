@@ -11,14 +11,17 @@ const getStatusStyle = (status) => {
 };
 
 const getPaymentStyle = (paymentStatus) => {
+  if (!paymentStatus || paymentStatus.toLowerCase() === "n/a") return styles.paymentOnboarding;
   if (paymentStatus === "active") return styles.paymentPaid;
   if (paymentStatus === "pending") return styles.paymentPending;
   return styles.paymentOnboarding;
 };
 
 const getPaymentLabel = (hotel) => {
-  if (hotel.payment_status === "active") return "Paid";
-  if (hotel.payment_status === "pending") return "Pending";
+  const status = hotel.payment_status;
+  if (!status || status.toLowerCase() === "n/a") return "N/A";
+  if (status === "active") return "Paid";
+  if (status === "pending") return "Pending";
   return hotel.email ? "Onboarding" : "No Email";
 };
 
@@ -53,9 +56,13 @@ const BusinessUnitCard = ({ hotel, userCount, onEdit, onSetHierarchy }) => {
         </div>
         <div className={styles.buMetaItem}>
           <span className={styles.buMetaLabel}>Payment</span>
-          <span className={`${styles.paymentBadge} ${getPaymentStyle(hotel.payment_status)}`}>
-            {getPaymentLabel(hotel)}
-          </span>
+          {hotel.fee_amount > 0 ? (
+            <span className={`${styles.paymentBadge} ${getPaymentStyle(hotel.payment_status)}`}>
+              {getPaymentLabel(hotel)}
+            </span>
+          ) : (
+            <span className={styles.buMetaValue}>N/A</span>
+          )}
         </div>
         <div className={styles.buMetaItem}>
           <span className={styles.buMetaLabel}>Onboarding Fee</span>
