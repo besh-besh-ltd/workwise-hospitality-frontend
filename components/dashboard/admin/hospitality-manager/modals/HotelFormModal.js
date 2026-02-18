@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
-import { HiX } from "react-icons/hi";
+import { HiX, HiExternalLink } from "react-icons/hi";
 import styles from "../HospitalityManager.module.css";
 
 const modalOverlayStyles = {
@@ -104,6 +104,21 @@ const HotelFormModal = ({
   const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
   const isEditing = !!editingHotel;
   const isPaid = isEditing && editingHotel.payment_status === "active";
+
+  const renderExistingDoc = (docType, label) => {
+    const url = existingDocuments?.[docType];
+    if (!url || typeof url !== "string") return null;
+    return (
+      <div className={styles.formSmallHint} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: "#2563eb", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "3px" }}>
+          <HiExternalLink size={12} />
+          View existing {label}
+        </a>
+        <span style={{ color: "#94a3b8" }}>|</span>
+        <span>Upload new to replace</span>
+      </div>
+    );
+  };
 
   return (
     <Modal isOpen={isOpen} onRequestClose={handleClose} ariaHideApp={false} style={modalOverlayStyles}>
@@ -245,22 +260,16 @@ const HotelFormModal = ({
                   placeholder="ABCDE1234F"
                   maxLength="10"
                 />
-                {form.pan && (
-                  <div style={{ marginTop: "8px" }}>
-                    <label className={styles.formLabel} style={{ fontSize: "11px" }}>PAN Document</label>
-                    <input
-                      type="file"
-                      className={styles.formFileInput}
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => setDocuments((prev) => ({ ...prev, pan: e.target.files[0] || null }))}
-                    />
-                    {existingDocuments?.pan && typeof existingDocuments.pan === "string" && (
-                      <div className={styles.formSmallHint}>
-                        Existing document uploaded. Upload new to replace.
-                      </div>
-                    )}
-                  </div>
-                )}
+                <div style={{ marginTop: "8px" }}>
+                  <label className={styles.formLabel} style={{ fontSize: "11px" }}>PAN Document</label>
+                  <input
+                    type="file"
+                    className={styles.formFileInput}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setDocuments((prev) => ({ ...prev, pan: e.target.files[0] || null }))}
+                  />
+                  {renderExistingDoc("pan", "PAN document")}
+                </div>
               </div>
               <div className="col-md-6">
                 <label className={styles.formLabel}>GST</label>
@@ -272,22 +281,16 @@ const HotelFormModal = ({
                   placeholder="27AABCU9603R1ZX"
                   maxLength="15"
                 />
-                {form.gst && (
-                  <div style={{ marginTop: "8px" }}>
-                    <label className={styles.formLabel} style={{ fontSize: "11px" }}>GST Document</label>
-                    <input
-                      type="file"
-                      className={styles.formFileInput}
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => setDocuments((prev) => ({ ...prev, gst: e.target.files[0] || null }))}
-                    />
-                    {existingDocuments?.gst && typeof existingDocuments.gst === "string" && (
-                      <div className={styles.formSmallHint}>
-                        Existing document uploaded. Upload new to replace.
-                      </div>
-                    )}
-                  </div>
-                )}
+                <div style={{ marginTop: "8px" }}>
+                  <label className={styles.formLabel} style={{ fontSize: "11px" }}>GST Document</label>
+                  <input
+                    type="file"
+                    className={styles.formFileInput}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setDocuments((prev) => ({ ...prev, gst: e.target.files[0] || null }))}
+                  />
+                  {renderExistingDoc("gst", "GST document")}
+                </div>
               </div>
               <div className="col-md-6">
                 <label className={styles.formLabel}>MSME</label>
@@ -298,22 +301,16 @@ const HotelFormModal = ({
                   onChange={(e) => update("msme", e.target.value)}
                   placeholder="MSME registration"
                 />
-                {form.msme && (
-                  <div style={{ marginTop: "8px" }}>
-                    <label className={styles.formLabel} style={{ fontSize: "11px" }}>MSME Document</label>
-                    <input
-                      type="file"
-                      className={styles.formFileInput}
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => setDocuments((prev) => ({ ...prev, msme: e.target.files[0] || null }))}
-                    />
-                    {existingDocuments?.msme && typeof existingDocuments.msme === "string" && (
-                      <div className={styles.formSmallHint}>
-                        Existing document uploaded. Upload new to replace.
-                      </div>
-                    )}
-                  </div>
-                )}
+                <div style={{ marginTop: "8px" }}>
+                  <label className={styles.formLabel} style={{ fontSize: "11px" }}>MSME Document</label>
+                  <input
+                    type="file"
+                    className={styles.formFileInput}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setDocuments((prev) => ({ ...prev, msme: e.target.files[0] || null }))}
+                  />
+                  {renderExistingDoc("msme", "MSME document")}
+                </div>
               </div>
             </div>
           </div>
@@ -373,11 +370,7 @@ const HotelFormModal = ({
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={(e) => setDocuments((prev) => ({ ...prev, cancelled_cheque: e.target.files[0] || null }))}
                 />
-                {existingDocuments?.cancelled_cheque && typeof existingDocuments.cancelled_cheque === "string" && (
-                  <div className={styles.formSmallHint}>
-                    Existing document uploaded. Upload new to replace.
-                  </div>
-                )}
+                {renderExistingDoc("cancelled_cheque", "cancelled cheque")}
               </div>
             </div>
           </div>

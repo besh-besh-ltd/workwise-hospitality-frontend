@@ -9,6 +9,7 @@ const BusinessUnitsTab = ({
   hotels,
   getHotelUserCount,
   onAddHotel,
+  onCreateHO,
   onEditHotel,
   onSetHierarchy,
   onSendPayment,
@@ -48,6 +49,10 @@ const BusinessUnitsTab = ({
               Send Payment Links
             </button>
           )}
+          <button type="button" className={styles.outlineBtn} onClick={onCreateHO}>
+            <BsBuilding size={14} />
+            Create HO
+          </button>
           <button type="button" className={styles.primaryBtn} onClick={onAddHotel}>
             <HiPlus size={15} />
             Add Business Unit
