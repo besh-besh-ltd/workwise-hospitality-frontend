@@ -209,53 +209,42 @@ export const formatDisplayDate = (dateStr, options = {}) => {
     const { includeTime = false, includeSeconds = false, use12Hour = true } = options;
 
     let parsedInput = dateStr;
-    // If input is a string with time component but no timezone info, treat as UTC
-    // Only apply for non-midnight times (midnight = date-only field, no shift needed)
-    if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(dateStr) && !/[+-]\d{4}$/.test(dateStr)) {
-        if (dateStr.includes('T') || /\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(dateStr)) {
-            const timeMatch = dateStr.match(/[T\s](\d{2}):(\d{2})(?::(\d{2}))?/);
-            if (timeMatch) {
-                const h = parseInt(timeMatch[1], 10);
-                const m = parseInt(timeMatch[2], 10);
-                const s = parseInt(timeMatch[3] || '0', 10);
-                // Only treat as UTC if time is not midnight (actual timestamp vs date-only)
-                if (h !== 0 || m !== 0 || s !== 0) {
-                    parsedInput = dateStr.replace(' ', 'T') + 'Z';
-                }
-            }
-        }
+    // Backend sends dates in IST without timezone suffix — parse as local time
+    // Just normalize "YYYY-MM-DD HH:MM" format to "YYYY-MM-DDTHH:MM" for valid Date parsing
+    if (typeof dateStr === 'string' && /\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(dateStr)) {
+        parsedInput = dateStr.replace(' ', 'T');
     }
 
     const date = parsedInput instanceof Date ? parsedInput : new Date(parsedInput);
     if (isNaN(date.getTime())) return String(dateStr);
 
-    // Detect date-only values (midnight UTC) — use UTC components to avoid timezone shift
-    const isDateOnly = date.getUTCHours() === 0 && date.getUTCMinutes() === 0 &&
-        date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;
+    // Detect date-only strings (e.g. "2024-01-15" without time) — JS parses these as UTC midnight
+    // Use UTC components for these to avoid date shifting across timezone boundaries
+    const isDateOnlyString = typeof dateStr === 'string' && !dateStr.includes('T') && !/\d{2}:\d{2}/.test(dateStr);
 
-    const day = String(isDateOnly ? date.getUTCDate() : date.getDate()).padStart(2, '0');
-    const month = String((isDateOnly ? date.getUTCMonth() : date.getMonth()) + 1).padStart(2, '0');
-    const year = isDateOnly ? date.getUTCFullYear() : date.getFullYear();
+    const day = String(isDateOnlyString ? date.getUTCDate() : date.getDate()).padStart(2, '0');
+    const month = String((isDateOnlyString ? date.getUTCMonth() : date.getMonth()) + 1).padStart(2, '0');
+    const year = isDateOnlyString ? date.getUTCFullYear() : date.getFullYear();
 
     let result = `${day}-${month}-${year}`;
 
     if (includeTime || includeSeconds) {
         if (use12Hour) {
-            let hours = isDateOnly ? 0 : date.getHours();
+            let hours = isDateOnlyString ? 0 : date.getHours();
             const ampm = hours >= 12 ? 'PM' : 'AM';
             hours = hours % 12 || 12;
-            const mins = String(isDateOnly ? 0 : date.getMinutes()).padStart(2, '0');
+            const mins = String(isDateOnlyString ? 0 : date.getMinutes()).padStart(2, '0');
             result += ` ${String(hours).padStart(2, '0')}:${mins}`;
             if (includeSeconds) {
-                result += `:${String(isDateOnly ? 0 : date.getSeconds()).padStart(2, '0')}`;
+                result += `:${String(isDateOnlyString ? 0 : date.getSeconds()).padStart(2, '0')}`;
             }
             result += ` ${ampm}`;
         } else {
-            const hrs = String(isDateOnly ? 0 : date.getHours()).padStart(2, '0');
-            const mins = String(isDateOnly ? 0 : date.getMinutes()).padStart(2, '0');
+            const hrs = String(isDateOnlyString ? 0 : date.getHours()).padStart(2, '0');
+            const mins = String(isDateOnlyString ? 0 : date.getMinutes()).padStart(2, '0');
             result += ` ${hrs}:${mins}`;
             if (includeSeconds) {
-                result += `:${String(isDateOnly ? 0 : date.getSeconds()).padStart(2, '0')}`;
+                result += `:${String(isDateOnlyString ? 0 : date.getSeconds()).padStart(2, '0')}`;
             }
         }
     }
