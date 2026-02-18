@@ -1,14 +1,12 @@
 "use client";
 import { getProfile, getUserDetails } from "@/services/Auth";
 import storageInstance from "@/utils/storageInstance";
-import { faBell, faUser, faMessage } from "@fortawesome/free-regular-svg-icons";
-import { faGear, faSignOut } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import { BsPerson } from "react-icons/bs";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import DropdownMenu from "@/components/shared/DropdownMenu";
 import HospitalityContextModal from "@/components/hospitality/HospitalityContextModal";
@@ -17,583 +15,70 @@ import {
   setStoredHospitalityContext,
   subscribeHospitalityContext,
 } from "@/utils/hospitalityContext";
-import { getMyHospitalityContexts, getUserMappings } from "@/services/hospitality";
+import { getUserMappings } from "@/services/hospitality";
 
-const initialMainNavs = [
-  "/",
-  "/aboutus",
-  "/contactus",
-  "/for-vendors",
-  "/vendor/all",
-  "/hotel-vendor",
-  // "/IEW-2025",
-  "/solutions",
-  "/blogs",
-  "/validate-otp",
-  "/forget-password",
-  "/privacypolicy",
-  "/terms-of-use",
-  "/products",
-  "/dashboard/vendor/inquiries-details",
-  "/dashboard/buyer/rfq-management-vendor/vendor-profile",
-  "/newHomePageDesign",
-  // New pages for comprehensive navigation
-  "/ai-tools",
-  "/ai-tools/boq-simplification",
-  "/ai-tools/cost-estimation",
-  "/ai-tools/tender-summary",
-  "/ai-tools/technical-summary",
-  "/insights",
-  "/insights/events",
-  "/insights/news",
-  "/insights/procurement-guide",
-  "/insights/ai-procurement",
-  "/insights/epc-trends",
-  "/modules",
-  "/modules/boq",
-  "/modules/rfq",
-  "/modules/payments",
-  "/modules/evaluation",
-  "/modules/negotiation",
-  "/modules/vendors",
-  "/work-with-us",
-  "/work-with-us/TeamTimeline",
-  "/work-with-us/careers",
-];
-
-const roleMenus = {
-  admin: [
-    // this is buyer company admin
-    {
-      href: "/dashboard/admin/editprofile",
-      label: "Profile",
-      targetMenu: "popup",
-    },
-    {
-      href: "/dashboard/admin",
-      label: "Dashboard",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/admin/project-management/project-management",
-      label: "Project Management",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/admin/account-management/manage-accounts",
-      label: "User Management",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/admin/hospitality-manager",
-      label: "Hospitality Network",
-      targetMenu: "nav",
-    },
-    // { href: "/dashboard/admin/account-management/create-account", label: "RFQ management" },
-  ],
-  buyer: [ // procurment person 
-    { href: "/dashboard/buyer", label: "Dashboard", targetMenu: "nav" },
-    { href: "/vendor/all", label: "Create Tender / RFQ", targetMenu: "nav" },
-    {
-      href: "/dashboard/buyer/rfq-management",
-      label: "Tender / RFQ management",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/technical-evaluation",
-      label: "Technical Evaluation",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/quote-compare",
-      label: "Quote Comparison",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/arc-committee",
-      label: "ARC Committee",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/purchase-order",
-      label: "Purchase Orders",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/editprofile",
-      label: "Profile",
-      targetMenu: "popup",
-    },
-   {
-      href: "/dashboard/buyer/project-management",
-      label: "Project Management",
-      targetMenu: "popup",
-    },
-    {
-      href: "/dashboard/buyer/vendor-management",
-      label: "Vendor Management",
-      targetMenu: "popup",
-    },
-
-  ],
-  "management": [ // procurment person 
-    { href: "/dashboard/management", label: "Dashboard", targetMenu: "nav" },
-    { href: "/vendor/all", label: "Create Tender / RFQ", targetMenu: "nav" },
-    {
-      href: "/dashboard/buyer/rfq-management",
-      label: "Tender / RFQ management",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/technical-evaluation",
-      label: "Technical Evaluation",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/quote-compare",
-      label: "Quote Comparison",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/arc-committee",
-      label: "ARC Committee",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/purchase-order",
-      label: "Purchase Orders",
-      targetMenu: "nav",
-    },
-        {
-      href: "/dashboard/management/editprofile",
-      label: "Profile",
-      targetMenu: "popup",
-    },
-      {
-      href: "/dashboard/management/project-management",
-      label: "Project Management",
-      targetMenu: "popup",
-    },
-    {
-      href: "/dashboard/buyer/vendor-management",
-      label: "Vendor Management",
-      targetMenu: "popup",
-    },
-  ],
-  finance: [
-    {
-      href: "/dashboard/finance/editprofile",
-      label: "Profile",
-      targetMenu: "popup",
-    },
-    { href: "/dashboard/finance", label: "Dashboard", targetMenu: "popup" },
-    {
-      href: "/dashboard/buyer/quote-compare",
-      label: "Quote Comparison",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/purchase-order",
-      label: "Purchase Orders",
-      targetMenu: "nav",
-    },
-  ],
-  engineering: [
-    {
-      href: "/dashboard/engineering/editprofile",
-      label: "Profile",
-      targetMenu: "popup",
-    },
-    { href: "/dashboard/engineering", label: "Dashboard", targetMenu: "popup" },
-    {
-      href: "/dashboard/buyer/technical-evaluation",
-      label: "Technical Evaluation",
-      targetMenu: "nav",
-    },
-  ],
-  vendor: [
-    {
-      href: "/dashboard/vendor/editprofile",
-      label: "Profile",
-      targetMenu: "popup",
-    },
-    {
-      href: "/dashboard/vendor/product-management",
-      label: "Product Management",
-      targetMenu: "nav",
-    },
-    // { href: "/dashboard/vendor/product-review", label: "Product Review" },
-    {
-      href: "/dashboard/vendor/inquiries-received",
-      label: "Received Inquiries",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/vendor/reviews-ratings",
-      label: "Reviews & Ratings",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/vendor/order-book",
-      label: "Order Book",
-      targetMenu: "nav",
-    },
-  ],
-};
-
-// Comprehensive website navigation menu structure
-const websiteMenu = [
-  { 
-    label: "Our Offerings", 
-    type: "dropdown",
-    options: [
-      { label: "BOQ Understanding & Simplification", href: "/modules/boq" },
-      { label: "RFQ Creation & Management", href: "/modules/rfq" },
-      { label: "Supplier Discovery & Vendor Management", href: "/modules/vendors" },
-      { label: "Technical & Commercial Evaluation", href: "/modules/evaluation" },
-      { label: "Negotiation Management", href: "/modules/negotiation" },
-      { label: "PO & Payment Lifecycle Management", href: "/modules/payments" },
-    ]
-  },
-  { 
-    label: "Who We Serve", 
-    type: "dropdown",
-    options: [
-      { 
-        label: "Stakeholders", 
-        type: "nested-dropdown",
-        options: [
-          { label: "EPCs / Contractors", href: "/who-we-serve/stakeholders/epcs" },
-          { label: "Turnkey Project Firms", href: "/who-we-serve/stakeholders/turnkey" },
-          { label: "Project Consultants", href: "/who-we-serve/stakeholders/consultants" },
-          { label: "Industrial Clients", href: "/who-we-serve/stakeholders/industrial-clients" },
-          { label: "Vendors & OEMs", href: "/for-vendors" },
-        ]
-      },
-      { 
-        label: "Industries We Serve", 
-        type: "nested-dropdown",
-        options: [
-          { label: "Power", href: "/who-we-serve/industries/power" },
-          { label: "Energy", href: "/who-we-serve/industries/energy" },
-          { label: "Petrochemical & Chemical", href: "/who-we-serve/industries/petrochemical" },
-          { label: "Steel & Cement", href: "/who-we-serve/industries/steel-cement" },
-          { label: "Infrastructure", href: "/who-we-serve/industries/infrastructure" },
-          { label: "Heavy Engineering & Machine Tools", href: "/who-we-serve/industries/heavy-equipment" },
-          { label: "Marine & Mining", href: "/who-we-serve/industries/marine-mining" },
-        ]
-      },
-      { 
-        label: "Disciplines We Cover", 
-        type: "nested-dropdown",
-        options: [
-          { label: "Electrical", href: "/solutions/electrical" },
-          { label: "Mechanical", href: "/solutions/mechanical" },
-          { label: "Civil", href: "/solutions/civil" },
-          { label: "HVAC", href: "/solutions/hvac" },
-          { label: "Fire & Safety", href: "/solutions/fire-engineering" },
-          { label: "Chemical", href: "/solutions/chemical" },
-        ]
-      },
-    ]
-  },
-  { 
-    label: "Tools", 
-    type: "dropdown",
-    options: [
-      { label: "Vendor Discovery", href: "/vendor/all" },
-      { label: "BOQ Simplifier", href: "/ai-tools/boq-simplification" },
-      { label: "Project Cost Estimator", href: "/ai-tools/cost-estimation" },
-      { label: "Tender Summary", href: "/ai-tools/tender-summary" },
-      { label: "Technical Document Summary", href: "/ai-tools/technical-summary" },
-    ]
-  },
-  { 
-    label: "Insights & Resources", 
-    type: "dropdown",
-    options: [
-      { label: "Blogs", href: "https://letsworkwise.com/blog/", external: true },
-      { label: "Events", href: "/insights/events" },
-      { label: "Procurement Guide for Project & Purchase Managers", href: "/insights/procurement-guide" },
-      { label: "AI in Procurement - Use Cases", href: "javascript:void(0)", upcoming: true },
-      { label: "Trends in EPC Procurement", href: "/insights/epc-trends" },
-      { label: "Workwise in News", href: "/insights/news" },
-    ]
-  },
-  { 
-    label: "Work With Us", 
-    type: "dropdown",
-    options: [
-      { label: "Meet the Team", href: "/work-with-us/TeamTimeline" },
-      { label: "We are hiring!", href: "/work-with-us/careers" },
-      { label: "Earn With Us", href: "/earn-with-us/EarnWithUs" },
-      { label: "Contact Us", href: "/contactus" },
-    ]
-  },
-  { 
-    label: "Pricing", 
-    type: "dropdown",
-    options: [
-      { label: "Buyer pricing", href: "/pricing", action: "buyer-pricing" },
-      { label: "Supplier plans", href: "/pricing", action: "supplier-pricing" },
-              { label: "Claim Pilot Project Access for Free", href: "/pilot-project" },
-
-    ]
-  },
-];
+import { initialMainNavs, roleMenus, websiteMenu, ANNOUNCEMENT_TEXT } from "./headerConfig";
+import UserMenu from "./UserMenu";
+import MobileMenu from "./MobileMenu";
+import styles from "./Header.module.css";
 
 const Header = () => {
   const router = useRouter();
-
   const { pathname } = router;
   const { user_registered, loggedin, auth } = router.query;
+
+  // ── UI state ──────────────────────────────────
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("register");
   const [sticky, setSticky] = useState("");
   const [menuClass, setMenuClass] = useState(false);
   const [popoverVisible, setPopoverVisible] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const popoverRef = useRef(null);
+
+  // ── User state ────────────────────────────────
   const [loggedinUser, setLoggedinUser] = useState(null);
-  const [currentUserType, setcurrentUserType] = useState("vendor");
-  const [loading, setloading] = useState(false);
+  const [currentUserType, setCurrentUserType] = useState("vendor");
+  const [loading, setLoading] = useState(false);
   const [mainNavs, setMainNavs] = useState(initialMainNavs);
+
+  // ── Hospitality state ─────────────────────────
   const [isHospitalityCompany, setIsHospitalityCompany] = useState(false);
   const [hospitalityContexts, setHospitalityContexts] = useState([]);
   const [contextModalOpen, setContextModalOpen] = useState(false);
-  const [contextLoading, setContextLoading] = useState(false);
+  const [contextLoading] = useState(false);
   const [hospitalityContext, setHospitalityContextState] = useState(
     getStoredHospitalityContext()
   );
   const [userBusinessUnits, setUserBusinessUnits] = useState([]);
   const [hiddenNavItems, setHiddenNavItems] = useState([]);
-  const navContainerRef = useRef(null);
-  const navItemsRef = useRef([]);
 
-  const togglePopover = () => {
-    setPopoverVisible(!popoverVisible);
-  };
+  // ── Derived state ─────────────────────────────
+  const isDashboardPage = useMemo(() => {
+    return loggedinUser && loggedinUser?.name &&
+      (pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor"));
+  }, [loggedinUser, pathname]);
 
-  const handleUserIconClick = (event) => {
-    event.preventDefault(); // Prevent the default behavior (scroll to top)
-    togglePopover(); // Toggle the visibility of the popover
-  };
+  const isPublicPage = useMemo(() => {
+    // If user is logged in and on a dashboard/vendor page, always show dashboard nav
+    if (isDashboardPage) return false;
+    return mainNavs.includes(pathname) ||
+      pathname?.startsWith("/solutions") ||
+      pathname?.startsWith("/insights") ||
+      pathname?.startsWith("/ai-tools") ||
+      pathname?.startsWith("/modules") ||
+      pathname?.startsWith("/work-with-us") ||
+      pathname?.startsWith("/blogs") ||
+      pathname?.startsWith("/for-vendors") ||
+      pathname?.startsWith("/contactus") ||
+      pathname?.startsWith("/aboutus") ||
+      (pathname?.startsWith("/vendor") && !(loggedinUser && loggedinUser?.name)) ||
+      pathname === "/";
+  }, [pathname, loggedinUser, mainNavs, isDashboardPage]);
 
-  const handleClickOutside = (event) => {
-    if (popoverRef.current && !popoverRef.current.contains(event.target)) {
-      setPopoverVisible(false);
-    }
-  };
-
-  // Set State Change
-  const handleChange = (setState) => (event) => {
-    setState(event);
-  };
-
-  // determine if current route should use transparent header at the very top
   const shouldUseTransparent = () => {
     const isPrivate = pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor");
-    return !isPrivate && (pathname === "/");
+    return !isPrivate && pathname === "/";
   };
-
-  const isSticky = () => {
-    const scrollTop = window.scrollY;
-    const stickyClass = scrollTop >= 50 ? "sticky" : "";
-    const scrolled = scrollTop > 10;
-    handleChange(setSticky(stickyClass));
-    setIsScrolled(scrolled);
-    // Only add the at-top helper when we are on a page that uses transparent header
-    if (!scrolled && shouldUseTransparent()) {
-      document.body.classList.add("at-top");
-    } else {
-      document.body.classList.remove("at-top");
-    }
-  };
-
-  const setUserDetails = () => {
-    const user = getUserDetails();
-    if (user?.name) {
-      setLoggedinUser(user);
-    } else {
-      setLoggedinUser(null);
-    }
-    setcurrentUserType(storageInstance.getStorage("current-user-type"));
-  };
-
-  const handleLogout = (e) => {
-    e.preventDefault();
-    storageInstance.removeStorege("token");
-    storageInstance.removeStorege("current-user-type");
-    storageInstance.removeStorege("user-permissions");
-    setStoredHospitalityContext(null);
-    setPopoverVisible(false);
-    setLoggedinUser(null);
-    setMainNavs(initialMainNavs);
-    router.push("/");
-  };
-
-  const loadHospitalityContextData = async () => {
-    setContextLoading(true);
-    try {
-      const response = await getMyHospitalityContexts();
-      const list = response?.data?.data || response?.data || [];
-      setHospitalityContexts(list);
-    } catch (error) {
-      setHospitalityContexts([]);
-    } finally {
-      setContextLoading(false);
-    }
-  };
-
-  const handleOpenContextModal = () => {
-    if (!hospitalityContexts.length) {
-      loadHospitalityContextData();
-    }
-    setContextModalOpen(true);
-  };
-
-  const handleContextSelect = (selection) => {
-    setStoredHospitalityContext(selection);
-    setHospitalityContextState(selection);
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem("hospitalityScopeSelected", "1");
-    }
-    setContextModalOpen(false);
-  };
-
-  useEffect(() => {
-    setMenuClass(false);
-  }, [router]);
-
-  useEffect(() => {
-    setUserDetails();
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener("scroll", isSticky);
-    if (window.scrollY > 100) {
-      isSticky();
-    }
-    return () => {
-      window.removeEventListener("scroll", isSticky);
-    };
-  }, []);
-
-  useEffect(() => {
-    setUserDetails();
-    if (user_registered == 1) {
-      toast.success("Now login to get started!");
-      handleChange(setActiveAuthTab("login"));
-      handleChange(setOpenAuthModal(true));
-    }
-
-    // Open login modal directly when ?auth=login is present
-    if (auth === 'login') {
-      handleChange(setActiveAuthTab('login'));
-      handleChange(setOpenAuthModal(true));
-    }
-
-    if (localStorage.getItem("token") || loggedin == "true") {
-      let revisedNavs = mainNavs.filter(
-        (navItem) =>
-          navItem != "/products" &&
-          navItem != "/dashboard/vendor/inquiries-details" &&
-          navItem != "/dashboard/buyer/rfq-management-vendor/vendor-profile"
-      );
-      setMainNavs(revisedNavs);
-    } else {
-      let revisedNavs = mainNavs.filter(
-        (navItem) =>
-          navItem != "/products" ||
-          navItem != "/dashboard/vendor/inquiries-details"
-      );
-      if (pathname === "/products") {
-        revisedNavs.push("/products");
-      } else if (pathname?.includes("/dashboard/vendor/inquiries-details")) {
-        revisedNavs.push("/dashboard/vendor/inquiries-details");
-      }
-      setMainNavs(revisedNavs);
-    }
-  }, [router, pathname]);
-
-  useEffect(() => {
-    let isMounted = true;
-    const fetchHospitalityFlag = async () => {
-      try {
-        const response = await getProfile();
-        if (!isMounted) return;
-        const profile = response?.data;
-        const hospitalityEnabled =
-          profile?.is_hospitality == 1;
-        setIsHospitalityCompany(!!hospitalityEnabled);
-        if (!hospitalityEnabled) {
-          setHospitalityContexts([]);
-          setStoredHospitalityContext(null);
-        }
-
-        // Fetch user business unit mappings for the header display
-        if (hospitalityEnabled) {
-          try {
-            const mappingsRes = await getUserMappings();
-            if (isMounted) {
-              const allMappings = mappingsRes?.data || [];
-              const hotelMappings = allMappings.filter(m => m.hospitality_hotel_id != null);
-              const seen = new Set();
-              const uniqueMappings = hotelMappings.filter(m => {
-                if (seen.has(m.hospitality_hotel_id)) return false;
-                seen.add(m.hospitality_hotel_id);
-                return true;
-              });
-              setUserBusinessUnits(uniqueMappings);
-            }
-          } catch (_) {
-            if (isMounted) setUserBusinessUnits([]);
-          }
-        }
-
-        // Permissions are now fetched per-page using the bulk endpoint
-        // No need to fetch global permissions here
-      } catch (error) {
-        if (isMounted) {
-          setIsHospitalityCompany(false);
-          setHospitalityContexts([]);
-          setStoredHospitalityContext(null);
-          setUserBusinessUnits([]);
-        }
-      }
-    };
-
-    if (loggedinUser) {
-      fetchHospitalityFlag();
-    } else {
-      setIsHospitalityCompany(false);
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [loggedinUser, currentUserType]);
-
-  // Hospitality scope selection via global modal is now disabled.
-  // Hotel / scope is selected via per-page filters instead.
-  useEffect(() => {
-    // no-op: keep hook to avoid removing existing logic structure
-  }, [isHospitalityCompany]);
-
-  useEffect(() => {
-    // no-op: prevent auto-opening hospitality context modal
-  }, [hospitalityContexts, hospitalityContext]);
-
-  useEffect(() => {
-    const unsubscribe = subscribeHospitalityContext((context) => {
-      setHospitalityContextState(context);
-    });
-    return () => unsubscribe && unsubscribe();
-  }, []);
 
   const currentRoleMenu = useMemo(() => {
     const baseMenu = roleMenus[currentUserType] || [];
@@ -605,24 +90,183 @@ const Header = () => {
     return baseMenu;
   }, [currentUserType, isHospitalityCompany]);
 
-  // Simple width-based responsive navigation for logged-in dashboard
+  const headerStateClass = useMemo(() => {
+    if (isDashboardPage) return styles.alwaysWhite;
+    if (pathname === "/") {
+      return (menuClass || isScrolled) ? styles.scrolled : styles.transparent;
+    }
+    return styles.scrolled;
+  }, [pathname, menuClass, isScrolled]);
+
+  // ── Helpers ───────────────────────────────────
+  const setUserDetails = () => {
+    const user = getUserDetails();
+    if (user?.name) {
+      setLoggedinUser(user);
+    } else {
+      setLoggedinUser(null);
+    }
+    setCurrentUserType(storageInstance.getStorage("current-user-type"));
+  };
+
+  const handleLogout = (e) => {
+    e.preventDefault();
+    storageInstance.removeStorege("token");
+    storageInstance.removeStorege("current-user-type");
+    storageInstance.removeStorege("user-permissions");
+    setStoredHospitalityContext(null);
+    setPopoverVisible(false);
+    setLoggedinUser(null);
+    setMainNavs(initialMainNavs);
+    setMenuClass(false);
+    router.push("/");
+  };
+
+  const handleContextSelect = (selection) => {
+    setStoredHospitalityContext(selection);
+    setHospitalityContextState(selection);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("hospitalityScopeSelected", "1");
+    }
+    setContextModalOpen(false);
+  };
+
+  const getDashboardHref = () => {
+    if (!loggedinUser) return "/";
+    const map = {
+      vendor: "/dashboard/vendor",
+      admin: "/dashboard/admin",
+      management: "/dashboard/management",
+      engineering: "/dashboard/engineering",
+      finance: "/dashboard/finance",
+      buyer: "/dashboard/buyer",
+    };
+    return map[currentUserType] || "/dashboard/buyer";
+  };
+
+  // ── Effects ───────────────────────────────────
+  useEffect(() => { setMenuClass(false); }, [router]);
+
+  useEffect(() => { setUserDetails(); }, []);
+
+  useEffect(() => {
+    const isSticky = () => {
+      const scrollTop = window.scrollY;
+      setSticky(scrollTop >= 50 ? "sticky" : "");
+      const scrolled = scrollTop > 10;
+      setIsScrolled(scrolled);
+      if (!scrolled && shouldUseTransparent()) {
+        document.body.classList.add("at-top");
+      } else {
+        document.body.classList.remove("at-top");
+      }
+    };
+    window.addEventListener("scroll", isSticky);
+    if (window.scrollY > 100) isSticky();
+    return () => window.removeEventListener("scroll", isSticky);
+  }, [pathname]);
+
+  useEffect(() => {
+    setUserDetails();
+    if (user_registered == 1) {
+      toast.success("Now login to get started!");
+      setActiveAuthTab("login");
+      setOpenAuthModal(true);
+    }
+    if (auth === "login") {
+      setActiveAuthTab("login");
+      setOpenAuthModal(true);
+    }
+    if (localStorage.getItem("token") || loggedin == "true") {
+      const revisedNavs = mainNavs.filter(
+        (nav) =>
+          nav !== "/products" &&
+          nav !== "/dashboard/vendor/inquiries-details" &&
+          nav !== "/dashboard/buyer/rfq-management-vendor/vendor-profile"
+      );
+      setMainNavs(revisedNavs);
+    } else {
+      let revisedNavs = mainNavs.filter(
+        (nav) =>
+          nav !== "/products" ||
+          nav !== "/dashboard/vendor/inquiries-details"
+      );
+      if (pathname === "/products") {
+        revisedNavs.push("/products");
+      } else if (pathname?.includes("/dashboard/vendor/inquiries-details")) {
+        revisedNavs.push("/dashboard/vendor/inquiries-details");
+      }
+      setMainNavs(revisedNavs);
+    }
+  }, [router, pathname]);
+
+  // Profile + hospitality flag
+  useEffect(() => {
+    let isMounted = true;
+    const fetchHospitalityFlag = async () => {
+      try {
+        const response = await getProfile();
+        if (!isMounted) return;
+        const hospitalityEnabled = response?.data?.is_hospitality == 1;
+        setIsHospitalityCompany(!!hospitalityEnabled);
+        if (!hospitalityEnabled) {
+          setHospitalityContexts([]);
+          setStoredHospitalityContext(null);
+        }
+        if (hospitalityEnabled) {
+          try {
+            const mappingsRes = await getUserMappings();
+            if (isMounted) {
+              const allMappings = mappingsRes?.data || [];
+              const seen = new Set();
+              const uniqueMappings = allMappings
+                .filter((m) => m.hospitality_hotel_id != null)
+                .filter((m) => {
+                  if (seen.has(m.hospitality_hotel_id)) return false;
+                  seen.add(m.hospitality_hotel_id);
+                  return true;
+                });
+              setUserBusinessUnits(uniqueMappings);
+            }
+          } catch {
+            if (isMounted) setUserBusinessUnits([]);
+          }
+        }
+      } catch {
+        if (isMounted) {
+          setIsHospitalityCompany(false);
+          setHospitalityContexts([]);
+          setStoredHospitalityContext(null);
+          setUserBusinessUnits([]);
+        }
+      }
+    };
+    if (loggedinUser) fetchHospitalityFlag();
+    else setIsHospitalityCompany(false);
+    return () => { isMounted = false; };
+  }, [loggedinUser, currentUserType]);
+
+  // Hospitality context subscription
+  useEffect(() => {
+    const unsubscribe = subscribeHospitalityContext((context) => {
+      setHospitalityContextState(context);
+    });
+    return () => unsubscribe && unsubscribe();
+  }, []);
+
+  // Responsive nav overflow
   useEffect(() => {
     const updateNavVisibility = () => {
-      if (!loggedinUser || !pathname?.startsWith("/dashboard")) {
+      if (!loggedinUser || !(pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor"))) {
         setHiddenNavItems([]);
         return;
       }
-
-      const navItems = currentRoleMenu?.filter(
-        (menuType) => menuType.targetMenu == "nav"
-      ) || [];
-
+      const navItems = currentRoleMenu?.filter((m) => m.targetMenu === "nav") || [];
       const windowWidth = window.innerWidth;
       let visibleCount = navItems.length;
 
-      // Determine how many items to show based on window width
       if (windowWidth < 768) {
-        visibleCount = 0; // All items go to dropdown on very small/zoomed screens
+        visibleCount = 0;
       } else if (windowWidth < 1200) {
         visibleCount = Math.max(2, Math.floor((windowWidth - 400) / 150));
       } else if (windowWidth < 1400) {
@@ -630,637 +274,212 @@ const Header = () => {
       } else if (windowWidth < 1600) {
         visibleCount = Math.max(4, navItems.length - 2);
       }
-
-      // Ensure we don't try to show more items than we have
       visibleCount = Math.min(visibleCount, navItems.length);
-
-      // Items beyond visibleCount go to dropdown
-      const itemsToHide = navItems.slice(visibleCount);
-      setHiddenNavItems(itemsToHide);
+      setHiddenNavItems(navItems.slice(visibleCount));
     };
 
-    // Initial check
     updateNavVisibility();
-
-    // Listen for window resize (catches zoom changes too)
-    window.addEventListener('resize', updateNavVisibility);
-
-    return () => {
-      window.removeEventListener('resize', updateNavVisibility);
-    };
+    window.addEventListener("resize", updateNavVisibility);
+    return () => window.removeEventListener("resize", updateNavVisibility);
   }, [loggedinUser, pathname, currentRoleMenu]);
 
-  // Hospitality scope button removed - hotel selection is now done via filters on each page
-  const showHospitalityScopeButton = false;
-
+  // ── Render ────────────────────────────────────
   return (
     <>
-      <header
-        className={`main-header ${sticky} ${menuClass ? "menu-open" : ""} ${(() => {
-          const isPrivate = pathname?.startsWith("/dashboard");
-          if (isPrivate ) {
-            return "always-white"; // never transparent for logged-in areas
-          }
-          if (pathname === "/") {
-            // Force non-transparent header when mobile menu is open to match scrolled styling
-            return (menuClass || isScrolled) ? "scrolled hero-page" : "transparent hero-page";
-          }
-          return "scrolled"; // default public pages are white
-        })()}`}
-      >
-        <div className="container-fluid">
-          <div className="header-container">
-            <div className="logo">
-              <Link
-                href={
-                  loggedinUser
-                    ? currentUserType === "vendor"
-                      ? "/dashboard/vendor"
-                      : currentUserType === "admin"
-                      ? "/dashboard/admin"
-                      : currentUserType === "management"
-                      ? "/dashboard/management"
-                      : currentUserType === "engineering"
-                      ? "/dashboard/engineering"
-                      : currentUserType === "finance"
-                      ? "/dashboard/finance"
-                      : "/dashboard/buyer"
-                    : "/"
-                }
-              >
-                <Image
-                  src="/assets/images/logo1.png"
-                  alt="Workwise"
-                  className={`logo-image ${(!isScrolled && shouldUseTransparent()) ? "logo-white" : ""}`}
-                  width={160}
-                  height={20}
-                  priority={true}
-                />
-              </Link>
-            </div>
-
-            {/* Website Navigation - Show for public pages and all users */}
-            {(mainNavs.includes(pathname) ||
-              pathname?.startsWith("/solutions") ||
-              pathname?.startsWith("/insights") ||
-              pathname?.startsWith("/ai-tools") ||
-              pathname?.startsWith("/modules") ||
-              pathname?.startsWith("/work-with-us") ||
-              pathname?.startsWith("/blogs") ||
-              pathname?.startsWith("/for-vendors") ||
-              pathname?.startsWith("/contactus") ||
-              pathname?.startsWith("/aboutus") ||
-              (pathname?.startsWith("/vendor") && !(loggedinUser && loggedinUser?.name)) ||
-              pathname === "/") && (
-              <>
-                <div className="header-right align-items-center normalMenu">
-                  {/* START: website navbar - static pages content */}
-                  <nav className="main-menu">
-                    <ul>
-                                            {websiteMenu.map((item, index) => (
-                        item.type === 'dropdown' ? (
-                          <DropdownMenu
-                            key={index}
-                            label={item.label}
-                            options={item.options}
-                            href={item.href}
-                            onAction={(action) => {
-                              if (action === 'open-auth-modal') {
-                                setOpenAuthModal(true);
-                              }
-                            }}
-                          />
-                        ) : (
-                          <li
-                            key={index}
-                            className={router.pathname === item.href ? 'active' : ''}
-                          >
-                             <Link href={item.href}>{item.label}</Link>
-                          </li>
-                        )
-                      ))}
-                    </ul>
-                  </nav>
-                  {/* END: website navbar - static pages content */}
-
-                  {/* Supplier CTA Button - show on desktop too */}
-                  <div className="supplier-cta d-none d-md-block">
-                    <Link href="/for-vendors" className="btn-supplier">
-                      For Suppliers
-                    </Link>
-                  </div>
-
-                  {/* Logged-in profile icon on public navbar*/}
-                  {loggedinUser && loggedinUser?.name && !(
-                    pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")
-                  ) && (
-                    <div className="header-right align-items-center forLoggedIn hidemobile">
-                      <nav className="main-menu">
-                        <ul>
-                          <li className="">
-                            <Link href="" onClick={handleUserIconClick}>
-                              <FontAwesomeIcon icon={faUser} style={{ fontSize: 'calc(1em + 5px)' }} />
-                            </Link>
-                          </li>
-                        </ul>
-                      </nav>
-
-                      {popoverVisible && (
-                        <div className="popover-account" ref={popoverRef}>
-                          <ul className="vertical-links">
-                            {currentRoleMenu
-                              ?.filter((menuType) => menuType.targetMenu == "popup")
-                              ?.map((item) => (
-                                <li
-                                  key={item.href}
-                                  className={pathname === item.href ? "active" : ""}
-                                >
-                                  <Link
-                                    href={item.href}
-                                    onClick={() => setPopoverVisible(false)}
-                                  >
-                                    {item.label}
-                                  </Link>
-                                </li>
-                              ))}
-
-                            <li
-                              className={
-                                router.pathname == "/change-password" ? "active" : ""
-                              }
-                            >
-                              <Link
-                                href={`/change-password?redirect_url=${window.location.pathname}`}
-                                onClick={() => setPopoverVisible(false)}
-                              >
-                                Change Password
-                              </Link>
-                            </li>
-
-                            <li>
-                              <Link
-                                href=""
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  handleLogout(e);
-                                }}
-                              >
-                                Logout
-                              </Link>
-                            </li>
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div
-                    className={`extra-buttons hideDesktop ${
-                      loggedinUser && loggedinUser?.name && "hasloggedinuser"
-                    }`}
-                  >
-                    {/* FOR LOGGED IN */}
-                    {loggedinUser && loggedinUser?.name && (
-                      <ul>
-                        <li
-                          className="login"
-                          onClick={() => {
-                            router.push(`/dashboard/${currentUserType}`);
-                          }}
-                          id="my_account-user_menu-header"
-                        >
-                          <Link href="">
-                            {" "}
-                            <FontAwesomeIcon icon={faUser} />{" "}
-                            <span>My Account</span>
-                          </Link>
-                        </li>
-                        <li className="signup" onClick={handleLogout} id="logout_mobile-user_menu-header">
-                          <Link href="">
-                            <FontAwesomeIcon icon={faSignOut} />{" "}
-                            <span>Logout</span>
-                          </Link>
-                        </li>
-                      </ul>
-                    )}
-
-                    {/* FOR NON LOGGED IN  */}
-                    {!loggedinUser && !loggedinUser?.name && (
-                      <ul>
-                       {false && ( <li
-                          className="login"
-                          onClick={() => {
-                            handleChange(setActiveAuthTab('login'));
-                            handleChange(setOpenAuthModal(true));
-                          }}
-                        >
-                          <Link href="javascript:void(0)">
-                            Login
-                          </Link>
-                        </li>
-                        )}
-                        {/* Mobile-only: show For Suppliers instead of Book a Call */}
-                        <li className="signup d-block d-md-none">
-                          <Link href="/for-vendors" className="btn-supplier" style={{ color: '#000' }}>
-                            For Suppliers
-                          </Link>
-                        </li>
-                        
-                          <li
-                            className="signup book-call d-none d-md-block"
-                            onClick={() => {
-                              handleChange(setActiveAuthTab('book-a-call'));
-                              handleChange(setOpenAuthModal(true));
-                            }}
-                          >
-                            <Link
-                              id="book-a-call-navigation"
-                              href="javascript:void(0)"
-                              style={{ width: "fit-content", fontSize: "14px" }}
-                            >
-                              Book a Call
-                            </Link>
-                          </li>
-                        
-                      </ul>
-                    )}
-                  </div>
-                </div>
-
-                {/* Mobile Menu Toggle */}
-                <div className={`menu-ctrl ${menuClass ? "button-active" : ""} ${(!isScrolled && shouldUseTransparent() && !menuClass) ? 'menu-ctrl-transparent' : ''}`} style={{ marginLeft: '8px' }}>
-                  <label
-                    htmlFor="menu-toggle"
-                    onClick={() => setMenuClass(!menuClass)}
-                  >
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </label>
-                </div>
-              </>
-            )}
-
-            {/* Logged-in User Navigation - Show for dashboard and user-specific pages */}
-            {loggedinUser && loggedinUser?.name && (pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")) ? (
-              <>
-                {!mainNavs.includes(pathname) && (
-                  <div className="header-right header-center align-items-center forLoggedIn" ref={navContainerRef}>
-                    <nav className="main-menu">
-                      <ul className="d-flex justify-content-center w-100">
-                        {currentRoleMenu
-                          ?.filter(
-                            (menuType) => menuClass || menuType.targetMenu == "nav"
-                          )
-                          ?.filter(item => !hiddenNavItems.some(hidden => hidden.href === item.href))
-                          ?.map((item, index) => (
-                            <li
-                              key={item.href}
-                              ref={el => navItemsRef.current[index] = el}
-                              className={
-                                pathname === item.href ? "active" : ""
-                              }
-                              style={{
-                                display: hiddenNavItems.some(hidden => hidden.href === item.href) ? 'none' : ''
-                              }}
-                            >
-                              <Link href={item.href}>{item.label}</Link>
-                            </li>
-                          ))}
-                      </ul>
-                    </nav>
-                  </div>
-                )}
-
-                <div className="header-right align-items-center forLoggedIn hidemobile">
-                  <nav className="main-menu">
-                    <ul className="d-flex align-items-center">
-                      {showHospitalityScopeButton && (
-                        <li className="me-3">
-                          <button
-                            type="button"
-                            className="btn btn-outline-primary btn-sm fw-semibold"
-                            style={{ color: "#0f6cff", borderColor: "#0f6cff", backgroundColor: "white" }}
-                            onClick={handleOpenContextModal}
-                          >
-                            {hospitalityContext
-                              ? `${hospitalityContext.companyName}${
-                                  hospitalityContext.hotelId
-                                    ? " / " + hospitalityContext.hotelName
-                                    : ""
-                                }`
-                              : "Select Hospitality Scope"}
-                          </button>
-                        </li>
-                      )}
-                      <li>
-                        <button
-                          onClick={handleUserIconClick}
-                          id="user_icon-user_menu-header"
-                          className="d-flex align-items-center gap-2 border-0 bg-transparent"
-                          style={{
-                            cursor: "pointer",
-                            padding: "4px 12px",
-                            borderRadius: "8px",
-                            background: popoverVisible ? "#f0f4ff" : "transparent",
-                            transition: "background 0.2s",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: "50%",
-                              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#fff",
-                              fontWeight: 600,
-                              fontSize: 14,
-                              flexShrink: 0,
-                            }}
-                          >
-                            {loggedinUser?.name?.charAt(0)?.toUpperCase() || "U"}
-                          </div>
-                          <div className="d-flex flex-column" style={{ lineHeight: 1.2, textAlign: "left" }}>
-                            <span style={{ fontWeight: 600, fontSize: 13, color: "#1a1a2e", whiteSpace: "nowrap" }}>
-                              {loggedinUser?.name || "User"}
-                            </span>
-                            {userBusinessUnits.length > 0 && (
-                              <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
-                                {userBusinessUnits.length === 1
-                                  ? userBusinessUnits[0].hotel_name || userBusinessUnits[0].company_name || ""
-                                  : `${userBusinessUnits.length} Business Units`
-                                }
-                              </span>
-                            )}
-                          </div>
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, opacity: 0.5, transform: popoverVisible ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
-                            <path d="M3 4.5L6 7.5L9 4.5" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </button>
-                      </li>
-                    </ul>
-                  </nav>
-
-                  {popoverVisible && (
-                    <div className="popover-account" ref={popoverRef}>
-                      {/* User info header */}
-                      <div style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>
-                        <div style={{ fontWeight: 600, fontSize: 14, color: "#1a1a2e" }}>
-                          {loggedinUser?.name || "User"}
-                        </div>
-                        {userBusinessUnits.length > 0 && (
-                          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                            {userBusinessUnits.map((bu, i) => (
-                              <span key={i}>
-                                {bu.hotel_name || bu.company_name}
-                                {i < userBusinessUnits.length - 1 ? ", " : ""}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <ul className="vertical-links">
-                        {/* Show hidden navigation items first (overflow items) */}
-                        {hiddenNavItems.length > 0 && (
-                          <>
-                            <li className="overflow-section-header" style={{
-                              padding: "8px 16px",
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: "#9ca3af",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.5px",
-                              borderBottom: "1px solid #e5e7eb",
-                              marginBottom: 0
-                            }}>
-                              Navigation
-                            </li>
-                            {hiddenNavItems.map((item) => (
-                              <li
-                                key={item.href}
-                                className={pathname === item.href ? "active" : ""}
-                              >
-                                <Link
-                                  href={item.href}
-                                  onClick={() => setPopoverVisible(false)}
-                                >
-                                  {item.label}
-                                </Link>
-                              </li>
-                            ))}
-                            <li style={{
-                              height: 1,
-                              backgroundColor: "#e5e7eb",
-                              margin: "8px 0",
-                              padding: 0
-                            }}></li>
-                          </>
-                        )}
-
-                        {currentRoleMenu
-                          ?.filter((menuType) => menuType.targetMenu == "popup")
-                          ?.map((item) => (
-                            <li
-                              key={item.href}
-                              className={pathname === item.href ? "active" : ""}
-                            >
-                              <Link
-                                href={item.href}
-                                onClick={() => setPopoverVisible(false)}
-                              >
-                                {item.label}
-                              </Link>
-                            </li>
-                          ))}
-
-                        <li
-                          className={
-                            router.pathname == "/change-password"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link
-                            href={`/change-password?redirect_url=${window.location.pathname}`}
-                            onClick={() => setPopoverVisible(false)}
-                            id="change_password-user_popup-header"
-                          >
-                            Change Password
-                          </Link>
-                        </li>
-
-                        <li>
-                          <Link
-                            href=""
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleLogout(e);
-                            }}
-                          >
-                            Logout
-                          </Link>
-                        </li>
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                {/* Mobile hamburger for logged-in dashboard pages */}
-                <div className={`menu-ctrl hideDesktopNav ${menuClass ? "button-active" : ""}`} style={{ marginLeft: '8px' }}>
-                  <label
-                    htmlFor="menu-toggle"
-                    onClick={() => setMenuClass(!menuClass)}
-                  >
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </label>
-                </div>
-              </>
-            ) : null}
+      <header className={`main-header ${styles.header} ${headerStateClass} ${sticky ? styles.sticky : ""} ${menuClass ? "menu-open" : ""}`}>
+        <div className={styles.headerInner}>
+          {/* Logo */}
+          <div className={styles.logo}>
+            <Link href={getDashboardHref()}>
+              <Image
+                src="/assets/images/logo1.png"
+                alt="Workwise"
+                className={`${styles.logoImage} ${(!isScrolled && shouldUseTransparent()) ? styles.logoWhite : ""}`}
+                width={160}
+                height={20}
+                priority
+              />
+            </Link>
           </div>
-        </div>
 
-        {/* Announcement bar for marquee scroll */}
-        {(mainNavs.includes(pathname) ||
-          pathname?.startsWith("/solutions") ||
-          pathname?.startsWith("/insights") ||
-          pathname?.startsWith("/ai-tools") ||
-          pathname?.startsWith("/modules") ||
-          pathname?.startsWith("/work-with-us") ||
-          pathname?.startsWith("/blogs") ||
-          pathname?.startsWith("/for-vendors") ||
-          pathname?.startsWith("/contactus") ||
-          pathname?.startsWith("/aboutus") ||
-          (pathname?.startsWith("/vendor") && !(loggedinUser && loggedinUser?.name)) ||
-          pathname === "/") && (
-            <div
-              className="announcement-wrapper"
-              style={{
-                background: 'linear-gradient(90deg, #FFF1B8 0%, #FFD666 100%)',
-                borderBottom: '1px solid rgba(0,0,0,0.06)'
-              }}
-            >
-
-              <marquee className="pt-1">
-                <strong className=" " style={{fontWeight: '600' }}>
-                  Now expanding Internationally - meet us at Intersec Dubai 2026 from 12-14 January, Stand no. SR-D24, Dubai World Trade Centre
-                </strong>
-              </marquee>
-            </div>
-          )}
-
-
-        {/* Mobile Menu */}
-        {menuClass && (
-            mainNavs.includes(pathname) ||
-            pathname?.startsWith("/solutions") ||
-            pathname?.startsWith("/insights") ||
-            pathname?.startsWith("/modules") ||
-            pathname?.startsWith("/work-with-us") ||
-            pathname?.startsWith("/blogs") ||
-            pathname?.startsWith("/for-vendors") ||
-            pathname?.startsWith("/contactus") ||
-            pathname?.startsWith("/aboutus")||
-            pathname?.startsWith("/ai-tools")
-          ) && (
-          <div className="mobile-menu">
-            <nav className="main-menu" style={{ color: '#fff' }}>
-              <ul>
-                {websiteMenu.map((item, index) => (
-                  <li key={index}>
-                    {item.type === 'dropdown' ? (
+          {/* ── Public Navigation ── */}
+          {isPublicPage && (
+            <div className={`${styles.publicNav} ${styles.hideMobile}`}>
+              <nav>
+                <ul className={styles.publicNavList}>
+                  {websiteMenu.map((item, index) =>
+                    item.type === "dropdown" ? (
                       <DropdownMenu
+                        key={index}
                         label={item.label}
                         options={item.options}
                         href={item.href}
-                        forceMobile={true}
                         onAction={(action) => {
-                          if (action === 'open-auth-modal') {
-                            setOpenAuthModal(true);
-                          }
+                          if (action === "open-auth-modal") setOpenAuthModal(true);
                         }}
                       />
                     ) : (
-                      <Link href={item.href} style={{ color: '#fff' }}>{item.label}</Link>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </nav>
-            {!loggedinUser && (
-              <div className="mobile-actions">
-                <Link
-                  href="javascript:void(0)"
-                  className="action-btn login"
-                  onClick={() => {
-                    handleChange(setActiveAuthTab('login'));
-                    handleChange(setOpenAuthModal(true));
-                  }}
-                >
-                  Login
-                </Link>
-                <Link
-                  href="javascript:void(0)"
-                  className="action-btn book-call"
-                  onClick={() => {
-                    handleChange(setActiveAuthTab('book-a-call'));
-                    handleChange(setOpenAuthModal(true));
-                  }}
-                >
-                  Book a Call
-                </Link>
-              </div>
-            )}
+                      <li key={index} className={pathname === item.href ? "active" : ""}>
+                        <Link href={item.href}>{item.label}</Link>
+                      </li>
+                    )
+                  )}
+                </ul>
+              </nav>
+            </div>
+          )}
+
+          {/* ── Public CTAs ── */}
+          {isPublicPage && (
+            <div className={`${styles.ctaGroup} ${styles.hideMobile}`}>
+              <Link href="/for-vendors" className={styles.btnOutlineCta}>
+                For Suppliers
+              </Link>
+              <button
+                type="button"
+                className={styles.btnFilledCta}
+                onClick={() => {
+                  setActiveAuthTab("book-a-call");
+                  setOpenAuthModal(true);
+                }}
+                id="book-a-call-navigation"
+              >
+                Book a Call
+              </button>
+
+              {/* Logged-in user icon on public pages */}
+              {loggedinUser && loggedinUser?.name && !(
+                pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")
+              ) && (
+                <div style={{ position: "relative" }}>
+                  <button
+                    type="button"
+                    className={styles.publicUserBtn}
+                    onClick={() => setPopoverVisible(!popoverVisible)}
+                  >
+                    <BsPerson />
+                  </button>
+                  {popoverVisible && (
+                    <UserMenu
+                      user={loggedinUser}
+                      userBusinessUnits={userBusinessUnits}
+                      currentUserType={currentUserType}
+                      roleMenu={currentRoleMenu}
+                      hiddenNavItems={[]}
+                      pathname={pathname}
+                      isOpen={true}
+                      onToggle={() => setPopoverVisible(false)}
+                      onLogout={handleLogout}
+                      onClose={() => setPopoverVisible(false)}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Dashboard Navigation ── */}
+          {isDashboardPage && (
+            <div className={`${styles.dashNav} ${styles.hideMobile}`}>
+              <nav>
+                <ul className={styles.dashNavList}>
+                  {currentRoleMenu
+                    ?.filter((m) => m.targetMenu === "nav")
+                    ?.filter((item) => !hiddenNavItems.some((h) => h.href === item.href))
+                    ?.map((item) => (
+                      <li
+                        key={item.href}
+                        className={`${styles.dashNavItem} ${pathname === item.href ? styles.dashNavItemActive : ""}`}
+                      >
+                        <Link href={item.href} className={styles.dashNavLink}>
+                          {item.label}
+                        </Link>
+                      </li>
+                    ))}
+                </ul>
+              </nav>
+            </div>
+          )}
+
+          {/* ── Dashboard User Menu ── */}
+          {isDashboardPage && (
+            <div className={styles.hideMobile}>
+              <UserMenu
+                user={loggedinUser}
+                userBusinessUnits={userBusinessUnits}
+                currentUserType={currentUserType}
+                roleMenu={currentRoleMenu}
+                hiddenNavItems={hiddenNavItems}
+                pathname={pathname}
+                isOpen={popoverVisible}
+                onToggle={() => setPopoverVisible(!popoverVisible)}
+                onLogout={handleLogout}
+                onClose={() => setPopoverVisible(false)}
+              />
+            </div>
+          )}
+
+          {/* ── Hamburger ── */}
+          {(isPublicPage || isDashboardPage) && (
+            <button
+              type="button"
+              className={`${styles.hamburger} ${styles.hideDesktop} ${menuClass ? styles.hamburgerOpen : ""}`}
+              onClick={() => setMenuClass(!menuClass)}
+              aria-label="Toggle menu"
+            >
+              <span className={styles.hamburgerBar} />
+              <span className={styles.hamburgerBar} />
+              <span className={styles.hamburgerBar} />
+            </button>
+          )}
+        </div>
+
+        {/* ── Announcement Bar ── */}
+        {isPublicPage && (
+          <div className={styles.announcementBar}>
+            <div className={styles.announcementTrack}>
+              <span className={styles.announcementText}>{ANNOUNCEMENT_TEXT}</span>
+              <span className={styles.announcementText}>{ANNOUNCEMENT_TEXT}</span>
+            </div>
           </div>
         )}
 
-        {/* Mobile Menu for Logged-in Users */}
-        {menuClass && loggedinUser && loggedinUser?.name && (pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")) && (
-          <div className="mobile-menu">
-            <nav className="main-menu">
-              <ul>
-                {currentRoleMenu
-                  ?.filter((menuType) => menuType.targetMenu == "nav")
-                  ?.map((item) => (
-                    <li
-                      key={item.href}
-                      className={pathname === item.href ? "active" : ""}
-                    >
-                      <Link href={item.href}>{item.label}</Link>
-                    </li>
-                  ))}
-                <li>
-                  <Link href={`/dashboard/${currentUserType}`}>
-                    <FontAwesomeIcon icon={faUser} /> My Account
-                  </Link>
-                </li>
-                <li>
-                  <Link href="javascript:void(0)" onClick={handleLogout}>
-                    <FontAwesomeIcon icon={faSignOut} /> Logout
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-          </div>
-        )}
+        {/* ── Mobile Menu ── */}
+        <MobileMenu
+          isOpen={menuClass}
+          isPublicPage={isPublicPage}
+          isDashboard={isDashboardPage}
+          websiteMenu={websiteMenu}
+          roleMenu={currentRoleMenu}
+          pathname={pathname}
+          user={loggedinUser}
+          currentUserType={currentUserType}
+          onNavAction={(action) => {
+            if (action === "open-auth-modal") setOpenAuthModal(true);
+          }}
+          onLogout={handleLogout}
+          onLoginClick={() => {
+            setActiveAuthTab("login");
+            setOpenAuthModal(true);
+            setMenuClass(false);
+          }}
+          onBookCallClick={() => {
+            setActiveAuthTab("book-a-call");
+            setOpenAuthModal(true);
+            setMenuClass(false);
+          }}
+          onClose={() => setMenuClass(false)}
+        />
       </header>
 
-      {/* Removed sticky mobile CTA in favor of actions inside hamburger menu */}
-
-
-
-      {/* Auth Modal */}
+      {/* ── Modals ── */}
       <LoginContainer
         openAuthModal={openAuthModal}
         setOpenAuthModal={setOpenAuthModal}
         activeAuthTab={activeAuthTab}
         setActiveAuthTab={setActiveAuthTab}
         loading={loading}
-        setloading={setloading}
+        setloading={setLoading}
       />
       <HospitalityContextModal
         isOpen={contextModalOpen}

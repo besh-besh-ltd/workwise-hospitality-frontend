@@ -1,0 +1,482 @@
+.header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1022;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.09);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  overflow: visible;
+}
+
+.sticky,
+.alwaysWhite {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.08);
+}
+
+.headerInner {
+  height: 64px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 0 clamp(16px, 2.5vw, 44px);
+}
+
+.logo {
+  width: clamp(124px, 11vw, 172px);
+  min-width: 124px;
+  display: flex;
+  align-items: center;
+}
+
+.logo a {
+  display: inline-flex;
+  align-items: center;
+}
+
+.logoImage {
+  width: 100%;
+  height: auto;
+  max-height: 36px;
+  object-fit: contain;
+}
+
+.dashNav {
+  min-width: 0;
+  overflow: hidden;
+  justify-self: center;
+}
+
+.dashNavList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.dashNavItem {
+  position: relative;
+}
+
+.dashNavItem + .dashNavItem::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #cbd5e1;
+}
+
+.dashNavLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1;
+  text-decoration: none;
+  color: #475569;
+  font-weight: 500;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.dashNavLink:hover {
+  color: #2e5ba8;
+  background: #f2f6ff;
+}
+
+.dashNavItemActive .dashNavLink {
+  color: #2e5ba8;
+  background: #e8efff;
+  font-weight: 600;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.userTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+
+.userTrigger:hover,
+.userTriggerOpen {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.userAvatar,
+.popoverAvatar,
+.mobileUserAvatar {
+  border-radius: 50%;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  background: linear-gradient(135deg, #2e5ba8 0%, #264fa0 100%);
+}
+
+.userAvatar {
+  width: 30px;
+  height: 30px;
+  font-size: 13px;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  text-align: left;
+}
+
+.userName {
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.userContext {
+  color: #64748b;
+  font-size: 11px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userChevron {
+  color: #94a3b8;
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.userTriggerOpen .userChevron {
+  transform: rotate(180deg);
+}
+
+.popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  width: 280px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.16);
+  z-index: 1050;
+  overflow: hidden;
+  animation: popoverIn 0.15s ease;
+}
+
+@keyframes popoverIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.popoverHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.popoverAvatar {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+
+.popoverUserName {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.popoverUserContext {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.popoverSection {
+  padding: 6px 0;
+}
+
+.popoverSectionLabel {
+  padding: 6px 16px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.popoverDivider {
+  height: 1px;
+  background: #f1f5f9;
+}
+
+.popoverItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  color: #334155;
+  font-size: 14px;
+  text-decoration: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.popoverItem:hover {
+  background: #f8fbff;
+  color: #2e5ba8;
+}
+
+.popoverItemActive {
+  background: #eef4ff;
+  color: #2e5ba8;
+  font-weight: 600;
+}
+
+.popoverItemIcon {
+  width: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 15px;
+}
+
+.popoverItem:hover .popoverItemIcon,
+.popoverItemActive .popoverItemIcon {
+  color: #2e5ba8;
+}
+
+.popoverItemLogout {
+  color: #ef4444;
+}
+
+.popoverItemLogout:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.popoverItemLogout .popoverItemIcon {
+  color: #ef4444;
+}
+
+.hamburger {
+  display: none;
+  width: 40px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 5px 8px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hamburger:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.hamburgerBar {
+  width: 20px;
+  height: 2px;
+  background: #1f2937;
+  border-radius: 2px;
+  transition: all 0.25s ease;
+}
+
+.hamburgerOpen .hamburgerBar:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.hamburgerOpen .hamburgerBar:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburgerOpen .hamburgerBar:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+.mobileOverlay {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  width: 100%;
+  height: calc(100vh - 64px);
+  background: #ffffff;
+  z-index: 1021;
+  overflow-y: auto;
+  border-top: 1px solid #e2e8f0;
+}
+
+.mobileUserSection {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.mobileUserAvatar {
+  width: 38px;
+  height: 38px;
+  font-size: 15px;
+}
+
+.mobileUserName {
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mobileUserRole {
+  color: #64748b;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.mobileNav {
+  padding: 10px 0;
+}
+
+.mobileNavList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mobileNavList li a,
+.mobileNavList li span {
+  display: block;
+  padding: 13px 20px;
+  color: #1e293b;
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.mobileNavList li a:hover {
+  background: #f8fbff;
+  color: #2e5ba8;
+}
+
+.mobileNavList li.active a {
+  color: #2e5ba8;
+  background: #eef4ff;
+  font-weight: 600;
+}
+
+.mobileDivider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 8px 0;
+}
+
+.hideDesktop {
+  display: none !important;
+}
+
+.hideMobile {
+  display: flex !important;
+}
+
+@media (max-width: 1200px) {
+  .headerInner {
+    padding: 0 14px;
+    gap: 10px;
+  }
+
+  .dashNavLink {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 991px) {
+  .hideMobile {
+    display: none !important;
+  }
+
+  .hideDesktop {
+    display: flex !important;
+  }
+
+  .dashNav {
+    display: none !important;
+  }
+
+  .hamburger {
+    display: inline-flex;
+  }
+
+  .headerInner {
+    height: 56px;
+    grid-template-columns: auto 1fr auto;
+    padding: 0 12px;
+  }
+
+  .mobileOverlay {
+    top: 56px;
+    height: calc(100vh - 56px);
+  }
+}
+
+@media (max-width: 768px) {
+  .logo {
+    width: 122px;
+    min-width: 122px;
+  }
+
+  .userInfo,
+  .userChevron {
+    display: none;
+  }
+
+  .userTrigger {
+    padding: 2px;
+    border-radius: 50%;
+  }
+}
