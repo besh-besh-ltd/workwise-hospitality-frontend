@@ -44,6 +44,8 @@ const UserTable = ({
         <thead>
           <tr>
             <th>User</th>
+            <th>Employee Code</th>
+            <th>Designation</th>
             <th>Mobile</th>
             <th>Status</th>
             {isHospitality && <th>Workflow Roles</th>}
