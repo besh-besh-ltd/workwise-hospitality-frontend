@@ -1,44 +1,73 @@
 import React, { useState, useEffect } from "react";
-import "bootstrap/dist/css/bootstrap.min.css";
-import { Modal } from "react-bootstrap";
+import Modal from "react-modal";
+import { BsX } from "react-icons/bs";
 import Register from "../register";
 import { useRouter } from "next/router";
+import styles from "../register/Register.module.css";
 
-export default function RegisterUserModal({ 
-  showModal, 
-  setShowModal, 
+const modalOverlayStyle = {
+  backgroundColor: "rgba(0, 0, 0, 0.6)",
+  backdropFilter: "blur(6px)",
+  zIndex: 1050,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const modalContentStyle = {
+  position: "relative",
+  top: "auto",
+  left: "auto",
+  right: "auto",
+  bottom: "auto",
+  border: "none",
+  background: "transparent",
+  overflow: "visible",
+  padding: 0,
+  borderRadius: 0,
+  maxWidth: "700px",
+  width: "95%",
+  margin: "0 auto",
+};
+
+export default function RegisterUserModal({
+  showModal,
+  setShowModal,
   showButton = true,
   onRegistrationSuccess,
   onClose,
   isPaidSubscription = false,
   isHospitality = false,
-  subscription_plan = 0
+  subscription_plan = 0,
 }) {
-
   const router = useRouter();
   const source = router?.query?.source;
- 
-  // Use internal state if props not provided (for backwards compatibility)
+
+  // Backward-compatible internal state
   const [internalShowModal, setInternalShowModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const modalShow = showModal !== undefined ? showModal : internalShowModal;
   const setModalShow = setShowModal !== undefined ? setShowModal : setInternalShowModal;
 
-  // Clear localStorage when modal opens freshly to ensure clean state
+  // Clear T&C/CoC localStorage when modal opens
   useEffect(() => {
     if (modalShow) {
-      // Clear T&C and CoC acceptance when modal opens
-      localStorage.removeItem('vendor_tnc_accepted');
-      localStorage.removeItem('vendor_coc_accepted');
+      localStorage.removeItem("vendor_tnc_accepted");
+      localStorage.removeItem("vendor_coc_accepted");
     }
   }, [modalShow]);
+
+  const handleClose = () => {
+    setModalShow(false);
+    if (onClose) onClose();
+  };
 
   const getStepSubtitle = () => {
     if (currentStep === 1) return "Tell us about yourself";
     if (currentStep === 2) return "Share where you operate";
     if (currentStep === 3 && isHospitality) return "Select business units";
     if (currentStep === 4 && isHospitality) return "Bank details & documents";
-    return "Select business units";
+    return "Complete your registration";
   };
 
   return (
@@ -47,17 +76,7 @@ export default function RegisterUserModal({
         <div>
           <button
             id="register-as-vendor-modal"
-            className="btn btn-primary mt-3"
-            style={{
-              borderRadius: "5px",
-              width:"250px",
-              border:"none",
-              backgroundColor: "white",
-              color: "black",
-              padding: "10px 20px",
-              fontWeight: "500",
-              fontSize: "16px",
-            }}
+            className={styles.triggerBtn}
             onClick={() => setModalShow(true)}
           >
             Register As Vendor
@@ -66,51 +85,42 @@ export default function RegisterUserModal({
       )}
 
       <Modal
-        show={modalShow}
-        onHide={() => {
-          setModalShow(false);
-          if (onClose) onClose();
-        }}
-        centered
-        backdrop="static"
-        size="lg"
-        style={{ backdropFilter: "blur(5px)" }}
+        isOpen={modalShow}
+        onRequestClose={handleClose}
+        ariaHideApp={false}
+        contentLabel="Vendor Registration"
+        shouldCloseOnOverlayClick={false}
+        style={{ overlay: modalOverlayStyle, content: modalContentStyle }}
       >
-        <Modal.Header 
-          closeButton
-          style={{
-            position: "sticky",
-            top: 0,
-            backgroundColor: "white",
-            zIndex: 10,
-            borderBottom: "1px solid #e9ecef",
-            padding: "1rem 1.5rem"
-          }}
-        >
-          <div className="d-flex justify-content-between align-items-start w-100 me-4">
-            <div>
-              <Modal.Title className="mb-1" style={{ fontSize: "1.25rem" }}>Register As Vendor</Modal.Title>
-              <p className="text-muted mb-0" style={{ fontSize: "0.875rem" }}>
-                {getStepSubtitle()}
-              </p>
+        <div className={styles.modalWrap}>
+          {/* Header */}
+          <div className={styles.modalHeader}>
+            <div className={styles.modalHeaderLeft}>
+              <h2>Register As Vendor</h2>
+              <p>{getStepSubtitle()}</p>
             </div>
-            <span className="badge bg-light text-dark px-3 py-2" style={{ marginTop: "0.25rem" }}>
-              Step {currentStep} of {isHospitality ? 4 : 2}
-            </span>
+            <button
+              type="button"
+              className={styles.modalClose}
+              onClick={handleClose}
+            >
+              <BsX size={20} />
+            </button>
           </div>
-        </Modal.Header>
-        <Modal.Body className="p-4">
-          {console.log("Rendering Register component with onRegistrationSuccess:", typeof onRegistrationSuccess)}
-          <Register 
-            registerAs={"vendor"} 
-            onRegistrationSuccess={onRegistrationSuccess}
-            isPaidSubscription={isPaidSubscription}
-            isHospitality={isHospitality}
-            source={source}
-            subscription_plan={subscription_plan}
-            onStepChange={setCurrentStep}
-          />
-        </Modal.Body>
+
+          {/* Body */}
+          <div className={styles.modalBody}>
+            <Register
+              registerAs={"vendor"}
+              onRegistrationSuccess={onRegistrationSuccess}
+              isPaidSubscription={isPaidSubscription}
+              isHospitality={isHospitality}
+              source={source}
+              subscription_plan={subscription_plan}
+              onStepChange={setCurrentStep}
+            />
+          </div>
+        </div>
       </Modal>
     </>
   );

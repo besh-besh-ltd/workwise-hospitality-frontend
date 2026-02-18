@@ -335,6 +335,23 @@ export const uploadUserPaymentTerms = (data) => {
   });
 };
 
+export const uploadRegistrationFile = (file, docType = "registration") => {
+	const payload = new FormData();
+	payload.append("file", file, file.name);
+	payload.append("doc_type", docType);
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosFormData.post(
+				`${process.env.NEXT_PUBLIC_API_URL}/users/registration-upload`,
+				payload
+			);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
 export const handleUploadFiles = (files, type) => {
 	const payload = new FormData();
 	files.forEach((file, i) => {

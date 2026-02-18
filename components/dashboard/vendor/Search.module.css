@@ -1,0 +1,801 @@
+/* ══════════════════════════════════════════════
+   Search Vendor Page — Scoped Styles
+   ══════════════════════════════════════════════ */
+
+/* ── Page Container ──────────────────────────── */
+.page {
+  min-height: calc(100vh - 60px);
+  background: #f4f7fc;
+  padding-top: 80px;
+  padding-bottom: 60px;
+}
+
+/* ── Order Type Selector ─────────────────────── */
+.typeSelector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(32px, 5vw, 72px) clamp(16px, 3vw, 40px) clamp(24px, 3vw, 40px);
+}
+
+.typeSelectorInner {
+  text-align: center;
+  max-width: 680px;
+  width: 100%;
+}
+
+.typeSelectorTitle {
+  font-size: clamp(1.4rem, 2.2vw, 1.9rem);
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.typeSelectorSubtitle {
+  font-size: clamp(0.85rem, 1vw, 1rem);
+  color: #6b7280;
+  margin-bottom: clamp(28px, 4vw, 48px);
+}
+
+.typeCards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(16px, 2vw, 28px);
+}
+
+.typeCard {
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  padding: clamp(24px, 3vw, 40px) clamp(20px, 2.5vw, 32px);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.typeCard:hover {
+  border-color: #2E5BA8;
+  box-shadow: 0 8px 30px rgba(46, 91, 168, 0.12);
+  transform: translateY(-2px);
+}
+
+.typeCard:hover .typeCardArrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.typeCard:active {
+  transform: translateY(0);
+}
+
+.typeIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(
+    135deg,
+    rgba(46, 91, 168, 0.1) 0%,
+    rgba(46, 91, 168, 0.05) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: #2E5BA8;
+  font-size: 24px;
+}
+
+.typeTitle {
+  font-size: clamp(1.1rem, 1.4vw, 1.35rem);
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.typeDesc {
+  font-size: clamp(0.8rem, 0.9vw, 0.92rem);
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.typeCardArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #2E5BA8;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: all 0.25s ease;
+}
+
+/* Login hint */
+.loginHint {
+  text-align: center;
+  padding: 20px 0 0;
+  font-size: 0.88rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.loginHintLink {
+  color: #2E5BA8;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.2s ease;
+}
+
+.loginHintLink:hover {
+  text-decoration-color: #2E5BA8;
+}
+
+/* ── How It Works Guide ──────────────────────── */
+.guideSection {
+  padding: 0 clamp(16px, 3vw, 40px);
+  max-width: 960px;
+  margin: 0 auto clamp(32px, 4vw, 56px);
+}
+
+.guideSectionTitle {
+  font-size: clamp(1.05rem, 1.2vw, 1.2rem);
+  font-weight: 700;
+  color: #111827;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.guideSectionSubtitle {
+  font-size: clamp(0.82rem, 0.9vw, 0.92rem);
+  color: #6b7280;
+  text-align: center;
+  margin-bottom: clamp(20px, 3vw, 32px);
+}
+
+.guideCards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(14px, 1.5vw, 20px);
+}
+
+.guideCard {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: clamp(20px, 2vw, 28px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.guideCard:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.guideCardIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(46, 91, 168, 0.1),
+    rgba(46, 91, 168, 0.04)
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2E5BA8;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.guideCardContent {
+  flex: 1;
+}
+
+.guideCardNum {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #2E5BA8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.guideCardTitle {
+  font-size: clamp(0.9rem, 1vw, 1rem);
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.guideCardDesc {
+  font-size: clamp(0.78rem, 0.85vw, 0.86rem);
+  color: #6b7280;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── Step Indicator ──────────────────────────── */
+.stepsBar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0 clamp(16px, 3vw, 40px);
+  margin-bottom: 24px;
+}
+
+.stepGroup {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.stepClickable {
+  cursor: pointer;
+}
+
+.stepCircle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+}
+
+.stepCirclePending {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border: 2px solid #e5e7eb;
+}
+
+.stepCircleCurrent {
+  background: #ffffff;
+  color: #2E5BA8;
+  border: 2px solid #2E5BA8;
+  box-shadow: 0 0 0 4px rgba(46, 91, 168, 0.12);
+}
+
+.stepCircleCompleted {
+  background: #2E5BA8;
+  color: #ffffff;
+  border: 2px solid #2E5BA8;
+}
+
+.stepLabel {
+  font-size: clamp(0.75rem, 0.85vw, 0.88rem);
+  font-weight: 500;
+  color: #9ca3af;
+  transition: color 0.25s ease;
+}
+
+.stepLabelCurrent {
+  color: #2E5BA8;
+  font-weight: 600;
+}
+
+.stepLabelCompleted {
+  color: #374151;
+  font-weight: 500;
+}
+
+.stepLine {
+  width: clamp(40px, 6vw, 80px);
+  height: 2px;
+  background: #e5e7eb;
+  margin: 0 8px;
+  transition: background 0.25s ease;
+}
+
+.stepLineCompleted {
+  background: #2E5BA8;
+}
+
+/* ── Procurement Header ──────────────────────── */
+.procurementHeader {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  padding: clamp(20px, 2.5vw, 28px);
+  margin: 0 clamp(16px, 3vw, 40px) 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.procurementHeaderTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.hotelSelectGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hotelSelectLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #374151;
+  letter-spacing: 0.01em;
+}
+
+.hotelCount {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #2E5BA8;
+  background: rgba(46, 91, 168, 0.08);
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-left: 4px;
+}
+
+.hotelSelectWrapper {
+  flex: 1;
+}
+
+.hotelWarning {
+  font-size: 0.8rem;
+  color: #d97706;
+  font-weight: 500;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ── Search Bar ──────────────────────────────── */
+.searchSection {
+  padding: 0 clamp(16px, 3vw, 40px);
+  margin-bottom: 24px;
+}
+
+.searchWrapper {
+  max-width: none;
+  margin: 0;
+  position: relative;
+}
+
+.searchBar {
+  width: 100%;
+  padding: 14px 20px 14px 50px;
+  font-size: clamp(0.9rem, 1.05vw, 1.05rem);
+  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #111827;
+  outline: none;
+  transition: all 0.25s ease;
+}
+
+.searchBar::placeholder {
+  color: #9ca3af;
+}
+
+.searchBar:focus {
+  border-color: #2E5BA8;
+  box-shadow: 0 0 0 4px rgba(46, 91, 168, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.searchBarDisabled {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.searchBarDisabled:focus {
+  border-color: #e5e7eb;
+  box-shadow: none;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 18px;
+  top: 17px;
+  color: #9ca3af;
+  font-size: 18px;
+  pointer-events: none;
+  transition: color 0.25s ease;
+}
+
+.searchBar:focus ~ .searchIcon,
+.searchWrapper:focus-within .searchIcon {
+  color: #2E5BA8;
+}
+
+.searchHelper {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* ── Autocomplete Dropdown ───────────────────── */
+.suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  max-height: 420px;
+  overflow-y: auto;
+  z-index: 1050;
+  padding: 8px;
+}
+
+.suggestionsHeader {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 10px 14px 6px;
+}
+
+.suggestionItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.suggestionItem:hover {
+  background: rgba(46, 91, 168, 0.04);
+}
+
+.suggestionContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.suggestionName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestionMeta {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.suggestionBadge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #92400e;
+  background: #fef3c7;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+
+.suggestionsMessage {
+  padding: 20px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.warningTitle {
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: #1f2937;
+}
+
+.warningHint {
+  color: #9ca3af;
+}
+
+.suggestionsSpinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #2E5BA8;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Blur Overlay (behind dropdown) ──────────── */
+.blurOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1040;
+  background: transparent;
+}
+
+/* ── Buttons ─────────────────────────────────── */
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 20px;
+  background: #2E5BA8;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: none;
+  border: 2px solid #2E5BA8;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btnPrimary:hover {
+  background: #264FA0;
+  border-color: #264FA0;
+  color: #ffffff;
+}
+
+.btnPrimary:disabled,
+.btnPrimaryDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnOutline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 20px;
+  background: transparent;
+  color: #2E5BA8;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: none;
+  border: 2px solid #2E5BA8;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btnOutline:hover {
+  background: rgba(46, 91, 168, 0.06);
+  color: #2E5BA8;
+}
+
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 20px;
+  background: #ffffff;
+  color: #374151;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: none;
+  border: 2px solid #d1d5db;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btnSecondary:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+/* ── Hotel Select (react-select overrides) ───── */
+.hotelSelectWrapper :global(.rs__control) {
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  min-height: 42px;
+  box-shadow: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hotelSelectWrapper :global(.rs__control:hover) {
+  border-color: #d1d5db;
+}
+
+.hotelSelectWrapper :global(.rs__control--is-focused) {
+  border-color: #2E5BA8;
+  box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.1);
+}
+
+.hotelSelectWrapper :global(.rs__multi-value) {
+  background: rgba(46, 91, 168, 0.08);
+  border-radius: 6px;
+  border: 1px solid rgba(46, 91, 168, 0.15);
+}
+
+.hotelSelectWrapper :global(.rs__multi-value__label) {
+  color: #264FA0;
+  font-weight: 500;
+  font-size: 0.82rem;
+}
+
+.hotelSelectWrapper :global(.rs__multi-value__remove) {
+  color: #2E5BA8;
+}
+
+.hotelSelectWrapper :global(.rs__multi-value__remove:hover) {
+  background: rgba(46, 91, 168, 0.15);
+  color: #264FA0;
+}
+
+.hotelSelectWrapper :global(.rs__placeholder) {
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.hotelSelectWrapper :global(.rs__menu) {
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  z-index: 1055;
+}
+
+.hotelSelectWrapper :global(.rs__option) {
+  font-weight: 500;
+}
+
+.hotelSelectWrapper :global(.rs__option--is-focused) {
+  background: rgba(46, 91, 168, 0.06);
+}
+
+.hotelSelectWrapper :global(.rs__option--is-selected) {
+  background: #2E5BA8;
+}
+
+/* ── Order Type Badge ────────────────────────── */
+.orderTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.orderTypeTender {
+  background: rgba(46, 91, 168, 0.08);
+  color: #264FA0;
+}
+
+.orderTypeRfq {
+  background: rgba(66, 139, 65, 0.1);
+  color: #2f7a2f;
+}
+
+/* ── Responsive ──────────────────────────────── */
+@media (max-width: 768px) {
+  .typeCards {
+    grid-template-columns: 1fr;
+  }
+
+  .guideCards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .guideCard {
+    flex-direction: row;
+    text-align: left;
+    gap: 16px;
+  }
+
+  .guideCardIcon {
+    margin-bottom: 0;
+  }
+
+  .procurementHeaderTop {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .headerActions {
+    justify-content: flex-start;
+  }
+
+  .stepsBar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .stepLine {
+    width: 24px;
+  }
+
+  .stepLabel {
+    display: none;
+  }
+
+  .btnPrimary,
+  .btnOutline,
+  .btnSecondary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding-top: 60px;
+    padding-bottom: 40px;
+  }
+
+  .typeSelector {
+    padding: 24px 16px;
+  }
+
+  .procurementHeader {
+    margin: 0 12px 16px;
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .searchSection {
+    padding: 0 12px;
+  }
+
+  .guideSection {
+    padding: 0 12px;
+  }
+
+}

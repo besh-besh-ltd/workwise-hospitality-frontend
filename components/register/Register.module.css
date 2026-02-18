@@ -1,0 +1,690 @@
+/* ── Register.module.css ── */
+
+/* ── Modal ─────────────────────────────────────── */
+.modalWrap {
+  background: #fff;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.modalHeaderLeft h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 2px;
+}
+
+.modalHeaderLeft p {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.modalClose {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.modalClose:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.modalBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px 28px;
+}
+
+.modalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
+  border-top: 1px solid #f1f5f9;
+  background: #fafbfc;
+  flex-shrink: 0;
+}
+
+/* ── Loading overlay ───────────────────────────── */
+.loadingOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 16px;
+}
+
+.loadingSpinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #2E5BA8;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Step Indicator ────────────────────────────── */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px 20px;
+}
+
+.stepItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.stepCircle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  border: 2px solid #cbd5e1;
+  color: #94a3b8;
+  background: #fff;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.stepCircle.active {
+  background: #2E5BA8;
+  border-color: #2E5BA8;
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(46, 91, 168, 0.15);
+  animation: stepPulse 2s ease-in-out infinite;
+}
+
+.stepCircle.completed {
+  background: #2E5BA8;
+  border-color: #2E5BA8;
+  color: #fff;
+}
+
+.stepCircle.pending {
+  background: #fff;
+  border-color: #cbd5e1;
+  color: #94a3b8;
+}
+
+@keyframes stepPulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(46, 91, 168, 0.15); }
+  50% { box-shadow: 0 0 0 8px rgba(46, 91, 168, 0.08); }
+}
+
+.stepLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-top: 6px;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.stepLabel.active,
+.stepLabel.completed {
+  color: #2E5BA8;
+  font-weight: 600;
+}
+
+.stepConnector {
+  flex: 1;
+  height: 2px;
+  background: #e2e8f0;
+  min-width: 40px;
+  margin: 0 6px;
+  margin-bottom: 20px;
+  transition: background 0.3s ease;
+}
+
+.stepConnector.completed {
+  background: #2E5BA8;
+}
+
+/* ── Draft Banner ──────────────────────────────── */
+.draftBanner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f2f6ff;
+  border: 1px solid #dbeafe;
+  border-left: 3px solid #2E5BA8;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.draftIcon {
+  color: #2E5BA8;
+  flex-shrink: 0;
+}
+
+.draftText {
+  flex: 1;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.draftActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Form ──────────────────────────────────────── */
+.formGroup {
+  margin-bottom: 18px;
+}
+
+.formLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.formRequired {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.formOptional {
+  font-size: 11px;
+  font-weight: 400;
+  color: #94a3b8;
+  margin-left: 4px;
+}
+
+.formInput {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1e293b;
+  background: #fff;
+  transition: all 0.15s;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.formInput:focus {
+  border-color: #2E5BA8;
+  box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.1);
+}
+
+.formInput::placeholder {
+  color: #94a3b8;
+}
+
+.formInput:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.formSelect {
+  composes: formInput;
+  cursor: pointer;
+  appearance: auto;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.formRow3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.formError {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
+.formHint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+
+/* ── Section Headers ───────────────────────────── */
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 24px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.sectionTitle:first-child {
+  margin-top: 0;
+}
+
+/* ── Password Field ────────────────────────────── */
+.passwordWrap {
+  position: relative;
+}
+
+.eyeBtn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.eyeBtn:hover {
+  color: #64748b;
+}
+
+/* ── OTP Section ───────────────────────────────── */
+.otpRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.otpRow .formInput {
+  flex: 1;
+}
+
+.otpInputWrap {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.otpInput {
+  composes: formInput;
+  max-width: 160px;
+  letter-spacing: 4px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.verifiedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: #dcfce7;
+  color: #16a34a;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.otpHint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 6px;
+}
+
+/* ── File Upload ───────────────────────────────── */
+.fileDropZone {
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: #fafbfc;
+  position: relative;
+}
+
+.fileDropZone:hover {
+  border-color: #2E5BA8;
+  background: #f2f6ff;
+}
+
+.fileDropZone.hasFile {
+  border-style: solid;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.fileDropZone.hasError {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.fileDropIcon {
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+
+.fileDropText {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.fileDropText span {
+  color: #2E5BA8;
+  font-weight: 600;
+}
+
+.fileDropHint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.fileHiddenInput {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.fileInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fileInfoIcon {
+  color: #16a34a;
+  flex-shrink: 0;
+}
+
+.fileInfoName {
+  font-size: 13px;
+  color: #334155;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileRemoveBtn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  flex-shrink: 0;
+}
+
+.fileRemoveBtn:hover {
+  color: #ef4444;
+}
+
+/* ── T&C / CoC Checkboxes ─────────────────────── */
+.tncGroup {
+  margin-top: 20px;
+}
+
+.tncItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 10px;
+}
+
+.tncItem:hover {
+  border-color: #2E5BA8;
+  background: #f2f6ff;
+}
+
+.tncItem.accepted {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.tncCheckbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #16a34a;
+  flex-shrink: 0;
+  margin-top: 1px;
+  pointer-events: none;
+}
+
+.tncLabel {
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.tncLabel strong {
+  color: #2E5BA8;
+}
+
+/* ── Buttons ───────────────────────────────────── */
+.btnPrimary {
+  padding: 10px 24px;
+  background: #2E5BA8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: #264FA0;
+}
+
+.btnPrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnOutline {
+  padding: 10px 24px;
+  background: #fff;
+  color: #334155;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btnOutline:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.btnOutline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnSmall {
+  padding: 7px 14px;
+  font-size: 13px;
+}
+
+.btnSmPrimary {
+  composes: btnPrimary;
+  composes: btnSmall;
+}
+
+.btnSmOutline {
+  composes: btnOutline;
+  composes: btnSmall;
+}
+
+/* ── Country Code Select ───────────────────────── */
+.mobileRow {
+  display: flex;
+  gap: 8px;
+}
+
+.countryCodeSelect {
+  composes: formInput;
+  width: auto;
+  min-width: 100px;
+  max-width: 120px;
+  flex-shrink: 0;
+}
+
+/* ── Hotel Option Label ────────────────────────── */
+.hotelOptionMain {
+  font-weight: 500;
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.hotelOptionSub {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+/* ── React-Select Overrides ────────────────────── */
+.selectInvalid :global(.css-13cymwt-control),
+.selectInvalid :global(.css-t3ipsp-control) {
+  border-color: #ef4444 !important;
+}
+
+/* ── Trigger Button (showButton) ───────────────── */
+.triggerBtn {
+  padding: 10px 28px;
+  background: #fff;
+  color: #1e293b;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.triggerBtn:hover {
+  background: #f8fafc;
+}
+
+/* ── Register Container ────────────────────────── */
+.registerContainer {
+  position: relative;
+}
+
+/* ── Responsive ────────────────────────────────── */
+@media (max-width: 576px) {
+  .modalBody {
+    padding: 16px 18px 20px;
+  }
+
+  .modalHeader {
+    padding: 16px 18px 12px;
+  }
+
+  .modalFooter {
+    padding: 12px 18px;
+  }
+
+  .stepper {
+    padding: 0 0 16px;
+  }
+
+  .stepLabel {
+    display: none;
+  }
+
+  .stepConnector {
+    min-width: 24px;
+    margin-bottom: 0;
+  }
+
+  .formRow,
+  .formRow3 {
+    grid-template-columns: 1fr;
+  }
+
+  .draftBanner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .draftActions {
+    width: 100%;
+  }
+
+  .draftActions button {
+    flex: 1;
+  }
+
+  .mobileRow {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .countryCodeSelect {
+    max-width: 100%;
+  }
+}
