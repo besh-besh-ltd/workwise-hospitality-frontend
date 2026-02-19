@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { BsPencil, BsTrash } from "react-icons/bs";
+import { BsPencil, BsTrash, BsDiagram3 } from "react-icons/bs";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import ApprovalFlowPreview from "../preview/ApprovalFlowPreview";
 import { getEntityTypeConfig, BRAND_TEAL } from "../constants";
 
-const WorkflowCard = ({ policy, onEdit, onDelete, getApproverDisplayInfo }) => {
+const WorkflowCard = ({ policy, onEdit, onDelete, getApproverDisplayInfo, onViewDeptMapping }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const entityConfig = getEntityTypeConfig(policy.entity_type);
   const EntityIcon = entityConfig.icon;
@@ -83,6 +83,15 @@ const WorkflowCard = ({ policy, onEdit, onDelete, getApproverDisplayInfo }) => {
         </div>
 
         <div className="workflow-card-footer">
+          {onViewDeptMapping && (
+            <button
+              className="btn btn-sm d-flex align-items-center gap-1"
+              onClick={() => onViewDeptMapping(policy)}
+              style={{ borderRadius: "6px", fontSize: "12px", padding: "4px 12px", color: BRAND_TEAL, borderColor: BRAND_TEAL, background: "transparent", border: `1px solid ${BRAND_TEAL}` }}
+            >
+              <BsDiagram3 size={11} /> Dept Map
+            </button>
+          )}
           <button
             className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
             onClick={() => onEdit(policy.id)}

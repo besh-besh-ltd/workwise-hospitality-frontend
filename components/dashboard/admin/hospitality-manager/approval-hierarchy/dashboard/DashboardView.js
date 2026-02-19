@@ -1,9 +1,11 @@
-import React, { useMemo } from "react";
-import { BsPlus } from "react-icons/bs";
+import React, { useMemo, useState } from "react";
+import { BsPlus, BsDiagram3 } from "react-icons/bs";
 import ProcessManageBar from "./ProcessManageBar";
-import DepartmentSection from "./DepartmentSection";
+import ProcessSection from "./ProcessSection";
 import EmptyState from "./EmptyState";
+import DepartmentAccessMatrix from "./DepartmentAccessMatrix";
 import { BRAND_TEAL } from "../constants";
+import DepartmentSubGraphPreview from "../preview/DepartmentSubGraphPreview";
 
 const DashboardView = ({
   policies,
@@ -12,55 +14,67 @@ const DashboardView = ({
   onCreateWorkflow,
   onEditWorkflow,
   onDeleteWorkflow,
+  onDeletePolicy,
   onCreateProcess,
   onUpdateProcess,
   onDeleteProcess,
   getApproverDisplayInfo,
+  getDeptSubGraphPreview,
+  onRefreshDepartments,
 }) => {
-  const groupedByDepartment = useMemo(() => {
-    const deptGroups = {};
+  const [previewPolicy, setPreviewPolicy] = useState(null);
+  const [previewData, setPreviewData] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
-    // Create department buckets
-    (departments || []).forEach((dept) => {
-      deptGroups[dept.id] = { department: dept, processGroups: {} };
+  // Group policies by process only (no department dimension)
+  const groupedByProcess = useMemo(() => {
+    const processGroups = {};
+
+    // Initialize process buckets
+    (processes || []).forEach((proc) => {
+      processGroups[proc.id] = { process: proc, policies: [] };
     });
-    deptGroups["no_dept"] = {
-      department: { id: null, name: "No Department Selected" },
-      processGroups: {},
+    processGroups["no_process"] = {
+      process: { id: null, name: "No Process Selected" },
+      policies: [],
     };
 
-    // For each department bucket, initialize process sub-groups
-    Object.keys(deptGroups).forEach((deptKey) => {
-      processes.forEach((proc) => {
-        deptGroups[deptKey].processGroups[proc.id] = { process: proc, policies: [] };
-      });
-      deptGroups[deptKey].processGroups["no_process"] = {
-        process: { id: null, name: "No Process Selected" },
-        policies: [],
-      };
-    });
-
-    // Place each policy into its department → process bucket
+    // Place each policy (master policies only) into its process bucket
     policies.forEach((policy) => {
-      const deptKey = policy.department_id || "no_dept";
       const procKey = policy.process_id || "no_process";
-      const dept = deptGroups[deptKey] || deptGroups["no_dept"];
-      const procGroup = dept.processGroups[procKey] || dept.processGroups["no_process"];
-      procGroup.policies.push(policy);
+      const group = processGroups[procKey] || processGroups["no_process"];
+      group.policies.push(policy);
     });
 
-    return deptGroups;
-  }, [policies, processes, departments]);
+    return processGroups;
+  }, [policies, processes]);
 
   const hasAnyWorkflows = policies.length > 0;
 
-  const namedDeptGroups = Object.entries(groupedByDepartment).filter(
-    ([key]) => key !== "no_dept"
-  );
-  const generalDeptGroup = groupedByDepartment["no_dept"];
+  const handleViewDeptMapping = async (policy) => {
+    setPreviewPolicy(policy);
+    setPreviewLoading(true);
+    try {
+      const data = await getDeptSubGraphPreview(policy.id);
+      setPreviewData(data);
+    } catch (err) {
+      console.error("Error loading preview:", err);
+      setPreviewData(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleClosePreview = () => {
+    setPreviewPolicy(null);
+    setPreviewData(null);
+  };
 
   return (
     <div>
+      {/* Department Access Matrix - collapsible section at top */}
+      <DepartmentAccessMatrix onRefresh={onRefreshDepartments} />
+
       <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
         <div className="flex-grow-1">
           <ProcessManageBar
@@ -96,31 +110,31 @@ const DashboardView = ({
         </div>
       ) : (
         <>
-          {namedDeptGroups.map(([key, group]) => (
-            <DepartmentSection
-              key={key}
-              department={group.department}
-              processGroups={group.processGroups}
-              processes={processes}
-              onEdit={onEditWorkflow}
-              onDelete={onDeleteWorkflow}
-              onCreateWorkflow={onCreateWorkflow}
-              getApproverDisplayInfo={getApproverDisplayInfo}
-            />
-          ))}
-
-          <DepartmentSection
-            department={generalDeptGroup.department}
-            processGroups={generalDeptGroup.processGroups}
-            processes={processes}
-            onEdit={onEditWorkflow}
-            onDelete={onDeleteWorkflow}
-            onCreateWorkflow={onCreateWorkflow}
-            getApproverDisplayInfo={getApproverDisplayInfo}
-            isGeneral
-            defaultOpen={namedDeptGroups.length === 0}
-          />
+          {Object.entries(groupedByProcess).map(([key, group]) => {
+            if (group.policies.length === 0 && key !== "no_process") return null;
+            return (
+              <ProcessSection
+                key={key}
+                process={group.process}
+                policies={group.policies}
+                onEdit={onEditWorkflow}
+                onDeleteWorkflow={onDeleteWorkflow}
+                onDeletePolicy={onDeletePolicy}
+                getApproverDisplayInfo={getApproverDisplayInfo}
+                onViewDeptMapping={handleViewDeptMapping}
+              />
+            );
+          })}
         </>
+      )}
+
+      {previewPolicy && (
+        <DepartmentSubGraphPreview
+          policy={previewPolicy}
+          previewData={previewData}
+          loading={previewLoading}
+          onClose={handleClosePreview}
+        />
       )}
     </div>
   );

@@ -2140,7 +2140,7 @@ const EditRFQ = () => {
                         />
                       </div>
 
-                      {rfqFormDataFromStore.is_tender === 1 && (departments.length > 0 || rfqFormDataFromStore.department_id) && (
+                      {(departments.length > 0 || rfqFormDataFromStore.department_id) && (
                         <div className="col-md-6">
                           {/* Department */}
                           <div className="mb-3">

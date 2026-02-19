@@ -3,11 +3,9 @@ import { BsCheckCircleFill, BsCircleFill, BsCircle } from "react-icons/bs";
 import { BRAND_TEAL } from "../constants";
 
 const steps = [
-  { key: 1, label: "Document Type" },
-  { key: 2, label: "Department" },
-  { key: 3, label: "Process" },
-  { key: 4, label: "Configure" },
-  { key: 5, label: "Review" },
+  { key: 1, label: "Select Process" },
+  { key: 2, label: "Configure Stages" },
+  { key: 3, label: "Review & Save" },
 ];
 
 const WizardStepper = ({ currentStep }) => {

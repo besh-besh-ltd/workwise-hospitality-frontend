@@ -13,7 +13,9 @@ const useProcessData = (companyId) => {
 
   const loadProcesses = async () => {
     try {
-      const response = await getApprovalProcesses({ company_id: companyId });
+      const response = await getApprovalProcesses({
+        company_id: companyId,
+      });
       const data = response?.data?.data || response?.data || [];
       setProcesses(data);
     } catch (error) {
@@ -34,12 +36,13 @@ const useProcessData = (companyId) => {
   }, [companyId]);
 
   const handleCreateProcess = useCallback(
-    async ({ name, description }) => {
+    async ({ name, description, process_type }) => {
       try {
         const response = await createApprovalProcess({
           company_id: parseInt(companyId),
           name,
           description: description || null,
+          process_type: process_type || "RFQ",
         });
         toast.success("Process created successfully");
         await loadProcesses();
