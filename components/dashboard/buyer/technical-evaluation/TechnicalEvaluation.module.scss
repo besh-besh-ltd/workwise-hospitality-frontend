@@ -1,0 +1,1244 @@
+/* ============================================
+   Technical Evaluation - CSS Module
+   ============================================ */
+
+/* --- 1. RFQ Header --- */
+.rfqHeader {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.rfqHero {
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #2E5BA8 0%, #1a4080 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.rfqHeroLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rfqHeroNumber {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.rfqTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.rfqTypeBadge.rfqType {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.rfqTypeBadge.tenderType {
+  background: rgba(243, 232, 255, 0.3);
+  color: #e9d5ff;
+}
+
+.rfqHeroTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.3;
+  color: white;
+}
+
+.rfqHeroProject {
+  font-size: 13px;
+  opacity: 0.8;
+  margin: 0;
+}
+
+.rfqHeroActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.viewRfqBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.viewRfqBtn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.6);
+  color: #fff;
+  text-decoration: none;
+}
+
+.rfqMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+}
+
+.rfqMetaItem {
+  padding: 14px 20px;
+  border-right: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.rfqMetaItem:nth-child(3n) {
+  border-right: none;
+}
+
+.rfqMetaItem:nth-last-child(-n+3) {
+  border-bottom: none;
+}
+
+.rfqMetaIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f0f4fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #2E5BA8;
+}
+
+.rfqMetaContent {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rfqMetaLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.rfqMetaValue {
+  font-size: 13px;
+  font-weight: 500;
+  color: #212529;
+  word-break: break-word;
+}
+
+
+/* --- 2. Product Cards --- */
+.productCard {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid #2E5BA8;
+  border-radius: 0 12px 12px 0;
+  margin-bottom: 24px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.productHeader {
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f8fbff 0%, #ffffff 100%);
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.productHeaderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.productBadge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #2E5BA8;
+  background: #e8efff;
+  padding: 3px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  width: fit-content;
+}
+
+.productName {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+.productSpec {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.productBody {
+  padding: 20px;
+}
+
+
+/* --- 3. Scoring Table --- */
+.tableWrapper {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.tableWrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tableWrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.tableWrapper::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 3px;
+}
+
+.tableWrapper::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.scoringTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 0;
+}
+
+.scoringTable th,
+.scoringTable td {
+  padding: 10px 14px;
+  vertical-align: top;
+  border-bottom: 1px solid #eef0f2;
+  font-size: 13px;
+}
+
+.scoringTable thead th {
+  background: #f8fafc;
+  color: #2E5BA8;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 2px solid #2E5BA8;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* Sticky first column */
+.scoringTable th:first-child,
+.scoringTable td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #ffffff;
+  border-right: 2px solid #eef0f2;
+  width: 280px;
+  min-width: 280px;
+}
+
+.scoringTable thead th:first-child {
+  z-index: 3;
+  background: #f8fafc;
+}
+
+/* Alternating rows */
+.scoringTable tbody tr:nth-child(even) td {
+  background-color: #fafbfc;
+}
+
+.scoringTable tbody tr:nth-child(even) td:first-child {
+  background-color: #fafbfc;
+}
+
+/* Row hover */
+.scoringTable tbody tr:hover td {
+  background-color: #f0f6ff;
+}
+
+.scoringTable tbody tr:hover td:first-child {
+  background-color: #f0f6ff;
+}
+
+
+/* --- 4. Vendor Headers --- */
+.vendorHeader {
+  min-width: 200px;
+}
+
+.vendorHeaderTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.vendorCode {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.vendorScore {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.vendorScoreBar {
+  width: 100%;
+  height: 4px;
+  background: #e9ecef;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.vendorScoreBarFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.vendorScoreBarPass {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.vendorScoreBarFail {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.vendorBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+.vendorMeta {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e9ecef;
+  line-height: 1.6;
+}
+
+/* Column tinting */
+.vendorColPassed {
+  background-color: #f0faf0 !important;
+}
+
+.vendorColFailed {
+  background-color: #fef5f5 !important;
+}
+
+.vendorColNotEvaluated {
+  background-color: #f8f9fa !important;
+}
+
+.vendorMenuBtn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+}
+
+.vendorMenuBtn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+
+/* --- 5. Action Buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnPrimary {
+  background: #2E5BA8;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(46, 91, 168, 0.2);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: #1a4080;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(46, 91, 168, 0.3);
+}
+
+.btnOutline {
+  background: transparent;
+  color: #2E5BA8;
+  border: 1px solid #2E5BA8;
+}
+
+.btnOutline:hover:not(:disabled) {
+  background: #f0f4fa;
+  transform: translateY(-1px);
+}
+
+.btnSuccess {
+  background: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.2);
+}
+
+.btnSuccess:hover:not(:disabled) {
+  background: #15803d;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(22, 163, 74, 0.3);
+}
+
+.btnDanger {
+  background: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.2);
+}
+
+.btnDanger:hover:not(:disabled) {
+  background: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(220, 38, 38, 0.3);
+}
+
+.btnDisabled {
+  background: #9e9e9e;
+  color: #ffffff;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btnSecondary {
+  background: #6b7280;
+  color: #ffffff;
+}
+
+.btnSecondary:hover:not(:disabled) {
+  background: #4b5563;
+  transform: translateY(-1px);
+}
+
+.btnLg {
+  padding: 10px 22px;
+  font-size: 14px;
+  border-radius: 8px;
+}
+
+
+/* --- 6. Score Display --- */
+.scoreChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.scoreChipScored {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.scoreChipUnscored {
+  background: #f1f5f9;
+  color: #94a3b8;
+  font-weight: 500;
+  font-size: 13px;
+  font-style: normal;
+}
+
+/* Clickable score chip — the score IS the button */
+.scoreChipClickable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.scoreChipClickable:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+/* Vendor disagrees — amber accent on score */
+.scoreChipAlert {
+  background: #fff7ed;
+  color: #c2410c;
+  border-left: 3px solid #f97316;
+}
+
+/* Deviation indicator dot */
+.deviationDot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  padding: 0;
+  opacity: 0.35;
+  flex-shrink: 0;
+}
+
+.deviationDot:hover {
+  background: #f0f4fa;
+  color: #2E5BA8;
+  opacity: 1;
+}
+
+.deviationDot:disabled {
+  cursor: not-allowed;
+  opacity: 0.15;
+}
+
+.deviationDotActive {
+  color: #2E5BA8;
+  opacity: 0.7;
+  background: #f0f4fa;
+}
+
+.deviationDotActive:hover {
+  opacity: 1;
+}
+
+.passingScore {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f0f4fa;
+  border: 1px solid #b6d4fe;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #2E5BA8;
+  font-weight: 500;
+}
+
+.passingScoreIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #2E5BA8;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+
+/* --- 7. Deviation Preview --- */
+.deviationPreview {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  font-size: 11px;
+  line-height: 1.5;
+  max-width: 220px;
+}
+
+.deviationPreviewMsg {
+  color: #495057;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* --- 8. Scoring Modal --- */
+.scoreModal :global(.modal-content) {
+  border: none;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.scoreModalAccent {
+  height: 4px;
+  background: linear-gradient(90deg, #2E5BA8 0%, #428B41 100%);
+}
+
+.scoreModalHeader {
+  padding: 20px 24px 12px;
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.scoreModalIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #f0f4fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2E5BA8;
+  flex-shrink: 0;
+}
+
+.scoreModalTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.scoreModalContext {
+  padding: 12px 24px;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 13px;
+  color: #495057;
+  line-height: 1.6;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.scoreModalContextItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.scoreModalContextLabel {
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.scoreModalBody {
+  padding: 24px;
+}
+
+.scoreModalDisplay {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.scoreModalValue {
+  font-size: 28px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.scoreModalMax {
+  font-size: 16px;
+  color: #94a3b8;
+}
+
+.scoreModalPercentage {
+  font-size: 14px;
+  font-weight: 600;
+  margin-left: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.scoreModalPercentagePass {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.scoreModalPercentageFail {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.scoreModalFooter {
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: #fafbfc;
+}
+
+
+/* --- 9. Empty State --- */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.emptyStateIcon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f0f4fa 0%, #e3ecf9 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  color: #2E5BA8;
+}
+
+.emptyStateTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.emptyStateDescription {
+  font-size: 14px;
+  color: #94a3b8;
+  max-width: 400px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+
+/* --- 10. Progress Tracker --- */
+.progressTracker {
+  margin-bottom: 20px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.progressTrackerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.progressTrackerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.progressTrackerIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progressTrackerIconComplete {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.progressTrackerIconProgress {
+  background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+}
+
+.progressTrackerTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.progressBar {
+  width: 100%;
+  height: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.progressBarFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progressBarComplete {
+  background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+}
+
+.progressBarProgress {
+  background: linear-gradient(90deg, #0d6efd 0%, #0a58ca 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.progressStats {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.progressStat {
+  flex: 1 1 auto;
+  min-width: 160px;
+}
+
+.progressStatLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.progressStatValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: #212529;
+}
+
+.progressStatTotal {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6c757d;
+  margin-left: 4px;
+}
+
+
+/* --- 11. Approved Banner --- */
+.approvedBanner {
+  margin: 20px 0 16px;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+  border: 1px solid #c8e6c9;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.approvedBannerIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #43a047, #66bb6a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(67, 160, 71, 0.3);
+  color: #fff;
+}
+
+.approvedBannerContent {
+  flex: 1;
+}
+
+.approvedBannerTitle {
+  font-weight: 700;
+  font-size: 15px;
+  color: #2e7d32;
+  margin-bottom: 2px;
+}
+
+.approvedBannerSubtitle {
+  font-size: 13px;
+  color: #558b2f;
+}
+
+.approvedBannerBadge {
+  padding: 6px 14px;
+  border-radius: 20px;
+  background-color: #43a047;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+
+/* --- 12. Vendor Response Table --- */
+.responseTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.responseTable th,
+.responseTable td {
+  padding: 12px 16px;
+  vertical-align: top;
+  border-bottom: 1px solid #eef0f2;
+  font-size: 13px;
+}
+
+.responseTable thead th {
+  background: #f8fafc;
+  color: #2E5BA8;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 2px solid #2E5BA8;
+  white-space: nowrap;
+}
+
+.responseTable tbody tr:nth-child(even) td {
+  background-color: #fafbfc;
+}
+
+.responseTable tbody tr:hover td {
+  background-color: #f0f6ff;
+}
+
+.responseTableCol1 {
+  width: 45%;
+}
+
+.responseTableCol2 {
+  width: 15%;
+}
+
+.responseTableCol3 {
+  width: 25%;
+}
+
+.responseTableCol4 {
+  width: 15%;
+}
+
+.vendorStatusTag {
+  display: inline-block;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.vendorStatusAccepted {
+  background-color: #16a34a;
+  color: #fff;
+}
+
+.vendorStatusRejected {
+  background-color: #dc2626;
+  color: #fff;
+}
+
+.vendorResponseHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.vendorResponseTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+.vendorResponseActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vendorResponseMeta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+
+/* --- 13. Clause Cell --- */
+.clauseCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clauseMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.clauseWeightage {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  background: #f0f0f0;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* --- Vendor Cell --- */
+.vendorCell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* Score row: score chip + files inline */
+.vendorScoreRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Deviation link — visible but lightweight */
+.deviationLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #2E5BA8;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.deviationLink:hover {
+  text-decoration: underline;
+}
+
+.deviationLink:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.deviationLink:disabled:hover {
+  text-decoration: none;
+}
+
+/* --- File Buttons --- */
+.fileButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.fileButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: #f0f4fa;
+  color: #2E5BA8;
+  font-size: 11px;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid #dce5f0;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.fileButton:hover {
+  background: #e0eaff;
+  border-color: #a8c4f0;
+  color: #1a4080;
+  text-decoration: none;
+}
+
+/* --- Vendor Actions Group --- */
+.vendorActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* --- Compact vendor score line (score + bar + pass/fail on one row) --- */
+.vendorScoreLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.vendorScoreLine .vendorScore {
+  font-size: 15px;
+  margin-bottom: 0;
+}
+
+.vendorScoreLine .vendorScoreBar {
+  flex: 1;
+  margin-bottom: 0;
+  min-width: 40px;
+}
+
+/* --- Vendor Meta with icons --- */
+.vendorMetaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vendorMetaItem svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* --- Products heading --- */
+.productsHeading {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+  padding-top: 8px;
+}
+
+
+/* --- 14. Responsive --- */
+@media (max-width: 991px) {
+  .rfqMetaGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rfqHero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rfqHeroActions {
+    width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .rfqMetaGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .rfqMetaItem {
+    border-right: none;
+  }
+
+  .productHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .progressStats {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .approvedBanner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .vendorResponseHeader {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .vendorResponseActions {
+    flex-wrap: wrap;
+  }
+}
