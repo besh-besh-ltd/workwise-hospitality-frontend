@@ -519,6 +519,12 @@ const DepartmentSubGraphPreview = ({ policy, previewData, loading, onClose }) =>
           background: ${BRAND_TEAL_LIGHT};
           border-color: rgba(21, 137, 147, 0.2);
         }
+        .dsg-approver-dept {
+          font-size: 10px;
+          color: #94a3b8;
+          font-weight: 500;
+          margin-left: 1px;
+        }
         .dsg-no-approvers {
           font-size: 12px;
           color: #94a3b8;
@@ -558,6 +564,36 @@ const DepartmentSubGraphPreview = ({ policy, previewData, loading, onClose }) =>
           height: 4px;
           border-radius: 50%;
           background: #cbd5e1;
+        }
+
+        /* ===== ALL-ACCESS BANNER ===== */
+        .dsg-all-access-banner {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 14px;
+          margin-bottom: 14px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+          border: 1px solid #bbf7d0;
+          font-size: 13px;
+          color: #166534;
+          line-height: 1.45;
+        }
+        .dsg-all-access-banner-icon {
+          flex-shrink: 0;
+          width: 28px;
+          height: 28px;
+          min-width: 28px;
+          border-radius: 7px;
+          background: #dcfce7;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #16a34a;
+        }
+        .dsg-all-access-dept-name {
+          font-weight: 700;
         }
 
         /* ===== LOADING SKELETON ===== */
@@ -765,6 +801,19 @@ const DepartmentSubGraphPreview = ({ policy, previewData, loading, onClose }) =>
                   Shows how the master approval workflow resolves for each department based on
                   access type and role assignments.
                 </div>
+                {previewData.all_access_departments?.length > 0 && (
+                  <div className="dsg-all-access-banner">
+                    <div className="dsg-all-access-banner-icon">
+                      <BsShieldFillCheck size={14} />
+                    </div>
+                    <div>
+                      <span className="dsg-all-access-dept-name">
+                        {previewData.all_access_departments.map(d => d.title).join(", ")}
+                      </span>
+                      {" "}users are included in every department below (ALL access)
+                    </div>
+                  </div>
+                )}
                 {previewData.department_subgraphs.map((sg) => (
                   <DeptCard
                     key={sg.department.id}
@@ -910,6 +959,9 @@ const StepRow = ({ step }) => {
               <span key={approver.id} className="dsg-approver-chip">
                 <BsPersonFill size={11} style={{ color: BRAND_TEAL, flexShrink: 0 }} />
                 {approver.name}
+                {approver.department_name && (
+                  <span className="dsg-approver-dept">({approver.department_name})</span>
+                )}
               </span>
             ))}
             {step.approver_count > step.approvers.length && (

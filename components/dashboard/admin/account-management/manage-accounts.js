@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Pagination from "@/components/shared/Pagination";
 import CustomRolePermissionsModal from "@/components/modal/CustomRolePermissionsModal";
 import { getCompanyUsers, updateUserAccount, getProfile } from "@/services/Auth";
@@ -60,6 +60,25 @@ const ManageAccountsPage = () => {
 
   const [editModal, setEditModal] = useState({ open: false, account: null });
   const [showCustomRolesModal, setShowCustomRolesModal] = useState(false);
+
+  // Debounced search to prevent input thrashing
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const searchTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 300);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [filters.search]);
+
+  // Stable ref for mappings to avoid filter re-triggers during async loading
+  const mappingsRef = useRef(userHospitalityMappings);
+  const [mappingsReady, setMappingsReady] = useState(false);
+  useEffect(() => {
+    mappingsRef.current = userHospitalityMappings;
+  }, [userHospitalityMappings]);
 
   // ── API calls ──────────────────────────────────────────────
 
@@ -167,20 +186,22 @@ const ManageAccountsPage = () => {
 
   useEffect(() => {
     if (accounts.length && isHospitalityCompany) {
-      Promise.all(accounts.map((u) => fetchUserMapping(u.id)));
+      setMappingsReady(false);
+      Promise.all(accounts.map((u) => fetchUserMapping(u.id)))
+        .then(() => setMappingsReady(true));
       Promise.all(accounts.map((u) => fetchUserRoleScopesForUser(u.id)));
     }
   }, [isHospitalityCompany, accounts]);
 
-  // Filtering
+  // Filtering — uses debounced search and stable mappings ref
   useEffect(() => {
     let filtered = accounts;
 
     if (filters.status)
       filtered = filtered.filter((u) => u.status === filters.status.value);
 
-    if (filters.search.trim()) {
-      const q = filters.search.trim().toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
       filtered = filtered.filter(
         (u) =>
           (u.name || "").toLowerCase().includes(q) ||
@@ -192,7 +213,7 @@ const ManageAccountsPage = () => {
     if (filters.companyId) {
       const companyId = filters.companyId.value;
       filtered = filtered.filter((u) => {
-        const mappings = userHospitalityMappings[u.id] || [];
+        const mappings = mappingsRef.current[u.id] || [];
         return mappings.some((m) => m.hospitality_company_id == companyId);
       });
     }
@@ -200,14 +221,14 @@ const ManageAccountsPage = () => {
     if (filters.hotelId) {
       const hotelId = filters.hotelId.value;
       filtered = filtered.filter((u) => {
-        const mappings = userHospitalityMappings[u.id] || [];
+        const mappings = mappingsRef.current[u.id] || [];
         return mappings.some((m) => m.hospitality_hotel_id == hotelId);
       });
     }
 
     setFilteredAccounts(filtered);
-    setPagination((prev) => ({ ...prev, page: 1 }));
-  }, [filters, accounts, userHospitalityMappings]);
+    setPagination((prev) => prev.page === 1 ? prev : { ...prev, page: 1 });
+  }, [debouncedSearch, filters.status, filters.companyId, filters.hotelId, accounts, mappingsReady]);
 
   // ── Derived values ─────────────────────────────────────────
 

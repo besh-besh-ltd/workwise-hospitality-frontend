@@ -19,7 +19,7 @@ const ACCESS_ALL = "ALL";
 const ACCESS_INDIVIDUAL = "INDIVIDUAL";
 
 const DepartmentAccessMatrix = ({ departments: initialDepartments, onRefresh }) => {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [originalMap, setOriginalMap] = useState({});
   const [loading, setLoading] = useState(false);

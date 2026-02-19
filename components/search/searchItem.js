@@ -42,7 +42,7 @@ const SearchItem = ({
         </div>
 
         <div className="mdl-con-btm mb-4 h-auto" >
-          {data.id == "**" && !data.sp && (
+          {false && data.id == "**" && !data.sp && (
             <div className="list_item_disabled">
               <span>You need to purchase subscription to view this vendor</span>
             </div>

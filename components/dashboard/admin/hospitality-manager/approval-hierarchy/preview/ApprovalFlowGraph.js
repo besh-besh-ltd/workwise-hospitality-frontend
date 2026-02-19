@@ -156,9 +156,9 @@ const ApprovalFlowGraph = ({
         }
         .role-user-item {
           display: flex;
-          align-items: center;
+          align-items: baseline;
           gap: 8px;
-          padding: 4px 0;
+          padding: 5px 0;
         }
         .role-user-item + .role-user-item {
           border-top: 1px solid #f3f4f6;
@@ -168,9 +168,27 @@ const ApprovalFlowGraph = ({
           font-weight: 600;
           color: #1a1a1a;
         }
+        .user-info-row {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 4px 6px;
+        }
         .user-email {
           font-size: 11px;
           color: #6b7280;
+        }
+        .user-dept-badge {
+          display: inline-block;
+          background: #f0fdf4;
+          color: #166534;
+          border: 1px solid #bbf7d0;
+          border-radius: 4px;
+          padding: 0px 5px;
+          font-size: 10px;
+          font-weight: 500;
+          line-height: 16px;
+          white-space: nowrap;
         }
         .connector-line {
           width: 2px;
@@ -253,14 +271,19 @@ const ApprovalFlowGraph = ({
                               </button>
                               <div
                                 className="accordion-body"
-                                style={{ maxHeight: isOpen ? "400px" : 0 }}
+                                style={{ maxHeight: isOpen ? "none" : 0 }}
                               >
                                 <div className="role-users-list">
                                   {info.users.map((user, idx) => (
                                     <div key={user.user_id || idx} className="role-user-item">
-                                      <div>
+                                      <div style={{ minWidth: 0 }}>
                                         <div className="user-name">{user.name}</div>
-                                        {user.email && <div className="user-email">{user.email}</div>}
+                                        <div className="user-info-row">
+                                          {user.email && <span className="user-email">{user.email}</span>}
+                                          {user.departmentNames?.map((dept, di) => (
+                                            <span key={di} className="user-dept-badge">{dept}</span>
+                                          ))}
+                                        </div>
                                       </div>
                                     </div>
                                   ))}

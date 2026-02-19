@@ -6,7 +6,7 @@ import {
   deleteApprovalPolicy,
   getDepartmentSubGraphPreview as fetchDepartmentPreview,
 } from "@/services/approval";
-import { getRoles, getUserRoleScopes, getDepartments } from "@/services/rbac";
+import { getRoles, getUserRoleScopes, getUserDepartments, getDepartments } from "@/services/rbac";
 import { getCompanyUserMappings, getHospitalityHotels } from "@/services/hospitality";
 
 const useApprovalData = (companyId, hotelId) => {
@@ -16,6 +16,7 @@ const useApprovalData = (companyId, hotelId) => {
   const [roles, setRoles] = useState([]);
   const [users, setUsers] = useState([]);
   const [userRoleScopes, setUserRoleScopes] = useState({});
+  const [userDepartmentsMap, setUserDepartmentsMap] = useState({});
   const [departments, setDepartments] = useState([]);
 
   const loadHotel = async () => {
@@ -72,9 +73,14 @@ const useApprovalData = (companyId, hotelId) => {
           try {
             const response = await getUserRoleScopes(userId);
             const scopes = response?.data?.data || response?.data || [];
-            return { userId, scopes: scopes.map((s) => ({ role_id: s.role_id, department_id: s.department_id ?? null })) };
+            return { userId, scopes: scopes.map((s) => ({
+              role_id: s.role_id,
+              department_id: s.department_id ?? null,
+              company_id: s.company_id ?? null,
+              hotel_id: s.hotel_id ?? null,
+            })) };
           } catch (error) {
-            return { userId, roleIds: [] };
+            return { userId, scopes: [] };
           }
         })
       );
@@ -85,6 +91,29 @@ const useApprovalData = (companyId, hotelId) => {
       setUserRoleScopes(map);
     } catch (error) {
       console.error("Error loading user role scopes:", error);
+    }
+  };
+
+  const loadUserDepartmentsMap = async (userIds) => {
+    try {
+      const results = await Promise.all(
+        userIds.map(async (userId) => {
+          try {
+            const response = await getUserDepartments(userId);
+            const depts = response?.data?.data || response?.data || [];
+            return { userId, depts };
+          } catch {
+            return { userId, depts: [] };
+          }
+        })
+      );
+      const map = {};
+      results.forEach(({ userId, depts }) => {
+        map[userId] = depts;
+      });
+      setUserDepartmentsMap(map);
+    } catch (error) {
+      console.error("Error loading user departments:", error);
     }
   };
 
@@ -106,7 +135,8 @@ const useApprovalData = (companyId, hotelId) => {
         new Map(allUsers.map((user) => [user.user_id, user])).values()
       );
       setUsers(uniqueUsers);
-      await loadUserRoleScopesMap(uniqueUsers.map((u) => u.user_id));
+      const uids = uniqueUsers.map((u) => u.user_id);
+      await Promise.all([loadUserRoleScopesMap(uids), loadUserDepartmentsMap(uids)]);
     } catch (error) {
       console.error("Error loading users:", error);
     }
@@ -151,15 +181,23 @@ const useApprovalData = (companyId, hotelId) => {
   const getUsersByRole = useCallback(
     (roleId, departmentId) => {
       if (!roleId) return [];
+      const cId = parseInt(companyId);
+      const hId = parseInt(hotelId);
       return users.filter((user) => {
         const scopes = userRoleScopes[user.user_id] || [];
-        return scopes.some((scope) =>
-          scope.role_id === roleId &&
-          (departmentId == null || scope.department_id === null || scope.department_id === departmentId)
-        );
+        return scopes.some((scope) => {
+          if (scope.role_id !== roleId) return false;
+          // Scope must belong to this company (or be unscoped)
+          if (scope.company_id && scope.company_id !== cId) return false;
+          // Scope must belong to this hotel (or be unscoped / company-wide)
+          if (scope.hotel_id && scope.hotel_id !== hId) return false;
+          // Department filter
+          if (departmentId != null && scope.department_id !== null && scope.department_id !== departmentId) return false;
+          return true;
+        });
       });
     },
-    [users, userRoleScopes]
+    [users, userRoleScopes, companyId, hotelId]
   );
 
   const getApproverOptions = useCallback(
@@ -178,6 +216,14 @@ const useApprovalData = (companyId, hotelId) => {
     [users, roles]
   );
 
+  const getUserDeptNames = useCallback(
+    (userId) => {
+      const depts = userDepartmentsMap[userId] || [];
+      return depts.map((d) => d.title).filter(Boolean);
+    },
+    [userDepartmentsMap]
+  );
+
   const getApproverDisplayInfo = useCallback(
     (step, departmentId) => {
       if (step.approver_source_type === "USER") {
@@ -187,22 +233,26 @@ const useApprovalData = (companyId, hotelId) => {
           email: user?.email || "",
           type: "User",
           typeLabel: "Specific User",
-          users: user ? [user] : [],
+          users: user ? [{ ...user, departmentNames: getUserDeptNames(user.user_id) }] : [],
         };
       } else if (step.approver_source_type === "ROLE") {
         const role = roles.find((r) => r.id === step.approver_source_id);
         const roleUsers = getUsersByRole(step.approver_source_id, departmentId);
+        const enrichedUsers = roleUsers.map((u) => ({
+          ...u,
+          departmentNames: getUserDeptNames(u.user_id),
+        }));
         return {
           name: role?.title || "Unknown Role",
           email: "",
           type: "Role",
           typeLabel: "User Role",
-          users: roleUsers,
+          users: enrichedUsers,
         };
       }
       return { name: "Unknown", email: "", type: "", typeLabel: "", users: [] };
     },
-    [users, roles, getUsersByRole]
+    [users, roles, getUsersByRole, getUserDeptNames]
   );
 
   const handleDeletePolicy = useCallback(
