@@ -2,15 +2,18 @@ import React, { useState } from "react";
 import { Collapse } from "react-bootstrap";
 import { BsChevronDown, BsChevronRight } from "react-icons/bs";
 import WorkflowCard from "./WorkflowCard";
+import ProcessWorkflowCard from "./ProcessWorkflowCard";
 import EmptyState from "./EmptyState";
 
 const ProcessSection = ({
   process,
   policies,
   onEdit,
-  onDelete,
+  onDeleteWorkflow,
+  onDeletePolicy,
   onCreateWorkflow,
   getApproverDisplayInfo,
+  onViewDeptMapping,
   defaultOpen = true,
   isGeneral = false,
   isNested = false,
@@ -65,7 +68,7 @@ const ProcessSection = ({
             {isGeneral ? "No Process Selected" : process.name}
           </span>
           <span className="process-count">
-            ({policies.length} {policies.length === 1 ? "workflow" : "workflows"})
+            ({process.id ? "1 workflow" : `${policies.length} workflow${policies.length !== 1 ? "s" : ""}`})
           </span>
         </div>
         {process.description && !isGeneral && (
@@ -85,6 +88,16 @@ const ProcessSection = ({
                 subtitle="Create a workflow to define approval steps for this process."
                 onCreateWorkflow={onCreateWorkflow}
               />
+            ) : process.id ? (
+              <div className="col-12">
+                <ProcessWorkflowCard
+                  process={process}
+                  policies={policies}
+                  onEdit={onEdit}
+                  onDelete={onDeleteWorkflow}
+                  getApproverDisplayInfo={getApproverDisplayInfo}
+                />
+              </div>
             ) : (
               <div className="row g-3">
                 {policies.map((policy) => (
@@ -92,8 +105,9 @@ const ProcessSection = ({
                     <WorkflowCard
                       policy={policy}
                       onEdit={onEdit}
-                      onDelete={onDelete}
+                      onDelete={onDeletePolicy}
                       getApproverDisplayInfo={getApproverDisplayInfo}
+                      onViewDeptMapping={onViewDeptMapping}
                     />
                   </div>
                 ))}

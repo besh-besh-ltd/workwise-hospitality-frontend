@@ -336,7 +336,8 @@ const CreateRFQ = () => {
       const response = await getDepartments();
       const depts = (response?.data?.data || response?.data || []).map((d) => ({
         value: d.id,
-        label: d.title || d.name
+        label: d.title || d.name,
+        accessType: d.access_type || 'INDIVIDUAL'
       }));
       setDepartments(depts);
     } catch (error) {
@@ -909,6 +910,12 @@ useEffect(() => {
 
     // Project is optional - no validation needed
 
+    // Department is required when departments are available
+    if (departments.length > 0 && !formDataCopy.department_id) {
+      toast.error("Please select a department");
+      setMainLoading(false);
+      return false;
+    }
 
     if (!validateVendors()) {
       setMainLoading(false);
@@ -2425,14 +2432,6 @@ useEffect(() => {
       )}
 
       <div className="create-rfq-con">
-        {/* If no active subscription is found */}
-        {userProfile && !userProfile?.subscription_plan_id ? (
-          <div class="subscription_required">
-            <span>
-              You need to purchase subscription to perform this action
-            </span>
-          </div>
-        ) : (
           <>
             {/* Add Products Button */}
             <div className="details-table mt-0">
@@ -2798,9 +2797,9 @@ useEffect(() => {
                                   />
                                 </div>
 
-                                {rfqFormDataFromStore.is_tender === 1 && departments.length > 0 && (
+                                {departments.length > 0 && (
                                   <div className="col-md-4">
-                                    <label className="form-label fw-medium">Department</label>
+                                    <label className="form-label fw-medium">Department <span className="text-danger">*</span></label>
                                     <Select
                                       id="select_department-create_rfq_page"
                                       options={departments}
@@ -2816,6 +2815,31 @@ useEffect(() => {
                                       classNamePrefix="react-select"
                                       isClearable
                                     />
+                                    {rfqFormDataFromStore.department_id && (() => {
+                                      const selectedDept = departments.find(d => d.value === rfqFormDataFromStore.department_id);
+                                      if (!selectedDept) return null;
+                                      return (
+                                        <small className="d-block mt-1" style={{ fontSize: "11px" }}>
+                                          <span
+                                            style={{
+                                              padding: "1px 8px",
+                                              borderRadius: "10px",
+                                              fontSize: "10px",
+                                              fontWeight: 600,
+                                              backgroundColor: selectedDept.accessType === "ALL" ? "#dcfce7" : "#dbeafe",
+                                              color: selectedDept.accessType === "ALL" ? "#166534" : "#1e40af",
+                                            }}
+                                          >
+                                            {selectedDept.accessType}
+                                          </span>
+                                          <span className="text-muted ms-1">
+                                            {selectedDept.accessType === "ALL"
+                                              ? "Approvers from any department can approve"
+                                              : "Only department members can approve"}
+                                          </span>
+                                        </small>
+                                      );
+                                    })()}
                                   </div>
                                 )}
 
@@ -3233,7 +3257,6 @@ useEffect(() => {
               )}
             </div>
           </>
-        )}
       </div>
 
       {/* Modals */}

@@ -1,23 +1,19 @@
 import React from "react";
 import { BsCheckCircle } from "react-icons/bs";
-import ApprovalFlowPreview from "../preview/ApprovalFlowPreview";
-import { getEntityTypeConfig, BRAND_TEAL } from "../constants";
+import ApprovalFlowGraph from "../preview/ApprovalFlowGraph";
+import { BRAND_TEAL, getStagesForProcessType } from "../constants";
 
 const StepReviewSave = ({
-  wizardForm,
-  processes,
-  departments,
+  process,
+  stages,
   hotel,
   getApproverDisplayInfo,
 }) => {
-  const entityConfig = getEntityTypeConfig(wizardForm.entity_type);
-  const EntityIcon = entityConfig.icon;
-  const departmentName = wizardForm.department_id
-    ? (departments || []).find((d) => d.id === wizardForm.department_id)?.title || "Unknown"
-    : "No Department Selected";
-  const processName = wizardForm.process_id
-    ? processes.find((p) => p.id === wizardForm.process_id)?.name || "Unknown"
-    : "No Process Selected";
+  const processName = process?.name || "Unknown Process";
+  const isRfqRoute = (process?.process_type || "").toUpperCase() === "RFQ";
+  const flowLabel = isRfqRoute
+    ? "RFQ → Technical → Quote → PO"
+    : "Tender → Technical → Quote → ARC";
 
   return (
     <div>
@@ -57,16 +53,12 @@ const StepReviewSave = ({
           font-size: 15px;
           font-weight: 600;
           color: #1a1a1a;
-          display: flex;
-          align-items: center;
-          gap: 8px;
         }
         .flow-review-container {
           background: #fff;
           border: 1px solid #e5e7eb;
           border-radius: 10px;
           padding: 20px;
-          max-width: 600px;
           margin: 0 auto;
         }
         .flow-review-header {
@@ -75,7 +67,7 @@ const StepReviewSave = ({
           color: #6b7280;
           padding-bottom: 12px;
           border-bottom: 1px solid #f3f4f6;
-          margin-bottom: 8px;
+          margin-bottom: 16px;
           text-align: center;
         }
         .info-banner {
@@ -99,49 +91,43 @@ const StepReviewSave = ({
         }
       `}</style>
 
-      <h4 className="step-heading">Review Your Workflow</h4>
+      <h4 className="step-heading">Review your workflow</h4>
       <p className="step-subtext">
-        Verify the details below before saving.
+        Verify the process and approval stages before saving.
       </p>
 
       <div className="summary-grid">
         <div className="summary-card">
-          <div className="summary-label">Document Type</div>
-          <div className="summary-value">
-            <EntityIcon size={18} style={{ color: entityConfig.color }} />
-            {entityConfig.label}
-          </div>
-        </div>
-        <div className="summary-card">
-          <div className="summary-label">Department</div>
-          <div className="summary-value">{departmentName}</div>
-        </div>
-        <div className="summary-card">
           <div className="summary-label">Process</div>
           <div className="summary-value">{processName}</div>
+        </div>
+        <div className="summary-card">
+          <div className="summary-label">Flow</div>
+          <div className="summary-value">{flowLabel}</div>
         </div>
         {hotel && (
           <div className="summary-card">
             <div className="summary-label">Business Unit</div>
-            <div className="summary-value" style={{ fontSize: "14px" }}>{hotel.name}</div>
+            <div className="summary-value" style={{ fontSize: "14px" }}>
+              {hotel.name}
+            </div>
           </div>
         )}
       </div>
 
       <div className="flow-review-container">
-        <div className="flow-review-header">Approval Flow</div>
-        <ApprovalFlowPreview
-          steps={wizardForm.steps || []}
+        <div className="flow-review-header">Approval flow</div>
+        <ApprovalFlowGraph
+          stages={stages}
           getApproverDisplayInfo={getApproverDisplayInfo}
-          selectedDepartmentId={wizardForm.department_id}
         />
       </div>
 
       <div className="info-banner">
         <BsCheckCircle size={18} style={{ color: "#16a34a", flexShrink: 0 }} />
         <p>
-          Once saved, this workflow will apply to all new <strong>{entityConfig.label.replace(" Approval", "")}</strong> documents
-          for this business unit{wizardForm.process_id ? ` under the "${processName}" process` : ""}.
+          Once saved, this workflow will apply to the <strong>{processName}</strong> process
+          for this business unit. Approvals will follow <strong>{flowLabel}</strong> in order.
         </p>
       </div>
     </div>

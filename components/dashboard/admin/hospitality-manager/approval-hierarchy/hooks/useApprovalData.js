@@ -4,6 +4,7 @@ import {
   getApprovalPolicies,
   getApprovalPolicy,
   deleteApprovalPolicy,
+  getDepartmentSubGraphPreview as fetchDepartmentPreview,
 } from "@/services/approval";
 import { getRoles, getUserRoleScopes, getDepartments } from "@/services/rbac";
 import { getCompanyUserMappings, getHospitalityHotels } from "@/services/hospitality";
@@ -143,6 +144,10 @@ const useApprovalData = (companyId, hotelId) => {
     await loadPolicies();
   }, [companyId, hotelId]);
 
+  const refreshDepartments = useCallback(async () => {
+    await loadDepartments();
+  }, []);
+
   const getUsersByRole = useCallback(
     (roleId, departmentId) => {
       if (!roleId) return [];
@@ -160,16 +165,8 @@ const useApprovalData = (companyId, hotelId) => {
   const getApproverOptions = useCallback(
     (sourceType, departmentId) => {
       if (sourceType === "USER") {
-        let filteredUsers = users;
-        if (departmentId != null) {
-          filteredUsers = users.filter((u) => {
-            const scopes = userRoleScopes[u.user_id] || [];
-            return scopes.some((scope) =>
-              scope.department_id === null || scope.department_id === departmentId
-            );
-          });
-        }
-        return filteredUsers.map((u) => ({
+        // Master policy context: show all users (no department filtering)
+        return users.map((u) => ({
           value: u.user_id,
           label: `${u.name}${u.email ? ` (${u.email})` : ""}`,
         }));
@@ -178,7 +175,7 @@ const useApprovalData = (companyId, hotelId) => {
       }
       return [];
     },
-    [users, roles, userRoleScopes]
+    [users, roles]
   );
 
   const getApproverDisplayInfo = useCallback(
@@ -222,6 +219,22 @@ const useApprovalData = (companyId, hotelId) => {
     [companyId, hotelId]
   );
 
+  const getDeptSubGraphPreview = useCallback(
+    async (policyId) => {
+      try {
+        const response = await fetchDepartmentPreview(policyId, {
+          hospitality_company_id: companyId,
+          hotel_id: hotelId
+        });
+        return response?.data?.data || null;
+      } catch (error) {
+        console.error("Error loading department preview:", error);
+        return null;
+      }
+    },
+    [companyId, hotelId]
+  );
+
   return {
     hotel,
     policies,
@@ -235,6 +248,8 @@ const useApprovalData = (companyId, hotelId) => {
     getApproverOptions,
     getApproverDisplayInfo,
     handleDeletePolicy,
+    getDeptSubGraphPreview,
+    refreshDepartments,
   };
 };
 

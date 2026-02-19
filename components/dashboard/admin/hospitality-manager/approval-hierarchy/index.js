@@ -3,19 +3,20 @@ import React, { useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { BsArrowLeft } from "react-icons/bs";
 import FullLoader from "@/components/shared/FullLoader";
-import { getApprovalPolicy } from "@/services/approval";
+import { deleteApprovalPolicy } from "@/services/approval";
 import useApprovalData from "./hooks/useApprovalData";
 import useProcessData from "./hooks/useProcessData";
 import DashboardView from "./dashboard/DashboardView";
 import WorkflowWizard from "./wizard/WorkflowWizard";
-import { BRAND_TEAL } from "./constants";
+import { BRAND_TEAL, getStageEntityOrder } from "./constants";
 
 const ApprovalHierarchyRedesigned = () => {
   const router = useRouter();
   const { companyId, hotelId } = router.query;
 
   const [viewMode, setViewMode] = useState("dashboard"); // 'dashboard' | 'wizard'
-  const [editingPolicy, setEditingPolicy] = useState(null);
+  const [editingProcess, setEditingProcess] = useState(null);
+  const [editingPolicies, setEditingPolicies] = useState([]);
 
   const {
     hotel,
@@ -29,6 +30,8 @@ const ApprovalHierarchyRedesigned = () => {
     getApproverOptions,
     getApproverDisplayInfo,
     handleDeletePolicy,
+    getDeptSubGraphPreview,
+    refreshDepartments,
   } = useApprovalData(companyId, hotelId);
 
   const {
@@ -43,30 +46,49 @@ const ApprovalHierarchyRedesigned = () => {
   const loading = dataLoading || processLoading;
 
   const handleCreateWorkflow = useCallback(() => {
-    setEditingPolicy(null);
+    setEditingProcess(null);
+    setEditingPolicies([]);
     setViewMode("wizard");
   }, []);
 
-  const handleEditWorkflow = useCallback(async (policyId) => {
-    try {
-      const response = await getApprovalPolicy(policyId);
-      const policy = response?.data?.data || response?.data;
-      setEditingPolicy(policy);
-      setViewMode("wizard");
-    } catch (error) {
-      console.error("Error loading policy:", error);
-    }
-  }, []);
+  const handleEditWorkflow = useCallback((process) => {
+    if (!process?.id) return;
+    const entityOrder = getStageEntityOrder(process?.process_type);
+    const forProcess = policies.filter(
+      (p) => p.process_id === process.id && entityOrder.includes(p.entity_type)
+    );
+    setEditingProcess(process);
+    setEditingPolicies(forProcess);
+    setViewMode("wizard");
+  }, [policies]);
 
-  const handleWizardSave = useCallback(async () => {
-    await refreshPolicies();
-    await refreshProcesses();
-    setEditingPolicy(null);
+  const handleDeleteWorkflow = useCallback(
+    async (process) => {
+      if (!process?.id) return;
+      const toDelete = policies.filter((p) => p.process_id === process.id);
+      for (const policy of toDelete) {
+        try {
+          await deleteApprovalPolicy(policy.id);
+        } catch (e) {
+          console.error("Error deleting policy:", e);
+        }
+      }
+      await refreshPolicies();
+    },
+    [policies, refreshPolicies]
+  );
+
+  const handleWizardSave = useCallback(() => {
+    refreshPolicies();
+    refreshProcesses();
+    setEditingProcess(null);
+    setEditingPolicies([]);
     setViewMode("dashboard");
   }, [refreshPolicies, refreshProcesses]);
 
   const handleWizardCancel = useCallback(() => {
-    setEditingPolicy(null);
+    setEditingProcess(null);
+    setEditingPolicies([]);
     setViewMode("dashboard");
   }, []);
 
@@ -98,7 +120,7 @@ const ApprovalHierarchyRedesigned = () => {
         </button>
         <h4 className="mb-1 fw-bold" style={{ color: "#1a1a1a" }}>
           {viewMode === "wizard"
-            ? editingPolicy
+            ? editingProcess
               ? "Edit Approval Workflow"
               : "Create Approval Workflow"
             : "Approval Workflows"}
@@ -121,17 +143,20 @@ const ApprovalHierarchyRedesigned = () => {
           departments={departments}
           onCreateWorkflow={handleCreateWorkflow}
           onEditWorkflow={handleEditWorkflow}
-          onDeleteWorkflow={handleDeletePolicy}
+          onDeleteWorkflow={handleDeleteWorkflow}
+          onDeletePolicy={handleDeletePolicy}
           onCreateProcess={handleCreateProcess}
           onUpdateProcess={handleUpdateProcess}
           onDeleteProcess={handleDeleteProcess}
           getApproverDisplayInfo={getApproverDisplayInfo}
+          getDeptSubGraphPreview={getDeptSubGraphPreview}
+          onRefreshDepartments={refreshDepartments}
         />
       ) : (
         <WorkflowWizard
-          editingPolicy={editingPolicy}
+          editingProcess={editingProcess}
+          editingPolicies={editingPolicies}
           processes={processes}
-          departments={departments}
           hotel={hotel}
           companyId={companyId}
           hotelId={hotelId}

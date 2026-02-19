@@ -128,6 +128,12 @@ const ApprovalStepCard = ({
             isClearable={false}
             isSearchable={false}
             menuPlacement="auto"
+            menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+            menuPosition="fixed"
+            maxMenuHeight={280}
+            styles={{
+              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+            }}
           />
         </div>
 
@@ -156,10 +162,21 @@ const ApprovalStepCard = ({
             }
             isClearable={false}
             menuPlacement="auto"
+            menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+            menuPosition="fixed"
+            maxMenuHeight={280}
+            styles={{
+              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+            }}
           />
           {step.approver_source_id && approverInfo.email && (
             <small className="text-muted d-block mt-1" style={{ fontSize: "11px" }}>
               {approverInfo.email}
+            </small>
+          )}
+          {!selectedDepartmentId && step.approver_source_type && step.approver_source_id && (
+            <small className="text-muted d-block mt-1" style={{ fontSize: "11px", fontStyle: "italic" }}>
+              Approvers will be filtered by department at runtime based on the access matrix
             </small>
           )}
           {step.approver_source_type === "ROLE" && step.approver_source_id && approverInfo.users.length === 0 && (
@@ -190,6 +207,12 @@ const ApprovalStepCard = ({
             value={decisionRules.find((r) => r.value === step.decision_rule)}
             onChange={(option) => onChange(index, "decision_rule", option?.value)}
             placeholder="Select requirement..."
+            menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+            menuPosition="fixed"
+            maxMenuHeight={280}
+            styles={{
+              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+            }}
           />
           {step.decision_rule && (
             <div

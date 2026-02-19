@@ -158,3 +158,16 @@ export const cancelApproval = (payload) =>
     }
   });
 
+export const getDepartmentSubGraphPreview = (policyId, params = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/general/hospitality/approval/policies/${policyId}/department-preview`,
+        { params }
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+

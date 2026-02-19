@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
-import { BRAND_TEAL } from "../constants";
+import { BRAND_TEAL, PROCESS_TYPES } from "../constants";
+
+const PROCESS_TYPE_OPTIONS = [
+  { value: PROCESS_TYPES.RFQ, label: "RFQ (RFQ → Tech → Quote → PO)" },
+  { value: PROCESS_TYPES.TENDER, label: "Tender (Tender → Tech → Quote → ARC)" },
+  { value: PROCESS_TYPES.ARC, label: "ARC (Tender → Tech → Quote → ARC)" },
+];
 
 const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [process_type, setProcess_type] = useState(PROCESS_TYPES.RFQ);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -12,9 +19,11 @@ const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) =>
       if (editingProcess) {
         setName(editingProcess.name || "");
         setDescription(editingProcess.description || "");
+        setProcess_type(editingProcess.process_type || PROCESS_TYPES.RFQ);
       } else {
         setName("");
         setDescription("");
+        setProcess_type(PROCESS_TYPES.RFQ);
       }
       setSaving(false);
     }
@@ -24,7 +33,11 @@ const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) =>
     if (!name.trim()) return;
     setSaving(true);
     try {
-      await onSave({ name: name.trim(), description: description.trim() || null });
+      await onSave({
+        name: name.trim(),
+        description: description.trim() || null,
+        process_type: process_type || PROCESS_TYPES.RFQ,
+      });
       onClose();
     } catch (error) {
       // Error toast handled by parent hook
@@ -99,6 +112,25 @@ const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) =>
             style={{ borderRadius: "6px" }}
           />
         </div>
+        {!isEdit && (
+          <div className="mb-3" style={{ flexShrink: 0 }}>
+            <label className="form-label fw-semibold" style={{ fontSize: "13px", marginBottom: "6px" }}>
+              Process type
+            </label>
+            <select
+              className="form-select"
+              value={process_type}
+              onChange={(e) => setProcess_type(e.target.value)}
+              style={{ borderRadius: "6px" }}
+            >
+              {PROCESS_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           <label className="form-label fw-semibold" style={{ fontSize: "13px", marginBottom: "6px", flexShrink: 0 }}>
             Description <span className="text-muted fw-normal">(optional)</span>
