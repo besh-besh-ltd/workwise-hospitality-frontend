@@ -19,6 +19,8 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
+import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText } from "react-icons/bs";
+import styles from "./TechnicalEvaluation.module.scss";
 
 
 
@@ -380,6 +382,34 @@ useEffect(() => {
     );
   }
 
+  const entityLabel = getEntityLabel(currentRfq?.is_tender);
+
+  // Build metadata items for the RFQ header grid
+  const getMetaItems = () => {
+    if (!currentRfq) return [];
+    const items = [
+      { icon: <BsBuilding size={14} />, label: "Company", value: currentRfq.company_name },
+      { icon: <BsPerson size={14} />, label: "Contact Person", value: currentRfq.contact_name },
+      { icon: <BsEnvelope size={14} />, label: "Response Email", value: currentRfq.response_email },
+      { icon: <BsTelephone size={14} />, label: "Contact Number", value: currentRfq.contact_number },
+      { icon: <BsCalendar3 size={14} />, label: "Submission Deadline", value: formatDisplayDate(currentRfq.bid_end_date, { includeTime: true }) },
+    ];
+    if (currentRfq.location && currentRfq.location != "") {
+      items.push({ icon: <BsGeoAlt size={14} />, label: "Delivery Location", value: currentRfq.location });
+    }
+    if (currentRfq?.hotel_name) {
+      items.push({ icon: <BsHouse size={14} />, label: "Business Unit", value: currentRfq.hotel_name });
+    }
+    if (currentRfq.is_tender !== 1 && currentRfq.rfq_type && currentRfq.rfq_type != "") {
+      items.push({ icon: <BsTag size={14} />, label: "RFQ Type", value: currentRfq.rfq_type });
+    }
+    items.push({ icon: <BsArrowRepeat size={14} />, label: "Reverse Auction", value: currentRfq.reverse_auction == 1 ? "Enabled" : "Disabled" });
+    if (currentRfq.comment && currentRfq.comment != "") {
+      items.push({ icon: <BsChatLeftText size={14} />, label: "Comment", value: currentRfq.comment });
+    }
+    return items;
+  };
+
   return (
     <>
       <section className="quote-common-header compare-received-quote sc-pt-80">
@@ -445,103 +475,66 @@ useEffect(() => {
             <div className="col-md-10" style={{ flex: '1 1 0%', width: 'auto', maxWidth: 'none' }}>
               <div className="quote-sec-table quote-sec-tab">
 
-                {/* RFQ Details */}
-                {!loading && currentRfq &&
-                  <div className="mb-3">
-                    {currentRfq.title && currentRfq.title != "" &&
-                      <h3 className="fs-5 mb-1 fw-bold">
-                        {currentRfq.title}
-                      </h3>}
-                    <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                      <h3 className="fs-5 mb-1">
-                        <span className="fw-semibold">{getEntityLabel(currentRfq?.is_tender)} No : </span>{currentRfq.rfq_no}
-                      </h3>
-                      <Link
-                        href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${currentRfq.id}`}
-                        className="btn btn-outline-primary btn-sm"
-                        id="view_rfq_details-technical_eval_page"
-                      >
-                        View {getEntityLabel(currentRfq?.is_tender)}
-                      </Link>
+                {/* Empty State - when no RFQ selected */}
+                {!loading && !currentRfq && (
+                  <div className={styles.emptyState}>
+                    <div className={styles.emptyStateIcon}>
+                      <BsClipboardCheck size={36} />
                     </div>
-                    {currentRfq.project_name && currentRfq.project_name != "" &&
-                      <p className="sub-heading fs-6 mb-2">
-                        {currentRfq.project_name}
-                      </p>}
-                    <hr />
+                    <h4 className={styles.emptyStateTitle}>Select an {entityLabel || 'RFQ'} to Start Evaluating</h4>
+                    <p className={styles.emptyStateDescription}>
+                      Choose an RFQ or Tender from the sidebar to view and evaluate vendor clauses.
+                    </p>
+                  </div>
+                )}
 
-                    <div className="row text-sm ">
-
-                      <div className="col-md-6">
-                        <p className="sub-heading mb-0">
-                          <b>Company Name</b> :{" "}
-                          {currentRfq.company_name}
-                        </p>
-                        <p className="sub-heading mb-0">
-                          <b>Contact Person Name</b> :{" "}
-                          {currentRfq.contact_name}
-                        </p>
-                        <p className="sub-heading mb-0">
-                          <b>Response Email</b> :{" "}
-                          {currentRfq.response_email}
-                        </p>
-                        <p className="sub-heading mb-0">
-                          <b>Contact Number</b> :{" "}
-                          {currentRfq.contact_number}
-                        </p>
-                        {currentRfq.location && currentRfq.location != "" &&
-                          <p className="sub-heading mb-0">
-                            <b>Delivery Location</b> :{" "}
-                            {currentRfq.location}
-                          </p>}
-                      </div>
-
-                      <div className="col-md-6">
-                        <p className="sub-heading mb-0">
-                          <b>Reverse Auction</b> :{" "}
-                          {currentRfq.reverse_auction == 1 ? "Enabled" : "Disabled"}
-                        </p>
-                        {currentRfq.reverse_auction == 1 && (
-                          <>
-                            <p className="sub-heading mb-0">
-                              <b>Auction Start Date</b> :{" "}
-                              {currentRfq.ra_start_date || "Not specified"}
-                            </p>
-                            <p className="sub-heading mb-0">
-                              <b>Auction End Date</b> :{" "}
-                              {currentRfq.ra_end_date || "Not specified"}
-                            </p>
-                          </>
+                {/* RFQ Header Card */}
+                {!loading && currentRfq && (
+                  <div className={styles.rfqHeader}>
+                    {/* Hero Strip */}
+                    <div className={styles.rfqHero}>
+                      <div className={styles.rfqHeroLeft}>
+                        <div className={styles.rfqHeroNumber}>
+                          <span>{entityLabel} No: {currentRfq.rfq_no}</span>
+                          <span className={`${styles.rfqTypeBadge} ${currentRfq.is_tender === 1 ? styles.tenderType : styles.rfqType}`}>
+                            {currentRfq.is_tender === 1 ? 'Tender' : 'RFQ'}
+                          </span>
+                        </div>
+                        {currentRfq.title && currentRfq.title != "" && (
+                          <h3 className={styles.rfqHeroTitle}>{currentRfq.title}</h3>
                         )}
-                        {currentRfq.is_tender !== 1 && currentRfq.rfq_type && currentRfq.rfq_type != "" &&
-                          <p className="sub-heading mb-0">
-                          <b>RFQ Type</b> :{" "}
-                            {currentRfq.rfq_type}
-                          </p>}
-                        <p className="sub-heading mb-0">
-                          <b>Quote Submission Deadline</b> :{" "}
-                          {formatDisplayDate(currentRfq.bid_end_date, { includeTime: true })}
-                        </p>
-
-                      {currentRfq?.hotel_name && (
-                        <p className="sub-heading mb-0  "> 
-                          <strong>Business Units :</strong>{" "}
-                          {currentRfq.hotel_name}
-                        </p>
-                      )}
-
-                        {currentRfq.comment && currentRfq.comment != "" &&
-                          <p className="sub-heading mb-0">
-                            <b>Comment</b> :{" "}
-                            {currentRfq.comment}
-                          </p>}
+                        {currentRfq.project_name && currentRfq.project_name != "" && (
+                          <p className={styles.rfqHeroProject}>{currentRfq.project_name}</p>
+                        )}
                       </div>
+                      <div className={styles.rfqHeroActions}>
+                        <Link
+                          href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${currentRfq.id}`}
+                          className={styles.viewRfqBtn}
+                          id="view_rfq_details-technical_eval_page"
+                        >
+                          <BsBoxArrowUpRight size={13} />
+                          View {entityLabel}
+                        </Link>
+                      </div>
+                    </div>
 
+                    {/* Metadata Grid */}
+                    <div className={styles.rfqMetaGrid}>
+                      {getMetaItems().map((item, idx) => (
+                        <div className={styles.rfqMetaItem} key={idx}>
+                          <div className={styles.rfqMetaIcon}>{item.icon}</div>
+                          <div className={styles.rfqMetaContent}>
+                            <span className={styles.rfqMetaLabel}>{item.label}</span>
+                            <span className={styles.rfqMetaValue}>{item.value || "N/A"}</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                }
+                )}
 
-                {/* Read-Only Banner - Shows when user has read but not write permission */}
+                {/* Read-Only Banner */}
                 {hasPermissionContext && !permissionsLoading && !canWrite && canRead && (
                   <div className="mt-3 mb-3">
                     <ReadOnlyBanner
@@ -553,13 +546,9 @@ useEffect(() => {
 
                 <div className="quote-sec-main">
                   <>
-                    {!loading && currentRfq &&
-                      <>
-                        <h3 className="fs-5 mb-2 mt-4">
-                          <span className="fw-semibold">{getEntityLabel(currentRfq?.is_tender)} Products </span>
-                        </h3>
-                        <hr />
-                      </>}
+                    {!loading && currentRfq && clauseInfo && clauseInfo.length > 0 && (
+                      <h3 className={styles.productsHeading}>{entityLabel} Products</h3>
+                    )}
 
                     {/* Evaluation Progress Tracker */}
                     {clauseInfo && clauseInfo.length > 0 && (
@@ -575,66 +564,47 @@ useEffect(() => {
                           const product = currentRfq.products.find(product => product.id == rfqProduct.rfq_product_id)
                           if(!product) return null;
                           const productSelectedVendors = selectedVendorsMap.get(product.id) || [];
-                          const allVendors = rfqProduct?.vendors || []; // ← ALL vendors from API
-                          let displayedVendors = [];
-                          // CASE 1: User selected vendors → show selected ones
-                          if (productSelectedVendors.length > 0) {
-                            displayedVendors = productSelectedVendors.map(v => v.label);
-                          }
-                          // CASE 2: Nothing selected → show ALL vendors
-                          else {
-                            displayedVendors = allVendors.map(v =>
-                              v.rfq_product_vendor_id ? `VEN-${v.rfq_product_vendor_id}` : (v.company_name || v.organization_name || v.vendor_name)
-                            );
-                          }
-                          const vendorLabel = displayedVendors.length > 1 ? "Vendors" : "Vendor";
 
                           return (
-                            <div className="quote-sec-table-sub pt-0" key={`product_${product.id}`}>
-                              <div className="row">
-                                <div className="col-12">
-
-                                  <div className="d-flex justify-content-between gap-2">
-                                    {/* Product Details */}
-                                    <div className="d-flex-flex-column mt-3">
-                                      <p className="sub-heading mb-0">
-                                        <b>Product</b>: {product.product_details[0]?.name}
-                                      </p>
-                                      <p className="sub-heading mb-0">
-                                        <b>Product Specification</b>:{" "}
-                                        {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
-                                      </p>
-                                      {/* <p className="sub-heading mb-0">
-                                        <b>Displaying {vendorLabel}</b>:{" "}
-                                        {displayedVendors.join(", ") || "N/A"}
-                                      </p> */}
-                                    </div>
-
-                                  </div>
-
-                                  <ClauseProductItem
-                                    type={"buyer"}
-                                    rfq_id={rfq_id}
-                                    product={{
-                                      ...product,
-                                      tbl_rfq_product_tech_evaluation_id: rfqProduct.evaluation_id
-                                    }}
-                                    currentUserProfile={currentUserProfile}
-                                    currentRfq={currentRfq}
-                                    getVendors={async () => await getVendorSelectionOption(product.id)}
-                                    clauseInfo={rfqProduct?.clauses ?? []}
-                                    vendors={rfqProduct?.vendors ?? []}
-                                    refetch={fetchEvaluationData}
-                                    selectedVendor={vendorMap.get(product.id)}
-                                    selectedVendors={productSelectedVendors.map(vendor => vendor.value)}
-                                    minimumPassingScore={rfqProduct?.minimum_passing_score}
-                                    canWrite={canWrite}
-                                    canApprove={canApprove}
-                                    permissionsLoading={permissionsLoading}
-                                    onEvaluationStatusChange={handleEvaluationStatusChange}
-                                  />
-
+                            <div className={styles.productCard} key={`product_${product.id}`}>
+                              {/* Product Header */}
+                              <div className={styles.productHeader}>
+                                <div className={styles.productHeaderLeft}>
+                                  <span className={styles.productBadge}>
+                                    Product {productIndex + 1} of {clauseInfo.length}
+                                  </span>
+                                  <h4 className={styles.productName}>
+                                    {product.product_details[0]?.name}
+                                  </h4>
+                                  <p className={styles.productSpec}>
+                                    Spec: {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
+                                  </p>
                                 </div>
+                              </div>
+
+                              {/* Product Body */}
+                              <div className={styles.productBody}>
+                                <ClauseProductItem
+                                  type={"buyer"}
+                                  rfq_id={rfq_id}
+                                  product={{
+                                    ...product,
+                                    tbl_rfq_product_tech_evaluation_id: rfqProduct.evaluation_id
+                                  }}
+                                  currentUserProfile={currentUserProfile}
+                                  currentRfq={currentRfq}
+                                  getVendors={async () => await getVendorSelectionOption(product.id)}
+                                  clauseInfo={rfqProduct?.clauses ?? []}
+                                  vendors={rfqProduct?.vendors ?? []}
+                                  refetch={fetchEvaluationData}
+                                  selectedVendor={vendorMap.get(product.id)}
+                                  selectedVendors={productSelectedVendors.map(vendor => vendor.value)}
+                                  minimumPassingScore={rfqProduct?.minimum_passing_score}
+                                  canWrite={canWrite}
+                                  canApprove={canApprove}
+                                  permissionsLoading={permissionsLoading}
+                                  onEvaluationStatusChange={handleEvaluationStatusChange}
+                                />
                               </div>
                             </div>
                           )

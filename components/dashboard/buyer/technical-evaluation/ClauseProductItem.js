@@ -1,7 +1,4 @@
-import FileLink from '@/components/shared/FileLink';
 import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getSummarisedDeviation, getTechClearedVendorsResult, updateBuyerMarks, submitTechEvalForApproval, submitTechEvalApprovalAction, fetchDeviationPreviews } from '@/services/rfq';
-import { faMessage } from '@fortawesome/free-regular-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import React, { useEffect, useRef, useState } from 'react'
 import BuyerVendorChat from './buyerVendorChat';
 import VendorDeviationModal from './VendorDeviationModal';
@@ -10,16 +7,15 @@ import TE_Modal from './TE_Modal';
 import { toast } from 'react-toastify';
 import ReadMore from '@/components/shared/ReadMore';
 import { Dropdown, Modal, Form } from 'react-bootstrap';
-import Image from 'next/image';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
-import { FiSend } from "react-icons/fi";
+import { BsThreeDotsVertical, BsCheckCircleFill, BsXCircleFill, BsChatDots, BsPencilSquare, BsShieldCheck, BsFileEarmark, BsPersonCheck } from "react-icons/bs";
 import { ApprovalWorkflowSection } from "@/components/dashboard/buyer/approval";
-import { getEntityApprovalInstances } from "@/services/approval";
 import { useTechEvalWorkflow } from '@/hooks/useTechEvalWorkflow';
 import TechEvalWorkflowStatus from './TechEvalWorkflowStatus';
 import TechEvalFailedHistory from './TechEvalFailedHistory';
 import { TECH_EVAL_WORKFLOW_STATES } from '@/utils/constants/techEvalWorkflow';
 import { checkBidExpired } from '@/utils/sharedFunctions';
+import styles from './TechnicalEvaluation.module.scss';
 
 
 const ClauseProductItem = ({
@@ -66,9 +62,6 @@ const ClauseProductItem = ({
     const [minimumPassingScore, setMinimumPassingScore] = useState(null);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
-    const [isSubmittedForApproval, setIsSubmittedForApproval] = useState(false);
-    const [isApproved, setIsApproved] = useState(false);
-    const [approvalStatusLoading, setApprovalStatusLoading] = useState(false);
     const [approvalRefreshKey, setApprovalRefreshKey] = useState(0);
     // const [summarisedDeviation , setSummarisedDeviation] = useState();
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
@@ -93,41 +86,22 @@ const ClauseProductItem = ({
       refetch: refetchWorkflow
     } = useTechEvalWorkflow({ rfq_product_id: product?.id, enabled: !!product?.id });
 
+    const getRoundEntityId = (round) => {
+        return round?.round_id || round?.id || round?.entity_id || null;
+    };
+
+    const pendingRound =
+        rounds?.find((round) => ["PENDING", "IN_PROGRESS"].includes(String(round?.status || "").toUpperCase())) || null;
+
+    // TECHNICAL approval entity is round-based (pending round id), not rfq_product_id
+    const approvalEntityId = getRoundEntityId(pendingRound) || getRoundEntityId(latestRound);
+
     // Derived: Check if approval is pending (freeze all actions)
-    const isPendingApproval = workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL || isSubmittedForApproval;
+    const isPendingApproval =
+        workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL || !!pendingRound;
 
     // Derived: Check if quote submission deadline has passed (lock tech eval edits)
     const isBidEndPassed = currentRfq?.bid_end_date ? checkBidExpired(currentRfq.bid_end_date) : false;
-
-    // Fetch approval status for this product
-    const fetchApprovalStatus = async () => {
-        if (!product?.id) return;
-
-        try {
-            setApprovalStatusLoading(true);
-            const response = await getEntityApprovalInstances("TECHNICAL", product.id);
-            const instances = response?.data?.data || response?.data || [];
-
-            // Check if there's any pending or in-progress approval instance
-            const hasPendingApproval = instances.some(
-                instance => instance.status === 'PENDING' || instance.status === 'IN_PROGRESS'
-            );
-
-            // Check if there's an approved instance
-            const hasApprovedInstance = instances.some(
-                instance => instance.status === 'APPROVED'
-            );
-
-            setIsSubmittedForApproval(hasPendingApproval);
-            setIsApproved(hasApprovedInstance);
-        } catch (error) {
-            console.error("Error fetching approval status:", error);
-            // Don't set error state, just keep the current state
-        } finally {
-            setApprovalStatusLoading(false);
-        }
-    };
-
 
     const addToTechnicallyAccepted = async (vendor = null) => {
         // When triggered from the ellipsis menu, a vendor object is passed.
@@ -175,7 +149,7 @@ const ClauseProductItem = ({
             setLoading(true)
             const res = await addToTA(payload);
             if (res.status == 1) {
-                console.log("successfully added to TA");
+                // TA added successfully
             }
             
             // Close modal first to avoid state update issues
@@ -272,7 +246,7 @@ const ClauseProductItem = ({
             const res = await getClausesByRfqProductId(payload);
             setBuyerClauses(res.data);
         } catch (error) {
-            console.log(error)
+            console.error("Error fetching buyer clauses:", error);
         } finally {
             setLoading(false);
         }
@@ -303,9 +277,6 @@ const ClauseProductItem = ({
 
             // Refresh workflow status to update UI
             await refetchWorkflow();
-
-            // Refresh the approval status to update UI
-            await fetchApprovalStatus();
 
             // Trigger ApprovalWorkflowSection to refetch
             setApprovalRefreshKey(prev => prev + 1);
@@ -524,13 +495,6 @@ const ClauseProductItem = ({
     // },[])
     // console.log("gettig this dine ", summarisedDeviation);
 
-    // Fetch approval status on mount and when product changes
-    useEffect(() => {
-        if (product?.id) {
-            fetchApprovalStatus();
-        }
-    }, [product?.id]);
-
     useEffect(() => {
         if(_vendors) {
             setVendors(_vendors);
@@ -616,378 +580,241 @@ const ClauseProductItem = ({
         ) : (
           <>
             {!vendorResponse && (
-              <div style={{ maxWidth: "100%", overflow: "auto" }}>
-                      <div className="mt-3">
-                        {minimumPassingScore !== null && (
-                          <p className="mb-2">
-                            <strong>Minimum Passing Score (out of 100):</strong> {minimumPassingScore}
-                          </p>
-                        )}
-                        <table className="table table-bordered table-striped" style={{ tableLayout: "fixed", width: "100%" }}>
-                          <thead>
-                            <tr className="table-dark">
-                              <th style={{ width: "30%" }} className="align-middle">Clause And Files</th>
+              <div className="mt-3">
+                {minimumPassingScore !== null && (
+                  <div className={styles.passingScore}>
+                    <div className={styles.passingScoreIcon}>
+                      <BsShieldCheck size={13} />
+                    </div>
+                    <span><strong>Minimum Passing Score:</strong> {minimumPassingScore} out of 100</span>
+                  </div>
+                )}
+                <div className={styles.tableWrapper}>
+                  <table className={styles.scoringTable}>
+                    <thead>
+                      <tr>
+                        <th className="align-middle">Clause & Files</th>
+                        {vendors && vendors.length > 0 &&
+                          vendors
+                            .filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id))
+                            .sort((a, b) => (a.rank || 999) - (b.rank || 999))
+                            .map((vendor) => {
+                              const isCleared = vendor.is_cleared;
+                              const vendorCode = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
+                              const colTintClass = vendor.has_marks
+                                ? (vendor.is_passed ? styles.vendorColPassed : styles.vendorColFailed)
+                                : styles.vendorColNotEvaluated;
+                              return (
+                                <th key={vendor.vendor_id} className={`${styles.vendorHeader} ${colTintClass}`}>
+                                  <div className={styles.vendorHeaderTop}>
+                                    <span className={styles.vendorCode}>{vendorCode}</span>
+                                    <Dropdown className="dots-nav-anchor">
+                                      <Dropdown.Toggle as="button" className={styles.vendorMenuBtn}>
+                                        <BsThreeDotsVertical size={16} />
+                                      </Dropdown.Toggle>
+                                      <Dropdown.Menu>
+                                        <Dropdown.Item
+                                          href={`/dashboard/buyer/query?rfq_id=${rfq_id}&role=buyer&vendor_id=${vendor.vendor_id}&from_tech_eval=1&vendor_code=${vendorCode}`}
+                                          id={`talk_with_vendor_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
+                                        >
+                                          Talk with vendor
+                                        </Dropdown.Item>
+                                        {currentRfq?.is_tender !== 1 && (
+                                          <Dropdown.Item
+                                            target="_blank"
+                                            href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.vendor_id}`}
+                                            id={`view_vendor_profile_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
+                                          >
+                                            View Profile
+                                          </Dropdown.Item>
+                                        )}
+                                      </Dropdown.Menu>
+                                    </Dropdown>
+                                  </div>
+
+                                  {/* Score + status */}
+                                  {vendor.calculated_score !== undefined && vendor.calculated_score !== null && vendor.has_marks ? (
+                                    <div className={styles.vendorScoreLine}>
+                                      <span className={styles.vendorScore}>{vendor.calculated_score}%</span>
+                                      {vendor.is_passed !== undefined && vendor.is_passed !== null && (
+                                        <span className={`badge rounded-pill py-1 px-2 ${vendor.is_passed ? "text-bg-success" : "text-bg-danger"}`} style={{ fontSize: '10px' }}>
+                                          {vendor.is_passed ? "Pass" : "Fail"}
+                                        </span>
+                                      )}
+                                      {isCleared != null && (
+                                        <span className={`badge rounded-pill py-1 px-2 ${isCleared == 1 ? "text-bg-success" : "text-bg-danger"}`} style={{ fontSize: '10px' }}>
+                                          {isCleared == 1 ? "Accepted" : "Not Accepted"}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    !vendor.has_marks && vendor.is_cleared === null ? (
+                                      <span className="badge rounded-pill py-1 px-2 text-bg-secondary" style={{ fontSize: '10px' }}>Not Evaluated</span>
+                                    ) : isCleared != null ? (
+                                      <span className={`badge rounded-pill py-1 px-2 ${isCleared == 1 ? "text-bg-success" : "text-bg-danger"}`} style={{ fontSize: '10px' }}>
+                                        {isCleared == 1 ? "Accepted" : "Not Accepted"}
+                                      </span>
+                                    ) : null
+                                  )}
+
+                                  {/* Eval / Appr */}
+                                  {(vendor?.evaluated_by || vendor?.approved_by) && (
+                                    <div className={styles.vendorMeta}>
+                                      {vendor?.evaluated_by && (
+                                        <div className={styles.vendorMetaItem}>
+                                          <BsPersonCheck size={11} /> {vendor.evaluated_by}
+                                        </div>
+                                      )}
+                                      {vendor?.approved_by && (
+                                        <div className={styles.vendorMetaItem}>
+                                          <BsShieldCheck size={11} /> {vendor.approved_by}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </th>
+                              );
+                            })}
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {clauseInfo && clauseInfo.length > 0 &&
+                        clauseInfo.map((clauseItem, index) => (
+                          <React.Fragment key={`rfq_prod_clause_${clauseItem.clause_id}`}>
+                            <tr>
+                              <td>
+                                <div className={styles.clauseCell}>
+                                  <ReadMore content={`${index + 1}. ${clauseItem.clause_text}`} maxLines={3} />
+                                  <div className={styles.clauseMeta}>
+                                    <span className={styles.clauseWeightage}>W: {clauseItem.weightage || 0}</span>
+                                    {clauseItem.files && clauseItem.files.length > 0 && (
+                                      <div className={styles.fileButtons}>
+                                        {clauseItem.files.map((file, fi) => (
+                                          <a key={fi} href={file} target="_blank" rel="noopener noreferrer" className={styles.fileButton} title={`Attachment ${fi + 1}`}>
+                                            <BsFileEarmark size={11} /> Attachment {clauseItem.files.length > 1 ? fi + 1 : ''}
+                                          </a>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
                               {vendors && vendors.length > 0 &&
                                 vendors
                                   .filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id))
-                                  .sort((a, b) => {
-                                    // Sort by rank (L1-L5), if rank is not available, maintain original order
-                                    const rankA = a.rank || 999;
-                                    const rankB = b.rank || 999;
-                                    return rankA - rankB;
-                                  })
+                                  .sort((a, b) => (a.rank || 999) - (b.rank || 999))
                                   .map((vendor) => {
-                                    const isCleared = vendor.is_cleared;
-                                    // Always use anonymized vendor code - never show vendor name
-                                    const vendorCode = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
-                                    return (
-                                      <th
-                                        key={vendor.vendor_id}
-                                        className="align-middle"
-                                      >
-                                        <div className="d-flex justify-content-between gap-2 align-items-center">
-                                          <div className="d-flex flex-column align-items-center w-100">
-                                            <span>
-                                              {vendorCode}
-                                            </span>
-                                            {/* Only show Score when marks have been given (has_marks from score_timestamp) */}
-                                            {vendor.calculated_score !== undefined && vendor.calculated_score !== null && vendor.has_marks && (
-                                              <p className="mb-1 mt-1">
-                                                <strong>Score:</strong> {vendor.calculated_score}%
-                                              </p>
-                                            )}
-                                            {/* Only show Pass/Fail when vendor has been evaluated (has_marks from score_timestamp) */}
-                                            {vendor.is_passed !== undefined && vendor.is_passed !== null && vendor.has_marks && (
-                                              <p
-                                                className={`badge rounded-pill py-2 px-3 ${
-                                                  vendor.is_passed
-                                                    ? "text-bg-success"
-                                                    : "text-bg-danger"
-                                                }`}
-                                                style={{
-                                                  marginTop: 5,
-                                                  marginBottom: 0,
-                                                  width: "fit-content",
-                                                }}
-                                              >
-                                                {vendor.is_passed ? "Pass" : "Fail"}
-                                              </p>
-                                            )}
-                                            {/* Show "Not evaluated" only when buyer has not saved any marks (no score_timestamp) */}
-                                            {!vendor.has_marks && vendor.is_cleared === null && (
-                                              <p
-                                                className="badge rounded-pill py-2 px-3 text-bg-secondary"
-                                                style={{
-                                                  marginTop: 5,
-                                                  marginBottom: 0,
-                                                  width: "fit-content",
-                                                }}
-                                              >
-                                                Not Evaluated
-                                              </p>
-                                            )}
-                                            <p
-                                              className={`badge rounded-pill py-2 px-3 ${
-                                                isCleared != null
-                                                  ? isCleared == 1
-                                                    ? "text-bg-success"
-                                                    : "text-bg-danger"
-                                                  : ""
-                                              }`}
-                                              style={{
-                                                marginTop: 5,
-                                                marginBottom: 0,
-                                                width: "fit-content",
-                                              }}
-                                            >
-                                              {isCleared != null
-                                                ? isCleared == 1
-                                                  ? "Technically Accepted"
-                                                  : "Technically Not Accepted"
-                                                : ""}
-                                            </p>
-                                            {isCleared != null && (vendor?.evaluated_by || vendor?.approved_by) && (
-                                              <div className="text-light mt-2 fw-normal">
-                                                {vendor?.evaluated_by && (
-                                                  <div><strong>Evaluated by: </strong> {vendor.evaluated_by}</div>
-                                                )}
-                                                {vendor?.approved_by && (
-                                                  <div><strong>Approved by: </strong> {vendor.approved_by}</div>
-                                                )}
-                                              </div>
-                                            )}
-                                          </div>
-                                          <Dropdown className="dots-nav-anchor">
-                                            <Dropdown.Toggle
-                                              as="button"
-                                              className="dots-nav p-0 border-0 bg-transparent"
-                                            >
-                                              <Image
-                                                src="/assets/images/3-dots-nav.svg"
-                                                width={4}
-                                                height={18}
-                                                alt="Nav"
-                                              />
-                                            </Dropdown.Toggle>
-                                            <Dropdown.Menu>
-                                              <Dropdown.Item
-                                                href={`/dashboard/buyer/query?rfq_id=${rfq_id}&role=buyer&vendor_id=${vendor.vendor_id}&from_tech_eval=1&vendor_code=${vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`}`}
-                                                id={`talk_with_vendor_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
-                                              >
-                                                Talk with vendor
-                                              </Dropdown.Item>
-                                              {/* Hide View Profile for tenders to preserve vendor anonymity */}
-                                              {currentRfq?.is_tender !== 1 && (
-                                                <Dropdown.Item
-                                                  target="_blank"
-                                                  href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.vendor_id}`}
-                                                  id={`view_vendor_profile_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
-                                                >
-                                                  View Profile
-                                                </Dropdown.Item>
-                                              )}
-                                              {/* Accept / Reject removed from dropdown - use dedicated buttons below instead */}
-                                            </Dropdown.Menu>
-                                          </Dropdown>
-                                        </div>
-                                      </th>
+                                    const response = clauseItem.vendor_responses.find(
+                                      (response) => vendor.vendor_id == response.vendor_id
                                     );
-                                }
-                                )}
-                            </tr>
-                          </thead>
+                                    return (
+                                      <td key={vendor.vendor_id}>
+                                        {(() => {
+                                          const isScored = !!response?.score_timestamp;
+                                          const disagrees = clauseItem.clause_type !== 'sampling' && response?.vendor_response == "I Dont Agree";
+                                          const canEdit = canWrite && !permissionsLoading && !isPendingApproval && !isBidEndPassed;
+                                          const previewKey = `${clauseItem.clause_id}_${String(vendor.vendor_id)}`;
+                                          const previewMsgs = deviationPreviews[previewKey];
+                                          const hasMessages = previewMsgs?.length > 0;
+                                          const isTender = currentRfq?.is_tender === 1 || currentRfq?.is_tender === "1";
+                                          const vendorLabel = isTender
+                                            ? (vendor.label || `VEN-${vendor.rfq_product_vendor_id || vendor.vendor_id}`)
+                                            : (vendor.vendor_name || vendor.company_name || vendor.label || "Vendor");
+                                          return (
+                                            <div className={styles.vendorCell}>
+                                              {/* Response badge */}
+                                              {clauseItem.clause_type !== 'sampling' && response?.vendor_response && (
+                                                <span className={`badge rounded-pill py-1 px-2 ${
+                                                  response.vendor_response == "I Agree" ? "text-bg-success"
+                                                    : response.vendor_response == "I Dont Agree" ? "text-bg-danger"
+                                                    : "text-bg-secondary"
+                                                }`} style={{ width: "fit-content", fontSize: '10px' }}>
+                                                  {response.vendor_response == "I Agree" && <BsCheckCircleFill size={9} className="me-1" />}
+                                                  {response.vendor_response == "I Dont Agree" && <BsXCircleFill size={9} className="me-1" />}
+                                                  {response.vendor_response == "I Agree" ? "Agrees" : response.vendor_response == "I Dont Agree" ? "Disagrees" : response.vendor_response}
+                                                </span>
+                                              )}
 
-                          <tbody style={{ overflowX: "auto" }}>
-                            {clauseInfo &&
-                              clauseInfo.length > 0 &&
-                              clauseInfo.map((clauseItem, index) => (
-                        <>
-                        <tr key={`rfq_prod_clause_${clauseItem.clause_id}`}>
-                          {console.log("chcking th e clause id ", clauseItem.clause_id)}
-                          <td>
-                            <div className="d-flex align-items-center gap-2">
-                              <ReadMore
-                                content={`${index + 1}. ${
-                                  clauseItem.clause_text
-                                }`}
-                                maxLines={4}
-                              />
-                            </div>
-                            <p className="text-sm mt-1">
-                              <strong>Weightage:</strong> {clauseItem.weightage || 0}
-                            </p>
-                            {clauseItem.files && clauseItem.files.length > 0 ? (
-                              <FileLink
-                                key={clauseItem.clause_id}
-                                Files={clauseItem.files}
-                                ColumnClass="col-md-6"
-                              />
-                            ) : null}
-                          </td>
-                          {vendors && vendors.length > 0 &&
-                            vendors
-                              .filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id))
-                              .sort((a, b) => {
-                                // Sort by rank (L1-L5), if rank is not available, maintain original order
-                                const rankA = a.rank || 999;
-                                const rankB = b.rank || 999;
-                                return rankA - rankB;
-                              })
-                              .map((vendor) => {
-                              const response = clauseItem.vendor_responses.find(
-                                (response) =>
-                                  vendor.vendor_id == response.vendor_id
-                              );
-                              console.log("checking the console for vendor", vendor);
-                              return (
-                                <td key={vendor.vendor_id}>
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      flexDirection: "column",
-                                      gap: 2,
-                                    }}
-                                  >
-                                    {/* Don't show vendor response for sampling clauses */}
-                                    {clauseItem.clause_type !== 'sampling' && (
-                                      <span
-                                        className={`badge rounded-pill py-2 px-3 ${
-                                          response?.vendor_response == "I Agree"
-                                            ? "text-bg-success"
-                                            : response?.vendor_response ==
-                                              "I Dont Agree"
-                                            ? "text-bg-danger"
-                                            : "text-bg-secondary"
-                                        }`}
-                                        style={{ width: "fit-content" }}
-                                      >
-                                        {response?.vendor_response ||
-                                          "No Response"}
-                                      </span>
-                                    )}
-                                    {response?.vendor_response_files && (
-                                      <FileLink
-                                        key={response.vendor_id}
-                                        Files={response.vendor_response_files}
-                                        ColumnClass="col-md-6"
-                                      />
-                                    )}
-                                    {/* Show marks only if buyer has actually saved marks (score_timestamp exists) */}
-                                    {response?.score_timestamp ? (
-                                      <p className="mb-1 mt-1">
-                                        <strong>Marks:</strong> {response.buyer_marks ?? 0} / {clauseItem.weightage || 0}
-                                      </p>
-                                    ) : (
-                                      /* Show "No score assigned yet" when buyer hasn't saved marks (avoids showing 0 / weightage) */
-                                      <p className="mb-1 mt-1 text-muted small">
-                                        No score assigned yet
-                                      </p>
-                                    )}
-                                    {clauseItem.clause_type !== 'sampling' && (
-                                    <button
-                                      type="button"
-                                      className="d-flex justify-content-center align-items-center border-0 mt-2"
-                                      style={{
-                                        padding: "8px 14px",
-                                        borderRadius: "6px",
-                                        background: (isPendingApproval && !canApprove)
-                                          ? "linear-gradient(135deg, #9e9e9e 0%, #757575 100%)"
-                                          : "linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%)",
-                                        color: "#ffffff",
-                                        fontSize: "12px",
-                                        fontWeight: "600",
-                                        cursor: (isPendingApproval && !canApprove) ? "not-allowed" : "pointer",
-                                        transition: "all 0.2s ease",
-                                        opacity: (isPendingApproval && !canApprove) ? 0.6 : 1,
-                                        boxShadow: (isPendingApproval && !canApprove)
-                                          ? "none"
-                                          : "0 2px 4px rgba(13, 110, 253, 0.2)",
-                                        whiteSpace: "nowrap",
-                                      }}
-                                      onClick={() => openDeviationModal(clauseItem, vendor)}
-                                      disabled={isPendingApproval && !canApprove}
-                                      title={(isPendingApproval && !canApprove) ? "Actions frozen during pending approval" : "View deviation"}
-                                      id={`view_deviation_${clauseItem.clause_id}_${vendor.vendor_id}-deviation_actions-technical_evaluation_page`}
-                                      onMouseEnter={(e) => {
-                                        if (!(isPendingApproval && !canApprove)) {
-                                          e.currentTarget.style.transform = 'translateY(-1px)';
-                                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(13, 110, 253, 0.3)';
-                                        }
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        if (!(isPendingApproval && !canApprove)) {
-                                          e.currentTarget.style.transform = 'translateY(0)';
-                                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(13, 110, 253, 0.2)';
-                                        }
-                                      }}
-                                    >
-                                     Deviation
-                                    </button>
-                                    )}
-                                    {/* Deviation message preview */}
-                                    {(() => {
-                                      const previewKey = `${clauseItem.clause_id}_${String(vendor.vendor_id)}`;
-                                      const msgs = deviationPreviews[previewKey];
-                                      if (!msgs || msgs.length === 0) return null;
-                                      const isTender = currentRfq?.is_tender === 1 || currentRfq?.is_tender === "1";
-                                      const vendorLabel = isTender
-                                        ? (vendor.label || `VEN-${vendor.rfq_product_vendor_id || vendor.vendor_id}`)
-                                        : (vendor.vendor_name || vendor.company_name || vendor.label || "Vendor");
-                                      return (
-                                        <div style={{ marginTop: "6px", padding: "6px 8px", background: "#f8f9fa", borderRadius: "4px", border: "1px solid #e9ecef", fontSize: "11px", lineHeight: "1.5", maxWidth: "220px" }}>
-                                          {msgs.map((m, i) => {
-                                            const name = String(m.sender_id) == String(currentUserProfile?.id) ? "You" : vendorLabel;
-                                            const text = m.text?.length > 40 ? m.text.substring(0, 40) + "..." : m.text;
-                                            return (
-                                              <div key={i} style={{ color: "#495057", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={`${name}: ${m.text}`}>
-                                                <strong>{name}:</strong> {text}
+                                              {/* Score (clickable) + response files inline */}
+                                              <div className={styles.vendorScoreRow}>
+                                                <span
+                                                  className={`${styles.scoreChip} ${isScored ? (disagrees ? styles.scoreChipAlert : styles.scoreChipScored) : styles.scoreChipUnscored} ${canEdit ? styles.scoreChipClickable : ''}`}
+                                                  onClick={canEdit ? () => openRemarkModal(clauseItem, vendor) : undefined}
+                                                  role={canEdit ? "button" : undefined}
+                                                  tabIndex={canEdit ? 0 : undefined}
+                                                  title={
+                                                    !canWrite ? "No permission"
+                                                      : isPendingApproval ? "Frozen during approval"
+                                                      : isBidEndPassed ? "Locked after deadline"
+                                                      : isScored ? `${response.buyer_marks ?? 0}/${clauseItem.weightage || 0} · Click to edit` : "Click to score"
+                                                  }
+                                                  id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-clause_actions-technical_evaluation_page`}
+                                                >
+                                                  {isScored ? `${response.buyer_marks ?? 0} / ${clauseItem.weightage || 0}` : '—'}
+                                                </span>
+                                                {response?.vendor_response_files && Array.isArray(response.vendor_response_files) && response.vendor_response_files.length > 0 && (
+                                                  <div className={styles.fileButtons}>
+                                                    {response.vendor_response_files.map((file, fi) => (
+                                                      <a key={fi} href={file} target="_blank" rel="noopener noreferrer" className={styles.fileButton} title={`Vendor file ${fi + 1}`}>
+                                                        <BsFileEarmark size={11} /> File {response.vendor_response_files.length > 1 ? fi + 1 : ''}
+                                                      </a>
+                                                    ))}
+                                                  </div>
+                                                )}
                                               </div>
-                                            );
-                                          })}
-                                        </div>
-                                      );
-                                    })()}
-                                    <button
-                                      type="button"
-                                      className="d-flex justify-content-center align-items-center border-0 mt-2"
-                                      style={{
-                                        padding: "8px 14px",
-                                        borderRadius: "6px",
-                                        background: (!canWrite || permissionsLoading || isPendingApproval)
-                                          ? "linear-gradient(135deg, #9e9e9e 0%, #757575 100%)"
-                                          : "linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%)",
-                                        color: "#ffffff",
-                                        fontSize: "12px",
-                                        fontWeight: "600",
-                                        cursor: (!canWrite || permissionsLoading || isPendingApproval) ? "not-allowed" : "pointer",
-                                        transition: "all 0.2s ease",
-                                        opacity: (!canWrite || permissionsLoading || isPendingApproval) ? 0.6 : 1,
-                                        boxShadow: (!canWrite || permissionsLoading || isPendingApproval)
-                                          ? "none"
-                                          : "0 2px 4px rgba(13, 110, 253, 0.2)",
-                                        whiteSpace: "nowrap",
-                                      }}
-                                      onClick={() => openRemarkModal(clauseItem, vendor)}
-                                      disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed}
-                                      title={
-                                        isPendingApproval
-                                          ? "Actions frozen during pending approval"
-                                          : isBidEndPassed
-                                            ? "Technical evaluation edits are locked after the quote submission deadline"
-                                            : (!canWrite ? "You don't have permission to add marks" : "")
-                                      }
-                                      id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-clause_actions-technical_evaluation_page`}
-                                      onMouseEnter={(e) => {
-                                        if (canWrite && !permissionsLoading && !isPendingApproval && !isBidEndPassed) {
-                                          e.currentTarget.style.transform = 'translateY(-1px)';
-                                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(13, 110, 253, 0.3)';
-                                        }
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        if (canWrite && !permissionsLoading && !isPendingApproval && !isBidEndPassed) {
-                                          e.currentTarget.style.transform = 'translateY(0)';
-                                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(13, 110, 253, 0.2)';
-                                        }
-                                      }}
-                                    >
-                                      {clauseItem.clause_type === 'sampling' ? 'Add Marks/Remarks' : 'Add Marks'}
-                                    </button>
-                                    {/* Show remark for sampling clauses - at the bottom */}
-                                    {clauseItem.clause_type === 'sampling' && response?.buyer_remark && (
-                                      <div className="mb-1 mt-2">
-                                        <strong>Remark:</strong>{" "}
-                                        <ReadMore
-                                          content={response.buyer_remark}
-                                          maxLines={3}
-                                          additionalClasses="text-sm"
-                                          additionalStyles={{ marginTop: "2px" }}
-                                        />
-                                      </div>
-                                    )}
 
-                                  </div>
-                                </td>
-                              );
-                            })}
-                        </tr>
-                        {chatMap && chatMap.get(clauseItem.clause_id) && (
-                          <BuyerVendorChat
-                            showChat={chatMap.get(clauseItem.clause_id)}
-                            closeChat={() => toggleChat(clauseItem.clause_id)}
-                            type="Buyer"
-                            data={clauseItem}
-                            userData={currentUserProfile}
-                            otherUser={selectedVendor}
-                            token="" // only for vendor so that they fetch data when they are not login
-                            product = {product}
-                            rfq_no = {currentRfq}
-                          />
-                        )}
-                              </>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                                              {/* Deviation link + preview */}
+                                              {clauseItem.clause_type !== 'sampling' && (
+                                                <>
+                                                  <button
+                                                    className={styles.deviationLink}
+                                                    onClick={() => openDeviationModal(clauseItem, vendor)}
+                                                    disabled={isPendingApproval && !canApprove}
+                                                    id={`view_deviation_${clauseItem.clause_id}_${vendor.vendor_id}-deviation_actions-technical_evaluation_page`}
+                                                  >
+                                                    <BsChatDots size={11} /> {hasMessages ? 'View Deviation' : 'Deviation'}
+                                                  </button>
+                                                  {hasMessages && (
+                                                    <div className={styles.deviationPreview}>
+                                                      {previewMsgs.map((m, i) => {
+                                                        const name = String(m.sender_id) == String(currentUserProfile?.id) ? "You" : vendorLabel;
+                                                        const text = m.text?.length > 40 ? m.text.substring(0, 40) + "..." : m.text;
+                                                        return (
+                                                          <div key={i} className={styles.deviationPreviewMsg} title={`${name}: ${m.text}`}>
+                                                            <strong>{name}:</strong> {text}
+                                                          </div>
+                                                        );
+                                                      })}
+                                                    </div>
+                                                  )}
+                                                </>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
+                                      </td>
+                                    );
+                                  })}
+                            </tr>
+                            {chatMap && chatMap.get(clauseItem.clause_id) && (
+                              <BuyerVendorChat
+                                showChat={chatMap.get(clauseItem.clause_id)}
+                                closeChat={() => toggleChat(clauseItem.clause_id)}
+                                type="Buyer"
+                                data={clauseItem}
+                                userData={currentUserProfile}
+                                otherUser={selectedVendor}
+                                token=""
+                                product={product}
+                                rfq_no={currentRfq}
+                              />
+                            )}
+                          </React.Fragment>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </>
@@ -998,173 +825,125 @@ const ClauseProductItem = ({
                 :
                 vendorResponse && vendorResponse.length > 0 && !multipleVendorsSelected &&
                 <>
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                        <h3 className="fs-5 mb-0">
-                            <span className="fw-semibold">{selectedVendor?.label}</span>
-                        </h3>
+                    <div className={styles.vendorResponseHeader}>
+                        <h3 className={styles.vendorResponseTitle}>{selectedVendor?.label}</h3>
 
-                        {/* START: review status with evaluated by */}
-                        <div className="">
-                        
-                        {/* start : status tag */}
-                        <div>
+                        <div className={styles.vendorResponseActions}>
                             {techEvalStatus == 1 ? (
                                 techEvalCleared.status == 1 ? (
-                                    <span
-                                        className="fw-medium text-bg-success px-3 py-2"
-                                        style={{ borderRadius: "18px 0 0 18px", fontSize: "16px" }}
-                                    >
+                                    <span className={`${styles.vendorStatusTag} ${styles.vendorStatusAccepted}`}>
                                         Vendor is Technically Accepted
                                     </span>
                                 ) : (
-                                    <span
-                                        className="fw-medium text-bg-danger px-3 py-2"
-                                        style={{ borderRadius: "18px 0 0 18px", fontSize: "16px" }}
-                                    >
+                                    <span className={`${styles.vendorStatusTag} ${styles.vendorStatusRejected}`}>
                                         Vendor is Not Technically Accepted
                                     </span>
                                 )
                             ) : (
-                                /* For tenders, hide the big Technically Accepted / Not Accepted buttons */
                                 currentRfq?.is_tender === 1 ? null : (
                                     <>
                                         <button
                                             type="button"
-                                            className="btn btn-secondary border-0 p-2"
-                                            style={{ width: "220px", marginRight: 10, opacity: (!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed) ? 0.6 : 1 }}
+                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed) ? styles.btnDisabled : styles.btnSuccess}`}
                                             onClick={() => addToTechnicallyAccepted()}
                                             disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed}
                                             title={
-                                              isPendingApproval
-                                                ? "Actions frozen during pending approval"
-                                                : isBidEndPassed
-                                                  ? "Technical acceptance is locked after the quote submission deadline"
-                                                  : (!canWrite ? "You don't have permission to accept vendors" : "")
+                                              isPendingApproval ? "Actions frozen during pending approval"
+                                                : isBidEndPassed ? "Technical acceptance is locked after the quote submission deadline"
+                                                : (!canWrite ? "You don't have permission to accept vendors" : "")
                                             }
                                             id="technically_accept_vendor-vendor_evaluation-technical_evaluation_page"
                                         >
-                                            Technically Accepted
+                                            <BsCheckCircleFill size={14} /> Technically Accepted
                                         </button>
                                         <button
                                             type="button"
-                                            className="btn btn-danger border-0 p-2"
-                                            style={{ width: "255px", opacity: (!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed) ? 0.6 : 1 }}
+                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed) ? styles.btnDisabled : styles.btnDanger}`}
                                             onClick={() => setShowRejectConfirmModal(true)}
                                             disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed}
                                             title={
-                                              isPendingApproval
-                                                ? "Actions frozen during pending approval"
-                                                : isBidEndPassed
-                                                  ? "Technical rejection is locked after the quote submission deadline"
-                                                  : (!canWrite ? "You don't have permission to reject vendors" : "")
+                                              isPendingApproval ? "Actions frozen during pending approval"
+                                                : isBidEndPassed ? "Technical rejection is locked after the quote submission deadline"
+                                                : (!canWrite ? "You don't have permission to reject vendors" : "")
                                             }
                                             id="technically_reject_vendor-vendor_evaluation-technical_evaluation_page"
                                         >
-                                            Technically Not Accepted
+                                            <BsXCircleFill size={14} /> Technically Not Accepted
                                         </button>
                                     </>
                                 )
                             )}
-                            </div>
-                        {/* end : status tag */}
-
-
-                          {/* Display evaluated_by and approved_by when available */}
-                          {techEvalStatus == 1 && (techEvalCleared?.evaluated_by || techEvalCleared?.approved_by) && (
-                            <div className="text-muted mt-2">
-                              {techEvalCleared?.evaluated_by && (
-                                <div><strong>Evaluated by: </strong> {techEvalCleared.evaluated_by}</div>
-                              )}
-                              {techEvalCleared?.approved_by && (
-                                <div><strong>Approved by: </strong> {techEvalCleared.approved_by}</div>
-                              )}
-                            </div>
-                          )}
                         </div>
-                      {/* END: review status with evaluated by */}
-
-
                     </div>
 
-                    <div className="table-responsive w-100">
-                        <table className="table table-bordered table-striped" ref={tableRef} style={{ tableLayout: "fixed" }}>
-                            <colgroup>
-                                <col style={{ width: "600px" }} />
-                                <col style={{ width: "140px" }} />
-                                <col style={{ width: "230px" }} />
-                                <col style={{ width: "125px" }} />
-                            </colgroup>
+                    {/* Evaluated by / Approved by meta */}
+                    {techEvalStatus == 1 && (techEvalCleared?.evaluated_by || techEvalCleared?.approved_by) && (
+                      <div className={styles.vendorResponseMeta}>
+                        {techEvalCleared?.evaluated_by && (
+                          <span className={styles.vendorMetaItem}>
+                            <BsPersonCheck size={13} /> Evaluated by: <strong>{techEvalCleared.evaluated_by}</strong>
+                          </span>
+                        )}
+                        {techEvalCleared?.approved_by && (
+                          <span className={styles.vendorMetaItem}>
+                            <BsShieldCheck size={13} /> Approved by: <strong>{techEvalCleared.approved_by}</strong>
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className={`${styles.tableWrapper} mt-3`}>
+                        <table className={styles.responseTable} ref={tableRef}>
                             <thead>
-                                <tr className="table-dark text-nowrap" style={{ backgroundColor: "var(--primary-color) !important" }}>
-                                    <th scope="col" >Clause Terms</th>
-                                    <th scope="col" >Vendor Response</th>
-                                    <th scope="col" >Cross Reference Documents</th>
-                                    <th scope="col" >Comment</th>
+                                <tr>
+                                    <th className={styles.responseTableCol1}>Clause Terms</th>
+                                    <th className={styles.responseTableCol2}>Vendor Response</th>
+                                    <th className={styles.responseTableCol3}>Cross Reference Documents</th>
+                                    <th className={styles.responseTableCol4}>Comment</th>
                                 </tr>
                             </thead>
 
                             <tbody>
                                 {vendorResponse.map((clauseItem, index) => (
-                                    <>
-                                        <tr key={`ven_res_clause_${clauseItem.clause_id}`}>
+                                    <React.Fragment key={`ven_res_clause_${clauseItem.clause_id}`}>
+                                        <tr>
                                             <td>
-                                                <div className="d-flex align-items-center gap-2">
-                                                    <ReadMore content={`${index + 1}. ${clauseItem.clause_text}`} maxLines={4} />
-                                                </div>
+                                                <ReadMore content={`${index + 1}. ${clauseItem.clause_text}`} maxLines={4} />
                                             </td>
                                             <td>
-                                                <span className={`badge rounded-pill py-1 px-2 ${clauseItem.vendor_response == "I Agree" ? 'text-bg-success' : 'text-bg-danger'}`}>{clauseItem.vendor_response}</span>
+                                                <span className={`badge rounded-pill py-1 px-2 ${clauseItem.vendor_response == "I Agree" ? 'text-bg-success' : 'text-bg-danger'}`}>
+                                                    {clauseItem.vendor_response == "I Agree" && <BsCheckCircleFill size={10} className="me-1" />}
+                                                    {clauseItem.vendor_response != "I Agree" && <BsXCircleFill size={10} className="me-1" />}
+                                                    {clauseItem.vendor_response}
+                                                </span>
                                             </td>
-                                            <td style={{ maxWidth: "260px" }}>
+                                            <td>
                                                 {clauseItem.vendor_response_files && clauseItem.vendor_response_files.length > 0
-                                                    ? <FileLink key={clauseItem.clause_id} Files={clauseItem.vendor_response_files} />
+                                                    ? <div className={styles.fileButtons}>
+                                                        {clauseItem.vendor_response_files.map((file, fi) => (
+                                                          <a key={fi} href={file} target="_blank" rel="noopener noreferrer" className={styles.fileButton}>
+                                                            <BsFileEarmark size={11} />
+                                                            File {clauseItem.vendor_response_files.length > 1 ? fi + 1 : ''}
+                                                          </a>
+                                                        ))}
+                                                      </div>
                                                     : "N/A"
                                                 }
                                             </td>
                                             <td>
                                                 {clauseItem.clause_type !== 'sampling' && (
-                                                <button
-                                                    type="button"
-                                                    className="d-flex justify-content-center align-items-center border-0"
-                                                    style={{
-                                                        padding: "8px 14px",
-                                                        borderRadius: "6px",
-                                                        background: (isPendingApproval && !canApprove)
-                                                          ? "linear-gradient(135deg, #9e9e9e 0%, #757575 100%)"
-                                                          : "linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%)",
-                                                        color: "#ffffff",
-                                                        fontSize: "12px",
-                                                        fontWeight: "600",
-                                                        cursor: (isPendingApproval && !canApprove) ? "not-allowed" : "pointer",
-                                                        transition: "all 0.2s ease",
-                                                        opacity: (isPendingApproval && !canApprove) ? 0.6 : 1,
-                                                        boxShadow: (isPendingApproval && !canApprove)
-                                                          ? "none"
-                                                          : "0 2px 4px rgba(13, 110, 253, 0.2)",
-                                                        whiteSpace: "nowrap",
-                                                    }}
-                                                    onClick={() => toggleChat(clauseItem.clause_id)}
-                                                    disabled={isPendingApproval && !canApprove}
-                                                    title={(isPendingApproval && !canApprove) ? "Actions frozen during pending approval" : "View explanation / deviation"}
-                                                    id={`explanation_deviation_${clauseItem.clause_id}-clause_actions-technical_evaluation_page`}
-                                                    onMouseEnter={(e) => {
-                                                      if (!(isPendingApproval && !canApprove)) {
-                                                        e.currentTarget.style.transform = 'translateY(-1px)';
-                                                        e.currentTarget.style.boxShadow = '0 4px 8px rgba(13, 110, 253, 0.3)';
-                                                      }
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                      if (!(isPendingApproval && !canApprove)) {
-                                                        e.currentTarget.style.transform = 'translateY(0)';
-                                                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(13, 110, 253, 0.2)';
-                                                      }
-                                                    }}
-                                                >
-                                                    Explanation / Deviation
-                                                </button>
+                                                  <button
+                                                      type="button"
+                                                      className={`${styles.btn} ${(isPendingApproval && !canApprove) ? styles.btnDisabled : styles.btnOutline}`}
+                                                      onClick={() => toggleChat(clauseItem.clause_id)}
+                                                      disabled={isPendingApproval && !canApprove}
+                                                      title={(isPendingApproval && !canApprove) ? "Actions frozen during pending approval" : "View explanation / deviation"}
+                                                      id={`explanation_deviation_${clauseItem.clause_id}-clause_actions-technical_evaluation_page`}
+                                                  >
+                                                      <BsChatDots size={12} /> Explanation / Deviation
+                                                  </button>
                                                 )}
                                             </td>
-
                                         </tr>
                                         {chatMap.get(clauseItem.clause_id) &&
                                             <BuyerVendorChat
@@ -1174,10 +953,10 @@ const ClauseProductItem = ({
                                                 data={clauseItem}
                                                 userData={currentUserProfile}
                                                 otherUser={_selectedVendor ? _selectedVendor.value : selectedVendor.value}
-                                                token='' // only for vendor so that they fetch data when they are not login
+                                                token=''
                                             />
                                         }
-                                    </>)
+                                    </React.Fragment>)
                                 )}
                             </tbody>
                         </table>
@@ -1226,22 +1005,56 @@ const ClauseProductItem = ({
           setBuyerMarks("");
           setSelectedClauseForRemark(null);
           setSelectedVendorForRemark(null);
-        }} centered>
-          <Modal.Header closeButton>
-            <Modal.Title>
+        }} centered className={styles.scoreModal}>
+          <div className={styles.scoreModalAccent} />
+          <div className={styles.scoreModalHeader}>
+            <div className={styles.scoreModalIcon}>
+              <BsPencilSquare size={18} />
+            </div>
+            <h5 className={styles.scoreModalTitle}>
               {selectedClauseForRemark?.clause_type === 'sampling' ? 'Add Remark and Score' : 'Add Score'}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
+            </h5>
+          </div>
+
+          {/* Context strip */}
+          {selectedClauseForRemark && selectedVendorForRemark && (
+            <div className={styles.scoreModalContext}>
+              <div className={styles.scoreModalContextItem}>
+                <span className={styles.scoreModalContextLabel}>Clause:</span>
+                <span>{selectedClauseForRemark.clause_text?.length > 80 ? selectedClauseForRemark.clause_text.substring(0, 80) + '...' : selectedClauseForRemark.clause_text}</span>
+              </div>
+              <div className={styles.scoreModalContextItem}>
+                <span className={styles.scoreModalContextLabel}>Vendor:</span>
+                <span>{selectedVendorForRemark.label || selectedVendorForRemark.vendor_name || `VEN-${selectedVendorForRemark.vendor_id || selectedVendorForRemark.value}`}</span>
+              </div>
+              <div className={styles.scoreModalContextItem}>
+                <span className={styles.scoreModalContextLabel}>Weightage:</span>
+                <span>{selectedClauseForRemark.weightage || 0}</span>
+              </div>
+            </div>
+          )}
+
+          <Modal.Body className={styles.scoreModalBody}>
             <div className="mb-3">
-              <label className="form-label">Give Score</label>
-              {selectedClauseForRemark?.weightage && (
-                <div className="alert alert-info mb-2 p-2" style={{ fontSize: "12px" }}>
-                  <strong>Clause Weightage:</strong> {selectedClauseForRemark.weightage}
-                  <br />
-                  <small>Maximum marks allowed: {selectedClauseForRemark.weightage}</small>
+              <label className="form-label fw-semibold">Give Score</label>
+
+              {/* Visual score display */}
+              {buyerMarks !== "" && buyerMarks !== null && selectedClauseForRemark?.weightage && (
+                <div className={styles.scoreModalDisplay}>
+                  <span className={styles.scoreModalValue}>{buyerMarks}</span>
+                  <span className={styles.scoreModalMax}>/ {selectedClauseForRemark.weightage}</span>
+                  {(() => {
+                    const pct = selectedClauseForRemark.weightage ? Math.round((parseInt(buyerMarks) / selectedClauseForRemark.weightage) * 100) : 0;
+                    const pass = pct >= (minimumPassingScore || 0);
+                    return (
+                      <span className={`${styles.scoreModalPercentage} ${pass ? styles.scoreModalPercentagePass : styles.scoreModalPercentageFail}`}>
+                        {pct}%
+                      </span>
+                    );
+                  })()}
                 </div>
               )}
+
               <Form.Control
                 type="number"
                 placeholder="Enter score"
@@ -1252,8 +1065,8 @@ const ClauseProductItem = ({
                   const value = e.target.value;
                   setBuyerMarks(value);
                 }}
-                className={buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0) 
-                  ? 'border-danger' 
+                className={buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0)
+                  ? 'border-danger'
                   : ''}
               />
               {buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0) && (
@@ -1264,7 +1077,7 @@ const ClauseProductItem = ({
             </div>
             {selectedClauseForRemark?.clause_type === 'sampling' && (
               <div className="mb-3">
-                <label className="form-label">Add Remark</label>
+                <label className="form-label fw-semibold">Add Remark</label>
                 <Form.Control
                   as="textarea"
                   rows={3}
@@ -1275,10 +1088,10 @@ const ClauseProductItem = ({
               </div>
             )}
           </Modal.Body>
-          <Modal.Footer>
+          <div className={styles.scoreModalFooter}>
             <button
               type="button"
-              className="btn btn-secondary"
+              className={`${styles.btn} ${styles.btnSecondary}`}
               onClick={() => {
                 setShowRemarkModal(false);
                 setBuyerRemark("");
@@ -1291,7 +1104,7 @@ const ClauseProductItem = ({
             </button>
             <button
               type="button"
-              className="btn btn-primary"
+              className={`${styles.btn} ${(!canWrite || permissionsLoading || isBidEndPassed) ? styles.btnDisabled : styles.btnPrimary}`}
               onClick={handleSaveBuyerMarks}
               disabled={loading || !canWrite || permissionsLoading || isBidEndPassed}
               title={
@@ -1302,60 +1115,26 @@ const ClauseProductItem = ({
             >
               {loading ? "Saving..." : "Save"}
             </button>
-          </Modal.Footer>
+          </div>
         </Modal>
 
         {/* Fully Approved Banner - shown when workflow is complete */}
         {workflowComplete && (
-          <div
-            style={{
-              margin: '20px 0 16px',
-              padding: '16px 24px',
-              background: 'linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%)',
-              border: '1px solid #c8e6c9',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px',
-            }}
-          >
-            <div
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #43a047, #66bb6a)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                boxShadow: '0 2px 8px rgba(67, 160, 71, 0.3)',
-              }}
-            >
+          <div className={styles.approvedBanner}>
+            <div className={styles.approvedBannerIcon}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 6L9 17l-5-5" />
               </svg>
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: '15px', color: '#2e7d32', marginBottom: '2px' }}>
+            <div className={styles.approvedBannerContent}>
+              <div className={styles.approvedBannerTitle}>
                 Technical Evaluation Fully Approved
               </div>
-              <div style={{ fontSize: '13px', color: '#558b2f' }}>
+              <div className={styles.approvedBannerSubtitle}>
                 {totalPassedVerified} of {requiredPassedVendors} required vendors have been verified and approved across {currentRound} {currentRound === 1 ? 'round' : 'rounds'}.
               </div>
             </div>
-            <div
-              style={{
-                padding: '6px 14px',
-                borderRadius: '20px',
-                backgroundColor: '#43a047',
-                color: '#fff',
-                fontSize: '12px',
-                fontWeight: 600,
-                letterSpacing: '0.5px',
-                whiteSpace: 'nowrap',
-              }}
-            >
+            <div className={styles.approvedBannerBadge}>
               COMPLETED
             </div>
           </div>
@@ -1363,7 +1142,24 @@ const ClauseProductItem = ({
 
         {/* Submit for Approval Button - Moved to main index.js for unified approval */}
 
-        {/* Approval Workflow Section - Moved to main index.js for unified approval */}
+        {/* Approval Workflow Section - per product, bound to pending round id */}
+        {approvalEntityId && (
+          <div className="mb-3 mt-2">
+            <ApprovalWorkflowSection
+              entityType="TECHNICAL"
+              entityId={approvalEntityId}
+              entityLabel={`Technical Evaluation (Round ${pendingRound?.round || pendingRound?.round_number || latestRound?.round || latestRound?.round_number || currentRound})`}
+              onCustomApprove={handleTechEvalApprove}
+              onCustomReject={handleTechEvalReject}
+              refreshTrigger={approvalRefreshKey}
+              onActionComplete={async () => {
+                await refetchWorkflow();
+                setApprovalRefreshKey((prev) => prev + 1);
+                if (refetch) refetch();
+              }}
+            />
+          </div>
+        )}
 
         {/* Submit for Approval Confirmation Modal - Moved to main index.js */}
 
@@ -1378,7 +1174,6 @@ const ClauseProductItem = ({
           rfq_no={currentRfq}
         />
 
-        <hr />
       </div>
     );
 }
