@@ -284,6 +284,40 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
           border-top-color: rgba(255,193,7,0.15);
         }
 
+        /* Department group */
+        .at-dept-group {
+          margin-top: 8px;
+        }
+        .at-dept-group + .at-dept-group {
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px dashed #e9ecef;
+        }
+        .at-dept-label {
+          font-size: 0.68rem;
+          font-weight: 600;
+          color: #6c757d;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          padding: 0 10px;
+          margin-bottom: 2px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .at-dept-label::before {
+          content: '';
+          display: inline-block;
+          width: 6px;
+          height: 6px;
+          border-radius: 2px;
+          background: #adb5bd;
+          flex-shrink: 0;
+        }
+        .at-step-card.is-current-pending .at-dept-group + .at-dept-group {
+          border-top-color: rgba(255,193,7,0.2);
+        }
+
         /* Approver row */
         .at-approver {
           display: flex;
@@ -475,65 +509,77 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
                 </div>
               </div>
 
-              {/* Approver details */}
+              {/* Approver details - grouped by department */}
               <Collapse in={isExpanded}>
                 <div>
                   <div className="at-step-body">
-                    {step.approvers?.map((approver) => {
-                      const aStatus = getApproverStatus(approver.status);
-                      const AIcon = aStatus.icon;
-                      const iconClass = approver.status === "APPROVED" ? "done"
-                        : approver.status === "REJECTED" ? "failed" : "waiting";
-                      const tagClass = approver.status === "APPROVED" ? "approved"
-                        : approver.status === "REJECTED" ? "rejected" : "waiting";
+                    {(() => {
+                      // Group approvers by department
+                      const deptGroups = {};
+                      (step.approvers || []).forEach((approver) => {
+                        const dept = approver.user_department || "Other";
+                        if (!deptGroups[dept]) deptGroups[dept] = [];
+                        deptGroups[dept].push(approver);
+                      });
+                      const deptKeys = Object.keys(deptGroups);
+                      const showDeptHeaders = deptKeys.length > 1;
 
-                      return (
-                        <div className="at-approver" key={approver.user_id}>
-                          <div className={`at-approver-icon-wrap ${iconClass}`}>
-                            <AIcon size={12} style={{ color: aStatus.color }} />
-                          </div>
-                          <div className="at-approver-info">
-                            <span className="at-approver-name">{approver.user_name}</span>
-                            {approver.employee_code && (
-                              <span className="at-approver-meta">{approver.employee_code}</span>
-                            )}
-                            {approver.designation && (
-                              <span className="at-approver-meta">· {approver.designation}</span>
-                            )}
-                            {(approver.user_designation || approver.user_department) && (
-                              <span className="at-approver-meta">
-                                {approver.user_designation}
-                                {approver.user_designation && approver.user_department && " · "}
-                                {approver.user_department}
-                              </span>
-                            )}
-                            {approver.acted_at && (
-                              <span className="at-approver-meta">· {formatDate(approver.acted_at)}</span>
-                            )}
-                          </div>
-                          <span className={`at-approver-status-tag ${tagClass}`}>
-                            {aStatus.text}
-                          </span>
-                          {approver.comment && (
-                            <OverlayTrigger
-                              placement="top"
-                              overlay={
-                                <Tooltip>
-                                  <div style={{ textAlign: "left", maxWidth: 280 }}>
-                                    <strong>{approver.user_name}:</strong><br />
-                                    &ldquo;{approver.comment}&rdquo;
-                                  </div>
-                                </Tooltip>
-                              }
-                            >
-                              <span className="at-comment-btn">
-                                <BsChatLeftTextFill size={13} style={{ color: aStatus.color }} />
-                              </span>
-                            </OverlayTrigger>
+                      return deptKeys.map((dept) => (
+                        <div className="at-dept-group" key={dept}>
+                          {showDeptHeaders && (
+                            <div className="at-dept-label">{dept}</div>
                           )}
+                          {deptGroups[dept].map((approver) => {
+                            const aStatus = getApproverStatus(approver.status);
+                            const AIcon = aStatus.icon;
+                            const iconClass = approver.status === "APPROVED" ? "done"
+                              : approver.status === "REJECTED" ? "failed" : "waiting";
+                            const tagClass = approver.status === "APPROVED" ? "approved"
+                              : approver.status === "REJECTED" ? "rejected" : "waiting";
+
+                            return (
+                              <div className="at-approver" key={approver.user_id}>
+                                <div className={`at-approver-icon-wrap ${iconClass}`}>
+                                  <AIcon size={12} style={{ color: aStatus.color }} />
+                                </div>
+                                <div className="at-approver-info">
+                                  <span className="at-approver-name">{approver.user_name}</span>
+                                  {approver.employee_code && (
+                                    <span className="at-approver-meta">{approver.employee_code}</span>
+                                  )}
+                                  {approver.user_designation && (
+                                    <span className="at-approver-meta">{approver.user_designation}</span>
+                                  )}
+                                  {approver.acted_at && (
+                                    <span className="at-approver-meta">· {formatDate(approver.acted_at)}</span>
+                                  )}
+                                </div>
+                                <span className={`at-approver-status-tag ${tagClass}`}>
+                                  {aStatus.text}
+                                </span>
+                                {approver.comment && (
+                                  <OverlayTrigger
+                                    placement="top"
+                                    overlay={
+                                      <Tooltip>
+                                        <div style={{ textAlign: "left", maxWidth: 280 }}>
+                                          <strong>{approver.user_name}:</strong><br />
+                                          &ldquo;{approver.comment}&rdquo;
+                                        </div>
+                                      </Tooltip>
+                                    }
+                                  >
+                                    <span className="at-comment-btn">
+                                      <BsChatLeftTextFill size={13} style={{ color: aStatus.color }} />
+                                    </span>
+                                  </OverlayTrigger>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      ));
+                    })()}
                   </div>
                 </div>
               </Collapse>

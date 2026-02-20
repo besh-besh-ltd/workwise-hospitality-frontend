@@ -1420,10 +1420,13 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     finalizeQuotation(payload)
       .then((res) => {
         setfinalizeLoading(false);
-        const routeMsg = routeType === 'ARC' 
+        const data = res?.data || res;
+        const defaultMsg = routeType === 'ARC'
           ? "Vendor finalized! ARC approval will be triggered when all products are finalized."
-          : "Vendor finalized! Purchase Order created.";
-        toast.success(res.message ?? routeMsg)
+          : data?.approvalPending
+            ? "Vendor finalized! Approval is required before Purchase Order can be created."
+            : "Vendor finalized! Purchase Order created.";
+        toast.success(res.message ?? defaultMsg);
         getRespectiveQuotes();
       })
       .catch((err) => {
@@ -1527,7 +1530,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
-          <div className="row" style={{ flexWrap: 'nowrap', gap: '8px' }}>
+          <div className="row" style={{ flexWrap: 'nowrap', gap: '8px', overflow: 'hidden' }}>
               <RFQListSidebar
                 title="Quote Comparison"
                 rfqList={myRFQs}
@@ -1586,7 +1589,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 pageId="quote_compare"
               />
 
-            <div className="col-md-10" style={{ flex: '1 1 0%', width: 'auto', maxWidth: 'none' }}>
+            <div className="col-md-10" style={{ flex: '1 1 0%', minWidth: 0, maxWidth: 'none' }}>
               <div className="quote-sec-table quote-sec-tab">
                 {!quotesLoading && currentRFQ && (
                   <div className="mb-3">

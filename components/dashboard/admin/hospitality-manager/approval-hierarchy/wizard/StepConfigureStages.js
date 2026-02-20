@@ -158,7 +158,7 @@ const StepConfigureStages = ({
 
       <h4 className="step-heading">Configure approval stages</h4>
       <p className="step-subtext">
-        Set approvers for each stage in order: RFQ → Technical → Quote → PO.
+        Set approvers for each stage in order: RFQ → Technical → Negotiation → Negotiation Quote → PO.
       </p>
 
       <div className="how-it-works">

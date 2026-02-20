@@ -35,19 +35,21 @@ export const getEntityTypeConfig = (value) => {
   return entityTypes.find((e) => e.value === value) || entityTypes[0];
 };
 
-// RFQ route: RFQ → Technical → Quote → PO
+// RFQ route: RFQ → Technical → Negotiation → Negotiation Quote → PO
 export const RFQ_PROCESS_STAGES = [
   { value: "RFQ", label: "RFQ", description: "Request for Quotation", shortLabel: "RFQ" },
   { value: "TECHNICAL", label: "Technical", description: "Technical evaluation", shortLabel: "Tech" },
-  { value: "NEGOTIATION_QUOTE", label: "Quote", description: "Negotiation quotes", shortLabel: "Quote" },
+  { value: "NEGOTIATION", label: "Negotiation", description: "Negotiation rounds", shortLabel: "Negotiation" },
+  { value: "NEGOTIATION_QUOTE", label: "Negotiation Quote", description: "Vendor quote finalization", shortLabel: "Neg. Quote" },
   { value: "PO", label: "PO", description: "Purchase Order", shortLabel: "PO" },
 ];
 
-// Tender/ARC route: Tender → Technical → Quote → ARC (replace RFQ with Tender, PO with ARC)
+// Tender/ARC route: Tender → Technical → Negotiation → Negotiation Quote → ARC
 export const TENDER_PROCESS_STAGES = [
   { value: "TENDER", label: "Tender", description: "Tender submissions", shortLabel: "Tender" },
   { value: "TECHNICAL", label: "Technical", description: "Technical evaluation", shortLabel: "Tech" },
-  { value: "NEGOTIATION_QUOTE", label: "Quote", description: "Negotiation quotes", shortLabel: "Quote" },
+  { value: "NEGOTIATION", label: "Negotiation", description: "Negotiation rounds", shortLabel: "Negotiation" },
+  { value: "NEGOTIATION_QUOTE", label: "Negotiation Quote", description: "Vendor quote finalization", shortLabel: "Neg. Quote" },
   { value: "ARC", label: "ARC", description: "ARC Committee Approval", shortLabel: "ARC" },
 ];
 
@@ -57,7 +59,7 @@ export const PROCESS_TYPES = {
   ARC: "ARC",
 };
 
-/** Returns the 4-stage config for the given process type. RFQ → RFQ route; TENDER/ARC → Tender route. */
+/** Returns the 5-stage config for the given process type. RFQ → RFQ route; TENDER/ARC → Tender route. */
 export const getStagesForProcessType = (processType) => {
   const t = (processType || "").toUpperCase();
   return t === "RFQ" ? RFQ_PROCESS_STAGES : TENDER_PROCESS_STAGES;

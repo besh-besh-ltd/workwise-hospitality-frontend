@@ -67,7 +67,7 @@ const WorkflowWizard = ({
     }
   }, [isEditing, editingProcess?.id, editingPolicies?.length]);
 
-  // When process selection changes (create flow), reset stages to the correct 4 for that process type
+  // When process selection changes (create flow), reset stages to the correct 5 for that process type
   React.useEffect(() => {
     if (isEditing || !wizardForm.process_id) return;
     const process = processes?.find((p) => p.id === wizardForm.process_id);

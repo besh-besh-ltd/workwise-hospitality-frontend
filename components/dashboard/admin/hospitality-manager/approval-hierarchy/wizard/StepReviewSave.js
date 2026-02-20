@@ -12,8 +12,8 @@ const StepReviewSave = ({
   const processName = process?.name || "Unknown Process";
   const isRfqRoute = (process?.process_type || "").toUpperCase() === "RFQ";
   const flowLabel = isRfqRoute
-    ? "RFQ → Technical → Quote → PO"
-    : "Tender → Technical → Quote → ARC";
+    ? "RFQ → Technical → Negotiation → Neg. Quote → PO"
+    : "Tender → Technical → Negotiation → Neg. Quote → ARC";
 
   return (
     <div>
