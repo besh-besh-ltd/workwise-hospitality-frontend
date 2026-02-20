@@ -21,7 +21,8 @@ const ApprovalFlowGraph = ({
   const shortLabels = {
     RFQ: "RFQ",
     TECHNICAL: "Tech",
-    NEGOTIATION_QUOTE: "Quote",
+    NEGOTIATION: "Negotiation",
+    NEGOTIATION_QUOTE: "Neg. Quote",
     PO: "PO",
     TENDER: "Tender",
     ARC: "ARC",

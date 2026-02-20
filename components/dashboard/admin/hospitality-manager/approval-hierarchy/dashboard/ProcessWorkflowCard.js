@@ -27,8 +27,8 @@ const ProcessWorkflowCard = ({
   const processName = process?.name || "Process";
   const isRfqRoute = processType === "RFQ";
   const flowLabel = isRfqRoute
-    ? "RFQ → Tech → Quote → PO"
-    : "Tender → Tech → Quote → ARC";
+    ? "RFQ → Tech → Negotiation → Neg. Quote → PO"
+    : "Tender → Tech → Negotiation → Neg. Quote → ARC";
 
   return (
     <>

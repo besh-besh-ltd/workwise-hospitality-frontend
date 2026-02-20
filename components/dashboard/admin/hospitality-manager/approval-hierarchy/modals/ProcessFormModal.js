@@ -3,9 +3,9 @@ import Modal from "react-modal";
 import { BRAND_TEAL, PROCESS_TYPES } from "../constants";
 
 const PROCESS_TYPE_OPTIONS = [
-  { value: PROCESS_TYPES.RFQ, label: "RFQ (RFQ → Tech → Quote → PO)" },
-  { value: PROCESS_TYPES.TENDER, label: "Tender (Tender → Tech → Quote → ARC)" },
-  { value: PROCESS_TYPES.ARC, label: "ARC (Tender → Tech → Quote → ARC)" },
+  { value: PROCESS_TYPES.RFQ, label: "RFQ (RFQ → Tech → Negotiation → Neg. Quote → PO)" },
+  { value: PROCESS_TYPES.TENDER, label: "Tender (Tender → Tech → Negotiation → Neg. Quote → ARC)" },
+  { value: PROCESS_TYPES.ARC, label: "ARC (Tender → Tech → Negotiation → Neg. Quote → ARC)" },
 ];
 
 const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) => {

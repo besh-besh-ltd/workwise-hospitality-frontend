@@ -7,8 +7,8 @@ import { BRAND_TEAL } from "../constants";
 const processTypeLabel = (t) => {
   if (!t) return "";
   const u = (t || "").toUpperCase();
-  if (u === "RFQ") return "RFQ (RFQ → Tech → Quote → PO)";
-  if (u === "TENDER" || u === "ARC") return "Tender / ARC (Tender → Tech → Quote → ARC)";
+  if (u === "RFQ") return "RFQ (RFQ → Tech → Negotiation → Neg. Quote → PO)";
+  if (u === "TENDER" || u === "ARC") return "Tender / ARC (Tender → Tech → Negotiation → Neg. Quote → ARC)";
   return u;
 };
 
@@ -104,8 +104,8 @@ const StepSelectProcessOnly = ({
 
       <h4 className="step-heading">Select Process</h4>
       <p className="step-subtext">
-        Choose the process. Stages will follow <strong>RFQ → Tech → Quote → PO</strong> for RFQ
-        processes, or <strong>Tender → Tech → Quote → ARC</strong> for Tender/ARC processes.
+        Choose the process. Stages will follow <strong>RFQ → Tech → Negotiation → Neg. Quote → PO</strong> for RFQ
+        processes, or <strong>Tender → Tech → Negotiation → Neg. Quote → ARC</strong> for Tender/ARC processes.
       </p>
 
       <div className="info-box">
