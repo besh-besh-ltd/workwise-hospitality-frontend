@@ -67,6 +67,17 @@ const ClauseProductItem = ({
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
 
+    // Helper: Check if a vendor has been truly scored for ALL clauses
+    // Uses score_timestamp (set only when buyer actually saves a score) instead of
+    // buyer_marks which the backend may default to 0 for unevaluated vendors
+    const isVendorFullyScored = (vendorId) => {
+      if (!clauseInfo || clauseInfo.length === 0) return false;
+      return clauseInfo.every(clause => {
+        const response = clause.vendor_responses?.find(r => String(r.vendor_id) == String(vendorId));
+        return response && !!response.score_timestamp;
+      });
+    };
+
     // Technical Evaluation Workflow Hook - Multi-round approval support
     const {
       workflowState,
@@ -532,14 +543,12 @@ const ClauseProductItem = ({
     // Notify parent about evaluation status for this product
     useEffect(() => {
         if (onEvaluationStatusChange && vendors && clauseInfo) {
-            // Check if all clauses are evaluated for vendors
             const allVendors = vendors || [];
-            const evaluatedVendorCount = allVendors.filter(v => v.has_marks).length;
-            const totalClauses = clauseInfo.length;
+            const evaluatedVendorCount = allVendors.filter(v => isVendorFullyScored(v.vendor_id)).length;
 
             // A product is fully evaluated if all vendors have scores for all clauses
             const isFullyEvaluated = evaluatedVendorCount > 0 && allVendors.length > 0 &&
-                allVendors.every(vendor => vendor.has_marks);
+                allVendors.every(vendor => isVendorFullyScored(vendor.vendor_id));
 
             onEvaluationStatusChange(product.id, {
                 isFullyEvaluated,
@@ -601,7 +610,12 @@ const ClauseProductItem = ({
                             .map((vendor) => {
                               const isCleared = vendor.is_cleared;
                               const vendorCode = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
-                              const colTintClass = vendor.has_marks
+                              const vendorEvaluated = isVendorFullyScored(vendor.vendor_id);
+                              const vendorPartial = !vendorEvaluated && clauseInfo.some(clause => {
+                                const resp = clause.vendor_responses?.find(r => String(r.vendor_id) == String(vendor.vendor_id));
+                                return resp && !!resp.score_timestamp;
+                              });
+                              const colTintClass = vendorEvaluated
                                 ? (vendor.is_passed ? styles.vendorColPassed : styles.vendorColFailed)
                                 : styles.vendorColNotEvaluated;
                               return (
@@ -633,7 +647,7 @@ const ClauseProductItem = ({
                                   </div>
 
                                   {/* Score + status */}
-                                  {vendor.calculated_score !== undefined && vendor.calculated_score !== null && vendor.has_marks ? (
+                                  {vendorEvaluated && vendor.calculated_score !== undefined && vendor.calculated_score !== null ? (
                                     <div className={styles.vendorScoreLine}>
                                       <span className={styles.vendorScore}>{vendor.calculated_score}%</span>
                                       {vendor.is_passed !== undefined && vendor.is_passed !== null && (
@@ -648,7 +662,9 @@ const ClauseProductItem = ({
                                       )}
                                     </div>
                                   ) : (
-                                    !vendor.has_marks && vendor.is_cleared === null ? (
+                                    vendorPartial ? (
+                                      <span className="badge rounded-pill py-1 px-2 text-bg-info" style={{ fontSize: '10px' }}>In Progress</span>
+                                    ) : !vendorEvaluated && vendor.is_cleared === null ? (
                                       <span className="badge rounded-pill py-1 px-2 text-bg-secondary" style={{ fontSize: '10px' }}>Not Evaluated</span>
                                     ) : isCleared != null ? (
                                       <span className={`badge rounded-pill py-1 px-2 ${isCleared == 1 ? "text-bg-success" : "text-bg-danger"}`} style={{ fontSize: '10px' }}>
@@ -717,10 +733,7 @@ const ClauseProductItem = ({
                                           const previewKey = `${clauseItem.clause_id}_${String(vendor.vendor_id)}`;
                                           const previewMsgs = deviationPreviews[previewKey];
                                           const hasMessages = previewMsgs?.length > 0;
-                                          const isTender = currentRfq?.is_tender === 1 || currentRfq?.is_tender === "1";
-                                          const vendorLabel = isTender
-                                            ? (vendor.label || `VEN-${vendor.rfq_product_vendor_id || vendor.vendor_id}`)
-                                            : (vendor.vendor_name || vendor.company_name || vendor.label || "Vendor");
+                                          const vendorLabel = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
                                           return (
                                             <div className={styles.vendorCell}>
                                               {/* Response badge */}
@@ -751,7 +764,11 @@ const ClauseProductItem = ({
                                                   }
                                                   id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-clause_actions-technical_evaluation_page`}
                                                 >
-                                                  {isScored ? `${response.buyer_marks ?? 0} / ${clauseItem.weightage || 0}` : '—'}
+                                                  {isScored ? (
+                                                    <>{response.buyer_marks ?? 0} / {clauseItem.weightage || 0}{canEdit && <BsPencilSquare size={10} className={styles.scoreEditIcon} />}</>
+                                                  ) : (
+                                                    canEdit ? <><BsPencilSquare size={11} /> Score</> : '—'
+                                                  )}
                                                 </span>
                                                 {response?.vendor_response_files && Array.isArray(response.vendor_response_files) && response.vendor_response_files.length > 0 && (
                                                   <div className={styles.fileButtons}>
@@ -763,6 +780,14 @@ const ClauseProductItem = ({
                                                   </div>
                                                 )}
                                               </div>
+
+                                              {/* Sampling remark preview */}
+                                              {clauseItem.clause_type === 'sampling' && response?.buyer_remark && (
+                                                <div className={styles.samplingRemarkPreview} title={response.buyer_remark}>
+                                                  <span className={styles.samplingRemarkLabel}>Remark:</span>
+                                                  {response.buyer_remark.length > 60 ? response.buyer_remark.substring(0, 60) + '...' : response.buyer_remark}
+                                                </div>
+                                              )}
 
                                               {/* Deviation link + preview */}
                                               {clauseItem.clause_type !== 'sampling' && (
@@ -1025,7 +1050,7 @@ const ClauseProductItem = ({
               </div>
               <div className={styles.scoreModalContextItem}>
                 <span className={styles.scoreModalContextLabel}>Vendor:</span>
-                <span>{selectedVendorForRemark.label || selectedVendorForRemark.vendor_name || `VEN-${selectedVendorForRemark.vendor_id || selectedVendorForRemark.value}`}</span>
+                <span>{selectedVendorForRemark.rfq_product_vendor_id ? `VEN-${selectedVendorForRemark.rfq_product_vendor_id}` : `Vendor ${selectedVendorForRemark.vendor_id || selectedVendorForRemark.value}`}</span>
               </div>
               <div className={styles.scoreModalContextItem}>
                 <span className={styles.scoreModalContextLabel}>Weightage:</span>
