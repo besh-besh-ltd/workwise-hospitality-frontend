@@ -187,6 +187,9 @@ const PersonalInfoStep = ({
           {touched.password && errors.password && (
             <div className={styles.formError}>{errors.password}</div>
           )}
+          <p style={{ fontSize: "13.5px", color: "#c0392b", margin: "2px 0 0", fontWeight: "bold" }}>
+            Kindly note down your password as it will be needed for future logins
+          </p>
         </div>
 
         <div className={styles.formGroup}>
