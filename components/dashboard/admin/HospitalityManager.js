@@ -157,7 +157,7 @@ const HospitalityManager = () => {
     const ids = new Set(hotelSpecific.map((item) => item.user_id));
     let count = hotelSpecific.length;
     companyUserMappings.forEach((item) => {
-      if (!ids.has(item.user_id)) count++;
+      if (item.mapping_type === 0 && !ids.has(item.user_id)) count++;
     });
     return count;
   };
