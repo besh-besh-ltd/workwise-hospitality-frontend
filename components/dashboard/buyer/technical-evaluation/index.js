@@ -20,6 +20,7 @@ import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
 import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText } from "react-icons/bs";
+import { TARGET_PASSED_VENDORS } from "@/utils/constants/techEvalWorkflow";
 import styles from "./TechnicalEvaluation.module.scss";
 
 
@@ -45,6 +46,7 @@ const BuyerTechnicalEvaluation = () => {
   const [productEvaluationStatus, setProductEvaluationStatus] = useState(new Map());
   const [showUnifiedSubmitModal, setShowUnifiedSubmitModal] = useState(false);
   const [unifiedSubmitLoading, setUnifiedSubmitLoading] = useState(false);
+  const [rfqCompletionMap, setRfqCompletionMap] = useState(new Map());
 
   // Extract hotel IDs for permission checks - use hotel_id from RFQ data
   const hotelIds = useMemo(() => {
@@ -348,6 +350,74 @@ useEffect(() => {
     }
   }, [rfq_id, currentRfq, permissionsLoading, canRead, permissionsVerified]);
 
+  // Background check: determine which RFQs have completed tech evaluation
+  // An RFQ is "Completed" only when ALL its products have >= TARGET_PASSED_VENDORS cleared vendors
+  useEffect(() => {
+    if (!rfqList || rfqList.length === 0) {
+      setRfqCompletionMap(new Map());
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkCompletion = async () => {
+      const results = new Map();
+      const batchSize = 5;
+
+      for (let i = 0; i < rfqList.length; i += batchSize) {
+        if (cancelled) return;
+        const batch = rfqList.slice(i, i + batchSize);
+
+        const promises = batch.map(async (rfq) => {
+          try {
+            const res = await getAllClauses(rfq.id, "tech_evaluation");
+            const clauseData = res?.data ?? [];
+            if (clauseData.length === 0) return { id: rfq.id, complete: false };
+
+            const allComplete = clauseData.every(product => {
+              const acceptedVendors = (product.vendors || []).filter(v => v.is_cleared === 1);
+              return acceptedVendors.length >= TARGET_PASSED_VENDORS;
+            });
+            return { id: rfq.id, complete: allComplete };
+          } catch {
+            return { id: rfq.id, complete: false };
+          }
+        });
+
+        const batchResults = await Promise.allSettled(promises);
+        batchResults.forEach(result => {
+          if (result.status === 'fulfilled') {
+            results.set(result.value.id, result.value.complete);
+          }
+        });
+      }
+
+      if (!cancelled) {
+        setRfqCompletionMap(new Map(results));
+      }
+    };
+
+    checkCompletion();
+    return () => { cancelled = true; };
+  }, [rfqList]);
+
+  // Keep rfqCompletionMap in sync when current RFQ's evaluation status changes
+  useEffect(() => {
+    if (!rfq_id || !clauseInfo || clauseInfo.length === 0) return;
+
+    const productIds = clauseInfo.map(item => item.rfq_product_id);
+    const allComplete = productIds.every(productId => {
+      const status = productEvaluationStatus.get(productId);
+      return status?.workflowComplete === true;
+    });
+
+    setRfqCompletionMap(prev => {
+      const newMap = new Map(prev);
+      newMap.set(parseInt(rfq_id), allComplete);
+      return newMap;
+    });
+  }, [rfq_id, clauseInfo, productEvaluationStatus]);
+
   // Access Denied check - show when user has no read permission
   // Only check when an RFQ is selected and we have permission context
   const hasPermissionContext = hotelIds.length > 0 && !!currentRfq;
@@ -438,12 +508,12 @@ useEffect(() => {
                   {
                     key: 'action_required',
                     label: 'Action Required',
-                    filter: (item) => item.approval_required === true,
+                    filter: (item) => rfqCompletionMap.get(item.id) !== true,
                   },
                   {
                     key: 'action_completed',
                     label: 'Completed',
-                    filter: (item) => !item.approval_required,
+                    filter: (item) => rfqCompletionMap.get(item.id) === true,
                   },
                 ]}
                 defaultTab="action_required"
@@ -461,10 +531,10 @@ useEffect(() => {
                 getItemTags={(item, isSelected) => {
                   if (isSelected) return [];
                   const tags = [];
-                  if (item.approval_required) {
+                  if (rfqCompletionMap.get(item.id) === true) {
+                    tags.push({ label: 'Completed', variant: 'success' });
+                  } else if (item.approval_required) {
                     tags.push({ label: 'Approval Pending', variant: 'warning' });
-                  } else {
-                    tags.push({ label: 'Evaluated', variant: 'success' });
                   }
                   return tags;
                 }}

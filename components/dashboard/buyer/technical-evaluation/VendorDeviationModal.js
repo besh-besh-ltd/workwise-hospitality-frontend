@@ -37,21 +37,13 @@ const VendorDeviationModal = ({
 
   const isTender = rfq_no?.is_tender === 1 || rfq_no?.is_tender === "1";
 
-  // Get anonymized vendor label for display
+  // Always use anonymized code in technical evaluation to prevent bias
   const vendorDisplayName = useMemo(() => {
     if (!vendor) return "Vendor";
-
-    if (isTender) {
-      // For tenders, always use anonymized code
-      if (vendor.label) return vendor.label; // e.g. "VEN-123"
-      if (vendor.rfq_product_vendor_id) return `VEN-${vendor.rfq_product_vendor_id}`;
-      if (vendor.vendor_code) return `Vendor ${vendor.vendor_code}`;
-      return "Vendor";
-    }
-
-    // For RFQs, show company name
-    return vendor.vendor_name || vendor.company_name || vendor.label || "Vendor";
-  }, [vendor, isTender]);
+    if (vendor.rfq_product_vendor_id) return `VEN-${vendor.rfq_product_vendor_id}`;
+    if (vendor.label && vendor.label.startsWith('VEN-')) return vendor.label;
+    return `Vendor ${vendor.vendor_id || vendor.value || ''}`;
+  }, [vendor]);
 
   const handleFileClick = () => {
     fileInputRef.current.click();
@@ -304,8 +296,8 @@ const VendorDeviationModal = ({
             const senderLabel = (() => {
               if (!sender) return "";
 
-              // Vendor user in tender → hide real company name
-              if (isTender && sender.user_type === 3) {
+              // Always hide real vendor name in technical evaluation to prevent bias
+              if (sender.user_type === 3) {
                 return vendorDisplayName;
               }
 

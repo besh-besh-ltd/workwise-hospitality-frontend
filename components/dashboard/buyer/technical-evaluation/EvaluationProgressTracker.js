@@ -5,7 +5,9 @@ import styles from './TechnicalEvaluation.module.scss';
 /**
  * EvaluationProgressTracker
  *
- * Displays a progress summary showing evaluation completion status across all products
+ * Tracks submission progress: a product counts as "done" only when
+ * its approval request has been sent (isPendingApproval or workflowComplete).
+ * Vendor count reflects vendors from submitted products.
  */
 const EvaluationProgressTracker = ({ productEvaluationStatus, clauseInfo }) => {
   if (!clauseInfo || clauseInfo.length === 0) return null;
@@ -13,29 +15,32 @@ const EvaluationProgressTracker = ({ productEvaluationStatus, clauseInfo }) => {
   const productIds = clauseInfo.map(item => item.rfq_product_id);
   const totalProducts = productIds.length;
 
-  let evaluatedCount = 0;
-  let pendingCount = 0;
+  let submittedCount = 0;
+  let pendingApprovalCount = 0;
+  let completedCount = 0;
   let totalVendors = 0;
-  let evaluatedVendors = 0;
+  let submittedVendors = 0;
 
   productIds.forEach(productId => {
     const status = productEvaluationStatus.get(productId);
     if (status) {
-      if (status.isFullyEvaluated) evaluatedCount++;
-      if (status.isPendingApproval) pendingCount++;
+      const isSubmitted = status.isPendingApproval || status.workflowComplete;
+      if (isSubmitted) submittedCount++;
+      if (status.isPendingApproval) pendingApprovalCount++;
+      if (status.workflowComplete) completedCount++;
       totalVendors += status.totalVendors || 0;
-      evaluatedVendors += status.evaluatedVendorCount || 0;
+      if (isSubmitted) submittedVendors += status.totalVendors || 0;
     }
   });
 
-  const allEvaluated = evaluatedCount === totalProducts && totalProducts > 0;
-  const progressPercentage = totalProducts > 0 ? Math.round((evaluatedCount / totalProducts) * 100) : 0;
+  const allSubmitted = submittedCount === totalProducts && totalProducts > 0;
+  const progressPercentage = totalProducts > 0 ? Math.round((submittedCount / totalProducts) * 100) : 0;
 
   return (
     <div className={styles.progressTracker}>
       <div className={styles.progressTrackerHeader}>
         <div className={styles.progressTrackerLeft}>
-          <div className={`${styles.progressTrackerIcon} ${allEvaluated ? styles.progressTrackerIconComplete : styles.progressTrackerIconProgress}`}>
+          <div className={`${styles.progressTrackerIcon} ${allSubmitted ? styles.progressTrackerIconComplete : styles.progressTrackerIconProgress}`}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
               <polyline points="22 4 12 14.01 9 11.01"/>
@@ -44,14 +49,14 @@ const EvaluationProgressTracker = ({ productEvaluationStatus, clauseInfo }) => {
           <h6 className={styles.progressTrackerTitle}>Evaluation Progress</h6>
         </div>
 
-        {allEvaluated && pendingCount === 0 && (
+        {allSubmitted && pendingApprovalCount === 0 && (
           <Badge bg="success" style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: '6px', letterSpacing: '0.3px' }}>
             Complete
           </Badge>
         )}
-        {pendingCount > 0 && (
+        {pendingApprovalCount > 0 && (
           <Badge bg="warning" style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: '6px', letterSpacing: '0.3px' }}>
-            {pendingCount} Pending
+            {pendingApprovalCount} Pending Approval
           </Badge>
         )}
       </div>
@@ -59,7 +64,7 @@ const EvaluationProgressTracker = ({ productEvaluationStatus, clauseInfo }) => {
       {/* Progress Bar */}
       <div className={styles.progressBar}>
         <div
-          className={`${styles.progressBarFill} ${allEvaluated ? styles.progressBarComplete : styles.progressBarProgress}`}
+          className={`${styles.progressBarFill} ${allSubmitted ? styles.progressBarComplete : styles.progressBarProgress}`}
           style={{ width: `${progressPercentage}%` }}
         />
       </div>
@@ -67,24 +72,24 @@ const EvaluationProgressTracker = ({ productEvaluationStatus, clauseInfo }) => {
       {/* Stats */}
       <div className={styles.progressStats}>
         <div className={styles.progressStat}>
-          <div className={styles.progressStatLabel}>Products Completed</div>
+          <div className={styles.progressStatLabel}>Products Submitted</div>
           <div className={styles.progressStatValue}>
-            {evaluatedCount}
+            {submittedCount}
             <span className={styles.progressStatTotal}>/ {totalProducts}</span>
           </div>
         </div>
 
         <div className={styles.progressStat}>
-          <div className={styles.progressStatLabel}>Vendors Evaluated</div>
+          <div className={styles.progressStatLabel}>Vendors Submitted</div>
           <div className={styles.progressStatValue}>
-            {evaluatedVendors}
+            {submittedVendors}
             <span className={styles.progressStatTotal}>/ {totalVendors}</span>
           </div>
         </div>
 
         <div className={styles.progressStat}>
           <div className={styles.progressStatLabel}>Overall Progress</div>
-          <div className={styles.progressStatValue} style={{ color: allEvaluated ? '#28a745' : '#0d6efd' }}>
+          <div className={styles.progressStatValue} style={{ color: allSubmitted ? '#28a745' : '#0d6efd' }}>
             {progressPercentage}%
           </div>
         </div>

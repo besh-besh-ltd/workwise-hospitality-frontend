@@ -55,7 +55,7 @@ const TechEvalVendorStatusDisplay = ({
               </small>
               <div className="d-flex flex-wrap gap-1">
                 {passedVendors.map((vendor, index) => {
-                  const vendorLabel = vendor.vendor_name || `Vendor ${vendor.vendor_id}`;
+                  const vendorLabel = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
                   const score = vendor.calculated_score !== undefined && vendor.calculated_score !== null
                     ? `${vendor.calculated_score}%`
                     : '';
@@ -85,7 +85,7 @@ const TechEvalVendorStatusDisplay = ({
               </small>
               <div className="d-flex flex-wrap gap-1">
                 {failedVendors.map((vendor, index) => {
-                  const vendorLabel = vendor.vendor_name || `Vendor ${vendor.vendor_id}`;
+                  const vendorLabel = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
                   const score = vendor.calculated_score !== undefined && vendor.calculated_score !== null
                     ? `${vendor.calculated_score}%`
                     : '';
@@ -115,7 +115,7 @@ const TechEvalVendorStatusDisplay = ({
               </small>
               <div className="d-flex flex-wrap gap-1">
                 {notEvaluatedVendors.map((vendor, index) => {
-                  const vendorLabel = vendor.vendor_name || `Vendor ${vendor.vendor_id}`;
+                  const vendorLabel = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
                   return (
                     <Badge
                       key={vendor.vendor_id || index}

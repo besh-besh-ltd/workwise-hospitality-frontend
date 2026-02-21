@@ -533,11 +533,53 @@
   transform: translateY(-1px);
 }
 
+/* Unscored clickable — dashed prompt to invite interaction */
+.scoreChipUnscored.scoreChipClickable {
+  background: #e8f0fe;
+  color: #2E5BA8;
+  border: 1px dashed #90b0e0;
+}
+
+.scoreChipUnscored.scoreChipClickable:hover {
+  background: #d4e4fc;
+  border-color: #2E5BA8;
+}
+
+/* Edit icon inside scored chips */
+.scoreEditIcon {
+  margin-left: 3px;
+  opacity: 0.4;
+}
+
+.scoreChipClickable:hover .scoreEditIcon {
+  opacity: 0.8;
+}
+
 /* Vendor disagrees — amber accent on score */
 .scoreChipAlert {
   background: #fff7ed;
   color: #c2410c;
   border-left: 3px solid #f97316;
+}
+
+/* Sampling remark preview */
+.samplingRemarkPreview {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+  padding: 4px 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 2px solid #94a3b8;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.samplingRemarkLabel {
+  font-weight: 600;
+  color: #475569;
+  margin-right: 4px;
 }
 
 /* Deviation indicator dot */
