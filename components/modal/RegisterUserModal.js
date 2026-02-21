@@ -97,7 +97,12 @@ export default function RegisterUserModal({
           <div className={styles.modalHeader}>
             <div className={styles.modalHeaderLeft}>
               <h2>Register As Vendor</h2>
-              <p>{getStepSubtitle()}</p>
+              <p style={{ fontSize: "14\px", color: "#6c757d", margin: 0, fontWeight: "bold"}}>
+                For any queries kindly reach out to{" "}
+                <a href="mailto:support@phileeinhospitality.com" style={{ color: "#158993", textDecoration: "none", fontWeight: "bold" }}>
+                  support@phileeinhospitality.com
+                </a>
+              </p>
             </div>
             <button
               type="button"
