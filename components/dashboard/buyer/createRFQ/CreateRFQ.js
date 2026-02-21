@@ -3249,6 +3249,7 @@ useEffect(() => {
                             This action will send RFQs to all selected vendors for
                             the relevant product.
                           </p>
+                          
                         )}
                       </div>
                     </div>
