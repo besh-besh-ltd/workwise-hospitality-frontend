@@ -151,19 +151,34 @@ const CommonFormInput = ({
       return;
     }
 
-    let cleaned = value.replace(/\D/g, '');
-
-    if(cleaned === "0"){
-      cleaned = "";
-    }
-
-    cleaned = cleaned.replace(/^0+(?=[0-9.])/, ''); 
-      if(validation === "float_number"){
-        const regex = /^\d*\.?\d*$/;
-        if (!regex.test(cleaned)) {
-          return; // Invalid input, do not update the value
-        }
+    let cleaned;
+    if(validation === "float_number"){
+      cleaned = value.replace(/[^0-9.]/g, '');
+      // Allow only one decimal point
+      const firstDot = cleaned.indexOf('.');
+      if (firstDot !== -1) {
+        cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
       }
+      // Limit to 3 decimal places
+      const dotIndex = cleaned.indexOf('.');
+      if (dotIndex !== -1 && cleaned.length - dotIndex - 1 > 3) {
+        cleaned = cleaned.slice(0, dotIndex + 4);
+      }
+      // Don't allow just a dot
+      if (cleaned === '.') {
+        cleaned = '';
+      }
+      // Remove leading zeros but allow "0." and "0"
+      cleaned = cleaned.replace(/^0+(?=\d)/, (match, offset) => {
+        return cleaned[match.length] === '.' ? '0' : '';
+      });
+    } else {
+      cleaned = value.replace(/\D/g, '');
+      if(cleaned === "0"){
+        cleaned = "";
+      }
+      cleaned = cleaned.replace(/^0+(?=[0-9.])/, '');
+    }
       setValue(cleaned);
     }
     else{
