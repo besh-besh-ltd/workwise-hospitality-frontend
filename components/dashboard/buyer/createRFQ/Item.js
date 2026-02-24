@@ -314,12 +314,19 @@ const Item = ({
         val.slice(0, firstDot + 1) + val.slice(firstDot + 1).replace(/\./g, "");
     }
 
-    // Remove dot if at the start or end
+    // Don't allow dot as first character
     if (val.startsWith(".")) val = val.slice(1);
-    if (val.endsWith(".")) val = val.slice(0, -1);
 
-    // Prevent empty string
-    if (val === "") val = "0";
+    // Limit to 3 decimal places
+    const dotIndex = val.indexOf(".");
+    if (dotIndex !== -1 && val.length - dotIndex - 1 > 3) {
+      val = val.slice(0, dotIndex + 4);
+    }
+
+    // Remove leading zeros but allow "0." and "0"
+    val = val.replace(/^0+(?=\d)/, (match) => {
+      return val[match.length] === "." ? "0" : "";
+    });
 
     handleSpecValue("quantity", val);
   };
