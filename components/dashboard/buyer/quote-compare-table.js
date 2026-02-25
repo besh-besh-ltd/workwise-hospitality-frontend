@@ -137,12 +137,12 @@ const QuoteCompareTable = ({
     fetchAvailableHierarchies();
   }, []);
 
-  // Load quote approval status for tenders
+  // Load quote approval status for both RFQs and tenders
   useEffect(() => {
-    if (is_tender && proditem?.id) {
+    if (proditem?.id) {
       loadQuoteApprovalStatus();
     }
-  }, [is_tender, proditem?.id, approvalRefreshKey]);
+  }, [proditem?.id, approvalRefreshKey]);
 
   const loadQuoteApprovalStatus = async () => {
     try {
@@ -247,8 +247,9 @@ const QuoteCompareTable = ({
 
   const productName = proditem?.product_details?.[0]?.product_name || 'Product';
 
-  // For tenders, finalization is only allowed after quote approval is complete
-  const isTenderAwaitingApproval = is_tender && (quoteApprovalStatus && quoteApprovalStatus?.approval_instance?.status !== 'APPROVED');
+  // Finalization is only allowed after quote approval is complete (when approval exists)
+  const isAwaitingQuoteApproval = quoteApprovalStatus?.has_pending_approval === true;
+  const isTenderAwaitingApproval = is_tender && isAwaitingQuoteApproval;
   const canFinalizeForTender = !is_tender || (quoteApprovalStatus?.approval_instance?.status === 'APPROVED');
 
   // Build effective round quotes: if no negotiation round quotes, use regular quotations as fallback
@@ -300,8 +301,8 @@ const QuoteCompareTable = ({
         />
       )}
 
-      {/* Quote Approval Workflow Section - Show for tenders when approval is active */}
-      {is_tender && quoteApprovalStatus?.approval_instance?.status && (
+      {/* Quote Approval Workflow Section - Show when approval is active */}
+      {quoteApprovalStatus?.approval_instance?.status && (
         <ApprovalWorkflowSection
           entityType="NEGOTIATION_QUOTE"
           entityId={proditem.id}
