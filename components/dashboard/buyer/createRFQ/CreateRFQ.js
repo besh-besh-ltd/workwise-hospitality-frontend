@@ -1170,15 +1170,6 @@ useEffect(() => {
   );
 
   const handleSaveDraft = async () => {
-    if (!validateVendors()) {
-      return;
-    }
-
-    if(hasEmptySpecFields){
-      toast.error("Please enter valid Quantity and Units");
-      return;
-    }
-
     setMainLoading(true);
 
     const contactNumber = rfqFormDataRef?.current?.contact_number?.trim();
