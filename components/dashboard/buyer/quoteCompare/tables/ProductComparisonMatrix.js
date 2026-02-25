@@ -239,7 +239,7 @@ const ProductComparisonMatrix = ({
   }, [projectId]);
 
   useEffect(() => {
-    if (!is_tender || !proditem?.id) return;
+    if (!proditem?.id) return;
 
     getQuoteApprovalStatus(proditem.id)
       .then((response) => {
@@ -250,7 +250,7 @@ const ProductComparisonMatrix = ({
         }
       })
       .catch(() => setQuoteApprovalStatus(null));
-  }, [is_tender, proditem?.id, approvalRefreshKey]);
+  }, [proditem?.id, approvalRefreshKey]);
 
   const handleApprovalActionComplete = () => {
     setApprovalRefreshKey((prev) => prev + 1);
@@ -480,7 +480,7 @@ const ProductComparisonMatrix = ({
         />
       ) : null}
 
-      {is_tender && quoteApprovalStatus?.approval_instance?.status ? (
+      {quoteApprovalStatus?.approval_instance?.status ? (
         <ApprovalWorkflowSection
           entityType="NEGOTIATION_QUOTE"
           entityId={proditem.id}
