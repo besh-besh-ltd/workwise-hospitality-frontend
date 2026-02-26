@@ -13,6 +13,8 @@ const BusinessUnitsTab = ({
   onEditHotel,
   onSetHierarchy,
   onSendPayment,
+  onSendCredentials,
+  sendingCredentialsHotelId,
   isLoading,
   hasPendingPayments,
 }) => {
@@ -68,6 +70,8 @@ const BusinessUnitsTab = ({
             userCount={getHotelUserCount(hotel.id)}
             onEdit={onEditHotel}
             onSetHierarchy={onSetHierarchy}
+            onSendCredentials={onSendCredentials}
+            isSendingCredentials={sendingCredentialsHotelId === hotel.id}
           />
         ))}
         <div className={styles.addBuCard} onClick={onAddHotel} role="button" tabIndex={0}>

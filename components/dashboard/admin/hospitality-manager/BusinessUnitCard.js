@@ -1,6 +1,6 @@
 import React from "react";
 import { HiOutlineLocationMarker } from "react-icons/hi";
-import { BsPeople, BsPencil, BsDiagram3 } from "react-icons/bs";
+import { BsPeople, BsPencil, BsDiagram3, BsEnvelope } from "react-icons/bs";
 import { BiRupee } from "react-icons/bi";
 import styles from "./HospitalityManager.module.css";
 
@@ -25,7 +25,7 @@ const getPaymentLabel = (hotel) => {
   return hotel.email ? "Onboarding" : "No Email";
 };
 
-const BusinessUnitCard = ({ hotel, userCount, onEdit, onSetHierarchy }) => {
+const BusinessUnitCard = ({ hotel, userCount, onEdit, onSetHierarchy, onSendCredentials, isSendingCredentials }) => {
   const statusStyle = getStatusStyle(hotel.status);
   const location = [hotel.city, hotel.state].filter(Boolean).join(", ");
   const feeValue = hotel.fee_amount > 0 ? hotel.fee_amount : "N/A";
@@ -87,6 +87,15 @@ const BusinessUnitCard = ({ hotel, userCount, onEdit, onSetHierarchy }) => {
           Set Hierarchy
         </button>
       </div>
+      <button
+        type="button"
+        className={`${styles.buActionBtn} ${styles.buActionSuccessFull}`}
+        onClick={() => onSendCredentials(hotel)}
+        disabled={isSendingCredentials}
+      >
+        <BsEnvelope size={13} />
+        {isSendingCredentials ? "Sending..." : "Send Credentials"}
+      </button>
     </div>
   );
 };
