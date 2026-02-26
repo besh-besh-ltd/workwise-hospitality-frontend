@@ -13,6 +13,7 @@ import {
   getHotelDocuments,
   getCompanyUserMappings,
   deleteUserMapping,
+  sendBUCredentials,
 } from "@/services/hospitality";
 
 import CompanySwitcher from "./hospitality-manager/CompanySwitcher";
@@ -62,6 +63,7 @@ const HospitalityManager = () => {
   const [isSubmittingCompany, setIsSubmittingCompany] = useState(false);
   const [isSubmittingHotel, setIsSubmittingHotel] = useState(false);
   const [isLoadingCompanyMappingList, setIsLoadingCompanyMappingList] = useState(false);
+  const [sendingCredentialsHotelId, setSendingCredentialsHotelId] = useState(null);
 
   // --- Derived Data ---
   const selectedCompany = useMemo(
@@ -373,6 +375,25 @@ const HospitalityManager = () => {
     }
   };
 
+  const handleSendCredentials = async (hotel) => {
+    if (!selectedCompanyId) { toast.error("Select a company first"); return; }
+    const confirmSend = window.confirm(
+      `Send login credentials email to all users mapped to "${hotel.name}"?`
+    );
+    if (!confirmSend) return;
+    try {
+      setSendingCredentialsHotelId(hotel.id);
+      const response = await sendBUCredentials(selectedCompanyId, hotel.id);
+      const msg = response?.data?.message || response?.message || "Credentials sent successfully!";
+      toast.success(msg);
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.message?.response?.data?.message || "Failed to send credentials");
+    } finally {
+      setSendingCredentialsHotelId(null);
+    }
+  };
+
   // --- Welcome State (no companies) ---
   if (!isLoadingCompanies && companies.length === 0) {
     return (
@@ -482,6 +503,8 @@ const HospitalityManager = () => {
                   onEditHotel={handleEditHotel}
                   onSetHierarchy={handleSetHierarchy}
                   onSendPayment={() => setShowPaymentModal(true)}
+                  onSendCredentials={handleSendCredentials}
+                  sendingCredentialsHotelId={sendingCredentialsHotelId}
                   isLoading={isLoadingHotels}
                   hasPendingPayments={hasPendingPayments}
                 />

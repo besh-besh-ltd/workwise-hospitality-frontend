@@ -547,6 +547,24 @@
   border-color: #264FA0;
 }
 
+.buActionSuccessFull {
+  width: 100%;
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #fff;
+  margin-top: 6px;
+}
+
+.buActionSuccessFull:hover {
+  background: #15803d;
+  border-color: #15803d;
+}
+
+.buActionSuccessFull:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* --- Add BU Card --- */
 .addBuCard {
   background: #fafcfc;
