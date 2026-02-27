@@ -155,11 +155,6 @@ const BusinessDetailsStep = ({
         <div className={styles.formGroup}>
           <label className={styles.formLabel}>
             Select Subcategories
-            {isHospitality ? (
-              <span className={styles.formRequired}>*</span>
-            ) : (
-              <span className={styles.formOptional}>(Optional)</span>
-            )}
           </label>
           {values.categories.map((categoryId) => {
             const subs = subcategoryOptions[categoryId] || [];
