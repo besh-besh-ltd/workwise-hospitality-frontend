@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useInsertionEffect, useRef, useState } from "react";
 import Item from "./Item";
 import Select from 'react-select';
-import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft, getVendorsForRFQProduct, vendorTypes, getVendorsForProduct, getTechEvalUsers } from "@/services/rfq";
+import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft, getVendorsForRFQProduct, vendorTypes, getVendorsForProduct, getTechEvalUsers, refreshVendors } from "@/services/rfq";
 import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
@@ -44,6 +44,7 @@ import CreateRFQModal from "./CreateRFQModal";
 import ValidationErrorsDisplay from "./ValidationErrorsDisplay";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { IoIosCloseCircleOutline } from "react-icons/io";
+import { BsArrowRepeat } from "react-icons/bs";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
 import useModulePermissions from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
@@ -142,6 +143,7 @@ const CreateRFQ = () => {
   const [ onecountrycode ,setonecountrycode] = useState("");
   const [showCreateConfirmModal, setShowCreateConfirmModal] = useState(false);
   const [pendingFormValues, setPendingFormValues] = useState(null);
+  const [refreshingVendors, setRefreshingVendors] = useState(false);
   const [showRemoveProductConfirmModal, setShowRemoveProductConfirmModal] = useState(false);
   const [pendingProductToRemove, setPendingProductToRemove] = useState(null);
   const [queryMeta, setQueryMeta] = useState({
@@ -1606,6 +1608,32 @@ useEffect(() => {
     setHasUnsavedChanges(true)
   };
 
+  const handleRefreshVendors = async () => {
+    if (!rfqDetails || rfqDetails === -1) return;
+    try {
+      setRefreshingVendors(true);
+      const response = await refreshVendors(rfqDetails);
+      const result = response?.data || response;
+
+      if (result?.message) {
+        toast.success(result.message);
+      }
+
+      if (result?.data?.productsWithNoVendors?.length > 0) {
+        const names = result.data.productsWithNoVendors
+          .map(p => p.product_name).filter(Boolean).join(', ');
+        toast.warn(`Warning: Products ${names ? `'${names}'` : ''} have no eligible vendors for the selected business units`);
+      }
+
+      await getDraftInitialData();
+    } catch (error) {
+      console.error("Error refreshing vendors:", error);
+      toast.error("Failed to refresh vendors. Please try again.");
+    } finally {
+      setRefreshingVendors(false);
+    }
+  };
+
   const handleRemoveProduct = (product) => {
     if (
       updatableData.products.deletable.length + 1 ===
@@ -2467,7 +2495,21 @@ useEffect(() => {
                     </div>
                   )}
                   {/* RFQ Products Table */}
-                  <h4>Review Products</h4>
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h4 className="mb-0">Review Products</h4>
+                    {rfqDetails && rfqDetails !== -1 && (
+                      <button
+                        className="refresh-vendors-btn"
+                        onClick={handleRefreshVendors}
+                        disabled={refreshingVendors || (selectedHotelIds.length > 0 && !hasPermission)}
+                        title="Add any missing eligible vendors to all products"
+                        id="refresh_vendors-product_actions-create_rfq_page"
+                      >
+                        <BsArrowRepeat className={refreshingVendors ? "spin-animation" : ""} size={15} />
+                        {refreshingVendors ? "Refreshing..." : "Refresh Vendors"}
+                      </button>
+                    )}
+                  </div>
                   <div
                     className=""
                     style={{
@@ -3453,6 +3495,38 @@ useEffect(() => {
         confirmButtonText="Remove"
         cancelButtonText="Cancel"
       />
+      <style jsx>{`
+        .refresh-vendors-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          border: 1px solid #000080;
+          border-radius: var(--border-radius, 6px);
+          background: #fff;
+          color: #000080;
+          font-weight: 500;
+          font-size: 14px;
+          line-height: 20px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .refresh-vendors-btn:hover:not(:disabled) {
+          background: #000080;
+          color: #fff;
+        }
+        .refresh-vendors-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+        .spin-animation {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </>
   );
 };
