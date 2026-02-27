@@ -242,7 +242,18 @@ export const removeVendorFromDraft = (payload) => {
       resolve(response);
     } catch (error) {
       reject({ message: error });
-    }    
+    }
+  })
+}
+
+export const refreshVendors = (rfqId) => {
+  return new Promise(async (resolve, reject)=> {
+    try {
+      const response = await axiosInstance.post(`/rfq/refresh-vendors`, { rfq_id: rfqId });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
   })
 }
 
