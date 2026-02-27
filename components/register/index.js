@@ -485,9 +485,6 @@ const Register = ({
       shape.state = yup.string().required("State is required");
       shape.city = yup.string().required("City is required");
       shape.categories = yup.array().of(yup.number().nullable()).min(1, "Select at least one category");
-      if (isHospitality) {
-        shape.subcategories = yup.array().of(yup.number().nullable()).min(1, "Select at least one subcategory");
-      }
     }
     if (includeHotels && isHospitality) {
       shape.hotels = yup.array().of(yup.number().nullable()).min(1, "Select at least one business unit");
