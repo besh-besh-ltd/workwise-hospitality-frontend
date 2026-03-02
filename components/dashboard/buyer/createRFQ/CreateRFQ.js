@@ -3118,6 +3118,7 @@ useEffect(() => {
                                   </>
                                 )}
 
+                                {/* Select Project dropdown hidden
                                 {rfqFormDataFromStore.is_tender !== 1 && (
                                 <div className="col-md-4">
                                   <FormikField
@@ -3142,6 +3143,7 @@ useEffect(() => {
                                   />
                                 </div>
                                 )}
+                                */}
 
 
                                 <div className="col-md-4">
