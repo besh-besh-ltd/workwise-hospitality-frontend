@@ -345,9 +345,11 @@ const ApprovalWorkflowSection = ({
     return null;
   }
 
-  const statusInfo = isAutoApproved ? statusConfig.AUTO_PUBLISHED : isBacklog ? statusConfig.BACKLOG : (statusConfig[status] || statusConfig.PENDING);
+  // Only treat as backlog if approval is still pending — approved items should show APPROVED even if published
+  const effectiveBacklog = isBacklog && status === "PENDING";
+  const statusInfo = isAutoApproved ? statusConfig.AUTO_PUBLISHED : effectiveBacklog ? statusConfig.BACKLOG : (statusConfig[status] || statusConfig.PENDING);
   const StatusIcon = statusInfo.icon;
-  const isActionRequired = canUserApprove && status === "PENDING" && !isBacklog && !isAutoApproved && !isPublished;
+  const isActionRequired = canUserApprove && status === "PENDING" && !effectiveBacklog && !isAutoApproved && !isPublished;
 
   return (
     <>
@@ -523,7 +525,7 @@ const ApprovalWorkflowSection = ({
         }
       `}</style>
 
-      <div className={`aws-card approval-workflow-section approval-workflow-accordion ${isActionRequired ? 'aws-action-required' : ''} ${isBacklog ? 'aws-backlog' : ''}`}>
+      <div className={`aws-card approval-workflow-section approval-workflow-accordion ${isActionRequired ? 'aws-action-required' : ''} ${effectiveBacklog ? 'aws-backlog' : ''}`}>
         {/* Top gradient accent bar */}
         <div className="aws-accent" style={{ background: statusInfo.accentGradient }} />
 
@@ -567,7 +569,7 @@ const ApprovalWorkflowSection = ({
           </div>
 
           <div className="aws-header-right" onClick={(e) => e.stopPropagation()}>
-            {isActionRequired && !hideTopButtons && !isBacklog && (
+            {isActionRequired && !hideTopButtons && !effectiveBacklog && (
               <>
                 <Button
                   variant="success"
@@ -666,7 +668,7 @@ const ApprovalWorkflowSection = ({
                 />
 
                 {/* Action buttons when hidden from top */}
-                {isActionRequired && hideTopButtons && !isBacklog && (
+                {isActionRequired && hideTopButtons && !effectiveBacklog && (
                   <div style={{
                     display: 'flex',
                     gap: '12px',
