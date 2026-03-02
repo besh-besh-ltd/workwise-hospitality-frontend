@@ -919,6 +919,13 @@ useEffect(() => {
       return false;
     }
 
+    // Process is required when processes are available
+    if (processes.length > 0 && !formDataCopy.process_id) {
+      toast.error("Please select a process");
+      setMainLoading(false);
+      return false;
+    }
+
     if (!validateVendors()) {
       setMainLoading(false);
       return false;
@@ -2878,7 +2885,7 @@ useEffect(() => {
 
                                 {processes.length > 0 && (
                                   <div className="col-md-4">
-                                    <label className="form-label fw-medium">Process</label>
+                                    <label className="form-label fw-medium">Process <span className="text-danger">*</span></label>
                                     <Select
                                       id="select_process-create_rfq_page"
                                       options={processes}
@@ -2892,7 +2899,6 @@ useEffect(() => {
                                       }}
                                       placeholder="Select Process"
                                       classNamePrefix="react-select"
-                                      isClearable
                                     />
                                   </div>
                                 )}
