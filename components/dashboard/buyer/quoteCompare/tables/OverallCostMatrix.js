@@ -179,39 +179,24 @@ const OverallCostMatrix = ({
                     if (quote.missingParts.length > 0) cellClasses.push(styles.riskCell);
 
                     return (
-                      <td key={cellKey} className={`${cellClasses.join(" ").trim()} ${styles.textCenter}`}>
+                      <td
+                        key={cellKey}
+                        className={`${cellClasses.join(" ").trim()} ${styles.textCenter}`}
+                        onClick={() =>
+                          openBreakupModal({
+                            title: "Ranked Quote Breakup",
+                            vendorName: quote.vendorName,
+                            details,
+                            quantity: row.quantity,
+                            total: quote.total,
+                            peerTotals: rowPeerTotals,
+                          })
+                        }
+                        style={{ cursor: "pointer" }}
+                        title="Click to view breakup"
+                      >
                         <div className={styles.value}>{formatCurrency(quote.total)}</div>
                         <div className={styles.valueSub}>{quote.vendorName}</div>
-
-                        <div className={`${styles.statusRow} ${styles.statusRowCentered}`}>
-                          <span className={`${styles.statusChip} ${styles.statusInfoStrong}`}>L{rank + 1}</span>
-                          {quote.isFinalized ? (
-                            <span className={`${styles.statusChip} ${styles.statusSuccessStrong}`}>Finalized</span>
-                          ) : null}
-                          {row?.rowComparativeStats?.total?.bands?.[quote.vendorId] === "best" ? (
-                            <span className={`${styles.statusChip} ${styles.statusSuccessStrong}`}>Best</span>
-                          ) : null}
-                        </div>
-
-                        <div className={styles.cellActions}>
-                          <button
-                            type="button"
-                            className={styles.breakupActionButton}
-                            onClick={() =>
-                              openBreakupModal({
-                                title: "Ranked Quote Breakup",
-                                vendorName: quote.vendorName,
-                                details,
-                                quantity: row.quantity,
-                                total: quote.total,
-                                peerTotals: rowPeerTotals,
-                              })
-                            }
-                            id={`toggle_breakup_${rowIndex}_${rank}_overall_cost-comparison_page`}
-                          >
-                            View breakup
-                          </button>
-                        </div>
 
                         <MissingCostIndicator parts={quote.missingParts} />
                       </td>

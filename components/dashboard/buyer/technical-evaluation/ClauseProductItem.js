@@ -617,6 +617,8 @@ const ClauseProductItem = ({
                               });
                               const colTintClass = vendorEvaluated
                                 ? (vendor.is_passed ? styles.vendorColPassed : styles.vendorColFailed)
+                                : vendorPartial
+                                ? styles.vendorColInProgress
                                 : styles.vendorColNotEvaluated;
                               return (
                                 <th key={vendor.vendor_id} className={`${styles.vendorHeader} ${colTintClass}`}>
@@ -665,7 +667,7 @@ const ClauseProductItem = ({
                                     vendorPartial ? (
                                       <span className="badge rounded-pill py-1 px-2 text-bg-info" style={{ fontSize: '10px' }}>In Progress</span>
                                     ) : !vendorEvaluated && vendor.is_cleared === null ? (
-                                      <span className="badge rounded-pill py-1 px-2 text-bg-secondary" style={{ fontSize: '10px' }}>Not Evaluated</span>
+                                      <span className="badge rounded-pill py-1 px-2 text-bg-light text-muted" style={{ fontSize: '10px' }}>N/A</span>
                                     ) : isCleared != null ? (
                                       <span className={`badge rounded-pill py-1 px-2 ${isCleared == 1 ? "text-bg-success" : "text-bg-danger"}`} style={{ fontSize: '10px' }}>
                                         {isCleared == 1 ? "Accepted" : "Not Accepted"}

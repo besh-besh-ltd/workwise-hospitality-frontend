@@ -64,7 +64,6 @@ $badge-tones: (
 .heroCard {
   @include panel(#e6ebf2, $radius-lg);
   overflow: hidden;
-  margin-bottom: 16px;
 }
 
 .heroTop {
@@ -429,6 +428,7 @@ $badge-tones: (
 .zoneBlock {
   @include panel(#dfe7f2, $radius-lg);
   padding: 14px;
+  overflow-x: scroll;
 }
 
 .zoneHeader {

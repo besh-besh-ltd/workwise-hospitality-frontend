@@ -213,6 +213,7 @@
 
 .productBody {
   padding: 20px;
+  overflow: hidden;
 }
 
 
@@ -242,9 +243,9 @@
 }
 
 .scoringTable {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
   margin: 0;
 }
 
@@ -383,6 +384,10 @@
 
 .vendorColNotEvaluated {
   background-color: #f8f9fa !important;
+}
+
+.vendorColInProgress {
+  background-color: #fefaf3 !important;
 }
 
 .vendorMenuBtn {

@@ -300,6 +300,15 @@ useEffect(() => {
     });
   }, [clauseInfo]);
 
+  // Count how many products have at least one vendor evaluated
+  const evaluatedProductCount = useMemo(() => {
+    if (!clauseInfo || clauseInfo.length === 0) return 0;
+    return clauseInfo.filter(rfqProduct => {
+      const vendors = rfqProduct?.vendors || [];
+      return vendors.some(v => v.has_marks);
+    }).length;
+  }, [clauseInfo]);
+
   // Unified submit handler for all products
   const handleUnifiedSubmitForApproval = async () => {
     if (!currentRfq || !clauseInfo) return;
@@ -307,8 +316,18 @@ useEffect(() => {
     try {
       setUnifiedSubmitLoading(true);
 
-      // Submit each product for approval
-      const promises = clauseInfo.map(async (rfqProduct) => {
+      // Only submit products that have at least one vendor evaluated
+      const evaluatedProducts = clauseInfo.filter(rfqProduct => {
+        const vendors = rfqProduct?.vendors || [];
+        return vendors.some(v => v.has_marks);
+      });
+
+      if (evaluatedProducts.length === 0) {
+        toast.error("No products have been evaluated yet.");
+        return;
+      }
+
+      const promises = evaluatedProducts.map(async (rfqProduct) => {
         const payload = {
           rfq_id: parseInt(rfq_id),
           rfq_product_id: rfqProduct.rfq_product_id,
@@ -319,7 +338,7 @@ useEffect(() => {
 
       await Promise.all(promises);
 
-      toast.success("All products submitted for approval successfully!");
+      toast.success(`${evaluatedProducts.length} product(s) submitted for approval successfully!`);
       setShowUnifiedSubmitModal(false);
 
       // Refresh data
@@ -542,7 +561,7 @@ useEffect(() => {
               />
 
             {/* Main Container */}
-            <div className="col-md-10" style={{ flex: '1 1 0%', width: 'auto', maxWidth: 'none' }}>
+            <div className="col-md-10" style={{ flex: '1 1 0%', width: 'auto', maxWidth: 'none', minWidth: 0, overflow: 'hidden' }}>
               <div className="quote-sec-table quote-sec-tab">
 
                 {/* Empty State - when no RFQ selected */}
@@ -696,6 +715,7 @@ useEffect(() => {
                         onConfirm={handleUnifiedSubmitForApproval}
                         onCancel={() => setShowUnifiedSubmitModal(false)}
                         productCount={clauseInfo.length}
+                        evaluatedProductCount={evaluatedProductCount}
                       />
                     )}
                   </>

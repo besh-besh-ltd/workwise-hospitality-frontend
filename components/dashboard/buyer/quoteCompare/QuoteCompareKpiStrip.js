@@ -28,7 +28,7 @@ const QuoteCompareKpiStrip = ({ metrics = {} }) => {
     },
     {
       label: "Risk Flags",
-      value: `${metrics.missingCostQuotes || 0} incomplete`,
+      value: `${metrics.missingCostQuotes || 0} incomplete quotes`,
       sub: `${metrics.regretsCount || 0} regrets`,
     },
     {

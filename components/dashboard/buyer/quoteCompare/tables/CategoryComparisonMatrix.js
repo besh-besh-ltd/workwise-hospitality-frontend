@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import FullLoader from "@/components/shared/FullLoader";
 import LPRModal from "@/components/shared/LPRModal";
-import ReadMore from "@/components/shared/ReadMore";
-import ProductNegotiationBadge from "@/components/dashboard/vendor/ProductNegotiationBadge";
 import { downloadQuotesDetails } from "@/services/rfq";
 import { addCommasToNumber } from "@/utils/sharedFunctions";
 import {
@@ -12,7 +10,6 @@ import {
 } from "@/utils/quoteCompareTableViewModel";
 import ComparisonMatrixShell from "./ComparisonMatrixShell";
 import BreakupInsightModal from "./BreakupInsightModal";
-import MissingCostIndicator from "./MissingCostIndicator";
 import RegretStateCell from "./RegretStateCell";
 import EmptyValue from "./EmptyValue";
 import styles from "./QuoteCompareTables.module.scss";
@@ -23,52 +20,15 @@ const formatCurrency = (value) => {
   return `Rs. ${addCommasToNumber(Math.round(safe))}`;
 };
 
-const getHeatClass = (row, vendorId) => {
-  const band = row?.rowComparativeStats?.total?.bands?.[vendorId];
-  if (band === "best") return styles.heatBest;
+const getHeatBand = (row, vendorId) => {
+  return row?.rowComparativeStats?.total?.bands?.[vendorId] || "";
+};
+
+const getHeatClass = (band) => {
+  if (band === "best") return styles.catLowestCell;
   if (band === "competitive") return styles.heatCompetitive;
   if (band === "high") return styles.heatHigh;
   return "";
-};
-
-const getDeliveryRange = (items = []) => {
-  const valid = items.filter((day) => Number(day) > 0).map((day) => Number(day));
-  if (valid.length === 0) return "--";
-
-  const min = Math.min(...valid);
-  const max = Math.max(...valid);
-  if (min === max) return `Within ${min} day(s)`;
-  return `Within ${min}-${max} day(s)`;
-};
-
-const getInitials = (name = "") => {
-  const safe = String(name || "").trim();
-  if (!safe) return "V";
-  return safe
-    .split(" ")
-    .map((part) => part[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-};
-
-const renderFiles = (files = []) => {
-  if (!Array.isArray(files) || files.length === 0) return <EmptyValue />;
-
-  return (
-    <div className={styles.innerScrollTall}>
-      {files.map((file, index) => {
-        const fileUrl = typeof file === "string" ? file : file?.file_url;
-        if (!fileUrl) return null;
-        return (
-          <a key={`${fileUrl}_${index}`} href={fileUrl} target="_blank" rel="noreferrer" className="page-link p-0">
-            View File
-          </a>
-        );
-      })}
-    </div>
-  );
 };
 
 const CategoryComparisonMatrix = ({
@@ -163,11 +123,13 @@ const CategoryComparisonMatrix = ({
           <tbody>
             {Object.entries(rowsByCategory).map(([category, rows]) => (
               <React.Fragment key={category}>
-                <tr>
-                  <td className={styles.sectionDivider} colSpan={1 + model.vendors.length}>
-                    {category}
-                  </td>
-                </tr>
+                {category !== "Uncategorized" ? (
+                  <tr>
+                    <td className={styles.sectionDivider} colSpan={1 + model.vendors.length}>
+                      {category}
+                    </td>
+                  </tr>
+                ) : null}
 
                 {rows.map((row, idx) => {
                   const rowKey = `${row.product.product_variant_id}_${row.product.variant}_${idx}`;
@@ -180,52 +142,52 @@ const CategoryComparisonMatrix = ({
 
                   return (
                     <tr key={rowKey}>
-                      <td className={`${styles.stickyLeft} ${styles.productPrimaryCell}`}>
-                        <div className={styles.productCellCard}>
-                          <div className={styles.productCardHead}>
-                            <div>
-                              <div className={styles.productLabel}>Product</div>
-                              <div className={styles.productNamePrimary}>{row.productName}</div>
-                            </div>
-                            <span className={styles.productMetaPill}>Qty {row.quantity || "--"} {row.unit || ""}</span>
+                      <td className={`${styles.stickyLeft} ${styles.productPrimaryCell} ${styles.catCompactProductCell}`}>
+                        <div className={styles.catCompactProduct}>
+                          <div className={styles.catProductName}>{row.productName}</div>
+
+                          <div className={styles.catProductMeta}>
+                            {row.quantity || "--"} {row.unit || ""}
+                            {row.size ? <span className={styles.catMetaSep}>|</span> : null}
+                            {row.size ? <span>Size: {row.size}</span> : null}
                           </div>
 
-                          <div className={styles.productSpecBlock}>
-                            <div className={styles.productLabel}>Specification</div>
-                            {row.spec ? (
-                              <div className={styles.innerScroll}>
-                                <ReadMore content={row.spec} maxLines={3} />
-                              </div>
-                            ) : (
-                              <div className={styles.valueMuted}>No specification added</div>
-                            )}
-                            <div className={styles.productMetaInline}>Size: {row.size || "--"}</div>
-                          </div>
-
-                          <div className={styles.productInfoGrid}>
-                            <div className={styles.productInfoCard}>
-                              <span className={styles.productInfoLabel}>Selling</span>
-                              <span className={styles.productInfoValue}>
-                                {row.sellingPrice > 0 ? formatCurrency(row.sellingPrice) : "--"}
-                              </span>
+                          {row.spec ? (
+                            <div className={styles.catProductSpec} title={row.spec}>
+                              {row.spec}
                             </div>
-                            <div className={styles.productInfoCard}>
-                              <span className={styles.productInfoLabel}>Target</span>
-                              <span className={styles.productInfoValue}>
+                          ) : null}
+
+                          <div className={styles.catPriceRow}>
+                            <span className={styles.catPriceItem}>
+                              <span className={styles.catPriceLabel}>Target</span>
+                              <span className={styles.catPriceValue}>
                                 {row.targetPrice > 0 ? formatCurrency(row.targetPrice) : "--"}
                               </span>
-                            </div>
-                            <div className={styles.productInfoCard}>
-                              <span className={styles.productInfoLabel}>LPR / Last</span>
-                              <span className={styles.productInfoValue}>{lpr ? formatCurrency(lprTotal) : "--"}</span>
-                            </div>
+                            </span>
+                            <span className={styles.catPriceDivider}>/</span>
+                            <span className={styles.catPriceItem}>
+                              <span className={styles.catPriceLabel}>LPR</span>
+                              <span className={styles.catPriceValue}>
+                                {lpr ? formatCurrency(lprTotal) : "--"}
+                              </span>
+                            </span>
                           </div>
 
+                          {negotiation?.activeRound ? (
+                            <div className={styles.catNegoInfo}>
+                              Round {negotiation.activeRound.round_number}
+                              {negotiation.activeRound.target_price
+                                ? ` · Target ${formatCurrency(negotiation.activeRound.target_price)}`
+                                : ""}
+                            </div>
+                          ) : null}
+
                           {lpr ? (
-                            <div className={styles.productActionRow}>
+                            <div className={styles.catActionLinks}>
                               <button
                                 type="button"
-                                className={styles.breakupActionButton}
+                                className={styles.catActionLink}
                                 onClick={() =>
                                   openBreakupModal({
                                     title: "LPR / Last Quote Breakup",
@@ -237,23 +199,13 @@ const CategoryComparisonMatrix = ({
                                   })
                                 }
                               >
-                                View LPR breakup
+                                LPR Breakup
                               </button>
-                              <button type="button" className={styles.breakupActionButton} onClick={() => toggleLpr(rowKey)}>
-                                View LPR history
+                              <button type="button" className={styles.catActionLink} onClick={() => toggleLpr(rowKey)}>
+                                LPR History
                               </button>
                             </div>
                           ) : null}
-
-                          <div className={styles.productStatusRow}>
-                            <ProductNegotiationBadge rfq_id={rfq_id} rfq_product_id={row.product.id} />
-                            <span className={styles.productMetaDivider}>|</span>
-                            <span>
-                              {negotiation?.activeRound
-                                ? `Round ${negotiation.activeRound.round_number} active`
-                                : "No active round"}
-                            </span>
-                          </div>
                         </div>
 
                         <LPRModal
@@ -269,7 +221,7 @@ const CategoryComparisonMatrix = ({
 
                         if (!cell.quote) {
                           return (
-                            <td key={key} className={styles.textCenter}>
+                            <td key={key} className={`${styles.catVendorCell} ${styles.textCenter}`}>
                               <EmptyValue />
                             </td>
                           );
@@ -277,92 +229,58 @@ const CategoryComparisonMatrix = ({
 
                         if (cell.isRegret) {
                           return (
-                            <td key={key} className={styles.regretCell}>
+                            <td key={key} className={`${styles.catVendorCell} ${styles.regretCell}`}>
                               <RegretStateCell reason={cell.quote?.regret_reason || "Vendor declined"} />
                             </td>
                           );
                         }
 
+                        if (cell.total <= 0) {
+                          return (
+                            <td key={key} className={`${styles.catVendorCell} ${styles.textCenter}`}>
+                              <EmptyValue />
+                            </td>
+                          );
+                        }
+
                         const details = cell.details || {};
-                        const heatClass = getHeatClass(row, cell.vendor.id);
-                        const cellClasses = [heatClass];
-                        if (cell.isFinalized) cellClasses.push(styles.finalizedCell);
+                        const band = getHeatBand(row, cell.vendor.id);
+                        const heatClass = getHeatClass(band);
+                        const isLowest = band === "best";
+                        const cellClasses = [styles.catVendorCell, heatClass];
+                        if (cell.isFinalized) cellClasses.push(styles.catFinalizedCell);
                         if (cell.missingParts.length > 0) cellClasses.push(styles.riskCell);
                         const vendorName =
                           cell.vendor?.displayName || cell.vendor?.organization_name || "Vendor";
 
                         return (
-                          <td key={key} className={`${cellClasses.join(" ").trim()} ${styles.textCenter}`}>
-                            <div className={styles.vendorRowCard}>
-                              <div className={styles.vendorRowHead}>
-                                <span className={styles.vendorAvatar}>{getInitials(vendorName)}</span>
-                                <div>
-                                  <div className={styles.vendorRowName}>{vendorName}</div>
-                                  <div className={styles.vendorRowTotal}>{formatCurrency(cell.total)}</div>
+                          <td
+                            key={key}
+                            className={cellClasses.join(" ").trim()}
+                            onClick={() =>
+                              openBreakupModal({
+                                title: "Vendor Quote Breakup",
+                                vendorName,
+                                details,
+                                quantity: row.quantity,
+                                total: cell.total,
+                                peerTotals: rowPeerTotals,
+                              })
+                            }
+                            style={{ cursor: "pointer" }}
+                            title="Click to view breakup"
+                          >
+                            <div className={styles.catPriceDisplay}>
+                              <span className={`${styles.catTotalPrice} ${isLowest ? styles.catLowestPrice : ""} ${cell.isFinalized ? styles.catFinalizedPrice : ""}`}>
+                                {formatCurrency(cell.total)}
+                              </span>
+                              {cell.missingParts.length > 0 ? (
+                                <div className={styles.missing}>
+                                  {cell.missingParts.map((part) => (
+                                    <span key={part} className={styles.missingLabel}>Missing {part}</span>
+                                  ))}
                                 </div>
-                              </div>
-
-                              <div className={styles.vendorMetaGrid}>
-                                <div className={styles.vendorMetaItem}>
-                                  <span className={styles.vendorMetaLabel}>Base</span>
-                                  <span className={styles.vendorMetaValue}>
-                                    {details.unit_price ? formatCurrency(details.unit_price) : "--"}
-                                  </span>
-                                </div>
-                                <div className={styles.vendorMetaItem}>
-                                  <span className={styles.vendorMetaLabel}>Delivery</span>
-                                  <span className={styles.vendorMetaValue}>
-                                    {details.delivery_period ? `${details.delivery_period} day(s)` : "--"}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className={styles.statusRow}>
-                                <span className={`${styles.statusChip} ${styles.statusInfo}`}>{cell.rank}</span>
-                                {row?.rowComparativeStats?.total?.bands?.[cell.vendor.id] === "best" ? (
-                                  <span className={`${styles.statusChip} ${styles.statusSuccess}`}>Best</span>
-                                ) : null}
-                                {cell.isFinalized ? (
-                                  <span className={`${styles.statusChip} ${styles.statusSuccess}`}>Finalized</span>
-                                ) : null}
-                              </div>
-
-                              <div className={styles.cellActions}>
-                                <button
-                                  type="button"
-                                  className={styles.breakupActionButton}
-                                  onClick={() =>
-                                    openBreakupModal({
-                                      title: "Vendor Quote Breakup",
-                                      vendorName,
-                                      details,
-                                      quantity: row.quantity,
-                                      total: cell.total,
-                                      peerTotals: rowPeerTotals,
-                                    })
-                                  }
-                                >
-                                  View breakup
-                                </button>
-                              </div>
-
-                              <MissingCostIndicator parts={cell.missingParts} />
-
-                              <div className={styles.vendorCommentBlock}>
-                                <span className={styles.vendorMetaLabel}>Comment</span>
-                                {details.comment ? (
-                                  <div className={styles.innerScroll}>
-                                    <ReadMore content={details.comment} maxLines={2} />
-                                  </div>
-                                ) : (
-                                  <span className={styles.valueMuted}>No comment</span>
-                                )}
-                              </div>
-
-                              <div className={styles.vendorCommentBlock}>
-                                <span className={styles.vendorMetaLabel}>Documents</span>
-                                <div className={styles.valueSub}>{renderFiles(details.document_files)}</div>
-                              </div>
+                              ) : null}
                             </div>
                           </td>
                         );
@@ -407,28 +325,76 @@ const CategoryComparisonMatrix = ({
               </th>
             </tr>
 
-            <tr>
+            <tr className={styles.highlightMetricLabel}>
               <th className={`${styles.footerBandLabel} ${styles.textCenter}`}>Delivery</th>
-              {model.vendors.map((vendor) => (
-                <td key={`delivery_${vendor.id}`} className={`${styles.footerValueCell} ${styles.textCenter}`}>
-                  {getDeliveryRange(vendor.deliveryDays)}
-                </td>
-              ))}
+              {model.vendors.map((vendor) => {
+                const days = vendor.deliveryDays || [];
+                if (days.length === 0) return <th key={`v_delivery_${vendor.id}`} className={`${styles.footerValueCell} ${styles.catFooterVendorMeta}`}>--</th>;
+                const min = Math.min(...days);
+                const max = Math.max(...days);
+                return (
+                  <th key={`v_delivery_${vendor.id}`} className={`${styles.footerValueCell} ${styles.catFooterVendorMeta}`}>
+                    {min === max ? `${min} day(s)` : `${min}–${max} day(s)`}
+                  </th>
+                );
+              })}
             </tr>
 
-            <tr>
+            <tr className={styles.highlightMetricLabel}>
               <th className={`${styles.footerBandLabel} ${styles.textCenter}`}>Payment Terms</th>
-              {model.vendors.map((vendor) => (
-                <td key={`payment_${vendor.id}`} className={styles.footerValueCell}>
-                  {vendor.global_payment_term?.[0]?.details ? (
-                    <div className={styles.innerScrollTall}>
-                      <ReadMore content={vendor.global_payment_term?.[0]?.details} maxLines={4} />
-                    </div>
-                  ) : (
-                    <EmptyValue />
-                  )}
-                </td>
-              ))}
+              {model.vendors.map((vendor) => {
+                const raw = vendor.global_payment_term;
+                const paymentTerm = Array.isArray(raw)
+                  ? (raw[0]?.details || "")
+                  : (typeof raw === "string" ? raw : "");
+                return (
+                  <th key={`v_payment_${vendor.id}`} className={`${styles.footerValueCell} ${styles.catFooterVendorMeta}`}>
+                    {paymentTerm || "--"}
+                  </th>
+                );
+              })}
+            </tr>
+
+            <tr className={styles.highlightMetricLabel}>
+              <th className={`${styles.footerBandLabel} ${styles.textCenter}`}>Comments</th>
+              {model.vendors.map((vendor) => {
+                const raw = vendor.global_comment || vendor.comment;
+                const comment = typeof raw === "string" ? raw : "";
+                return (
+                  <th key={`v_comment_${vendor.id}`} className={`${styles.footerValueCell} ${styles.catFooterVendorMeta}`}>
+                    {comment || "--"}
+                  </th>
+                );
+              })}
+            </tr>
+
+            <tr className={styles.highlightMetricLabel}>
+              <th className={`${styles.footerBandLabel} ${styles.textCenter}`}>Attached Files</th>
+              {model.vendors.map((vendor) => {
+                const files = vendor.global_document_files;
+                return (
+                  <th key={`v_files_${vendor.id}`} className={`${styles.footerValueCell} ${styles.catFooterVendorMeta}`}>
+                    {Array.isArray(files) && files.length > 0 ? (
+                      files.map((file, idx) => {
+                        const fileUrl = typeof file === "string" ? file : file?.file_url;
+                        if (!fileUrl) return null;
+                        return (
+                          <a
+                            key={`${vendor.id}_file_${idx}`}
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="page-link p-0"
+                            style={{ display: "block", marginBottom: 2 }}
+                          >
+                            View File
+                          </a>
+                        );
+                      })
+                    ) : "--"}
+                  </th>
+                );
+              })}
             </tr>
           </tfoot>
         </table>

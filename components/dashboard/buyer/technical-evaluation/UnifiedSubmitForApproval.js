@@ -18,7 +18,8 @@ const UnifiedSubmitForApproval = ({
   onSubmitClick,
   onConfirm,
   onCancel,
-  productCount
+  productCount,
+  evaluatedProductCount = 0
 }) => {
   // Don't show button if user doesn't have write permissions
   if (!canWrite || permissionsLoading) return null;
@@ -70,15 +71,13 @@ const UnifiedSubmitForApproval = ({
     );
   }
 
-  const isDisabled = !areAllProductsEvaluated || !vendorCountValid || unifiedSubmitLoading;
+  const isDisabled = evaluatedProductCount === 0 || unifiedSubmitLoading;
 
   let tooltipMessage = "";
-  if (!areAllProductsEvaluated) {
-    tooltipMessage = "Please complete evaluation for all products and clauses before submitting";
-  } else if (!vendorCountValid) {
-    tooltipMessage = "Each product must have between 1 and 5 vendors evaluated";
+  if (evaluatedProductCount === 0) {
+    tooltipMessage = "Evaluate at least one vendor in a product before submitting";
   } else {
-    tooltipMessage = "Submit all products for approval";
+    tooltipMessage = `Submit ${evaluatedProductCount} of ${productCount} evaluated product(s) for approval`;
   }
 
   return (
@@ -137,7 +136,7 @@ const UnifiedSubmitForApproval = ({
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                 <polyline points="22 4 12 14.01 9 11.01"/>
               </svg>
-              <span style={{ whiteSpace: 'nowrap' }}>Submit All ({productCount})</span>
+              <span style={{ whiteSpace: 'nowrap' }}>Submit All ({evaluatedProductCount}/{productCount})</span>
             </>
           )}
         </button>
@@ -148,7 +147,7 @@ const UnifiedSubmitForApproval = ({
         onClose={onCancel}
         onConfirm={onConfirm}
         title="Submit All Products for Approval"
-        description={`Are you sure you want to submit all ${productCount} product(s) for technical evaluation approval?\n\nOnce submitted, the evaluation will be sent to the approver for review. You will not be able to make changes until the approval is complete.`}
+        description={`Are you sure you want to submit ${evaluatedProductCount} of ${productCount} evaluated product(s) for technical evaluation approval?\n\nOnly products with at least one vendor evaluated will be submitted. Once submitted, the evaluation will be sent to the approver for review.`}
         confirmButtonColor="primary"
         confirmButtonText={unifiedSubmitLoading ? "Submitting..." : "Submit All"}
         cancelButtonText="Cancel"

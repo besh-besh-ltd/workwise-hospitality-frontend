@@ -72,14 +72,14 @@ const BreakupInsightModal = ({
   const peerSignal = useMemo(() => getVsPeers(total, peerTotals), [total, peerTotals]);
 
   const rows = [
-    { label: "Base Price", value: formatCurrency(unitPrice) },
-    { label: "Quantity", value: qty || "--" },
-    { label: "Subtotal", value: formatCurrency(subtotal) },
-    { label: "Packaging", value: formatCurrency(packaging) },
-    { label: "Freight", value: formatCurrency(freight) },
-    { label: "GST", value: formatCurrency(gst) },
-    { label: "Delivery", value: details.delivery_period ? `${details.delivery_period} day(s)` : "--" },
-    { label: "Total", value: formatCurrency(total) },
+    { label: "Base Price", value: formatCurrency(unitPrice), highlight: false },
+    { label: "Quantity", value: qty || "--", highlight: false },
+    { label: "Subtotal", value: formatCurrency(subtotal), highlight: false },
+    { label: "Packaging", value: formatCurrency(packaging), highlight: false },
+    { label: "Freight", value: formatCurrency(freight), highlight: false },
+    { label: "GST", value: formatCurrency(gst), highlight: false },
+    { label: "Delivery", value: details.delivery_period ? `${details.delivery_period} day(s)` : "--", highlight: true },
+    { label: "Total", value: formatCurrency(total), highlight: true },
   ];
 
   return (
@@ -104,7 +104,7 @@ const BreakupInsightModal = ({
 
         <div className={styles.breakupGrid}>
           {rows.map((row) => (
-            <div key={row.label} className={styles.breakupRow}>
+            <div key={row.label} className={`${styles.breakupRow} ${row.highlight ? styles.breakupRowHighlight : ""}`}>
               <span className={styles.breakupRowLabel}>{row.label}</span>
               <span className={styles.breakupRowValue}>{row.value}</span>
             </div>
@@ -112,9 +112,20 @@ const BreakupInsightModal = ({
         </div>
 
         {details.comment ? (
-          <div className={styles.breakupComment}>
+          <div className={`${styles.breakupComment} ${styles.breakupRowHighlight}`}>
             <p className={styles.breakupCommentLabel}>Vendor Comment</p>
             <p className={styles.breakupCommentText}>{details.comment}</p>
+          </div>
+        ) : null}
+
+        {details.global_payment_term ? (
+          <div className={styles.breakupComment}>
+            <p className={styles.breakupCommentLabel}>Payment Terms</p>
+            <p className={styles.breakupCommentText}>
+              {Array.isArray(details.global_payment_term)
+                ? (details.global_payment_term[0]?.details || "--")
+                : details.global_payment_term}
+            </p>
           </div>
         ) : null}
       </Modal.Body>
