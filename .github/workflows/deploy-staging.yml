@@ -1,0 +1,48 @@
+name: Frontend Deploy (staging)
+
+on:
+  push:
+    branches:
+      - qa
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-frontend-qa
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy frontend to staging EC2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.WORKWISE_SSH_USER }}
+          key: ${{ secrets.WORKWISE_SSH_KEY }}
+          port: 22
+          script_stop: true
+          command_timeout: 35m
+          script: |
+            set -euo pipefail
+
+            APP_DIR="$HOME/workwise-frontend"
+            DEPLOY_BRANCH="qa"
+
+            cd "$APP_DIR"
+            git fetch --prune origin "$DEPLOY_BRANCH"
+            git checkout "$DEPLOY_BRANCH"
+            git reset --hard "origin/$DEPLOY_BRANCH"
+
+            npm i --no-audit --no-fund
+            cat > .env.development << 'EOF'
+            ${{ secrets.ENV_STAGING }}
+            EOF
+            npm run build:dev
+            pm2 restart workwise-frontend --update-env
