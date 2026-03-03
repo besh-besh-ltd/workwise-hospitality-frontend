@@ -21,7 +21,6 @@ const RFQListSidebar = ({
   selectedRfqId,
   linkPrefix,
   linkQueryKey = 'rfq_id',
-  extraQueryParams = {},
   // Tabs
   tabs = [],
   defaultTab,
@@ -285,18 +284,6 @@ const RFQListSidebar = ({
             const isSelected = String(item.id) === String(selectedRfqId);
             const tags = getItemTags ? getItemTags(item, isSelected) : [];
             const isTender = item.is_tender === 1;
-            const mergedQuery = {
-              ...extraQueryParams,
-              [linkQueryKey]: item.id,
-            };
-            const hrefQuery = new URLSearchParams(
-              Object.entries(mergedQuery).reduce((acc, [key, value]) => {
-                if (value !== null && value !== undefined && value !== '') {
-                  acc[key] = String(value);
-                }
-                return acc;
-              }, {})
-            ).toString();
 
             let cardClass = styles.rfqCard;
             if (isSelected) cardClass += ` ${styles.rfqCardSelected}`;
@@ -305,7 +292,7 @@ const RFQListSidebar = ({
             return (
               <Link
                 key={item.id}
-                href={`${linkPrefix}?${hrefQuery}`}
+                href={`${linkPrefix}?${linkQueryKey}=${item.id}`}
                 className={cardClass}
                 id={`rfq_${item.rfq_no}-rfq_sidebar-${pageId}`}
               >

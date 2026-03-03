@@ -15,7 +15,6 @@ import moment from 'moment';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
 import ApprovalActionModal from '../approval/ApprovalActionModal';
 import ApprovalTimeline from '../approval/ApprovalTimeline';
-import styles from './NegotiationUI.module.scss';
 
 const NegotiationModal = ({
   show,
@@ -447,19 +446,6 @@ const NegotiationModal = ({
     }
   };
 
-  const getModalSubtitle = () => {
-    switch (mode) {
-      case 'create':
-        return 'Select a product, define target price, and set round timeline.';
-      case 'history':
-        return 'Track all rounds with status progression and approval journey.';
-      case 'view-approve':
-        return 'Review pending rounds, take approval action, and inspect submitted quotes.';
-      default:
-        return 'Manage negotiation rounds and approval flow.';
-    }
-  };
-
   // Helper to get effective round status (considering end_date and approvals)
   // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
   const getEffectiveRoundStatus = (round) => {
@@ -517,31 +503,48 @@ const NegotiationModal = ({
 
     if (total === 0) return null;
 
-    const summaryItems = [
-      { key: 'active', label: 'Active', tone: 'active' },
-      { key: 'pending_approval', label: 'Pending Approval', tone: 'pending' },
-      { key: 'ended', label: 'Ended', tone: 'ended' },
-      { key: 'rejected', label: 'Rejected', tone: 'rejected' },
-      { key: 'completed', label: 'Completed', tone: 'completed' },
-      { key: 'closed', label: 'Closed', tone: 'closed' },
-    ];
-
     return (
-      <div className={`${styles.sectionCard} ${styles.summaryHeader}`}>
-        <div className={styles.summaryTopRow}>
-          <p className={styles.summaryLabel}>Round Status Summary</p>
-          <p className={styles.summaryTotal}>{total} Total</p>
+      <div className="mb-3 p-2 bg-light rounded border">
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <small className="text-muted fw-bold">Round Status Summary</small>
+          <Badge bg="secondary" pill>{total} Total</Badge>
         </div>
-        <div className={styles.summaryChips}>
-          {summaryItems.map((item) =>
-            counts[item.key] > 0 ? (
-              <span
-                key={item.key}
-                className={`${styles.summaryChip} ${styles[`summaryChip_${item.tone}`]}`}
-              >
-                <strong>{counts[item.key]}</strong> {item.label}
-              </span>
-            ) : null
+        <div className="d-flex gap-2 flex-wrap">
+          {counts.active > 0 && (
+            <Badge bg="success" className="d-flex align-items-center gap-1 px-2 py-1">
+              <span className="fw-bold">{counts.active}</span>
+              <span>Active</span>
+            </Badge>
+          )}
+          {counts.ended > 0 && (
+            <Badge style={{ backgroundColor: '#fd7e14', color: '#fff' }} className="d-flex align-items-center gap-1 px-2 py-1">
+              <span className="fw-bold">{counts.ended}</span>
+              <span>Ended</span>
+            </Badge>
+          )}
+          {counts.pending_approval > 0 && (
+            <Badge bg="warning" text="dark" className="d-flex align-items-center gap-1 px-2 py-1">
+              <span className="fw-bold">{counts.pending_approval}</span>
+              <span>Pending Approval</span>
+            </Badge>
+          )}
+          {counts.rejected > 0 && (
+            <Badge bg="danger" className="d-flex align-items-center gap-1 px-2 py-1">
+              <span className="fw-bold">{counts.rejected}</span>
+              <span>Rejected</span>
+            </Badge>
+          )}
+          {counts.completed > 0 && (
+            <Badge bg="info" className="d-flex align-items-center gap-1 px-2 py-1">
+              <span className="fw-bold">{counts.completed}</span>
+              <span>Completed</span>
+            </Badge>
+          )}
+          {counts.closed > 0 && (
+            <Badge bg="secondary" className="d-flex align-items-center gap-1 px-2 py-1">
+              <span className="fw-bold">{counts.closed}</span>
+              <span>Closed</span>
+            </Badge>
           )}
         </div>
       </div>
@@ -655,26 +658,24 @@ const NegotiationModal = ({
 
     return (
       <Form onSubmit={handleSubmit}>
-        <section className={styles.createSurface}>
-          <div className={styles.createHeaderRow}>
-            <div>
-              <p className={styles.createHeaderTitle}>Select Product</p>
-              <p className={styles.createHeaderSub}>
-                Only products with valid vendor quotes can start a new negotiation round.
-              </p>
-            </div>
-            <span className={styles.createHeaderMeta}>
-              {availableProducts.length} available
-            </span>
+        <Form.Group className="mb-3">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <Form.Label className="mb-0 fw-bold">Select Product</Form.Label>
           </div>
 
-          {products.length === 0 ? (
-            <div className={styles.createEmpty}>
-              <p className={styles.createEmptyTitle}>No products found</p>
-              <p className={styles.createEmptySub}>Load an RFQ with products to create rounds.</p>
-            </div>
-          ) : (
-            <div className={styles.createProductList}>
+          <Table bordered hover size="sm" className="mb-0">
+            <thead className="table-light">
+              <tr>
+                <th style={{ width: '40px' }}></th>
+                <th>Product</th>
+                <th>Spec</th>
+                <th>Size</th>
+                <th>Quantity</th>
+                <th>Unit</th>
+                <th>Vendor Names</th>
+              </tr>
+            </thead>
+            <tbody>
               {products.map((product) => {
                 const hasRound = hasActiveRound(product.id);
                 const quoteApproved = isQuoteApproved(product.id);
@@ -683,132 +684,97 @@ const NegotiationModal = ({
                 const isSelected = selectedProducts.includes(product.id);
                 const details = getProductDetails(product);
 
-                let statusLabel = 'Available';
-                let statusClass = '';
-                if (quoteApproved) {
-                  statusLabel = 'Approved';
-                  statusClass = styles.createStatusApproved;
-                } else if (hasRound) {
-                  statusLabel = 'Active Round';
-                  statusClass = styles.createStatusActive;
-                } else if (noQuotes) {
-                  statusLabel = 'No Quotes';
-                  statusClass = styles.createStatusNoQuotes;
-                }
-
                 return (
-                  <button
+                  <tr
                     key={product.id}
-                    type="button"
                     onClick={() => !isDisabled && handleProductToggle(product.id)}
-                    disabled={isDisabled}
-                    aria-pressed={isSelected}
-                    className={`${styles.createProductRow} ${
-                      isSelected ? styles.createProductRowSelected : ''
-                    } ${isDisabled ? styles.createProductRowDisabled : ''}`}
+                    style={{
+                      cursor: isDisabled ? 'not-allowed' : 'pointer',
+                      backgroundColor: isDisabled ? '#f8f9fa' : isSelected ? '#e3f2fd' : '#fff',
+                      opacity: isDisabled ? 0.6 : 1,
+                    }}
                   >
-                    <div className={styles.createProductMain}>
-                      <input
+                    <td className="text-center align-middle">
+                      <Form.Check
                         type="radio"
                         name="selectedProduct"
                         checked={isSelected}
                         disabled={isDisabled}
-                        readOnly
-                        className={styles.createRadio}
+                        onChange={() => {}}
+                        style={{ pointerEvents: 'none' }}
                       />
-                      <div className={styles.createTitleBlock}>
-                        <p className={styles.createProductName}>{details.name}</p>
-                        <div className={styles.createStatusRow}>
-                          <span className={`${styles.createStatusBadge} ${statusClass}`}>
-                            {statusLabel}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className={styles.createMetaGrid}>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Spec</p>
-                        <p className={styles.createMetaValue}>{details.spec || '-'}</p>
-                      </div>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Size</p>
-                        <p className={styles.createMetaValue}>{details.size || '-'}</p>
-                      </div>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Qty</p>
-                        <p className={styles.createMetaValue}>{details.quantity || '-'}</p>
-                      </div>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Unit</p>
-                        <p className={styles.createMetaValue}>{details.unit || '-'}</p>
-                      </div>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Vendors</p>
-                        <p className={styles.createMetaValue}>{getVendorNames(product)}</p>
-                      </div>
-                    </div>
-                  </button>
+                    </td>
+                    <td className="align-middle">
+                      {details.name}
+                      {quoteApproved && (
+                        <Badge bg="success" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                          Approved
+                        </Badge>
+                      )}
+                      {hasRound && !quoteApproved && (
+                        <Badge bg="warning" text="dark" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                          Active
+                        </Badge>
+                      )}
+                      {noQuotes && !hasRound && !quoteApproved && (
+                        <Badge bg="secondary" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                          No Quotes
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="align-middle">{details.spec}</td>
+                    <td className="align-middle">{details.size}</td>
+                    <td className="align-middle">{details.quantity}</td>
+                    <td className="align-middle">{details.unit}</td>
+                    <td className="align-middle">
+                      <small className="text-muted">{getVendorNames(product)}</small>
+                    </td>
+                  </tr>
                 );
               })}
-            </div>
-          )}
-
+            </tbody>
+          </Table>
           {selectedProducts.length > 0 && (
-            <p className={styles.createSelectedNote}>
-              {selectedProducts.length} product selected
-            </p>
+            <Form.Text className="text-success mt-2 d-block">
+              1 product selected
+            </Form.Text>
           )}
-        </section>
+        </Form.Group>
 
-        <div className={styles.formGrid}>
-          <div className={styles.formCard}>
-            <label htmlFor="neg-target-price" className={styles.formLabel}>
-              Target Price (₹) <span className={styles.requiredMark}>*</span>
-            </label>
-            <input
-              id="neg-target-price"
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.target_price}
-              onChange={(e) => setFormData({ ...formData, target_price: e.target.value })}
-              placeholder="Enter target price"
-              required
-              className={styles.fieldInput}
-            />
-          </div>
+        <Form.Group className="mb-3">
+          <Form.Label>Target Price (₹) <span className="text-danger">*</span></Form.Label>
+          <Form.Control
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.target_price}
+            onChange={(e) => setFormData({ ...formData, target_price: e.target.value })}
+            placeholder="Enter target price"
+            required
+          />
+        </Form.Group>
 
-          <div className={styles.formCard}>
-            <label htmlFor="neg-end-date" className={styles.formLabel}>
-              End Date <span className={styles.requiredMark}>*</span>
-            </label>
-            <input
-              id="neg-end-date"
-              type="datetime-local"
-              value={formData.end_date}
-              onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-              min={new Date().toISOString().slice(0, 16)}
-              required
-              className={styles.fieldInput}
-            />
-            <p className={styles.formHint}>
-              Vendors can submit one quote per product until this date.
-            </p>
-          </div>
-        </div>
+        <Form.Group className="mb-3">
+          <Form.Label>End Date <span className="text-danger">*</span></Form.Label>
+          <Form.Control
+            type="datetime-local"
+            value={formData.end_date}
+            onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+            min={new Date().toISOString().slice(0, 16)}
+            required
+          />
+          <Form.Text className="text-muted">
+            Vendors can submit one quote per product until this date
+          </Form.Text>
+        </Form.Group>
 
-        <div className={styles.formActions}>
-          <button type="button" className={styles.actionSecondary} onClick={onHide} disabled={submitting}>
+        <div className="d-flex justify-content-end gap-2">
+          <Button variant="secondary" onClick={onHide} disabled={submitting}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            className={styles.actionPrimary}
-            disabled={submitting || selectedProducts.length === 0 || !canWrite || permissionsLoading}
-          >
+          </Button>
+          <Button variant="primary" type="submit" disabled={submitting || selectedProducts.length === 0 || !canWrite || permissionsLoading}>
             {submitting ? <Spinner size="sm" /> : 'Create Round'}
-          </button>
+          </Button>
         </div>
       </Form>
     );
@@ -825,22 +791,6 @@ const NegotiationModal = ({
   };
 
   const getStatusStyle = (status) => statusConfig[status] || statusConfig.CLOSED;
-
-  const getStatusTone = (status) => {
-    if (status === 'PENDING_APPROVAL') return 'pending';
-    if (status === 'ACTIVE') return 'active';
-    if (status === 'ENDED') return 'ended';
-    if (status === 'REJECTED') return 'rejected';
-    if (status === 'COMPLETED') return 'completed';
-    return 'closed';
-  };
-
-  const getJourneyTone = (status) => {
-    if (status === 'APPROVED') return 'approved';
-    if (status === 'REJECTED') return 'rejected';
-    if (status === 'CANCELLED') return 'cancelled';
-    return 'pending';
-  };
 
   // Get time remaining text for active rounds
   const getTimeRemaining = (endDate) => {
@@ -892,29 +842,82 @@ const NegotiationModal = ({
 
     return (
       <div>
-        {total > 0 && renderRoundStatusSummary()}
+        {/* Status summary pills */}
+        {total > 0 && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            {Object.entries(counts).map(([key, count]) => {
+              if (count === 0) return null;
+              const statusKey = key === 'pending_approval' ? 'PENDING_APPROVAL' : key.toUpperCase();
+              const cfg = getStatusStyle(statusKey);
+              return (
+                <div
+                  key={key}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    backgroundColor: cfg.bg,
+                    border: `1px solid ${cfg.border}`,
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: cfg.color,
+                  }}
+                >
+                  <span style={{ fontSize: '0.7rem' }}>{cfg.icon}</span>
+                  <span>{count}</span>
+                  <span style={{ fontWeight: 400 }}>{cfg.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {uniqueRounds.length === 0 ? (
-          <div className={styles.historyEmpty}>
-            <p className={styles.historyEmptyTitle}>No negotiation rounds yet</p>
-            <p className={styles.historyEmptySub}>Rounds will appear here once created.</p>
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#999' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '8px', opacity: 0.5 }}>📋</div>
+            <div style={{ fontSize: '0.95rem', fontWeight: 500 }}>No negotiation rounds yet</div>
+            <div style={{ fontSize: '0.8rem', marginTop: '4px', color: '#aaa' }}>Rounds will appear here once created</div>
           </div>
         ) : (
-          <div className={styles.historyGroup}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {productGroups.map(([productId, group]) => (
-              <div key={productId} className={styles.historyProductCard}>
-                <div className={styles.historyProductHead}>
-                  <p className={styles.historyProductName}>{group.productName}</p>
-                  <span className={styles.historyProductMeta}>
+              <div key={productId}>
+                {/* Product header */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '10px',
+                  paddingBottom: '6px',
+                  borderBottom: '2px solid #e9ecef',
+                }}>
+                  <div style={{
+                    width: '6px',
+                    height: '20px',
+                    borderRadius: '3px',
+                    backgroundColor: '#0d6efd',
+                  }} />
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>
+                    {group.productName}
+                  </span>
+                  <span style={{
+                    fontSize: '0.7rem',
+                    color: '#888',
+                    backgroundColor: '#f0f0f0',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                  }}>
                     {group.rounds.length} round{group.rounds.length > 1 ? 's' : ''}
                   </span>
                 </div>
 
-                <div>
+                {/* Round cards */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '14px' }}>
                   {group.rounds.map((round) => {
                     const effectiveStatus = getEffectiveRoundStatus(round);
                     const cfg = getStatusStyle(effectiveStatus);
-                    const roundTone = getStatusTone(effectiveStatus);
                     const timeLeft = effectiveStatus === 'ACTIVE' ? getTimeRemaining(round.end_date) : null;
                     const approvals = round.approvals || [];
                     const canApprove = effectiveStatus === 'PENDING_APPROVAL' && currentUserId &&
@@ -923,100 +926,163 @@ const NegotiationModal = ({
                     return (
                       <div
                         key={round.id}
-                        className={`${styles.roundCard} ${styles[`roundCard_${roundTone}`]}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'stretch',
+                          borderRadius: '8px',
+                          border: `1px solid ${cfg.border}`,
+                          backgroundColor: '#fff',
+                          overflow: 'hidden',
+                          transition: 'box-shadow 0.2s',
+                        }}
                       >
-                        <div>
-                          <div className={styles.roundTopRow}>
-                            <div className={styles.roundIdentity}>
-                              <span className={styles.roundNumberDot}>
+                        {/* Left color strip */}
+                        <div style={{
+                          width: '4px',
+                          minHeight: '100%',
+                          backgroundColor: cfg.color,
+                          flexShrink: 0,
+                        }} />
+
+                        {/* Round content */}
+                        <div style={{ flex: 1, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {/* Top row: round number, status, time */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '50%',
+                                backgroundColor: cfg.bg,
+                                border: `1.5px solid ${cfg.border}`,
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                color: cfg.color,
+                              }}>
                                 {round.round_number || '?'}
                               </span>
-                              <span
-                                className={`${styles.roundStatusBadge} ${styles[`historyStatus_${roundTone}`]}`}
-                              >
+                              <span style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                color: cfg.color,
+                                backgroundColor: cfg.bg,
+                                padding: '2px 10px',
+                                borderRadius: '12px',
+                              }}>
                                 {cfg.icon} {cfg.label}
                               </span>
                               {timeLeft && (
-                                <span className={styles.roundTimeRemaining}>
+                                <span style={{
+                                  fontSize: '0.7rem',
+                                  color: '#2e7d32',
+                                  fontWeight: 500,
+                                }}>
                                   ⏱ {timeLeft}
                                 </span>
                               )}
                             </div>
                             {canApprove && (
-                              <div className={styles.roundActionGroup}>
-                                <button
-                                  type="button"
-                                  className={`${styles.roundActionButton} ${styles.roundActionApprove}`}
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <Button
+                                  variant="success"
+                                  size="sm"
+                                  style={{ fontSize: '0.75rem', padding: '3px 12px' }}
                                   onClick={() => openActionModal(round, 'APPROVE')}
                                   disabled={submitting || !canWrite || permissionsLoading}
                                 >
                                   Approve
-                                </button>
-                                <button
-                                  type="button"
-                                  className={`${styles.roundActionButton} ${styles.roundActionReject}`}
+                                </Button>
+                                <Button
+                                  variant="outline-danger"
+                                  size="sm"
+                                  style={{ fontSize: '0.75rem', padding: '3px 12px' }}
                                   onClick={() => openActionModal(round, 'REJECT')}
                                   disabled={submitting || !canWrite || permissionsLoading}
                                 >
                                   Reject
-                                </button>
+                                </Button>
                               </div>
                             )}
                           </div>
 
                           {/* Details row */}
-                          <div className={styles.roundMeta}>
-                            <div className={styles.roundMetaItem}>
-                              <span className={styles.roundMetaLabel}>Target</span>
-                              <div className={styles.roundMetaValue}>
+                          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '0.8rem', color: '#555' }}>
+                            <div>
+                              <span style={{ color: '#999', fontSize: '0.7rem' }}>Target</span>
+                              <div style={{ fontWeight: 600, color: '#333' }}>
                                 ₹{parseFloat(round.target_price || 0).toLocaleString()}
                               </div>
                             </div>
-                            <div className={styles.roundMetaItem}>
-                              <span className={styles.roundMetaLabel}>End Date</span>
-                              <div className={styles.roundMetaValue}>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</div>
+                            <div>
+                              <span style={{ color: '#999', fontSize: '0.7rem' }}>End Date</span>
+                              <div>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</div>
                             </div>
                             {round.created_by_name && (
-                              <div className={styles.roundMetaItem}>
-                                <span className={styles.roundMetaLabel}>Created By</span>
-                                <div className={styles.roundMetaValue}>{round.created_by_name}</div>
+                              <div>
+                                <span style={{ color: '#999', fontSize: '0.7rem' }}>Created By</span>
+                                <div>{round.created_by_name}</div>
                               </div>
                             )}
                           </div>
 
                           {/* Approval Workflow Journey */}
                           {(effectiveStatus === 'PENDING_APPROVAL' || effectiveStatus === 'REJECTED' || effectiveStatus === 'APPROVED') && (
-                            <div>
+                            <div style={{ borderTop: '1px solid #f0f0f0', marginTop: '2px', paddingTop: '6px' }}>
                               <div
                                 onClick={() => toggleApprovalJourney(round)}
-                                className={styles.workflowToggle}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.75rem',
+                                  color: '#0d6efd',
+                                  fontWeight: 500,
+                                  padding: '2px 0',
+                                }}
                               >
-                                <span className={styles.workflowChevron}>
+                                <span style={{ fontSize: '0.7rem' }}>
                                   {expandedApprovalJourney === round.id ? '▼' : '▶'}
                                 </span>
                                 Approval Workflow
                                 {approvals.length > 0 && (
-                                  <span className={styles.workflowMeta}>
+                                  <span style={{
+                                    fontSize: '0.65rem',
+                                    color: '#888',
+                                    fontWeight: 400,
+                                  }}>
                                     ({approvals.filter(a => a.status === 'PENDING').length} pending)
                                   </span>
                                 )}
                               </div>
 
                               {expandedApprovalJourney === round.id && (
-                                <div className={styles.workflowPanel}>
+                                <div style={{ marginTop: '8px' }}>
                                   {approvalJourneys[round.id]?.loading ? (
-                                    <div className={styles.workflowLoading}>
+                                    <div style={{ textAlign: 'center', padding: '16px 0' }}>
                                       <Spinner size="sm" />
-                                      <span> Loading approval history...</span>
+                                      <span style={{ fontSize: '0.75rem', color: '#888', marginLeft: '8px' }}>Loading approval history...</span>
                                     </div>
                                   ) : approvalJourneys[round.id]?.instances?.length > 0 ? (
-                                    <div className={styles.journeyList}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
                                       {approvalJourneys[round.id].instances.map((instance, instIdx) => {
                                         const isLast = instIdx === approvalJourneys[round.id].instances.length - 1;
                                         const instStatus = (instance.status || '').toUpperCase();
                                         const attemptNum = instIdx + 1;
-                                        const journeyTone = getJourneyTone(instStatus);
 
+                                        // Determine instance status style
+                                        const instColor = instStatus === 'APPROVED' ? '#198754' :
+                                                         instStatus === 'REJECTED' ? '#dc3545' :
+                                                         instStatus === 'CANCELLED' ? '#6c757d' : '#f59f00';
+                                        const instBg = instStatus === 'APPROVED' ? '#e8f5e9' :
+                                                      instStatus === 'REJECTED' ? '#fce4ec' :
+                                                      instStatus === 'CANCELLED' ? '#f0f0f0' : '#fff8e1';
+                                        const instBorder = instStatus === 'APPROVED' ? '#a5d6a7' :
+                                                          instStatus === 'REJECTED' ? '#ef9a9a' :
+                                                          instStatus === 'CANCELLED' ? '#d0d0d0' : '#ffcc80';
                                         const instIcon = instStatus === 'APPROVED' ? '✓' :
                                                         instStatus === 'REJECTED' ? '✗' :
                                                         instStatus === 'CANCELLED' ? '—' : '◷';
@@ -1025,29 +1091,74 @@ const NegotiationModal = ({
 
                                         return (
                                           <div key={instance.id || instIdx}>
-                                            <div
-                                              className={`${styles.journeyCard} ${
-                                                isLast && instStatus === 'PENDING' ? styles.journeyCardCurrent : ''
-                                              }`}
-                                            >
-                                              <div className={`${styles.journeyHeader} ${styles[`journeyHeader_${journeyTone}`]}`}>
-                                                <div className={styles.journeyHeaderLeft}>
-                                                  <span className={`${styles.journeyIcon} ${styles[`journeyIcon_${journeyTone}`]}`}>
+                                            {/* Instance card */}
+                                            <div style={{
+                                              border: `1px solid ${instBorder}`,
+                                              borderRadius: '8px',
+                                              backgroundColor: isLast && instStatus === 'PENDING' ? '#fffdf5' : '#fff',
+                                              overflow: 'hidden',
+                                              ...(isLast && instStatus === 'PENDING' ? {
+                                                boxShadow: '0 0 0 1px rgba(255,193,7,0.15), 0 2px 8px rgba(255,193,7,0.08)',
+                                              } : {}),
+                                            }}>
+                                              {/* Instance header */}
+                                              <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '8px 12px',
+                                                backgroundColor: instBg,
+                                                borderBottom: `1px solid ${instBorder}`,
+                                              }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                  <span style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    width: '22px',
+                                                    height: '22px',
+                                                    borderRadius: '50%',
+                                                    backgroundColor: '#fff',
+                                                    border: `2px solid ${instColor}`,
+                                                    fontSize: '0.65rem',
+                                                    fontWeight: 700,
+                                                    color: instColor,
+                                                  }}>
                                                     {instIcon}
                                                   </span>
-                                                  <span className={styles.journeyAttempt}>Attempt {attemptNum}</span>
-                                                  <span className={`${styles.journeyStatus} ${styles[`journeyStatus_${journeyTone}`]}`}>
+                                                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#333' }}>
+                                                    Attempt {attemptNum}
+                                                  </span>
+                                                  <span style={{
+                                                    fontSize: '0.68rem',
+                                                    fontWeight: 600,
+                                                    color: instColor,
+                                                    backgroundColor: '#fff',
+                                                    padding: '1px 8px',
+                                                    borderRadius: '10px',
+                                                    border: `1px solid ${instBorder}`,
+                                                  }}>
                                                     {instLabel}
                                                   </span>
                                                   {isLast && instStatus === 'PENDING' && (
-                                                    <span className={styles.journeyCurrent}>
+                                                    <span style={{
+                                                      fontSize: '0.6rem',
+                                                      fontWeight: 700,
+                                                      color: '#664d03',
+                                                      backgroundColor: '#ffc107',
+                                                      padding: '1px 6px',
+                                                      borderRadius: '4px',
+                                                      textTransform: 'uppercase',
+                                                      letterSpacing: '0.03em',
+                                                    }}>
                                                       Current
                                                     </span>
                                                   )}
                                                 </div>
                                               </div>
 
-                                              <div className={styles.journeyBody}>
+                                              {/* Instance steps - use ApprovalTimeline */}
+                                              <div style={{ padding: '10px 12px' }}>
                                                 {instance.steps && instance.steps.length > 0 ? (
                                                   <ApprovalTimeline
                                                     steps={instance.steps}
@@ -1055,22 +1166,49 @@ const NegotiationModal = ({
                                                     initiatedBy={instance.initiated_by}
                                                   />
                                                 ) : (
-                                                  <div className={styles.journeyEmpty}>
+                                                  <div style={{ fontSize: '0.75rem', color: '#999', textAlign: 'center', padding: '8px 0' }}>
                                                     No step details available
                                                   </div>
                                                 )}
                                               </div>
                                             </div>
 
+                                            {/* Connector between instances */}
                                             {!isLast && (
-                                              <div className={styles.journeyConnector}>resubmitted</div>
+                                              <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '4px 0',
+                                              }}>
+                                                <div style={{
+                                                  display: 'flex',
+                                                  flexDirection: 'column',
+                                                  alignItems: 'center',
+                                                  gap: '0px',
+                                                }}>
+                                                  <div style={{ width: '2px', height: '8px', backgroundColor: '#dee2e6' }} />
+                                                  <div style={{
+                                                    fontSize: '0.6rem',
+                                                    color: '#aaa',
+                                                    fontWeight: 500,
+                                                    padding: '1px 8px',
+                                                    backgroundColor: '#f8f9fa',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #e9ecef',
+                                                  }}>
+                                                    resubmitted
+                                                  </div>
+                                                  <div style={{ width: '2px', height: '8px', backgroundColor: '#dee2e6' }} />
+                                                </div>
+                                              </div>
                                             )}
                                           </div>
                                         );
                                       })}
                                     </div>
                                   ) : (
-                                    <div className={styles.journeyEmpty}>
+                                    <div style={{ fontSize: '0.75rem', color: '#999', textAlign: 'center', padding: '12px 0' }}>
                                       No approval workflow data found
                                     </div>
                                   )}
@@ -1121,14 +1259,12 @@ const NegotiationModal = ({
       <div>
         {renderRoundStatusSummary()}
         {pendingRounds.length === 0 && activeRoundsList.length === 0 ? (
-          <div className={styles.sectionCard}>
-            <Alert variant="info" className="mb-0">No active negotiation rounds</Alert>
-          </div>
+          <Alert variant="info">No active negotiation rounds</Alert>
         ) : (
           <>
             {pendingRounds.length > 0 && (
               <div className="mb-4">
-                <h6 className={styles.pendingSectionTitle}>Pending Approval</h6>
+                <h6 className="mb-3">Pending Approval</h6>
                 {pendingRounds.map((round) => {
                   const product = products.find(p => p.id === round.rfq_product_id);
                   const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
@@ -1159,26 +1295,29 @@ const NegotiationModal = ({
                   return (
                     <div
                       key={round.id}
-                      className={`${styles.pendingCard} ${isCurrentApprover ? styles.pendingCardAttention : ''}`}
+                      className="border rounded p-3 mb-3"
+                      style={{
+                        backgroundColor: isCurrentApprover ? '#fff3cd' : '#fff8e1',
+                        border: isCurrentApprover ? '2px solid #ffc107' : '1px solid #dee2e6',
+                        boxShadow: isCurrentApprover ? '0 0 10px rgba(255, 193, 7, 0.3)' : 'none'
+                      }}
                     >
-                      <div className={styles.pendingHeader}>
+                      <div className="d-flex justify-content-between align-items-start mb-2">
                         <div>
-                          <p className={styles.pendingTitle}>{productName}</p>
-                          <div className={styles.pendingBadgeRow}>
-                            <Badge bg="warning" text="dark">Round {round.round_number}</Badge>
-                            {isCurrentApprover && (
-                              <Badge bg="danger">Your Action Required</Badge>
-                            )}
-                          </div>
+                          <strong>{productName}</strong>
+                          <Badge bg="warning" text="dark" className="ms-2">Round {round.round_number}</Badge>
+                          {isCurrentApprover && (
+                            <Badge bg="danger" className="ms-2">Your Action Required</Badge>
+                          )}
                         </div>
-                        <div className={styles.pendingActions}>
+                        <div className="d-flex flex-column gap-2 align-items-end">
                           {loadingApprovals ? (
                             <Spinner size="sm" />
                           ) : canApprove ? (
-                            <div className={styles.decisionActions}>
+                            <div className="d-flex gap-2 p-2 rounded" style={{ backgroundColor: '#fff3cd' }}>
                               <Button
                                 variant="success"
-                                size="sm"
+                                className='p-2'
                                 onClick={() => openActionModal(round, 'APPROVE')}
                                 disabled={submitting || !canWrite || permissionsLoading}
                               >
@@ -1186,7 +1325,7 @@ const NegotiationModal = ({
                               </Button>
                               <Button
                                 variant="danger"
-                                size="sm"
+                                className='p-2'
                                 onClick={() => openActionModal(round, 'REJECT')}
                                 disabled={submitting || !canWrite || permissionsLoading}
                               >
@@ -1204,6 +1343,7 @@ const NegotiationModal = ({
                           <Button
                             variant="outline-secondary"
                             size="sm"
+                            className='p-2'
                             onClick={() => {
                               setSelectedRoundForWorkflow(round);
                               onHide();
@@ -1214,24 +1354,24 @@ const NegotiationModal = ({
                           </Button>
                         </div>
                       </div>
-                      <div className={styles.metaInlineRow}>
-                        <div className={styles.metaInlineBlock}>
-                          <span className={styles.metaInlineLabel}>Target Price</span>
-                          <span className={styles.metaInlineValue}>₹{parseFloat(round.target_price).toLocaleString()}</span>
+                      <div className="row mb-2">
+                        <div className="col-md-6">
+                          <small className="text-muted">Target Price:</small>
+                          <div className="fw-bold">₹{parseFloat(round.target_price).toLocaleString()}</div>
                         </div>
-                        <div className={styles.metaInlineBlock}>
-                          <span className={styles.metaInlineLabel}>End Date</span>
-                          <span className={styles.metaInlineValue}>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</span>
+                        <div className="col-md-6">
+                          <small className="text-muted">End Date:</small>
+                          <div>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</div>
                         </div>
                       </div>
                       
                       {/* Round Approval Status */}
                       {round.approvals && round.approvals.length > 0 && (
-                        <div className={styles.approverBand}>
-                          <p className={styles.approverBandTitle}>
-                            Round Approval Status
-                          </p>
-                          <div className={styles.approverList}>
+                        <div className="mt-2 pt-2 border-top">
+                          <small className="text-muted d-block mb-1">
+                            <strong>Round Approval Status</strong> (approvers for this negotiation round):
+                          </small>
+                          <div className="d-flex flex-wrap gap-2">
                             {round.approvals.map((approval, idx) => (
                               <div key={idx} className="d-flex align-items-center gap-1">
                                 <Badge 
@@ -1244,7 +1384,7 @@ const NegotiationModal = ({
                                 >
                                   {approval.approver_name || `User ${approval.approver_user_id}`}
                                 </Badge>
-                                <small className={styles.approverStatus}>
+                                <small className="text-muted" style={{ fontSize: '0.7rem' }}>
                                   {approval.status === 'APPROVED' ? '✓ Approved' :
                                    approval.status === 'REJECTED' ? '✗ Rejected' :
                                    '⏳ Pending'}
@@ -1253,7 +1393,7 @@ const NegotiationModal = ({
                             ))}
                           </div>
                           <div className="mt-1">
-                            <small className={styles.approverStatus}>
+                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>
                               {round.approvalStatus?.approved || 0} of {round.approvalStatus?.total || 0} approvers have approved this round
                             </small>
                           </div>
@@ -1267,18 +1407,16 @@ const NegotiationModal = ({
 
             {activeRoundsList.length > 0 && (
               <div>
-                <h6 className={styles.pendingSectionTitle}>Active Rounds</h6>
+                <h6 className="mb-3">Active Rounds</h6>
                 {activeRoundsList.map((round) => {
                   const product = products.find(p => p.id === round.rfq_product_id);
                   const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
                   return (
-                    <div key={round.id} className={styles.pendingCard}>
-                      <div className={styles.pendingHeader}>
+                    <div key={round.id} className="border rounded p-3 mb-3" style={{ backgroundColor: '#e8f5e9' }}>
+                      <div className="d-flex justify-content-between align-items-start mb-2">
                         <div>
-                          <p className={styles.pendingTitle}>{productName}</p>
-                          <div className={styles.pendingBadgeRow}>
-                            <Badge bg="success">Round {round.round_number}</Badge>
-                          </div>
+                          <strong>{productName}</strong>
+                          <Badge bg="success" className="ms-2">Round {round.round_number}</Badge>
                         </div>
                          <Button
                            variant={selectedRound?.id === round.id ? "primary" : "outline-primary"}
@@ -1303,14 +1441,14 @@ const NegotiationModal = ({
                            )}
                          </Button>
                       </div>
-                      <div className={styles.metaInlineRow}>
-                        <div className={styles.metaInlineBlock}>
-                          <span className={styles.metaInlineLabel}>Target Price</span>
-                          <span className={styles.metaInlineValue}>₹{parseFloat(round.target_price).toLocaleString()}</span>
+                      <div className="row">
+                        <div className="col-md-6">
+                          <small className="text-muted">Target Price:</small>
+                          <div className="fw-bold">₹{parseFloat(round.target_price).toLocaleString()}</div>
                         </div>
-                        <div className={styles.metaInlineBlock}>
-                          <span className={styles.metaInlineLabel}>End Date</span>
-                          <span className={styles.metaInlineValue}>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</span>
+                        <div className="col-md-6">
+                          <small className="text-muted">End Date:</small>
+                          <div>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</div>
                         </div>
                       </div>
                     </div>
@@ -1320,8 +1458,8 @@ const NegotiationModal = ({
             )}
 
              {selectedRound && (
-               <div className={styles.quotesSection}>
-                 <h6 className={styles.quotesTitle}>Quotes for Round {selectedRound.round_number}</h6>
+               <div className="mt-4 border-top pt-3">
+                 <h6>Quotes for Round {selectedRound.round_number}</h6>
                  {loading ? (
                    <div className="text-center py-3">
                      <Spinner size="sm" />
@@ -1329,7 +1467,7 @@ const NegotiationModal = ({
                  ) : roundQuotes.length === 0 ? (
                    <Alert variant="info" className="mb-0">No quotes submitted yet</Alert>
                  ) : (
-                   <Table striped bordered hover size="sm" className={styles.quotesTable}>
+                   <Table striped bordered hover size="sm">
                      <thead>
                        <tr>
                          <th>Vendor</th>
@@ -1360,14 +1498,11 @@ const NegotiationModal = ({
 
   return (
     <>
-    <Modal show={show} onHide={onHide} size="lg" centered dialogClassName={styles.negotiationModalDialog}>
-      <Modal.Header closeButton className={styles.modalHeader}>
-        <div className={styles.modalTitleWrap}>
-          <Modal.Title className={styles.modalTitle}>{getModalTitle()}</Modal.Title>
-          <p className={styles.modalSubtitle}>{getModalSubtitle()}</p>
-        </div>
+    <Modal show={show} onHide={onHide} size="lg" centered>
+      <Modal.Header closeButton className='py-2 px-3 pb-0'>
+        <Modal.Title style={{ fontSize: '1.1rem', fontWeight: 600 }}>{getModalTitle()}</Modal.Title>
       </Modal.Header>
-      <Modal.Body className={styles.modalBody}>
+      <Modal.Body>
         {loading ? (
           <div className="text-center py-4">
             <Spinner animation="border" />
@@ -1381,10 +1516,10 @@ const NegotiationModal = ({
         )}
       </Modal.Body>
       {mode !== 'create' && (
-        <Modal.Footer className={styles.modalFooter}>
-          <button className={styles.actionPrimary} onClick={onHide}>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={onHide}>
             Close
-          </button>
+          </Button>
         </Modal.Footer>
       )}
     </Modal>

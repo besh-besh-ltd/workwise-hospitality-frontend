@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
+import Link from "next/link";
+import FullLoader from "@/components/shared/FullLoader";
 import useModulePermissions from "@/hooks/useModulePermissions";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
@@ -15,33 +17,26 @@ import {
 } from "@/services/rfq";
 import { useRouter } from "next/router";
 import * as XLSX from "xlsx-js-style";
+import QuoteCompareTable from "@/components/dashboard/buyer/quote-compare-table";
 import Loader from "@/components/shared/Loader";
-import {
-  addCommasToNumber,
-  calculateTotal,
-  handleNormalize,
-  normalizeFlatQuotationData,
-  formatRFQNumber,
-  getEntityLabel,
-} from "@/utils/sharedFunctions";
+import OverallComparison from "./overallComparison";
+import { addCommasToNumber, calculateTotal, formatDisplayDate, formatPrice, handleNormalize, normalizeFlatQuotationData, formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
+import PlaceholderLoading from "react-placeholder-loading";
 import { toast } from "react-toastify";
-import { getProjectAvailableBudget, getProjectList } from "@/services/project";
-import { getUserMappings } from "@/services/hospitality";
-import { Alert } from "react-bootstrap";
+import { getProjectAvailableBudget, getProjectList } from '@/services/project';
+import { getUserMappings } from '@/services/hospitality';
+import Select from 'react-select';
+import LPRModal from "@/components/shared/LPRModal";
+import { Button, Badge, Alert } from "react-bootstrap";
+import OverallCostComparison from './OverallCostComparison';
+import ReadMore from "@/components/shared/ReadMore";
+import InputModal from "@/components/shared/InputModal";
 import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import NegotiationCompactBanner from "./negotiation/NegotiationCompactBanner";
+import ProductNegotiationBadge from "../vendor/ProductNegotiationBadge";
 import { getAllActiveNegotiationRounds, getRoundQuotes } from "@/services/negotiation";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
-import useQuoteCompareViewModel from "@/hooks/useQuoteCompareViewModel";
-import { buildComparisonContextTables } from "@/utils/quoteCompareTableViewModel";
-import QuoteCompareHeaderCard from "@/components/dashboard/buyer/quoteCompare/QuoteCompareHeaderCard";
-import QuoteCompareKpiStrip from "@/components/dashboard/buyer/quoteCompare/QuoteCompareKpiStrip";
-import ComparisonTabs from "@/components/dashboard/buyer/quoteCompare/ComparisonTabs";
-import ProductComparisonTab from "@/components/dashboard/buyer/quoteCompare/ProductComparisonTab";
-import CategoryComparisonTab from "@/components/dashboard/buyer/quoteCompare/CategoryComparisonTab";
-import OverallCostTab from "@/components/dashboard/buyer/quoteCompare/OverallCostTab";
-import revampStyles from "@/components/dashboard/buyer/quoteCompare/QuoteCompareRevamp.module.scss";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -52,9 +47,7 @@ import revampStyles from "@/components/dashboard/buyer/quoteCompare/QuoteCompare
 
 const QuoteCompare = () => {
   const router = useRouter();
-  const { rfq, rfq_product_id, source, tab = "product" } = router.query;
-  const tabOptions = ["product", "category", "cost"];
-  const safeTab = tabOptions.includes(String(tab)) ? String(tab) : "product";
+  const { rfq, rfq_product_id, source, tab = 'product' } = router.query;
   const [loading, setloading] = useState(false);
   const [quotesLoading, setquotesLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
@@ -82,19 +75,23 @@ const QuoteCompare = () => {
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [openModals, setOpenModals] = useState({});
   const [availableBudget, setAvailableBudget] = useState(null);
-  const [activeTab, setActiveTab] = useState(safeTab);
+  // Add new state for active tab
+  const [activeTab, setActiveTab] = useState(tab);
   const [isTenderFilter, setIsTenderFilter] = useState(null);
   // const [targetPrice , setTargetPrice] = useState(null);
   // const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
 
   useEffect(() => {
-    if (safeTab !== activeTab) {
-      setActiveTab(safeTab);
+    if(tab != activeTab) {
+      setActiveTab(tab);
     }
-  }, [safeTab, activeTab]);
+  }, [tab]);
 
-  const [showNormalizeModal, setShowNormalizeModal] = useState(false);
-  const [productNegotiationData, setProductNegotiationData] = useState({}); // { productId: { activeRound, roundQuotes } }
+
+ const [openModalId, setOpenModalId] = useState(null);
+ const[openInputModal , setOpenInputModal] =useState(false)
+ const [showNormalizeModal, setShowNormalizeModal] = useState(false);
+ const [productNegotiationData, setProductNegotiationData] = useState({}); // { productId: { activeRound, roundQuotes } }
 
   // Ref to track the latest rfq for stale response detection in async calls
   const latestRfqRef = useRef(rfq);
@@ -1453,90 +1450,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     }
   }, [rfq]);
 
-  const { metrics, categoryGroups, productSummaries } = useQuoteCompareViewModel({
-    quotes,
-    normalizeFilter,
-  });
-
-  const productSummaryMap = useMemo(() => {
-    const mapped = {};
-    (productSummaries || []).forEach((item) => {
-      mapped[item.productId] = item;
-    });
-    return mapped;
-  }, [productSummaries]);
-
-  const comparisonTables = useMemo(
-    () =>
-      buildComparisonContextTables({
-        quotes,
-        originalQuotes,
-        normalizeFilter,
-        freightFilter,
-        productNegotiationData,
-      }),
-    [quotes, originalQuotes, normalizeFilter, freightFilter, productNegotiationData]
-  );
-
-  const comparisonContext = useMemo(
-    () => ({
-      rfq,
-      currentRFQ,
-      filters: {
-        TA_Filter,
-        freightFilter,
-        normalizeFilter,
-      },
-      permissions: {
-        canReadQuoteCompare,
-        canWriteQuoteCompare,
-        canReadNegotiation,
-        canWriteNegotiation,
-      },
-      maps: {
-        vendorCodeMap,
-        productNegotiationData,
-      },
-      metrics,
-      tables: comparisonTables,
-    }),
-    [
-      rfq,
-      currentRFQ,
-      TA_Filter,
-      freightFilter,
-      normalizeFilter,
-      canReadQuoteCompare,
-      canWriteQuoteCompare,
-      canReadNegotiation,
-      canWriteNegotiation,
-      vendorCodeMap,
-      productNegotiationData,
-      metrics,
-      comparisonTables,
-    ]
-  );
-
-  const handleTabChange = (nextTab) => {
-    if (!tabOptions.includes(nextTab)) return;
-    setActiveTab(nextTab);
-    router.push(
-      {
-        pathname: router.pathname,
-        query: {
-          ...router.query,
-          tab: nextTab,
-        },
-      },
-      undefined,
-      { shallow: true }
-    );
-  };
-
-  const hasRfqInQuery = "rfq" in router?.query;
-  const showNegotiationZone = hasRfqInQuery && quotes && quotes.length > 0 && canReadNegotiation;
-  const showComparisonZone = hasRfqInQuery && canReadQuoteCompare;
-
   // Note: currentRFQ is now set exclusively by Stage 1 (fetchRFQMetadata).
   // The previous [rfq, myRFQs] effect was removed because it competed with Stage 1
   // and could overwrite fresh API data with stale sidebar list data whenever myRFQs
@@ -1576,15 +1489,48 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       {finalizeLoading && <Loader />}
       <section className="quote-common-header compare-received-quote sc-pt-80">
         <div className="container-fluid">
-          <div className="d-flex justify-content-between align-items-center">
-            <h3 className="heading">Quote Comparison</h3>
+          <div className="row">
+            <div className="col-md-4">
+              <h3 className="heading">Compare Received Quote</h3>
+            </div>
+            <div className="col-md-8">
+              {rfq && quotes && quotes.length > 0 && (
+                <div className="btn-options float-end">
+                  {/* Download quote & Close Rfq Buttons */}
+                  <span id="download_quote_actions-quote_compare_page" onClick={handleDownloadQuote}>
+                    {" "}
+                    {downloadLoading
+                      ? "Generating Excel file...."
+                      : "Download as Excel"}{" "}
+                  </span>
+
+                  <>
+                    {quotes[0]?.rfq[0]?.status == 1 && (
+                      <span id="close_rfq_actions-quote_compare_page" onClick={handleRFqClose}>
+                        {closeRFqLoading
+                          ? "Processing request..."
+                          : `Mark ${getEntityLabel(currentRFQ?.is_tender)} as Closed`}
+                      </span>
+                    )}
+                    {quotes[0]?.rfq[0]?.status == 2 && (
+                      <span className="disabled-button">
+                        {getEntityLabel(currentRFQ?.is_tender)} has been closed
+                      </span>
+                    )}
+                  </>
+                <span onClick={handleNormalizeClick} id="normalize_quotes_button-top_actions-compare_quotes_page">
+                  {normalizeFilter ? "Remove Normalize Quotes" : "Normalize Quotes Smartly"}
+                </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
 
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
-          <div className={`row ${revampStyles.layoutRow}`}>
+          <div className="row" style={{ flexWrap: 'nowrap', gap: '8px', overflow: 'hidden' }}>
               <RFQListSidebar
                 title="Quote Comparison"
                 rfqList={myRFQs}
@@ -1592,7 +1538,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 selectedRfqId={rfq}
                 linkPrefix="/dashboard/buyer/quote-compare"
                 linkQueryKey="rfq"
-                extraQueryParams={{ tab: activeTab }}
                 tabs={[
                   {
                     key: 'negotiation_pending',
@@ -1646,201 +1591,703 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 pageId="quote_compare"
               />
 
-            <div className={revampStyles.contentColumn}>
+            <div className="col-md-10" style={{ flex: '1 1 0%', minWidth: 0, maxWidth: 'none' }}>
               <div className="quote-sec-table quote-sec-tab">
-                <div className={revampStyles.workspaceStack}>
                 {!quotesLoading && currentRFQ && (
-                  <section className={revampStyles.surfaceBlock}>
-                    <div className={revampStyles.surfaceLabelRow}>
-                      <p className={revampStyles.surfaceLabel}>RFQ Context</p>
-                      <p className={revampStyles.surfaceHint}>Tender details and top-level actions</p>
-                    </div>
-                    <QuoteCompareHeaderCard
-                      currentRFQ={currentRFQ}
-                      actions={
-                        rfq && quotes && quotes.length > 0 ? (
-                          <>
-                            <button
-                              type="button"
-                              id="download_quote_actions-quote_compare_page"
-                              onClick={handleDownloadQuote}
-                              className={revampStyles.actionBtn}
-                            >
-                              {downloadLoading ? "Generating Excel..." : "Download Excel"}
-                            </button>
-                            {quotes[0]?.rfq[0]?.status == 1 ? (
-                              <button
-                                type="button"
-                                id="close_rfq_actions-quote_compare_page"
-                                onClick={handleRFqClose}
-                                className={revampStyles.actionBtn}
-                              >
-                                {closeRFqLoading
-                                  ? "Processing..."
-                                  : `Mark ${getEntityLabel(currentRFQ?.is_tender)} Closed`}
-                              </button>
-                            ) : (
-                              <button type="button" disabled className={revampStyles.actionBtn}>
-                                {getEntityLabel(currentRFQ?.is_tender)} closed
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={handleNormalizeClick}
-                              id="normalize_quotes_button-top_actions-compare_quotes_page"
-                              className={revampStyles.actionBtn}
-                            >
-                              {normalizeFilter ? "Remove Normalization" : "Normalize Quotes"}
-                            </button>
-                          </>
-                        ) : null
-                      }
-                    />
-                  </section>
-                )}
-
-                {showNegotiationZone && (
-                  <section className={revampStyles.zoneBlock}>
-                    <div className={revampStyles.zoneHeader}>
-                      <p className={revampStyles.zoneTitle}>Negotiation Workspace</p>
-                      <p className={revampStyles.zoneSub}>Round creation, approvals, and negotiation history</p>
-                    </div>
-                    {currentRFQ && canReadNegotiation && !canWriteNegotiation && !permissionsLoading && (
-                      <ReadOnlyBanner
-                        title="Negotiation View Only"
-                        message="You don't have edit permissions for negotiation rounds."
-                      />
+                  <div className="mb-3">
+                    {currentRFQ.title && currentRFQ.title != "" && (
+                      <h3 className="fs-5 mb-1 fw-bold">
+                        {currentRFQ.title}
+                      </h3>
                     )}
-                    <NegotiationCompactBanner
-                      rfq_id={rfq}
-                      products={quotes || []}
-                      canWrite={canWriteNegotiation}
-                      permissionsLoading={negotiationPermissionsLoading}
-                      hospitalityCompanyId={currentRFQ?.hospitality_company_id}
-                      hotelId={currentRFQ?.hotel_id}
-                      departmentId={currentRFQ?.department_id}
-                      onRoundChange={loadNegotiationData}
-                    />
-                  </section>
-                )}
+                    <h3 className="fs-5 mb-1">
+                      <span className="fw-semibold">{getEntityLabel(currentRFQ?.is_tender)} No : </span>
+                      {currentRFQ?.rfq_no}
+                    </h3>
+                    {currentRFQ.project_name &&
+                      currentRFQ.project_name != "" && (
+                        <p className="sub-heading fs-6 mb-2">
+                          {currentRFQ.project_name}
+                        </p>
+                      )}
+                    <hr />
 
+                    <div className="row text-sm ">
+                      <div className="col-md-6">
+                        <p className="sub-heading mb-0">
+                          <b>Company Name</b> : {currentRFQ.company_name}
+                        </p>
+                        <p className="sub-heading mb-0">
+                          <b>Company Name</b> : {currentRFQ?.hotel_name || ''}
+                        </p>
+                        <p className="sub-heading mb-0">
+                          <b>Contact Person Name</b> : {currentRFQ.contact_name}
+                        </p>
+                        <p className="sub-heading mb-0">
+                          <b>Response Email</b> : {currentRFQ.response_email}
+                        </p>
+                        <p className="sub-heading mb-0">
+                          <b>Contact Number</b> : {currentRFQ.contact_number}
+                        </p>
+                        {currentRFQ.location && currentRFQ.location != "" && (
+                          <p className="sub-heading mb-0">
+                            <b>Delivery Location</b> : {currentRFQ.location}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="col-md-6">
+                        <p className="sub-heading mb-0">
+                          <b>Reverse Auction</b> :{" "}
+                          {currentRFQ.reverse_auction == 1
+                            ? "Enabled"
+                            : "Disabled"}
+                        </p>
+                        {currentRFQ.reverse_auction == 1 && (
+                          <>
+                            <p className="sub-heading mb-0">
+                              <b>Auction Start Date</b> :{" "}
+                              {currentRFQ.ra_start_date || "Not specified"}
+                            </p>
+                            <p className="sub-heading mb-0">
+                              <b>Auction End Date</b> :{" "}
+                              {currentRFQ.ra_end_date || "Not specified"}
+                            </p>
+                          </>
+                        )}
+                        {currentRFQ.is_tender !== 1 && currentRFQ.rfq_type && currentRFQ.rfq_type != "" && (
+                          <p className="sub-heading mb-0">
+                          <b>RFQ Type</b> : {currentRFQ.rfq_type}
+                          </p>
+                        )}
+                        <p className="sub-heading mb-0">
+                          <b>Quote Submission Deadline</b> : {formatDisplayDate(currentRFQ.bid_end_date, { includeTime: true })}
+                        </p>
+                        {currentRFQ.comment && currentRFQ.comment != "" && (
+                          <p className="sub-heading mb-0">
+                            <b>Comment</b> : {currentRFQ.comment}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Negotiation read-only banner - only show if user CAN read negotiation but CANNOT write */}
+                {currentRFQ && canReadNegotiation && !canWriteNegotiation && !permissionsLoading && (
+                  <ReadOnlyBanner
+                    title="Negotiation View Only"
+                    message="You don't have edit permissions for negotiation rounds."
+                  />
+                )}
+                {/* Only show NegotiationCompactBanner if user has negotiation read permission */}
+                {"rfq" in router?.query && quotes && quotes.length > 0 && canReadNegotiation && (
+                  <NegotiationCompactBanner
+                    rfq_id={rfq}
+                    products={quotes || []}
+                    canWrite={canWriteNegotiation}
+                    permissionsLoading={negotiationPermissionsLoading}
+                    hospitalityCompanyId={currentRFQ?.hospitality_company_id}
+                    hotelId={currentRFQ?.hotel_id}
+                    departmentId={currentRFQ?.department_id}
+                    onRoundChange={loadNegotiationData}
+                  />
+                )}
                 {/* Show message if no quote-compare permission but has negotiation */}
-                {hasRfqInQuery && !canReadQuoteCompare && canReadNegotiation && !permissionsLoading && (
-                  <div className={`alert alert-info ${revampStyles.inlineAlert}`} role="alert">
+                {"rfq" in router?.query && !canReadQuoteCompare && canReadNegotiation && !permissionsLoading && (
+                  <div className="alert alert-info mt-3" role="alert">
                     You don't have permission to view quote comparisons.
                   </div>
                 )}
                 {/* Only show quote-compare section if user has quote-compare read permission */}
-                {showComparisonZone && (
-                  <section className={revampStyles.zoneBlock}>
-                    <div className={revampStyles.zoneHeader}>
-                      <p className={revampStyles.zoneTitle}>Comparison Workspace</p>
-                      <p className={revampStyles.zoneSub}>Compare vendor responses and finalize decisions</p>
+                {"rfq" in router?.query && canReadQuoteCompare && (
+                  <>
+                  {/* Quote-Compare read-only banner - only show if user CAN read quote-compare but CANNOT write */}
+                  {currentRFQ && !canWriteQuoteCompare && !permissionsLoading && (
+                    <ReadOnlyBanner
+                      title="Quote Compare View Only"
+                      message="You don't have edit permissions for quote comparison and finalization."
+                      className="mt-3"
+                    />
+                  )}
+                  <div
+                    className="tabs-container quote-compare-tabs"
+                    style={{
+                      borderBottom: "1px solid #e0e0e0",
+                      marginBottom: 16,
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "flex-end",
+                      gap: "12px 8px",
+                    }}
+                  >
+                    <div className="d-flex flex-shrink-0 gap-1 align-items-stretch" style={{ flexWrap: "nowrap" }}>
+                      <Link
+                        href="#"
+                        className={`tab quote-compare-tab-link ${activeTab === "product" ? "active" : ""}`}
+                        style={{
+                          background: activeTab === "product" ? "#2d5ba7" : "#fff",
+                          color: activeTab === "product" ? "#fff" : "#2d5ba7",
+                          border: "1px solid #2d5ba7",
+                          borderBottom: activeTab === "product" ? "none" : "1px solid #2d5ba7",
+                          borderRadius: "8px 8px 0 0",
+                          padding: "8px 20px",
+                          fontWeight: 500,
+                          position: "relative",
+                          top: activeTab === "product" ? 2 : 0,
+                          zIndex: activeTab === "product" ? 2 : 1,
+                          transition: "background 0.2s, color 0.2s",
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                        }}
+                        onClick={() => setActiveTab("product")}
+                        id="product_tab-quote_tabs-quote_compare_page"
+                      >
+                        Product Wise Comparison
+                      </Link>
+                      <Link
+                        href="#"
+                        className={`tab quote-compare-tab-link ${activeTab === "category" ? "active" : ""}`}
+                        style={{
+                          background: activeTab === "category" ? "#2d5ba7" : "#fff",
+                          color: activeTab === "category" ? "#fff" : "#2d5ba7",
+                          border: "1px solid #2d5ba7",
+                          borderBottom: activeTab === "category" ? "none" : "1px solid #2d5ba7",
+                          borderRadius: "8px 8px 0 0",
+                          padding: "8px 20px",
+                          fontWeight: 500,
+                          position: "relative",
+                          top: activeTab === "category" ? 2 : 0,
+                          zIndex: activeTab === "category" ? 2 : 1,
+                          transition: "background 0.2s, color 0.2s",
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                        }}
+                        onClick={() => setActiveTab("category")}
+                        id="category_tab-quote_tabs-quote_compare_page"
+                      >
+                        Category wise Comparison
+                      </Link>
+                      <Link
+                        href="#"
+                        className={`tab quote-compare-tab-link ${activeTab === "cost" ? "active" : ""}`}
+                        style={{
+                          background: activeTab === "cost" ? "#2d5ba7" : "#fff",
+                          color: activeTab === "cost" ? "#fff" : "#2d5ba7",
+                          border: "1px solid #2d5ba7",
+                          borderBottom: activeTab === "cost" ? "none" : "1px solid #2d5ba7",
+                          borderRadius: "8px 8px 0 0",
+                          padding: "8px 20px",
+                          fontWeight: 500,
+                          position: "relative",
+                          top: activeTab === "cost" ? 2 : 0,
+                          zIndex: activeTab === "cost" ? 2 : 1,
+                          transition: "background 0.2s, color 0.2s",
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                        }}
+                        onClick={() => setActiveTab("cost")}
+                        id="overall_cost_tab-quote_tabs-quote_compare_page"
+                      >
+                        Overall Cost Comparison
+                      </Link>
                     </div>
-                    {/* Quote-Compare read-only banner - only show if user CAN read quote-compare but CANNOT write */}
-                    {currentRFQ && !canWriteQuoteCompare && !permissionsLoading && (
-                      <ReadOnlyBanner
-                        title="Quote Compare View Only"
-                        message="You don't have edit permissions for quote comparison and finalization."
-                        className="mt-3"
+                    <div
+                      className="d-flex flex-column gap-2 quote-compare-toggles"
+                      style={{ flexBasis: "100%", minWidth: 0, marginTop: 4 }}
+                    >
+                      {/* Tech eval filter is always on when tech eval exists - no toggle needed */}
+
+                      {!normalizeFilter && (
+                        <div className="form-check form-switch d-flex align-items-center gap-2 m-0">
+                          <input
+                            className="form-check-input border-dark-subtle flex-shrink-0"
+                            type="checkbox"
+                            role="switch"
+                            checked={freightFilter}
+                            id="freight_filter_toggle-quote_tabs-quote_compare_page"
+                            onChange={handleFreightFilterChange}
+                          />
+                          <label
+                            className="form-check-label flex-grow-1 m-0"
+                            htmlFor="freight_filter_toggle-quote_tabs-quote_compare_page"
+                          >
+                            View quotes without freight
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  </>
+                )}
+
+                {!rfq && canReadQuoteCompare && (
+                  <div className="quote-sec-main">
+                    <div className="quote-sec-table-sub d-flex align-items-center justify-content-center" style={{ minHeight: '200px' }}>
+                      <Alert variant="info" className="text-center mb-0">
+                        Please select a Tender / RFQ to view its quotes.
+                      </Alert>
+                    </div>
+                  </div>
+                )}
+
+                {rfq && canReadQuoteCompare && (
+                  <div className="quote-sec-main">
+                    {activeTab === "product" && (
+                      <>
+                        {quotesLoading && (
+                          <div className="quote-sec-table-sub hasFullLoader">
+                            <FullLoader />
+                          </div>
+                        )}
+                        {!quotesLoading && quotes.length === 0 && (
+                          <div className="quote-sec-table-sub hasFullLoader">
+                            <h4>You don't have any quotes.</h4>
+                          </div>
+                        )}
+                        {quotes &&
+                          quotes.length > 0 &&
+                          quotes.map((item, index) => {
+                            const key = `${item.product_variant_id}_${item.variant}`;
+                            const product_specs =
+                              item?.product_details[0]?.rfq_details;
+                            const spec = product_specs?.find(
+                              (spec) => spec.title == "Spec"
+                            )?.value;
+                            const selling_price = product_specs?.find(
+                              (spec) => spec.title == "total_price"
+                            )?.value;
+                            const product_name = item?.product_details.map(
+                              (prod) => prod.product_name
+                            );
+
+                            return (
+                              <div
+                                className="quote-sec-table-sub"
+                                key={`qq_${index}`}
+                              >
+                                <div className="row">
+                                  <div className="d-flex justify-content-between">
+                                    <div>
+                                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                                        <p className="sub-heading mb-0">
+                                          <b>Product</b> :{" "}
+                                          {item?.product_details[0]?.product_name}
+                                        </p>
+                                        <ProductNegotiationBadge 
+                                          rfq_id={rfq} 
+                                          rfq_product_id={item.id} 
+                                        />
+                                      </div>
+                                      {spec && (
+                                        <div className="sub-heading mb-0 d-flex align-items-start" style={{ gap: "0.5rem" }}>
+                                          <b style={{ whiteSpace: "nowrap" }}>Spec: </b>
+                                          <div style={{ flex: 1, minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
+                                            <ReadMore
+                                              content={spec}
+                                              maxLines={3}
+                                            />
+                                          </div>
+                                        </div>
+                                      )}
+                                      {selling_price && (
+                                        <p className="sub-heading mb-0">
+                                          <b>Selling Price</b> :{" "}
+                                          {"₹" + addCommasToNumber(selling_price)}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <div className="d-flex gap-2">
+                                        <Button
+                                          id="view_lpr_button-quote_actions-quote_compare_page"
+                                      variant="primary"
+                                          size="sm"
+                                          className="position-relative p-2 px-2"
+                                          onClick={() =>
+                                            openModalForVariant(key)
+                                          }
+                                        >
+                                          View LPR History
+                                        </Button>
+
+                                        {/* <Button
+                                          variant="success"
+                                          size="sm"
+                                          className="position-relative p-2 px-2"
+                                          onClick={() => {
+                                            getPricehistory(item.id),
+                                              setOpenModalId(item.id);
+                                          }}
+                                        >
+                                          Set Target Price
+                                        </Button> */}
+                                      </div>
+
+                                      {/* <InputModal
+                                        show={openModalId === item.id}
+                                        onHide={() => setOpenModalId(null)}
+                                        onSubmit={(targetPrice) =>
+                                          handleSubmitTargetPrice(
+                                            targetPrice,
+                                            item.id
+                                          )
+                                        }
+                                        productName={product_name}
+                                        initialValue={item.latest_target_price}
+                                        numericLabel="Target Price"
+                                        modalTitle="Set Target Price"
+                                        historyData={targetPriceHistory} // pass array directly
+                                      /> */}
+                                    </div>
+                                  </div>
+                                  {item?.last_purchase_rate != null && (
+                                    <div className="col-12 bg-transparent border-0 m">
+                                      <div className="d-flex justify-content-between align-items-center px-2 mb-2">
+                                        <div className="flex-grow-1 text-center">
+                                          <p className="sub-heading mb-0">
+                                            <b>Last Purchase Details :</b>
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <div className="sub-heading border rounded-3 p-2">
+                                        <div className="row fw-medium mx-2">
+                                          <div className="col-md-3 col-lg-2">
+                                            <span>Base Price </span>
+                                            {loading ? (
+                                              <span className="d-block mt-1">
+                                                <PlaceholderLoading
+                                                  shape="rect"
+                                                  width={80}
+                                                  height={20}
+                                                />
+                                              </span>
+                                            ) : (
+                                              <span className="d-block fw-medium text-muted ">
+                                                {formatPrice(
+                                                  item?.last_purchase_rate
+                                                    ?.unit_price
+                                                ) || "---"}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="col-md-3 col-lg-2">
+                                            <span>Freight Rate </span>
+                                            {loading ? (
+                                              <span className="d-block mt-1">
+                                                <PlaceholderLoading
+                                                  shape="rect"
+                                                  width={80}
+                                                  height={20}
+                                                />
+                                              </span>
+                                            ) : (
+                                              <span className="d-block fw-medium text-muted ">
+                                                {item?.last_purchase_rate
+                                                  ?.freight_price !== null
+                                                  ? `${item?.last_purchase_rate?.freight_price}%`
+                                                  : "0%"}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="col-md-3 col-lg-2">
+                                            <span>Packaging Rate </span>
+                                            {loading ? (
+                                              <span className="d-block mt-1">
+                                                <PlaceholderLoading
+                                                  shape="rect"
+                                                  width={80}
+                                                  height={20}
+                                                />
+                                              </span>
+                                            ) : (
+                                              <span className="d-block fw-medium text-muted ">
+                                                {item?.last_purchase_rate
+                                                  ?.package_price !== null
+                                                  ? `${item?.last_purchase_rate?.package_price}%`
+                                                  : "0%"}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="col-md-3 col-lg-2">
+                                            <span>Tax </span>
+                                            {loading ? (
+                                              <span className="d-block mt-1">
+                                                <PlaceholderLoading
+                                                  shape="rect"
+                                                  width={80}
+                                                  height={20}
+                                                />
+                                              </span>
+                                            ) : (
+                                              <span className="d-block fw-medium text-muted ">
+                                                {item?.last_purchase_rate
+                                                  ?.tax !== null
+                                                  ? `${item?.last_purchase_rate?.tax}%`
+                                                  : "0%"}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="col-md-3 col-lg-2">
+                                            <span>Quantity </span>
+                                            {loading ? (
+                                              <span className="d-block mt-1">
+                                                <PlaceholderLoading
+                                                  shape="rect"
+                                                  width={80}
+                                                  height={20}
+                                                />
+                                              </span>
+                                            ) : (
+                                              <span className="d-block fw-medium text-muted ">
+                                                {item?.last_purchase_rate
+                                                  ?.quantity || "---"}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="col-md-3 col-lg-2">
+                                            <span>Total Price </span>
+                                            {loading ? (
+                                              <span className="d-block mt-1">
+                                                <PlaceholderLoading
+                                                  shape="rect"
+                                                  width={80}
+                                                  height={20}
+                                                />
+                                              </span>
+                                            ) : (
+                                              <span className="d-block fw-medium text-muted ">
+                                                {formatPrice(
+                                                  item?.last_purchase_rate
+                                                    ?.total_price
+                                                ) || "---"}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {item?.last_purchase_rate == null &&
+                                    item?.last_quote_rate != null && (
+                                      <div className="col-12 bg-transparent border-0 m">
+                                        <div className="d-flex justify-content-between align-items-center px-2 mb-2">
+                                          <div className="flex-grow-1 text-center">
+                                            <p className="sub-heading mb-0">
+                                              <Badge
+                                                bg={item?.last_quote_rate?.is_tender === 1 || item?.last_quote_rate?.is_tender === true ? "info" : "secondary"}
+                                                className="me-2"
+                                                style={{ fontSize: '0.7rem' }}
+                                              >
+                                                {item?.last_quote_rate?.is_tender === 1 || item?.last_quote_rate?.is_tender === true ? "Tender" : "RFQ"}
+                                              </Badge>
+                                              <b>Last Quoted Details :</b>
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <div className="sub-heading border rounded-3 p-2">
+                                          <div className="row fw-medium mx-2">
+                                            <div className="col-md-3 col-lg-2">
+                                              <span>Base Price </span>
+                                              {loading ? (
+                                                <span className="d-block mt-1">
+                                                  <PlaceholderLoading
+                                                    shape="rect"
+                                                    width={80}
+                                                    height={20}
+                                                  />
+                                                </span>
+                                              ) : (
+                                                <span className="d-block fw-medium text-muted ">
+                                                  {formatPrice(
+                                                    item?.last_quote_rate
+                                                      ?.unit_price
+                                                  ) || "---"}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="col-md-3 col-lg-2">
+                                              <span>Freight Rate </span>
+                                              {loading ? (
+                                                <span className="d-block mt-1">
+                                                  <PlaceholderLoading
+                                                    shape="rect"
+                                                    width={80}
+                                                    height={20}
+                                                  />
+                                                </span>
+                                              ) : (
+                                                <span className="d-block fw-medium text-muted ">
+                                                  {item?.last_quote_rate
+                                                    ?.freight_price !== null
+                                                    ? `${item?.last_quote_rate?.freight_price}%`
+                                                    : "0%"}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="col-md-3 col-lg-2">
+                                              <span>Packaging Rate </span>
+                                              {loading ? (
+                                                <span className="d-block mt-1">
+                                                  <PlaceholderLoading
+                                                    shape="rect"
+                                                    width={80}
+                                                    height={20}
+                                                  />
+                                                </span>
+                                              ) : (
+                                                <span className="d-block fw-medium text-muted ">
+                                                  {item?.last_quote_rate
+                                                    ?.package_price !== null
+                                                    ? `${item?.last_quote_rate?.package_price}%`
+                                                    : "0%"}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="col-md-3 col-lg-2">
+                                              <span>Tax </span>
+                                              {loading ? (
+                                                <span className="d-block mt-1">
+                                                  <PlaceholderLoading
+                                                    shape="rect"
+                                                    width={80}
+                                                    height={20}
+                                                  />
+                                                </span>
+                                              ) : (
+                                                <span className="d-block fw-medium text-muted ">
+                                                  {item?.last_quote_rate
+                                                    ?.tax !== null
+                                                    ? `${item?.last_quote_rate?.tax}%`
+                                                    : "0%"}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="col-md-3 col-lg-2">
+                                              <span>Quantity </span>
+                                              {loading ? (
+                                                <span className="d-block mt-1">
+                                                  <PlaceholderLoading
+                                                    shape="rect"
+                                                    width={80}
+                                                    height={20}
+                                                  />
+                                                </span>
+                                              ) : (
+                                                <span className="d-block fw-medium text-muted ">
+                                                  {item?.last_quote_rate
+                                                    ?.quantity || "---"}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="col-md-3 col-lg-2">
+                                              <span>Total Price </span>
+                                              {loading ? (
+                                                <span className="d-block mt-1">
+                                                  <PlaceholderLoading
+                                                    shape="rect"
+                                                    width={80}
+                                                    height={20}
+                                                  />
+                                                </span>
+                                              ) : (
+                                                <span className="d-block fw-medium text-muted ">
+                                                  {formatPrice(
+                                                    item?.last_quote_rate
+                                                      ?.total_price
+                                                  ) || "---"}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  <LPRModal
+                                    show={openModals[key] || false}
+                                    onHide={() => closeModalForVariant(key)}
+                                    variantId={item.product_variant_id}
+                                  />
+                                </div>
+                                {item?.quotations &&
+                                  item?.quotations.length === 0 && (
+                                    <h4 className="mt-4 text-center">
+                                      No Quotations yet!
+                                    </h4>
+                                  )}
+                                {item?.quotations &&
+                                  item?.quotations.length > 0 && (
+                                    <>
+                      <QuoteCompareTable
+                                        proditem={item}
+                                        handleFinalize={handleFinalize}
+                                        quotations={item?.quotations}
+                                        originalQuotations={originalQuotes.find(origItem => origItem.id === item.id)?.quotations || item?.quotations}
+                                        quantity={
+                                          item?.product_details[0]?.rfq_details
+                                            ? item?.product_details[0]
+                                                ?.rfq_details[2]?.value
+                                            : "-"
+                                        }
+                                        alreadyFinalized={item?.quotations?.filter(
+                                          (item) => item.finalization != null
+                                        )}
+                                        isRfqClosed={
+                                          Array.isArray(item.rfq) &&
+                                          item.rfq[0]?.status === 2
+                                        }
+                                        projectId={
+                                          Array.isArray(item.rfq) &&
+                                          item.rfq[0]?.project_id
+                                        }
+                                        availableBudget={availableBudget}
+                                        targetPrice={item.latest_target_price}
+                                        // targetHistory={targetPriceHistory}
+                        normalizeFilter={normalizeFilter}
+                        negotiationRoundQuotes={productNegotiationData[item.id]?.roundQuotes || []}
+                        activeRound={productNegotiationData[item.id]?.activeRound || null}
+                        freightFilter={freightFilter}
+                        vendorCodeMap={vendorCodeMap}
+                        onRoundEnded={loadNegotiationData}
+                        canWrite={canWriteQuoteCompare}
+                        permissionsLoading={quoteComparePermissionsLoading}
+                        is_tender={currentRFQ?.is_tender == 1 || currentRFQ?.is_tender === true}
+                        hospitalityCompanyId={currentRFQ?.hospitality_company_id}
+                        hotelId={currentRFQ?.hotel_id}
+                        departmentId={currentRFQ?.department_id}
+                                      />
+                                    </>
+                                  )}
+                              </div>
+                            );
+                          })}
+                      </>
+                    )}
+                    {activeTab === "category" && (
+                      <OverallComparison
+                        rfq_id={rfq}
+                        rfq_product_id={rfq_product_id}
+                        source={source}
+                        TA_Filter={TA_Filter}
+                        normalizeFilter={normalizeFilter}
+                        freightFilter={freightFilter}
+                        RFQ_no={currentRFQ?.rfq_no}
+                        productNegotiationData={productNegotiationData}
                       />
                     )}
-                    <div className={revampStyles.compareControls}>
-                      <QuoteCompareKpiStrip metrics={metrics} />
-                      <ComparisonTabs activeTab={activeTab} onChange={handleTabChange} />
-                      {!normalizeFilter && (
-                        <div className={revampStyles.filterRail}>
-                          <div className="form-check form-switch d-flex align-items-center gap-2 m-0">
-                            <input
-                              className="form-check-input border-dark-subtle flex-shrink-0"
-                              type="checkbox"
-                              role="switch"
-                              checked={freightFilter}
-                              id="freight_filter_toggle-quote_tabs-quote_compare_page"
-                              onChange={handleFreightFilterChange}
-                            />
-                            <label
-                              className="form-check-label flex-grow-1 m-0"
-                              htmlFor="freight_filter_toggle-quote_tabs-quote_compare_page"
-                            >
-                              View quotes without freight
-                            </label>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className={revampStyles.compareViewport}>
-                      {!rfq && (
-                        <div className="quote-sec-main">
-                          <div className="quote-sec-table-sub d-flex align-items-center justify-content-center" style={{ minHeight: '200px' }}>
-                            <Alert variant="info" className="text-center mb-0">
-                              Please select a Tender / RFQ to view its quotes.
-                            </Alert>
-                          </div>
-                        </div>
-                      )}
-
-                      {rfq && (
-                        <div className="quote-sec-main">
-                          {activeTab === "product" && (
-                            <ProductComparisonTab
-                              context={comparisonContext}
-                              quotesLoading={quotesLoading}
-                              quotes={quotes}
-                              rfq={rfq}
-                              openModals={openModals}
-                              openModalForVariant={openModalForVariant}
-                              closeModalForVariant={closeModalForVariant}
-                              handleFinalize={handleFinalize}
-                              originalQuotes={originalQuotes}
-                              availableBudget={availableBudget}
-                              normalizeFilter={normalizeFilter}
-                              freightFilter={freightFilter}
-                              productNegotiationData={productNegotiationData}
-                              loadNegotiationData={loadNegotiationData}
-                              canWriteQuoteCompare={canWriteQuoteCompare}
-                              quoteComparePermissionsLoading={quoteComparePermissionsLoading}
-                              currentRFQ={currentRFQ}
-                              vendorCodeMap={vendorCodeMap}
-                              productSummaryMap={productSummaryMap}
-                            />
-                          )}
-                          {activeTab === "category" && (
-                            <CategoryComparisonTab
-                              context={comparisonContext}
-                              rfq={rfq}
-                              rfq_id={rfq}
-                              rfq_product_id={rfq_product_id}
-                              source={source}
-                              TA_Filter={TA_Filter}
-                              normalizeFilter={normalizeFilter}
-                              freightFilter={freightFilter}
-                              currentRFQ={currentRFQ}
-                              productNegotiationData={productNegotiationData}
-                              categoryGroups={categoryGroups}
-                            />
-                          )}
-                          {activeTab === "cost" && (
-                            <OverallCostTab
-                              context={comparisonContext}
-                              rfq={rfq}
-                              rfq_id={rfq}
-                              rfq_product_id={rfq_product_id}
-                              source={source}
-                              TA_Filter={TA_Filter}
-                              normalizeFilter={normalizeFilter}
-                              freightFilter={freightFilter}
-                              currentRFQ={currentRFQ}
-                              metrics={metrics}
-                            />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </section>
+                    {activeTab === "cost" && (
+                      <OverallCostComparison
+                        rfq_id={rfq}
+                        rfq_product_id={rfq_product_id}
+                        source={source}
+                        TA_Filter={TA_Filter}
+                        normalizeFilter={normalizeFilter}
+                        freightFilter={freightFilter}
+                        RFQ_no={currentRFQ?.rfq_no}
+                        is_tender={currentRFQ?.is_tender == 1 || currentRFQ?.is_tender === true}
+                      />
+                    )}
+                  </div>
                 )}
-                </div>
               </div>
             </div>
           </div>
@@ -1870,3 +2317,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 };
 
 export default QuoteCompare;
+
+
+

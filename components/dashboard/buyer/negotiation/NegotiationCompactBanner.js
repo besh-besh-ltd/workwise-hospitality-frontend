@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from 'react-bootstrap';
+import { Button, Badge } from 'react-bootstrap';
 import { getAllActiveNegotiationRounds, getNegotiationRounds } from '@/services/negotiation';
 import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
 import { getProfile } from '@/services/Auth';
 import NegotiationModal from './NegotiationModal';
 import moment from 'moment';
-import styles from './NegotiationUI.module.scss';
 
 const NegotiationCompactBanner = ({
   rfq_id,
@@ -200,6 +199,21 @@ const NegotiationCompactBanner = ({
     return approvals.some(a => a.status === 'PENDING' && String(a.approver_user_id) === String(currentUserId));
   }).length;
 
+  // Determine background color
+  let bgColor = '#e3f2fd'; // Subtle blue - no rounds
+  let borderColor = '#90caf9';
+
+  if (pendingApprovalsCount > 0) {
+    bgColor = '#fff3f3';
+    borderColor = '#dc3545';
+  } else if (pendingRounds.length > 0) {
+    bgColor = '#fff8e1';
+    borderColor = '#ffcc80';
+  } else if (activeRoundsList.length > 0) {
+    bgColor = '#e8f5e9'; // Subtle green - rounds active, no approval needed
+    borderColor = '#a5d6a7';
+  }
+
   // Get pending approvers for all pending rounds
   const getPendingApprovers = () => {
     const pendingApprovers = [];
@@ -252,85 +266,73 @@ const NegotiationCompactBanner = ({
     statusMessage = parts.length > 0 ? `${parts.join(', ')} round${totalRoundsCount > 1 ? 's' : ''}` : 'No negotiation rounds';
   }
 
-  const bannerToneClass = pendingApprovalsCount > 0
-    ? styles.bannerToneDanger
-    : pendingRounds.length > 0
-      ? styles.bannerToneWarning
-      : activeRoundsList.length > 0
-        ? styles.bannerToneSuccess
-        : styles.bannerToneNeutral;
-
   return (
     <>
-      <div className={`${styles.negotiationBanner} ${bannerToneClass}`}>
-        <div className={styles.bannerBody}>
-          <div className={styles.bannerTopLine}>
-            <div>
-              <p className={styles.bannerTitle}>
-                {loading ? 'Loading negotiation status...' : `Negotiation Desk: ${statusMessage}`}
-              </p>
-              <p className={styles.bannerSub}>
-                Manage round creation, approvals, and history from one place.
-              </p>
-            </div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: bgColor,
+          border: `1px solid ${borderColor}`,
+          borderRadius: '6px',
+          padding: '12px 16px',
+          marginBottom: '12px',
+          minHeight: '50px',
+        }}
+      >
+        {/* Left: Status Message */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '0.875rem', color: '#333' }}>
+              <strong>Negotiation:</strong> {loading ? 'Loading...' : statusMessage}
+            </span>
           </div>
-
-          <div className={styles.bannerStats}>
-            <span className={`${styles.statChip} ${styles.statChipHighlight}`}>
-              {activeRoundsList.length} Active
-            </span>
-            <span className={styles.statChip}>
-              {pendingRounds.length} Pending
-            </span>
-            <span className={styles.statChip}>
-              {endedRounds.length} Ended
-            </span>
-            {pendingApprovalsCount > 0 && (
-              <span className={`${styles.statChip} ${styles.statChipDanger}`}>
-                {pendingApprovalsCount} Your Approval
-              </span>
-            )}
-          </div>
-
           {pendingApprovers.length > 0 && pendingApprovalsCount === 0 && (
-            <div className={styles.pendingApproverRow}>
-              <span className={styles.pendingApproverLabel}>Pending approvers:</span>
+            <div style={{ fontSize: '0.75rem', color: '#666', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 500 }}>Round approval pending from:</span>
               {pendingApprovers.map((approver, idx) => (
-                <span key={idx} className={styles.pendingApproverTag}>
+                <Badge key={idx} bg="secondary" style={{ fontSize: '0.7rem', marginRight: '4px' }}>
                   {approver.name}
-                </span>
+                </Badge>
               ))}
             </div>
           )}
         </div>
 
-        <div className={styles.bannerActions}>
+        {/* Right: Buttons */}
+        <div style={{ display: 'flex', gap: '8px' }}>
           <Button
-            variant="light"
+            variant="primary"
             size="sm"
             onClick={handleCreateClick}
             disabled={!canWrite || permissionsLoading}
-            className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+            style={{ fontSize: '0.8rem', padding: '5px 14px' }}
           >
-            Create Round
+            Create
           </Button>
           <Button
-            variant="light"
+            variant="outline-secondary"
             size="sm"
             onClick={handleHistoryClick}
-            className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
+            style={{ fontSize: '0.8rem', padding: '5px 14px' }}
           >
-            View History
+            View All
           </Button>
           {pendingApprovalsCount > 0 && (
             <Button
-              variant="light"
+              variant="danger"
               size="sm"
               onClick={handleViewApproveClick}
               disabled={!canWrite || permissionsLoading}
-              className={`${styles.actionBtn} ${styles.actionBtnAttention}`}
+              style={{
+                fontSize: '0.8rem',
+                padding: '5px 14px',
+                whiteSpace: 'nowrap',
+                fontWeight: 600
+              }}
             >
-              Approval Queue
+              View ( Approval Required )
             </Button>
           )}
         </div>
