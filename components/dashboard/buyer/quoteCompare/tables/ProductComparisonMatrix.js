@@ -52,6 +52,8 @@ const metricRows = [
   { key: "payment", label: "Payment Terms" },
 ];
 
+const highlightedMetricKeys = new Set(["total", "delivery", "comment", "terms", "payment"]);
+
 const formatCurrency = (value) => {
   const num = Number(value || 0);
   return `Rs. ${addCommasToNumber(Math.round(num))}`;
@@ -434,6 +436,10 @@ const ProductComparisonMatrix = ({
 
     const classes = [styles.productValueCell];
 
+    if (highlightedMetricKeys.has(rowKey)) {
+      classes.push(styles.highlightMetricCell);
+    }
+
     if (rowKey === "total") {
       classes.push(styles.productValueCellStrong);
       classes.push(getHeatToneClass(model, rowKey, column.vendorId));
@@ -630,7 +636,7 @@ const ProductComparisonMatrix = ({
               {metricRows.map((row) => (
                 <tr key={`${proditem?.id}_${row.key}`} className={styles.productMetricRow}>
                   <th
-                    className={`${styles.metricCell} ${styles.metricCellCompact} ${styles.stickyLeft} ${styles.productMetricLabelCell}`}
+                    className={`${styles.metricCell} ${styles.metricCellCompact} ${styles.stickyLeft} ${styles.productMetricLabelCell} ${highlightedMetricKeys.has(row.key) ? styles.highlightMetricLabel : ""}`}
                   >
                     {row.label}
                   </th>
@@ -672,12 +678,13 @@ const ProductComparisonMatrix = ({
                 : "--"}
             </p>
             {lowestQuote ? (
-              <div className="d-flex gap-3 align-items-center">
-                <Link href={`mailto:${getVendorDetails(lowestQuote, proditem)?.email || ""}`}>
+              <div className={styles.footerContactRow}>
+                <Link href={`mailto:${getVendorDetails(lowestQuote, proditem)?.email || ""}`} className={styles.footerContactLink}>
                   <FontAwesomeIcon icon={faEnvelope} />
                 </Link>
                 <Link
                   href={`tel:${getVendorDetails(lowestQuote, proditem)?.mobile || ""}`}
+                  className={styles.footerContactLink}
                   id="call_lowest_bidder-quote_actions-quote_compare_table"
                 >
                   <FontAwesomeIcon icon={faPhone} />
@@ -691,41 +698,46 @@ const ProductComparisonMatrix = ({
               {lowestQuote ? formatCurrency(getQuoteTotal(proditem, lowestQuote, normalizeFilter)) : "--"}
             </p>
           </div>
-          <div className={styles.footerCard}>
-            <p className={styles.footerLabel}>Actions</p>
+          <div className={`${styles.footerCard} ${styles.footerCardAction}`}>
+            <p className={styles.footerLabel}>Finalize</p>
             {!is_tender ? (
               isRfqClosed ? (
-                <button type="button" className="btn btn-outline-secondary btn-sm" disabled>
-                  RFQ has been closed
-                </button>
+                <>
+                  <p className={styles.footerValueMuted}>This RFQ has been closed and no further actions can be taken.</p>
+                </>
               ) : (
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={() => {
-                    setCurrentItem(lowestQuote);
-                    setActiveModal("finalize");
-                  }}
-                  title={
-                    !canWrite || permissionsLoading
-                      ? "You don't have permission to finalize vendors"
-                      : useLegacyHierarchy && availableHierarchies.length <= 0
-                      ? "You cannot finalize as you are not in the hierarchy"
-                      : ""
-                  }
-                  disabled={
-                    (useLegacyHierarchy && availableHierarchies.length <= 0) ||
-                    !canWrite ||
-                    permissionsLoading ||
-                    !lowestQuote
-                  }
-                  id="finalize_vendor-quote_actions-quote_compare_table"
-                >
-                  Finalize
-                </button>
+                <>
+                  <p className={styles.footerValueMuted}>
+                    Lock in the selected vendor with this quote and proceed to create a Purchase Order.
+                  </p>
+                  <button
+                    type="button"
+                    className={`${styles.footerBtn} ${styles.footerBtnPrimary}`}
+                    onClick={() => {
+                      setCurrentItem(lowestQuote);
+                      setActiveModal("finalize");
+                    }}
+                    title={
+                      !canWrite || permissionsLoading
+                        ? "You don't have permission to finalize vendors"
+                        : useLegacyHierarchy && availableHierarchies.length <= 0
+                        ? "You cannot finalize as you are not in the hierarchy"
+                        : "Finalize vendor for this product"
+                    }
+                    disabled={
+                      (useLegacyHierarchy && availableHierarchies.length <= 0) ||
+                      !canWrite ||
+                      permissionsLoading ||
+                      !lowestQuote
+                    }
+                    id="finalize_vendor-quote_actions-quote_compare_table"
+                  >
+                    Finalize Vendor
+                  </button>
+                </>
               )
             ) : (
-              <EmptyValue>Finalization from tender workflow</EmptyValue>
+              <p className={styles.footerValueMuted}>Vendor finalization is handled via the tender workflow.</p>
             )}
           </div>
         </div>
@@ -748,15 +760,20 @@ const ProductComparisonMatrix = ({
           <div className={styles.footerCard}>
             <p className={styles.footerLabel}>History</p>
             {finalizedHistory.length > 0 ? (
-              <button
-                className="btn btn-outline-success btn-sm"
-                onClick={() => setActiveModal("finalize_history")}
-                id="view_finalization_history-finalization_actions-quote_compare_table"
-              >
-                View Finalization History
-              </button>
+              <>
+                <p className={styles.footerValueMuted}>
+                  {finalizedHistory.length} finalization record{finalizedHistory.length > 1 ? "s" : ""} found.
+                </p>
+                <button
+                  className={`${styles.footerBtn} ${styles.footerBtnOutline}`}
+                  onClick={() => setActiveModal("finalize_history")}
+                  id="view_finalization_history-finalization_actions-quote_compare_table"
+                >
+                  View History
+                </button>
+              </>
             ) : (
-              <EmptyValue />
+              <p className={styles.footerValueMuted}>No finalization history available.</p>
             )}
           </div>
         </div>

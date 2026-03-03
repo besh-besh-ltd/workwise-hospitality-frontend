@@ -1238,6 +1238,11 @@ $breakup-insight-tones: (
   padding: 10px;
 }
 
+.footerCardAction {
+  background: linear-gradient(135deg, #f0f5fd 0%, #e6eefa 100%);
+  border-color: #b8cde8;
+}
+
 .footerLabel {
   margin: 0;
   font-size: 10px;
@@ -1254,6 +1259,86 @@ $breakup-insight-tones: (
   font-weight: 700;
 }
 
+.footerValueMuted {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #6a7b92;
+  font-weight: 500;
+}
+
+.footerContactRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.footerContactLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #f0f5fc;
+  color: $qc-primary;
+  font-size: 13px;
+  transition: background 0.15s, color 0.15s;
+  text-decoration: none;
+
+  &:hover {
+    background: $qc-primary;
+    color: #fff;
+  }
+}
+
+.footerBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s, opacity 0.15s;
+  margin-top: 6px;
+}
+
+.footerBtnPrimary {
+  background: linear-gradient(135deg, $qc-primary 0%, $qc-primary-dark 100%);
+  color: #fff;
+  width: 100%;
+  padding: 8px 14px;
+
+  &:hover:not(:disabled) {
+    box-shadow: 0 3px 10px rgba($qc-primary, 0.3);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.footerBtnOutline {
+  background: #fff;
+  color: $qc-primary;
+  border: 1.5px solid $qc-primary;
+
+  &:hover {
+    background: #f0f5fc;
+  }
+}
+
+.footerBtnDisabled {
+  background: #edf1f6;
+  color: #8a97a8;
+  cursor: not-allowed;
+}
+
 .mobileCards {
   display: none;
 }
@@ -1263,6 +1348,222 @@ $breakup-insight-tones: (
   border-radius: 10px;
   padding: 10px;
   background: #fff;
+}
+
+/* ── Category Comparison Compact Styles ────────────────────────── */
+
+.catCompactProductCell {
+  padding: 8px 10px !important;
+  vertical-align: middle !important;
+}
+
+.catCompactProduct {
+  display: grid;
+  gap: 4px;
+}
+
+.catProductName {
+  font-size: 13px;
+  font-weight: 800;
+  color: #102c4d;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.catProductMeta {
+  font-size: 11px;
+  color: #557090;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.catMetaSep {
+  margin: 0 4px;
+  color: #a0b0c4;
+}
+
+.catProductSpec {
+  font-size: 11px;
+  color: #667b96;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.catPriceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.catPriceItem {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.catPriceLabel {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  color: #6a7f99;
+  font-weight: 700;
+}
+
+.catPriceValue {
+  font-size: 11px;
+  color: #15365d;
+  font-weight: 800;
+}
+
+.catPriceDivider {
+  color: #a0b0c4;
+  font-size: 10px;
+  margin: 0 1px;
+}
+
+.catNegoInfo {
+  font-size: 11px;
+  color: #557192;
+  font-weight: 600;
+}
+
+.catActionLinks {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.catActionLink {
+  border: 0;
+  background: transparent;
+  color: #1f4f8b;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+
+  &:hover {
+    color: #0e3467;
+    text-decoration-style: solid;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #7da0d4;
+    outline-offset: 1px;
+  }
+}
+
+.catVendorCell {
+  text-align: center !important;
+  vertical-align: middle !important;
+  padding: 10px 8px !important;
+  transition: background 0.15s ease;
+
+  &:hover {
+    filter: brightness(0.97);
+  }
+}
+
+.catPriceDisplay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.catTotalPrice {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f2f53;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+}
+
+/* ── Lowest (L1) cell highlight ────────────────────────────────── */
+
+.catLowestCell {
+  background: #f2faf5 !important;
+  box-shadow: inset 0 -2px 0 #3a9e6a;
+}
+
+.catLowestPrice {
+  color: #217a48 !important;
+}
+
+/* ── Finalized cell highlight ──────────────────────────────────── */
+
+.catFinalizedCell {
+  background: #f5f2fb !important;
+  box-shadow: inset 0 -2px 0 #7c5cbf;
+}
+
+.catFinalizedPrice {
+  color: #5b3daa !important;
+}
+
+/* ── Highlighted metric rows (product comparison) ──────────────── */
+
+.highlightMetricLabel {
+  background: #e3edfa !important;
+  font-weight: 800 !important;
+  color: #16325c !important;
+  border-bottom: 2px solid #b3c9e6 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.2px;
+}
+
+.highlightMetricCell {
+  background: #edf4fd !important;
+  border-bottom: 2px solid #b3c9e6 !important;
+}
+
+/* ── Highlighted breakup modal rows ────────────────────────────── */
+
+.breakupRowHighlight {
+  background: #f0f6ff;
+  border-bottom-color: #c8d8ee;
+
+  .breakupRowLabel {
+    font-weight: 800;
+    color: #1c3d6e;
+  }
+
+  .breakupRowValue {
+    font-weight: 900;
+    color: #0f2f53;
+    font-size: 14px;
+  }
+}
+
+.breakupSectionLabel {
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #5d7390;
+  font-weight: 700;
+  background: #f8fafd;
+  border-bottom: 1px solid #e6edf7;
+}
+
+/* ── Category footer vendor-level rows ─────────────────────────── */
+
+.catFooterVendorMeta {
+  font-size: 12px;
+  color: #314a68;
+  line-height: 1.4;
+  text-align: left;
 }
 
 @media (max-width: 992px) {
@@ -1291,5 +1592,18 @@ $breakup-insight-tones: (
   .summaryStrip,
   .footerCards {
     grid-template-columns: 1fr;
+  }
+
+  .catProductSpec {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .catTotalPrice {
+    font-size: 14px;
   }
 }

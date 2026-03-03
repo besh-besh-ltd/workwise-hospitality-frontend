@@ -1651,10 +1651,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 <div className={revampStyles.workspaceStack}>
                 {!quotesLoading && currentRFQ && (
                   <section className={revampStyles.surfaceBlock}>
-                    <div className={revampStyles.surfaceLabelRow}>
-                      <p className={revampStyles.surfaceLabel}>RFQ Context</p>
-                      <p className={revampStyles.surfaceHint}>Tender details and top-level actions</p>
-                    </div>
                     <QuoteCompareHeaderCard
                       currentRFQ={currentRFQ}
                       actions={
