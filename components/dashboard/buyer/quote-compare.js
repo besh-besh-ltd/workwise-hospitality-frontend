@@ -1597,12 +1597,12 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   {
                     key: 'negotiation_pending',
                     label: 'Negotiation',
-                    filter: (item) => !item.is_finalized && !item.approval_required && parseInt(item.active_quote_count || 0) > 0,
+                    filter: (item) => !item.is_finalized && !item.has_finalization && !item.approval_required && parseInt(item.active_quote_count || 0) > 0,
                   },
                   {
                     key: 'finalization_pending',
                     label: 'Finalization',
-                    filter: (item) => item.approval_required === true || item.is_finalized,
+                    filter: (item) => item.approval_required === true || item.is_finalized || item.has_finalization,
                   },
                   {
                     key: 'all',
@@ -1633,6 +1633,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   }
                   if (item.is_finalized) {
                     tags.push({ label: 'Finalized', variant: 'success' });
+                  } else if (item.has_finalization) {
+                    tags.push({ label: 'Partially Finalized', variant: 'warning' });
                   } else {
                     tags.push({ label: 'In Negotiation', variant: 'info' });
                   }
