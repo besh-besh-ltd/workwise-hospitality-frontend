@@ -5,9 +5,9 @@ import styles from './TechnicalEvaluation.module.scss';
 /**
  * EvaluationProgressTracker
  *
- * Tracks submission progress: a product counts as "done" only when
+ * Tracks approval workflow progress: a product counts as "in approval" when
  * its approval request has been sent (isPendingApproval or workflowComplete).
- * Vendor count reflects vendors from submitted products.
+ * Vendor count reflects vendors belonging to products in the approval pipeline.
  */
 const EvaluationProgressTracker = ({ productEvaluationStatus, clauseInfo }) => {
   if (!clauseInfo || clauseInfo.length === 0) return null;
@@ -72,7 +72,7 @@ const EvaluationProgressTracker = ({ productEvaluationStatus, clauseInfo }) => {
       {/* Stats */}
       <div className={styles.progressStats}>
         <div className={styles.progressStat}>
-          <div className={styles.progressStatLabel}>Products Submitted</div>
+          <div className={styles.progressStatLabel}>Products in Approval</div>
           <div className={styles.progressStatValue}>
             {submittedCount}
             <span className={styles.progressStatTotal}>/ {totalProducts}</span>
@@ -80,7 +80,7 @@ const EvaluationProgressTracker = ({ productEvaluationStatus, clauseInfo }) => {
         </div>
 
         <div className={styles.progressStat}>
-          <div className={styles.progressStatLabel}>Vendors Submitted</div>
+          <div className={styles.progressStatLabel}>Vendors in Approval</div>
           <div className={styles.progressStatValue}>
             {submittedVendors}
             <span className={styles.progressStatTotal}>/ {totalVendors}</span>
