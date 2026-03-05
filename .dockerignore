@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.github
+.env*
+*.md
+.DS_Store
+deploy
+.gitignore
+.eslintrc*
+jest.config.*
+__tests__
