@@ -62,8 +62,7 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
         run: |
-          IMAGE_TAG="${GITHUB_SHA::7}"
-          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${GITHUB_SHA}"
 
           docker build \
             --build-arg NEXT_PUBLIC_API_URL="${{ steps.parse-env.outputs.NEXT_PUBLIC_API_URL }}" \
@@ -88,6 +87,8 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
         with:
           host: ${{ secrets.STAGING_SSH_HOST }}
           username: ${{ secrets.WORKWISE_SSH_USER }}
@@ -95,10 +96,10 @@ jobs:
           port: 22
           script_stop: true
           command_timeout: 10m
+          envs: IMAGE_URI
           script: |
             set -euo pipefail
 
-            IMAGE_URI="${{ needs.build-and-push.outputs.image_uri }}"
             DEPLOY_SCRIPT="$HOME/deploy/deploy.sh"
 
             # ECR login
