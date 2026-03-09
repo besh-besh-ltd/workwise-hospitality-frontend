@@ -122,7 +122,8 @@ const Layout = (props) => {
   const isStaticPage = router.pathname === '/hotel-vendor' || router.pathname === '/';
   const isVendorCoCPage = router.pathname === '/vendor-coc';
   const isVendorTnCPage = router.pathname === '/vendor-tnc';
-  const shouldHideNavbarFooter = isStaticPage || isVendorCoCPage || isVendorTnCPage;
+  const isVendorRegistrationPage = router.pathname === '/vendor-registration';
+  const shouldHideNavbarFooter = isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage;
 
   return (
     <>
