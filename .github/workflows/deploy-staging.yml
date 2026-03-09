@@ -100,15 +100,11 @@ jobs:
           script: |
             set -euo pipefail
 
-            DEPLOY_SCRIPT="$HOME/deploy/deploy.sh"
-
             # ECR login
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | \
               docker login --username AWS --password-stdin \
               ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
 
-            # Pull the new image
+            # Pull and deploy
             docker pull "${IMAGE_URI}"
-
-            # Run blue-green deployment
-            bash "${DEPLOY_SCRIPT}" "${IMAGE_URI}"
+            bash "$HOME/deploy.sh" frontend "${IMAGE_URI}"
