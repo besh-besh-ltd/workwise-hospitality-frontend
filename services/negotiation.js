@@ -12,7 +12,7 @@ export const createNegotiationRound = ({ rfq_id, rfq_product_id, target_price, e
         target_price,
         end_date
       });
-      resolve(response.data);
+      resolve(response);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }
@@ -110,7 +110,7 @@ export const closeNegotiationRound = (round_id, action) => {
       const response = await axiosInstance.post(`/negotiation/rounds/${round_id}/close`, {
         action
       });
-      resolve(response.data);
+      resolve(response);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }
@@ -142,7 +142,7 @@ export const submitVendorRoundQuote = ({ round_id, quoted_price, previous_price 
         quoted_price,
         previous_price
       });
-      resolve(response.data);
+      resolve(response);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }
