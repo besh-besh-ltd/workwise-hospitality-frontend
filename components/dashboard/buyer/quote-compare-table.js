@@ -117,7 +117,7 @@ const QuoteCompareTable = ({
   });
   const [existingPOId, setExistingPOId] = useState(null)
   const [availableHierarchies, setAvailableHierarchies] = useState([true]);
-  const [useLegacyHierarchy, setUseLegacyHierarchy] = useState(true); // Default to true (legacy behavior)
+  const [useLegacyHierarchy, setUseLegacyHierarchy] = useState(false);
   const [selectedRouteType, setSelectedRouteType] = useState(null); // 'ARC' or 'PO'
   const [quoteApprovalStatus, setQuoteApprovalStatus] = useState(null); // Quote approval status for tenders
   const [approvalRefreshKey, setApprovalRefreshKey] = useState(0); // Key to refresh approval 
