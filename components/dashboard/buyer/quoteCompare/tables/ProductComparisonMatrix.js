@@ -199,7 +199,7 @@ const ProductComparisonMatrix = ({
   const [existingPOId, setExistingPOId] = useState(null);
   const [selectedRouteType, setSelectedRouteType] = useState(null);
   const [availableHierarchies, setAvailableHierarchies] = useState([]);
-  const [useLegacyHierarchy, setUseLegacyHierarchy] = useState(true);
+  const [useLegacyHierarchy, setUseLegacyHierarchy] = useState(false);
   const [quoteApprovalStatus, setQuoteApprovalStatus] = useState(null);
   const [approvalRefreshKey, setApprovalRefreshKey] = useState(0);
 
