@@ -304,6 +304,9 @@ const ApprovalWorkflowSection = ({
       toast.success(
         `${entityLabel} ${actionType === "APPROVE" ? "approved" : "rejected"} successfully`
       );
+      if (actionType === "APPROVE" && entityType === "NEGOTIATION_QUOTE") {
+        toast.info("Purchase Order drafted successfully. Visit PO page to review and initiate.");
+      }
       setShowActionModal(false);
       if (onActionComplete) {
         onActionComplete();
