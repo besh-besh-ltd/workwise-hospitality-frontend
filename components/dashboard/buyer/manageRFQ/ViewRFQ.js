@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 import { getEntityLabel } from "@/utils/sharedFunctions";
+import ReadMore from "@/components/shared/ReadMore";
 
 const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
   console.log("RFQ Data in ViewRFQ:", data);
@@ -27,7 +28,7 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
                 {/* Content for Manage RFQs tab */}
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <span className="title">
-                    {data.title && <span className="d-block fw-bold">{data.title}</span>}
+                    {data.title && <ReadMore content={data.title} maxLines={2} additionalClasses="fw-bold" />}
                     {getEntityLabel(data?.is_tender)} #{data.rfq_no} details
                   </span>
                   

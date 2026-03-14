@@ -7,6 +7,7 @@ const ReadMore = ({
   additionalClasses = '',
   additionalStyles = {},
   onClick,
+  linkClassName = 'text-primary',
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -95,7 +96,7 @@ const ReadMore = ({
           }}
           onMouseDown={(e) => e.stopPropagation()}
           onMouseUp={(e) => e.stopPropagation()}
-          className="btn-link p-0 text-primary text-sm cursor-pointer"
+          className={`btn-link p-0 ${linkClassName} text-sm cursor-pointer`}
           style={{
             flexShrink: 0,
             alignSelf: "flex-start",

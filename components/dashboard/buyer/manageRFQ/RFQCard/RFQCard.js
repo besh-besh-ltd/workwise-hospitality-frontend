@@ -111,7 +111,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
 
           {/* Title & Number */}
           <div className={styles.titleBlock}>
-            <span className={styles.title}>{data.title || formatRFQNumber(data.rfq_no, data.is_tender)}</span>
+            <span className={styles.title} title={data.title || formatRFQNumber(data.rfq_no, data.is_tender)}>{data.title || formatRFQNumber(data.rfq_no, data.is_tender)}</span>
             <span className={styles.rfqNumber}>{formatRFQNumber(data.rfq_no, data.is_tender)}</span>
           </div>
 
