@@ -20,6 +20,7 @@ import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
 import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText } from "react-icons/bs";
+import ReadMore from "@/components/shared/ReadMore";
 import { TARGET_PASSED_VENDORS } from "@/utils/constants/techEvalWorkflow";
 import styles from "./TechnicalEvaluation.module.scss";
 
@@ -590,7 +591,12 @@ useEffect(() => {
                           </span>
                         </div>
                         {currentRfq.title && currentRfq.title != "" && (
-                          <h3 className={styles.rfqHeroTitle}>{currentRfq.title}</h3>
+                          <ReadMore
+                            content={currentRfq.title}
+                            maxLines={2}
+                            additionalClasses={styles.rfqHeroTitle}
+                            linkClassName="text-white"
+                          />
                         )}
                         {currentRfq.project_name && currentRfq.project_name != "" && (
                           <p className={styles.rfqHeroProject}>{currentRfq.project_name}</p>
