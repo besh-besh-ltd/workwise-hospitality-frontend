@@ -4,6 +4,7 @@ import {
   formatRFQNumber,
   getEntityLabel,
 } from "@/utils/sharedFunctions";
+import ReadMore from "@/components/shared/ReadMore";
 import styles from "./QuoteCompareRevamp.module.scss";
 
 const QuoteCompareHeaderCard = ({ currentRFQ, actions }) => {
@@ -47,7 +48,12 @@ const QuoteCompareHeaderCard = ({ currentRFQ, actions }) => {
               {isClosed ? "Closed" : "Open"}
             </span>
           </div>
-          <h3 className={styles.heroTitle}>{currentRFQ?.title || "Quote Comparison"}</h3>
+          <ReadMore
+            content={currentRFQ?.title || "Quote Comparison"}
+            maxLines={2}
+            additionalClasses={styles.heroTitle}
+            linkClassName="text-white"
+          />
           <p className={styles.heroSubTitle}>
             {currentRFQ?.comment || "Compare vendors side-by-side across costs, terms, and risk signals."}
           </p>

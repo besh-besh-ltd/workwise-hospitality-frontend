@@ -111,8 +111,8 @@ const ClauseProductItem = ({
     const isPendingApproval =
         workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL || !!pendingRound;
 
-    // Derived: Check if quote submission deadline has passed (lock tech eval edits)
-    const isBidEndPassed = currentRfq?.bid_end_date ? checkBidExpired(currentRfq.bid_end_date) : false;
+    // Derived: Check if quote submission deadline has NOT yet passed (lock tech eval edits until deadline)
+    const isBidEndNotPassed = currentRfq?.bid_end_date ? !checkBidExpired(currentRfq.bid_end_date) : false;
 
     const addToTechnicallyAccepted = async (vendor = null) => {
         // When triggered from the ellipsis menu, a vendor object is passed.
@@ -731,7 +731,7 @@ const ClauseProductItem = ({
                                         {(() => {
                                           const isScored = !!response?.score_timestamp;
                                           const disagrees = clauseItem.clause_type !== 'sampling' && response?.vendor_response == "I Dont Agree";
-                                          const canEdit = canWrite && !permissionsLoading && !isPendingApproval && !isBidEndPassed;
+                                          const canEdit = canWrite && !permissionsLoading && !isPendingApproval && !isBidEndNotPassed;
                                           const previewKey = `${clauseItem.clause_id}_${String(vendor.vendor_id)}`;
                                           const previewMsgs = deviationPreviews[previewKey];
                                           const hasMessages = previewMsgs?.length > 0;
@@ -761,7 +761,7 @@ const ClauseProductItem = ({
                                                   title={
                                                     !canWrite ? "No permission"
                                                       : isPendingApproval ? "Frozen during approval"
-                                                      : isBidEndPassed ? "Locked after deadline"
+                                                      : isBidEndNotPassed ? "Locked until bid submission deadline"
                                                       : isScored ? `${response.buyer_marks ?? 0}/${clauseItem.weightage || 0} · Click to edit` : "Click to score"
                                                   }
                                                   id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-clause_actions-technical_evaluation_page`}
@@ -871,12 +871,12 @@ const ClauseProductItem = ({
                                     <>
                                         <button
                                             type="button"
-                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed) ? styles.btnDisabled : styles.btnSuccess}`}
+                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isPendingApproval || isBidEndNotPassed) ? styles.btnDisabled : styles.btnSuccess}`}
                                             onClick={() => addToTechnicallyAccepted()}
-                                            disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed}
+                                            disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndNotPassed}
                                             title={
                                               isPendingApproval ? "Actions frozen during pending approval"
-                                                : isBidEndPassed ? "Technical acceptance is locked after the quote submission deadline"
+                                                : isBidEndNotPassed ? "Technical acceptance is locked until the bid submission deadline"
                                                 : (!canWrite ? "You don't have permission to accept vendors" : "")
                                             }
                                             id="technically_accept_vendor-vendor_evaluation-technical_evaluation_page"
@@ -885,12 +885,12 @@ const ClauseProductItem = ({
                                         </button>
                                         <button
                                             type="button"
-                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed) ? styles.btnDisabled : styles.btnDanger}`}
+                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isPendingApproval || isBidEndNotPassed) ? styles.btnDisabled : styles.btnDanger}`}
                                             onClick={() => setShowRejectConfirmModal(true)}
-                                            disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndPassed}
+                                            disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndNotPassed}
                                             title={
                                               isPendingApproval ? "Actions frozen during pending approval"
-                                                : isBidEndPassed ? "Technical rejection is locked after the quote submission deadline"
+                                                : isBidEndNotPassed ? "Technical rejection is locked until the bid submission deadline"
                                                 : (!canWrite ? "You don't have permission to reject vendors" : "")
                                             }
                                             id="technically_reject_vendor-vendor_evaluation-technical_evaluation_page"
@@ -1131,12 +1131,12 @@ const ClauseProductItem = ({
             </button>
             <button
               type="button"
-              className={`${styles.btn} ${(!canWrite || permissionsLoading || isBidEndPassed) ? styles.btnDisabled : styles.btnPrimary}`}
+              className={`${styles.btn} ${(!canWrite || permissionsLoading || isBidEndNotPassed) ? styles.btnDisabled : styles.btnPrimary}`}
               onClick={handleSaveBuyerMarks}
-              disabled={loading || !canWrite || permissionsLoading || isBidEndPassed}
+              disabled={loading || !canWrite || permissionsLoading || isBidEndNotPassed}
               title={
-                isBidEndPassed
-                  ? "Technical evaluation edits are locked after the quote submission deadline"
+                isBidEndNotPassed
+                  ? "Technical evaluation edits are locked until the bid submission deadline"
                   : (!canWrite ? "You don't have permission to save marks" : "")
               }
             >
