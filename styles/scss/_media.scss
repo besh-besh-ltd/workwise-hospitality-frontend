@@ -1230,6 +1230,16 @@
     }
     
 }
+/* Mobile: show full text instead of truncation (tooltips don't work on touch) */
+@media screen and (max-width: 768px) {
+    .text-truncate-mobile-off {
+        overflow: visible !important;
+        text-overflow: unset !important;
+        white-space: normal !important;
+        word-break: break-word;
+    }
+}
+
 /* Responsive adjustments for small screens */
 @media screen and (max-width: 576px) {
     .logo {
