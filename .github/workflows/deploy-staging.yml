@@ -71,6 +71,10 @@ jobs:
             --build-arg NEXT_PUBLIC_RAZORPAY_SECRET="${{ steps.parse-env.outputs.NEXT_PUBLIC_RAZORPAY_SECRET }}" \
             --build-arg NEXT_PUBLIC_RAZORPAY_SIGNATURE="${{ steps.parse-env.outputs.NEXT_PUBLIC_RAZORPAY_SIGNATURE }}" \
             --build-arg NEXT_PUBLIC_AI_SERVER_URL="${{ steps.parse-env.outputs.NEXT_PUBLIC_AI_SERVER_URL }}" \
+            --build-arg NEXT_PUBLIC_POSTHOG_KEY="${{ steps.parse-env.outputs.NEXT_PUBLIC_POSTHOG_KEY }}" \
+            --build-arg NEXT_PUBLIC_POSTHOG_HOST="${{ steps.parse-env.outputs.NEXT_PUBLIC_POSTHOG_HOST }}" \
+            --build-arg NEXT_PUBLIC_OTEL_COLLECTOR_URL="${{ steps.parse-env.outputs.NEXT_PUBLIC_OTEL_COLLECTOR_URL }}" \
+            --build-arg NEXT_PUBLIC_ENV="${{ steps.parse-env.outputs.NEXT_PUBLIC_ENV }}" \
             -t "${IMAGE_URI}" \
             -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest" \
             .
