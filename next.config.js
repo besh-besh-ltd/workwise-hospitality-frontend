@@ -2,6 +2,9 @@
 
 const nextConfig = {
   output: 'standalone',
+  outputFileTracingIncludes: {
+    '/**': ['./node_modules/@reduxjs/toolkit/dist/**'],
+  },
   reactStrictMode: false,
   skipTrailingSlashRedirect: true,
   images: {
