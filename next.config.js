@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 
 const nextConfig = {
-
+  output: 'standalone',
   reactStrictMode: false,
   skipTrailingSlashRedirect: true,
   images: {
@@ -42,3 +42,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+
