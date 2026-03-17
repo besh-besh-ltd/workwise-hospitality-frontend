@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 
 const nextConfig = {
- 
+
   reactStrictMode: false,
+  skipTrailingSlashRedirect: true,
   images: {
     remotePatterns: [
       {
@@ -33,7 +34,11 @@ const nextConfig = {
       { source: '/sitemap.xml', destination: '/api/sitemap.xml' },
       { source: '/sitemap-website.xml', destination: '/api/sitemap-website.xml' },
       { source: '/sitemap-vendors.xml', destination: '/api/sitemap-vendors.xml' },
+      // PostHog reverse proxy
+      { source: '/ingest/static/:path*', destination: 'https://us-assets.i.posthog.com/static/:path*' },
+      { source: '/ingest/:path*', destination: 'https://us.i.posthog.com/:path*' },
     ];
   },
 };
 
+module.exports = nextConfig;
