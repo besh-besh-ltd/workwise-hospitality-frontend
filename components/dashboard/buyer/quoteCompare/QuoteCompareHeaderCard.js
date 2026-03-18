@@ -17,6 +17,7 @@ const QuoteCompareHeaderCard = ({ currentRFQ, actions }) => {
     { label: "Project", value: currentRFQ?.project_name || "-" },
     { label: "Company", value: currentRFQ?.company_name || "-" },
     { label: "Hotel", value: currentRFQ?.hotel_name || "-" },
+    { label: "Department", value: currentRFQ?.department_name || "-" },
     { label: "Contact Person", value: currentRFQ?.contact_name || "-" },
     { label: "Contact Number", value: currentRFQ?.contact_number || "-" },
     { label: "Response Email", value: currentRFQ?.response_email || "-" },
