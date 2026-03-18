@@ -65,6 +65,22 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
                   </div>
                 </div>
 
+                {/* RFQ Context Info */}
+                {(data?.hotel_name || data?.department_name) && (
+                  <div className="d-flex gap-3 mb-3 flex-wrap">
+                    {data?.hotel_name && (
+                      <span className="badge bg-light text-dark border px-3 py-2" style={{ fontSize: 13 }}>
+                        Business Unit: <strong>{data.hotel_name}</strong>
+                      </span>
+                    )}
+                    {data?.department_name && (
+                      <span className="badge bg-light text-dark border px-3 py-2" style={{ fontSize: 13 }}>
+                        Department: <strong>{data.department_name}</strong>
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <div className="details-table">
                   <div className="table-responsive">
                     <table className="table table-striped ">

@@ -151,7 +151,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     initiated_by_email,
     initiated_by_phone,
     rfq_no,
-    rfq_title
+    rfq_title,
+    department_name
   } = data;
 
   const [selectedMilestone, setSelectedMilestone] = useState(null);
@@ -554,6 +555,9 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                 <small className="text-muted">(Buyer)</small>
                 {buyer_business_unit && (
                   <div className="text-muted">Business Unit: {buyer_business_unit}</div>
+                )}
+                {department_name && (
+                  <div className="text-muted">Department: {department_name}</div>
                 )}
                 {buyer_address && (
                   <div className="text-muted">{buyer_address}</div>

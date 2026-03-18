@@ -279,6 +279,7 @@ const ApprovalWorkflowSection = ({
   const [existingPos, setExistingPos] = useState([]);
   const [selectedPo, setSelectedPo] = useState(null);
   const [pendingApproveComment, setPendingApproveComment] = useState(null);
+  const [poMergeHandled, setPOMergeHandled] = useState(false);
 
   const isFinalApprover = canUserApprove && currentStep === totalSteps && status === "PENDING";
   const isNegotiationQuote = entityType === "NEGOTIATION_QUOTE";
@@ -344,6 +345,7 @@ const ApprovalWorkflowSection = ({
             setPendingApproveComment(comment);
             setExistingPos(pos);
             setSelectedPo(null);
+            setPOMergeHandled(false);
             setShowActionModal(false);
             setShowExistingPOModal(true);
             return;
@@ -359,10 +361,13 @@ const ApprovalWorkflowSection = ({
   };
 
   const handleExistingPOConfirm = async (selectedPOId) => {
+    if (poMergeHandled) return; // Prevent double execution
+    setPOMergeHandled(true);
     setShowExistingPOModal(false);
-    await executeApproval(pendingApproveComment, selectedPOId || null);
+    const comment = pendingApproveComment;
     setPendingApproveComment(null);
     setSelectedPo(null);
+    await executeApproval(comment, selectedPOId || null);
   };
 
   // Loading state
@@ -854,7 +859,11 @@ const ApprovalWorkflowSection = ({
       {/* Existing PO Merge Modal - shown to final approver of NEGOTIATION_QUOTE */}
       <ExistingPOModal
         show={showExistingPOModal}
-        onHide={setShowExistingPOModal}
+        onHide={() => {
+          // If user closes modal without choosing, proceed without merge
+          setShowExistingPOModal(false);
+          handleExistingPOConfirm(null);
+        }}
         existingPos={existingPos}
         selectedPo={selectedPo}
         setSelectedPo={setSelectedPo}

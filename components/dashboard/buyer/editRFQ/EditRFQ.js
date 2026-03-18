@@ -2147,7 +2147,12 @@ const EditRFQ = () => {
                             <label className="form-label fw-medium">Department</label>
                             <Select
                               options={departments}
-                              value={departments.find(d => d.value === rfqFormDataFromStore.department_id) || null}
+                              value={
+                                departments.find(d => d.value === rfqFormDataFromStore.department_id)
+                                || (rfqFormDataFromStore.department_id
+                                  ? { value: rfqFormDataFromStore.department_id, label: rfqFormDataFromStore.department_name || `Department #${rfqFormDataFromStore.department_id}` }
+                                  : null)
+                              }
                               onChange={(selected) => {
                                 dispatch(setOtherFormFields({
                                   field_name: "department_id",

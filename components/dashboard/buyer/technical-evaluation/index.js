@@ -490,6 +490,9 @@ useEffect(() => {
     if (currentRfq?.hotel_name) {
       items.push({ icon: <BsHouse size={14} />, label: "Business Unit", value: currentRfq.hotel_name });
     }
+    if (currentRfq?.department_name) {
+      items.push({ icon: <BsHouse size={14} />, label: "Department", value: currentRfq.department_name });
+    }
     if (currentRfq.is_tender !== 1 && currentRfq.rfq_type && currentRfq.rfq_type != "") {
       items.push({ icon: <BsTag size={14} />, label: "RFQ Type", value: currentRfq.rfq_type });
     }
