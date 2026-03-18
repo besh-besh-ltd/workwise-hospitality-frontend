@@ -16,6 +16,8 @@ import ApprovalTimeline from "./ApprovalTimeline";
 import ApprovalActionModal from "./ApprovalActionModal";
 import SelectedQuotesDisplay from "../negotiation/SelectedQuotesDisplay";
 import TechEvalVendorStatusDisplay from "../technical-evaluation/TechEvalVendorStatusDisplay";
+import ExistingPOModal from "../ExistingPOModal";
+import { getExistingPOByVendor } from "@/services/rfq";
 
 const statusConfig = {
   PENDING: {
@@ -272,6 +274,15 @@ const ApprovalWorkflowSection = ({
   const [actionType, setActionType] = useState(null);
   const [expanded, setExpanded] = useState(false);
 
+  // Existing PO merge flow for final approver of NEGOTIATION_QUOTE
+  const [showExistingPOModal, setShowExistingPOModal] = useState(false);
+  const [existingPos, setExistingPos] = useState([]);
+  const [selectedPo, setSelectedPo] = useState(null);
+  const [pendingApproveComment, setPendingApproveComment] = useState(null);
+
+  const isFinalApprover = canUserApprove && currentStep === totalSteps && status === "PENDING";
+  const isNegotiationQuote = entityType === "NEGOTIATION_QUOTE";
+
   // Auto-expand when action is required
   useEffect(() => {
     if (canUserApprove && status === "PENDING") {
@@ -284,12 +295,13 @@ const ApprovalWorkflowSection = ({
     setShowActionModal(true);
   };
 
-  const handleAction = async (comment) => {
+  const executeApproval = async (comment, existingPoId = null) => {
     let result;
 
     const handlerContext = {
       approval_instance_id: instance?.id,
       approval_instance_step_id: instance?.user_approval_step_id,
+      existing_po_id: existingPoId,
     };
 
     if (actionType === "APPROVE" && onCustomApprove) {
@@ -304,7 +316,7 @@ const ApprovalWorkflowSection = ({
       toast.success(
         `${entityLabel} ${actionType === "APPROVE" ? "approved" : "rejected"} successfully`
       );
-      if (actionType === "APPROVE" && entityType === "NEGOTIATION_QUOTE") {
+      if (actionType === "APPROVE" && isNegotiationQuote) {
         toast.info("Purchase Order drafted successfully. Visit PO page to review and initiate.");
       }
       setShowActionModal(false);
@@ -315,6 +327,42 @@ const ApprovalWorkflowSection = ({
     } else {
       toast.error(result.error || `Failed to ${actionType.toLowerCase()}`);
     }
+  };
+
+  const handleAction = async (comment) => {
+    // If this is the final approver for a NEGOTIATION_QUOTE, check for existing POs first
+    if (actionType === "APPROVE" && isNegotiationQuote && isFinalApprover) {
+      const vendorId = instance?.metadata?.vendor_id || instance?.metadata?.po_payload?.product_info?.finalized_vendor_id;
+      const rfqId = instance?.metadata?.rfq_id;
+
+      if (vendorId && rfqId) {
+        try {
+          const response = await getExistingPOByVendor(vendorId, rfqId);
+          const pos = response?.existingPOS ?? [];
+          if (pos.length > 0) {
+            // Store comment and show existing PO modal
+            setPendingApproveComment(comment);
+            setExistingPos(pos);
+            setSelectedPo(null);
+            setShowActionModal(false);
+            setShowExistingPOModal(true);
+            return;
+          }
+        } catch (e) {
+          // If fetching fails, proceed without merge
+          console.error("Failed to fetch existing POs:", e);
+        }
+      }
+    }
+
+    await executeApproval(comment);
+  };
+
+  const handleExistingPOConfirm = async (selectedPOId) => {
+    setShowExistingPOModal(false);
+    await executeApproval(pendingApproveComment, selectedPOId || null);
+    setPendingApproveComment(null);
+    setSelectedPo(null);
   };
 
   // Loading state
@@ -801,6 +849,16 @@ const ApprovalWorkflowSection = ({
         onSubmit={handleAction}
         loading={actionLoading}
         entityLabel={entityLabel}
+      />
+
+      {/* Existing PO Merge Modal - shown to final approver of NEGOTIATION_QUOTE */}
+      <ExistingPOModal
+        show={showExistingPOModal}
+        onHide={setShowExistingPOModal}
+        existingPos={existingPos}
+        selectedPo={selectedPo}
+        setSelectedPo={setSelectedPo}
+        onConfirm={handleExistingPOConfirm}
       />
     </>
   );

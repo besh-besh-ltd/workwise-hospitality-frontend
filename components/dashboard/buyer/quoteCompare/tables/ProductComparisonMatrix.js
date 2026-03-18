@@ -259,9 +259,9 @@ const ProductComparisonMatrix = ({
     if (onRoundEnded) onRoundEnded();
   };
 
-  const handleCustomQuoteApprove = async (comment) => {
+  const handleCustomQuoteApprove = async (comment, handlerContext = {}) => {
     try {
-      await approveNegotiationQuotes(proditem.id, comment, departmentId);
+      await approveNegotiationQuotes(proditem.id, comment, departmentId, handlerContext.existing_po_id || null);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message || "Failed to approve quotes" };

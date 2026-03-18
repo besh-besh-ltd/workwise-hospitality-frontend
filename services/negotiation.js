@@ -228,12 +228,13 @@ export const getQuoteApprovalStatus = (rfq_product_id) => {
  * @param {number} rfq_product_id - RFQ Product ID
  * @param {string} remarks - Optional approval remarks
  */
-export const approveNegotiationQuotes = (rfq_product_id, remarks = null, department_id = null) => {
+export const approveNegotiationQuotes = (rfq_product_id, remarks = null, department_id = null, existing_po_id = null) => {
   return new Promise(async (resolve, reject) => {
     try {
       const payload = {};
       if (remarks) payload.remarks = remarks;
       if (department_id) payload.department_id = department_id;
+      if (existing_po_id) payload.existing_po_id = existing_po_id;
       const response = await axiosInstance.post(
         `/negotiation/quotes/${rfq_product_id}/approve`,
         payload

@@ -167,6 +167,7 @@ const QuoteCompare = () => {
             is_tender: rfqData.is_tender,
             hospitality_company_id: rfqData.hospitality_company_id,
             department_id: rfqData.department_id,
+            department_name: rfqData.department_name,
             rfq_no: rfqData.rfq_no,
             project_name: rfqData.project_name,
             company_name: rfqData.company_name,
