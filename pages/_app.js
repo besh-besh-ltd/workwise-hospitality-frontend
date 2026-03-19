@@ -28,6 +28,7 @@ import { Providers } from "@/redux/provider";
 import posthog from 'posthog-js';
 import { PostHogProvider } from 'posthog-js/react';
 import storageInstance from "@/utils/storageInstance";
+import { getUserDetails } from "@/services/Auth";
 import Head from "next/head";
 
 
@@ -64,8 +65,16 @@ export default function App({ Component, pageProps }) {
         api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
         defaults: '2026-01-30',
       });
-      const userId = storageInstance.getStorage('current-user-name');
-      if (userId) posthog.identify(userId);
+      const user = getUserDetails();
+      const userType = storageInstance.getStorage('current-user-type');
+      const email = storageInstance.getStorage('current-user-email');
+      if (user?.sub) {
+        posthog.identify(String(user.sub), {
+          name: user.name,
+          email: email || undefined,
+          user_type: userType || undefined,
+        });
+      }
     }
   }, []);
 

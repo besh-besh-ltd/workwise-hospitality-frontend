@@ -21,6 +21,7 @@ import { initialMainNavs, roleMenus, websiteMenu, ANNOUNCEMENT_TEXT } from "./he
 import UserMenu from "./UserMenu";
 import MobileMenu from "./MobileMenu";
 import styles from "./Header.module.css";
+import posthog from 'posthog-js';
 
 const Header = () => {
   const router = useRouter();
@@ -111,8 +112,11 @@ const Header = () => {
 
   const handleLogout = (e) => {
     e.preventDefault();
+    posthog.reset();
     storageInstance.removeStorege("token");
     storageInstance.removeStorege("current-user-type");
+    storageInstance.removeStorege("current-user-name");
+    storageInstance.removeStorege("current-user-email");
     storageInstance.removeStorege("user-permissions");
     setStoredHospitalityContext(null);
     setPopoverVisible(false);

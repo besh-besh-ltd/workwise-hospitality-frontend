@@ -9,6 +9,7 @@ import AuthModal from '../modal/AuthModal';
 import LoginWithOtherDeviceModal from '../modal/LoginWithOtherDeviceModal';
 import storageInstance from '@/utils/storageInstance';
 import { usePathname } from 'next/navigation';
+import posthog from 'posthog-js';
 
 const LoginContainer = (props) => {
     const router = useRouter();
@@ -154,6 +155,13 @@ const LoginContainer = (props) => {
                     userType = "finance";
                 }
                 storageInstance.setStorage("current-user-type", userType);
+                storageInstance.setStorage("current-user-email", userDetail.email || "");
+                storageInstance.setStorage("current-user-name", userDetail.name || "");
+                posthog.identify(String(userDetail.user_id), {
+                    name: userDetail.name,
+                    email: userDetail.email,
+                    user_type: userType,
+                });
 
                 if (redirect && redirect != "") {
                     router.push(window.atob(redirect));
@@ -240,6 +248,13 @@ const LoginContainer = (props) => {
                         userType = "finance";
                     }
                     storageInstance.setStorage("current-user-type", userType);
+                    storageInstance.setStorage("current-user-email", response?.profile?.email || "");
+                    storageInstance.setStorage("current-user-name", response?.profile?.name || "");
+                    posthog.identify(String(response?.profile?.user_id), {
+                        name: response?.profile?.name,
+                        email: response?.profile?.email,
+                        user_type: userType,
+                    });
                     if (userType == "buyer") {
                         router.push(`/vendor/all?loggedin=true`);
                     } else if (userType == "admin") {
