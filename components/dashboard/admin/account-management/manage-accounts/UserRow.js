@@ -29,8 +29,8 @@ const dedupeHospitalityMappings = (list = []) => {
   return list.filter((item) => {
     const key =
       item.mapping_type === 0
-        ? `company-${item.hospitality_company_id}-${item.user_id}`
-        : `hotel-${item.hospitality_company_id}-${item.hospitality_hotel_id}-${item.user_id}`;
+        ? `company-${item.hospitality_company_id}`
+        : `hotel-${item.hospitality_company_id}-${item.hospitality_hotel_id}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

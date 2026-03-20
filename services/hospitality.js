@@ -1,9 +1,9 @@
 import axiosInstance from "@/lib/axios";
 
-export const getHospitalityCompanies = () =>
+export const getHospitalityCompanies = (params = {}) =>
   new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.get(`/hospitality/companies`);
+      const response = await axiosInstance.get(`/hospitality/companies`, { params });
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -196,7 +196,7 @@ export const mapHospitalityProjects = (companyId, payload) =>
 
 export const getCompanyUserMappings = (
   companyId,
-  { mappingType, hotelId } = {}
+  { mappingType, hotelId, includeAll } = {}
 ) =>
   new Promise(async (resolve, reject) => {
     try {
@@ -206,6 +206,9 @@ export const getCompanyUserMappings = (
       }
       if (hotelId) {
         params.append('hotel_id', hotelId);
+      }
+      if (includeAll) {
+        params.append('include_all', 'true');
       }
 
       const queryString = params.toString();

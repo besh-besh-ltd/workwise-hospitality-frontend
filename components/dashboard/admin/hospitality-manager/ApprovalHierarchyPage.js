@@ -10,9 +10,8 @@ import {
   updateApprovalPolicy,
   deleteApprovalPolicy,
 } from "@/services/approval";
-import { getRoles, getUserRoleScopes } from "@/services/rbac";
-import { getCompanyUserMappings } from "@/services/hospitality";
-import { getHospitalityHotels } from "@/services/hospitality";
+import { getRoles, getBatchUserRoleScopes } from "@/services/rbac";
+import { getCompanyUserMappings, getHospitalityHotels } from "@/services/hospitality";
 
 const ApprovalHierarchyPage = () => {
   const router = useRouter();
@@ -110,24 +109,9 @@ const ApprovalHierarchyPage = () => {
       const response = await getApprovalPolicies({
         hospitality_company_id: companyId,
         hotel_id: hotelId,
+        include: 'steps',
       });
-      const policiesList = response?.data?.data || response?.data || [];
-      
-      // Fetch full details (with steps) for each policy
-      const policiesWithSteps = await Promise.all(
-        policiesList.map(async (policy) => {
-          try {
-            const policyResponse = await getApprovalPolicy(policy.id);
-            const fullPolicy = policyResponse?.data?.data || policyResponse?.data || policy;
-            return fullPolicy;
-          } catch (error) {
-            console.error(`Error loading steps for policy ${policy.id}:`, error);
-            // Return policy without steps if fetch fails
-            return { ...policy, steps: [] };
-          }
-        })
-      );
-      
+      const policiesWithSteps = response?.data?.data || response?.data || [];
       setPolicies(policiesWithSteps);
     } catch (error) {
       console.error("Error loading policies:", error);
@@ -147,27 +131,28 @@ const ApprovalHierarchyPage = () => {
 
   const loadUsers = async () => {
     try {
-      // Load both company-level (mapping_type = 0) and hotel-level (mapping_type = 1) users
-      const [companyResponse, hotelResponse] = await Promise.all([
-        getCompanyUserMappings(companyId, { mappingType: 0 }),
-        getCompanyUserMappings(companyId, {
-          mappingType: 1,
-          hotelId: parseInt(hotelId),
-        }),
-      ]);
-      
-      const companyUsers = companyResponse?.data?.data || companyResponse?.data || [];
-      const hotelUsers = hotelResponse?.data?.data || hotelResponse?.data || [];
-      
+      // Load all user mappings in a single call
+      const response = await getCompanyUserMappings(companyId, { includeAll: true });
+      const allMappings = response?.data?.data || response?.data || [];
+
+      // Filter company-level and hotel-level users
+      const companyUsers = allMappings.filter(m => m.mapping_type === 0);
+      const hotelUsers = allMappings.filter(
+        m => m.mapping_type === 1 && m.hospitality_hotel_id === parseInt(hotelId)
+      );
+
       // Combine and deduplicate users
-      const allUsers = [...companyUsers, ...hotelUsers];
+      const combined = [...companyUsers, ...hotelUsers];
       const uniqueUsers = Array.from(
-        new Map(allUsers.map((user) => [user.user_id, user])).values()
+        new Map(combined.map((user) => [user.user_id, user])).values()
       );
       setUsers(uniqueUsers);
-      
+
       // Load role scopes for all users to enable role-based filtering
-      await loadUserRoleScopes(uniqueUsers.map(u => u.user_id));
+      const userIds = uniqueUsers.map(u => u.user_id);
+      if (userIds.length) {
+        await loadUserRoleScopes(userIds);
+      }
     } catch (error) {
       console.error("Error loading users:", error);
     }
@@ -175,22 +160,12 @@ const ApprovalHierarchyPage = () => {
 
   const loadUserRoleScopes = async (userIds) => {
     try {
-      const roleScopesPromises = userIds.map(async (userId) => {
-        try {
-          const response = await getUserRoleScopes(userId);
-          const scopes = response?.data?.data || response?.data || [];
-          return { userId, roleIds: scopes.map(s => s.role_id) };
-        } catch (error) {
-          console.error(`Error loading role scopes for user ${userId}:`, error);
-          return { userId, roleIds: [] };
-        }
-      });
-      
-      const results = await Promise.all(roleScopesPromises);
+      const response = await getBatchUserRoleScopes(userIds);
+      const grouped = response?.data?.data || response?.data || {};
       const roleScopesMap = {};
-      results.forEach(({ userId, roleIds }) => {
-        roleScopesMap[userId] = roleIds;
-      });
+      for (const [userId, scopes] of Object.entries(grouped)) {
+        roleScopesMap[userId] = (scopes || []).map(s => s.role_id);
+      }
       setUserRoleScopes(roleScopesMap);
     } catch (error) {
       console.error("Error loading user role scopes:", error);
