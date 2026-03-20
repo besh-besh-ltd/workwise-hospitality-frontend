@@ -84,6 +84,7 @@ const BuyerTechnicalEvaluation = () => {
   } = useModulePermissions({
     moduleKey: "te",
     hotelIds: hotelIds,
+    departmentId: currentRfq?.department_id || null,
     enabled: !!currentRfq,
   });
 

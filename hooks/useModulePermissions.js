@@ -11,7 +11,7 @@ import { getBulkPermissions } from "@/services/rbac";
  * @param {boolean} options.enabled - Whether to fetch permissions (default: true)
  * @returns {Object} Permission state and helper functions
  */
-export const useModulePermissions = ({ moduleKey, hotelIds = [], enabled = true }) => {
+export const useModulePermissions = ({ moduleKey, hotelIds = [], departmentId = null, enabled = true }) => {
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,7 +34,7 @@ export const useModulePermissions = ({ moduleKey, hotelIds = [], enabled = true 
     setError(null);
 
     try {
-      const response = await getBulkPermissions(moduleKey, hotelIds);
+      const response = await getBulkPermissions(moduleKey, hotelIds, departmentId);
       const responseData = response?.data?.data || response?.data || {};
 
       // Extract permissions from the new response structure
@@ -49,7 +49,7 @@ export const useModulePermissions = ({ moduleKey, hotelIds = [], enabled = true 
     } finally {
       setLoading(false);
     }
-  }, [moduleKey, hotelIds, enabled]);
+  }, [moduleKey, hotelIds, departmentId, enabled]);
 
   // Fetch permissions when dependencies change
   useEffect(() => {

@@ -12,6 +12,13 @@ const StepConfigureStages = ({
 }) => {
   const [expandedStage, setExpandedStage] = useState(0);
 
+  const handleDeptScopeToggle = (stageIndex, value) => {
+    const newStages = stages.map((s, i) =>
+      i === stageIndex ? { ...s, is_department_scoped: value } : s
+    );
+    onStagesChange(newStages);
+  };
+
   const handleAddStep = (stageIndex) => {
     const newStages = stages.map((s, i) => {
       if (i !== stageIndex) return s;
@@ -206,6 +213,21 @@ const StepConfigureStages = ({
                       <span className="text-muted" style={{ fontSize: "12px" }}>
                         {steps.length} level{steps.length !== 1 ? "s" : ""}
                       </span>
+                      {isExpanded && (
+                        <label
+                          className="d-flex align-items-center gap-1 ms-3 mb-0"
+                          style={{ fontSize: "11px", color: "#6b7280", cursor: "pointer", whiteSpace: "nowrap" }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={stage.is_department_scoped !== false}
+                            onChange={(e) => handleDeptScopeToggle(stageIndex, e.target.checked)}
+                            style={{ accentColor: BRAND_TEAL }}
+                          />
+                          Dept scoped
+                        </label>
+                      )}
                     </div>
                     {isExpanded && (
                       <button

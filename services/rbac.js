@@ -92,13 +92,15 @@ export const getMyPermissions = () =>
     }
   });
 
-export const getBulkPermissions = (moduleKey, hotelIds = []) =>
+export const getBulkPermissions = (moduleKey, hotelIds = [], departmentId = null) =>
   new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.post(`/rbac/me/permissions/bulk`, {
+      const payload = {
         key: moduleKey,
         hotel_ids: hotelIds
-      });
+      };
+      if (departmentId) payload.department_id = departmentId;
+      const response = await axiosInstance.post(`/rbac/me/permissions/bulk`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
