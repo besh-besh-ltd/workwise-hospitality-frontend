@@ -10,12 +10,15 @@ import { BRAND_TEAL, getStagesForProcessType, getStageEntityOrder } from "../con
 
 const TOTAL_STEPS = 3;
 
+const DEPT_SCOPED_ENTITY_TYPES = ['RFQ', 'TENDER', 'TECHNICAL'];
+
 const buildStagesFromPolicies = (policies, processType) => {
   const order = getStageEntityOrder(processType);
   return order.map((entity_type) => {
     const policy = (policies || []).find((p) => p.entity_type === entity_type);
     return {
       entity_type,
+      is_department_scoped: policy?.is_department_scoped ?? DEPT_SCOPED_ENTITY_TYPES.includes(entity_type),
       steps: (policy?.steps || []).map((s, i) => ({
         ...s,
         step_order: i + 1,
@@ -43,7 +46,11 @@ const WorkflowWizard = ({
     if (isEditing && editingPolicies?.length && editingProcess?.process_type != null) {
       return buildStagesFromPolicies(editingPolicies, editingProcess.process_type);
     }
-    return getStagesForProcessType("RFQ").map((s) => ({ entity_type: s.value, steps: [] }));
+    return getStagesForProcessType("RFQ").map((s) => ({
+      entity_type: s.value,
+      is_department_scoped: DEPT_SCOPED_ENTITY_TYPES.includes(s.value),
+      steps: [],
+    }));
   }, [isEditing, editingPolicies, editingProcess?.process_type]);
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -79,6 +86,7 @@ const WorkflowWizard = ({
         ...prev,
         stages: getStagesForProcessType(process?.process_type).map((s) => ({
           entity_type: s.value,
+          is_department_scoped: DEPT_SCOPED_ENTITY_TYPES.includes(s.value),
           steps: [],
         })),
       }));
@@ -132,6 +140,7 @@ const WorkflowWizard = ({
           ...prev,
           stages: getStagesForProcessType(process?.process_type).map((s) => ({
             entity_type: s.value,
+            is_department_scoped: DEPT_SCOPED_ENTITY_TYPES.includes(s.value),
             steps: [],
           })),
         }));
@@ -176,6 +185,7 @@ const WorkflowWizard = ({
         const payload = {
           ...base,
           entity_type,
+          is_department_scoped: stage.is_department_scoped,
           steps,
         };
 
