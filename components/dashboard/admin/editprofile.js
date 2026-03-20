@@ -123,8 +123,8 @@ const EditProfile = () => {
 
       setLocationOptions({
         countries: countriesRes.data,
-        states: statesRes.data,
-        cities: citiesRes.data,
+        states: statesRes?.data || [],
+        cities: citiesRes?.data || [],
       });
 
       // splica mobile no and code

@@ -29,7 +29,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
 import { extractfileName, handleFileUpload, formatISOToDateTimeLocal, getDataWithLoading, getEntityLabel } from "@/utils/sharedFunctions";
 import { Accordion } from "react-bootstrap";
-import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
+import { getCountryCodes } from "@/services/cms";
 import axiosInstance from "@/lib/axios";
 import ViewVendorModal from "../editRFQ/ViewVendorModal";
 import { subscriptionTypes, vendorConditions } from "../../vendor/search";
@@ -462,41 +462,6 @@ const CreateRFQ = () => {
     }
   };
 
-  const getAllCountries = async () => {
-    try {
-      const approvedBy = await getDataWithLoading(getCountries, setLoading);
-      setInitialFilterOptions(prev => ({
-        ...prev,
-        countries: approvedBy.data,
-      }))
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const getAllStates = async () => {
-    try {
-      const approvedBy = await getDataWithLoading(getStates, setLoading);
-      setInitialFilterOptions(prev => ({
-        ...prev,
-        states: approvedBy.data,
-      }))
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const getAllCities = async () => {
-    try {
-      const approvedBy = await getDataWithLoading(getCities, setLoading);
-      setInitialFilterOptions(prev => ({
-        ...prev,
-        cities: approvedBy.data,
-      }))
-    } catch (error) {
-      throw error;
-    }
-  };
 
   // Profile details now come from Redux selector (userProfile)
 
@@ -2205,9 +2170,6 @@ useEffect(() => {
   useEffect(() => {
     try {
       getVendorApproveList();
-      getAllCountries();
-      getAllStates();
-      getAllCities();
       getAllProjects();
       fetchCountryCodes();
       fetchHospitalityContexts();
