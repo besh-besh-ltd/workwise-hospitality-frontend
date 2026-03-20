@@ -9,7 +9,6 @@ import {
   createHOBusinessUnit,
   updateHospitalityHotel,
   getHospitalityCompanies,
-  getHospitalityHotels,
   getHotelDocuments,
   getCompanyUserMappings,
   deleteUserMapping,
@@ -91,7 +90,7 @@ const HospitalityManager = () => {
   const loadCompanies = async () => {
     try {
       setIsLoadingCompanies(true);
-      const response = await getHospitalityCompanies();
+      const response = await getHospitalityCompanies({ include: 'hotels' });
       const list = response?.data ?? response ?? [];
       setCompanies(list);
       if (list.length) {
@@ -110,47 +109,39 @@ const HospitalityManager = () => {
     }
   };
 
-  const loadHotels = async (companyId) => {
-    if (!companyId) { setHotels([]); return; }
-    try {
-      setIsLoadingHotels(true);
-      const response = await getHospitalityHotels(companyId);
-      setHotels(response?.data ?? response ?? []);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to load business units");
-    } finally {
-      setIsLoadingHotels(false);
-    }
-  };
-
-  const loadCompanyUserMappings = async () => {
-    if (!selectedCompanyId) { setCompanyUserMappings([]); return; }
+  const loadAllUserMappings = async () => {
+    if (!selectedCompanyId) { setCompanyUserMappings([]); setHotelUserMappings({}); return; }
     try {
       setIsLoadingCompanyMappingList(true);
-      const response = await getCompanyUserMappings(selectedCompanyId, {});
+      const response = await getCompanyUserMappings(selectedCompanyId, { includeAll: true });
       const data = response?.data?.data || response?.data || [];
-      setCompanyUserMappings(dedupeHospitalityMappings(data));
+
+      // Split into company-level and hotel-level mappings
+      const companyLevel = [];
+      const hotelLevel = {};
+      for (const item of data) {
+        if (item.mapping_type === 0) {
+          companyLevel.push(item);
+        } else if (item.mapping_type === 1 && item.hospitality_hotel_id) {
+          if (!hotelLevel[item.hospitality_hotel_id]) {
+            hotelLevel[item.hospitality_hotel_id] = [];
+          }
+          hotelLevel[item.hospitality_hotel_id].push(item);
+        }
+      }
+      setCompanyUserMappings(dedupeHospitalityMappings(companyLevel));
+      // Dedupe each hotel group
+      const dedupedHotelLevel = {};
+      for (const [hId, mappings] of Object.entries(hotelLevel)) {
+        dedupedHotelLevel[hId] = dedupeHospitalityMappings(mappings);
+      }
+      setHotelUserMappings(dedupedHotelLevel);
     } catch (error) {
       console.error(error);
       setCompanyUserMappings([]);
+      setHotelUserMappings({});
     } finally {
       setIsLoadingCompanyMappingList(false);
-    }
-  };
-
-  const loadHotelUserMappings = async (hotelId) => {
-    if (!selectedCompanyId || !hotelId) return;
-    try {
-      const response = await getCompanyUserMappings(selectedCompanyId, { mappingType: 1, hotelId });
-      const data = response?.data?.data || response?.data || [];
-      setHotelUserMappings((prev) => ({
-        ...prev,
-        [hotelId]: dedupeHospitalityMappings(data),
-      }));
-    } catch (error) {
-      console.error(error);
-      setHotelUserMappings((prev) => ({ ...prev, [hotelId]: [] }));
     }
   };
 
@@ -171,17 +162,15 @@ const HospitalityManager = () => {
 
   useEffect(() => {
     if (selectedCompanyId) {
-      loadHotels(selectedCompanyId);
-      loadCompanyUserMappings();
-      setHotelUserMappings({});
+      // Derive hotels from the companies list (loaded with include=hotels)
+      const selectedCompany = companies.find((c) => c.id === selectedCompanyId);
+      setIsLoadingHotels(true);
+      setHotels(selectedCompany?.hotels || []);
+      setIsLoadingHotels(false);
+      loadAllUserMappings();
       setUserMappingFilter("all");
     }
-  }, [selectedCompanyId]);
-
-  useEffect(() => {
-    if (!selectedCompanyId || !hotels.length) return;
-    hotels.forEach((hotel) => loadHotelUserMappings(hotel.id));
-  }, [selectedCompanyId, hotels]);
+  }, [selectedCompanyId, companies]);
 
   // --- Handlers ---
   const handleCompanySubmit = async (form, documents, resetForm) => {
@@ -290,7 +279,7 @@ const HospitalityManager = () => {
       setEditingHotel(null);
       setShowHotelModal(false);
       setHotelDocuments({ gst: null, pan: null, cancelled_cheque: null, msme: null });
-      loadHotels(selectedCompanyId);
+      loadCompanies();
     } catch (error) {
       console.error(error);
       toast.error(error?.message?.response?.data?.message || `Failed to ${editingHotel ? "update" : "add"} business unit`);
@@ -335,14 +324,7 @@ const HospitalityManager = () => {
         hotel_id: mapping.mapping_type === 1 ? mapping.hospitality_hotel_id || mapping.hotel_id : null,
       });
       toast.success("Mapping removed");
-      await loadCompanyUserMappings();
-      if (mapping.mapping_type === 1 && mapping.hospitality_hotel_id) {
-        await loadHotelUserMappings(mapping.hospitality_hotel_id);
-      } else {
-        Object.keys(hotelUserMappings).forEach((hotelId) => {
-          loadHotelUserMappings(parseInt(hotelId, 10));
-        });
-      }
+      await loadAllUserMappings();
     } catch (error) {
       console.error(error);
       toast.error("Failed to remove mapping");
@@ -366,7 +348,7 @@ const HospitalityManager = () => {
             : company
         )
       );
-      loadHotels(selectedCompanyId);
+      loadCompanies();
     } catch (error) {
       console.error(error);
       toast.error(error?.message?.response?.data?.message || "Failed to create HO business unit");
@@ -560,7 +542,7 @@ const HospitalityManager = () => {
         hotels={hotels}
         company={selectedCompany}
         selectedCompanyId={selectedCompanyId}
-        onSuccess={() => loadHotels(selectedCompanyId)}
+        onSuccess={() => loadCompanies()}
       />
     </>
   );

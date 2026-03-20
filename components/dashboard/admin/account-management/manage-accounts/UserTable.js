@@ -7,9 +7,6 @@ const UserTable = ({
   users,
   isLoading,
   isHospitality,
-  userMappings,
-  userRoleScopes,
-  userDepartments,
   onEdit,
 }) => {
   if (isLoading) {
@@ -61,9 +58,9 @@ const UserTable = ({
               key={account.id}
               account={account}
               isHospitality={isHospitality}
-              mappings={userMappings[account.id] || []}
-              roleScopes={userRoleScopes[account.id] || []}
-              departments={userDepartments[account.id] || []}
+              mappings={account.mappings || []}
+              roleScopes={account.role_scopes || []}
+              departments={account.departments || []}
               onEdit={onEdit}
             />
           ))}
