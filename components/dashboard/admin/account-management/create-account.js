@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import { Formik, Form } from "formik";
 import { toast } from "react-toastify";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { HiArrowLeft } from "react-icons/hi";
-import { createBuyerCompanyUser, getProfile } from "@/services/Auth";
+import { createBuyerCompanyUser } from "@/services/Auth";
 import { createAccountSchema } from "@/utils/schema";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import { getDepartments } from "@/services/rbac";
@@ -44,37 +45,36 @@ const initialValues = {
 
 const CreateAccountPage = () => {
   const router = useRouter();
+  const userProfile = useSelector((state) => state.userProfile);
   const [loading, setLoading] = useState(false);
   const [isHospitality, setIsHospitality] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [hospitalityCompanies, setHospitalityCompanies] = useState([]);
 
   useEffect(() => {
+    const hospitalityEnabled =
+      userProfile?.is_hospitality === 1 || userProfile?.is_hospitality === "1";
+    setIsHospitality(!!hospitalityEnabled);
+
+    if (hospitalityEnabled) {
+      getHospitalityCompanies()
+        .then((companiesRes) => {
+          const companies = (companiesRes?.data ?? companiesRes ?? []).map((c) => ({
+            value: c.id,
+            label: c.name || c.company_name,
+          }));
+          setHospitalityCompanies(companies);
+        })
+        .catch((error) => {
+          console.error("Error fetching hospitality companies:", error);
+        });
+    }
+  }, [userProfile]);
+
+  useEffect(() => {
     const fetchData = async () => {
       try {
-        const [profileRes, departmentsRes] = await Promise.all([
-          getProfile(),
-          getDepartments(),
-        ]);
-
-        const profile = profileRes?.data;
-        const hospitalityEnabled =
-          profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
-        setIsHospitality(hospitalityEnabled);
-
-        if (hospitalityEnabled) {
-          try {
-            const companiesRes = await getHospitalityCompanies();
-            const companies = (companiesRes?.data ?? companiesRes ?? []).map((c) => ({
-              value: c.id,
-              label: c.name || c.company_name,
-            }));
-            setHospitalityCompanies(companies);
-          } catch (error) {
-            console.error("Error fetching hospitality companies:", error);
-          }
-        }
-
+        const departmentsRes = await getDepartments();
         const depts = (departmentsRes?.data?.data || departmentsRes?.data || []).map((d) => ({
           value: d.id,
           label: d.title,

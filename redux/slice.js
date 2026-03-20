@@ -7,6 +7,7 @@ const getTodayDate = () => {
 };
 
 const initialState = {
+  userProfile: null,
   storeLoading: false,
   allTerms: [],
   rfq_id: -1,
@@ -62,6 +63,14 @@ export const rfqProductsSlice = createSlice({
 
     setStoreLoading: (state, action) => {
       state.storeLoading = action.payload;
+    },
+
+    setUserProfile: (state, action) => {
+      state.userProfile = action.payload;
+    },
+
+    clearUserProfile: (state) => {
+      state.userProfile = null;
     },
 
     clearState: (state, action) => {
@@ -330,6 +339,8 @@ export const rfqProductsSlice = createSlice({
 });
 
 export const {
+  setUserProfile,
+  clearUserProfile,
   intializeRfq,
   setStoreLoading,
   clearState,

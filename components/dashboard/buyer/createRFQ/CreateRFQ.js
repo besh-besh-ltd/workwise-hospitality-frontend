@@ -6,7 +6,6 @@ import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDra
 import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
-import { getProfile } from "@/services/Auth";
 import Loader from "@/components/shared/Loader";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -111,7 +110,7 @@ const CreateRFQ = () => {
   const [loading, setLoading] = useState(false);
   const [mainLoading, setMainLoading] = useState(false);
 
-  const [userProfile, setuserProfile] = useState(null);
+  const userProfile = useSelector((state) => state.userProfile);
   const [vendorApprovedList, setVendorApprovedList] = useState([]);
   const [projects, setProjects] = useState([]);
   const [rfqProducts, setRfqProducts] = useState([]);
@@ -499,13 +498,7 @@ const CreateRFQ = () => {
     }
   };
 
-  const getProfileDetails = () => {
-    setLoading(true);
-    getProfile().then((res) => {
-      setLoading(false);
-      setuserProfile(res.data);
-    });
-  };
+  // Profile details now come from Redux selector (userProfile)
 
   const getTermsData = () => {
     getTerms()
@@ -2211,7 +2204,6 @@ useEffect(() => {
 
   useEffect(() => {
     try {
-      getProfileDetails();
       getVendorApproveList();
       getAllCountries();
       getAllStates();

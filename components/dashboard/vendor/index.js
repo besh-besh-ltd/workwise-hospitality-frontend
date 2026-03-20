@@ -1,5 +1,6 @@
 import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
+import { useSelector } from "react-redux";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser } from "@fortawesome/free-solid-svg-icons";
@@ -7,8 +8,7 @@ import { Chart } from "chart.js";
 import Head from "next/head";
 import { getVendorDashboardData } from "@/services/cms";
 import {
-  getDashboardData,
-  getProfile
+  getDashboardData
 } from "@/services/Auth";
 import {
   hospitalitySubscriptionPayment,
@@ -23,6 +23,7 @@ import { toast } from "react-toastify";
 
 const Vendor = () => {
   const canvasRef = useRef();
+  const reduxUserProfile = useSelector((state) => state.userProfile);
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setloading] = useState(false);
   const [hospitalityPaymentTriggered, setHospitalityPaymentTriggered] =
@@ -31,30 +32,29 @@ const Vendor = () => {
 
 
   useEffect(() => {
+    if (!reduxUserProfile) return;
+
     // Check if hospitality vendor has paid
     const checkHospitalityPayment = async () => {
       try {
-        const profileResponse = await getProfile();
-        const userProfile = profileResponse.data;
-        
         // Check if user is hospitality vendor
-        if (userProfile.is_hospitality === 1 || userProfile.is_hospitality === '1') {
+        if (reduxUserProfile.is_hospitality === 1 || reduxUserProfile.is_hospitality === '1') {
           // Check if user has valid paid subscription
-          const hasValidSubscription = userProfile.has_valid_hospitality_subscription === true;
-          setHasValidSubscription(hasValidSubscription);
-          
+          const validSub = reduxUserProfile.has_valid_hospitality_subscription === true;
+          setHasValidSubscription(validSub);
+
           // If no valid subscription, block access and trigger payment (only once)
-          if (!hasValidSubscription && !hospitalityPaymentTriggered) {
-            await triggerHospitalityPayment(userProfile);
+          if (!validSub && !hospitalityPaymentTriggered) {
+            await triggerHospitalityPayment(reduxUserProfile);
             return;
           }
-          
+
           // If payment was triggered but still no valid subscription, don't reload
-          if (!hasValidSubscription) {
+          if (!validSub) {
             return;
           }
         }
-        
+
         // Only load dashboard data if vendor has valid subscription or is not hospitality vendor
         setloading(true);
         getDashboardData({
@@ -79,7 +79,7 @@ const Vendor = () => {
     };
 
     checkHospitalityPayment();
-  }, []);
+  }, [reduxUserProfile]);
 
   const triggerHospitalityPayment = async (profile) => {
     try {

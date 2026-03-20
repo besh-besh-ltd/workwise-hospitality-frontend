@@ -1,10 +1,12 @@
 "use client";
-import { getProfile, getUserDetails } from "@/services/Auth";
+import { getUserDetails } from "@/services/Auth";
 import storageInstance from "@/utils/storageInstance";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { clearUserProfile } from "@/redux/slice";
 import { toast } from "react-toastify";
 import { BsPerson } from "react-icons/bs";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
@@ -25,6 +27,7 @@ import posthog from 'posthog-js';
 
 const Header = () => {
   const router = useRouter();
+  const dispatch = useDispatch();
   const { pathname } = router;
   const { user_registered, loggedin, auth } = router.query;
 
@@ -52,6 +55,7 @@ const Header = () => {
   );
   const [userBusinessUnits, setUserBusinessUnits] = useState([]);
   const [hiddenNavItems, setHiddenNavItems] = useState([]);
+  const userProfile = useSelector((state) => state.userProfile);
 
   // ── Derived state ─────────────────────────────
   const isDashboardPage = useMemo(() => {
@@ -113,6 +117,7 @@ const Header = () => {
   const handleLogout = (e) => {
     e.preventDefault();
     posthog.reset();
+    dispatch(clearUserProfile());
     storageInstance.removeStorege("token");
     storageInstance.removeStorege("current-user-type");
     storageInstance.removeStorege("current-user-name");
@@ -207,48 +212,38 @@ const Header = () => {
   // Profile + hospitality flag
   useEffect(() => {
     let isMounted = true;
-    const fetchHospitalityFlag = async () => {
-      try {
-        const response = await getProfile();
-        if (!isMounted) return;
-        const hospitalityEnabled = response?.data?.is_hospitality == 1;
-        setIsHospitalityCompany(!!hospitalityEnabled);
-        if (!hospitalityEnabled) {
-          setHospitalityContexts([]);
-          setStoredHospitalityContext(null);
-        }
-        if (hospitalityEnabled) {
-          try {
-            const mappingsRes = await getUserMappings();
-            if (isMounted) {
-              const allMappings = mappingsRes?.data || [];
-              const seen = new Set();
-              const uniqueMappings = allMappings
-                .filter((m) => m.hospitality_hotel_id != null)
-                .filter((m) => {
-                  if (seen.has(m.hospitality_hotel_id)) return false;
-                  seen.add(m.hospitality_hotel_id);
-                  return true;
-                });
-              setUserBusinessUnits(uniqueMappings);
-            }
-          } catch {
-            if (isMounted) setUserBusinessUnits([]);
-          }
-        }
-      } catch {
-        if (isMounted) {
-          setIsHospitalityCompany(false);
-          setHospitalityContexts([]);
-          setStoredHospitalityContext(null);
-          setUserBusinessUnits([]);
-        }
+    const hospitalityEnabled = userProfile?.is_hospitality == 1;
+    if (loggedinUser) {
+      setIsHospitalityCompany(!!hospitalityEnabled);
+      if (!hospitalityEnabled) {
+        setHospitalityContexts([]);
+        setStoredHospitalityContext(null);
+        setUserBusinessUnits([]);
       }
-    };
-    if (loggedinUser) fetchHospitalityFlag();
-    else setIsHospitalityCompany(false);
+      if (hospitalityEnabled) {
+        getUserMappings()
+          .then((mappingsRes) => {
+            if (!isMounted) return;
+            const allMappings = mappingsRes?.data || [];
+            const seen = new Set();
+            const uniqueMappings = allMappings
+              .filter((m) => m.hospitality_hotel_id != null)
+              .filter((m) => {
+                if (seen.has(m.hospitality_hotel_id)) return false;
+                seen.add(m.hospitality_hotel_id);
+                return true;
+              });
+            setUserBusinessUnits(uniqueMappings);
+          })
+          .catch(() => {
+            if (isMounted) setUserBusinessUnits([]);
+          });
+      }
+    } else {
+      setIsHospitalityCompany(false);
+    }
     return () => { isMounted = false; };
-  }, [loggedinUser, currentUserType]);
+  }, [loggedinUser, currentUserType, userProfile]);
 
   // Hospitality context subscription
   useEffect(() => {

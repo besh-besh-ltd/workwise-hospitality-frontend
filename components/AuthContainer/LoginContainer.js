@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/router';
-import { LoginService, SWSubscribe, handleSocialLogin } from "@/services/Auth";
+import { LoginService, SWSubscribe, handleSocialLogin, getProfile } from "@/services/Auth";
 import { hospitalitySubscriptionPayment, loadScript, testRazorPayEndpoint } from "@/services/subscription";
 import { toast } from 'react-toastify';
 import { useGoogleLogin } from "@react-oauth/google";
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { setUserProfile } from '@/redux/slice';
 import AuthModal from '../modal/AuthModal';
 import LoginWithOtherDeviceModal from '../modal/LoginWithOtherDeviceModal';
 import storageInstance from '@/utils/storageInstance';
@@ -35,6 +36,7 @@ const LoginContainer = (props) => {
         retryDataRef.current = null;
     };
 
+    const dispatch = useDispatch();
     const swSubscription = useSelector((data) => data.swSubscription);
 
     const initiateHospitalityPayment = async (hospitalityUser) => {
@@ -162,6 +164,7 @@ const LoginContainer = (props) => {
                     email: userDetail.email,
                     user_type: userType,
                 });
+                getProfile().then(res => dispatch(setUserProfile(res.data))).catch(() => {});
 
                 if (redirect && redirect != "") {
                     router.push(window.atob(redirect));
@@ -255,6 +258,7 @@ const LoginContainer = (props) => {
                         email: response?.profile?.email,
                         user_type: userType,
                     });
+                    getProfile().then(res => dispatch(setUserProfile(res.data))).catch(() => {});
                     if (userType == "buyer") {
                         router.push(`/vendor/all?loggedin=true`);
                     } else if (userType == "admin") {

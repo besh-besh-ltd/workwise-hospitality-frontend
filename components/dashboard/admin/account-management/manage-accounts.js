@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useSelector } from "react-redux";
 import Pagination from "@/components/shared/Pagination";
 import CustomRolePermissionsModal from "@/components/modal/CustomRolePermissionsModal";
-import { getCompanyUsers, updateUserAccount, getProfile } from "@/services/Auth";
+import { getCompanyUsers, updateUserAccount } from "@/services/Auth";
 import {
   getHospitalityCompanies,
   getHospitalityHotels,
@@ -39,6 +40,7 @@ const dedupeHospitalityMappings = (list = []) => {
 };
 
 const ManageAccountsPage = () => {
+  const userProfile = useSelector((state) => state.userProfile);
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [filteredAccounts, setFilteredAccounts] = useState([]);
@@ -140,18 +142,12 @@ const ManageAccountsPage = () => {
     }
   };
 
-  const fetchProfile = async () => {
-    try {
-      const response = await getProfile();
-      const profile = response?.data;
-      const hospitalityEnabled =
-        profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
-      setIsHospitalityCompany(hospitalityEnabled);
-      if (hospitalityEnabled) await loadHospitalityCompanies();
-    } catch {
-      setIsHospitalityCompany(false);
-    }
-  };
+  useEffect(() => {
+    const hospitalityEnabled =
+      userProfile?.is_hospitality === 1 || userProfile?.is_hospitality === "1";
+    setIsHospitalityCompany(!!hospitalityEnabled);
+    if (hospitalityEnabled) loadHospitalityCompanies();
+  }, [userProfile]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -181,7 +177,6 @@ const ManageAccountsPage = () => {
       }
     }
     fetchUsers();
-    fetchProfile();
   }, []);
 
   useEffect(() => {

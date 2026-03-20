@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useDispatch } from "react-redux";
+import { setUserProfile } from "@/redux/slice";
 import Head from "next/head";
 import { Formik, Form } from "formik";
 import { toast } from "react-toastify";
@@ -68,6 +70,7 @@ const initializeLocation = {
 };
 
 const EditProfile = () => {
+  const dispatch = useDispatch();
   const [userDetails, setUserDetails] = useState(initialUserDetails);
   const [companyDetails, setCompanyDetails] = useState(initializeCompanyDetails);
   const [locationOptions, setLocationOptions] = useState(initializeLocation);
@@ -111,6 +114,7 @@ const EditProfile = () => {
       ]);
 
       const data = profileRes.data;
+      dispatch(setUserProfile(data));
 
       const [statesRes, citiesRes] = await Promise.all([
         getStates(data?.country),
