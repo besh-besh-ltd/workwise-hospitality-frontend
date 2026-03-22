@@ -49,7 +49,7 @@ jobs:
       - name: Parse environment variables from ENV_PRODUCTION
         id: parse-env
         run: |
-          echo "${{ secrets.ENV_PRODUCTION }}" > /tmp/.env.production
+          echo "${{ secrets.FRONTEND_ENV_PRODUCTION }}" > /tmp/.env.production
 
           while IFS='=' read -r key value; do
             [[ -z "$key" || "$key" =~ ^# ]] && continue
@@ -99,9 +99,9 @@ jobs:
         env:
           IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:${{ env.DEPLOY_SHA }}
         with:
-          host: ${{ secrets.PRODUCTION_SSH_HOST }}
+          host: ${{ secrets.WORKWISE_SSH_HOST }}
           username: ${{ secrets.WORKWISE_SSH_USER }}
-          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          key: ${{ secrets.WORKWISE_SSH_KEY }}
           port: 22
           script_stop: true
           command_timeout: 10m
