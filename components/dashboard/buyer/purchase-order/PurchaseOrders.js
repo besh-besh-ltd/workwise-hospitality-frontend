@@ -306,12 +306,12 @@ const PurchaseOrders = () => {
                   {
                     key: 'action_required',
                     label: 'Action Required',
-                    filter: (item) => item.approval_required === true,
+                    filter: (item) => !item.po_completed,
                   },
                   {
                     key: 'action_completed',
                     label: 'Completed',
-                    filter: (item) => !item.approval_required,
+                    filter: (item) => item.po_completed === true,
                   },
                 ]}
                 defaultTab="action_required"
@@ -325,10 +325,12 @@ const PurchaseOrders = () => {
                 getItemTags={(item, isSelected) => {
                   if (isSelected) return [];
                   const tags = [];
-                  if (item.approval_required) {
+                  if (item.po_completed) {
+                    tags.push({ label: 'Completed', variant: 'success' });
+                  } else if (item.approval_required) {
                     tags.push({ label: 'Approval Pending', variant: 'warning' });
                   } else {
-                    tags.push({ label: 'Processed', variant: 'success' });
+                    tags.push({ label: 'In Progress', variant: 'info' });
                   }
                   return tags;
                 }}

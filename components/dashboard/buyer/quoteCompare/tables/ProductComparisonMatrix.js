@@ -487,17 +487,19 @@ const ProductComparisonMatrix = ({
       ) : null}
 
       {quoteApprovalStatus?.approval_instance?.status ? (
-        <ApprovalWorkflowSection
-          entityType="NEGOTIATION_QUOTE"
-          entityId={proditem.id}
-          entityLabel={`Quote Approval - ${proditem?.product_details?.[0]?.product_name || "Product"}`}
-          hospitalityCompanyId={hospitalityCompanyId}
-          hotelId={hotelId}
-          departmentId={departmentId}
-          onCustomApprove={handleCustomQuoteApprove}
-          onCustomReject={handleCustomQuoteReject}
-          onActionComplete={handleApprovalActionComplete}
-        />
+        <div className="mb-3">
+          <ApprovalWorkflowSection
+            entityType="NEGOTIATION_QUOTE"
+            entityId={proditem.id}
+            entityLabel={`Quote Approval - ${proditem?.product_details?.[0]?.product_name || "Product"}`}
+            hospitalityCompanyId={hospitalityCompanyId}
+            hotelId={hotelId}
+            departmentId={departmentId}
+            onCustomApprove={handleCustomQuoteApprove}
+            onCustomReject={handleCustomQuoteReject}
+            onActionComplete={handleApprovalActionComplete}
+          />
+        </div>
       ) : null}
 
       <ComparisonMatrixShell className={model.columns.length <= 1 ? styles.matrixSurfaceCompact : ""}>

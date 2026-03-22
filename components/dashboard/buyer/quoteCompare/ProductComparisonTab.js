@@ -2,7 +2,6 @@ import React from "react";
 import { Button } from "react-bootstrap";
 import ReadMore from "@/components/shared/ReadMore";
 import LPRModal from "@/components/shared/LPRModal";
-import FullLoader from "@/components/shared/FullLoader";
 import ProductNegotiationBadge from "@/components/dashboard/vendor/ProductNegotiationBadge";
 import ProductComparisonMatrix from "@/components/dashboard/buyer/quoteCompare/tables/ProductComparisonMatrix";
 import {
@@ -81,11 +80,7 @@ const ProductComparisonTab = ({
   const negotiationMap = productNegotiationData || comparisonContext?.maps?.productNegotiationData || {};
 
   if (quotesLoading) {
-    return (
-      <div className="quote-sec-table-sub hasFullLoader">
-        <FullLoader />
-      </div>
-    );
+    return null; // Handled by the parent's informative loader
   }
 
   if (!quotes || quotes.length === 0) {
