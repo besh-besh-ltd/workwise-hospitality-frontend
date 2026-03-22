@@ -3,20 +3,17 @@ import Utils from '@/components/shared/ChartConfig/utils';
 import { faArrowRight, faBell, faCartPlus, faCheckToSlot, faRectangleXmark, faStopwatch } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Link from 'next/link';
-import AsyncSelect from 'react-select/async';
 import Select from 'react-select';
 import React, { useEffect, useState } from 'react'
 import { toast } from 'react-toastify';
 import FullLoader from '@/components/shared/FullLoader';
 import { getRfqChartData, sendReminder } from '@/services/rfq';
 import { formatDate, formatDisplayDate } from "@/utils/sharedFunctions";
-import { getProjectList } from '@/services/project';
 
 const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
     const [rfqData, setRfqData] = useState(null);
     const [chartData, setChartData] = useState(null);
     const [chartTitle, setChartTitle] = useState('');
-    const [selectedProject, setSelectedProject] = useState(null);
     const [filter, setFilter] = useState({ label: 'Last 7 days', value: 'past7days' });
     const [chartType, setChartType] = useState({ label: 'Cubic Line Chart', value: 'cubic' });
     const [loading, setLoading] = useState(false);
@@ -27,24 +24,13 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
         try {
             const res = await getRfqChartData(
                 filter.value,
-                selectedProject ? selectedProject.value : null
+                null
             );
             generateChartData(res.data);
         } catch (error) {
             toast.error(error.message);
         } finally {
             setLoading(false);
-        }
-    }
-
-    const getAllProjects = async () => {
-        try {
-            const res = await getProjectList();
-            return res.data.map((item) => (
-                { label: item.name, value: item.id }
-            ));
-        } catch (error) {
-            toast.error(error.message)
         }
     }
 
@@ -56,9 +42,6 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                 break;
             case 'chart_type':
                 setChartType(selectedOption);
-                break;
-            case 'project_select':
-                setSelectedProject(selectedOption);
                 break;
             default:
                 break;
@@ -168,7 +151,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
 
     useEffect(() => {
         getChartData();
-    }, [filter, selectedProject])
+    }, [filter])
 
     useEffect(() => {
         if (chartData) {
@@ -209,25 +192,10 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                         <div className="d-flex justify-content-between align-items-start">
                             <div>
                                 <h2 className="fs-4 fw-medium mb-0">Tender / RFQ Overview</h2>
-                                {selectedProject && <p className="text-sm fw-semibold mb-0" >{selectedProject.label}</p>}
                                 <p className="text-sm fw-medium" >{chartTitle.split(/from |for the |for /)[1]}</p>
                             </div>
 
                             <div className="col-md-7 d-flex justify-content-between gap-2">
-                                <AsyncSelect
-                                    cacheOptions
-                                    loadOptions={getAllProjects}
-                                    defaultOptions
-                                    name="project_select"
-                                    className="text-sm w-100"
-                                    onChange={handleChange}
-                                    value={selectedProject}
-                                    placeholder="Choose Project"
-                                    isClearable
-                                    noOptionsMessage={() => "No Projects Found"}
-                                    id="choose_project-chart_filters-rfq_overview_page"
-                                />
-
                                 <Select
                                     options={[
                                         { label: 'Cubic Line Chart', value: 'cubic' },

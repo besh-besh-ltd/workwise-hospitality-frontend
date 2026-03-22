@@ -20,7 +20,7 @@ import {
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { getProjectList, getProjectTableDataById, getProjectsByHospitalityContext, getProjectHospitalityContext, getRfqFilters } from "@/services/project";
+import { getAllProjects as getAllProjectsService, getProjectTableDataById, getProjectsByHospitalityContext, getProjectHospitalityContext, getRfqFilters } from "@/services/project";
 import { getMyHospitalityContexts, getUserMappings } from "@/services/hospitality";
 import { getDepartments } from "@/services/rbac";
 import { getApprovalProcesses } from "@/services/process";
@@ -277,7 +277,7 @@ const CreateRFQ = () => {
 
   const getAllProjects = async () => {
     try {
-      const res = await getProjectList();
+      const res = await getAllProjectsService();
       const projectsData = res?.data?.data || res?.data || [];
       const formatted = projectsData.map((item) => ({
         label: item.name || `Project #${item.id}`,

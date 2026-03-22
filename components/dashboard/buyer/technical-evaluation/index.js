@@ -7,7 +7,7 @@ import { getProfile } from "@/services/Auth";
 import FullLoader from "@/components/shared/FullLoader";
 import ClauseProductItem from "./ClauseProductItem";
 import { toast } from "react-toastify";
-import { getProjectList } from '@/services/project';
+import { getAllProjects as getAllProjectsService } from '@/services/project';
 import { getUserMappings } from '@/services/hospitality';
 import Select from 'react-select';
 import { formatDisplayDate, formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
@@ -95,7 +95,7 @@ const BuyerTechnicalEvaluation = () => {
   const [permissionsVerified, setPermissionsVerified] = useState(false);
 
   const getAllProjects = () => {
-    getProjectList()
+    getAllProjectsService()
         .then((res) => {
             let d = [];
             (res.data.data || res.data || []).map((item) => {

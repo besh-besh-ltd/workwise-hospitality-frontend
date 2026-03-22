@@ -4,7 +4,6 @@ import Link from "next/link";
 import { getRfqs } from "@/services/rfq";
 import { getPoData, getPoDetails, handleMarkDispatched, handlePOApproval, handlePOInitialization, handleRaiseInvoice, updatePODetails } from "@/services/po";
 import { useRouter } from "next/router";
-import { getProjectList } from "@/services/project";
 import POListing from "./POListing";
 import PurchaseOrderDetails from "./PODetails";
 import { toast } from "react-toastify";
