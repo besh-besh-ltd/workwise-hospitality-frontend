@@ -8,7 +8,7 @@ const CompanySwitcher = ({ companies, selectedCompanyId, onSelect, onAddCompany,
     value: c.id,
     label: c.name,
     region: c.region,
-    hotelCount: c.total_hotels || 0,
+    hotelCount: c.hotels?.length || c.total_hotels || 0,
   }));
 
   const selectedOption = options.find((o) => o.value === selectedCompanyId) || null;

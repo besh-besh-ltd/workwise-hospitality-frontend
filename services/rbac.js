@@ -64,6 +64,18 @@ export const getUserDepartments = (userId) =>
     }
   });
 
+export const getBatchUserDepartments = (userIds) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/rbac/users/batch-departments?user_ids=${userIds.join(',')}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 export const getAllPermissions = () =>
   new Promise(async (resolve, reject) => {
     try {

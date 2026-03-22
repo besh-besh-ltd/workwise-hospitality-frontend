@@ -2,11 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { toast } from "react-toastify";
 import {
   getApprovalPolicies,
-  getApprovalPolicy,
   deleteApprovalPolicy,
   getDepartmentSubGraphPreview as fetchDepartmentPreview,
 } from "@/services/approval";
-import { getRoles, getUserRoleScopes, getUserDepartments, getDepartments } from "@/services/rbac";
+import { getRoles, getBatchUserRoleScopes, getBatchUserDepartments, getDepartments } from "@/services/rbac";
 import { getCompanyUserMappings, getHospitalityHotels } from "@/services/hospitality";
 
 const useApprovalData = (companyId, hotelId) => {
@@ -35,22 +34,10 @@ const useApprovalData = (companyId, hotelId) => {
       const response = await getApprovalPolicies({
         hospitality_company_id: companyId,
         hotel_id: hotelId,
+        include: 'steps',
       });
       const policiesList = response?.data?.data || response?.data || [];
-
-      const policiesWithSteps = await Promise.all(
-        policiesList.map(async (policy) => {
-          try {
-            const policyResponse = await getApprovalPolicy(policy.id);
-            return policyResponse?.data?.data || policyResponse?.data || policy;
-          } catch (error) {
-            console.error(`Error loading steps for policy ${policy.id}:`, error);
-            return { ...policy, steps: [] };
-          }
-        })
-      );
-
-      setPolicies(policiesWithSteps);
+      setPolicies(policiesList);
     } catch (error) {
       console.error("Error loading policies:", error);
     }
@@ -68,26 +55,19 @@ const useApprovalData = (companyId, hotelId) => {
 
   const loadUserRoleScopesMap = async (userIds) => {
     try {
-      const results = await Promise.all(
-        userIds.map(async (userId) => {
-          try {
-            const response = await getUserRoleScopes(userId);
-            const scopes = response?.data?.data || response?.data || [];
-            return { userId, scopes: scopes.map((s) => ({
-              role_id: s.role_id,
-              department_id: s.department_id ?? null,
-              company_id: s.company_id ?? null,
-              hotel_id: s.hotel_id ?? null,
-            })) };
-          } catch (error) {
-            return { userId, scopes: [] };
-          }
-        })
-      );
+      if (!userIds.length) { setUserRoleScopes({}); return; }
+      const response = await getBatchUserRoleScopes(userIds);
+      const grouped = response?.data?.data || response?.data || {};
       const map = {};
-      results.forEach(({ userId, scopes }) => {
-        map[userId] = scopes;
-      });
+      for (const uid of userIds) {
+        const scopes = grouped[uid] || [];
+        map[uid] = scopes.map((s) => ({
+          role_id: s.role_id,
+          department_id: s.department_id ?? null,
+          company_id: s.company_id ?? null,
+          hotel_id: s.hotel_id ?? null,
+        }));
+      }
       setUserRoleScopes(map);
     } catch (error) {
       console.error("Error loading user role scopes:", error);
@@ -96,21 +76,13 @@ const useApprovalData = (companyId, hotelId) => {
 
   const loadUserDepartmentsMap = async (userIds) => {
     try {
-      const results = await Promise.all(
-        userIds.map(async (userId) => {
-          try {
-            const response = await getUserDepartments(userId);
-            const depts = response?.data?.data || response?.data || [];
-            return { userId, depts };
-          } catch {
-            return { userId, depts: [] };
-          }
-        })
-      );
+      if (!userIds.length) { setUserDepartmentsMap({}); return; }
+      const response = await getBatchUserDepartments(userIds);
+      const grouped = response?.data?.data || response?.data || {};
       const map = {};
-      results.forEach(({ userId, depts }) => {
-        map[userId] = depts;
-      });
+      for (const uid of userIds) {
+        map[uid] = grouped[uid] || [];
+      }
       setUserDepartmentsMap(map);
     } catch (error) {
       console.error("Error loading user departments:", error);
@@ -276,7 +248,7 @@ const useApprovalData = (companyId, hotelId) => {
           hospitality_company_id: companyId,
           hotel_id: hotelId
         });
-        return response?.data?.data || null;
+        return response?.data || null;
       } catch (error) {
         console.error("Error loading department preview:", error);
         return null;
