@@ -6,7 +6,8 @@ import { dynamicAccountEditSchema } from "@/utils/schema";
 import { getDepartments } from "@/services/rbac";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import RoleScopeSelector from "@/components/hospitality/RoleScopeSelector";
-import styles from "./ManageAccounts.module.css";
+import { dedupeHospitalityMappings } from "./accessUtils";
+import styles from "./ManageAccounts.module.scss";
 
 const modalOverlayStyles = {
   overlay: {
@@ -63,57 +64,23 @@ const parseMobile = (mobile) => {
   return { countryCode: "+91", mobileNumber: mobile };
 };
 
-const dedupeHospitalityMappings = (list = []) => {
-  const seen = new Set();
-  return list.filter((item) => {
-    const key =
-      item.mapping_type === 0
-        ? `company-${item.hospitality_company_id}-${item.user_id}`
-        : `hotel-${item.hospitality_company_id}-${item.hospitality_hotel_id}-${item.user_id}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-};
-
 const EditAccountModal = ({
   isOpen,
   onClose,
   account,
   isHospitality,
   roleOptions,
-  hospitalityCompanies,
-  hotelsByCompany,
-  userMappings,
   initialRoleScopes,
   userDepartments,
+  userMappings,
   onSave,
-  onMapUser,
-  onRemoveMapping,
-  onLoadHotels,
 }) => {
   const [roleScopes, setRoleScopes] = useState([]);
   const [departments, setDepartments] = useState([]);
-  const [mappingForm, setMappingForm] = useState({
-    selectedCompanyId: "",
-    mappingLevel: "company",
-    hotelId: "",
-    autoMapProjects: true,
-    submitting: false,
-  });
 
   useEffect(() => {
     if (isOpen) {
       setRoleScopes(initialRoleScopes || []);
-      const fallbackCompanyId = hospitalityCompanies?.[0]?.id || "";
-      setMappingForm({
-        selectedCompanyId: fallbackCompanyId,
-        mappingLevel: "company",
-        hotelId: "",
-        autoMapProjects: true,
-        submitting: false,
-      });
-      if (fallbackCompanyId && onLoadHotels) onLoadHotels(fallbackCompanyId);
 
       getDepartments()
         .then((res) => {
@@ -204,26 +171,6 @@ const EditAccountModal = ({
     });
   };
 
-  const handleMapSubmit = async () => {
-    if (!mappingForm.selectedCompanyId) return;
-    if (mappingForm.mappingLevel === "hotel" && !mappingForm.hotelId) return;
-    setMappingForm((prev) => ({ ...prev, submitting: true }));
-    try {
-      await onMapUser({
-        companyId: mappingForm.selectedCompanyId,
-        mappingLevel: mappingForm.mappingLevel,
-        hotelId: mappingForm.hotelId,
-        autoMapProjects: mappingForm.autoMapProjects,
-      });
-    } finally {
-      setMappingForm((prev) => ({ ...prev, submitting: false }));
-    }
-  };
-
-  const dedupedMappings = dedupeHospitalityMappings(userMappings || []);
-  const selectedCompanyHotels = mappingForm.selectedCompanyId
-    ? hotelsByCompany?.[mappingForm.selectedCompanyId] || []
-    : [];
   const isAdmin = account.role === 7;
 
   return (
@@ -355,6 +302,42 @@ const EditAccountModal = ({
                 </div>
               )}
 
+              {/* Mapped Access Info (Hospitality only) */}
+              {isHospitality && (
+                <div className={styles.modalSection}>
+                  <div className={styles.modalSectionTitle}>Mapped Access</div>
+                  <div className={styles.mappedAccessInfo}>
+                    <div className={styles.mappedAccessLabel}>Companies & Business Units</div>
+                    {(() => {
+                      const dedupedMappings = dedupeHospitalityMappings(userMappings || []);
+                      if (dedupedMappings.length === 0) {
+                        return (
+                          <div className={styles.mappedAccessEmpty}>
+                            No access assigned yet. Use the "Access" button in the table to manage.
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className={styles.mappedAccessBadges}>
+                          {dedupedMappings.map((mapping) => (
+                            <span
+                              key={`${mapping.mapping_type}-${mapping.hospitality_hotel_id || "co"}-${mapping.hospitality_company_id}`}
+                              className={`${styles.mappingBadge} ${
+                                mapping.mapping_type === 0 ? styles.mappingCompany : styles.mappingHotel
+                              }`}
+                            >
+                              {mapping.mapping_type === 0
+                                ? mapping.company_name || "Company"
+                                : `${mapping.company_name ? mapping.company_name + " → " : ""}${mapping.hotel_name || "BU"}`}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
               {/* Department (Non-hospitality) */}
               {!isHospitality && (
                 <div className={styles.modalSection}>
@@ -374,165 +357,6 @@ const EditAccountModal = ({
                       />
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* Hospitality Access */}
-              {isHospitality && (
-                <div className={styles.modalSection}>
-                  <div className={styles.modalSectionTitle}>Company & Business Unit Access</div>
-
-                  {dedupedMappings.length === 0 ? (
-                    <p className={styles.formSmallHint}>
-                      This user is not mapped to any hospitality scope yet.
-                    </p>
-                  ) : (
-                    <table className={styles.mappingTable}>
-                      <thead>
-                        <tr>
-                          <th>Company</th>
-                          <th>Scope</th>
-                          <th>Business Unit</th>
-                          <th>Auto Map</th>
-                          <th style={{ textAlign: "right" }}>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dedupedMappings.map((mapping) => (
-                          <tr key={`${mapping.mapping_type}-${mapping.hospitality_hotel_id || "co"}-${mapping.hospitality_company_id}`}>
-                            <td><strong>{mapping.company_name || "N/A"}</strong></td>
-                            <td>
-                              <span
-                                className={`${styles.mappingBadge} ${
-                                  mapping.mapping_type === 0 ? styles.mappingCompany : styles.mappingHotel
-                                }`}
-                              >
-                                {mapping.mapping_type === 0 ? "Company" : "Business Unit"}
-                              </span>
-                            </td>
-                            <td>
-                              {mapping.mapping_type === 0
-                                ? "All Business Units"
-                                : mapping.hotel_name || "N/A"}
-                            </td>
-                            <td>{mapping.auto_map_projects ? "Yes" : "No"}</td>
-                            <td style={{ textAlign: "right" }}>
-                              <button
-                                type="button"
-                                className={styles.removeBtn}
-                                onClick={() => onRemoveMapping(mapping)}
-                              >
-                                Remove
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-
-                  {/* Add Mapping Form */}
-                  {hospitalityCompanies?.length > 0 && (
-                    <div className={styles.mappingForm}>
-                      <div className={styles.mappingFormTitle}>Add New Mapping</div>
-                      <div className="row g-3">
-                        <div className="col-md-4">
-                          <label className={styles.formLabel}>Company</label>
-                          <select
-                            className={styles.formSelect}
-                            value={mappingForm.selectedCompanyId}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setMappingForm((prev) => ({
-                                ...prev,
-                                selectedCompanyId: val,
-                                hotelId: "",
-                              }));
-                              if (val && onLoadHotels) onLoadHotels(val);
-                            }}
-                          >
-                            <option value="" disabled>Select Company</option>
-                            {hospitalityCompanies.map((company) => (
-                              <option key={company.id} value={company.id}>
-                                {company.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="col-md-4">
-                          <label className={styles.formLabel}>Mapping Level</label>
-                          <select
-                            className={styles.formSelect}
-                            value={mappingForm.mappingLevel}
-                            onChange={(e) =>
-                              setMappingForm((prev) => ({
-                                ...prev,
-                                mappingLevel: e.target.value,
-                                hotelId: e.target.value === "company" ? "" : prev.hotelId,
-                              }))
-                            }
-                          >
-                            <option value="company">Company</option>
-                            <option value="hotel">Specific Business Unit</option>
-                          </select>
-                        </div>
-                        {mappingForm.mappingLevel === "hotel" && (
-                          <div className="col-md-4">
-                            <label className={styles.formLabel}>Business Unit</label>
-                            <select
-                              className={styles.formSelect}
-                              value={mappingForm.hotelId}
-                              onChange={(e) =>
-                                setMappingForm((prev) => ({ ...prev, hotelId: e.target.value }))
-                              }
-                            >
-                              <option value="">Select Business Unit</option>
-                              {selectedCompanyHotels.map((hotel) => (
-                                <option key={hotel.id} value={hotel.id}>
-                                  {hotel.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-                        {/* <div className="col-12">
-                          <div className={styles.toggleWrap}>
-                            <input
-                              type="checkbox"
-                              id="autoMapSwitch"
-                              checked={Boolean(mappingForm.autoMapProjects)}
-                              onChange={(e) =>
-                                setMappingForm((prev) => ({
-                                  ...prev,
-                                  autoMapProjects: e.target.checked,
-                                }))
-                              }
-                              style={{ accentColor: "#2E5BA8", marginTop: "2px" }}
-                            />
-                            <div>
-                              <label htmlFor="autoMapSwitch" className={styles.toggleLabel}>
-                                Auto add to active mapped projects
-                              </label>
-                              <div className={styles.toggleHint}>
-                                When enabled, this user will automatically be added to all active projects
-                              </div>
-                            </div>
-                          </div>
-                        </div> */}
-                        <div className="col-12">
-                          <button
-                            type="button"
-                            className={styles.primaryBtn}
-                            disabled={mappingForm.submitting || !mappingForm.selectedCompanyId}
-                            onClick={handleMapSubmit}
-                            style={{ width: "100%" }}
-                          >
-                            {mappingForm.submitting ? "Mapping..." : "Map User"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 

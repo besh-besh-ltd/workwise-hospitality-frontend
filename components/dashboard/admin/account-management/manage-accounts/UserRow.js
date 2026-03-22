@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { HiOutlinePencil } from "react-icons/hi";
+import { BsBuilding } from "react-icons/bs";
 import { formatDisplayDate } from "@/utils/sharedFunctions";
-import styles from "./ManageAccounts.module.css";
+import styles from "./ManageAccounts.module.scss";
 
 const AVATAR_COLORS = [
   "#2E5BA8", "#3B82F6", "#1D4ED8", "#4F46E5",
@@ -37,7 +38,41 @@ const dedupeHospitalityMappings = (list = []) => {
   });
 };
 
-const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, onEdit }) => {
+const TruncatedBadges = ({ items, renderBadge, maxVisible = 2, getLabel }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  if (items.length === 0) return <span className={styles.noData}>—</span>;
+
+  const visible = expanded ? items : items.slice(0, maxVisible);
+  const remaining = items.length - maxVisible;
+
+  return (
+    <div className={styles.badgeWrap}>
+      {visible.map(renderBadge)}
+      {!expanded && remaining > 0 && (
+        <button
+          type="button"
+          className={styles.moreBadge}
+          onClick={() => setExpanded(true)}
+          title={items.slice(maxVisible).map(getLabel).join(", ")}
+        >
+          +{remaining} more
+        </button>
+      )}
+      {expanded && remaining > 0 && (
+        <button
+          type="button"
+          className={styles.moreBadge}
+          onClick={() => setExpanded(false)}
+        >
+          Show less
+        </button>
+      )}
+    </div>
+  );
+};
+
+const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, onEdit, onManageAccess }) => {
   const isActive = account.status === "active";
   const initials = getInitials(account.name);
   const avatarColor = getAvatarColor(account.name);
@@ -49,80 +84,81 @@ const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, on
     <tr className={!isActive ? styles.rowInactive : undefined}>
       <td>
         <div className={styles.userCell}>
-          <div className={styles.userAvatar} style={{ background: avatarColor }}>
+          <div className={styles.userAvatar} style={{ background: isActive ? avatarColor : "#94a3b8" }}>
             {initials}
           </div>
           <div>
-            <div className={styles.userName}>{account.name}</div>
+            <div className={styles.userName}>
+              {account.name}
+              {account.employee_code ? <span className={styles.userEmpCode}> · {account.employee_code}</span> : ""}
+              {!isActive && <span className={styles.inactiveTag}>Inactive</span>}
+            </div>
             <div className={styles.userEmail}>{account.email}</div>
+            {account.mobile && (
+              <div className={styles.userMobileInline}>{account.mobile}</div>
+            )}
           </div>
         </div>
       </td>
-      <td>
-        <span className={styles.userMobile}>{account.employee_code || "—"}</span>
-      </td>
-      <td>
-        <span className={styles.userMobile}>{account.designation || "—"}</span>
-      </td>
-      <td>
-        <span className={styles.userMobile}>{account.mobile || "—"}</span>
-      </td>
-      <td>
-        <span className={`${styles.statusBadge} ${isActive ? styles.statusActive : styles.statusInactive}`}>
-          <span className={`${styles.statusDot} ${isActive ? styles.dotActive : styles.dotInactive}`} />
-          {isActive ? "Active" : "Inactive"}
-        </span>
-      </td>
       {isHospitality && (
         <td>
-          {uniqueRoles.length > 0 ? (
-            <div className={styles.badgeWrap}>
-              {uniqueRoles.map((title) => (
-                <span key={title} className={styles.roleBadge}>{title}</span>
-              ))}
-            </div>
-          ) : (
-            <span className={styles.noData}>—</span>
-          )}
+          <TruncatedBadges
+            items={uniqueRoles}
+            maxVisible={2}
+            getLabel={(title) => title}
+            renderBadge={(title) => (
+              <span key={title} className={styles.roleBadge}>{title}</span>
+            )}
+          />
         </td>
       )}
       <td>
-        {depts.length > 0 ? (
-          <div className={styles.badgeWrap}>
-            {depts.map((dept) => (
-              <span key={dept.id} className={styles.deptBadge}>{dept.title}</span>
-            ))}
-          </div>
-        ) : (
-          <span className={styles.noData}>—</span>
-        )}
+        <TruncatedBadges
+          items={depts}
+          maxVisible={2}
+          getLabel={(dept) => dept.title}
+          renderBadge={(dept) => (
+            <span key={dept.id} className={styles.deptBadge}>{dept.title}</span>
+          )}
+        />
       </td>
       <td>{account.created_at ? formatDisplayDate(account.created_at) : "—"}</td>
       {isHospitality && (
         <td>
-          {dedupedMappings.length > 0 ? (
-            <div className={styles.badgeWrap}>
-              {dedupedMappings.map((mapping) => (
-                <span
-                  key={`${mapping.mapping_type}-${mapping.hospitality_hotel_id || "co"}-${mapping.hospitality_company_id}`}
-                  className={`${styles.mappingBadge} ${mapping.mapping_type === 0 ? styles.mappingCompany : styles.mappingHotel}`}
-                >
-                  {mapping.mapping_type === 0
-                    ? mapping.company_name || "Company"
-                    : mapping.hotel_name || "BU"}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className={styles.noData}>Not mapped</span>
-          )}
+          <TruncatedBadges
+            items={dedupedMappings}
+            maxVisible={1}
+            getLabel={(mapping) =>
+              mapping.mapping_type === 0
+                ? mapping.company_name || "Company"
+                : mapping.hotel_name || "BU"
+            }
+            renderBadge={(mapping) => (
+              <span
+                key={`${mapping.mapping_type}-${mapping.hospitality_hotel_id || "co"}-${mapping.hospitality_company_id}`}
+                className={`${styles.mappingBadge} ${mapping.mapping_type === 0 ? styles.mappingCompany : styles.mappingHotel}`}
+              >
+                {mapping.mapping_type === 0
+                  ? mapping.company_name || "Company"
+                  : mapping.hotel_name || "BU"}
+              </span>
+            )}
+          />
         </td>
       )}
       <td>
-        <button type="button" className={styles.editBtn} onClick={() => onEdit(account)}>
-          <HiOutlinePencil size={13} />
-          Edit
-        </button>
+        <div className={styles.actionBtnGroup}>
+          {isHospitality && onManageAccess && (
+            <button type="button" className={styles.accessBtn} onClick={() => onManageAccess(account)}>
+              <BsBuilding size={12} />
+              Access
+            </button>
+          )}
+          <button type="button" className={styles.editBtn} onClick={() => onEdit(account)}>
+            <HiOutlinePencil size={13} />
+            Edit
+          </button>
+        </div>
       </td>
     </tr>
   );

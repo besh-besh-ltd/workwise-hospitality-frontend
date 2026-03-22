@@ -2,7 +2,7 @@ import React from "react";
 import Select from "react-select";
 import Link from "next/link";
 import { HiPlus, HiOutlineShieldCheck } from "react-icons/hi";
-import styles from "./ManageAccounts.module.css";
+import styles from "./ManageAccounts.module.scss";
 
 const selectStyles = {
   control: (base, state) => ({

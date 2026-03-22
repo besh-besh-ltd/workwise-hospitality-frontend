@@ -16,7 +16,8 @@ import StatsBar from "./manage-accounts/StatsBar";
 import UserFilters from "./manage-accounts/UserFilters";
 import UserTable from "./manage-accounts/UserTable";
 import EditAccountModal from "./manage-accounts/EditAccountModal";
-import styles from "./manage-accounts/ManageAccounts.module.css";
+import AssignAccessModal from "./manage-accounts/AssignAccessModal";
+import styles from "./manage-accounts/ManageAccounts.module.scss";
 
 const roleOptions = [
   { value: 8, label: "Management", color: "#2E5BA8" },
@@ -37,8 +38,20 @@ const ManageAccountsPage = () => {
   const [hotelsByCompany, setHotelsByCompany] = useState({});
 
   const [editModal, setEditModal] = useState({ open: false, account: null });
-  const [editModalData, setEditModalData] = useState({ mappings: [], roleScopes: [], departments: [] });
+  const [editModalData, setEditModalData] = useState({ roleScopes: [], departments: [], mappings: [] });
   const [showCustomRolesModal, setShowCustomRolesModal] = useState(false);
+
+  // Access modal state
+  const [accessModal, setAccessModal] = useState({ open: false, account: null });
+  const [accessModalMappings, setAccessModalMappings] = useState([]);
+
+  // Progressive loading state
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [loadingSteps, setLoadingSteps] = useState({
+    profile: "active",
+    companies: "pending",
+    users: "pending",
+  });
 
   // Debounced search
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -56,6 +69,7 @@ const ManageAccountsPage = () => {
 
   const fetchUsers = useCallback(async (currentFilters, currentPagination) => {
     setLoading(true);
+    setLoadingSteps((prev) => ({ ...prev, users: "active" }));
     try {
       const params = {
         page: currentPagination.page,
@@ -81,10 +95,13 @@ const ManageAccountsPage = () => {
       setUsers(data.users);
       setPagination((prev) => ({ ...prev, total: data.pagination.total }));
       setStats(data.stats);
+      setLoadingSteps((prev) => ({ ...prev, users: "complete" }));
     } catch {
       toast.error("Error fetching users");
+      setLoadingSteps((prev) => ({ ...prev, users: "complete" }));
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -100,6 +117,7 @@ const ManageAccountsPage = () => {
   };
 
   const loadHospitalityCompanies = async () => {
+    setLoadingSteps((prev) => ({ ...prev, companies: "active" }));
     try {
       const response = await getHospitalityCompanies({ include: 'hotels' });
       const list = response?.data ?? response ?? [];
@@ -111,19 +129,24 @@ const ManageAccountsPage = () => {
       setHotelsByCompany(hotelsMap);
     } catch {
       setHospitalityCompanies([]);
+    } finally {
+      setLoadingSteps((prev) => ({ ...prev, companies: "complete" }));
     }
   };
 
   const fetchProfile = async () => {
+    setLoadingSteps((prev) => ({ ...prev, profile: "active" }));
     try {
       const response = await getProfile();
       const profile = response?.data;
       const hospitalityEnabled =
         profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
       setIsHospitalityCompany(hospitalityEnabled);
+      setLoadingSteps((prev) => ({ ...prev, profile: "complete" }));
       if (hospitalityEnabled) await loadHospitalityCompanies();
     } catch {
       setIsHospitalityCompany(false);
+      setLoadingSteps((prev) => ({ ...prev, profile: "complete", companies: "complete" }));
     }
   };
 
@@ -169,14 +192,18 @@ const ManageAccountsPage = () => {
 
   // ── Handlers ───────────────────────────────────────────────
 
+  const refreshCurrentPage = () => {
+    const currentFilters = { ...filters, search: debouncedSearch };
+    fetchUsers(currentFilters, pagination);
+  };
+
   const handleEditAccount = async (account) => {
     setEditModal({ open: true, account });
-    // Fetch full data for the edit modal (single user)
     const promises = [];
     if (isHospitalityCompany) {
       promises.push(
-        getUserMappings(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => []),
-        getUserRoleScopes(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => [])
+        getUserRoleScopes(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => []),
+        getUserMappings(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => [])
       );
     } else {
       promises.push(Promise.resolve([]), Promise.resolve([]));
@@ -184,13 +211,8 @@ const ManageAccountsPage = () => {
     promises.push(
       getUserDepartments(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => [])
     );
-    const [mappings, roleScopes, departments] = await Promise.all(promises);
-    setEditModalData({ mappings, roleScopes, departments });
-  };
-
-  const refreshCurrentPage = () => {
-    const currentFilters = { ...filters, search: debouncedSearch };
-    fetchUsers(currentFilters, pagination);
+    const [roleScopes, mappings, departments] = await Promise.all(promises);
+    setEditModalData({ roleScopes, departments, mappings });
   };
 
   const handleSaveAccount = async (accountData) => {
@@ -208,8 +230,20 @@ const ManageAccountsPage = () => {
     }
   };
 
-  const handleMapUser = async ({ companyId, mappingLevel, hotelId, autoMapProjects }) => {
-    const user = editModal.account;
+  // ── Access Modal Handlers ────────────────────────────────
+
+  const handleManageAccess = async (account) => {
+    setAccessModal({ open: true, account });
+    try {
+      const mappingsRes = await getUserMappings(account.id);
+      setAccessModalMappings(mappingsRes?.data?.data || mappingsRes?.data || []);
+    } catch {
+      setAccessModalMappings([]);
+    }
+  };
+
+  const handleAccessMapUser = async ({ companyId, mappingLevel, hotelId, autoMapProjects }) => {
+    const user = accessModal.account;
     if (!user || !companyId) {
       toast.error("Select a hospitality company");
       return;
@@ -225,23 +259,19 @@ const ManageAccountsPage = () => {
         user_ids: [user.id],
         auto_map_projects: autoMapProjects,
       });
-      toast.success("User mapped successfully");
-      // Refresh edit modal mappings for the single user
+      toast.success("Access added successfully");
       const mappingsRes = await getUserMappings(user.id).catch(() => ({ data: [] }));
-      setEditModalData((prev) => ({
-        ...prev,
-        mappings: mappingsRes?.data?.data || mappingsRes?.data || []
-      }));
+      setAccessModalMappings(mappingsRes?.data?.data || mappingsRes?.data || []);
       refreshCurrentPage();
     } catch (error) {
       toast.error(
-        error?.message?.response?.data?.message || "Failed to map user"
+        error?.message?.response?.data?.message || "Failed to add access"
       );
     }
   };
 
-  const handleRemoveMapping = async (mapping) => {
-    const userId = editModal.account?.id;
+  const handleAccessRemoveMapping = async (mapping) => {
+    const userId = accessModal.account?.id;
     if (!userId) return;
     try {
       await deleteUserMapping(userId, {
@@ -249,17 +279,13 @@ const ManageAccountsPage = () => {
         mapping_type: mapping.mapping_type,
         hotel_id: mapping.mapping_type === 1 ? mapping.hospitality_hotel_id : null,
       });
-      toast.success("Mapping removed");
-      // Refresh edit modal mappings for the single user
+      toast.success("Access removed");
       const mappingsRes = await getUserMappings(userId).catch(() => ({ data: [] }));
-      setEditModalData((prev) => ({
-        ...prev,
-        mappings: mappingsRes?.data?.data || mappingsRes?.data || []
-      }));
+      setAccessModalMappings(mappingsRes?.data?.data || mappingsRes?.data || []);
       refreshCurrentPage();
     } catch (error) {
       toast.error(
-        error?.message?.response?.data?.message || "Failed to remove mapping"
+        error?.message?.response?.data?.message || "Failed to remove access"
       );
     }
   };
@@ -281,6 +307,7 @@ const ManageAccountsPage = () => {
         inactiveCount={stats.inactive_count}
         mappedCount={stats.mapped_count}
         isHospitality={isHospitalityCompany}
+        isLoading={initialLoad}
       />
 
       <UserFilters
@@ -297,6 +324,12 @@ const ManageAccountsPage = () => {
         isLoading={loading}
         isHospitality={isHospitalityCompany}
         onEdit={handleEditAccount}
+        onManageAccess={handleManageAccess}
+        loadingSteps={[
+          { label: "Verifying profile...", status: loadingSteps.profile },
+          { label: "Loading companies & business units...", status: loadingSteps.companies },
+          { label: "Fetching users...", status: loadingSteps.users },
+        ]}
       />
 
       {pagination.total > 0 && (
@@ -318,14 +351,23 @@ const ManageAccountsPage = () => {
           account={editModal.account}
           isHospitality={isHospitalityCompany}
           roleOptions={roleOptions}
-          hospitalityCompanies={hospitalityCompanies}
-          hotelsByCompany={hotelsByCompany}
-          userMappings={editModalData.mappings}
           initialRoleScopes={editModalData.roleScopes}
           userDepartments={editModalData.departments}
+          userMappings={editModalData.mappings}
           onSave={handleSaveAccount}
-          onMapUser={handleMapUser}
-          onRemoveMapping={handleRemoveMapping}
+        />
+      )}
+
+      {accessModal.open && accessModal.account && (
+        <AssignAccessModal
+          isOpen={accessModal.open}
+          onClose={() => setAccessModal({ open: false, account: null })}
+          user={accessModal.account}
+          hospitalityCompanies={hospitalityCompanies}
+          hotelsByCompany={hotelsByCompany}
+          userMappings={accessModalMappings}
+          onMapUser={handleAccessMapUser}
+          onRemoveMapping={handleAccessRemoveMapping}
           onLoadHotels={loadCompanyHotels}
         />
       )}
