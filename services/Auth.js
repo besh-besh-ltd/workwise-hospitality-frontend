@@ -545,6 +545,17 @@ export const getCompanyUsers = () => {
 	});
 };
 
+export const getCompanyUsersDetailed = (params = {}) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.get(`/users/company-users-detailed`, { params });
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
 export const getUserProjectsByUserId = (userId) => {
 	return new Promise(async (resolve, reject) => {
 		try {

@@ -1,23 +1,21 @@
 import React from "react";
 import { BsPeople } from "react-icons/bs";
 import UserRow from "./UserRow";
-import styles from "./ManageAccounts.module.css";
+import ProgressiveLoader from "./ProgressiveLoader";
+import styles from "./ManageAccounts.module.scss";
 
 const UserTable = ({
   users,
   isLoading,
   isHospitality,
-  userMappings,
-  userRoleScopes,
-  userDepartments,
   onEdit,
+  onManageAccess,
+  loadingSteps,
 }) => {
   if (isLoading) {
     return (
       <div className={styles.tableCard}>
-        <div className={styles.loadingWrap}>
-          <div className={styles.spinner} />
-        </div>
+        <ProgressiveLoader steps={loadingSteps || []} />
       </div>
     );
   }
@@ -44,10 +42,6 @@ const UserTable = ({
         <thead>
           <tr>
             <th>User</th>
-            <th>Employee Code</th>
-            <th>Designation</th>
-            <th>Mobile</th>
-            <th>Status</th>
             {isHospitality && <th>Workflow Roles</th>}
             <th>Department</th>
             <th>Created</th>
@@ -61,10 +55,11 @@ const UserTable = ({
               key={account.id}
               account={account}
               isHospitality={isHospitality}
-              mappings={userMappings[account.id] || []}
-              roleScopes={userRoleScopes[account.id] || []}
-              departments={userDepartments[account.id] || []}
+              mappings={account.mappings || []}
+              roleScopes={account.role_scopes || []}
+              departments={account.departments || []}
               onEdit={onEdit}
+              onManageAccess={onManageAccess}
             />
           ))}
         </tbody>
