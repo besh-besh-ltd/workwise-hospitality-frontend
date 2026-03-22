@@ -109,12 +109,14 @@ const LoginContainer = (props) => {
     };
 
     const loginSubmitHandler = (values, isFromOtherModal = false) => {
+        console.log("Login attempt with values:", values);
         props.setloading(true);
         if (values.employee_code) {
             setEmployeeCode(values.employee_code);
         }
         LoginService(values, isFromOtherModal)
-            .then((response) => {
+            .then(async (response) => {
+                console.log("Login response:", response);
                 props.setloading(false);
                 if (response?.status === 5 && response?.hospitality_user) {
                     toast.warning("Payment required for hospitality vendors. Please complete the payment to activate your account.");
@@ -164,7 +166,10 @@ const LoginContainer = (props) => {
                     email: userDetail.email,
                     user_type: userType,
                 });
-                getProfile().then(res => dispatch(setUserProfile(res.data))).catch(() => {});
+                try {
+                    const profileRes = await getProfile();
+                    dispatch(setUserProfile(profileRes.data));
+                } catch (err) {}
 
                 if (redirect && redirect != "") {
                     router.push(window.atob(redirect));
@@ -219,7 +224,7 @@ const LoginContainer = (props) => {
                 },
                 retryDataRef.current?.type === "google" ? true : false
             )
-                .then((response) => {
+                .then(async (response) => {
                     if (retryDataRef.current?.type === "google") {
                         handleClose();
                     }
@@ -258,7 +263,10 @@ const LoginContainer = (props) => {
                         email: response?.profile?.email,
                         user_type: userType,
                     });
-                    getProfile().then(res => dispatch(setUserProfile(res.data))).catch(() => {});
+                    try {
+                        const profileRes = await getProfile();
+                        dispatch(setUserProfile(profileRes.data));
+                    } catch (err) {}
                     if (userType == "buyer") {
                         router.push(`/vendor/all?loggedin=true`);
                     } else if (userType == "admin") {

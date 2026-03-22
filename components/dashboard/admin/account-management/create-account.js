@@ -60,9 +60,11 @@ const CreateAccountPage = () => {
   const [pendingRoleScopes, setPendingRoleScopes] = useState([]);
 
   useEffect(() => {
-    const hospitalityEnabled =
-      userProfile?.is_hospitality === 1 || userProfile?.is_hospitality === "1";
-    setIsHospitality(!!hospitalityEnabled);
+    const fetchData = async () => {
+      try {
+        const hospitalityEnabled =
+          userProfile?.is_hospitality === 1 || userProfile?.is_hospitality === "1";
+        setIsHospitality(!!hospitalityEnabled);
 
         if (hospitalityEnabled) {
           try {
@@ -83,9 +85,6 @@ const CreateAccountPage = () => {
           }
         }
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
         const departmentsRes = await getDepartments();
         const depts = (departmentsRes?.data?.data || departmentsRes?.data || []).map((d) => ({
           value: d.id,
@@ -98,7 +97,7 @@ const CreateAccountPage = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [userProfile]);
 
   const loadCompanyHotels = async (companyId) => {
     if (!companyId || hotelsByCompany[companyId]) return;
