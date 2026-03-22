@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getBulkPermissions } from "@/services/rbac";
 
 /**
@@ -15,6 +15,23 @@ export const useModulePermissions = ({ moduleKey, hotelIds = [], departmentId = 
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const fetchIdRef = useRef(0); // Tracks latest fetch to discard stale responses
+
+  // Serialize inputs to detect changes during render (not in effects)
+  const inputKey = `${moduleKey}|${enabled}|${(hotelIds || []).sort().join(',')}|${departmentId}`;
+  const prevInputKeyRef = useRef(inputKey);
+
+  // When inputs change, immediately mark as loading and clear stale permissions
+  // This runs during render, so other hooks/effects in the same cycle see loading=true
+  if (prevInputKeyRef.current !== inputKey) {
+    prevInputKeyRef.current = inputKey;
+    if (enabled && moduleKey && hotelIds && hotelIds.length > 0) {
+      // Inputs changed and we need a fresh fetch — mark loading synchronously
+      // React allows setState during render if the value actually changes
+      if (!loading) setLoading(true);
+      setPermissions([]);
+    }
+  }
 
   // Fetch permissions from API
   const fetchPermissions = useCallback(async () => {
@@ -30,11 +47,17 @@ export const useModulePermissions = ({ moduleKey, hotelIds = [], departmentId = 
       return;
     }
 
+    const currentFetchId = ++fetchIdRef.current;
+
     setLoading(true);
     setError(null);
 
     try {
       const response = await getBulkPermissions(moduleKey, hotelIds, departmentId);
+
+      // Stale check — discard if a newer fetch has started
+      if (fetchIdRef.current !== currentFetchId) return;
+
       const responseData = response?.data?.data || response?.data || {};
 
       // Extract permissions from the new response structure
@@ -43,11 +66,14 @@ export const useModulePermissions = ({ moduleKey, hotelIds = [], departmentId = 
       const modulePermissions = permissionsObj[moduleKey] || [];
       setPermissions(modulePermissions);
     } catch (err) {
+      if (fetchIdRef.current !== currentFetchId) return;
       console.error(`Failed to fetch ${moduleKey} permissions:`, err);
       setError(err?.message || "Failed to fetch permissions");
       setPermissions([]);
     } finally {
-      setLoading(false);
+      if (fetchIdRef.current === currentFetchId) {
+        setLoading(false);
+      }
     }
   }, [moduleKey, hotelIds, departmentId, enabled]);
 

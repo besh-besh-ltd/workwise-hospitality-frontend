@@ -21,7 +21,6 @@ import "@fortawesome/fontawesome-svg-core/styles.css";
 import { config } from "@fortawesome/fontawesome-svg-core";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import Loader from "@/components/shared/Loader";
 import { ToastContainer } from "react-toastify";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { Providers } from "@/redux/provider";
@@ -38,26 +37,62 @@ config.autoAddCss = false;
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [visible, setVisible] = useState(false);
+  const timerRef = useRef(null);
+  const completeTimerRef = useRef(null);
+
+  const safetyTimerRef = useRef(null);
 
   useEffect(() => {
-  const handleStart = () => setLoading(true);
-  const handleComplete = () => {
-    setTimeout(() => {
-      setLoading(false);
-    }, 300);
-  };
+    const cleanupAll = () => {
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      if (completeTimerRef.current) { clearTimeout(completeTimerRef.current); completeTimerRef.current = null; }
+      if (safetyTimerRef.current) { clearTimeout(safetyTimerRef.current); safetyTimerRef.current = null; }
+    };
 
-  router.events.on("routeChangeStart", handleStart);
-  router.events.on("routeChangeComplete", handleComplete);
-  router.events.on("routeChangeError", handleComplete);
+    const handleStart = () => {
+      cleanupAll();
+      setProgress(15);
+      setVisible(true);
 
-  return () => {
-    router.events.off("routeChangeStart", handleStart);
-    router.events.off("routeChangeComplete", handleComplete);
-    router.events.off("routeChangeError", handleComplete);
-  };
-}, [router]);
+      timerRef.current = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 90) {
+            if (timerRef.current) clearInterval(timerRef.current);
+            return 90;
+          }
+          const increment = prev < 50 ? 8 : prev < 75 ? 4 : 1;
+          return Math.min(prev + increment, 90);
+        });
+      }, 200);
+
+      // Safety: auto-complete if routeChangeComplete never fires (e.g., shallow routing)
+      safetyTimerRef.current = setTimeout(() => {
+        handleComplete();
+      }, 5000);
+    };
+
+    const handleComplete = () => {
+      cleanupAll();
+      setProgress(100);
+      completeTimerRef.current = setTimeout(() => {
+        setVisible(false);
+        setProgress(0);
+      }, 300);
+    };
+
+    router.events.on("routeChangeStart", handleStart);
+    router.events.on("routeChangeComplete", handleComplete);
+    router.events.on("routeChangeError", handleComplete);
+
+    return () => {
+      router.events.off("routeChangeStart", handleStart);
+      router.events.off("routeChangeComplete", handleComplete);
+      router.events.off("routeChangeError", handleComplete);
+      cleanupAll();
+    };
+  }, [router]);
 
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_POSTHOG_KEY) {
@@ -84,7 +119,29 @@ export default function App({ Component, pageProps }) {
       <Head />
 
       <ToastContainer style={{ zIndex: 10000 }} />
-      {loading && <Loader />}
+
+      {/* YouTube-style top progress bar */}
+      {visible && (
+        <>
+          <style jsx>{`
+            .route-progress-bar {
+              position: fixed;
+              top: 0;
+              left: 0;
+              height: 3.5px;
+              background: linear-gradient(90deg, #2E5BA8, #4a7fd4, #2E5BA8);
+              z-index: 99999;
+              transition: width 0.2s ease;
+              box-shadow: 0 0 8px rgba(46, 91, 168, 0.5);
+            }
+          `}</style>
+          <div
+            className="route-progress-bar"
+            style={{ width: `${progress}%` }}
+          />
+        </>
+      )}
+
       <Providers>
         <GoogleOAuthProvider clientId="866474332918-fi599o8btdrikvi9ieq7pqksngvh2mlv.apps.googleusercontent.com">
           <Layout>

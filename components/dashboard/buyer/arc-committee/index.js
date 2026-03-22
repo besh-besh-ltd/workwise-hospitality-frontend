@@ -410,16 +410,7 @@ const ArcCommittee = () => {
     );
   }
 
-  if (hasPermissionContext && !permissionsLoading && !canRead) {
-    return (
-      <AccessDeniedPage
-        title="Access Denied"
-        message="You do not have permission to view ARC Committee reviews. Contact your administrator to request access."
-        backUrl="/dashboard/buyer/rfq-management"
-        backLabel="Back to Tender / RFQ Management"
-      />
-    );
-  }
+  const isAccessDenied = hasPermissionContext && !permissionsLoading && !canRead;
 
   return (
     <>
@@ -575,7 +566,13 @@ const ArcCommittee = () => {
             {/* Main Content */}
             <div className="col-md-10">
               <div className="quote-sec-table quote-sec-tab">
-              {!rfq_id ? (
+              {isAccessDenied ? (
+                <AccessDeniedPage
+                  title="Access Denied"
+                  message="You do not have permission to view ARC Committee reviews. Contact your administrator to request access."
+                  showBackButton={false}
+                />
+              ) : !rfq_id ? (
                 <Alert variant="info">Please select a Tender from the list to view details</Alert>
               ) : lifecycleData ? (
                 <div>

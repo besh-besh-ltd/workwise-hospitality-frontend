@@ -28,6 +28,7 @@ import { toast } from "react-toastify";
 import { getProjectAvailableBudget, getAllProjects as getAllProjectsService } from "@/services/project";
 import { getUserMappings } from "@/services/hospitality";
 import { Alert } from "react-bootstrap";
+import { BsFileEarmarkText } from "react-icons/bs";
 import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import NegotiationCompactBanner from "./negotiation/NegotiationCompactBanner";
@@ -52,7 +53,8 @@ import revampStyles from "@/components/dashboard/buyer/quoteCompare/QuoteCompare
 
 const QuoteCompare = () => {
   const router = useRouter();
-  const { rfq, rfq_product_id, source, tab = "product" } = router.query;
+  const { rfq_product_id, source, tab = "product" } = router.query;
+  const [rfq, setRfq] = useState(router.query.rfq || null);
   const tabOptions = ["product", "category", "cost"];
   const safeTab = tabOptions.includes(String(tab)) ? String(tab) : "product";
   const [loading, setloading] = useState(false);
@@ -96,9 +98,27 @@ const QuoteCompare = () => {
   const [showNormalizeModal, setShowNormalizeModal] = useState(false);
   const [productNegotiationData, setProductNegotiationData] = useState({}); // { productId: { activeRound, roundQuotes } }
 
+  // Sync rfq from URL on initial load / browser back-forward
+  useEffect(() => {
+    const queryRfq = router.query.rfq || null;
+    if (queryRfq && queryRfq !== rfq) {
+      setRfq(queryRfq);
+    }
+  }, [router.query.rfq]);
+
+  // Handle sidebar RFQ click — update state + URL silently (no route events)
+  const handleRfqSelect = (id) => {
+    const newId = String(id);
+    if (newId === String(rfq)) return;
+    setRfq(newId);
+    const params = new URLSearchParams({ rfq: newId, tab: activeTab });
+    const url = `/dashboard/buyer/quote-compare?${params.toString()}`;
+    window.history.replaceState({ ...window.history.state, url, as: url }, '', url);
+  };
+
   // Ref to track the latest rfq for stale response detection in async calls
-  const latestRfqRef = useRef(rfq);
-  latestRfqRef.current = rfq;
+  const latestRfqRef = useRef(rfq ? String(rfq) : null);
+  latestRfqRef.current = rfq ? String(rfq) : null;
 
   // Permission-based authorization for Negotiation and Quote-Compare sections
   // Memoize hotelIds to prevent infinite re-renders in useModulePermissions
@@ -138,7 +158,7 @@ const QuoteCompare = () => {
 
   // Track which rfq has had its metadata loaded — only Stage 1 controls this
   const [metadataLoadedForRfq, setMetadataLoadedForRfq] = useState(null);
-  const rfqMetadataReady = metadataLoadedForRfq === rfq;
+  const rfqMetadataReady = rfq && String(metadataLoadedForRfq) === String(rfq);
 
   // Stage 1: Fetch RFQ metadata first to get hotel context for permission check
   // This is a lightweight call that doesn't expose sensitive quote data
@@ -185,6 +205,7 @@ const QuoteCompare = () => {
             status: rfqData.status,
           });
           setMetadataLoadedForRfq(rfq);
+          setquotesLoading(true); // Pre-set so there's no gap between permissions check and quotes fetch
         }
       } catch (error) {
         if (!cancelled) {
@@ -197,17 +218,91 @@ const QuoteCompare = () => {
     return () => { cancelled = true; };
   }, [rfq]);
 
-  // Stage 2: Once permissions are verified, fetch full data only if user has access
+  // Stage 2: Once permissions are verified, check TE first, then fetch quotes with correct filter
+  const dataInitializedForRfq = useRef(null);
+  const initializingRef = useRef(false); // Prevent filter-change re-fetch during initialization
+
+  // Trigger initialization for new RFQ
   useEffect(() => {
-    if (rfq && rfqMetadataReady && !permissionsLoading && (canReadNegotiation || canReadQuoteCompare)) {
-      getRespectiveQuotes();
-      loadNegotiationData();
+    if (!rfq || !rfqMetadataReady || permissionsLoading || (!canReadNegotiation && !canReadQuoteCompare)) return;
+    if (String(dataInitializedForRfq.current) !== String(rfq)) {
+      dataInitializedForRfq.current = String(rfq);
+      initializeRfqData();
     }
-  }, [rfq, rfqMetadataReady, permissionsLoading, canReadNegotiation, canReadQuoteCompare, TA_Filter, freightFilter, normalizeFilter]);
+  }, [rfq, rfqMetadataReady, permissionsLoading, canReadNegotiation, canReadQuoteCompare]);
+
+  // Re-fetch quotes on filter change (TA, freight, normalize) — only for already-initialized RFQ
+  const filterInitialized = useRef(false);
+  useEffect(() => {
+    // Skip on mount — initialization handles the first fetch
+    if (!filterInitialized.current) { filterInitialized.current = true; return; }
+    if (!rfq || !rfqMetadataReady || permissionsLoading || (!canReadNegotiation && !canReadQuoteCompare)) return;
+    if (String(dataInitializedForRfq.current) !== String(rfq)) return; // Not initialized yet
+    if (initializingRef.current) return; // Skip — initialization handles the first fetch
+    getRespectiveQuotes();
+  }, [TA_Filter, freightFilter, normalizeFilter]);
+
+  // Check TE availability first, then fetch quotes with the correct TA filter in one pass
+  // Negotiation data loads independently — does NOT block quotes
+  const initializeRfqData = async () => {
+    if (!rfq) return;
+    const fetchRfq = String(rfq);
+    initializingRef.current = true;
+    setquotesLoading(true);
+    setquotes([]);
+    setTEavailable(false);
+
+    // Fire negotiation data load independently (non-blocking)
+    loadNegotiationData();
+
+    try {
+      // Step 1: Check if tech evaluation exists
+      const clauseRes = await getAllClauses(rfq);
+      if (latestRfqRef.current !== fetchRfq) return;
+
+      let hasTechEval = false;
+      if (clauseRes.data && clauseRes.data.length > 0) {
+        hasTechEval = true;
+        setTEavailable(true);
+        setTA_Filter(true);
+      }
+
+      // Step 2: Fetch quotes with the correct TA filter (no double call)
+      const quotesRes = await getQuotes(rfq, hasTechEval, freightFilter, rfq_product_id, source, 'quote_compare');
+      if (latestRfqRef.current !== fetchRfq) return;
+
+      setOriginalQuotes(quotesRes.data);
+      const data = normalizeFilter ? normalizeFlatQuotationData(quotesRes.data) : quotesRes.data;
+      setquotes(data);
+
+      // Build vendorCodeMap
+      const codeMap = {};
+      const setCode = (id, val) => { if (id && val) { codeMap[id] = val; codeMap[String(id)] = val; } };
+      data.forEach((product) => {
+        (product.all_vendors || []).forEach((v) => {
+          if (v.id && v.rfq_product_vendor_id) setCode(v.id, v.rfq_product_vendor_id);
+        });
+        (product.quotations || []).forEach((q) => {
+          const vdRaw = q.vendor_details || (q.quote_details && q.quote_details.vendor_details);
+          const vd = Array.isArray(vdRaw) ? vdRaw[0] : vdRaw;
+          if (vd?.id && vd.rfq_product_vendor_id) setCode(vd.id, vd.rfq_product_vendor_id);
+        });
+      });
+      setVendorCodeMap(codeMap);
+    } catch (error) {
+      if (latestRfqRef.current !== fetchRfq) return;
+      console.error("Error initializing RFQ data:", error);
+    } finally {
+      if (latestRfqRef.current === fetchRfq) {
+        setquotesLoading(false);
+        initializingRef.current = false;
+      }
+    }
+  };
 
   const loadNegotiationData = async () => {
     if (!rfq) return;
-    const fetchRfq = rfq; // capture for stale detection
+    const fetchRfq = String(rfq); // capture for stale detection
 
     try {
       // Load all active rounds for this RFQ
@@ -266,15 +361,19 @@ const QuoteCompare = () => {
     }
   };
 
+  // Initial load: fetch sidebar RFQs, projects, hotel mappings (once)
   useEffect(() => {
     getAllRFQs();
-  }, [page, selectedproject, isTenderFilter]);
-
-  useEffect(() => {
     getAllProjects();
     fetchUserHotelMappings();
-    // getPricehistory();
-  }, [rfq]);
+  }, []);
+
+  // Re-fetch when pagination changes (not on mount — handled above)
+  const pageInitialized = useRef(false);
+  useEffect(() => {
+    if (!pageInitialized.current) { pageInitialized.current = true; return; }
+    getAllRFQs();
+  }, [page]);
 
 
   useEffect(() => {
@@ -292,15 +391,14 @@ const QuoteCompare = () => {
     }
   }, [quotes])
 
+  const filtersInitialized = useRef(false);
   useEffect(() => {
+    if (!filtersInitialized.current) { filtersInitialized.current = true; return; }
     const handler = setTimeout(() => {
         getAllRFQs(true);
-    }, 1000);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [rfqNo,selectedproject, isTenderFilter]);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [rfqNo, selectedproject, isTenderFilter]);
 
 
   const closeModalForVariant = (variantId) => {
@@ -465,7 +563,7 @@ const handleCloseNormalizeModal = () => {
   };
 
   const getRespectiveQuotes = () => {
-    const fetchRfq = rfq; // capture current rfq for stale detection
+    const fetchRfq = String(rfq); // capture current rfq for stale detection
     setquotesLoading(true);
     setquotes([]);
     setTEavailable(false);
@@ -513,7 +611,6 @@ const handleCloseNormalizeModal = () => {
         // Ignore completion of stale requests
         if (latestRfqRef.current !== fetchRfq) return;
         setquotesLoading(false);
-        getRFQClauses(loadedData);
       })
   };
 
@@ -1534,9 +1631,9 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     );
   };
 
-  const hasRfqInQuery = "rfq" in router?.query;
-  const showNegotiationZone = hasRfqInQuery && quotes && quotes.length > 0 && canReadNegotiation;
-  const showComparisonZone = hasRfqInQuery && canReadQuoteCompare;
+  const hasRfqSelected = !!rfq;
+  const showNegotiationZone = hasRfqSelected && quotes && quotes.length > 0 && canReadNegotiation;
+  const showComparisonZone = hasRfqSelected && canReadQuoteCompare;
 
   // Note: currentRFQ is now set exclusively by Stage 1 (fetchRFQMetadata).
   // The previous [rfq, myRFQs] effect was removed because it competed with Stage 1
@@ -1548,29 +1645,11 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
 // };
 
-  // Permission loading state - show loading while permissions are being verified
-  // This prevents data from being fetched until permissions are checked
-  if (currentRFQ && (permissionsLoading || !rfqMetadataReady)) {
-    return (
-      <section className="quote-common-header compare-received-quote sc-pt-80">
-        <div className="container-fluid">
-          <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
-            <div className="text-center">
-              <div className="spinner-border text-primary mb-3" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
-              <p className="text-muted">Verifying permissions...</p>
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
   // Access denied check - show only if user has NO permissions for EITHER section
-  if (currentRFQ && !permissionsLoading && !canReadNegotiation && !canReadQuoteCompare) {
-    return <AccessDeniedPage />;
-  }
+  const isAccessDenied = currentRFQ && !permissionsLoading && !canReadNegotiation && !canReadQuoteCompare;
+
+  // Inline loading — single loader for the entire right section
+  const isContentLoading = !!rfq && (permissionsLoading || !rfqMetadataReady || quotesLoading);
 
   return (
     <>
@@ -1591,6 +1670,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 rfqList={myRFQs}
                 loading={loading}
                 selectedRfqId={rfq}
+                onItemClick={handleRfqSelect}
                 linkPrefix="/dashboard/buyer/quote-compare"
                 linkQueryKey="rfq"
                 extraQueryParams={{ tab: activeTab }}
@@ -1649,6 +1729,57 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
             <div className={revampStyles.contentColumn}>
               <div className="quote-sec-table quote-sec-tab">
+
+                {/* Empty State - when no RFQ selected */}
+                {!rfq && !isContentLoading && (
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    justifyContent: 'center', minHeight: '50vh', textAlign: 'center',
+                    padding: '40px 20px', background: '#fff', borderRadius: 12
+                  }}>
+                    <div style={{
+                      width: 80, height: 80, borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #f0f4fa 0%, #e3ecf9 100%)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginBottom: 20, color: '#2E5BA8'
+                    }}>
+                      <BsFileEarmarkText size={36} />
+                    </div>
+                    <h4 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', marginBottom: 8 }}>
+                      Select an RFQ to Compare Quotes
+                    </h4>
+                    <p style={{ fontSize: 14, color: '#94a3b8', maxWidth: 400, lineHeight: 1.6, margin: 0 }}>
+                      Choose an RFQ or Tender from the sidebar to view and compare vendor quotes.
+                    </p>
+                  </div>
+                )}
+
+                {/* Inline loader — shows inside content area while loading/verifying */}
+                {isContentLoading && (
+                  <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '300px', background: '#fff', borderRadius: 12 }}>
+                    <div className="text-center">
+                      <div className="d-flex align-items-center justify-content-center mb-3" style={{
+                        width: 48, height: 48, borderRadius: '50%',
+                        background: 'rgba(46, 91, 168, 0.08)', margin: '0 auto'
+                      }}>
+                        <div className="spinner-border text-primary" role="status" style={{ width: '1.5rem', height: '1.5rem', borderWidth: '2px' }}>
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                      </div>
+                      <p style={{ fontSize: '0.88rem', fontWeight: 600, color: '#1a2730', marginBottom: 4 }}>
+                        Loading Quote Comparison
+                      </p>
+                      <p style={{ fontSize: '0.78rem', color: '#6c757d', margin: 0 }}>
+                        {permissionsLoading || !rfqMetadataReady ? 'Verifying access permissions...' : 'Fetching quotes and vendor data...'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Access Denied */}
+                {!isContentLoading && isAccessDenied ? (
+                  <AccessDeniedPage showBackButton={false} />
+                ) : !isContentLoading ? (
                 <div className={revampStyles.workspaceStack}>
                 {!quotesLoading && currentRFQ && (
                   <section className={revampStyles.surfaceBlock}>
@@ -1722,7 +1853,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 )}
 
                 {/* Show message if no quote-compare permission but has negotiation */}
-                {hasRfqInQuery && !canReadQuoteCompare && canReadNegotiation && !permissionsLoading && (
+                {hasRfqSelected && !canReadQuoteCompare && canReadNegotiation && !permissionsLoading && (
                   <div className={`alert alert-info ${revampStyles.inlineAlert}`} role="alert">
                     You don't have permission to view quote comparisons.
                   </div>
@@ -1768,15 +1899,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     </div>
 
                     <div className={revampStyles.compareViewport}>
-                      {!rfq && (
-                        <div className="quote-sec-main">
-                          <div className="quote-sec-table-sub d-flex align-items-center justify-content-center" style={{ minHeight: '200px' }}>
-                            <Alert variant="info" className="text-center mb-0">
-                              Please select a Tender / RFQ to view its quotes.
-                            </Alert>
-                          </div>
-                        </div>
-                      )}
 
                       {rfq && (
                         <div className="quote-sec-main">
@@ -1838,6 +1960,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   </section>
                 )}
                 </div>
+                ) : null}
               </div>
             </div>
           </div>

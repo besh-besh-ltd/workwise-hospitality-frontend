@@ -1,10 +1,9 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import AsyncSelect from "react-select/async";
 import { useRouter } from "next/router";
 import { getRfqs, fetchVendorSelectionOption, getAllClauses, getRFQById, submitTechEvalForApproval } from "@/services/rfq";
-import { getProfile } from "@/services/Auth";
-import FullLoader from "@/components/shared/FullLoader";
+import { getUserDetails as getAuthUser } from "@/services/Auth";
 import ClauseProductItem from "./ClauseProductItem";
 import { toast } from "react-toastify";
 import { getAllProjects as getAllProjectsService } from '@/services/project';
@@ -21,15 +20,34 @@ import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
 import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText } from "react-icons/bs";
 import ReadMore from "@/components/shared/ReadMore";
-import { TARGET_PASSED_VENDORS } from "@/utils/constants/techEvalWorkflow";
 import styles from "./TechnicalEvaluation.module.scss";
 
 
 
 const BuyerTechnicalEvaluation = () => {
   const router = useRouter();
-  const { rfq_id } = router.query;
-  const [loading, setLoading] = useState(false);
+  const [rfq_id, setRfqId] = useState(router.query.rfq_id || null);
+  const activeRfqRef = useRef(rfq_id); // Track active rfq_id to prevent stale updates
+  const [loading, setLoading] = useState(false); // sidebar RFQ list loading only
+  const [contentLoading, setContentLoading] = useState(false); // right section loading
+
+  // Sync rfq_id from URL on initial load / browser back-forward
+  useEffect(() => {
+    const queryRfqId = router.query.rfq_id || null;
+    if (queryRfqId && queryRfqId !== rfq_id) {
+      setRfqId(queryRfqId);
+    }
+  }, [router.query.rfq_id]);
+
+  // Handle sidebar RFQ click — update state + URL silently (no route events)
+  const handleRfqSelect = (id) => {
+    const newId = String(id);
+    if (newId === String(rfq_id)) return; // Already selected
+    setRfqId(newId);
+    // Update URL without triggering route events
+    const url = `/dashboard/buyer/technical-evaluation?rfq_id=${newId}`;
+    window.history.replaceState({ ...window.history.state, url, as: url }, '', url);
+  };
   const [currentUserProfile, setcurrentUserProfile] = useState(null);
   const [rfqList, setRfqList] = useState([]);
   const [currentRfq, setcurrentRfq] = useState(null);
@@ -134,22 +152,23 @@ const BuyerTechnicalEvaluation = () => {
     setSelectedproject(null);
   }
 
-useEffect(() => {
-  const handler = setTimeout(() => {
-    getTechEvaluationRFQsByUser();
-  }, 1000);
+  const filtersInitialized = useRef(false);
+  useEffect(() => {
+    // Skip the first run — mount useEffect already fetches the list
+    if (!filtersInitialized.current) {
+      filtersInitialized.current = true;
+      return;
+    }
+    const handler = setTimeout(() => {
+      getTechEvaluationRFQsByUser();
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [rfqNo, selectedproject, isTenderFilter]);
 
-  return () => {
-    clearTimeout(handler);
-  };
-}, [rfqNo,selectedproject, isTenderFilter]);
-
-  const getUserDetails = async () => {
-    try {
-      const res = await getProfile();
-      setcurrentUserProfile(res.data);
-    } catch (error) {
-      console.error("Error fetching user details:", error);
+  const getUserDetails = () => {
+    const user = getAuthUser();
+    if (user) {
+      setcurrentUserProfile({ id: user.sub, name: user.name, ...user });
     }
   };
 
@@ -201,17 +220,27 @@ useEffect(() => {
     if (!rfq_id) {
       setcurrentRfq(null);
       setPermissionsVerified(false);
+      setContentLoading(false);
       return;
     }
 
+    const requestId = rfq_id; // Capture for stale check
+    activeRfqRef.current = requestId;
+
     try {
-      setLoading(true);
+      setContentLoading(true);
+      setClauseInfo(null); // Clear previous evaluation data immediately
       const rfqDetailsRes = await getRFQById(rfq_id);
+
+      // Stale check — if user clicked another RFQ while this was loading, discard
+      if (activeRfqRef.current !== requestId) return;
+
       const selectedRfq = Array.isArray(rfqDetailsRes.data) ? rfqDetailsRes.data[0] : rfqDetailsRes.data;
 
       if (!selectedRfq) {
         console.error('No RFQ found for ID:', rfq_id);
         setcurrentRfq(null);
+        setContentLoading(false);
         return;
       }
 
@@ -219,21 +248,28 @@ useEffect(() => {
       setcurrentRfq(selectedRfq);
       setPermissionsVerified(false); // Reset when RFQ changes
     } catch (error) {
+      if (activeRfqRef.current !== requestId) return; // Stale — ignore
       console.log(error);
       toast.error(error.message || `Failed to load ${getEntityLabel(currentRfq?.is_tender)} details`);
       setcurrentRfq(null);
-    } finally {
-      setLoading(false);
+      setContentLoading(false);
     }
+    // Note: contentLoading stays true — cleared by fetchEvaluationData or permission denial
   };
 
   // Stage 2: Fetch full clause/evaluation data only after permissions verified
   const fetchEvaluationData = async () => {
     if (!rfq_id || !currentRfq) return;
 
+    const requestId = rfq_id; // Capture for stale check
+
     try {
-      setLoading(true);
+      setContentLoading(true);
       const res = await getAllClauses(rfq_id, "tech_evaluation");
+
+      // Stale check — if user switched RFQ while this was loading, discard
+      if (activeRfqRef.current !== requestId) return;
+
       setClauseInfo(res?.data ?? null);
 
       const vMap = new Map();
@@ -252,12 +288,15 @@ useEffect(() => {
 
       setVendorMap(vMap);
       setClauseMap(c_map);
-      setPermissionsVerified(true);
     } catch (error) {
+      if (activeRfqRef.current !== requestId) return; // Stale — ignore
       console.log(error);
       toast.error(error.message || 'Failed to load evaluation data');
     } finally {
-      setLoading(false);
+      if (activeRfqRef.current === requestId) {
+        setPermissionsVerified(true);
+        setContentLoading(false);
+      }
     }
   };
 
@@ -359,67 +398,30 @@ useEffect(() => {
     fetchUserHotelMappings();
   }, []);
 
-  // Stage 1: Fetch RFQ metadata when rfq_id changes (for permission context)
+  // Stage 1: Fetch RFQ metadata when rfq_id changes
   useEffect(() => {
     fetchRFQMetadata();
-  }, [rfq_id]);
+  }, [rfq_id]); // rfq_id is now a state variable, guaranteed to trigger
 
-  // Stage 2: Fetch full evaluation data only after permissions are verified
+  // Stage 2: Fetch full evaluation data only when we have confirmed read access
+  // IMPORTANT: No else branch — never make "denied" decisions here because
+  // canRead can be stale (from previous RFQ) when this fires.
+  // Access denial is handled purely by isAccessDenied in the JSX.
   useEffect(() => {
     if (rfq_id && currentRfq && !permissionsLoading && canRead && !permissionsVerified) {
       fetchEvaluationData();
     }
   }, [rfq_id, currentRfq, permissionsLoading, canRead, permissionsVerified]);
 
-  // Background check: determine which RFQs have completed tech evaluation
-  // An RFQ is "Completed" only when ALL its products have >= TARGET_PASSED_VENDORS cleared vendors
+  // Build completion map from backend te_completed field (no extra API calls needed)
   useEffect(() => {
     if (!rfqList || rfqList.length === 0) {
       setRfqCompletionMap(new Map());
       return;
     }
-
-    let cancelled = false;
-
-    const checkCompletion = async () => {
-      const results = new Map();
-      const batchSize = 5;
-
-      for (let i = 0; i < rfqList.length; i += batchSize) {
-        if (cancelled) return;
-        const batch = rfqList.slice(i, i + batchSize);
-
-        const promises = batch.map(async (rfq) => {
-          try {
-            const res = await getAllClauses(rfq.id, "tech_evaluation");
-            const clauseData = res?.data ?? [];
-            if (clauseData.length === 0) return { id: rfq.id, complete: false };
-
-            const allComplete = clauseData.every(product => {
-              const acceptedVendors = (product.vendors || []).filter(v => v.is_cleared === 1);
-              return acceptedVendors.length >= TARGET_PASSED_VENDORS;
-            });
-            return { id: rfq.id, complete: allComplete };
-          } catch {
-            return { id: rfq.id, complete: false };
-          }
-        });
-
-        const batchResults = await Promise.allSettled(promises);
-        batchResults.forEach(result => {
-          if (result.status === 'fulfilled') {
-            results.set(result.value.id, result.value.complete);
-          }
-        });
-      }
-
-      if (!cancelled) {
-        setRfqCompletionMap(new Map(results));
-      }
-    };
-
-    checkCompletion();
-    return () => { cancelled = true; };
+    const map = new Map();
+    rfqList.forEach(rfq => map.set(rfq.id, rfq.te_completed === true));
+    setRfqCompletionMap(map);
   }, [rfqList]);
 
   // Keep rfqCompletionMap in sync when current RFQ's evaluation status changes
@@ -442,36 +444,12 @@ useEffect(() => {
   // Access Denied check - show when user has no read permission
   // Only check when an RFQ is selected and we have permission context
   const hasPermissionContext = hotelIds.length > 0 && !!currentRfq;
+  const isAccessDenied = hasPermissionContext && !permissionsLoading && !canRead;
 
-  // Permission loading state - show loading while permissions are being verified
-  // Data is NOT fetched until permissions are verified
-  if (currentRfq && (permissionsLoading || (!permissionsVerified && canRead))) {
-    return (
-      <section className="quote-common-header compare-received-quote sc-pt-80">
-        <div className="container-fluid">
-          <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
-            <div className="text-center">
-              <div className="spinner-border text-primary mb-3" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
-              <p className="text-muted">Verifying permissions...</p>
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (hasPermissionContext && !permissionsLoading && !canRead) {
-    return (
-      <AccessDeniedPage
-        title="Access Denied"
-        message={`You do not have permission to view technical evaluations for this ${getEntityLabel(currentRfq?.is_tender)}. Contact your administrator to request access.`}
-        backUrl="/dashboard/buyer"
-        backLabel="Back to Dashboard"
-      />
-    );
-  }
+  // Inline loading state — shown inside the content area, sidebar stays visible
+  // When access is denied, stop the loader so the AccessDenied banner can show
+  // Use rfq_id check so loader shows immediately on click (before currentRfq is fetched)
+  const isContentLoading = !!rfq_id && (permissionsLoading || (contentLoading && !isAccessDenied));
 
   const entityLabel = getEntityLabel(currentRfq?.is_tender);
 
@@ -522,7 +500,8 @@ useEffect(() => {
                 title="Technical Evaluation"
                 rfqList={rfqList}
                 loading={loading}
-                selectedRfqId={currentRfq?.id}
+                selectedRfqId={rfq_id}
+                onItemClick={handleRfqSelect}
                 linkPrefix="/dashboard/buyer/technical-evaluation"
                 linkQueryKey="rfq_id"
                 tabs={[
@@ -566,8 +545,39 @@ useEffect(() => {
             <div className="col-md-10" style={{ flex: '1 1 0%', width: 'auto', maxWidth: 'none', minWidth: 0, overflow: 'hidden' }}>
               <div className="quote-sec-table quote-sec-tab">
 
+                {/* Inline loader - shows inside content area while loading/verifying */}
+                {isContentLoading && (
+                  <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '300px' }}>
+                    <div className="text-center">
+                      <div className="d-flex align-items-center justify-content-center mb-3" style={{
+                        width: 48, height: 48, borderRadius: '50%',
+                        background: 'rgba(46, 91, 168, 0.08)', margin: '0 auto'
+                      }}>
+                        <div className="spinner-border text-primary" role="status" style={{ width: '1.5rem', height: '1.5rem', borderWidth: '2px' }}>
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                      </div>
+                      <p style={{ fontSize: '0.88rem', fontWeight: 600, color: '#1a2730', marginBottom: 4 }}>
+                        Loading Evaluation
+                      </p>
+                      <p style={{ fontSize: '0.78rem', color: '#6c757d', margin: 0 }}>
+                        {permissionsLoading ? 'Verifying access permissions...' : 'Fetching evaluation data...'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Access Denied - show inside content area so sidebar stays visible */}
+                {!isContentLoading && isAccessDenied && (
+                  <AccessDeniedPage
+                    title="Access Denied"
+                    message={`You do not have permission to view technical evaluations for this ${getEntityLabel(currentRfq?.is_tender)}. Contact your administrator to request access.`}
+                    showBackButton={false}
+                  />
+                )}
+
                 {/* Empty State - when no RFQ selected */}
-                {!loading && !currentRfq && (
+                {!isContentLoading && !isAccessDenied && !rfq_id && (
                   <div className={styles.emptyState}>
                     <div className={styles.emptyStateIcon}>
                       <BsClipboardCheck size={36} />
@@ -580,7 +590,7 @@ useEffect(() => {
                 )}
 
                 {/* RFQ Header Card */}
-                {!loading && currentRfq && (
+                {!isContentLoading && !isAccessDenied && currentRfq && (
                   <div className={styles.rfqHeader}>
                     {/* Hero Strip */}
                     <div className={styles.rfqHero}>
@@ -640,9 +650,9 @@ useEffect(() => {
                   </div>
                 )}
 
-                <div className="quote-sec-main">
+                {!isContentLoading && !isAccessDenied && <div className="quote-sec-main">
                   <>
-                    {!loading && currentRfq && clauseInfo && clauseInfo.length > 0 && (
+                    {!contentLoading && currentRfq && clauseInfo && clauseInfo.length > 0 && (
                       <h3 className={styles.productsHeading}>{entityLabel} Products</h3>
                     )}
 
@@ -726,7 +736,7 @@ useEffect(() => {
                       />
                     )}
                   </>
-                </div>
+                </div>}
               </div>
             </div>
           </div>

@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/router';
 import Select from 'react-select';
 import { formatRFQNumber } from '@/utils/sharedFunctions';
-import FullLoader from '@/components/shared/FullLoader';
 import styles from './RFQListSidebar.module.css';
 
 const MIN_WIDTH = 220;
@@ -48,9 +47,12 @@ const RFQListSidebar = ({
   hasMore = false,
   // Extra content below filters (e.g. toggle switches, alerts)
   extraFilters,
+  // Click handler — called with (itemId) when an RFQ is clicked
+  onItemClick,
   // Identifier for test IDs
   pageId = 'default',
 }) => {
+  const router = useRouter();
   const TAB_STORAGE_KEY = `rfqSidebarTab_${pageId}`;
   const [activeTab, setActiveTabState] = useState(() => {
     try {
@@ -270,9 +272,34 @@ const RFQListSidebar = ({
         {/* RFQ List */}
         <div className={styles.listContainer}>
           {loading && (
-            <div style={{ position: 'relative', minHeight: 48 }}>
-              <FullLoader />
-            </div>
+            <>
+              <style jsx>{`
+                @keyframes sidebarShimmer {
+                  0% { background-position: -200px 0; }
+                  100% { background-position: 200px 0; }
+                }
+                .sidebar-skeleton-card {
+                  padding: 10px 10px;
+                  border-radius: 8px;
+                  border: 1px solid #f0f0f0;
+                  margin-bottom: 4px;
+                }
+                .sidebar-skeleton-line {
+                  height: 10px;
+                  border-radius: 4px;
+                  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+                  background-size: 400px 100%;
+                  animation: sidebarShimmer 1.4s ease-in-out infinite;
+                }
+              `}</style>
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="sidebar-skeleton-card">
+                  <div className="sidebar-skeleton-line" style={{ width: '35%', marginBottom: 8 }} />
+                  <div className="sidebar-skeleton-line" style={{ width: '70%', marginBottom: 6 }} />
+                  <div className="sidebar-skeleton-line" style={{ width: '50%' }} />
+                </div>
+              ))}
+            </>
           )}
 
           {!loading && filteredList.length === 0 && (
@@ -303,10 +330,18 @@ const RFQListSidebar = ({
             else if (item.approval_required) cardClass += ` ${styles.rfqCardActionRequired}`;
 
             return (
-              <Link
+              <div
                 key={item.id}
-                href={`${linkPrefix}?${hrefQuery}`}
+                role="button"
+                onClick={() => {
+                  if (onItemClick) {
+                    onItemClick(item.id);
+                  } else {
+                    router.push(`${linkPrefix}?${hrefQuery}`, undefined, { shallow: true });
+                  }
+                }}
                 className={cardClass}
+                style={{ cursor: 'pointer' }}
                 id={`rfq_${item.rfq_no}-rfq_sidebar-${pageId}`}
               >
                 <span className={`${styles.entityBadge} ${isTender ? styles.entityBadgeTender : styles.entityBadgeRFQ}`}>
@@ -326,7 +361,7 @@ const RFQListSidebar = ({
                     {tags.map((tag, idx) => renderTag(tag, idx))}
                   </div>
                 )}
-              </Link>
+              </div>
             );
           })}
 
@@ -338,12 +373,12 @@ const RFQListSidebar = ({
             </div>
           )}
 
-          {showLoadMore && hasMore && loading && (
+          {showLoadMore && hasMore && loading && filteredList.length > 0 && (
             <div className={styles.loadingSpinner}>
               <div className="spinner-border spinner-border-sm text-primary" role="status">
                 <span className="visually-hidden">Loading...</span>
               </div>
-              Loading...
+              Loading more...
             </div>
           )}
         </div>
