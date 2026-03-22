@@ -6,7 +6,7 @@ import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import {
   getProductReportData,
-  getProjectList,
+  getAllProjects,
   getProjectReportData,
   sendReportOnEmail,
 } from "@/services/project";
@@ -130,8 +130,8 @@ const DownloadReportsForBuyer = (props) => {
   const fetchProjectList = async () => {
     try {
       setOptionLoading(true);
-      const res = await getProjectList();
-      const formattedProjects = res.data.map((item) => ({
+      const res = await getAllProjects();
+      const formattedProjects = (res.data.data || res.data || []).map((item) => ({
         label: item.name,
         value: item.id,
       }));

@@ -1,40 +1,11 @@
-import { useState, useEffect } from "react";
 import Head from "next/head";
+import { useSelector } from "react-redux";
 import { AdminGuard } from "@/utils/authGuard";
 import DepartmentAccessMatrix from "@/components/dashboard/admin/hospitality-manager/department-access-matrix";
-import { getProfile } from "@/services/Auth";
 
 const DepartmentAccessMatrixPage = () => {
-  const [loading, setLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState(false);
-
-  useEffect(() => {
-    const checkAccess = async () => {
-      try {
-        const response = await getProfile();
-        const profile = response?.data;
-        const isHospitalityCompany =
-          profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
-        setHasAccess(!!isHospitalityCompany);
-      } catch (error) {
-        console.error("Error checking access:", error);
-        setHasAccess(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkAccess();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
-      </div>
-    );
-  }
+  const userProfile = useSelector((state) => state.userProfile);
+  const hasAccess = userProfile?.is_hospitality === 1 || userProfile?.is_hospitality === "1";
 
   if (!hasAccess) {
     return (

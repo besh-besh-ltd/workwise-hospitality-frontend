@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useSelector } from "react-redux";
 import { Table, Badge, Button, Spinner, Alert, Card } from "react-bootstrap";
 import { BsEye, BsCheckCircleFill, BsClockFill, BsArrowLeft, BsQuestionCircle, BsChatDots } from "react-icons/bs";
 import { useRouter } from "next/router";
@@ -8,7 +9,6 @@ import { getClarifications } from "@/services/clarification";
 import { getRFQById } from "@/services/rfq";
 import ClarificationDetailModal from "./ClarificationDetailModal";
 import { formatRFQNumber } from "@/utils/sharedFunctions";
-import { getProfile } from "@/services/Auth";
 
 /**
  * ClarificationManagement
@@ -17,10 +17,11 @@ import { getProfile } from "@/services/Auth";
 const ClarificationManagement = () => {
   const router = useRouter();
   const { rfq_id } = router.query;
+  const userProfile = useSelector((state) => state.userProfile);
 
   const [clarifications, setClarifications] = useState([]);
   const [rfqDetails, setRfqDetails] = useState(null);
-  const [currentUserId, setCurrentUserId] = useState(null);
+  const currentUserId = userProfile?.id || null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedClarification, setSelectedClarification] = useState(null);
@@ -33,10 +34,9 @@ const ClarificationManagement = () => {
     setError(null);
 
     try {
-      const [clarificationsRes, rfqRes, profileRes] = await Promise.all([
+      const [clarificationsRes, rfqRes] = await Promise.all([
         getClarifications(rfq_id),
         getRFQById(rfq_id),
-        getProfile(),
       ]);
 
       // API Response: { status: 1, data: { clarifications: [], open_clarification: null, has_open: false, is_own_clarification: false, is_buyer: true } }
@@ -46,10 +46,6 @@ const ClarificationManagement = () => {
 
       const rfqData = rfqRes?.data?.data || rfqRes?.data;
       setRfqDetails(rfqData);
-
-      // Get current user ID from profile
-      const profileData = profileRes?.data || profileRes;
-      setCurrentUserId(profileData?.id);
     } catch (err) {
       console.error("Error fetching data:", err);
       setError("Failed to load clarifications. Please try again.");

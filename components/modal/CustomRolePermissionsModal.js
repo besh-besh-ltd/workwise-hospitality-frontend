@@ -91,7 +91,7 @@ const modalStyle = {
     maxWidth: "1200px",
     width: "95%",
     border: "none",
-    background: "#f3f6fb",
+    background: "#fff",
     overflow: "hidden",
     padding: 0,
     maxHeight: "92vh",
@@ -389,7 +389,7 @@ const CustomRolePermissionsModal = ({ isOpen, onClose }) => {
           )}
           <button
             onClick={handleClose}
-            className="btn-close btn-close-white"
+            className="btn-close"
             aria-label="Close"
             id="close_custom_roles_modal-modal_header-custom_roles_permissions_modal"
           />

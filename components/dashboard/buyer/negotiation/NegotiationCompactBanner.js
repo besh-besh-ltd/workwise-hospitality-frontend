@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { Button } from 'react-bootstrap';
 import { getAllActiveNegotiationRounds, getNegotiationRounds } from '@/services/negotiation';
 import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
-import { getProfile } from '@/services/Auth';
 import NegotiationModal from './NegotiationModal';
 import moment from 'moment';
 import styles from './NegotiationUI.module.scss';
@@ -23,18 +23,14 @@ const NegotiationCompactBanner = ({
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState(null);
   const [roundsHistory, setRoundsHistory] = useState([]);
-  const [currentUserId, setCurrentUserId] = useState(null);
+  const userProfile = useSelector((state) => state.userProfile);
+  const currentUserId = userProfile?.id || null;
 
   useEffect(() => {
     if (rfq_id) {
       loadActiveRounds();
       loadRoundsHistory();
     }
-    getProfile().then(res => {
-      if (res?.data?.id) {
-        setCurrentUserId(res.data.id);
-      }
-    }).catch(() => {});
   }, [rfq_id]);
 
   const loadActiveRounds = async () => {

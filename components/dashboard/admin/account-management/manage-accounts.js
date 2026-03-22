@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useSelector } from "react-redux";
 import Pagination from "@/components/shared/Pagination";
 import CustomRolePermissionsModal from "@/components/modal/CustomRolePermissionsModal";
-import { getCompanyUsers, updateUserAccount, getProfile } from "@/services/Auth";
+import { getCompanyUsersDetailed, updateUserAccount } from "@/services/Auth";
 import {
   getHospitalityCompanies,
   getHospitalityHotels,
@@ -16,7 +17,8 @@ import StatsBar from "./manage-accounts/StatsBar";
 import UserFilters from "./manage-accounts/UserFilters";
 import UserTable from "./manage-accounts/UserTable";
 import EditAccountModal from "./manage-accounts/EditAccountModal";
-import styles from "./manage-accounts/ManageAccounts.module.css";
+import AssignAccessModal from "./manage-accounts/AssignAccessModal";
+import styles from "./manage-accounts/ManageAccounts.module.scss";
 
 const roleOptions = [
   { value: 8, label: "Management", color: "#2E5BA8" },
@@ -25,43 +27,35 @@ const roleOptions = [
   { value: 10, label: "Finance", color: "#5b5b5b" },
 ];
 
-const dedupeHospitalityMappings = (list = []) => {
-  const seen = new Set();
-  return list.filter((item) => {
-    const key =
-      item.mapping_type === 0
-        ? `company-${item.hospitality_company_id}-${item.user_id}`
-        : `hotel-${item.hospitality_company_id}-${item.hospitality_hotel_id}-${item.user_id}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-};
-
 const ManageAccountsPage = () => {
+  const userProfile = useSelector((state) => state.userProfile);
   const [loading, setLoading] = useState(false);
-  const [accounts, setAccounts] = useState([]);
-  const [filteredAccounts, setFilteredAccounts] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 10 });
-
-  const [filters, setFilters] = useState({
-    status: null,
-    search: "",
-    companyId: null,
-    hotelId: null,
-  });
+  const [users, setUsers] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
+  const [stats, setStats] = useState({ total_count: 0, active_count: 0, inactive_count: 0, mapped_count: 0 });
+  const [filters, setFilters] = useState({ status: null, search: "", companyId: null, hotelId: null });
 
   const [isHospitalityCompany, setIsHospitalityCompany] = useState(false);
   const [hospitalityCompanies, setHospitalityCompanies] = useState([]);
   const [hotelsByCompany, setHotelsByCompany] = useState({});
-  const [userHospitalityMappings, setUserHospitalityMappings] = useState({});
-  const [userRoleScopes, setUserRoleScopes] = useState({});
-  const [userDepartments, setUserDepartments] = useState({});
 
   const [editModal, setEditModal] = useState({ open: false, account: null });
+  const [editModalData, setEditModalData] = useState({ roleScopes: [], departments: [], mappings: [] });
   const [showCustomRolesModal, setShowCustomRolesModal] = useState(false);
 
-  // Debounced search to prevent input thrashing
+  // Access modal state
+  const [accessModal, setAccessModal] = useState({ open: false, account: null });
+  const [accessModalMappings, setAccessModalMappings] = useState([]);
+
+  // Progressive loading state
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [loadingSteps, setLoadingSteps] = useState({
+    profile: "active",
+    companies: "pending",
+    users: "pending",
+  });
+
+  // Debounced search
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const searchTimerRef = useRef(null);
 
@@ -73,50 +67,45 @@ const ManageAccountsPage = () => {
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
   }, [filters.search]);
 
-  // Stable ref for mappings to avoid filter re-triggers during async loading
-  const mappingsRef = useRef(userHospitalityMappings);
-  const [mappingsReady, setMappingsReady] = useState(false);
-  useEffect(() => {
-    mappingsRef.current = userHospitalityMappings;
-  }, [userHospitalityMappings]);
-
   // ── API calls ──────────────────────────────────────────────
 
-  const fetchUserMapping = async (userId) => {
-    if (!userId) return;
+  const fetchUsers = useCallback(async (currentFilters, currentPagination) => {
+    setLoading(true);
+    setLoadingSteps((prev) => ({ ...prev, users: "active" }));
     try {
-      const response = await getUserMappings(userId);
-      const mappings = response?.data?.data || response?.data || [];
-      setUserHospitalityMappings((prev) => ({
-        ...prev,
-        [userId]: dedupeHospitalityMappings(mappings),
-      }));
-    } catch {
-      setUserHospitalityMappings((prev) => ({ ...prev, [userId]: [] }));
-    }
-  };
+      const params = {
+        page: currentPagination.page,
+        limit: currentPagination.limit,
+      };
+      if (currentFilters.search && currentFilters.search.trim()) {
+        params.search = currentFilters.search.trim();
+      }
+      if (currentFilters.status) {
+        params.status = currentFilters.status.value;
+      }
+      if (currentFilters.companyId) {
+        params.company_id = currentFilters.companyId.value;
+      }
+      if (currentFilters.hotelId) {
+        params.hotel_id = currentFilters.hotelId.value;
+      }
 
-  const fetchUserRoleScopesForUser = async (userId) => {
-    if (!userId) return;
-    try {
-      const response = await getUserRoleScopes(userId);
-      const scopes = response?.data?.data || response?.data || [];
-      setUserRoleScopes((prev) => ({ ...prev, [userId]: scopes }));
-    } catch {
-      setUserRoleScopes((prev) => ({ ...prev, [userId]: [] }));
-    }
-  };
+      const response = await getCompanyUsersDetailed(params);
+      if (!response.status) return toast.error("Failed to fetch users");
 
-  const fetchUserDepartmentsForUser = async (userId) => {
-    if (!userId) return;
-    try {
-      const response = await getUserDepartments(userId);
-      const depts = response?.data?.data || response?.data || [];
-      setUserDepartments((prev) => ({ ...prev, [userId]: depts }));
+      const data = response.data;
+      setUsers(data.users);
+      setPagination((prev) => ({ ...prev, total: data.pagination.total }));
+      setStats(data.stats);
+      setLoadingSteps((prev) => ({ ...prev, users: "complete" }));
     } catch {
-      setUserDepartments((prev) => ({ ...prev, [userId]: [] }));
+      toast.error("Error fetching users");
+      setLoadingSteps((prev) => ({ ...prev, users: "complete" }));
+    } finally {
+      setLoading(false);
+      setInitialLoad(false);
     }
-  };
+  }, []);
 
   const loadCompanyHotels = async (companyId) => {
     if (!companyId || hotelsByCompany[companyId]) return;
@@ -130,44 +119,20 @@ const ManageAccountsPage = () => {
   };
 
   const loadHospitalityCompanies = async () => {
+    setLoadingSteps((prev) => ({ ...prev, companies: "active" }));
     try {
-      const response = await getHospitalityCompanies();
+      const response = await getHospitalityCompanies({ include: 'hotels' });
       const list = response?.data ?? response ?? [];
       setHospitalityCompanies(list);
-      list.forEach((company) => loadCompanyHotels(company.id));
+      const hotelsMap = {};
+      list.forEach((company) => {
+        hotelsMap[company.id] = company.hotels || [];
+      });
+      setHotelsByCompany(hotelsMap);
     } catch {
       setHospitalityCompanies([]);
-    }
-  };
-
-  const fetchProfile = async () => {
-    try {
-      const response = await getProfile();
-      const profile = response?.data;
-      const hospitalityEnabled =
-        profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
-      setIsHospitalityCompany(hospitalityEnabled);
-      if (hospitalityEnabled) await loadHospitalityCompanies();
-    } catch {
-      setIsHospitalityCompany(false);
-    }
-  };
-
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const response = await getCompanyUsers();
-      if (!response.status) return toast.error("Failed to fetch users");
-      const users = response.data;
-      setAccounts(users);
-      setFilteredAccounts(users);
-
-      const userIds = users.map((u) => u.id);
-      await Promise.all(userIds.map((id) => fetchUserDepartmentsForUser(id)));
-    } catch {
-      toast.error("Error fetching users");
     } finally {
-      setLoading(false);
+      setLoadingSteps((prev) => ({ ...prev, companies: "complete" }));
     }
   };
 
@@ -180,67 +145,37 @@ const ManageAccountsPage = () => {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
-    fetchUsers();
-    fetchProfile();
-  }, []);
 
+    const initLoad = async () => {
+      setLoadingSteps((prev) => ({ ...prev, profile: "active" }));
+      try {
+        const hospitalityEnabled =
+          userProfile?.is_hospitality === 1 || userProfile?.is_hospitality === "1";
+        setIsHospitalityCompany(hospitalityEnabled);
+        setLoadingSteps((prev) => ({ ...prev, profile: "complete" }));
+        if (hospitalityEnabled) await loadHospitalityCompanies();
+      } catch {
+        setIsHospitalityCompany(false);
+        setLoadingSteps((prev) => ({ ...prev, profile: "complete" }));
+      }
+    };
+
+    if (userProfile) initLoad();
+  }, [userProfile]);
+
+  // Fetch users whenever debounced search, filters, or pagination page/limit change
   useEffect(() => {
-    if (accounts.length && isHospitalityCompany) {
-      setMappingsReady(false);
-      Promise.all(accounts.map((u) => fetchUserMapping(u.id)))
-        .then(() => setMappingsReady(true));
-      Promise.all(accounts.map((u) => fetchUserRoleScopesForUser(u.id)));
-    }
-  }, [isHospitalityCompany, accounts]);
+    const currentFilters = { ...filters, search: debouncedSearch };
+    fetchUsers(currentFilters, pagination);
+  }, [debouncedSearch, filters.status, filters.companyId, filters.hotelId, pagination.page, pagination.limit]);
 
-  // Filtering — uses debounced search and stable mappings ref
-  useEffect(() => {
-    let filtered = accounts;
-
-    if (filters.status)
-      filtered = filtered.filter((u) => u.status === filters.status.value);
-
-    if (debouncedSearch.trim()) {
-      const q = debouncedSearch.trim().toLowerCase();
-      filtered = filtered.filter(
-        (u) =>
-          (u.name || "").toLowerCase().includes(q) ||
-          (u.email || "").toLowerCase().includes(q) ||
-          (u.employee_code || "").toLowerCase().includes(q)
-      );
-    }
-
-    if (filters.companyId) {
-      const companyId = filters.companyId.value;
-      filtered = filtered.filter((u) => {
-        const mappings = mappingsRef.current[u.id] || [];
-        return mappings.some((m) => m.hospitality_company_id == companyId);
-      });
-    }
-
-    if (filters.hotelId) {
-      const hotelId = filters.hotelId.value;
-      filtered = filtered.filter((u) => {
-        const mappings = mappingsRef.current[u.id] || [];
-        return mappings.some((m) => m.hospitality_hotel_id == hotelId);
-      });
-    }
-
-    setFilteredAccounts(filtered);
+  // Reset page to 1 when filters change
+  const handleFilterChange = (patch) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
     setPagination((prev) => prev.page === 1 ? prev : { ...prev, page: 1 });
-  }, [debouncedSearch, filters.status, filters.companyId, filters.hotelId, accounts, mappingsReady]);
+  };
 
   // ── Derived values ─────────────────────────────────────────
-
-  const activeCount = accounts.filter((a) => a.status === "active").length;
-  const inactiveCount = accounts.length - activeCount;
-  const mappedCount = accounts.filter(
-    (a) => (userHospitalityMappings[a.id] || []).length > 0
-  ).length;
-
-  const totalData = filteredAccounts.length;
-  const start = (pagination.page - 1) * pagination.limit;
-  const paginatedUsers = filteredAccounts.slice(start, start + pagination.limit);
 
   const companyOptions = hospitalityCompanies.map((c) => ({
     value: c.id,
@@ -258,17 +193,27 @@ const ManageAccountsPage = () => {
 
   // ── Handlers ───────────────────────────────────────────────
 
-  const handleFilterChange = (patch) => {
-    setFilters((prev) => ({ ...prev, ...patch }));
+  const refreshCurrentPage = () => {
+    const currentFilters = { ...filters, search: debouncedSearch };
+    fetchUsers(currentFilters, pagination);
   };
 
-  const handleEditAccount = (account) => {
-    if (isHospitalityCompany) {
-      fetchUserMapping(account.id);
-      fetchUserRoleScopesForUser(account.id);
-    }
-    fetchUserDepartmentsForUser(account.id);
+  const handleEditAccount = async (account) => {
     setEditModal({ open: true, account });
+    const promises = [];
+    if (isHospitalityCompany) {
+      promises.push(
+        getUserRoleScopes(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => []),
+        getUserMappings(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => [])
+      );
+    } else {
+      promises.push(Promise.resolve([]), Promise.resolve([]));
+    }
+    promises.push(
+      getUserDepartments(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => [])
+    );
+    const [roleScopes, mappings, departments] = await Promise.all(promises);
+    setEditModalData({ roleScopes, departments, mappings });
   };
 
   const handleSaveAccount = async (accountData) => {
@@ -277,7 +222,7 @@ const ManageAccountsPage = () => {
       await updateUserAccount(accountData.id, accountData);
       toast.success("User updated successfully");
       setEditModal({ open: false, account: null });
-      await fetchUsers();
+      refreshCurrentPage();
     } catch (err) {
       console.error("Error updating user:", err);
       toast.error("Failed to update user");
@@ -286,8 +231,20 @@ const ManageAccountsPage = () => {
     }
   };
 
-  const handleMapUser = async ({ companyId, mappingLevel, hotelId, autoMapProjects }) => {
-    const user = editModal.account;
+  // ── Access Modal Handlers ────────────────────────────────
+
+  const handleManageAccess = async (account) => {
+    setAccessModal({ open: true, account });
+    try {
+      const mappingsRes = await getUserMappings(account.id);
+      setAccessModalMappings(mappingsRes?.data?.data || mappingsRes?.data || []);
+    } catch {
+      setAccessModalMappings([]);
+    }
+  };
+
+  const handleAccessMapUser = async ({ companyId, mappingLevel, hotelId, autoMapProjects }) => {
+    const user = accessModal.account;
     if (!user || !companyId) {
       toast.error("Select a hospitality company");
       return;
@@ -303,18 +260,19 @@ const ManageAccountsPage = () => {
         user_ids: [user.id],
         auto_map_projects: autoMapProjects,
       });
-      toast.success("User mapped successfully");
-      await fetchUserMapping(user.id);
-      fetchUsers();
+      toast.success("Access added successfully");
+      const mappingsRes = await getUserMappings(user.id).catch(() => ({ data: [] }));
+      setAccessModalMappings(mappingsRes?.data?.data || mappingsRes?.data || []);
+      refreshCurrentPage();
     } catch (error) {
       toast.error(
-        error?.message?.response?.data?.message || "Failed to map user"
+        error?.message?.response?.data?.message || "Failed to add access"
       );
     }
   };
 
-  const handleRemoveMapping = async (mapping) => {
-    const userId = editModal.account?.id;
+  const handleAccessRemoveMapping = async (mapping) => {
+    const userId = accessModal.account?.id;
     if (!userId) return;
     try {
       await deleteUserMapping(userId, {
@@ -322,12 +280,13 @@ const ManageAccountsPage = () => {
         mapping_type: mapping.mapping_type,
         hotel_id: mapping.mapping_type === 1 ? mapping.hospitality_hotel_id : null,
       });
-      toast.success("Mapping removed");
-      await fetchUserMapping(userId);
-      fetchUsers();
+      toast.success("Access removed");
+      const mappingsRes = await getUserMappings(userId).catch(() => ({ data: [] }));
+      setAccessModalMappings(mappingsRes?.data?.data || mappingsRes?.data || []);
+      refreshCurrentPage();
     } catch (error) {
       toast.error(
-        error?.message?.response?.data?.message || "Failed to remove mapping"
+        error?.message?.response?.data?.message || "Failed to remove access"
       );
     }
   };
@@ -344,11 +303,12 @@ const ManageAccountsPage = () => {
       </div>
 
       <StatsBar
-        totalUsers={accounts.length}
-        activeCount={activeCount}
-        inactiveCount={inactiveCount}
-        mappedCount={mappedCount}
+        totalUsers={stats.total_count}
+        activeCount={stats.active_count}
+        inactiveCount={stats.inactive_count}
+        mappedCount={stats.mapped_count}
         isHospitality={isHospitalityCompany}
+        isLoading={initialLoad}
       />
 
       <UserFilters
@@ -361,23 +321,26 @@ const ManageAccountsPage = () => {
       />
 
       <UserTable
-        users={paginatedUsers}
+        users={users}
         isLoading={loading}
         isHospitality={isHospitalityCompany}
-        userMappings={userHospitalityMappings}
-        userRoleScopes={userRoleScopes}
-        userDepartments={userDepartments}
         onEdit={handleEditAccount}
+        onManageAccess={handleManageAccess}
+        loadingSteps={[
+          { label: "Verifying profile...", status: loadingSteps.profile },
+          { label: "Loading companies & business units...", status: loadingSteps.companies },
+          { label: "Fetching users...", status: loadingSteps.users },
+        ]}
       />
 
-      {totalData > 0 && (
+      {pagination.total > 0 && (
         <div className="mt-4">
           <Pagination
             page={pagination.page}
             setPage={(page) => setPagination((prev) => ({ ...prev, page }))}
             limit={pagination.limit}
-            setLimit={(limit) => setPagination((prev) => ({ ...prev, limit }))}
-            totalData={totalData}
+            setLimit={(limit) => setPagination((prev) => ({ ...prev, limit, page: 1 }))}
+            totalData={pagination.total}
           />
         </div>
       )}
@@ -389,14 +352,23 @@ const ManageAccountsPage = () => {
           account={editModal.account}
           isHospitality={isHospitalityCompany}
           roleOptions={roleOptions}
+          initialRoleScopes={editModalData.roleScopes}
+          userDepartments={editModalData.departments}
+          userMappings={editModalData.mappings}
+          onSave={handleSaveAccount}
+        />
+      )}
+
+      {accessModal.open && accessModal.account && (
+        <AssignAccessModal
+          isOpen={accessModal.open}
+          onClose={() => setAccessModal({ open: false, account: null })}
+          user={accessModal.account}
           hospitalityCompanies={hospitalityCompanies}
           hotelsByCompany={hotelsByCompany}
-          userMappings={userHospitalityMappings[editModal.account.id] || []}
-          initialRoleScopes={userRoleScopes[editModal.account.id] || []}
-          userDepartments={userDepartments[editModal.account.id] || []}
-          onSave={handleSaveAccount}
-          onMapUser={handleMapUser}
-          onRemoveMapping={handleRemoveMapping}
+          userMappings={accessModalMappings}
+          onMapUser={handleAccessMapUser}
+          onRemoveMapping={handleAccessRemoveMapping}
           onLoadHotels={loadCompanyHotels}
         />
       )}

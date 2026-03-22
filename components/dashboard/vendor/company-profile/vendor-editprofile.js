@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
+import { setUserProfile } from "@/redux/slice";
 import Image from "next/image";
 import Head from "next/head";
 import Link from "next/link";
@@ -28,6 +30,7 @@ import { PiCrownSimpleFill } from "react-icons/pi";
 
 
 const VendorProfile = () => {
+  const dispatch = useDispatch();
   const router = useRouter();
   const { id } = router.query;
   const [loading, setloading] = useState(false);
@@ -197,6 +200,7 @@ useEffect(() => {
 
   const getBuyerProfile = async () => {
     const res = await getProfile();
+    dispatch(setUserProfile(res.data));
     const userTypeVal = parseInt(res.data.user_type ?? res.data.register_as ?? 0, 10);
     setIsBuyerUser(userTypeVal === 2);
     setcurrentUserProfile(res.data);

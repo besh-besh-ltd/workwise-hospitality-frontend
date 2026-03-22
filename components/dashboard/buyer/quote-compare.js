@@ -25,7 +25,7 @@ import {
   getEntityLabel,
 } from "@/utils/sharedFunctions";
 import { toast } from "react-toastify";
-import { getProjectAvailableBudget, getProjectList } from "@/services/project";
+import { getProjectAvailableBudget, getAllProjects as getAllProjectsService } from "@/services/project";
 import { getUserMappings } from "@/services/hospitality";
 import { Alert } from "react-bootstrap";
 import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
@@ -363,7 +363,7 @@ const openModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: true }));
 };
   const getAllProjects = () => {
-    getProjectList()
+    getAllProjectsService()
         .then((res) => {
             let d = [];
             (res.data.data || res.data || []).map((item) => {

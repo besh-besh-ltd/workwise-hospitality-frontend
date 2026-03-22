@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import { Formik, Form } from "formik";
 import { toast } from "react-toastify";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { HiArrowLeft } from "react-icons/hi";
-import { createBuyerCompanyUser, getProfile } from "@/services/Auth";
+import { createBuyerCompanyUser } from "@/services/Auth";
 import { createAccountSchema } from "@/utils/schema";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import { getDepartments } from "@/services/rbac";
-import { getHospitalityCompanies } from "@/services/hospitality";
-import styles from "./manage-accounts/ManageAccounts.module.css";
+import { getHospitalityCompanies, getHospitalityHotels } from "@/services/hospitality";
+import RoleScopeSelector from "@/components/hospitality/RoleScopeSelector";
+import InlineAccessManager from "./manage-accounts/InlineAccessManager";
+import styles from "./manage-accounts/ManageAccounts.module.scss";
 
 const employeeTypeOptions = [
   { value: "full-time", label: "Full Time" },
@@ -44,37 +47,45 @@ const initialValues = {
 
 const CreateAccountPage = () => {
   const router = useRouter();
+  const userProfile = useSelector((state) => state.userProfile);
   const [loading, setLoading] = useState(false);
   const [isHospitality, setIsHospitality] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [hospitalityCompanies, setHospitalityCompanies] = useState([]);
+  const [hospitalityCompaniesRaw, setHospitalityCompaniesRaw] = useState([]);
+  const [hotelsByCompany, setHotelsByCompany] = useState({});
+
+  // Pending mappings & role scopes (applied after user creation)
+  const [pendingMappings, setPendingMappings] = useState([]);
+  const [pendingRoleScopes, setPendingRoleScopes] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [profileRes, departmentsRes] = await Promise.all([
-          getProfile(),
-          getDepartments(),
-        ]);
-
-        const profile = profileRes?.data;
         const hospitalityEnabled =
-          profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
-        setIsHospitality(hospitalityEnabled);
+          userProfile?.is_hospitality === 1 || userProfile?.is_hospitality === "1";
+        setIsHospitality(!!hospitalityEnabled);
 
         if (hospitalityEnabled) {
           try {
-            const companiesRes = await getHospitalityCompanies();
-            const companies = (companiesRes?.data ?? companiesRes ?? []).map((c) => ({
+            const companiesRes = await getHospitalityCompanies({ include: "hotels" });
+            const companies = companiesRes?.data ?? companiesRes ?? [];
+            setHospitalityCompaniesRaw(companies);
+            setHospitalityCompanies(companies.map((c) => ({
               value: c.id,
               label: c.name || c.company_name,
-            }));
-            setHospitalityCompanies(companies);
+            })));
+            const hotelsMap = {};
+            companies.forEach((c) => {
+              hotelsMap[c.id] = c.hotels || [];
+            });
+            setHotelsByCompany(hotelsMap);
           } catch (error) {
             console.error("Error fetching hospitality companies:", error);
           }
         }
 
+        const departmentsRes = await getDepartments();
         const depts = (departmentsRes?.data?.data || departmentsRes?.data || []).map((d) => ({
           value: d.id,
           label: d.title,
@@ -86,7 +97,18 @@ const CreateAccountPage = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [userProfile]);
+
+  const loadCompanyHotels = async (companyId) => {
+    if (!companyId || hotelsByCompany[companyId]) return;
+    try {
+      const response = await getHospitalityHotels(companyId);
+      const hotels = response?.data ?? response ?? [];
+      setHotelsByCompany((prev) => ({ ...prev, [companyId]: hotels }));
+    } catch {
+      setHotelsByCompany((prev) => ({ ...prev, [companyId]: [] }));
+    }
+  };
 
   const handleSubmit = async (values, { resetForm, setSubmitting }) => {
     setLoading(true);
@@ -142,14 +164,35 @@ const CreateAccountPage = () => {
         }
       }
 
+      // Include roles and mappings directly in the create payload
+      if (isHospitality && pendingRoleScopes.length > 0) {
+        apiData.roles = pendingRoleScopes.map((role) => ({
+          role_id: role.role_id,
+          company_id: role.company_id || null,
+          hotel_id: role.hotel_id || null,
+          department_id: role.department_id || null,
+        }));
+      }
+
+      if (isHospitality && pendingMappings.length > 0) {
+        apiData.mappings = pendingMappings.map((mapping) => ({
+          company_id: mapping.companyId,
+          mapping_level: mapping.mappingLevel,
+          hotel_id: mapping.mappingLevel !== "company" ? mapping.hotelId : null,
+          auto_map_projects: mapping.autoMapProjects ?? true,
+        }));
+      }
+
       const response = await createBuyerCompanyUser(apiData);
-      if (response?.status) {
-        toast.success("Account created successfully!");
-        resetForm();
-        router.push("/dashboard/admin/account-management/manage-accounts?refresh=true");
-      } else {
+      if (!response?.status) {
         throw new Error(response?.message || "Failed to create account");
       }
+
+      toast.success("Account created successfully!");
+      resetForm();
+      setPendingMappings([]);
+      setPendingRoleScopes([]);
+      router.push("/dashboard/admin/account-management/manage-accounts?refresh=true");
     } catch (error) {
       console.error("Create account error:", error);
       const apiError = error?.message?.response || error?.response;
@@ -319,6 +362,38 @@ const CreateAccountPage = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Company & Business Unit Access (Hospitality only) */}
+                {isHospitality && (
+                  <div className={styles.createSection}>
+                    <div className={styles.createSectionTitle}>Company & Business Unit Access</div>
+                    <InlineAccessManager
+                      hospitalityCompanies={hospitalityCompaniesRaw}
+                      hotelsByCompany={hotelsByCompany}
+                      pendingMappings={pendingMappings}
+                      onAddMapping={(mapping) => setPendingMappings((prev) => [...prev, mapping])}
+                      onRemoveMapping={(index) => setPendingMappings((prev) => prev.filter((_, i) => i !== index))}
+                      onLoadHotels={loadCompanyHotels}
+                    />
+                  </div>
+                )}
+
+                {/* Workflow Roles & Permissions (Hospitality only) */}
+                {isHospitality && (
+                  <div className={styles.createSection}>
+                    <div className={styles.createSectionTitle}>Workflow Roles & Permissions</div>
+                    <RoleScopeSelector
+                      onAddRole={(scope) => setPendingRoleScopes((prev) => [...prev, scope])}
+                      existingRoles={pendingRoleScopes}
+                      onRemoveRole={(index) =>
+                        setPendingRoleScopes((prev) => prev.filter((_, i) => i !== index))
+                      }
+                      isEditMode={false}
+                      externalMappings={pendingMappings}
+                      userDepartments={values.department_id}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className={styles.createFooter}>

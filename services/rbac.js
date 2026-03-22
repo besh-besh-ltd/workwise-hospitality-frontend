@@ -42,10 +42,34 @@ export const getUserRoleScopes = (userId) =>
     }
   });
 
+export const getBatchUserRoleScopes = (userIds) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/rbac/users/batch-roles?user_ids=${userIds.join(',')}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 export const getUserDepartments = (userId) =>
   new Promise(async (resolve, reject) => {
     try {
       const response = await axiosInstance.get(`/rbac/users/${userId}/departments`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const getBatchUserDepartments = (userIds) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/rbac/users/batch-departments?user_ids=${userIds.join(',')}`
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });

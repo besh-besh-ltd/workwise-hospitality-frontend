@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { Modal, Button, Form, Table, Badge, Alert, Spinner } from 'react-bootstrap';
 import {
   createNegotiationRound,
@@ -8,7 +9,7 @@ import {
   getNegotiationRounds,
   getQuoteApprovalStatus
 } from '@/services/negotiation';
-import { getUserDetails, getProfile } from '@/services/Auth';
+import { getUserDetails } from '@/services/Auth';
 import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
 import { toast } from 'react-toastify';
 import moment from 'moment';
@@ -40,6 +41,7 @@ const NegotiationModal = ({
   const [roundQuotes, setRoundQuotes] = useState([]);
   const [selectedRound, setSelectedRound] = useState(null);
   const [roundsHistory, setRoundsHistory] = useState(initialRoundsHistory);
+  const userProfile = useSelector((state) => state.userProfile);
   const [currentUserId, setCurrentUserId] = useState(null);
   // Workflow modal state
   const [showWorkflowModal, setShowWorkflowModal] = useState(false);
@@ -59,37 +61,12 @@ const NegotiationModal = ({
   const [expandedApprovalJourney, setExpandedApprovalJourney] = useState(null); // roundId of expanded journey
 
   useEffect(() => {
-    // Load current user ID when modal opens
-    const loadUser = async () => {
-      try {
-        const res = await getProfile();
-        if (res?.data?.id) {
-          setCurrentUserId(parseInt(res.data.id));
-        }
-      } catch (error) {
-        console.error('Error loading user profile:', error);
-        // Fallback to localStorage or JWT
-        try {
-          const localStorageUserId = localStorage.getItem('userId') || localStorage.getItem('user_id');
-          if (localStorageUserId) {
-            setCurrentUserId(parseInt(localStorageUserId));
-          } else {
-            const userDetails = getUserDetails();
-            if (userDetails?.sub || userDetails?.user_id || userDetails?.id) {
-              const userId = userDetails.sub || userDetails.user_id || userDetails.id;
-              setCurrentUserId(typeof userId === 'string' ? parseInt(userId.split('|')[0]) : parseInt(userId));
-            }
-          }
-        } catch (e) {
-          console.error('Error getting user ID from fallback:', e);
-        }
-      }
-    };
-    
-    if (show) {
-      loadUser();
+    if (userProfile?.id) {
+      setCurrentUserId(parseInt(userProfile.id));
     }
-    
+  }, [userProfile]);
+
+  useEffect(() => {
     if (show && mode === 'create') {
       setSelectedProducts([]);
       setFormData({ target_price: '', end_date: '' });

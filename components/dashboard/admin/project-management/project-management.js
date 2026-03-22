@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFolderPlus, faEye } from "@fortawesome/free-solid-svg-icons";
 import Link from "next/link";
@@ -8,7 +9,6 @@ import ReadMore from "@/components/shared/ReadMore";
 import DynamicFormModal from "@/components/modal/DynamicFormModal";
 import { toast } from "react-toastify";
 import { getAllProjects, createProject } from "@/services/project";
-import { getProfile } from "@/services/Auth";
 import { getProjectMappings } from "@/services/hospitality";
 import { getCountryCodes } from "@/services/cms";
 import SmartButton from "@/components/shared/SmartButton";
@@ -24,6 +24,7 @@ const ProjectManagementPage = () => {
     showCreateModal: false,
     countryCodes: [],
   });
+  const userProfile = useSelector((state) => state.userProfile);
   const [isHospitalityCompany, setIsHospitalityCompany] = useState(false);
   const [projectHospitalityMap, setProjectHospitalityMap] = useState({});
   const [hospitalityLoading, setHospitalityLoading] = useState(false);
@@ -49,17 +50,11 @@ const ProjectManagementPage = () => {
     }
   };
 
-  const fetchProfile = async () => {
-    try {
-      const response = await getProfile();
-      const profile = response?.data;
-      const hospitalityEnabled =
-        profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
-      setIsHospitalityCompany(hospitalityEnabled);
-    } catch (error) {
-      setIsHospitalityCompany(false);
-    }
-  };
+  useEffect(() => {
+    const hospitalityEnabled =
+      userProfile?.is_hospitality === 1 || userProfile?.is_hospitality === "1";
+    setIsHospitalityCompany(!!hospitalityEnabled);
+  }, [userProfile]);
 
   const handleCreateProject = async (projectData) => {
     try {
@@ -145,7 +140,6 @@ const ProjectManagementPage = () => {
   useEffect(() => {
     fetchProjects();
     fetchCountryCodes();
-    fetchProfile();
   }, []);
 
   useEffect(() => {

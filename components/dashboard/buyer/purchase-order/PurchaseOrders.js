@@ -4,7 +4,6 @@ import Link from "next/link";
 import { getRfqs } from "@/services/rfq";
 import { getPoData, getPoDetails, handleMarkGRN, handlePOApproval, handlePOInitialization, updatePODetails } from "@/services/po";
 import { useRouter } from "next/router";
-import { getProjectList } from "@/services/project";
 import POListing from "./POListing";
 import PurchaseOrderDetails from "./PODetails";
 import { toast } from "react-toastify";
@@ -24,8 +23,6 @@ const PurchaseOrders = () => {
   const [rfqLoading, setRFQLoading] = useState(false);
   const [myRFQs, setmyRFQs] = useState([]);
   const [rfqNo, setRfqNo] = useState(null);
-  const [projects, setProjects] = useState(null);
-  const [selectedproject, setSelectedproject] = useState(null);
   const [poData, setPOData] = useState(null);
   const [totalData, setTotalData] = useState(0);
   const [approvalLevel, setApprovalLevel] = useState(null);
@@ -72,7 +69,6 @@ const PurchaseOrders = () => {
       po: true,
       page,
       limit,
-      project_id: selectedproject ? selectedproject : -1,
       rfq_no: rfqNo ? parseInt(rfqNo.replace("#", "")) : null,
       sort: "DESC",
       module_keys: "po",
@@ -245,20 +241,6 @@ const PurchaseOrders = () => {
     }
   }
 
-  const getAllProjects = () => {
-    getProjectList()
-      .then((res) => {
-        let d = [];
-        res.data.map((item) => {
-          d.push({ label: item.name, value: item.id });
-        });
-        setProjects(d);
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  };
-
   const fetchUserHotelMappings = async () => {
     try {
       const response = await getUserMappings();
@@ -268,10 +250,6 @@ const PurchaseOrders = () => {
       console.error("Error fetching user hotel mappings", error);
     }
   };
-
-  useEffect(() => {
-    getAllRFQs(true);
-  }, [selectedproject]);
 
   useEffect(() => {
     getPOData();
@@ -299,7 +277,6 @@ const PurchaseOrders = () => {
   }, [rfqNo]);
 
   useEffect(() => {
-      getAllProjects();
       fetchUserHotelMappings();
     }, []);
 
@@ -344,8 +321,6 @@ const PurchaseOrders = () => {
                 userHotelMappings={userHotelMappings}
                 selectedHotelIds={selectedHotelIds}
                 onHotelSelectionChange={(ids) => setSelectedHotelIds(ids)}
-                projects={projects || []}
-                onProjectChange={(val) => setSelectedproject(val)}
                 showTypeFilter={false}
                 getItemTags={(item, isSelected) => {
                   if (isSelected) return [];
