@@ -25,6 +25,8 @@ import LocationModal from "@/components/modal/LocationModal";
 import { Field, Form, Formik } from "formik";
 import Image from "next/image";
 import React, { use, useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
+import { setUserProfile } from "@/redux/slice";
 import { toast } from "react-toastify";
 import { EditCompanyDetails } from "@/utils/schema";
 import { components } from "react-select";
@@ -43,6 +45,7 @@ import MapSpocModal from "@/components/modal/MapSpocModal";
 
 
 const EditProfile = () => {
+  const dispatch = useDispatch();
   // handling state for spoc
   const [vendorSpoc, setVendorSpoc] = useState([]);
   const [selectedSpocOption, setSelectedSpocOption] = useState({
@@ -341,7 +344,8 @@ const [userDocuments, setUserDocuments] = useState({
       setMainLoading(true);
       const res = await getProfile();
       setMainLoading(false);
-      
+      dispatch(setUserProfile(res.data));
+
       console.log("Profile API Response:", res.data); // Debug log
       
       setextractedCountryCode(res.data.mobile ? res.data.mobile.match(/^\+\d{1,4}/)?.[0] || "+91" : "+91");

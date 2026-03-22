@@ -81,14 +81,14 @@ const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, on
   const depts = departments || [];
 
   return (
-    <tr className={!isActive ? styles.rowInactive : undefined}>
+    <tr>
       <td>
         <div className={styles.userCell}>
           <div className={styles.userAvatar} style={{ background: isActive ? avatarColor : "#94a3b8" }}>
             {initials}
           </div>
           <div>
-            <div className={styles.userName}>
+            <div className={styles.userName} style={{ color: !isActive ? "#94a3b8" : undefined  }}>
               {account.name}
               {account.employee_code ? <span className={styles.userEmpCode}> · {account.employee_code}</span> : ""}
               {!isActive && <span className={styles.inactiveTag}>Inactive</span>}

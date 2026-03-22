@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { getArcRfqList, getTenderLifecycle, performArcAction } from "@/services/arc";
 import { getRFQById } from "@/services/rfq";
-import { getProjectList } from '@/services/project';
+import { getAllProjects as getAllProjectsService } from '@/services/project';
 import { getUserMappings } from '@/services/hospitality';
 import { formatRFQNumber } from "@/utils/sharedFunctions";
 import { toast } from "react-toastify";
@@ -178,7 +178,7 @@ const ArcCommittee = () => {
   }, [stageData.currentStage]);
 
   const getAllProjects = () => {
-    getProjectList()
+    getAllProjectsService()
       .then((res) => {
         let d = [];
         (res.data.data || res.data || []).map((item) => {

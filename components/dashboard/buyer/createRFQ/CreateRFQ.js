@@ -6,7 +6,6 @@ import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDra
 import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
-import { getProfile } from "@/services/Auth";
 import Loader from "@/components/shared/Loader";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -21,7 +20,7 @@ import {
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { getProjectList, getProjectTableDataById, getProjectsByHospitalityContext, getProjectHospitalityContext, getRfqFilters } from "@/services/project";
+import { getAllProjects as getAllProjectsService, getProjectTableDataById, getProjectsByHospitalityContext, getProjectHospitalityContext, getRfqFilters } from "@/services/project";
 import { getMyHospitalityContexts, getUserMappings } from "@/services/hospitality";
 import { getDepartments } from "@/services/rbac";
 import { getApprovalProcesses } from "@/services/process";
@@ -30,7 +29,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
 import { extractfileName, handleFileUpload, formatISOToDateTimeLocal, getDataWithLoading, getEntityLabel } from "@/utils/sharedFunctions";
 import { Accordion } from "react-bootstrap";
-import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
+import { getCountryCodes } from "@/services/cms";
 import axiosInstance from "@/lib/axios";
 import ViewVendorModal from "../editRFQ/ViewVendorModal";
 import { subscriptionTypes, vendorConditions } from "../../vendor/search";
@@ -111,7 +110,7 @@ const CreateRFQ = () => {
   const [loading, setLoading] = useState(false);
   const [mainLoading, setMainLoading] = useState(false);
 
-  const [userProfile, setuserProfile] = useState(null);
+  const userProfile = useSelector((state) => state.userProfile);
   const [vendorApprovedList, setVendorApprovedList] = useState([]);
   const [projects, setProjects] = useState([]);
   const [rfqProducts, setRfqProducts] = useState([]);
@@ -278,7 +277,7 @@ const CreateRFQ = () => {
 
   const getAllProjects = async () => {
     try {
-      const res = await getProjectList();
+      const res = await getAllProjectsService();
       const projectsData = res?.data?.data || res?.data || [];
       const formatted = projectsData.map((item) => ({
         label: item.name || `Project #${item.id}`,
@@ -463,49 +462,8 @@ const CreateRFQ = () => {
     }
   };
 
-  const getAllCountries = async () => {
-    try {
-      const approvedBy = await getDataWithLoading(getCountries, setLoading);
-      setInitialFilterOptions(prev => ({
-        ...prev,
-        countries: approvedBy.data,
-      }))
-    } catch (error) {
-      throw error;
-    }
-  };
 
-  const getAllStates = async () => {
-    try {
-      const approvedBy = await getDataWithLoading(getStates, setLoading);
-      setInitialFilterOptions(prev => ({
-        ...prev,
-        states: approvedBy.data,
-      }))
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const getAllCities = async () => {
-    try {
-      const approvedBy = await getDataWithLoading(getCities, setLoading);
-      setInitialFilterOptions(prev => ({
-        ...prev,
-        cities: approvedBy.data,
-      }))
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const getProfileDetails = () => {
-    setLoading(true);
-    getProfile().then((res) => {
-      setLoading(false);
-      setuserProfile(res.data);
-    });
-  };
+  // Profile details now come from Redux selector (userProfile)
 
   const getTermsData = () => {
     getTerms()
@@ -2211,11 +2169,7 @@ useEffect(() => {
 
   useEffect(() => {
     try {
-      getProfileDetails();
       getVendorApproveList();
-      getAllCountries();
-      getAllStates();
-      getAllCities();
       getAllProjects();
       fetchCountryCodes();
       fetchHospitalityContexts();

@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
+import { useSelector } from "react-redux";
 import HospitalityManager from "@/components/dashboard/admin/HospitalityManager";
 import { AdminGuard } from "@/utils/authGuard";
-import { getProfile } from "@/services/Auth";
 import FullLoader from "@/components/shared/FullLoader";
 
 const THEME = {
@@ -14,34 +14,10 @@ const THEME = {
 };
 
 const HospitalityManagerPage = () => {
-  const [loading, setLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState(false);
+  const userProfile = useSelector((state) => state.userProfile);
+  const hasAccess = userProfile?.is_hospitality === 1 || userProfile?.is_hospitality === "1";
+  const loading = userProfile === null && !!localStorage.getItem("token");
   const router = useRouter();
-
-  useEffect(() => {
-    let isMounted = true;
-    const fetchProfile = async () => {
-      try {
-        const response = await getProfile();
-        if (!isMounted) return;
-        const profile = response?.data;
-        const isHospitality =
-          profile?.is_hospitality === 1 ||
-          profile?.is_hospitality === "1";
-        setHasAccess(isHospitality);
-      } catch (error) {
-        setHasAccess(false);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-    fetchProfile();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   const renderContent = () => {
     if (loading) {
@@ -112,5 +88,3 @@ const HospitalityManagerPage = () => {
 };
 
 export default HospitalityManagerPage;
-
-

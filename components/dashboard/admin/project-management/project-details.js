@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import { useRouter } from "next/router";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -21,7 +22,7 @@ import {
   getProjectBudget,
 } from "@/services/project";
 import { getCountryCodes } from "@/services/cms";
-import { getCompanyUsers, getProfile } from "@/services/Auth";
+import { getCompanyUsers } from "@/services/Auth";
 import {
   getHospitalityCompanies,
   getHospitalityHotels,
@@ -43,6 +44,7 @@ const roleOptions = [
 
 const ProjectDetailsPage = () => {
   const router = useRouter();
+  const userProfile = useSelector((state) => state.userProfile);
   const { projectId } = router.query;
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState(null);
@@ -84,20 +86,14 @@ const ProjectDetailsPage = () => {
     }
   };
 
-  const fetchHospitalityProfile = async () => {
-    try {
-      const response = await getProfile();
-      const profile = response?.data;
-      const hospitalityEnabled =
-        profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
-      setIsHospitalityCompany(hospitalityEnabled);
-      if (hospitalityEnabled) {
-        await Promise.all([loadHospitalityCompanies(), loadProjectHospitalityMappings()]);
-      }
-    } catch (error) {
-      setIsHospitalityCompany(false);
+  useEffect(() => {
+    const hospitalityEnabled =
+      userProfile?.is_hospitality === 1 || userProfile?.is_hospitality === "1";
+    setIsHospitalityCompany(!!hospitalityEnabled);
+    if (hospitalityEnabled && projectId) {
+      Promise.all([loadHospitalityCompanies(), loadProjectHospitalityMappings()]);
     }
-  };
+  }, [userProfile, projectId]);
 
   const loadHospitalityCompanies = async () => {
     try {
@@ -295,7 +291,6 @@ const ProjectDetailsPage = () => {
       fetchTeamMembers();
       fetchCountryCodes();
       fetchTeamMemberUsers();
-      fetchHospitalityProfile();
     }
   }, [projectId]);   
 

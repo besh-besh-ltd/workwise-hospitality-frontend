@@ -1,12 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import Select from 'react-select';
-import { getProjectList } from '@/services/project';
 import { getUserMappings } from '@/services/hospitality';
 
 
 const FilterSection = ({ title, setFilterData }) => {
-    const [projects, setProjects] = useState(null);
-    const [allProjects, setAllProjects] = useState(null);
     const [rfqNo, setRfqNo] =useState(null);
     const [userHotelMappings, setUserHotelMappings] = useState([]);
     const [selectedHotelIds, setSelectedHotelIds] = useState([]);
@@ -33,8 +30,6 @@ const FilterSection = ({ title, setFilterData }) => {
             // Handle clear action
             if (name === "reverse_auction") {
                 value = "-1";
-            } else if (name === "project_id") {
-                value = -1;
             } else if (name === "is_tender") {
                 value = null;
             } else {
@@ -50,21 +45,6 @@ const FilterSection = ({ title, setFilterData }) => {
         }));
     }
 
-    const getAllProjects = () => {
-        getProjectList()
-            .then((res) => {
-                let d = [];
-                (res.data.data || res.data || []).map((item) => {
-                    d.push({ label: item.name, value: item.id, hospitality_company_id: item.hospitality_company_id, hotel_id: item.hotel_id });
-                });
-                setProjects(d);
-                setAllProjects(d);
-            })
-            .catch((error) => {
-                console.log(error)
-            })
-    }
-
     const fetchUserHotelMappings = async () => {
         try {
             const response = await getUserMappings();
@@ -77,37 +57,9 @@ const FilterSection = ({ title, setFilterData }) => {
 
     const handleHotelSelectionChange = (hotelIds) => {
         setSelectedHotelIds(hotelIds);
-
-        // Filter projects based on selected hotels
-        // Include both hotel-specific projects AND company-level projects for selected hotels' companies
-        if (!hotelIds || hotelIds.length === 0) {
-            setProjects(allProjects);
-        } else {
-            // Get company IDs for selected hotels
-            const companyIdsForHotels = [...new Set(
-                (userHotelMappings || [])
-                    .filter(h => hotelIds.includes(h.hospitality_hotel_id))
-                    .map(h => h.hospitality_company_id)
-            )];
-
-            const filtered = allProjects.filter(p =>
-                // Include hotel-specific projects
-                hotelIds.includes(p.hotel_id) ||
-                // Include company-level projects (hotel_id is null but company matches)
-                (p.hotel_id == null && p.hospitality_company_id != null && companyIdsForHotels.includes(p.hospitality_company_id))
-            );
-            setProjects(filtered);
-        }
-
-        // Reset project filter
-        setFilterData((prevState) => ({
-            ...prevState,
-            project_id: -1,
-        }));
     }
 
     useEffect(() => {
-        getAllProjects();
         fetchUserHotelMappings();
     }, []);
 
@@ -187,18 +139,6 @@ const FilterSection = ({ title, setFilterData }) => {
                         ]}
                         onChange={handleFilterChange}
                         name="reverse_auction"
-                        placeholder="Select"
-                        isClearable
-                    />
-                </div>
-
-                <div className="col-md-3 col-lg-2">
-                    <label>Select Project</label>
-                    <Select
-                        id="select_project_filter-filter_section-manage_rfq_page"
-                        options={projects}
-                        onChange={handleFilterChange}
-                        name="project_id"
                         placeholder="Select"
                         isClearable
                     />

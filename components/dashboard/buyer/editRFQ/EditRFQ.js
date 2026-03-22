@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Select from 'react-select';
 import { updateRfq, getTerms, vendorApproveList, getRFQById, getVendorsForProduct, addProductToExistingRfq } from "@/services/rfq";
 import { Form, Formik } from "formik";
-import { getProfile } from "@/services/Auth";
+
 import Loader from "@/components/shared/Loader";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -16,7 +16,7 @@ import {
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { getProjectList } from "@/services/project";
+import { getAllProjects } from "@/services/project";
 import { getDepartments } from "@/services/rbac";
 import { getCountryCodes } from "@/services/cms";
 import { getUserMappings, getRFQHotels } from "@/services/hospitality";
@@ -439,7 +439,7 @@ const EditRFQ = () => {
         }
       }
 
-      const projectsResponse = await getProjectList();
+      const projectsResponse = await getAllProjects();
       const projectsData = projectsResponse?.data?.data || projectsResponse?.data || [];
       const formattedProjects = projectsData.map(project => ({
         value: project.id,

@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import Select from 'react-select';
-import { getCities, getCountries, getStates } from '@/services/cms';
+import { getCountries, getStates, getCities } from '@/services/cms';
 import { toast } from 'react-toastify';
 import _ from 'lodash';
 import { vendorConditions } from '../../vendor/search';
@@ -42,8 +42,6 @@ const ReviewProducts = ({
     data, changeProductData, handleFiles, removeItem,
     globalFilters, vendorMap, setVendorMap, states: _states, cities: _cities, countries, vendorTypes, approved_by }) => {
 
-    const [globalStates, setGlobalStates] = useState(null);
-    const [globalCities, setGlobalCities] = useState(null);
     const [isLocalFilterVisible, setIsLocalFilterVisible] = useState({});
 
     const [cities, setCities] = useState(new Map());
@@ -167,112 +165,80 @@ const ReviewProducts = ({
         setVendorMap(vMap);
     }
 
-    const handleLocalFilterChange = (prodKey, selectedOption, actionMeta) => {
+    const handleLocalFilterChange = async (prodKey, selectedOption, actionMeta) => {
         let fMap = new Map(localFilterMap);
         let filters = fMap.get(prodKey);
         if(actionMeta.name == 'country' && (!selectedOption || selectedOption.length <= 0)) {
-
           fMap = fMap.set(prodKey, {
             ...filters,
             'state': [],
             'city': []
           })
           filters = fMap.get(prodKey);
+          setStates((prev) => { const m = new Map(prev); m.set(prodKey, []); return m; });
+          setCities((prev) => { const m = new Map(prev); m.set(prodKey, []); return m; });
         }
-        if(actionMeta.name == 'state' && (!selectedOption.value || selectedOption.length <= 0)) {
+        if(actionMeta.name == 'state' && (!selectedOption || selectedOption.length <= 0)) {
           fMap = fMap.set(prodKey, {
             ...filters,
             'city': []
           })
           filters = fMap.get(prodKey);
+          setCities((prev) => { const m = new Map(prev); m.set(prodKey, []); return m; });
         }
         fMap = fMap.set(prodKey, {
             ...filters,
             [actionMeta.name]: selectedOption
         })
         setLocalFilterMap(fMap);
-        getAllStates(prodKey, actionMeta.name == 'country' ? selectedOption : filters?.country);
-        getAllCities(prodKey, actionMeta.name == 'state' ? selectedOption : filters?.state, actionMeta.name == 'country' ? selectedOption : filters?.country);
+
+        if (actionMeta.name == 'country' && selectedOption && selectedOption.length > 0) {
+            fetchStatesForProduct(prodKey, selectedOption);
+        }
+        if (actionMeta.name == 'state' && selectedOption && selectedOption.length > 0) {
+            fetchCitiesForProduct(prodKey, selectedOption);
+        }
     }
-    
-    const getAllStates = (prod_key, country) => {
-        if(!prod_key || !country) return;
+
+    const fetchStatesForProduct = async (prodKey, selectedCountries) => {
         try {
-            setStates((prev) => {
-                const prevStates = globalStates
-                const updatedStates = prev.set(
-                    prod_key,
-                    prevStates.filter(state => country.some(c => c.value == state.country_id))
-                  )
-                return updatedStates
-            }
+            const results = await Promise.all(
+                selectedCountries.map(c => getStates(c.value))
             );
-        } catch (error) {
-            toast.error(error.message)
-            return [];
-        }
-    };
-
-    const getAllCities = async (prod_key, state, country) => {
-        if(!prod_key) return;
-        try {
-            setCities((prev) => {
-                const prevCities = globalCities
-                const updatedCities = prev.set(
-                    prod_key,
-                    state && state.length > 0 ? prevCities.filter(city => {return state.some(s => s.value == city.state_id)})
-                    : country && country.length > 0 ? prevCities.filter(city => {return country.some(c => c.value == city.country_id)})
-                    : prevCities
-                )
-                return updatedCities
-            });
-        } catch (error) {
-            toast.error(error.message)
-            return [];
-        }
-    };
-
-    const fetchStates = async () => {
-        try {
-            const res = await getStates();
-            setGlobalStates(
-                res.data.map((state) => ({
+            const allStates = results.flatMap(res =>
+                (res.data || []).map(state => ({
                     label: state.state_name,
                     value: state.id,
                     country_id: state.country_id,
                 }))
-            )
+            );
+            setStates((prev) => { const m = new Map(prev); m.set(prodKey, allStates); return m; });
         } catch (error) {
-            toast.error(error.message)
-            return [];
+            toast.error(error.message);
         }
     };
-    
-    const fetchCities = async () => {
+
+    const fetchCitiesForProduct = async (prodKey, selectedStates) => {
         try {
-            const res = await getCities();
-            setGlobalCities(
-                res.data.map((city) => ({
+            const results = await Promise.all(
+                selectedStates.map(s => getCities(s.value))
+            );
+            const allCities = results.flatMap(res =>
+                (res.data || []).map(city => ({
                     label: city.city_name,
                     value: city.id,
                     state_id: city.state_id,
-                    country_id: city.country_id
                 }))
-            )
+            );
+            setCities((prev) => { const m = new Map(prev); m.set(prodKey, allCities); return m; });
         } catch (error) {
-            toast.error(error.message)
-            return [];
+            toast.error(error.message);
         }
     };
 
     useEffect(()=> {
         updateVendorList();
     }, [localFilterMap]);
-
-    useEffect(() => {
-        fetchStates();
-        fetchCities();
-    }, [])
 
     useEffect(() => {
         // Changes by Agnij 2024-10-22 [Enhanced global filters handling]
@@ -524,8 +490,8 @@ const ReviewProducts = ({
                                         <Select
                                           isDisabled={
                                             !localFilterMap.get(prodKey)
-                                              ?.country ||
-                                            localFilterMap.get(prodKey).country
+                                              ?.state ||
+                                            localFilterMap.get(prodKey).state
                                               .length <= 0
                                           }
                                           isMulti

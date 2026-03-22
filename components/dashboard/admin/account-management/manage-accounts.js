@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useSelector } from "react-redux";
 import Pagination from "@/components/shared/Pagination";
 import CustomRolePermissionsModal from "@/components/modal/CustomRolePermissionsModal";
-import { getCompanyUsersDetailed, updateUserAccount, getProfile } from "@/services/Auth";
+import { getCompanyUsersDetailed, updateUserAccount } from "@/services/Auth";
 import {
   getHospitalityCompanies,
   getHospitalityHotels,
@@ -27,6 +28,7 @@ const roleOptions = [
 ];
 
 const ManageAccountsPage = () => {
+  const userProfile = useSelector((state) => state.userProfile);
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
@@ -134,22 +136,6 @@ const ManageAccountsPage = () => {
     }
   };
 
-  const fetchProfile = async () => {
-    setLoadingSteps((prev) => ({ ...prev, profile: "active" }));
-    try {
-      const response = await getProfile();
-      const profile = response?.data;
-      const hospitalityEnabled =
-        profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
-      setIsHospitalityCompany(hospitalityEnabled);
-      setLoadingSteps((prev) => ({ ...prev, profile: "complete" }));
-      if (hospitalityEnabled) await loadHospitalityCompanies();
-    } catch {
-      setIsHospitalityCompany(false);
-      setLoadingSteps((prev) => ({ ...prev, profile: "complete", companies: "complete" }));
-    }
-  };
-
   // ── Effects ────────────────────────────────────────────────
 
   useEffect(() => {
@@ -159,8 +145,23 @@ const ManageAccountsPage = () => {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
-    fetchProfile();
-  }, []);
+
+    const initLoad = async () => {
+      setLoadingSteps((prev) => ({ ...prev, profile: "active" }));
+      try {
+        const hospitalityEnabled =
+          userProfile?.is_hospitality === 1 || userProfile?.is_hospitality === "1";
+        setIsHospitalityCompany(hospitalityEnabled);
+        setLoadingSteps((prev) => ({ ...prev, profile: "complete" }));
+        if (hospitalityEnabled) await loadHospitalityCompanies();
+      } catch {
+        setIsHospitalityCompany(false);
+        setLoadingSteps((prev) => ({ ...prev, profile: "complete" }));
+      }
+    };
+
+    if (userProfile) initLoad();
+  }, [userProfile]);
 
   // Fetch users whenever debounced search, filters, or pagination page/limit change
   useEffect(() => {

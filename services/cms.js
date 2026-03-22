@@ -110,10 +110,11 @@ export const getProducts = (type) => {
 	});
 };
 
-export const getStates = (country_id) => {  
+export const getStates = (country_id) => {
+	if (!country_id) return Promise.resolve({ data: [] });
 	return new Promise(async (resolve, reject) => {
 		try {
-			let response = await axiosInstance.get(`/general/states?country_id=${country_id ? country_id : ""}`);
+			let response = await axiosInstance.get(`/general/states?country_id=${country_id}`);
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
@@ -121,16 +122,18 @@ export const getStates = (country_id) => {
 	});
 };
 
-export const getCities = (state_id) => {  
+export const getCities = (state_id) => {
+	if (!state_id) return Promise.resolve({ data: [] });
 	return new Promise(async (resolve, reject) => {
 		try {
-			let response = await axiosInstance.get(`general/cities/${state_id ? state_id : ""}`);
+			let response = await axiosInstance.get(`general/cities/${state_id}`);
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
 		}
 	});
 };
+
 
 export const getVendorDashboardData = () => {  
 	return new Promise(async (resolve, reject) => {

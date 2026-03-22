@@ -13,13 +13,15 @@ import {
 } from '../services/subscription';
 import storageInstance from '../utils/storageInstance';
 import { pricingData } from '../components/constants/pricingData';
-import { LoginService, SWSubscribe, handleSocialLogin } from '../services/Auth';
+import { LoginService, SWSubscribe, handleSocialLogin, getProfile } from '../services/Auth';
 import { useGoogleLogin } from '@react-oauth/google';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { setUserProfile } from '@/redux/slice';
 
 const HotelVendor = () => {
   const router = useRouter();
   const { register, login } = router.query;
+  const dispatch = useDispatch();
   const swSubscription = useSelector((data) => data.swSubscription);
 
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -98,6 +100,10 @@ const HotelVendor = () => {
                     storageInstance.setStorage('current-user-type', 'vendor');
                     SWSubscribe({ subscription: swSubscription, token: loginResponse.token })
                       .catch(() => {});
+                    try {
+                      const profileRes = await getProfile();
+                      dispatch(setUserProfile(profileRes.data));
+                    } catch (err) {}
                   }
                 } catch (loginError) {
                   console.error('Auto-login error:', loginError);
@@ -304,9 +310,11 @@ const HotelVendor = () => {
   };
 
   const loginSubmitHandler = (values, isFromOtherModal = false) => {
+    console.log("Login attempt with values:", values);
     setLoading(true);
     LoginService(values, isFromOtherModal)
-      .then((response) => {
+      .then(async (response) => {
+        console.log("Login response:", response);
         setLoading(false);
         if (isFromOtherModal) {
           handleCloseOtherDeviceModal();
@@ -368,13 +376,18 @@ const HotelVendor = () => {
         
         storageInstance.setStorage('current-user-type', userType);
         setShowLoginModal(false);
-        
+
         toast.success(response.message, {
           position: 'top-right',
         });
-        
+
+        try {
+          const profileRes = await getProfile();
+          dispatch(setUserProfile(profileRes.data));
+        } catch (err) {}
+
         window.dispatchEvent(new Event('loginStatusChanged'));
-        
+
         setTimeout(() => {
           window.location.href = `/dashboard/${userType}`;
         }, 300);
@@ -415,7 +428,7 @@ const HotelVendor = () => {
         },
         false
       )
-        .then((response) => {
+        .then(async (response) => {
           if (response?.token) {
             SWSubscribe({ subscription: swSubscription, token: response.token })
               .catch(() => {});
@@ -435,13 +448,13 @@ const HotelVendor = () => {
           } else if (response?.profile?.user_type == 10) {
             userType = 'finance';
           }
-          
+
           if (!userType) {
             toast.error('Unknown user type. Please contact support.');
             setLoading(false);
             return;
           }
-          
+
           storageInstance.setStorage('current-user-type', userType);
           setLoading(false);
           setShowLoginModal(false);
@@ -449,9 +462,14 @@ const HotelVendor = () => {
           toast.success(response.message, {
             position: 'top-right',
           });
-          
+
+          try {
+            const profileRes = await getProfile();
+            dispatch(setUserProfile(profileRes.data));
+          } catch (err) {}
+
           window.dispatchEvent(new Event('loginStatusChanged'));
-          
+
           setTimeout(() => {
             window.location.href = `/dashboard/${userType}`;
           }, 300);

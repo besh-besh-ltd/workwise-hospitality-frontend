@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import { Formik, Form } from "formik";
 import { toast } from "react-toastify";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { HiArrowLeft } from "react-icons/hi";
-import { createBuyerCompanyUser, getProfile } from "@/services/Auth";
+import { createBuyerCompanyUser } from "@/services/Auth";
 import { createAccountSchema } from "@/utils/schema";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import { getDepartments } from "@/services/rbac";
@@ -46,6 +47,7 @@ const initialValues = {
 
 const CreateAccountPage = () => {
   const router = useRouter();
+  const userProfile = useSelector((state) => state.userProfile);
   const [loading, setLoading] = useState(false);
   const [isHospitality, setIsHospitality] = useState(false);
   const [departments, setDepartments] = useState([]);
@@ -60,15 +62,9 @@ const CreateAccountPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [profileRes, departmentsRes] = await Promise.all([
-          getProfile(),
-          getDepartments(),
-        ]);
-
-        const profile = profileRes?.data;
         const hospitalityEnabled =
-          profile?.is_hospitality === 1 || profile?.is_hospitality === "1";
-        setIsHospitality(hospitalityEnabled);
+          userProfile?.is_hospitality === 1 || userProfile?.is_hospitality === "1";
+        setIsHospitality(!!hospitalityEnabled);
 
         if (hospitalityEnabled) {
           try {
@@ -89,6 +85,7 @@ const CreateAccountPage = () => {
           }
         }
 
+        const departmentsRes = await getDepartments();
         const depts = (departmentsRes?.data?.data || departmentsRes?.data || []).map((d) => ({
           value: d.id,
           label: d.title,
@@ -100,7 +97,7 @@ const CreateAccountPage = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [userProfile]);
 
   const loadCompanyHotels = async (companyId) => {
     if (!companyId || hotelsByCompany[companyId]) return;
