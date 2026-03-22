@@ -1,30 +1,10 @@
 import { useEffect, useState } from "react";
+import { HiX } from "react-icons/hi";
 import { getDepartments, getRoles, getRolePermissions } from "@/services/rbac";
 import { getHospitalityEntities, getUserMappings } from "@/services/hospitality";
+import styles from "@/components/dashboard/admin/account-management/manage-accounts/ManageAccounts.module.scss";
 
-/**
- * RoleScopeSelector (Bootstrap-friendly)
- * -----------------------------------
- * Designed to be used INSIDE a Bootstrap modal body
- * Uses only React + Bootstrap classes
- *
- * Props:
- * - onAddRole(scopeObject)
- *
- * scopeObject shape:
- * {
- *   role_id,
- *   role_title,
- *   company_id,
- *   hotel_id,
- *   permissions: {
- *     tender: ['read','create'],
- *     negotiation: ['read','write']
- *   }
- * }
- */
-
-export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDepartment: propSelectedDepartment, isEditMode = true, onRemoveRole, userDepartments = [], userId = null }) {
+export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDepartment: propSelectedDepartment, isEditMode = true, onRemoveRole, userDepartments = [], userId = null, externalMappings = null }) {
   const [roles, setRoles] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [allCompanies, setAllCompanies] = useState([]);
@@ -35,8 +15,6 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   const [error, setError] = useState(null);
   const [userMappings, setUserMappings] = useState([]);
   const [userMappingsLoaded, setUserMappingsLoaded] = useState(false);
-
-  /* ---------------- State ---------------- */
 
   const [selectedRole, setSelectedRole] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -57,15 +35,13 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
         ]);
 
         const rolesData = rolesRes?.data?.data || rolesRes?.data || [];
-        const departmentsData =
-          departmentsRes?.data?.data || departmentsRes?.data || [];
+        const departmentsData = departmentsRes?.data?.data || departmentsRes?.data || [];
         const entities = entitiesRes?.data?.data || entitiesRes?.data || [];
 
         setRoles(rolesData);
         setAllDepartments(departmentsData);
-        // Initially set departments - will be filtered by second useEffect if needed
         setDepartments(departmentsData);
-        
+
         const allCompaniesData = entities.map((c) => ({
           id: c.company_id,
           name: c.company_name,
@@ -74,7 +50,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
             name: h.hotel_name
           }))
         }));
-        
+
         setAllCompanies(allCompaniesData);
         setCompanies(allCompaniesData);
       } catch {
@@ -87,7 +63,6 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     loadMasters();
   }, []);
 
-  // Load user mappings if userId is provided
   useEffect(() => {
     if (!userId || !isEditMode) {
       setUserMappings([]);
@@ -112,28 +87,61 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     loadUserMappings();
   }, [userId, isEditMode]);
 
-  // Filter companies and hotels based on user mappings
   useEffect(() => {
-    if (!isEditMode) {
-      // If not in edit mode, show all companies
-      setCompanies(allCompanies);
+    // When externalMappings are provided (create page), use them to filter
+    if (!isEditMode && externalMappings && externalMappings.length > 0) {
+      const mappedCompanyIds = new Set();
+      const mappedHotelIds = new Set();
+      const companyLevelMappings = new Set();
+
+      externalMappings.forEach((mapping) => {
+        const companyId = mapping.companyId || mapping.hospitality_company_id;
+        if (companyId) mappedCompanyIds.add(String(companyId));
+
+        const level = mapping.mappingLevel || (mapping.mapping_type === 0 ? "company" : "hotel");
+        if (level === "company") {
+          companyLevelMappings.add(String(companyId));
+        }
+
+        const hotelId = mapping.hotelId || mapping.hospitality_hotel_id;
+        if (level !== "company" && hotelId) {
+          mappedHotelIds.add(String(hotelId));
+        }
+      });
+
+      const filteredCompanies = allCompanies
+        .filter((company) => mappedCompanyIds.has(String(company.id)))
+        .map((company) => ({
+          ...company,
+          hotels: companyLevelMappings.has(String(company.id))
+            ? company.hotels
+            : company.hotels.filter((hotel) => mappedHotelIds.has(String(hotel.id)))
+        }));
+
+      setCompanies(filteredCompanies);
       return;
     }
 
-    // In edit mode: wait for user mappings to load before showing any companies
+    if (!isEditMode) {
+      // No external mappings and not edit mode — show nothing (user must map first)
+      if (externalMappings !== null) {
+        setCompanies([]);
+      } else {
+        setCompanies(allCompanies);
+      }
+      return;
+    }
+
     if (!userMappingsLoaded) {
       setCompanies([]);
       return;
     }
 
-    // In edit mode: if user has no mappings, show no companies
-    // They must first be mapped to a company/hotel before workflow roles can be assigned
     if (userMappings.length === 0) {
       setCompanies([]);
       return;
     }
 
-    // Extract unique company IDs and hotel IDs from mappings
     const mappedCompanyIds = new Set();
     const mappedHotelIds = new Set();
 
@@ -144,12 +152,9 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       }
     });
 
-    // Filter companies to only show mapped ones
     const filteredCompanies = allCompanies
       .filter((company) => mappedCompanyIds.has(company.id))
       .map((company) => {
-        // If user has company-level mapping, show all hotels
-        // Otherwise, only show mapped hotels
         const hasCompanyMapping = userMappings.some(
           (m) => m.hospitality_company_id === company.id && m.mapping_type === 0
         );
@@ -163,24 +168,19 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       });
 
     setCompanies(filteredCompanies);
-  }, [userMappings, allCompanies, isEditMode, userMappingsLoaded]);
+  }, [userMappings, allCompanies, isEditMode, userMappingsLoaded, externalMappings]);
 
-  // Filter departments based on userDepartments in edit mode
   useEffect(() => {
     if (allDepartments.length === 0) return;
-    
-    // In edit mode, only show user's departments if userDepartments is provided and not empty
+
     if (isEditMode) {
-      // If userDepartments is undefined, show all departments (data still loading)
       if (userDepartments === undefined) {
         setDepartments(allDepartments);
         return;
       }
-      
-      // If userDepartments is provided
+
       if (Array.isArray(userDepartments)) {
         if (userDepartments.length > 0) {
-          // Extract department IDs from userDepartments (handle both object and id formats)
           const userDeptIds = userDepartments.map(d => {
             if (typeof d === 'number') return Number(d);
             if (typeof d === 'object' && d !== null) {
@@ -189,7 +189,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
             }
             return null;
           }).filter(id => id !== null && id !== undefined);
-          
+
           if (userDeptIds.length > 0) {
             const filteredDepts = allDepartments.filter(d => {
               const deptId = Number(d.id || d.value);
@@ -197,27 +197,39 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
             });
             setDepartments(filteredDepts);
           } else {
-            // If userDepartments is empty array, show no departments
             setDepartments([]);
           }
         } else {
-          // If userDepartments is empty array, show no departments
           setDepartments([]);
         }
       } else {
-        // If userDepartments is not an array, show all departments
         setDepartments(allDepartments);
       }
     } else {
-      // Not in edit mode, show all departments
-      setDepartments(allDepartments);
+      // Not in edit mode — filter by userDepartments if provided
+      if (Array.isArray(userDepartments) && userDepartments.length > 0) {
+        const userDeptIds = userDepartments.map(d => {
+          if (typeof d === 'number') return Number(d);
+          if (typeof d === 'object' && d !== null) {
+            const id = d.id || d.value || d.department_id;
+            return id ? Number(id) : null;
+          }
+          return null;
+        }).filter(id => id !== null && id !== undefined);
+
+        if (userDeptIds.length > 0) {
+          setDepartments(allDepartments.filter(d => userDeptIds.includes(Number(d.id || d.value))));
+        } else {
+          setDepartments(allDepartments);
+        }
+      } else {
+        setDepartments(allDepartments);
+      }
     }
   }, [isEditMode, userDepartments, allDepartments]);
 
   useEffect(() => {
     if (propSelectedDepartment && !isEditMode) {
-      // If propSelectedDepartment is an object with id/value, use it directly
-      // Otherwise, find it in departments list
       if (propSelectedDepartment.id || propSelectedDepartment.value) {
         const deptId = propSelectedDepartment.id || propSelectedDepartment.value;
         const foundDept = departments.find(d => d.id === deptId || d.value === deptId);
@@ -262,25 +274,19 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
 
   /* ---------------- Handlers ---------------- */
 
-  const togglePermission = (resource, action) => {
-    setPermissions(prev => {
-      const current = prev[resource] || [];
-      return {
-        ...prev,
-        [resource]: current.includes(action)
-          ? current.filter(a => a !== action)
-          : [...current, action]
-      };
-    });
-  };
-
   const handleAddRole = () => {
-    // Only validate if a role is selected
-    if (!selectedRole) {
-      return;
-    }
+    if (!selectedRole || !selectedCompany) return;
 
-    if (!selectedCompany) {
+    // Prevent exact duplicate role scope
+    const isDuplicate = (existingRoles || []).some(
+      (r) =>
+        r.role_id === selectedRole.id &&
+        r.company_id === selectedCompany.id &&
+        (r.hotel_id || null) === (selectedHotel?.id || null) &&
+        (r.department_id || null) === (selectedDepartment?.id || null)
+    );
+    if (isDuplicate) {
+      setError("This exact role assignment already exists.");
       return;
     }
 
@@ -293,7 +299,6 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       permissions
     });
 
-    // Reset after add
     setSelectedRole(null);
     setSelectedCompany(null);
     setSelectedHotel(null);
@@ -302,263 +307,262 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     setError(null);
   };
 
-  /* ---------------- UI ---------------- */
+  /* ---------------- Helpers ---------------- */
 
-  const buildRoleTooltip = (scope) => {
-    if (!scope) return "";
-
-    const roleMeta =
-      roles.find((r) => r.id === (scope.role_id || scope.id)) || null;
-    const companyMeta = companies.find((c) => c.id === scope.company_id) || null;
-    const deptMeta =
-      allDepartments.find((d) => d.id === scope.department_id) || null;
-    const hotelMeta =
-      companyMeta?.hotels?.find((h) => h.id === scope.hotel_id) || null;
-
-    const lines = [];
-
-    const roleTitle = roleMeta?.title || scope.role_title || scope.title;
-    if (roleTitle) {
-      lines.push(`Role: ${roleTitle}`);
-    }
-    if (roleMeta?.description) {
-      lines.push(`Description: ${roleMeta.description}`);
-    }
-    if (companyMeta?.name) {
-      lines.push(`Company: ${companyMeta.name}`);
-    }
-    if (deptMeta?.title) {
-      lines.push(`Department: ${deptMeta.title}`);
-    } else if (scope.department_id === null || scope.department_id === undefined) {
-      lines.push(`Department: All Departments`);
-    }
-    if (hotelMeta?.name) {
-      lines.push(`Business Unit: ${hotelMeta.name}`);
-    } else if (!scope.hotel_id) {
-      lines.push(`Business Unit: All Business Units`);
-    }
-
-    return lines.join("\n");
+  const getCompanyName = (companyId) => {
+    const c = allCompanies.find((co) => co.id === companyId);
+    return c?.name || "N/A";
   };
 
+  const getHotelName = (companyId, hotelId) => {
+    if (!hotelId) return "All Business Units";
+    const c = allCompanies.find((co) => co.id === companyId);
+    const h = c?.hotels?.find((ho) => ho.id === hotelId);
+    return h?.name || "All Business Units";
+  };
+
+  const getDeptName = (deptId) => {
+    if (!deptId) return "All Departments";
+    const d = allDepartments.find((dep) => dep.id === deptId);
+    return d?.title || "All Departments";
+  };
+
+  const hasPermissions = Object.keys(permissions).length > 0;
+
   return (
-    <div className="w-100 border rounded-3 bg-light p-3" style={{ width: "100%" }}>
-
-      {/* Header */}
-      <div className="mb-3">
-        <h5 className="fw-semibold mb-0">Roles</h5>
-        <div className="d-flex flex-column">
-          <small className="text-muted">Choose as many as you want</small>
-          <small className="text-muted">Hover over a role to view its details</small>
-        </div>
-      </div>
-
+    <div className={styles.roleSelectorWrap}>
       {loading && (
-        <p className="text-muted mb-2">Loading role & scope data…</p>
+        <div className={styles.roleSelectorLoading}>
+          <div className={styles.miniSpinner} style={{ margin: "0 auto 10px" }} />
+          Loading roles & scope data...
+        </div>
       )}
+
       {error && !loading && (
-        <p className="text-danger mb-2">{error}</p>
+        <div className={styles.roleSelectorError}>{error}</div>
       )}
 
-      {existingRoles && Array.isArray(existingRoles) && existingRoles.length > 0 && (
-        <div className="mb-3">
-          <label className="form-label fw-semibold mb-2">Assigned Roles</label>
-          <div className="d-flex flex-wrap gap-2">
-            {existingRoles.map((role, index) => {
-              const companyMeta = companies.find((c) => c.id === role.company_id);
-              const hotelMeta = companyMeta?.hotels?.find((h) => h.id === role.hotel_id);
-              const deptMeta = allDepartments.find((d) => d.id === role.department_id);
+      {!loading && (
+        <>
+          {/* Assigned Roles */}
+          <div className={styles.assignedRolesSection}>
+            <div className={styles.assignedRolesTitle}>
+              Assigned Roles {existingRoles?.length > 0 && `(${existingRoles.length})`}
+            </div>
 
-              return (
-                <div
-                  key={index}
-                  className="card border shadow-sm"
-                  style={{ minWidth: '200px', maxWidth: '280px' }}
-                >
-                  <div className="card-body p-2">
-                    <div className="d-flex justify-content-between align-items-start">
-                      <span className="badge bg-primary mb-1">
-                        {role.role_title || role.title}
-                      </span>
-                      {isEditMode && onRemoveRole && (
+            {existingRoles && existingRoles.length > 0 ? (
+              <div className={styles.assignedRolesList}>
+                {existingRoles.map((role, index) => {
+                  const perms = role.permissions || {};
+                  const permEntries = Object.entries(perms).filter(
+                    ([, actions]) => Array.isArray(actions) && actions.length > 0
+                  );
+
+                  // Build a compact permission summary string
+                  const permSummary = permEntries.map(([resource, actions]) => ({
+                    resource,
+                    actions: actions.join(", "),
+                  }));
+
+                  return (
+                    <div key={index} className={styles.roleRow}>
+                      <div className={styles.roleRowMain}>
+                        <div className={styles.roleRowTopLine}>
+                          <span className={styles.roleRowTitle}>
+                            {role.role_title || role.title}
+                          </span>
+                          <span className={styles.roleRowScopePath}>
+                            <span className={styles.roleRowScopeValue}>{getCompanyName(role.company_id)}</span>
+                            <span className={styles.roleRowScopeSep}> → </span>
+                            <span className={styles.roleRowScopeValue}>{getHotelName(role.company_id, role.hotel_id)}</span>
+                            <span className={styles.roleRowScopeSep}> → </span>
+                            <span className={styles.roleRowScopeValue}>{getDeptName(role.department_id)}</span>
+                          </span>
+                        </div>
+                        <div className={styles.roleRowPermLine}>
+                          {permSummary.length > 0 ? (
+                            permSummary.map((p, i) => (
+                              <span key={p.resource}>
+                                {i > 0 && <span className={styles.roleRowPermDot}>·</span>}
+                                <span className={styles.roleRowPermHighlight}>{p.resource}</span>
+                                {": "}
+                                {p.actions}
+                              </span>
+                            ))
+                          ) : (
+                            <span>Default role permissions</span>
+                          )}
+                        </div>
+                      </div>
+                      {onRemoveRole && (
                         <button
                           type="button"
-                          className="btn-close btn-close-sm"
+                          className={styles.roleRowRemove}
                           onClick={() => onRemoveRole(index)}
-                          aria-label="Remove role"
-                        />
+                          title="Remove role"
+                        >
+                          <HiX size={13} />
+                        </button>
                       )}
                     </div>
-                    <div className="small">
-                      <div className="text-muted">
-                        <strong>Company:</strong> {companyMeta?.name || 'N/A'}
-                      </div>
-                      <div className="text-muted">
-                        <strong>Business Unit:</strong> {hotelMeta?.name || 'All Business Units'}
-                      </div>
-                      <div className="text-muted">
-                        <strong>Dept:</strong> {deptMeta?.title || 'All Departments'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Role & Scope selectors */}
-      <div className="row g-3 mb-3">
-        <div className="col-md-4">
-          <label className="form-label">Select Role</label>
-          <select
-            className="form-select"
-            value={selectedRole?.id || ""}
-            onChange={e => {
-              const role = roles.find(r => r.id === Number(e.target.value)) || null;
-              setSelectedRole(role);
-              if (!role) {
-                setError(null);
-                setSelectedCompany(null);
-                setSelectedHotel(null);
-                setSelectedDepartment(null);
-              }
-            }}
-          >
-            <option value="">Select a role</option>
-            {roles.map(role => (
-              <option key={role.id} value={role.id}>
-                {role.title}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="col-md-4">
-          <label className="form-label">
-            Select Company {selectedRole && <sup className="text-danger">*</sup>}
-          </label>
-          <select
-            className="form-select"
-            value={selectedCompany?.id || ""}
-            onChange={e => {
-              const company = companies.find(
-                c => c.id === Number(e.target.value)
-              );
-              setSelectedCompany(company || null);
-              setSelectedHotel(null);
-            }}
-            disabled={!selectedRole}
-          >
-            <option value="">Select company</option>
-            {companies.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="col-md-4">
-          <label className="form-label">Select Business Unit (optional)</label>
-          <select
-            className="form-select"
-            disabled={!selectedCompany || !selectedRole}
-            value={selectedHotel?.id || ""}
-            onChange={e => {
-                setSelectedHotel(
-                    selectedCompany?.hotels.find(
-                    h => h.id === Number(e.target.value)
-                    ) || null
-                );
-                setSelectedDepartment(null);
-            }}
-          >
-            <option value="">All Business Units</option>
-            {selectedCompany?.hotels.map(h => (
-              <option key={h.id} value={h.id}>
-                {h.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="row g-3 mb-3">
-        <div className="col-md-4">
-          <label className="form-label">
-            Select Department (optional)
-            {propSelectedDepartment && !isEditMode && " (Auto-selected)"}
-          </label>
-          <select
-            className={`form-select ${!selectedDepartment && error ? "is-invalid" : ""}`}
-            disabled={propSelectedDepartment && !isEditMode ? true : !selectedRole}
-            value={selectedDepartment?.id || selectedDepartment?.value || ""}
-            onChange={e => {
-              const dept = departments.find(d => d.id === Number(e.target.value)) || null;
-              setSelectedDepartment(dept);
-              if (dept) setError(null);
-            }}
-            required={!!selectedRole}
-          >
-            <option value="">Select Department</option>
-            {departments.map(h => (
-              <option key={h.id} value={h.id}>
-                {h.title}
-              </option>
-            ))}
-          </select>
-          {!selectedDepartment && error && (
-            <div className="invalid-feedback d-block">{error}</div>
-          )}
-          {propSelectedDepartment && !isEditMode && (
-            <small className="text-muted">Department is set from account creation and cannot be changed here</small>
-          )}
-        </div>
-      </div>
-
-      {/* Permissions */}
-      {selectedRole && (
-        <div className="mb-3">
-          <label className="form-label fw-semibold">Permissions</label>
-
-          {Object.entries(permissions).map(([resource, actions]) => (
-            <div key={resource} className="mb-2">
-              <div className="fw-medium text-capitalize mb-1">
-                {resource}
+                  );
+                })}
               </div>
-              <div className="d-flex flex-wrap gap-3">
-                {["read", "create", "update", "delete", "approve"].map(action => (
-                  <div className="form-check" key={action}>
-                    <input
-                      readOnly
-                      className="form-check-input"
-                      type="checkbox"
-                      checked={actions.includes(action)}
-                    />
-                    <label className="form-check-label text-capitalize">
-                      {action}
-                    </label>
-                  </div>
-                ))}
+            ) : (
+              <div className={styles.assignedRolesEmpty}>
+                No workflow roles assigned yet. Add a role below.
+              </div>
+            )}
+          </div>
+
+          {/* Add Role Form */}
+          <div className={styles.addRoleSection}>
+            <div className={styles.addRoleTitle}>Add New Role</div>
+            <div className={styles.addRoleGrid}>
+              {/* Role */}
+              <div className={styles.addRoleField}>
+                <label className={styles.addRoleFieldLabel}>
+                  Role <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <select
+                  className={styles.formSelect}
+                  value={selectedRole?.id || ""}
+                  onChange={(e) => {
+                    const role = roles.find((r) => r.id === Number(e.target.value)) || null;
+                    setSelectedRole(role);
+                    if (!role) {
+                      setError(null);
+                      setSelectedCompany(null);
+                      setSelectedHotel(null);
+                      setSelectedDepartment(null);
+                    }
+                  }}
+                >
+                  <option value="">Select a role...</option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Company */}
+              <div className={styles.addRoleField}>
+                <label className={styles.addRoleFieldLabel}>
+                  Company <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <select
+                  className={styles.formSelect}
+                  value={selectedCompany?.id || ""}
+                  onChange={(e) => {
+                    const company = companies.find((c) => c.id === Number(e.target.value));
+                    setSelectedCompany(company || null);
+                    setSelectedHotel(null);
+                  }}
+                  disabled={!selectedRole}
+                >
+                  <option value="">Select company...</option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Business Unit */}
+              <div className={styles.addRoleField}>
+                <label className={styles.addRoleFieldLabel}>
+                  Business Unit
+                  <span className={styles.addRoleFieldHint}> (optional)</span>
+                </label>
+                <select
+                  className={styles.formSelect}
+                  disabled={!selectedCompany || !selectedRole}
+                  value={selectedHotel?.id || ""}
+                  onChange={(e) => {
+                    setSelectedHotel(
+                      selectedCompany?.hotels.find((h) => h.id === Number(e.target.value)) || null
+                    );
+                    setSelectedDepartment(null);
+                  }}
+                >
+                  <option value="">All Business Units</option>
+                  {selectedCompany?.hotels.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Department */}
+              <div className={styles.addRoleField}>
+                <label className={styles.addRoleFieldLabel}>
+                  Department
+                  <span className={styles.addRoleFieldHint}> (optional)</span>
+                </label>
+                <select
+                  className={styles.formSelect}
+                  disabled={propSelectedDepartment && !isEditMode ? true : !selectedRole}
+                  value={selectedDepartment?.id || selectedDepartment?.value || ""}
+                  onChange={(e) => {
+                    const dept = departments.find((d) => d.id === Number(e.target.value)) || null;
+                    setSelectedDepartment(dept);
+                    if (dept) setError(null);
+                  }}
+                >
+                  <option value="">All Departments</option>
+                  {departments.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.title}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          ))}
-        </div>
+
+            {/* Permissions Preview */}
+            {selectedRole && (
+              <div className={styles.permissionsPreview}>
+                <div className={styles.permissionsPreviewTitle}>
+                  Permissions for "{selectedRole.title}"
+                </div>
+                {hasPermissions ? (
+                  Object.entries(permissions).map(([resource, actions]) => (
+                    <div key={resource} className={styles.permissionsResourceRow}>
+                      <div className={styles.permissionsResourceName}>{resource}</div>
+                      <div className={styles.permissionsActionList}>
+                        {(Array.isArray(actions) ? actions : []).map((action) => (
+                          <span key={action} className={styles.permissionActionTag}>
+                            {action}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className={styles.permissionsEmpty}>
+                    Loading permissions...
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className={styles.addRoleFooter}>
+              <button
+                type="button"
+                className={styles.primaryBtn}
+                disabled={!selectedRole || !selectedCompany}
+                onClick={handleAddRole}
+              >
+                Add Role
+              </button>
+            </div>
+          </div>
+        </>
       )}
-
-      {/* Footer */}
-      <div className="d-flex justify-content-end">
-        <button
-          className="btn btn-primary p-2"
-          disabled={!selectedRole || (selectedRole && !selectedCompany)}
-          onClick={handleAddRole}
-        >
-          Add Role Scope
-        </button>
-      </div>
-
     </div>
   );
 }
