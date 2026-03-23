@@ -114,7 +114,7 @@ export const getStates = (country_id) => {
 	if (!country_id) return Promise.resolve({ data: [] });
 	return new Promise(async (resolve, reject) => {
 		try {
-			let response = await axiosInstance.get(`/general/states?country_id=${country_id}`);
+			let response = await axiosInstance.get(`/general/states/${country_id}`);
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
