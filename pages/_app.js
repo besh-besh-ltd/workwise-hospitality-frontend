@@ -9,6 +9,7 @@ if (typeof window !== 'undefined') {
   initOtel();
 }
 
+import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import Layout from "../components/layout";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "slick-carousel/slick/slick.css";
@@ -142,14 +143,16 @@ export default function App({ Component, pageProps }) {
         </>
       )}
 
-      <Providers>
-        <GoogleOAuthProvider clientId="866474332918-fi599o8btdrikvi9ieq7pqksngvh2mlv.apps.googleusercontent.com">
-          <Layout>
-            <Component {...pageProps} />
+      <ErrorBoundary>
+        <Providers>
+          <GoogleOAuthProvider clientId="866474332918-fi599o8btdrikvi9ieq7pqksngvh2mlv.apps.googleusercontent.com">
+            <Layout>
+              <Component {...pageProps} />
 
-          </Layout>
-        </GoogleOAuthProvider>
-      </Providers>
+            </Layout>
+          </GoogleOAuthProvider>
+        </Providers>
+      </ErrorBoundary>
     </PostHogProvider>
   );
 }
