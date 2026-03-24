@@ -7,17 +7,13 @@ import {
   MdOutlinePersonOutline,
   MdTimeline
 } from 'react-icons/md';
-import { BsBoxSeam, BsPerson, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill } from 'react-icons/bs';
+import { BsBoxSeam, BsPerson, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill, BsArrowLeft, BsPencilSquare, BsPersonPlus, BsCalendar3, BsCurrencyRupee, BsBuilding, BsTruck, BsFileEarmarkText, BsShieldCheck } from 'react-icons/bs';
 import { MdHistory } from "react-icons/md";
 import { HiOutlineTrash, HiPencil } from "react-icons/hi";
 import { BsFilePdf } from "react-icons/bs";
 import { FiExternalLink } from "react-icons/fi";
 import { TbFileInvoice, TbTruckDelivery } from "react-icons/tb";
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-  faArrowLeft,
-  faPencil
-} from "@fortawesome/free-solid-svg-icons";
+import styles from "./PurchaseOrder.module.scss";
 import CreateMilestoneModal from './CreateMilestoneModal';
 import ApprovalProgressCard from './ApprovalProgressCard';
 import { toast } from 'react-toastify';
@@ -31,8 +27,8 @@ import ConfirmationModal from '@/components/modal/ConfirmationModal';
 import CommonFormInput from '@/components/shared/CommonFormInput';
 import { useRouter } from 'next/navigation';
 import PurchaseOrderEditView from './PurchaseOrderEditView';
-import { faUser } from '@fortawesome/free-regular-svg-icons';
 import AddSiteRepModal from './AddSiteRepModal';
+import ApproveModal from './ApproveModal';
 
 const statusColors = {
   draft: 'secondary',
@@ -114,7 +110,7 @@ const elipsisToLimit = (text, limit = 45) => {
   return text.length > limit ? text.slice(0, limit).concat('...') : text;
 }
 
-const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers, isEditing, setIsEditing, handleUpdatePO }) => {
+const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers, isEditing, setIsEditing, handleUpdatePO, canWrite = true, canApprove = false }) => {
   const {
     id,
     rfq_id,
@@ -180,6 +176,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   const [showDeleteTaskConfirmModal, setShowDeleteTaskConfirmModal] = useState(false);
   const [deleteMilestoneId, setDeleteMilestoneId] = useState(null);
   const [deleteTaskId, setDeleteTaskId] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null); // 'initiate' | 'grn' | 'hsn' | 'gst' | null
 
   const router = useRouter();
 
@@ -333,268 +330,188 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   if(!isEditing) {
     return (
       <div>
-        {/* Header */}
-        <div className="d-flex align-items-center gap-2">
-          <button
-            onClick={handleBack}
-            className="btn btn-primary p-2 mb-3 px-3"
-            style={{ width: "fit-content" }}
-            id="back_button-po_details-purchase_order_page"
-          >
-            <FontAwesomeIcon icon={faArrowLeft} className="me-2" />
-            Back
-          </button>
-          <button
-            onClick={() => setShowEditConfirmModal(true)}
-            className="btn btn-primary p-2 mb-3 px-3"
-            style={{ width: "fit-content" }}
-            id="edit_button-po_details-purchase_order_page"
-            disabled={restrictModifyPO(status)}
-          >
-            <FontAwesomeIcon icon={faPencil} className="me-2" />
-            Edit This PO
-          </button>
-          <button
-            onClick={() => setShowAddSiteRepModal(true)}
-            className="btn btn-primary p-2 mb-3 px-3"
-            style={{ width: "fit-content" }}
-            id="add-site-rep-po_details-purchase_order_page"
-          >
-            <FontAwesomeIcon icon={faUser} className="me-2" />
-            Assign Site Rep
-          </button>
-        </div>
-        <div className="d-flex justify-content-between align-items-start mb-4">
-          <div>
-            <h3 className="mb-1">Purchase Order #{po_number}</h3>
-            <div className="text-muted">
-              Initiated by: <strong>{initiated_by_name || "-"}</strong> on{" "}
-              <strong>{formatIST(created_at)}</strong>
+        {/* ── Hero Header Card (matches Tech Eval pattern) ── */}
+        <div className={styles.detailsHeader}>
+          <div className={styles.detailsHero}>
+            <div className={styles.detailsHeroLeft}>
+              <div className={styles.detailsHeroNumber}>
+                <span>Purchase Order #{po_number}</span>
+                <Badge bg={statusColors[status] || 'secondary'} style={{ fontSize: '0.7rem', padding: '4px 10px', textTransform: 'uppercase' }}>
+                  {status.replace('_', ' ')}
+                </Badge>
+              </div>
+              <p className={styles.detailsHeroSub}>
+                Initiated by {initiated_by_name || '-'} &middot; {formatIST(created_at)}
+                {rfq_no && <> &middot; RFQ #{rfq_no}{rfq_title ? ` — ${rfq_title}` : ''}</>}
+              </p>
+            </div>
+            <div className={styles.detailsHeroActions}>
+              <button className={styles.heroBtn} onClick={handleBack} id="back_button-po_details-purchase_order_page">
+                <BsArrowLeft size={14} /> Back
+              </button>
+              {canWrite && !restrictModifyPO(status) && (
+                <button className={`${styles.heroBtn} ${styles.heroBtnSolid}`} onClick={() => setShowEditConfirmModal(true)} id="edit_button-po_details-purchase_order_page">
+                  <BsPencilSquare size={13} /> Edit
+                </button>
+              )}
+              {canWrite && (
+                <button className={styles.heroBtn} onClick={() => setShowAddSiteRepModal(true)} id="add-site-rep-po_details-purchase_order_page">
+                  <BsPersonPlus size={14} /> Site Rep
+                </button>
+              )}
+              {canWrite && status === 'draft' && handleInitiatePO && (
+                <button className={`${styles.heroBtn} ${styles.heroBtnApprove}`} onClick={() => handleInitiatePO(id)}>
+                  Initiate PO
+                </button>
+              )}
+              {canWrite && status === 'dispatched' && (
+                <button className={`${styles.heroBtn} ${styles.heroBtnApprove}`} onClick={() => setShowGRNUpdateModal(true)}>
+                  <BsTruck size={14} /> Update to GRN
+                </button>
+              )}
+              {canApprove && is_approver && (
+                <>
+                  <button className={`${styles.heroBtn} ${styles.heroBtnApprove}`} onClick={() => setShowApproveConfirmModal(true)} id="approve_po-po_approval-po_details">
+                    Approve
+                  </button>
+                  <button className={`${styles.heroBtn} ${styles.heroBtnReject}`} onClick={() => {
+                    if (handlePODecision) handlePODecision(id, { decision: "rejected", type: "approval" });
+                  }} id="reject_po-po_approval-po_details">
+                    Reject
+                  </button>
+                </>
+              )}
             </div>
           </div>
-          <div className="d-flex gap-2 flex-column">
-            <POStatusBadge status={status} />
-            {status === "dispatched" && (
-              <div className="d-flex gap-1 justify-content-between">
-                <Badge
-                  onClick={() => setShowGRNUpdateModal(true)}
-                  bg={"warning"}
-                  className="fs-6 px-2 py-1 float-end text-uppercase"
-                  style={{ cursor: "pointer" }}
-                >
-                  Update to GRN
-                </Badge>
+
+          {/* ── Meta Grid ── */}
+          <div className={styles.detailsMetaGrid}>
+            <div className={styles.detailsMetaItem}>
+              <div className={styles.detailsMetaIcon}><BsCurrencyRupee size={15} /></div>
+              <div>
+                <div className={styles.detailsMetaLabel}>Total Value</div>
+                <div className={styles.detailsMetaValue}>₹{addCommasToNumber(total_value)}</div>
+              </div>
+            </div>
+            <div className={styles.detailsMetaItem}>
+              <div className={styles.detailsMetaIcon}><BsBoxSeam size={15} /></div>
+              <div>
+                <div className={styles.detailsMetaLabel}>Quantity</div>
+                <div className={styles.detailsMetaValue}>{quantity}</div>
+              </div>
+            </div>
+            <div className={styles.detailsMetaItem}>
+              <div className={styles.detailsMetaIcon}><BsCurrencyRupee size={15} /></div>
+              <div>
+                <div className={styles.detailsMetaLabel}>Unit Price</div>
+                <div className={styles.detailsMetaValue}>₹{addCommasToNumber(unit_price)}</div>
+              </div>
+            </div>
+            {project_details && (
+              <div className={styles.detailsMetaItem}>
+                <div className={styles.detailsMetaIcon}><BsFileEarmarkText size={15} /></div>
+                <div>
+                  <div className={styles.detailsMetaLabel}>Project</div>
+                  <div className={styles.detailsMetaValue}>{project_details.name}</div>
+                </div>
               </div>
             )}
-            {status === "draft" && (
-              <div className="d-flex gap-1 justify-content-between">
-                <Badge
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    await handleInitiatePO(id);
-                    await refetchPODetails();
-                  }}
-                  bg={"success"}
-                  className="fs-6 px-2 py-1 float-end text-uppercase"
-                  style={{ cursor: "pointer" }}
-                >
-                  Initiate
-                </Badge>
+            <div className={styles.detailsMetaItem}>
+              <div className={styles.detailsMetaIcon}><BsCalendar3 size={14} /></div>
+              <div>
+                <div className={styles.detailsMetaLabel}>Created</div>
+                <div className={styles.detailsMetaValue}>{formatIST(created_at)}</div>
               </div>
-            )}
-            {is_approver && (
-              <div className="d-flex gap-1 justify-content-between">
-                <Badge
-                  onClick={() => setShowApproveConfirmModal(true)}
-                  bg={"success"}
-                  className="fs-6 px-2 py-1 float-end text-uppercase"
-                  style={{ cursor: "pointer" }}
-                  id="approve_po-po_approval-po_details"
-                >
-                  Approve
-                </Badge>
-                <Badge
-                  onClick={() => setShowRejectConfirmModal(true)}
-                  bg={"danger"}
-                  className="fs-6 px-3 py-1 float-end text-uppercase"
-                  style={{ cursor: "pointer" }}
-                  id="reject_po-po_approval-po_details"
-                >
-                  Reject
-                </Badge>
+            </div>
+            <div className={styles.detailsMetaItem}>
+              <div className={styles.detailsMetaIcon}><BsShieldCheck size={15} /></div>
+              <div>
+                <div className={styles.detailsMetaLabel}>Status</div>
+                <div className={styles.detailsMetaValue} style={{ textTransform: 'capitalize' }}>{status.replace('_', ' ')}</div>
               </div>
+            </div>
+            {budgetInfo && (
+              <>
+                <div className={styles.detailsMetaItem}>
+                  <div className={styles.detailsMetaIcon}><BsCurrencyRupee size={15} /></div>
+                  <div>
+                    <div className={styles.detailsMetaLabel}>Total Budget</div>
+                    <div className={styles.detailsMetaValue}>₹{formatToINRShort(budgetInfo.total_budget)}</div>
+                  </div>
+                </div>
+                <div className={styles.detailsMetaItem}>
+                  <div className={styles.detailsMetaIcon}><BsCurrencyRupee size={15} /></div>
+                  <div>
+                    <div className={styles.detailsMetaLabel}>Available Budget</div>
+                    <div className={styles.detailsMetaValue}>₹{formatToINRShort(budgetInfo.available_budget)}</div>
+                  </div>
+                </div>
+                <div className={styles.detailsMetaItem}>
+                  <div className={styles.detailsMetaIcon}><BsCurrencyRupee size={15} /></div>
+                  <div>
+                    <div className={styles.detailsMetaLabel}>After Approval</div>
+                    <div className={styles.detailsMetaValue}>₹{formatToINRShort(budgetInfo.available_budget - total_value)}</div>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>
+
+        {/* ── PO PDF ── */}
         {poPdfUrl && (
-          <div className='mb-4'>
-            <div className="d-flex align-items-center gap-2">
-              <div>
-                <BsFilePdf size={36} className="text-danger" />
+          <div className={styles.sectionCard} style={{ marginBottom: 16 }}>
+            <div className={styles.sectionBody}>
+              <div className="d-flex align-items-center gap-3">
+                <BsFilePdf size={28} className="text-danger" />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1a2730' }}>PO_{po_number}.pdf</div>
+                  <div style={{ fontSize: 12, color: '#6c757d' }}>Purchase Order Document</div>
+                </div>
+                <a className={styles.heroBtn} href={poPdfUrl} target="__blank" style={{ textDecoration: 'none', color: '#2E5BA8', background: 'rgba(46,91,168,0.06)', borderColor: 'rgba(46,91,168,0.2)' }}>
+                  View Document <FiExternalLink size={13} />
+                </a>
               </div>
-              <div className="d-flex flex-column">
-                <div className="fw-semibold">PO_{po_number}.pdf</div>
-                <small className="text-muted">Purchase Order Document</small>
-              </div>
-              <a 
-                className="btn btn-sm p-2 btn-outline-secondary ms-3"
-                href={poPdfUrl}
-                target="__blank"
-              >
-                View the doc
-                <FiExternalLink className="ms-2" size={14} />
-              </a>
             </div>
           </div>
         )}
-  
-        {/* PO Overview */}
-        <div className="d-flex gap-2 align-items-center justify-content-between">
-          <Card className="mb-3 shadow-sm" style={{ width: "100%" }}>
-            <Card.Body
-              style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
-            >
-              <div className="row">
-                <div className="col-md-6">
-                  <PODetailItem label="Quantity" value={quantity} />
-                  <PODetailItem
-                    label="Unit Price"
-                    value={`₹ ${addCommasToNumber(unit_price)}`}
-                  />
-                  <PODetailItem
-                    label="Total Value"
-                    value={`₹ ${addCommasToNumber(total_value)}`}
-                  />
-                  {project_details && (
-                    <PODetailItem
-                      label="Project Name"
-                      value={project_details.name}
-                    />
-                  )}
-                </div>
-                <div className="col-md-6">
-                  <PODetailItem
-                    label="Created At"
-                    value={formatIST(created_at)}
-                  />
-                  <PODetailItem
-                    label="Initiated By"
-                    value={initiated_by_name ?? "-"}
-                  />
-                  <PODetailItem
-                    label="Status"
-                    value={status.replace("_", " ").toUpperCase()}
-                  />
-                </div>
-              </div>
-            </Card.Body>
-          </Card>
-          {budgetInfo && (
-            <Card
-              className="mb-3 shadow-sm"
-              style={{ width: "100%", maxWidth: "30%" }}
-            >
-              <Card.Body
-                style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
-                className="d-flex flex-column"
-              >
-                <PODetailItem
-                  label="Total Assigned Budget"
-                  value={`₹${formatToINRShort(budgetInfo.total_budget)}`}
-                />
-                <PODetailItem
-                  label="Available Budget"
-                  value={`₹${formatToINRShort(budgetInfo.available_budget)}`}
-                />
-                <PODetailItem
-                  label="PO Value"
-                  value={`₹${formatToINRShort(total_value)}`}
-                />
-                <PODetailItem
-                  label="Budget if PO approves"
-                  value={`₹${formatToINRShort(
-                    budgetInfo.available_budget - total_value
-                  )}`}
-                />
-              </Card.Body>
-            </Card>
-          )}
-        </div>
-  
-        {/* Vendor & Buyer Details */}
-        <div className="d-flex gap-3 mb-3">
-          <Link
-            className="w-100"
-            href={`/vendor/vendor-profile?id=${finalized_vendor_id}`}
-            target="__blank"
-            style={{ textDecoration: 'none' }}
-          >
-            <Card className="shadow-sm h-100">
-              <Card.Body className="d-flex align-items-center">
-                <BsPerson className="me-3 fs-2 text-primary" />
-                <div>
-                  <strong>{finalized_vendor_name}</strong>{" "}
-                  <small className="text-muted">(Finalized Vendor)</small>
-                  {finalized_vendor_email && (
-                    <div className="text-muted">{finalized_vendor_email}</div>
-                  )}
-                  {finalized_vendor_phone && (
-                    <div className="text-muted">+91 {finalized_vendor_phone}</div>
-                  )}
-                </div>
-              </Card.Body>
-            </Card>
-          </Link>
 
-          <Card className="shadow-sm w-100">
-            <Card.Body className="d-flex align-items-start">
-              <MdOutlineBusinessCenter className="me-3 fs-2 text-success" />
-              <div>
-                <strong>{buyer_company_name || '-'}</strong>{" "}
-                <small className="text-muted">(Buyer)</small>
-                {buyer_business_unit && (
-                  <div className="text-muted">Business Unit: {buyer_business_unit}</div>
-                )}
-                {buyer_address && (
-                  <div className="text-muted">{buyer_address}</div>
-                )}
-                {buyer_gstin && (
-                  <div className="text-muted">GSTIN: {buyer_gstin}</div>
-                )}
-                {initiated_by_name && (
-                  <div className="text-muted">Contact: {initiated_by_name}{initiated_by_email ? ` (${initiated_by_email})` : ''}{initiated_by_phone ? ` | +91 ${initiated_by_phone}` : ''}</div>
-                )}
-                {rfq_no && (
-                  <div className="text-muted">RFQ: #{rfq_no}{rfq_title ? ` - ${rfq_title}` : ''}</div>
-                )}
+        {/* ── Vendor & Buyer (compact inline) ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <Link href={`/vendor/vendor-profile?id=${finalized_vendor_id}`} target="__blank" style={{ textDecoration: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, transition: 'all 0.15s', cursor: 'pointer' }}>
+              <div className={styles.detailsMetaIcon} style={{ width: 36, height: 36, flexShrink: 0 }}><BsPerson size={16} /></div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#1a2730', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{finalized_vendor_name}</div>
+                <div style={{ fontSize: 11.5, color: '#6c757d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {finalized_vendor_email || ''}{finalized_vendor_phone ? ` · +91 ${finalized_vendor_phone}` : ''}
+                </div>
               </div>
-            </Card.Body>
-          </Card>
+            </div>
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10 }}>
+            <div className={styles.detailsMetaIcon} style={{ width: 36, height: 36, flexShrink: 0, background: '#e8f5e8', color: '#428B41' }}><BsBuilding size={16} /></div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#1a2730', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{buyer_company_name || '-'}{buyer_business_unit ? ` · ${buyer_business_unit}` : ''}</div>
+              <div style={{ fontSize: 11.5, color: '#6c757d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {buyer_gstin ? `GSTIN: ${buyer_gstin}` : ''}{initiated_by_name ? `${buyer_gstin ? ' · ' : ''}${initiated_by_name}` : ''}
+              </div>
+            </div>
+          </div>
         </div>
   
-        <div className="my-3 d-flex gap-3">
-          <Card className="shadow-sm w-100">
-            <Card.Body>
-              {/* Header row (same as before) */}
-              <div className="d-flex align-items-center justify-content-between mb-3">
-                <div className="d-flex align-items-center">
-                  <div className="d-flex gap-2 align-items-center">
-                    <BsBoxSeam size={28} className="me-2 fs-3 text-primary" />
-                    <div className="d-flex flex-column">
-                      <strong>Product Details</strong>
-                      <span className="small text-muted">
-                        Details are from the time of finalization
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <Link
-                  href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}&rfq_product_id=${rfq_product_id}&source=PO&tab=category`}
-                  className="btn p-2 btn-primary"
-                >
-                  Compare Quotes
-                </Link>
-              </div>
+        <div className="mb-3">
+          <div className={styles.sectionCard}>
+            <div className={styles.sectionHeader}>
+              <h5 className={styles.sectionTitle}><BsBoxSeam size={16} /> Product Details</h5>
+              <Link
+                href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}&rfq_product_id=${rfq_product_id}&source=PO&tab=category`}
+                style={{ fontSize: 12, fontWeight: 600, color: '#2E5BA8', textDecoration: 'none' }}
+              >
+                Compare Quotes &rarr;
+              </Link>
+            </div>
+            <div className={styles.sectionBody}>
   
               {/* Product accordion */}
               {!product_details || product_details.length === 0 ? (
@@ -729,25 +646,15 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                   })}
                 </Accordion>
               )}
-            </Card.Body>
-          </Card>
+            </div>
+          </div>
         </div>
 
-        <Card className="shadow-sm w-100 mb-3">
-          <Card.Body>
-            <div className="d-flex align-items-center justify-content-between mb-3">
-              <div className="d-flex align-items-center">
-                <div className="d-flex gap-2 align-items-center">
-                  <TbFileInvoice size={28} className="me-2 fs-3 text-primary" />
-                  <div className="d-flex flex-column">
-                    <strong>Documents</strong>
-                    <span className="small text-muted">
-                      Files uploaded by Vendor and Buyer for this PO
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+        <div className={`${styles.sectionCard} mb-3`}>
+          <div className={styles.sectionHeader}>
+            <h5 className={styles.sectionTitle}><TbFileInvoice size={16} /> Documents</h5>
+          </div>
+          <div className={styles.sectionBody}>
 
             {(!documents || documents.length === 0) ? (
               <p className="text-muted mb-0">
@@ -797,13 +704,15 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                 })}
               </div>
             )}
-          </Card.Body>
-        </Card>
-  
+          </div>
+        </div>
+
         <div className="mb-3 d-flex gap-3">
-          <Card className="shadow-sm w-100">
-            <Card.Body className="d-flex flex-column gap-2">
-              <span className="fw-semibold">HSN Codes</span>
+          <div className={`${styles.sectionCard} w-100`}>
+            <div className={styles.sectionHeader}>
+              <h5 className={styles.sectionTitle}>HSN Codes</h5>
+            </div>
+            <div className={`${styles.sectionBody} d-flex flex-column gap-2`}>
               <div className="d-flex flex-column gap-1">
                 {(hsnCodeInfo.loadMore
                   ? product_details
@@ -818,7 +727,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                       type="simple-text"
                       label={product.name}
                       placeholder={`Enter ${product.name} HSN Code here...`}
-                      disabled={status == 'pending_approval' || restrictModifyPO(status)}
+                      disabled={!canWrite || status == 'pending_approval' || restrictModifyPO(status)}
                       values={hsnCode?.code || ""}
                       onChange={(change) => {
                         setHSNCodeInfo((info) => {
@@ -864,36 +773,41 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                         : `Load ${product_details.length - 1} More`}
                     </button>
                   )}
-                  {!restrictModifyPO(status) && (
-                    <button className="btn btn-dark p-2" onClick={handleSaveHSN}>
-                      Save Changes
+                  {canWrite && !restrictModifyPO(status) && (
+                    <button className="btn btn-sm p-2 px-3" disabled={actionLoading === 'hsn'} style={{ fontSize: 12, fontWeight: 600, background: '#2E5BA8', color: '#fff', border: 'none', borderRadius: 8, opacity: actionLoading === 'hsn' ? 0.7 : 1 }}
+                      onClick={async () => { setActionLoading('hsn'); try { await handleSaveHSN(); } finally { setActionLoading(null); } }}>
+                      {actionLoading === 'hsn' ? <><span className="spinner-border spinner-border-sm me-1" style={{ width: 12, height: 12 }} /> Saving...</> : 'Save Changes'}
                     </button>
                   )}
                 </div>
               </div>
-            </Card.Body>
-          </Card>
-          <Card className="shadow-sm w-100">
-            <Card.Body className="d-flex flex-column gap-2">
+            </div>
+          </div>
+          <div className={`${styles.sectionCard} w-100`}>
+            <div className={styles.sectionHeader}>
+              <h5 className={styles.sectionTitle}>GSTIN</h5>
+            </div>
+            <div className={`${styles.sectionBody} d-flex flex-column gap-2`}>
               <div className="d-flex flex-column gap-1">
                 <CommonFormInput
                   type="simple-text"
                   label={"GSTIN ( To be printed in the PO )"}
                   placeholder={`Enter GSTIN here...`}
-                  disabled={status == 'pending_approval' || restrictModifyPO(status)}
+                  disabled={!canWrite || status == 'pending_approval' || restrictModifyPO(status)}
                   values={gstin || ""}
                   onChange={(change) => {
                     setGstin(change.target.value);
                   }}
                 />
-                {!restrictModifyPO(status) && (
-                  <button className="btn btn-dark p-2" onClick={handleSaveGST}>
-                    Save Changes
+                {canWrite && !restrictModifyPO(status) && (
+                  <button className="btn btn-sm p-2 px-3" disabled={actionLoading === 'gst'} style={{ fontSize: 12, fontWeight: 600, background: '#2E5BA8', color: '#fff', border: 'none', borderRadius: 8, opacity: actionLoading === 'gst' ? 0.7 : 1 }}
+                    onClick={async () => { setActionLoading('gst'); try { await handleSaveGST(); } finally { setActionLoading(null); } }}>
+                    {actionLoading === 'gst' ? <><span className="spinner-border spinner-border-sm me-1" style={{ width: 12, height: 12 }} /> Saving...</> : 'Save Changes'}
                   </button>
                 )}
               </div>
-            </Card.Body>
-          </Card>
+            </div>
+          </div>
         </div>
   
         {/* New Multi-Step Approval Progress Card */}
@@ -902,12 +816,11 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
         )}
 
         {/* Approval Timeline */}
-        <h5 className="mb-3">
-          <MdEventNote className="me-2" />
-          Approval Timeline
-        </h5>
-        <Card className="mb-4">
-          <Card.Body className="d-flex flex-column gap-3">
+        <div className={`${styles.sectionCard} mb-3`}>
+          <div className={styles.sectionHeader}>
+            <h5 className={styles.sectionTitle}><MdEventNote size={16} /> Approval Timeline</h5>
+          </div>
+          <div className={`${styles.sectionBody} d-flex flex-column gap-3`}>
             <TimelineItem
               title={status == "draft" ? "Drafted" : "Initiated"}
               name={initiated_by_name}
@@ -981,27 +894,25 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                 time={formatIST(approval_status.created_at)}
               />
             )}
-          </Card.Body>
-        </Card>
-  
-        {/* Payment Milestones */}
-        <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
-          <h5 className="mb-0">
-            <MdOutlineBusinessCenter className="me-2" />
-            Payment Milestones
-          </h5>
-  
-          <button
-            className="minimal-btn"
-            onClick={() => setShowMilestoneModal(true)}
-            id="add_milestone-payment_milestones-po_details"
-          >
-            Add Milestone
-          </button>
+          </div>
         </div>
-  
-        <Card className="overflow-hidden mb-3">
-          <Card.Body className="table-responsive p-0">
+
+        {/* Payment Milestones */}
+        <div className={`${styles.sectionCard} mb-3`}>
+          <div className={styles.sectionHeader}>
+            <h5 className={styles.sectionTitle}><MdOutlineBusinessCenter size={16} /> Payment Milestones</h5>
+            {canWrite && (
+              <button
+                className="minimal-btn"
+                onClick={() => setShowMilestoneModal(true)}
+                id="add_milestone-payment_milestones-po_details"
+                style={{ fontSize: 12, fontWeight: 600, color: '#2E5BA8' }}
+              >
+                + Add Milestone
+              </button>
+            )}
+          </div>
+          <div className="table-responsive p-0">
             <table className="table table-stripped align-middle m-0 text-center">
               <thead className="table-light">
                 <tr>
@@ -1053,7 +964,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                         new Date(milestone.due_date).toDateString()
                       )}
                       <td>
-                        {milestone.status != "deleted" ? (
+                        {canWrite && milestone.status != "deleted" ? (
                           <>
                             <button
                               title="Edit this Milestone"
@@ -1100,27 +1011,25 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                 )}
               </tbody>
             </table>
-          </Card.Body>
-        </Card>
-  
-        {/* Task Timelines */}
-        <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
-          <h5 className="mb-0">
-            <MdTimeline className="me-2" />
-            Status Timeline
-          </h5>
-  
-          <button
-            className="minimal-btn"
-            onClick={() => setShowTaskModal(true)}
-            id="add_task-status_timeline-po_details"
-          >
-            Add Task
-          </button>
+          </div>
         </div>
-  
-        <Card className="overflow-hidden">
-          <Card.Body className="table-responsive p-0">
+
+        {/* Task Timelines */}
+        <div className={`${styles.sectionCard} mb-3`}>
+          <div className={styles.sectionHeader}>
+            <h5 className={styles.sectionTitle}><MdTimeline size={16} /> Status Timeline</h5>
+            {canWrite && (
+              <button
+                className="minimal-btn"
+                onClick={() => setShowTaskModal(true)}
+                id="add_task-status_timeline-po_details"
+                style={{ fontSize: 12, fontWeight: 600, color: '#2E5BA8' }}
+              >
+                + Add Task
+              </button>
+            )}
+          </div>
+          <div className="table-responsive p-0">
             <table className="table table-stripped align-middle m-0 text-center">
               <thead className="table-light">
                 <tr>
@@ -1156,35 +1065,30 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                         {elipsisToLimit(task.task_description, 45)}
                       </td>
                       <td>
-                        <button
-                          title="Edit this Task"
-                          className="minimal-btn"
-                          style={{
-                            backgroundColor: "#fdeceb",
-                            borderColor: "#f5b5b5",
-                            color: "#dc3545",
-                          }}
-                          onClick={() => handleTaskEdition(task)}
-                          id={`edit_task_${task.id}-task_actions-po_details`}
-                        >
-                          <HiPencil size={25} />
-                        </button>
-                        <button
-                          title="Delete this Task"
-                          className="minimal-btn ms-2"
-                          style={{
-                            backgroundColor: "#fdeceb",
-                            borderColor: "#f5b5b5",
-                            color: "#dc3545",
-                          }}
-                          onClick={() => {
-                            setDeleteTaskId(task.id);
-                            setShowDeleteTaskConfirmModal(true);
-                          }}
-                          id={`delete_task_${task.id}-task_actions-po_details`}
-                        >
-                          <HiOutlineTrash size={25} />
-                        </button>
+                        {canWrite ? (
+                          <>
+                            <button
+                              title="Edit this Task"
+                              className="minimal-btn"
+                              style={{ backgroundColor: "#fdeceb", borderColor: "#f5b5b5", color: "#dc3545" }}
+                              onClick={() => handleTaskEdition(task)}
+                              id={`edit_task_${task.id}-task_actions-po_details`}
+                            >
+                              <HiPencil size={25} />
+                            </button>
+                            <button
+                              title="Delete this Task"
+                              className="minimal-btn ms-2"
+                              style={{ backgroundColor: "#fdeceb", borderColor: "#f5b5b5", color: "#dc3545" }}
+                              onClick={() => { setDeleteTaskId(task.id); setShowDeleteTaskConfirmModal(true); }}
+                              id={`delete_task_${task.id}-task_actions-po_details`}
+                            >
+                              <HiOutlineTrash size={25} />
+                            </button>
+                          </>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontSize: 12 }}>—</span>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -1197,9 +1101,9 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                 )}
               </tbody>
             </table>
-          </Card.Body>
-          <Card.Footer className="pt-3">
-            {tasks?.data && (
+          </div>
+          {tasks?.data && (
+            <div style={{ padding: '12px 20px', borderTop: '1px solid #f1f5f9' }}>
               <Pagination
                 page={filters.page}
                 setPage={(page) => setFilters((prev) => ({ ...prev, page }))}
@@ -1207,9 +1111,9 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                 setLimit={(limit) => setFilters((prev) => ({ ...prev, limit }))}
                 totalData={tasks.total}
               />
-            )}
-          </Card.Footer>
-        </Card>
+            </div>
+          )}
+        </div>
   
         <CreateMilestoneModal
           show={showMilestoneModal}
@@ -1238,40 +1142,17 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           poId={id}
         />
   
-        <ConfirmationModal
-          isOpen={showApproveConfirmModal}
+        <ApproveModal
+          show={showApproveConfirmModal}
           onClose={() => setShowApproveConfirmModal(false)}
-          onConfirm={async () => {
-            await handlePODecision(id, { decision: "approved", type: "approval" });
-            await refetchPODetails();
+          onApprove={async (remarks) => {
+            if (handlePODecision) await handlePODecision(id, { decision: "approved", type: "approval", remarks });
             setShowApproveConfirmModal(false);
           }}
-          title={"Approve Purchase Order"}
-          description={`Are you sure you want to approve PO #${
-            po_number || "this purchase order"
-          }?\nThis action will approve the purchase order and notify relevant parties.`}
-          confirmButtonColor="success"
-          confirmButtonText="Approve"
-          cancelButtonText="Cancel"
-          customFooter={POReviewCompact(data)}
+          poNumber={po_number}
+          poPdfUrl={poPdfUrl}
         />
-  
-        <ConfirmationModal
-          isOpen={showRejectConfirmModal}
-          onClose={() => setShowRejectConfirmModal(false)}
-          onConfirm={async () => {
-            await handlePODecision(id, { decision: "rejected", type: "approval" });
-            await refetchPODetails();
-            setShowRejectConfirmModal(false);
-          }}
-          title={"Reject Purchase Order"}
-          description={`Are you sure you want to reject PO #${
-            po_number || "this purchase order"
-          }?\nThis action will reject the purchase order, de-finalize the vendors and notify relevant parties.`}
-          confirmButtonColor="danger"
-          confirmButtonText="Reject"
-          cancelButtonText="Cancel"
-        />
+
   
         <ConfirmationModal
           isOpen={showDeleteMilestoneConfirmModal}
@@ -1341,9 +1222,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
         <ConfirmationModal
           isOpen={showGRNUpdateModal}
           onClose={() => setShowGRNUpdateModal(false)}
-          onConfirm={async () => {
-            await handlePODecision(id, { type: "grn_update", });
-            await refetchPODetails();
+          onConfirm={() => {
+            if (handlePODecision) handlePODecision(id, { type: "grn_update" });
             setShowGRNUpdateModal(false);
           }}
           title="Mark GRN for this PO"

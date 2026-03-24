@@ -32,7 +32,8 @@ const ClauseProductItem = ({
   canWrite = true,
   canApprove = false,
   permissionsLoading = false,
-  onEvaluationStatusChange // Callback to notify parent about evaluation status
+  onEvaluationStatusChange, // Callback to notify parent about evaluation status
+  quotedVendorsOnly = true,
 }) => {
 
   const multipleVendorsSelected = selectedVendors && selectedVendors.length > 1;
@@ -598,6 +599,13 @@ const ClauseProductItem = ({
                     <span><strong>Minimum Passing Score:</strong> {minimumPassingScore} out of 100</span>
                   </div>
                 )}
+                {quotedVendorsOnly && vendors && vendors.length > 0 && !vendors.some(v => v.has_quoted) && (
+                  <div className="text-center py-4" style={{ background: '#f8f9fa', borderRadius: 8 }}>
+                    <p className="text-muted mb-1" style={{ fontSize: '0.88rem', fontWeight: 500 }}>No vendors have submitted quotes yet.</p>
+                    <p className="text-muted mb-0" style={{ fontSize: '0.8rem' }}>Turn off the "Quoted Vendors Only" filter to view all vendors.</p>
+                  </div>
+                )}
+                {(!quotedVendorsOnly || !vendors || vendors.length === 0 || vendors.some(v => v.has_quoted)) && (
                 <div className={styles.tableWrapper}>
                   <table className={styles.scoringTable}>
                     <thead>
@@ -605,7 +613,11 @@ const ClauseProductItem = ({
                         <th className="align-middle">Clause & Files</th>
                         {vendors && vendors.length > 0 &&
                           vendors
-                            .filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id))
+                            .filter(vendor => {
+                              if (selectedVendors.length > 0 && !selectedVendors.includes(vendor.vendor_id)) return false;
+                              if (quotedVendorsOnly && !vendor.has_quoted) return false;
+                              return true;
+                            })
                             .sort((a, b) => (a.rank || 999) - (b.rank || 999))
                             .map((vendor) => {
                               const isCleared = vendor.is_cleared;
@@ -623,7 +635,14 @@ const ClauseProductItem = ({
                               return (
                                 <th key={vendor.vendor_id} className={`${styles.vendorHeader} ${colTintClass}`}>
                                   <div className={styles.vendorHeaderTop}>
-                                    <span className={styles.vendorCode}>{vendorCode}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span className={styles.vendorCode}>{vendorCode}</span>
+                                      {!quotedVendorsOnly && !vendor.has_quoted && (
+                                        <span className="badge rounded-pill py-1 px-2 text-bg-secondary" style={{ fontSize: '9px' }}>
+                                          Not Quoted
+                                        </span>
+                                      )}
+                                    </div>
                                     <Dropdown className="dots-nav-anchor">
                                       <Dropdown.Toggle as="button" className={styles.vendorMenuBtn}>
                                         <BsThreeDotsVertical size={16} />
@@ -720,7 +739,11 @@ const ClauseProductItem = ({
                               </td>
                               {vendors && vendors.length > 0 &&
                                 vendors
-                                  .filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id))
+                                  .filter(vendor => {
+                                    if (selectedVendors.length > 0 && !selectedVendors.includes(vendor.vendor_id)) return false;
+                                    if (quotedVendorsOnly && !vendor.has_quoted) return false;
+                                    return true;
+                                  })
                                   .sort((a, b) => (a.rank || 999) - (b.rank || 999))
                                   .map((vendor) => {
                                     const response = clauseItem.vendor_responses.find(
@@ -842,6 +865,7 @@ const ClauseProductItem = ({
                     </tbody>
                   </table>
                 </div>
+                )}
               </div>
             )}
           </>

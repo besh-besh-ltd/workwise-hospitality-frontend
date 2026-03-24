@@ -29,7 +29,9 @@ const AuthModal = (props) => {
       className="login-register"
       style={{
         overlay: {
-          backgroundColor: "rgba(0, 0, 0, 0.75)",
+          backgroundColor: "rgba(15, 23, 42, 0.6)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
         },
         content: {
           position: "absolute",

@@ -1,245 +1,203 @@
 import React, { useMemo } from 'react';
-import { Card, Row, Col, Badge, Button, ProgressBar } from 'react-bootstrap';
-import { Calendar, User, Package, Building, Eye, CheckCircle, Upload, AlertTriangle } from 'lucide-react';
+import { Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { MdCheck, MdClose } from 'react-icons/md';
+import { IoMdEye } from 'react-icons/io';
+import { FiAlertTriangle, FiUser } from 'react-icons/fi';
+import { BsFilePdf } from 'react-icons/bs';
 import { addCommasToNumber } from '@/utils/sharedFunctions';
-import Link from 'next/link';
-import ReadMore from '@/components/shared/ReadMore';
+import styles from './POCard.module.scss';
 
-const POCard = ({ po, onClick, initiatePO }) => {
-  const productNames = useMemo(() => {
-    return po.product_details?.map(p => p.name).join("\n") || "";
+const POCard = ({
+  po,
+  onClick,
+  onApprove,
+  onReject,
+  initiatePO
+}) => {
+  const statusConfig = {
+    pending_approval: { label: 'Pending', variant: 'warning', requiresAction: true },
+    approved: { label: 'Approved', variant: 'success', requiresAction: false },
+    cancelled: { label: 'Cancelled', variant: 'danger', requiresAction: false },
+    rejected: { label: 'Rejected', variant: 'danger', requiresAction: false },
+    invoice_raised: { label: 'Invoice', variant: 'info', requiresAction: false },
+    dispatched: { label: 'Dispatched', variant: 'success', requiresAction: false },
+    GRN: { label: 'GRN', variant: 'info', requiresAction: false },
+    draft: { label: 'Draft', variant: 'secondary', requiresAction: true }
+  };
+
+  const currentStatus = statusConfig[po.status] || statusConfig.draft;
+  const showApprovalActions = po.status === 'pending_approval' && po.is_approver;
+  const isDraft = po.status === 'draft';
+  const isApproved = po.status === 'approved';
+  const isPendingApproval = po.status === 'pending_approval';
+
+  const waitInfo = useMemo(() => {
+    if (!isPendingApproval) return null;
+    const lastApproval = po.approval_history
+      ?.filter(h => h.action === 'approved')
+      ?.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+    const referenceDate = lastApproval?.created_at || po.created_at;
+    const ref = new Date(referenceDate);
+    const now = new Date();
+    const diffMs = now.getTime() - ref.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    let urgency = 'Normal';
+    if (diffDays >= 5) urgency = 'Critical';
+    else if (diffDays >= 2) urgency = 'Warning';
+    let displayText = diffHours < 24 ? (diffHours < 1 ? 'Now' : `${diffHours}h`) : `${diffDays}d`;
+    const fullDateTime = ref.toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true });
+    return { displayText, urgency, fullDateTime, isCritical: diffDays >= 5 };
+  }, [po.approval_history, po.created_at, isPendingApproval]);
+
+  const createdInfo = useMemo(() => {
+    if (!po.created_at) return { relative: '—', fullDateTime: 'Unknown' };
+    const date = new Date(po.created_at);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    let relative;
+    if (diffMins < 60) relative = diffMins <= 1 ? 'Just now' : `${diffMins}m ago`;
+    else if (diffHours < 24) relative = `${diffHours}h ago`;
+    else if (diffDays < 7) relative = `${diffDays}d ago`;
+    else if (diffDays < 30) relative = `${Math.floor(diffDays / 7)}w ago`;
+    else relative = `${Math.floor(diffDays / 30)}mo ago`;
+    const fullDateTime = date.toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true });
+    return { relative, fullDateTime };
+  }, [po.created_at]);
+
+  const productCount = po.product_details?.length || 0;
+  const productsDisplay = productCount === 0 ? '—' : productCount === 1 ? '1 item' : `${productCount} items`;
+  const productsFullText = useMemo(() => {
+    if (!po.product_details || po.product_details.length === 0) return 'No products';
+    return po.product_details.map(p => p.name).join(', ');
   }, [po.product_details]);
-  // Status color mapping
-  const getStatusColor = (status) => {
-    const statusMap = {
-      'approved': 'success',
-      'dispatched': 'primary',
-      'in_progress': 'info',
-      'overdue': 'danger',
-      'invoice_pending': 'warning'
-    };
-    return statusMap[status.toLowerCase()] || 'secondary';
-  };
 
-  // Status text mapping
-  const getStatusText = (status) => {
-    const statusTextMap = {
-      'approved': 'Approved',
-      'dispatched': 'Dispatched', 
-      'in_progress': 'In Progress',
-      'overdue': 'Overdue',
-      'invoice_pending': 'Invoice Pending',
-      'draft': 'Draft'
-    };
-    return statusTextMap[status.toLowerCase()] || status;
-  };
+  const totalQuantity = useMemo(() => {
+    if (po.quantity) return po.quantity;
+    if (!po.product_details || po.product_details.length === 0) return 0;
+    return po.product_details.reduce((sum, p) => sum + (p.quantity || 0), 0);
+  }, [po.quantity, po.product_details]);
 
-  // Format currency
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
+  const unit = po.unit || po.product_details?.[0]?.unit || 'pcs';
 
-  // Format date
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric', 
-      year: 'numeric'
-    });
-  };
+  const upcomingMilestone = useMemo(() => {
+    if (!po.upcoming_milestones || po.upcoming_milestones.length === 0) return null;
+    const sorted = [...po.upcoming_milestones].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+    const milestone = sorted[0];
+    if (!milestone) return null;
+    const dueDate = new Date(milestone.due_date);
+    const now = new Date();
+    const diffMs = dueDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    let urgency = 'normal';
+    if (diffDays < 0) urgency = 'critical';
+    else if (diffDays <= 3) urgency = 'warning';
+    else if (diffDays <= 7) urgency = 'upcoming';
+    return { ...milestone, urgency, isOverdue: diffDays < 0, daysUntilDue: diffDays, formattedDate: dueDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) };
+  }, [po.upcoming_milestones]);
 
-  // Determine milestone progress and text
-  const getMilestoneInfo = () => {
-    const status = po.status.toLowerCase();
-    
-    if (status === 'approved') {
-      return {
-        text: 'Vendor Confirmation',
-        progress: 35,
-        color: 'success',
-        badge: 'On track'
-      };
-    } else if (status === 'dispatched') {
-      return {
-        text: 'Delivery Expected',
-        progress: 65,
-        color: 'primary',
-        badge: 'Due in 3 days'
-      };
-    } else if (status === 'overdue') {
-      return {
-        text: 'Invoice Receipt',
-        progress: 80,
-        color: 'danger',
-        badge: '5 days overdue'
-      };
-    }
-    
-    return {
-      text: 'Processing',
-      progress: 10,
-      color: 'secondary',
-      badge: 'Pending'
-    };
-  };
-
-  // Get action button based on status
-  const getActionButton = () => {
-    const status = po.status.toLowerCase();
-    
-    if (status === 'dispatched') {
-      return (
-        <button className="btn btn-success btn-sm p-2 px-4 mb-2" style={{width: "250px"}}>
-          <Upload size={16} className="me-1" />
-          Mark as Delivered
-        </button>
-      );
-    } else if (status === 'approved') {
-      return (
-        <button className="btn btn-primary btn-sm p-2 px-4 mb-2" style={{width: "250px"}}>
-          <Upload size={16} className="me-1" />
-          Mark as Dispatched
-        </button>
-      );
-    } else if (status === 'overdue') {
-      return (
-        <button className="btn btn-secondary btn-sm p-2 px-4 mb-2" style={{width: "250px"}}>
-          <AlertTriangle size={16} className="me-1" />
-          Follow Up Vendor
-        </button>
-      );
-    }
-    
-    return null;
-  };
-
-  const milestoneInfo = getMilestoneInfo();
+  const handleRowClick = () => onClick?.(po);
+  const handleApprove = (e) => { e.stopPropagation(); onApprove?.(po); };
+  const handleReject = (e) => { e.stopPropagation(); onReject?.(po); };
+  const handleInitiate = (e) => { e.stopPropagation(); initiatePO?.(); };
+  const handleView = (e) => { e.stopPropagation(); onClick?.(po); };
 
   return (
-    <Card className="mb-3 shadow-sm">
-      <Card.Body>
-        <Row>
-          {/* Left Column - PO Details */}
-          <Col md={7}>
-            <div className="d-flex justify-content-between align-items-start">
-              <div className="d-flex flex-column gap-2">
-                <div>
-                  <h5 className="mb-1 fw-bold">#{po.po_number}</h5>
-                  <small className="text-muted">
-                    <Calendar size={14} className="me-1" />
-                    Initiated: {formatDate(po.created_at)}
-                  </small>
-                </div>
-                <div className="d-flex gap-4">
-                  <div className="mb-3">
-                    <div className="fw-semibold text-dark mb-1">Product(s)</div>
-                    <div className="text-muted" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
-                      {productNames ? (
-                        <ReadMore
-                          content={productNames}
-                          maxLines={4}
-                        />
-                      ) : (
-                        "N/A"
-                      )}
-                    </div>
-                  </div>
+    <div
+      className={`${styles.poRow} ${currentStatus.requiresAction ? styles.requiresAction : ''} ${isDraft ? styles.isDraft : ''} ${isApproved ? styles.isApproved : ''} ${showApprovalActions ? styles.userAction : ''}`}
+      onClick={handleRowClick}
+    >
+      <div className={styles.colStatus}>
+        <Badge bg={currentStatus.variant} className={styles.statusBadge}>{currentStatus.label}</Badge>
+      </div>
 
-                  <div className="mb-2">
-                    <div className="fw-semibold text-dark mb-1">Vendor</div>
-                    <div className="text-muted">
-                      <Building size={14} className="me-1" />
-                      {po.finalized_vendor_name}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="mb-3" style={{width: "40%"}}>
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <span className="text-muted small">
-                    {po.status.toLowerCase() === "overdue"
-                      ? "Overdue Milestone"
-                      : "Next Milestone"}
-                  </span>
-                  <Badge
-                    bg={
-                      po.status.toLowerCase() === "overdue"
-                        ? "danger"
-                        : "success"
-                    }
-                    className="px-2"
-                  >
-                    Due: 04 Sept 2025
-                  </Badge>
-                </div>
-                <div className="fw-semibold mb-1">{milestoneInfo.text}</div>
+      <div className={styles.colPoNumber}>
+        <div className={styles.poNum}>{po.po_number}</div>
+        {po.project_details?.name && <div className={styles.projectName} title={po.project_details.name}>{po.project_details.name}</div>}
+      </div>
 
-                <ProgressBar
-                  now={milestoneInfo.progress}
-                  variant={milestoneInfo.color}
-                  style={{ height: "6px" }}
-                  className="mb-1"
-                />
-                <small className="text-muted">
-                  {milestoneInfo.progress}% Complete
-                  {po.status.toLowerCase() === "overdue" &&
-                    " - Action Required"}
-                </small>
-              </div>
-            </div>
-          </Col>
+      <div className={styles.colPending}>
+        {waitInfo ? (
+          <OverlayTrigger placement="top" overlay={<Tooltip id={`wait-${po.id}`}>Since: {waitInfo.fullDateTime}</Tooltip>}>
+            <span className={styles[`urgency${waitInfo.urgency}`]}>
+              {waitInfo.displayText}
+              {waitInfo.isCritical && <FiAlertTriangle size={12} className={styles.alertIcon} />}
+            </span>
+          </OverlayTrigger>
+        ) : <span className={styles.waitEmpty}>—</span>}
+      </div>
 
-          {/* Middle Column - Financial & Milestone Info */}
-          <Col md={2}>
-            <div className="text-end mb-3">
-              <div className="text-muted small">PO Value</div>
-              <div className="h4 fw-bold text-dark mb-0">
-                ₹{addCommasToNumber(po.total_value)}
-              </div>
-            </div>
+      <div className={styles.colVendor} title={po.finalized_vendor_name || 'No vendor'}>{po.finalized_vendor_name || 'No vendor'}</div>
 
-            <div className="text-end mb-3">
-              <div className="text-muted small">Current Status</div>
-              <div className="fw-semibold">{getStatusText(po.status)}</div>
-            </div>
-          </Col>
+      <OverlayTrigger placement="top" overlay={<Tooltip id={`products-${po.id}`}>{productsFullText}</Tooltip>}>
+        <div className={styles.colProducts}>
+          {productsDisplay}
+          {upcomingMilestone && (
+            <OverlayTrigger placement="top" overlay={
+              <Tooltip id={`milestone-${po.id}`}>
+                {upcomingMilestone.isOverdue ? 'OVERDUE: ' : 'Due: '}{upcomingMilestone.milestone_name} ({upcomingMilestone.formattedDate})
+                {upcomingMilestone.isOverdue ? ` - ${Math.abs(upcomingMilestone.daysUntilDue)}d overdue` : upcomingMilestone.daysUntilDue <= 7 ? ` - ${upcomingMilestone.daysUntilDue}d left` : ''}
+              </Tooltip>
+            }>
+              <span className={`${styles.milestoneIndicator} ${styles[`milestone${upcomingMilestone.urgency.charAt(0).toUpperCase() + upcomingMilestone.urgency.slice(1)}`]}`}>
+                {upcomingMilestone.isOverdue ? '⚠️' : upcomingMilestone.urgency === 'warning' ? '🔔' : '📅'}
+              </span>
+            </OverlayTrigger>
+          )}
+        </div>
+      </OverlayTrigger>
 
-          {/* Right Column - Actions */}
-          <Col md={3}>
-            <div className="d-flex flex-column align-items-end">
-              {getActionButton()}
+      <div className={styles.colQuantity}>
+        {totalQuantity > 0 ? (<><span className={styles.qtyNumber}>{totalQuantity}</span><span className={styles.qtyUnit}>{unit}</span></>) : '—'}
+      </div>
 
-              {po.status === 'draft' && (
-                <button onClick={initiatePO} className="btn btn-success btn-sm p-2 px-4 mb-2" style={{width: "250px"}}>
-                  Initiate this PO
-                </button>
-              )}
+      <div className={styles.colValue}>₹{addCommasToNumber(po.total_value)}</div>
 
-              {po.status.toLowerCase() === "overdue" && (
-                <button className="btn btn-success btn-sm p-2 px-4 mb-2" style={{width: "250px"}}>
-                  <Upload size={16} className="me-2" />
-                  Mark Invoice Received
-                </button>
-              )}
+      <OverlayTrigger placement="top" overlay={<Tooltip id={`initiator-${po.id}`}>{po.initiated_by || 'Unknown'}</Tooltip>}>
+        <div className={styles.colInitiator}><FiUser size={14} /></div>
+      </OverlayTrigger>
 
-              <button className="btn btn-success btn-sm p-2 px-4 mb-2" style={{width: "250px"}}>
-                <CheckCircle size={16} className="me-2" />
-                Complete Milestone
-              </button>
-              <button onClick={onClick} className="btn btn-outline-dark btn-sm p-2 px-4" style={{width: "250px"}}>
-                View More Details
-              </button>
-            </div>
-          </Col>
-        </Row>
-      </Card.Body>
-    </Card>
+      <OverlayTrigger placement="top" overlay={<Tooltip id={`created-${po.id}`}>{createdInfo.fullDateTime}</Tooltip>}>
+        <div className={styles.colDate}>{createdInfo.relative}</div>
+      </OverlayTrigger>
+
+      <div className={styles.colActions}>
+        {showApprovalActions ? (
+          <>
+            <button className={styles.approveBtn} onClick={handleApprove} title="Approve this PO" id={`approve_po_${po.id}-po_actions-po_listing`}>
+              <MdCheck size={14} /><span>Approve</span>
+            </button>
+            <button className={styles.rejectBtn} onClick={handleReject} title="Reject this PO" id={`reject_po_${po.id}-po_actions-po_listing`}>
+              <MdClose size={14} /><span>Reject</span>
+            </button>
+          </>
+        ) : isDraft ? (
+          initiatePO ? (
+            <button className={styles.initiateBtn} onClick={handleInitiate} title="Initiate this PO">Initiate Purchase Order</button>
+          ) : (
+            <OverlayTrigger placement="top" overlay={<Tooltip id={`initiate-disabled-${po.id}`}>Only members with write access can initiate a Purchase Order</Tooltip>}>
+              <span>
+                <button className={styles.initiateBtn} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>Initiate Purchase Order</button>
+              </span>
+            </OverlayTrigger>
+          )
+        ) : (
+          <>
+            <button className={styles.viewBtn} onClick={handleView} title="View Details" id={`view_po_${po.id}-po_actions-po_listing`}>
+              <IoMdEye size={14} /><span>View PO</span>
+            </button>
+            {po.poPdfUrl && (
+              <a href={po.poPdfUrl} target="_blank" rel="noopener noreferrer" className={styles.pdfBtn} onClick={(e) => e.stopPropagation()} title="View PO PDF">
+                <BsFilePdf size={14} /><span>View PDF</span>
+              </a>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 };
 

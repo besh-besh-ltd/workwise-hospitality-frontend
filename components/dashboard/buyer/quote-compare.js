@@ -1678,12 +1678,20 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   {
                     key: 'negotiation_pending',
                     label: 'Negotiation',
-                    filter: (item) => !item.is_finalized && !item.has_finalization && !item.approval_required && parseInt(item.active_quote_count || 0) > 0,
+                    filter: (item) => {
+                      const hasActiveQuotes = parseInt(item.active_quote_count || 0) > 0;
+                      const approvalFullyDone = item.finalization_approval_completed === true;
+                      const approvalPartiallyDone = item.finalization_partially_approved === true;
+                      // Items with completed finalization approval go to Finalized tab
+                      if (approvalFullyDone || approvalPartiallyDone) return false;
+                      return hasActiveQuotes || item.has_finalization || item.is_finalized || item.approval_required;
+                    },
                   },
                   {
-                    key: 'finalization_pending',
-                    label: 'Finalization',
-                    filter: (item) => item.approval_required === true || item.is_finalized || item.has_finalization,
+                    key: 'finalization_completed',
+                    label: 'Finalized',
+                    filter: (item) => item.finalization_approval_completed === true
+                      || item.finalization_partially_approved === true,
                   },
                   {
                     key: 'all',
@@ -1709,13 +1717,14 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 getItemTags={(item, isSelected) => {
                   if (isSelected) return [];
                   const tags = [];
-                  if (item.approval_required) {
-                    tags.push({ label: 'Approval Pending', variant: 'warning' });
-                  }
-                  if (item.is_finalized) {
+                  if (item.finalization_approval_completed) {
                     tags.push({ label: 'Finalized', variant: 'success' });
-                  } else if (item.has_finalization) {
+                  } else if (item.finalization_partially_approved) {
                     tags.push({ label: 'Partially Finalized', variant: 'warning' });
+                  } else if (item.approval_required) {
+                    tags.push({ label: 'Approval Pending', variant: 'warning' });
+                  } else if (item.has_finalization || item.is_finalized) {
+                    tags.push({ label: 'Awaiting Approval', variant: 'info' });
                   } else {
                     tags.push({ label: 'In Negotiation', variant: 'info' });
                   }

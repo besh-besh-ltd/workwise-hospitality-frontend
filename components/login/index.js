@@ -423,49 +423,7 @@ const Login = (props) => {
         )}
       </Formik>
 
-      {/* Google OAuth (email only) */}
-      {!isEmployeeCode && (
-        <>
-          <div className="lf-divider">
-            <span className="lf-divider-line" />
-            <span className="lf-divider-text">or</span>
-            <span className="lf-divider-line" />
-          </div>
 
-          {/* <button
-            type="button"
-            className="lf-google"
-            onClick={() => {
-              setloading(true);
-              loginWithGoogle();
-            }}
-            id="login_with_google-social_login-login_form"
-          >
-            <FcGoogle style={{ fontSize: '20px' }} />
-            Continue with Google
-          </button> */}
-        </>
-      )}
-
-      {/* Register Link */}
-      <p style={{
-        textAlign: 'center',
-        fontSize: '13px',
-        color: '#64748b',
-        fontFamily: 'Poppins, sans-serif',
-        marginTop: '24px',
-        marginBottom: 0,
-      }}>
-        New to Workwise?{' '}
-        <Link
-          href="#"
-          onClick={() => props.setActiveTab("register")}
-          className="lf-register-link"
-          id="register_here-login_links-login_form"
-        >
-          Register here
-        </Link>
-      </p>
     </div>
   );
 };

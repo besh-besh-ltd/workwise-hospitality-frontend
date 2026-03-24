@@ -40,9 +40,44 @@ const HotelVendor = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showOtherDeviceModal, setShowOtherDeviceModal] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [dashboardUrl, setDashboardUrl] = useState('/dashboard/buyer');
   // Use ref instead of state for payment success tracking - refs are synchronous
   const paymentSuccessfulRef = useRef(false);
   const retryDataRef = useRef(null);
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const token = storageInstance.getStorage('token');
+    const userType = storageInstance.getStorage('current-user-type');
+    if (token && userType) {
+      setIsLoggedIn(true);
+      const routes = {
+        buyer: '/dashboard/buyer',
+        vendor: '/dashboard/vendor',
+        admin: '/dashboard/admin',
+        management: '/dashboard/management',
+        engineering: '/dashboard/engineering',
+        finance: '/dashboard/finance',
+      };
+      setDashboardUrl(routes[userType] || '/dashboard/buyer');
+    }
+
+    const handleLoginChange = () => {
+      const t = storageInstance.getStorage('token');
+      const ut = storageInstance.getStorage('current-user-type');
+      if (t && ut) {
+        setIsLoggedIn(true);
+        const routes = {
+          buyer: '/dashboard/buyer', vendor: '/dashboard/vendor', admin: '/dashboard/admin',
+          management: '/dashboard/management', engineering: '/dashboard/engineering', finance: '/dashboard/finance',
+        };
+        setDashboardUrl(routes[ut] || '/dashboard/buyer');
+      }
+    };
+    window.addEventListener('loginStatusChanged', handleLoginChange);
+    return () => window.removeEventListener('loginStatusChanged', handleLoginChange);
+  }, []);
 
   // Query param auto-open
   useEffect(() => {
@@ -525,110 +560,585 @@ const HotelVendor = () => {
   return (
     <>
       <Head>
-        <title>Welcome to Phileein Hospitality</title>
-        <meta name="description" content="Phileein vendor onboarding" />
+        <title>Hospitality Procurement Platform | Workwise</title>
+        <meta name="description" content="Streamline your hospitality procurement — RFQs, tenders, vendor management, and purchase orders in one place." />
       </Head>
 
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '2rem',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        }}
-      >
-        <div
-          style={{
-            textAlign: 'center',
-            color: 'white',
-            marginBottom: '2rem',
-          }}
-        >
-          <h1
-            style={{
-              fontSize: '3rem',
-              fontWeight: 'bold',
-              marginBottom: '0.5rem',
-              textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
-            }}
-          >
-            Phileein Hospitality
-          </h1>
-          <h2
-            style={{
-              fontSize: '1.5rem',
-              fontWeight: 'normal',
-              textShadow: '1px 1px 2px rgba(0,0,0,0.3)',
-            }}
-          >
-            Welcome to Phileein Hospitality
-          </h2>
+      <style jsx>{`
+        .hp-page {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          font-family: 'Poppins', sans-serif;
+          background: #f1f5f9;
+        }
+
+        /* ════════════════════════════════════════════
+           HERO — full viewport, immersive
+           ════════════════════════════════════════════ */
+        .hp-hero {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          background: linear-gradient(160deg, #162d50 0%, #2E5BA8 50%, #1a4080 100%);
+          position: relative;
+          overflow: hidden;
+        }
+        /* Dot grid pattern overlay */
+        .hp-hero::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
+          background-size: 28px 28px;
+          pointer-events: none;
+        }
+        /* Large decorative circles */
+        .hp-orb {
+          position: absolute;
+          border-radius: 50%;
+          pointer-events: none;
+        }
+        .hp-orb-1 {
+          width: 500px; height: 500px;
+          top: -180px; right: -120px;
+          background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+        }
+        .hp-orb-2 {
+          width: 350px; height: 350px;
+          bottom: -100px; left: -80px;
+          background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+        }
+        .hp-orb-3 {
+          width: 200px; height: 200px;
+          top: 30%; left: 8%;
+          background: radial-gradient(circle, rgba(94,234,212,0.08) 0%, transparent 70%);
+        }
+
+        /* ── Top bar ── */
+        .hp-topbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 28px clamp(24px, 5vw, 64px);
+          position: relative;
+          z-index: 2;
+        }
+        .hp-logo {
+          font-size: 1.15rem;
+          font-weight: 700;
+          color: #ffffff;
+          letter-spacing: -0.3px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .hp-logo-mark {
+          width: 34px; height: 34px;
+          border-radius: 9px;
+          background: rgba(255,255,255,0.15);
+          border: 1px solid rgba(255,255,255,0.2);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          font-weight: 800;
+        }
+        .hp-topbar-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        /* ── Hero content ── */
+        .hp-hero-body {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 clamp(24px, 5vw, 64px) 60px;
+          position: relative;
+          z-index: 2;
+        }
+        .hp-hero-content {
+          max-width: 640px;
+        }
+        .hp-hero-right {
+          flex: 1;
+          display: flex;
+          justify-content: center;
+          max-width: 420px;
+        }
+        .hp-hero-row {
+          display: flex;
+          align-items: center;
+          gap: clamp(40px, 6vw, 100px);
+          width: 100%;
+          max-width: 1100px;
+        }
+        .hp-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 16px;
+          font-size: 0.68rem;
+          font-weight: 600;
+          letter-spacing: 0.8px;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.85);
+          background: rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.15);
+          border-radius: 100px;
+          margin-bottom: 20px;
+        }
+        .hp-label-dot {
+          width: 7px; height: 7px;
+          border-radius: 50%;
+          background: #5eead4;
+          animation: hp-glow 2s ease-in-out infinite;
+        }
+        @keyframes hp-glow {
+          0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(94,234,212,0.5); }
+          50% { opacity: 0.4; box-shadow: none; }
+        }
+        .hp-heading {
+          font-size: clamp(2.4rem, 4.5vw, 3.4rem);
+          font-weight: 700;
+          color: #ffffff;
+          line-height: 1.12;
+          letter-spacing: -1px;
+          margin: 0 0 16px;
+        }
+        .hp-heading-light {
+          font-weight: 400;
+          color: rgba(255,255,255,0.7);
+        }
+        .hp-desc {
+          font-size: 1rem;
+          color: rgba(255,255,255,0.6);
+          line-height: 1.75;
+          margin: 0 0 32px;
+          max-width: 480px;
+        }
+        .hp-cta-row {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          flex-wrap: wrap;
+        }
+
+        /* ── Visual card cluster (right side) ── */
+        .hp-visual {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 1 / 0.95;
+        }
+        .hp-vcard {
+          position: absolute;
+          background: rgba(255,255,255,0.08);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 14px;
+          padding: 18px 20px;
+          color: #fff;
+        }
+        .hp-vcard-1 {
+          top: 0; left: 0; right: 20%;
+          z-index: 3;
+        }
+        .hp-vcard-2 {
+          top: 35%; left: 12%; right: 0;
+          z-index: 2;
+        }
+        .hp-vcard-3 {
+          bottom: 0; left: 0; right: 10%;
+          z-index: 1;
+        }
+        .hp-vcard-label {
+          font-size: 0.62rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.6px;
+          opacity: 0.6;
+          margin-bottom: 6px;
+        }
+        .hp-vcard-value {
+          font-size: 1.1rem;
+          font-weight: 700;
+          margin-bottom: 4px;
+        }
+        .hp-vcard-sub {
+          font-size: 0.72rem;
+          opacity: 0.5;
+        }
+        .hp-vcard-row {
+          display: flex;
+          gap: 20px;
+          margin-top: 8px;
+        }
+        .hp-vcard-stat {
+          display: flex;
+          flex-direction: column;
+        }
+        .hp-vcard-stat-val {
+          font-size: 1.2rem;
+          font-weight: 700;
+        }
+        .hp-vcard-stat-label {
+          font-size: 0.62rem;
+          opacity: 0.5;
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+        }
+        .hp-vcard-bar {
+          height: 4px;
+          border-radius: 4px;
+          background: rgba(255,255,255,0.1);
+          margin-top: 10px;
+          overflow: hidden;
+        }
+        .hp-vcard-bar-fill {
+          height: 100%;
+          border-radius: 4px;
+          background: #5eead4;
+        }
+        .hp-vcard-dots {
+          display: flex;
+          gap: 4px;
+          margin-top: 8px;
+        }
+        .hp-vcard-dot {
+          width: 8px; height: 8px;
+          border-radius: 50%;
+        }
+
+        /* ── Buttons ── */
+        .hp-btn-primary {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 15px 34px;
+          font-size: 0.92rem;
+          font-weight: 600;
+          color: #1a3d6e;
+          background: #ffffff;
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 16px rgba(0,0,0,0.15);
+        }
+        .hp-btn-primary:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+        }
+        .hp-btn-secondary {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 15px 34px;
+          font-size: 0.92rem;
+          font-weight: 600;
+          color: rgba(255,255,255,0.9);
+          background: rgba(255,255,255,0.08);
+          border: 1.5px solid rgba(255,255,255,0.2);
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .hp-btn-secondary:hover {
+          background: rgba(255,255,255,0.14);
+          border-color: rgba(255,255,255,0.35);
+          transform: translateY(-1px);
+        }
+        .hp-btn-dashboard {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 15px 34px;
+          font-size: 0.92rem;
+          font-weight: 600;
+          color: #1a3d6e;
+          background: #ffffff;
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 16px rgba(0,0,0,0.15);
+        }
+        .hp-btn-dashboard:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+        }
+        .hp-btn-sm {
+          padding: 10px 22px;
+          font-size: 0.82rem;
+        }
+        .hp-btn-icon {
+          display: flex;
+          align-items: center;
+        }
+
+        /* ════════════════════════════════════════════
+           FEATURES — below fold, white cards
+           ════════════════════════════════════════════ */
+        .hp-features {
+          padding: 56px clamp(24px, 5vw, 64px);
+          background: #f1f5f9;
+        }
+        .hp-features-header {
+          text-align: center;
+          margin-bottom: 36px;
+        }
+        .hp-features-title {
+          font-size: 1.4rem;
+          font-weight: 700;
+          color: #1a2730;
+          margin: 0 0 6px;
+        }
+        .hp-features-sub {
+          font-size: 0.85rem;
+          color: #6c757d;
+          margin: 0;
+        }
+        .hp-features-grid {
+          max-width: 1000px;
+          margin: 0 auto;
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+        .hp-fcard {
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          padding: 24px 20px;
+          text-align: center;
+          transition: all 0.2s ease;
+        }
+        .hp-fcard:hover {
+          border-color: #cbd5e1;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+          transform: translateY(-2px);
+        }
+        .hp-fcard-icon {
+          width: 48px; height: 48px;
+          border-radius: 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 14px;
+        }
+        .hp-fcard-title {
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: #1a2730;
+          margin: 0 0 6px;
+        }
+        .hp-fcard-desc {
+          font-size: 0.74rem;
+          color: #6c757d;
+          line-height: 1.55;
+          margin: 0;
+        }
+
+        /* ════════════════════════════════════════════
+           FOOTER
+           ════════════════════════════════════════════ */
+        .hp-footer {
+          text-align: center;
+          padding: 20px;
+          background: #f1f5f9;
+          border-top: 1px solid #e5e7eb;
+        }
+        .hp-footer-text {
+          font-size: 0.73rem;
+          color: #94a3b8;
+          margin: 0;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+          .hp-hero-row { flex-direction: column; text-align: center; }
+          .hp-hero-content { max-width: 100%; }
+          .hp-cta-row { justify-content: center; }
+          .hp-hero-right { display: none; }
+          .hp-desc { margin-left: auto; margin-right: auto; }
+        }
+        @media (max-width: 768px) {
+          .hp-topbar { padding: 20px; }
+          .hp-hero-body { padding: 0 20px 40px; }
+          .hp-heading { font-size: 2rem; }
+          .hp-desc { font-size: 0.9rem; }
+          .hp-features { padding: 40px 20px; }
+          .hp-features-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+          .hp-cta-row { flex-direction: column; width: 100%; }
+          .hp-btn-primary, .hp-btn-secondary, .hp-btn-dashboard { width: 100%; justify-content: center; }
+        }
+      `}</style>
+
+      <div className="hp-page">
+        {/* ═══════ HERO ═══════ */}
+        <div className="hp-hero">
+          <div className="hp-orb hp-orb-1" />
+          <div className="hp-orb hp-orb-2" />
+          <div className="hp-orb hp-orb-3" />
+
+          {/* Top bar */}
+          <div className="hp-topbar">
+            <div className="hp-logo">
+              <div className="hp-logo-mark">W</div>
+              Workwise
+            </div>
+            <div className="hp-topbar-actions">
+              {isLoggedIn ? (
+                <button className="hp-btn-primary hp-btn-sm" onClick={() => router.push(dashboardUrl)}>
+                  <span className="hp-btn-icon">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.6"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.6"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.4"/></svg>
+                  </span>
+                  Dashboard
+                </button>
+              ) : (
+                <>
+                  <button className="hp-btn-secondary hp-btn-sm" onClick={() => { setShowLoginModal(true); setActiveTab('login'); }}>
+                    Sign In
+                  </button>
+                  <button className="hp-btn-primary hp-btn-sm" onClick={handleRegisterClick}>
+                    Get Started
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Hero body */}
+          <div className="hp-hero-body">
+            <div className="hp-hero-row">
+              {/* Left — text */}
+              <div className="hp-hero-content">
+                <div className="hp-label">
+                  <span className="hp-label-dot" />
+                  Hospitality Procurement Platform
+                </div>
+
+                <h1 className="hp-heading">
+                  Streamline your<br />
+                  procurement <span className="hp-heading-light">workflow</span>
+                </h1>
+
+                <p className="hp-desc">
+                  From RFQs and tenders to vendor negotiations and purchase orders — manage the complete procurement lifecycle across all your hotel properties.
+                </p>
+
+                <div className="hp-cta-row">
+                  {isLoggedIn ? (
+                    <button className="hp-btn-dashboard" onClick={() => router.push(dashboardUrl)}>
+                      <span className="hp-btn-icon">
+                        <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.6"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.6"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.4"/></svg>
+                      </span>
+                      Open Dashboard
+                    </button>
+                  ) : (
+                    <>
+                      <button className="hp-btn-primary" onClick={() => { setShowLoginModal(true); setActiveTab('login'); }}>
+                        Sign In
+                        <span className="hp-btn-icon">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </span>
+                      </button>
+                      <button className="hp-btn-secondary" onClick={handleRegisterClick}>
+                        Register as Vendor
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Right — visual card cluster */}
+              <div className="hp-hero-right">
+                <div className="hp-visual">
+                  <div className="hp-vcard hp-vcard-1">
+                    <div className="hp-vcard-label">Active RFQ</div>
+                    <div className="hp-vcard-value">Hotel Linen Supply</div>
+                    <div className="hp-vcard-sub">RFQ-2024-0847 &middot; 5 vendors</div>
+                    <div className="hp-vcard-bar"><div className="hp-vcard-bar-fill" style={{ width: '72%' }} /></div>
+                  </div>
+                  <div className="hp-vcard hp-vcard-2">
+                    <div className="hp-vcard-label">Purchase Order</div>
+                    <div className="hp-vcard-row">
+                      <div className="hp-vcard-stat">
+                        <span className="hp-vcard-stat-val">12</span>
+                        <span className="hp-vcard-stat-label">Approved</span>
+                      </div>
+                      <div className="hp-vcard-stat">
+                        <span className="hp-vcard-stat-val">3</span>
+                        <span className="hp-vcard-stat-label">Pending</span>
+                      </div>
+                      <div className="hp-vcard-stat">
+                        <span className="hp-vcard-stat-val">8</span>
+                        <span className="hp-vcard-stat-label">Delivered</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="hp-vcard hp-vcard-3">
+                    <div className="hp-vcard-label">Vendor Evaluation</div>
+                    <div className="hp-vcard-dots">
+                      <span className="hp-vcard-dot" style={{ background: '#5eead4' }} />
+                      <span className="hp-vcard-dot" style={{ background: '#5eead4' }} />
+                      <span className="hp-vcard-dot" style={{ background: '#5eead4' }} />
+                      <span className="hp-vcard-dot" style={{ background: 'rgba(255,255,255,0.2)' }} />
+                      <span className="hp-vcard-dot" style={{ background: 'rgba(255,255,255,0.2)' }} />
+                    </div>
+                    <div className="hp-vcard-sub" style={{ marginTop: 6 }}>3 of 5 vendors cleared</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            gap: '1rem',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-          }}
-        >
-          <button
-            onClick={() => {
-              setShowLoginModal(true);
-              setActiveTab('login');
-            }}
-            style={{
-              padding: '12px 32px',
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              backgroundColor: 'white',
-              color: '#667eea',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.2)',
-              transition: 'transform 0.2s, box-shadow 0.2s',
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 8px rgba(0,0,0,0.3)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.2)';
-            }}
-          >
-            Login
-          </button>
-          <button
-            onClick={handleRegisterClick}
-            style={{
-              padding: '12px 32px',
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              backgroundColor: 'white',
-              color: '#667eea',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.2)',
-              transition: 'transform 0.2s, box-shadow 0.2s',
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 8px rgba(0,0,0,0.3)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.2)';
-            }}
-          >
-            Register
-          </button>
+        {/* ═══════ FEATURES ═══════ */}
+        <div className="hp-features">
+          <div className="hp-features-header">
+            <h2 className="hp-features-title">Everything you need to procure smarter</h2>
+            <p className="hp-features-sub">A unified platform built for hospitality procurement teams</p>
+          </div>
+          <div className="hp-features-grid">
+            <div className="hp-fcard">
+              <div className="hp-fcard-icon" style={{ background: 'rgba(46,91,168,0.08)' }}>
+                <svg width="22" height="22" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h10" stroke="#2E5BA8" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </div>
+              <p className="hp-fcard-title">RFQ & Tender Management</p>
+              <p className="hp-fcard-desc">Create, publish, and track RFQs and tenders with multi-level approval workflows</p>
+            </div>
+            <div className="hp-fcard">
+              <div className="hp-fcard-icon" style={{ background: 'rgba(66,139,65,0.08)' }}>
+                <svg width="22" height="22" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="#428B41" strokeWidth="1.5" strokeLinecap="round"/><circle cx="8" cy="8" r="6" stroke="#428B41" strokeWidth="1.5"/></svg>
+              </div>
+              <p className="hp-fcard-title">Vendor Negotiations</p>
+              <p className="hp-fcard-desc">Multi-round negotiations with target pricing, quote comparison, and approvals</p>
+            </div>
+            <div className="hp-fcard">
+              <div className="hp-fcard-icon" style={{ background: 'rgba(255,165,0,0.08)' }}>
+                <svg width="22" height="22" viewBox="0 0 16 16" fill="none"><path d="M2 8l4 4 8-8" stroke="#ffa500" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+              <p className="hp-fcard-title">Purchase Orders & GRN</p>
+              <p className="hp-fcard-desc">End-to-end PO lifecycle with milestones, invoicing, and goods receipt tracking</p>
+            </div>
+            <div className="hp-fcard">
+              <div className="hp-fcard-icon" style={{ background: 'rgba(46,91,168,0.08)' }}>
+                <svg width="22" height="22" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="#2E5BA8" strokeWidth="1.5"/><path d="M5 8h6M8 5v6" stroke="#2E5BA8" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </div>
+              <p className="hp-fcard-title">Multi-Hotel Support</p>
+              <p className="hp-fcard-desc">Manage procurement across all your hotel properties from one unified place</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══════ FOOTER ═══════ */}
+        <div className="hp-footer">
+          <p className="hp-footer-text">Powered by Workwise</p>
         </div>
       </div>
 
