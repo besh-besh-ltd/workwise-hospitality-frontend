@@ -1891,9 +1891,14 @@ const EditRFQ = () => {
                             onChange={(e) => {
                               const val = e.target.value;
                               const formatted = val.includes('T') ? val.replace('T', ' ') : val;
+                              if (formatted && rfqFormDataFromStore.vendor_clarification_date) {
+                                if (new Date(formatted) <= new Date(rfqFormDataFromStore.vendor_clarification_date)) {
+                                  toast.warning("Quote Submission End Date is now on or before the Clarification End Date. Please update it.");
+                                }
+                              }
                               setFieldValue('bid_end_date', formatted);
                               handleFormFieldChange({ target: { name: 'bid_end_date', value: formatted } });
-                            }}
+                            }
                             onBlur={handleBlur}
                           />
                           {touched.bid_end_date && errors.bid_end_date && (
@@ -2134,6 +2139,12 @@ const EditRFQ = () => {
                           onChange={(e) => {
                             const val = e.target.value;
                             const formatted = val ? `${val.replace("T", " ")}:00` : "";
+                            if (formatted && rfqFormDataFromStore.bid_end_date) {
+                              if (new Date(formatted) >= new Date(rfqFormDataFromStore.bid_end_date)) {
+                                toast.error("Clarification End Date must be before the Quote Submission End Date.");
+                                return;
+                              }
+                            }
                             dispatch(setOtherFormFields({ vendor_clarification_date: formatted || null }));
                             setHasUnsavedChanges(true);
                           }}
