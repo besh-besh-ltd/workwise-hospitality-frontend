@@ -1898,7 +1898,7 @@ const EditRFQ = () => {
                               }
                               setFieldValue('bid_end_date', formatted);
                               handleFormFieldChange({ target: { name: 'bid_end_date', value: formatted } });
-                            }
+                            }}
                             onBlur={handleBlur}
                           />
                           {touched.bid_end_date && errors.bid_end_date && (
