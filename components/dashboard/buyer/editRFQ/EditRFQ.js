@@ -2114,15 +2114,12 @@ const EditRFQ = () => {
                           type="datetime-local"
                           name="tender_publish_date"
                           className="form-control"
+                          disabled
+                          title="Publish date cannot be changed after creation"
+                          style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }}
                           value={rfqFormDataFromStore.tender_publish_date
                             ? formatISOToDateTimeLocal(rfqFormDataFromStore.tender_publish_date)
                             : ""}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const formatted = val ? `${val.replace("T", " ")}:00` : "";
-                            dispatch(setOtherFormFields({ tender_publish_date: formatted || null }));
-                            setHasUnsavedChanges(true);
-                          }}
                         />
                       </div>
 

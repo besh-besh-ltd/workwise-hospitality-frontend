@@ -9159,25 +9159,33 @@ html, body {
 /* ============================================
    Custom Toast Styles — override defaults only
    ============================================ */
+.Toastify__toast-container {
+  width: 380px;
+}
 .Toastify__toast {
   font-family: 'Poppins', sans-serif;
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   border-left: 4px solid transparent;
   min-height: auto;
+  padding: 4px 0;
 }
 .Toastify__toast-body {
   font-family: 'Poppins', sans-serif;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   font-weight: 500;
   line-height: 1.5;
-  padding: 12px 8px;
+  padding: 10px 6px 10px 10px;
+  margin-right: 28px;
 }
 .Toastify__close-button {
-  align-self: center;
-  opacity: 0.4;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0.35;
+  padding: 2px;
 }
-.Toastify__close-button:hover { opacity: 0.8; }
+.Toastify__close-button:hover { opacity: 0.7; }
 .Toastify__progress-bar { height: 3px; }
 
 /* Success */
