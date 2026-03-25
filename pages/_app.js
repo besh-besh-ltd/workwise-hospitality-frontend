@@ -119,7 +119,16 @@ export default function App({ Component, pageProps }) {
     <PostHogProvider client={posthog}>
       <Head />
 
-      <ToastContainer style={{ zIndex: 10000 }} />
+      <ToastContainer
+        style={{ zIndex: 2147483646 }}
+        position="top-right"
+        autoClose={4000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        draggable={false}
+        pauseOnHover
+      />
 
       {/* YouTube-style top progress bar */}
       {visible && (

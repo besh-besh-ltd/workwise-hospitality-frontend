@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import RegisterUserModal from '../components/modal/RegisterUserModal';
 import SubscriptionModal from '../components/modal/SubscriptionModal';
 import AuthModal from '../components/modal/AuthModal';
@@ -20,7 +20,7 @@ import { setUserProfile } from '@/redux/slice';
 
 const HotelVendor = () => {
   const router = useRouter();
-  const { register, login } = router.query;
+  const { register, login, redirect: redirectParam } = router.query;
   const dispatch = useDispatch();
   const swSubscription = useSelector((data) => data.swSubscription);
 
@@ -39,6 +39,7 @@ const HotelVendor = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
   const [showOtherDeviceModal, setShowOtherDeviceModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [dashboardUrl, setDashboardUrl] = useState('/dashboard/buyer');
@@ -90,11 +91,13 @@ const HotelVendor = () => {
     }
   }, [register, login]);
 
-  // Cleanup token when component unmounts (only if payment wasn't successful)
+  // Cleanup token when component unmounts (only for registration payment flow)
   useEffect(() => {
     return () => {
-      // Don't remove token if payment was successful - user needs it to access dashboard
-      if (!paymentSuccessfulRef.current) {
+      // Only remove token if this was a fresh registration payment flow
+      // Do NOT remove if user is already logged in (navigating to dashboard) or payment succeeded
+      const userType = storageInstance.getStorage('current-user-type');
+      if (!paymentSuccessfulRef.current && !userType) {
         storageInstance.removeStorege('token');
       }
     };
@@ -347,12 +350,18 @@ const HotelVendor = () => {
   const loginSubmitHandler = (values, isFromOtherModal = false) => {
     console.log("Login attempt with values:", values);
     setLoading(true);
+    setLoginError('');
     LoginService(values, isFromOtherModal)
       .then(async (response) => {
         console.log("Login response:", response);
         setLoading(false);
         if (isFromOtherModal) {
           handleCloseOtherDeviceModal();
+        }
+        // Handle API-level errors (HTTP 200 but status != 1)
+        if (response?.status === 2 || response?.status === 0 || response?.status === 3) {
+          setLoginError(response?.message || 'Login failed. Please try again.');
+          return;
         }
         if (response?.status === 5 && response?.hospitality_user) {
           toast.warning('Payment required for hospitality vendors. Please complete the payment to activate your account.');
@@ -424,7 +433,7 @@ const HotelVendor = () => {
         window.dispatchEvent(new Event('loginStatusChanged'));
 
         setTimeout(() => {
-          window.location.href = `/dashboard/${userType}`;
+          window.location.href = redirectParam || `/dashboard/${userType}`;
         }, 300);
       })
       .catch((error) => {
@@ -438,17 +447,11 @@ const HotelVendor = () => {
             values: { ...values },
           };
           setShowLoginModal(false);
-          setTimeout(() => {
-            setShowOtherDeviceModal(true);
-          }, 300);
+          setShowOtherDeviceModal(true);
         } else if (error?.message?.response?.data) {
-          toast.error(error?.message?.response?.data?.message, {
-            position: 'top-right',
-          });
+          setLoginError(error?.message?.response?.data?.message || 'Login failed. Please try again.');
         } else {
-          toast.error(error?.message || 'Login failed. Please try again.', {
-            position: 'top-right',
-          });
+          setLoginError(typeof error?.message === 'string' ? error.message : 'Login failed. Please try again.');
         }
       });
   };
@@ -506,7 +509,7 @@ const HotelVendor = () => {
           window.dispatchEvent(new Event('loginStatusChanged'));
 
           setTimeout(() => {
-            window.location.href = `/dashboard/${userType}`;
+            window.location.href = redirectParam || `/dashboard/${userType}`;
           }, 300);
         })
         .catch((error) => {
@@ -520,9 +523,7 @@ const HotelVendor = () => {
               values: null,
             };
             setShowLoginModal(false);
-            setTimeout(() => {
-              setShowOtherDeviceModal(true);
-            }, 300);
+            setShowOtherDeviceModal(true);
           } else if (error?.message?.response?.data) {
             toast.error(error?.message?.response?.data?.message, {
               position: 'top-right',
@@ -729,84 +730,107 @@ const HotelVendor = () => {
 
         /* ── Visual card cluster (right side) ── */
         .hp-visual {
-          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
           width: 100%;
-          aspect-ratio: 1 / 0.95;
+          max-width: 320px;
         }
         .hp-vcard {
-          position: absolute;
-          background: rgba(255,255,255,0.08);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.06);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(255,255,255,0.09);
           border-radius: 14px;
-          padding: 18px 20px;
+          padding: 18px 22px;
           color: #fff;
+          transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .hp-vcard:hover {
+          border-color: rgba(255,255,255,0.18);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.1);
         }
         .hp-vcard-1 {
-          top: 0; left: 0; right: 20%;
-          z-index: 3;
+          animation: hp-float-1 7s ease-in-out infinite;
+          margin-left: 10px;
         }
         .hp-vcard-2 {
-          top: 35%; left: 12%; right: 0;
-          z-index: 2;
+          animation: hp-float-2 8s ease-in-out infinite;
+          margin-left: 30px;
         }
         .hp-vcard-3 {
-          bottom: 0; left: 0; right: 10%;
-          z-index: 1;
+          animation: hp-float-3 9s ease-in-out infinite;
+          margin-left: 0px;
+        }
+        @keyframes hp-float-1 {
+          0%, 100% { transform: translate(0, 0); }
+          33% { transform: translate(4px, -6px); }
+          66% { transform: translate(-2px, -3px); }
+        }
+        @keyframes hp-float-2 {
+          0%, 100% { transform: translate(0, 0); }
+          33% { transform: translate(-3px, 4px); }
+          66% { transform: translate(5px, 2px); }
+        }
+        @keyframes hp-float-3 {
+          0%, 100% { transform: translate(0, 0); }
+          33% { transform: translate(3px, 5px); }
+          66% { transform: translate(-4px, -2px); }
         }
         .hp-vcard-label {
-          font-size: 0.62rem;
+          font-size: 0.6rem;
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.6px;
-          opacity: 0.6;
+          color: rgba(255,255,255,0.45);
           margin-bottom: 6px;
         }
         .hp-vcard-value {
-          font-size: 1.1rem;
+          font-size: 0.95rem;
           font-weight: 700;
-          margin-bottom: 4px;
+          margin-bottom: 2px;
+          line-height: 1.3;
         }
         .hp-vcard-sub {
-          font-size: 0.72rem;
-          opacity: 0.5;
+          font-size: 0.7rem;
+          color: rgba(255,255,255,0.4);
         }
         .hp-vcard-row {
           display: flex;
-          gap: 20px;
-          margin-top: 8px;
+          gap: 24px;
+          margin-top: 10px;
         }
         .hp-vcard-stat {
           display: flex;
           flex-direction: column;
         }
         .hp-vcard-stat-val {
-          font-size: 1.2rem;
+          font-size: 1.15rem;
           font-weight: 700;
+          line-height: 1.2;
         }
         .hp-vcard-stat-label {
-          font-size: 0.62rem;
-          opacity: 0.5;
+          font-size: 0.58rem;
+          color: rgba(255,255,255,0.4);
           text-transform: uppercase;
           letter-spacing: 0.4px;
         }
         .hp-vcard-bar {
           height: 4px;
           border-radius: 4px;
-          background: rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.08);
           margin-top: 10px;
           overflow: hidden;
         }
         .hp-vcard-bar-fill {
           height: 100%;
           border-radius: 4px;
-          background: #5eead4;
+          background: linear-gradient(90deg, #5eead4, #34d399);
         }
         .hp-vcard-dots {
           display: flex;
-          gap: 4px;
-          margin-top: 8px;
+          gap: 5px;
+          margin-top: 10px;
         }
         .hp-vcard-dot {
           width: 8px; height: 8px;
@@ -991,25 +1015,6 @@ const HotelVendor = () => {
               <div className="hp-logo-mark">W</div>
               Workwise
             </div>
-            <div className="hp-topbar-actions">
-              {isLoggedIn ? (
-                <button className="hp-btn-primary hp-btn-sm" onClick={() => router.push(dashboardUrl)}>
-                  <span className="hp-btn-icon">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.6"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.6"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.4"/></svg>
-                  </span>
-                  Dashboard
-                </button>
-              ) : (
-                <>
-                  <button className="hp-btn-secondary hp-btn-sm" onClick={() => { setShowLoginModal(true); setActiveTab('login'); }}>
-                    Sign In
-                  </button>
-                  <button className="hp-btn-primary hp-btn-sm" onClick={handleRegisterClick}>
-                    Get Started
-                  </button>
-                </>
-              )}
-            </div>
           </div>
 
           {/* Hero body */}
@@ -1058,39 +1063,45 @@ const HotelVendor = () => {
               {/* Right — visual card cluster */}
               <div className="hp-hero-right">
                 <div className="hp-visual">
+                  {/* Card 1: Active RFQ with progress */}
                   <div className="hp-vcard hp-vcard-1">
                     <div className="hp-vcard-label">Active RFQ</div>
-                    <div className="hp-vcard-value">Hotel Linen Supply</div>
-                    <div className="hp-vcard-sub">RFQ-2024-0847 &middot; 5 vendors</div>
-                    <div className="hp-vcard-bar"><div className="hp-vcard-bar-fill" style={{ width: '72%' }} /></div>
+                    <div className="hp-vcard-value">Kitchen Equipment Supply</div>
+                    <div className="hp-vcard-sub">RFQ-2025-1247 &middot; 8 vendors invited</div>
+                    <div className="hp-vcard-bar"><div className="hp-vcard-bar-fill" style={{ width: '65%' }} /></div>
+                    <div className="hp-vcard-sub" style={{ marginTop: 4 }}>5 of 8 quotes received</div>
                   </div>
+
+                  {/* Card 2: PO Stats */}
                   <div className="hp-vcard hp-vcard-2">
-                    <div className="hp-vcard-label">Purchase Order</div>
+                    <div className="hp-vcard-label">Purchase Orders This Month</div>
                     <div className="hp-vcard-row">
                       <div className="hp-vcard-stat">
-                        <span className="hp-vcard-stat-val">12</span>
+                        <span className="hp-vcard-stat-val" style={{ color: '#5eead4' }}>24</span>
                         <span className="hp-vcard-stat-label">Approved</span>
                       </div>
                       <div className="hp-vcard-stat">
-                        <span className="hp-vcard-stat-val">3</span>
+                        <span className="hp-vcard-stat-val" style={{ color: '#fbbf24' }}>5</span>
                         <span className="hp-vcard-stat-label">Pending</span>
                       </div>
                       <div className="hp-vcard-stat">
-                        <span className="hp-vcard-stat-val">8</span>
+                        <span className="hp-vcard-stat-val">14</span>
                         <span className="hp-vcard-stat-label">Delivered</span>
                       </div>
                     </div>
                   </div>
+
+                  {/* Card 3: Technical Evaluation */}
                   <div className="hp-vcard hp-vcard-3">
-                    <div className="hp-vcard-label">Vendor Evaluation</div>
+                    <div className="hp-vcard-label">Technical Evaluation</div>
                     <div className="hp-vcard-dots">
-                      <span className="hp-vcard-dot" style={{ background: '#5eead4' }} />
-                      <span className="hp-vcard-dot" style={{ background: '#5eead4' }} />
-                      <span className="hp-vcard-dot" style={{ background: '#5eead4' }} />
-                      <span className="hp-vcard-dot" style={{ background: 'rgba(255,255,255,0.2)' }} />
-                      <span className="hp-vcard-dot" style={{ background: 'rgba(255,255,255,0.2)' }} />
+                      <span className="hp-vcard-dot" style={{ background: '#5eead4', width: 10, height: 10 }} />
+                      <span className="hp-vcard-dot" style={{ background: '#5eead4', width: 10, height: 10 }} />
+                      <span className="hp-vcard-dot" style={{ background: '#5eead4', width: 10, height: 10 }} />
+                      <span className="hp-vcard-dot" style={{ background: '#fbbf24', width: 10, height: 10 }} />
+                      <span className="hp-vcard-dot" style={{ background: 'rgba(255,255,255,0.15)', width: 10, height: 10 }} />
                     </div>
-                    <div className="hp-vcard-sub" style={{ marginTop: 6 }}>3 of 5 vendors cleared</div>
+                    <div className="hp-vcard-sub" style={{ marginTop: 8 }}>3 cleared &middot; 1 in progress &middot; 1 pending</div>
                   </div>
                 </div>
               </div>
@@ -1166,7 +1177,7 @@ const HotelVendor = () => {
 
       <AuthModal
         showModal={showLoginModal}
-        closeModal={() => setShowLoginModal(false)}
+        closeModal={() => { setShowLoginModal(false); setLoginError(''); }}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         openAuthModal={showLoginModal}
@@ -1177,15 +1188,20 @@ const HotelVendor = () => {
         setloading={setLoading}
         loginSubmitHandler={loginSubmitHandler}
         loginWithGoogle={loginWithGoogle}
+        loginError={loginError}
       />
 
       <LoginWithOtherDeviceModal
         show={showOtherDeviceModal}
         onHide={handleCloseOtherDeviceModal}
         handleRetryLogin={handleRetryLogin}
+        loading={loading}
+        onCancel={() => {
+          setShowLoginModal(true);
+          setActiveTab('login');
+        }}
       />
 
-      <ToastContainer />
     </>
   );
 };

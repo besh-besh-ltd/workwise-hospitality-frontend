@@ -42,10 +42,9 @@ export function AuthGuard({ children }) {
 
 		if (!token && !publicPaths.includes(path)) {
 			setAuthorized(false);
-			router.push({
-				pathname: "/",
-				query: { returnUrl: router.asPath },
-			});
+			const fullPath = router.asPath;
+			const redirectParam = fullPath && fullPath !== '/' ? `?redirect=${encodeURIComponent(fullPath)}` : '';
+			router.push(`/${redirectParam}`);
 		} else {
 			setAuthorized(true);
 		}
@@ -85,10 +84,9 @@ export function AdminGuard({ children }) {
 		
 		if (!token) {
 			setAuthorized(false);
-			router.push({
-				pathname: "/",
-				query: { returnUrl: router.asPath },
-			});
+			const fullPath = router.asPath;
+			const redirectParam = fullPath && fullPath !== '/' ? `?redirect=${encodeURIComponent(fullPath)}` : '';
+			router.push(`/${redirectParam}`);
 		} else if (userType !== "admin") {
 			setAuthorized(false);
 			// Redirect to their appropriate dashboard based on user type
@@ -144,10 +142,9 @@ export function TopManagementGuard({ children }) {
 		
 		if (!token) {
 			setAuthorized(false);
-			router.push({
-				pathname: "/",
-				query: { returnUrl: router.asPath },
-			});
+			const fullPath = router.asPath;
+			const redirectParam = fullPath && fullPath !== '/' ? `?redirect=${encodeURIComponent(fullPath)}` : '';
+			router.push(`/${redirectParam}`);
 		} else if (userType !== "management") {
 			setAuthorized(false);
 			// Redirect to their appropriate dashboard based on user type
@@ -203,10 +200,9 @@ export function EngineeringGuard({ children }) {
 		
 		if (!token) {
 			setAuthorized(false);
-			router.push({
-				pathname: "/",
-				query: { returnUrl: router.asPath },
-			});
+			const fullPath = router.asPath;
+			const redirectParam = fullPath && fullPath !== '/' ? `?redirect=${encodeURIComponent(fullPath)}` : '';
+			router.push(`/${redirectParam}`);
 		} else if (userType !== "engineering") {
 			setAuthorized(false);
 			// Redirect to their appropriate dashboard based on user type
@@ -262,10 +258,9 @@ export function FinanceGuard({ children }) {
 		
 		if (!token) {
 			setAuthorized(false);
-			router.push({
-				pathname: "/",
-				query: { returnUrl: router.asPath },
-			});
+			const fullPath = router.asPath;
+			const redirectParam = fullPath && fullPath !== '/' ? `?redirect=${encodeURIComponent(fullPath)}` : '';
+			router.push(`/${redirectParam}`);
 		} else if (userType !== "finance") {
 			setAuthorized(false);
 			// Redirect to their appropriate dashboard based on user type

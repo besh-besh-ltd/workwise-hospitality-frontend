@@ -1,7 +1,7 @@
 import { ChangePassword, EditCompanyDetails } from '@/utils/schema'
 import { Form, Formik } from 'formik'
 import React, { useState } from 'react'
-import { ToastContainer, toast } from 'react-toastify'
+import { toast } from 'react-toastify'
 import FormikField from '../shared/FormikField'
 import { changePasswordService } from '@/services/Auth'
 import { useRouter } from 'next/router'
@@ -48,7 +48,6 @@ const ChangePasswordPage = () => {
             </div>
         </section>
         
-        <ToastContainer/>
         <section className="buyer-edit-sec-1 ">
         
             <div className="container-fluid ">

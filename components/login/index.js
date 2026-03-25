@@ -255,6 +255,7 @@ const Login = (props) => {
     setloading,
     loginWithGoogle,
     setEmployeeCode,
+    loginError,
   } = props;
 
   const [showPassword, setShowPassword] = useState(false);
@@ -265,9 +266,8 @@ const Login = (props) => {
   const isEmployeeCode = loginMethod === "employee_code";
 
   return (
-    <div className="login-form hasFullLoader lf-wrapper">
+    <div className="login-form lf-wrapper">
       <style>{loginCSS}</style>
-      {loading && <FullLoader />}
 
       <h3 style={{
         fontFamily: 'Poppins, sans-serif',
@@ -291,6 +291,24 @@ const Login = (props) => {
       }}>
         Sign in to your account
       </p>
+
+      {/* Inline Error */}
+      {loginError && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '11px 14px', marginBottom: 20,
+          background: '#fef2f2', border: '1px solid #fecaca',
+          borderRadius: 10, animation: 'lfFadeIn 0.2s ease forwards',
+        }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+            <circle cx="8" cy="8" r="7" stroke="#ef4444" strokeWidth="1.5"/>
+            <path d="M8 5v3.5M8 10.5v.5" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <span style={{ fontSize: '0.82rem', color: '#991b1b', fontFamily: 'Poppins, sans-serif', lineHeight: 1.4, fontWeight: 500 }}>
+            {loginError}
+          </span>
+        </div>
+      )}
 
       {/* Sliding Toggle */}
       <div className="lf-toggle">
@@ -415,9 +433,14 @@ const Login = (props) => {
               type="submit"
               className="lf-submit"
               id="login_submit-login_form-login_form"
+              disabled={loading}
+              style={loading ? { opacity: 0.7, cursor: 'not-allowed', transform: 'none' } : {}}
             >
-              Sign In
-              <FiArrowRight className="lf-arrow" />
+              {loading ? (
+                <><span className="spinner-border spinner-border-sm" style={{ width: 16, height: 16 }} /> Signing In...</>
+              ) : (
+                <>Sign In <FiArrowRight className="lf-arrow" /></>
+              )}
             </button>
           </Form>
         )}

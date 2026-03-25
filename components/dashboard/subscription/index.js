@@ -9,7 +9,7 @@ import {
   testRazorPayEndpoint,
 } from "@/services/subscription";
 import { useRouter } from "next/router";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import SubscriptionModal from "@/components/modal/SubscriptionModal";
 import { capitalize } from "@/components/shared/TitleCase";
 import moment from "moment";
@@ -385,7 +385,6 @@ const Subscription = () => {
         handleCpuponCode={handleCpuponCode}
         couponCode={couponCode}
       />
-      <ToastContainer />
     </>
   );
 };
