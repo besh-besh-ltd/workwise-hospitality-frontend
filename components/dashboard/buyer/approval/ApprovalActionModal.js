@@ -40,7 +40,7 @@ const ApprovalActionModal = ({
   const focusColor = isReject ? "#dc3545" : "#198754";
 
   return (
-    <Modal show={show} onHide={onClose} centered backdrop="static" contentClassName="aam-modal-content">
+    <Modal show={show} onHide={loading ? undefined : onClose} centered backdrop="static" keyboard={!loading} contentClassName="aam-modal-content">
       <style jsx>{`
         :global(.aam-modal-content) {
           border-radius: 14px !important;
@@ -283,7 +283,11 @@ const ApprovalActionModal = ({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               maxLength={500}
-              style={isCommentRequired && !comment.trim() ? { borderColor: "#ffc10780" } : {}}
+              disabled={loading}
+              style={{
+                ...(isCommentRequired && !comment.trim() ? { borderColor: "#ffc10780" } : {}),
+                ...(loading ? { background: '#f8f9fa', opacity: 0.7 } : {}),
+              }}
             />
             <div className="aam-char-count">{comment.length}/500</div>
           </div>
@@ -306,7 +310,7 @@ const ApprovalActionModal = ({
               {loading ? (
                 <>
                   <Spinner animation="border" size="sm" style={{ width: 12, height: 12 }} />
-                  <span>Processing...</span>
+                  <span>{isReject ? "Rejecting..." : "Approving..."}</span>
                 </>
               ) : (
                 <>

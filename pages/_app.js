@@ -9,6 +9,7 @@ if (typeof window !== 'undefined') {
   initOtel();
 }
 
+import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import Layout from "../components/layout";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "slick-carousel/slick/slick.css";
@@ -37,49 +38,48 @@ config.autoAddCss = false;
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
+  // phase: 'idle' | 'loading' | 'complete'
+  const [barPhase, setBarPhase] = useState('idle');
   const [progress, setProgress] = useState(0);
-  const [visible, setVisible] = useState(false);
-  const timerRef = useRef(null);
-  const completeTimerRef = useRef(null);
-
-  const safetyTimerRef = useRef(null);
 
   useEffect(() => {
-    const cleanupAll = () => {
-      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-      if (completeTimerRef.current) { clearTimeout(completeTimerRef.current); completeTimerRef.current = null; }
-      if (safetyTimerRef.current) { clearTimeout(safetyTimerRef.current); safetyTimerRef.current = null; }
+    let progressTimer = null;
+    let completeTimer = null;
+    let safetyTimer = null;
+
+    const cleanup = () => {
+      if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+      if (completeTimer) { clearTimeout(completeTimer); completeTimer = null; }
+      if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
     };
 
-    const handleStart = () => {
-      cleanupAll();
+    const handleStart = (url, { shallow } = {}) => {
+      if (shallow) return;
+      cleanup();
+      setBarPhase('loading');
       setProgress(15);
-      setVisible(true);
 
-      timerRef.current = setInterval(() => {
+      progressTimer = setInterval(() => {
         setProgress(prev => {
           if (prev >= 90) {
-            if (timerRef.current) clearInterval(timerRef.current);
+            if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
             return 90;
           }
-          const increment = prev < 50 ? 8 : prev < 75 ? 4 : 1;
-          return Math.min(prev + increment, 90);
+          return Math.min(prev + (prev < 50 ? 8 : prev < 75 ? 4 : 1), 90);
         });
       }, 200);
 
-      // Safety: auto-complete if routeChangeComplete never fires (e.g., shallow routing)
-      safetyTimerRef.current = setTimeout(() => {
-        handleComplete();
-      }, 5000);
+      safetyTimer = setTimeout(() => {
+        cleanup();
+        setProgress(100);
+        setBarPhase('complete');
+      }, 6000);
     };
 
     const handleComplete = () => {
-      cleanupAll();
+      cleanup();
       setProgress(100);
-      completeTimerRef.current = setTimeout(() => {
-        setVisible(false);
-        setProgress(0);
-      }, 300);
+      setBarPhase('complete');
     };
 
     router.events.on("routeChangeStart", handleStart);
@@ -90,9 +90,19 @@ export default function App({ Component, pageProps }) {
       router.events.off("routeChangeStart", handleStart);
       router.events.off("routeChangeComplete", handleComplete);
       router.events.off("routeChangeError", handleComplete);
-      cleanupAll();
+      cleanup();
     };
   }, [router]);
+
+  // When phase becomes 'complete', wait for the bar to finish animating to 100%, then reset
+  useEffect(() => {
+    if (barPhase !== 'complete') return;
+    const timer = setTimeout(() => {
+      setBarPhase('idle');
+      setProgress(0);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [barPhase]);
 
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_POSTHOG_KEY) {
@@ -118,38 +128,49 @@ export default function App({ Component, pageProps }) {
     <PostHogProvider client={posthog}>
       <Head />
 
-      <ToastContainer style={{ zIndex: 10000 }} />
+      <ToastContainer
+        style={{ zIndex: 2147483646 }}
+        position="top-right"
+        autoClose={4000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        draggable={false}
+        pauseOnHover
+      />
 
       {/* YouTube-style top progress bar */}
-      {visible && (
-        <>
-          <style jsx>{`
-            .route-progress-bar {
-              position: fixed;
-              top: 0;
-              left: 0;
-              height: 3.5px;
-              background: linear-gradient(90deg, #2E5BA8, #4a7fd4, #2E5BA8);
-              z-index: 99999;
-              transition: width 0.2s ease;
-              box-shadow: 0 0 8px rgba(46, 91, 168, 0.5);
-            }
-          `}</style>
-          <div
-            className="route-progress-bar"
-            style={{ width: `${progress}%` }}
-          />
-        </>
-      )}
+      <style jsx>{`
+        .route-progress-bar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          height: 3.5px;
+          background: linear-gradient(90deg, #2E5BA8, #4a7fd4, #2E5BA8);
+          z-index: 99999;
+          box-shadow: 0 0 8px rgba(46, 91, 168, 0.5);
+          pointer-events: none;
+        }
+      `}</style>
+      <div
+        className="route-progress-bar"
+        style={{
+          width: barPhase === 'idle' ? '0%' : `${progress}%`,
+          opacity: barPhase === 'idle' ? 0 : 1,
+          transition: barPhase === 'idle' ? 'none' : 'width 0.2s ease, opacity 0.3s ease',
+        }}
+      />
 
-      <Providers>
-        <GoogleOAuthProvider clientId="866474332918-fi599o8btdrikvi9ieq7pqksngvh2mlv.apps.googleusercontent.com">
-          <Layout>
-            <Component {...pageProps} />
+      <ErrorBoundary>
+        <Providers>
+          <GoogleOAuthProvider clientId="866474332918-fi599o8btdrikvi9ieq7pqksngvh2mlv.apps.googleusercontent.com">
+            <Layout>
+              <Component {...pageProps} />
 
-          </Layout>
-        </GoogleOAuthProvider>
-      </Providers>
+            </Layout>
+          </GoogleOAuthProvider>
+        </Providers>
+      </ErrorBoundary>
     </PostHogProvider>
   );
 }

@@ -29,7 +29,10 @@ const AuthModal = (props) => {
       className="login-register"
       style={{
         overlay: {
-          backgroundColor: "rgba(0, 0, 0, 0.75)",
+          backgroundColor: "rgba(15, 23, 42, 0.6)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          zIndex: 10000,
         },
         content: {
           position: "absolute",
@@ -83,6 +86,7 @@ const AuthModal = (props) => {
             setloading={props.setloading}
             loginSubmitHandler={props.loginSubmitHandler}
             loginWithGoogle={props.loginWithGoogle}
+            loginError={props.loginError}
           />
         ) : (
           // <Register closeModal={props.closeModal} />  - replaced register with book a call

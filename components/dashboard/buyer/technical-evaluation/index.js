@@ -13,7 +13,7 @@ import { formatDisplayDate, formatRFQNumber, getEntityLabel } from "@/utils/shar
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
-import { Badge, Modal } from "react-bootstrap";
+import { Badge, Modal, Form } from "react-bootstrap";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
@@ -62,6 +62,7 @@ const BuyerTechnicalEvaluation = () => {
   const [clauseInfo, setClauseInfo] = useState(null);
   const [selectedVendorsMap, setSelectedVendorsMap] = useState(new Map());
   const [isTenderFilter, setIsTenderFilter] = useState(null);
+  const [quotedVendorsOnly, setQuotedVendorsOnly] = useState(true);
   const [productEvaluationStatus, setProductEvaluationStatus] = useState(new Map());
   const [showUnifiedSubmitModal, setShowUnifiedSubmitModal] = useState(false);
   const [unifiedSubmitLoading, setUnifiedSubmitLoading] = useState(false);
@@ -664,6 +665,20 @@ const BuyerTechnicalEvaluation = () => {
                       />
                     )}
 
+                    {/* Quoted Vendors Filter */}
+                    {clauseInfo && clauseInfo.length > 0 && (
+                      <div className="d-flex align-items-center gap-2 mb-3 mt-2" style={{ padding: '8px 12px', background: '#f8f9fa', borderRadius: 8, width: 'fit-content' }}>
+                        <Form.Check
+                          type="switch"
+                          id="quoted-vendors-toggle"
+                          label="Quoted Vendors Only"
+                          checked={quotedVendorsOnly}
+                          onChange={(e) => setQuotedVendorsOnly(e.target.checked)}
+                          style={{ fontSize: '0.85rem', fontWeight: 500, margin: 0 }}
+                        />
+                      </div>
+                    )}
+
                     {currentRfq && clauseInfo &&
                       clauseInfo.map((rfqProduct, productIndex) => {
                         if (clauseMap.get(rfqProduct.rfq_product_id)) {
@@ -710,6 +725,7 @@ const BuyerTechnicalEvaluation = () => {
                                   canApprove={canApprove}
                                   permissionsLoading={permissionsLoading}
                                   onEvaluationStatusChange={handleEvaluationStatusChange}
+                                  quotedVendorsOnly={quotedVendorsOnly}
                                 />
                               </div>
                             </div>

@@ -3,16 +3,11 @@ import { handlePOApproval } from "@/services/po";
 import useDebounce, { addCommasToNumber, formatDisplayDate } from "@/utils/sharedFunctions";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
-import { MdNotificationsNone, MdEdit, MdCheck } from "react-icons/md";
-import { IoMdEye } from "react-icons/io";
-import { RxCross2 } from "react-icons/rx";
-import { BsFilePdf } from "react-icons/bs";
-import { LiaShippingFastSolid } from "react-icons/lia";
-import { FiExternalLink } from "react-icons/fi";
 import Pagination from "@/components/shared/Pagination";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import POCard from "./POCard";
-import ReadMore from "@/components/shared/ReadMore";
+import ApproveModal from "./ApproveModal";
+import cardStyles from "./POCard.module.scss";
 
 const statusVariants = {
   pending_approval: "warning",
@@ -22,44 +17,6 @@ const statusVariants = {
   invoice_raised: "success",
   dispatched: "success",
   GRN: "success"
-};
-
-const baseStyle = {
-  border: "1px solid",
-  borderRadius: "8px",
-  padding: "7px 14px",
-  marginRight: "10px",
-  cursor: "pointer",
-  fontSize: "1.05rem",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  transition: "background-color 0.2s",
-};
-
-const styles = {
-  approve: {
-    ...baseStyle,
-    backgroundColor: "#e8f9ed",
-    borderColor: "#b2e2c7",
-    color: "#28a745",
-  },
-  reject: {
-    ...baseStyle,
-    backgroundColor: "#fdeceb",
-    borderColor: "#f5b5b5",
-    color: "#dc3545",
-  },
-  primary: {
-    ...baseStyle,
-    backgroundColor: "#f0f4ff",
-    borderColor: "#d6e0f5",
-    color: "#0d6efd",
-  },
-};
-
-const formatISTDate = (utcString) => {
-  return formatDisplayDate(utcString, { includeTime: true });
 };
 
 const POListing = ({
@@ -73,9 +30,10 @@ const POListing = ({
   onEdit,
   companyUsers,
   approvalLevel,
+  canWrite,
+  canApprove,
 }) => {
-  const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
-  const [showRejectConfirmModal, setShowRejectConfirmModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
   const [showGRNUpdateModal, setShowGRNUpdateModal] = useState(false);
   const [pendingPO, setPendingPO] = useState(null);
 
@@ -89,53 +47,21 @@ const POListing = ({
     limit: 10,
   });
 
-  const debouncedPONumber = useDebounce(filters.poNumber, 700); // 👈 Debounced PO Number
+  const debouncedPONumber = useDebounce(filters.poNumber, 700);
 
   const handleApproveClick = (po) => {
     setPendingPO(po);
-    setShowApproveConfirmModal(true);
+    setShowApproveModal(true);
   };
 
   const handleRejectClick = (po) => {
-    setPendingPO(po);
-    setShowRejectConfirmModal(true);
-  };
-
-  const handleApproveConfirm = async () => {
-    if (pendingPO) {
-      await handlePODecision(pendingPO.id, {
-        type: "approval",
-        decision: "approved",
-      }, pendingPO);
-      await refetchPOList({
-        ...filters,
-        poNumber: debouncedPONumber,
-      });
-      setShowApproveConfirmModal(false);
-      setPendingPO(null);
-    }
-  };
-
-  const handleRejectConfirm = async () => {
-    if (pendingPO) {
-      await handlePODecision(pendingPO.id, {
-        type: "approval",
-        decision: "rejected",
-      }, pendingPO);
-      await refetchPOList({
-        ...filters,
-        poNumber: debouncedPONumber,
-      });
-      setShowRejectConfirmModal(false);
-      setPendingPO(null);
-    }
+    // Skip confirmation modal, go directly to remarks modal via parent
+    if (handlePODecision) handlePODecision(po.id, { type: "approval", decision: "rejected" }, po);
   };
 
   const handleMarkGRNConfirm = async () => {
     if (pendingPO) {
-      await handlePODecision(pendingPO.id, {
-        type: "grn_update",
-      }, pendingPO);
+      await handlePODecision(pendingPO.id, { type: "grn_update" }, pendingPO);
       setShowGRNUpdateModal(false);
       setPendingPO(null);
       resetFilters();
@@ -147,360 +73,103 @@ const POListing = ({
     setShowGRNUpdateModal(true);
   };
 
-  const handleApproveCancel = () => {
-    setShowApproveConfirmModal(false);
-    setPendingPO(null);
-  };
+  const handleApproveCancel = () => { setShowApproveModal(false); setPendingPO(null); };
+  const handleMarkDispatchedCancel = () => { setShowGRNUpdateModal(false); setPendingPO(null); };
 
-  const handleRejectCancel = () => {
-    setShowRejectConfirmModal(false);
-    setPendingPO(null);
-  };
-
-  const handleMarkDispatchedCancel = () => {
-    setShowGRNUpdateModal(false);
-    setPendingPO(null);
-  };
-
-  const POReviewCompact = (poData) => {
-    if(!poData) return null;
-    
-    const pdfUrl = poData.poPdfUrl;
-    const fileName = `PO_${poData.po_number}.pdf`;
-
-    return (
-      <div className="card border-0">
-        <div className="card-body">
-          <div className="flex align-items-center gap-2">
-            <div>
-              <BsFilePdf size={32} className="text-danger" />
-            </div>
-            <div className="mt-1">
-              <div className="fw-semibold">{fileName}</div>
-              <small className="text-muted">Purchase Order Document</small>
-            </div>
-            <div className="mt-2">
-              <a 
-                className="btn p-2 btn-outline-secondary"
-                href={pdfUrl}
-                target="__blank"
-              >
-                View
-                <FiExternalLink className="ms-1" size={12} />
-              </a>
-            </div>
-          </div>
-          <div className="mt-2">
-            <small className="text-muted">
-              Click to preview the formal PO document that will be emailed to the vendor.
-            </small>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const resetFilters = () =>
-    setFilters({
-      poNumber: "",
-      initiatedBy: "",
-      status: "",
-      dateFrom: "",
-      dateTo: "",
-      page: 1,
-      limit: 10,
-    });
+  const resetFilters = () => setFilters({ poNumber: "", initiatedBy: "", status: "", dateFrom: "", dateTo: "", page: 1, limit: 10 });
 
   useEffect(() => {
-    refetchPOList({
-      ...filters,
-      poNumber: debouncedPONumber,
-    });
-  }, [
-    debouncedPONumber,
-    filters.initiatedBy,
-    filters.status,
-    filters.dateFrom,
-    filters.dateTo,
-    filters.page,
-    filters.limit,
-  ]);
+    refetchPOList({ ...filters, poNumber: debouncedPONumber });
+  }, [debouncedPONumber, filters.initiatedBy, filters.status, filters.dateFrom, filters.dateTo, filters.page, filters.limit]);
 
   return (
-    <div className="details-table">
-      <h4 className="mb-4">Purchase Orders for this RFQ</h4>
-
-      {/* Filters */}
-      <div className="mb-4 d-flex gap-3 justify-content-between">
-        <div>
-          <label>PO Number</label>
-          <input
-            type="text"
-            className="form-control"
-            value={filters.poNumber}
-            style={{ maxWidth: 240 }}
-            placeholder="Enter a PO Number"
-            onChange={(e) =>
-              setFilters({ ...filters, poNumber: e.target.value })
-            }
-          />
-        </div>
-        <div className="d-flex gap-3">
-          <div>
-            <label>Initiated By</label>
-            <select
-              className="form-select"
-              value={filters.initiatedBy}
-              style={{ maxWidth: 240 }}
-              onChange={(e) =>
-                setFilters({ ...filters, initiatedBy: e.target.value })
-              }
-            >
-              <option value="">All</option>
-              {companyUsers &&
-                companyUsers.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div>
-            <label>Status</label>
-            <select
-              className="form-select"
-              value={filters.status}
-              onChange={(e) =>
-                setFilters({ ...filters, status: e.target.value })
-              }
-            >
-              <option value="">All</option>
-              {Object.keys(statusVariants).map((status) => (
-                <option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() +
-                    status.slice(1).replace("_", " ")}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label>From</label>
-            <input
-              type="date"
-              className="form-control"
-              style={{ minWidth: 200 }}
-              value={filters.dateFrom}
-              onChange={(e) =>
-                setFilters({ ...filters, dateFrom: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <label>To</label>
-            <input
-              disabled={!filters.dateFrom}
-              type="date"
-              className="form-control"
-              style={{ minWidth: 200 }}
-              min={filters.dateFrom}
-              value={filters.dateTo}
-              onChange={(e) =>
-                setFilters({ ...filters, dateTo: e.target.value })
-              }
-            />
-          </div>
-          <div className="mt-auto" style={{ marginBottom: 2 }}>
-            <button
-              onClick={resetFilters}
-              className="btn btn-outline-primary p-1"
-              style={{ maxWidth: 90 }}
-              id="clear_filters-po_listing-purchase_order_page"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
+    <div>
+      {/* Header */}
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h4 className="mb-0" style={{ fontSize: '16px', fontWeight: 700, color: '#1a2730' }}>
+          Purchase Orders
+          <span style={{ fontSize: '13px', color: '#6c757d', fontWeight: 400, marginLeft: 8 }}>({totalData})</span>
+        </h4>
       </div>
 
-      <div className="table-responsive">
-        {approvalLevel == -1 ? (
-          <div className="d-flex flex-column">
-            {poList.length === 0 ? (
-              <p className="text-center text-muted">
-                No purchase orders found.
-              </p>
-            ) : (
-              poList.map((po) => {
-                return (
-                  <POCard
-                    po={po}
-                    onClick={() => onSelect(po.id)}
-                    initiatePO={() => handleInitiatePO(po.id)}
-                  />
-                );
-              })
-            )}
-          </div>
-        ) : (
-          <table className="table table-stripped table-hover align-middle">
-            <thead className="table-light">
-              <tr className="text-center">
-                <th>PO Number</th>
-                <th>Status</th>
-                <th>Product</th>
-                <th>Quantity</th>
-                <th>Total Value</th>
-                <th>Initiated By</th>
-                <th>Created At</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {poList.length === 0 ? (
-                <tr>
-                  <td colSpan="11" className="text-center text-muted">
-                    No purchase orders found.
-                  </td>
-                </tr>
-              ) : (
-                poList.map((po) => {
-                  const isPending = po.status === "pending_approval";
-                  const isCurrentApprover = po.is_approver;
-                  const isCancelled =
-                    po.status === "cancelled" || po.status === "rejected";
-                  const isDraft = po.status === "draft";
+      {/* Filters */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, padding: '14px 16px', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10, marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>PO Number</span>
+          <input type="text" value={filters.poNumber} placeholder="Search..."
+            style={{ padding: '7px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#1a2730', outline: 'none', width: '100%' }}
+            onChange={(e) => setFilters({ ...filters, poNumber: e.target.value })} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Initiated By</span>
+          <select value={filters.initiatedBy}
+            style={{ padding: '7px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#1a2730', outline: 'none', width: '100%' }}
+            onChange={(e) => setFilters({ ...filters, initiatedBy: e.target.value })}>
+            <option value="">All</option>
+            {companyUsers && companyUsers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Status</span>
+          <select value={filters.status}
+            style={{ padding: '7px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#1a2730', outline: 'none', width: '100%' }}
+            onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
+            <option value="">All</option>
+            {Object.keys(statusVariants).map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>From</span>
+          <input type="date" value={filters.dateFrom}
+            style={{ padding: '7px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#1a2730', outline: 'none', width: '100%' }}
+            onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>To</span>
+          <input disabled={!filters.dateFrom} type="date" min={filters.dateFrom} value={filters.dateTo}
+            style={{ padding: '7px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, background: !filters.dateFrom ? '#f1f5f9' : '#fff', color: '#1a2730', outline: 'none', width: '100%' }}
+            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })} />
+        </div>
+        <button onClick={resetFilters} id="clear_filters-po_listing-purchase_order_page"
+          style={{ padding: '7px 16px', fontSize: 12, fontWeight: 600, color: '#6c757d', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0 }}>
+          Clear
+        </button>
+      </div>
 
-                  return (
-                    <tr
-                      key={po.id}
-                      className="text-center"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => onSelect(po.id)}
-                    >
-                      <td className="fs-6">
-                        # <strong>{po.po_number}</strong>
-                      </td>
-                      <td>
-                        <span
-                          className={`badge bg-${
-                            statusVariants[po.status] || "secondary"
-                          } text-capitalize`}
-                        >
-                          {po.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td style={{ maxWidth: "300px", wordBreak: "break-word" }}>
-                        {po.product_details?.length > 0 ? (
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <ReadMore
-                              content={po.product_details.map(p => p.name).join("\n")}
-                              maxLines={4}
-                            />
-                          </div>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      <td>{po.quantity}</td>
-                      <td>₹ {addCommasToNumber(po.total_value)}</td>
-                      <td>{po.initiated_by ?? "-"}</td>
-                      <td>{formatISTDate(po.created_at)}</td>
-                      <td>
-                        {isPending && isCurrentApprover ? (
-                          <div className="d-flex align-items-center justify-content-center">
-                            <button
-                              style={styles.approve}
-                              title="Approve this PO"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleApproveClick(po);
-                              }}
-                              id={`approve_po_${po.id}-po_actions-po_listing`}
-                            >
-                              <MdCheck />
-                            </button>
-                            <button
-                              style={styles.reject}
-                              title="Reject this PO"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRejectClick(po);
-                              }}
-                              id={`reject_po_${po.id}-po_actions-po_listing`}
-                            >
-                              <RxCross2 />
-                            </button>
-                          </div>
-                        ) : isDraft ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleInitiatePO(po.id);
-                            }}
-                            className="btn btn-outline-success btn-sm p-2"
-                            style={{ width: 150 }}
-                          >
-                            Initiate PO
-                          </button>
-                        ) : isCancelled ? (
-                          <Link
-                            onClick={(e) => e.stopPropagation()}
-                            href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}`}
-                            className="btn btn-outline-success btn-sm p-2"
-                            style={{ width: 150 }}
-                            id={`view_quotes_${po.id}-po_actions-po_listing`}
-                          >
-                            View Quotes
-                          </Link>
-                        ) : po.status == 'dispatched' ? (
-                          <div className="d-flex align-items-center justify-content-center">
-                            <button
-                              style={styles.approve}
-                              title="Update the status to GRN"
-                              id={`update_to_grn_po_${po.id}-po_actions-po_listing`}
-                              onClick={(e) => { e.stopPropagation(); handleMarkGRNClick(po); }}
-                            >
-                              <LiaShippingFastSolid />
-                              <small className="ms-1 fw-medium">Update to GRN</small>
-                            </button>
-                          </div>
-                        ) : !isPending ? (
-                          <div className="d-flex align-items-center justify-content-center">
-                            <button
-                              style={styles.primary}
-                              title="View This PO"
-                              id={`view_po_${po.id}-po_actions-po_listing`}
-                            >
-                              <IoMdEye />
-                              <small className="ms-1 fw-medium">View</small>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="d-flex align-items-center justify-content-center">
-                            <button
-                              style={styles.primary}
-                              title="Edit this PO"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEdit(po.id);
-                              }}
-                              id={`edit_po_${po.id}-po_actions-po_listing`}
-                            >
-                              <MdEdit />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+      {/* PO Table Rows */}
+      <div className={cardStyles.rowContainer}>
+        {/* Header Row */}
+        <div className={cardStyles.headerRow}>
+          <div className={cardStyles.colStatus}>Status</div>
+          <div className={cardStyles.colPoNumber}>PO #</div>
+          <div className={cardStyles.colPending}>Waiting</div>
+          <div className={cardStyles.colVendor}>Vendor</div>
+          <div className={cardStyles.colProducts}>Items</div>
+          <div className={cardStyles.colQuantity}>Qty</div>
+          <div className={cardStyles.colValue}>Value</div>
+          <div className={cardStyles.colInitiator}>By</div>
+          <div className={cardStyles.colDate}>Created</div>
+          <div className={cardStyles.colActions}>Actions</div>
+        </div>
+
+        {poList.length === 0 ? (
+          <div className={cardStyles.emptyRow}>No purchase orders found.</div>
+        ) : (
+          poList.map((po) => (
+            <POCard
+              key={po.id}
+              po={po}
+              onClick={() => onSelect(po.id)}
+              onApprove={canWrite ? handleApproveClick : undefined}
+              onReject={canWrite ? handleRejectClick : undefined}
+              initiatePO={canWrite && handleInitiatePO ? () => handleInitiatePO(po.id) : undefined}
+            />
+          ))
         )}
       </div>
 
       {poList.length > 0 && (
+        <div style={{ marginTop: 16 }}>
         <Pagination
           page={filters.page}
           setPage={(page) => setFilters((prev) => ({ ...prev, page }))}
@@ -508,51 +177,29 @@ const POListing = ({
           setLimit={(limit) => setFilters((prev) => ({ ...prev, limit }))}
           totalData={totalData}
         />
+        </div>
       )}
 
-      {/* PO Approve Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showApproveConfirmModal}
+      {/* Modals */}
+      <ApproveModal
+        show={showApproveModal}
         onClose={handleApproveCancel}
-        onConfirm={handleApproveConfirm}
-        title="Approve Purchase Order"
-        description={`Are you sure you want to approve PO #${
-          pendingPO?.po_number || "this purchase order"
-        }?\nThis action will approve the purchase order and notify relevant parties.`}
-        confirmButtonColor="success"
-        confirmButtonText="Approve"
-        cancelButtonText="Cancel"
-        customFooter={POReviewCompact(pendingPO)}
+        onApprove={async (remarks) => {
+          if (pendingPO && handlePODecision) {
+            await handlePODecision(pendingPO.id, { type: "approval", decision: "approved", remarks }, pendingPO);
+          }
+          setShowApproveModal(false);
+          setPendingPO(null);
+        }}
+        poNumber={pendingPO?.po_number}
+        poPdfUrl={pendingPO?.poPdfUrl}
       />
-
-      {/* PO Reject Confirmation Modal */}
       <ConfirmationModal
-        isOpen={showRejectConfirmModal}
-        onClose={handleRejectCancel}
-        onConfirm={handleRejectConfirm}
-        title="Reject Purchase Order"
-        description={`Are you sure you want to reject PO #${
-          pendingPO?.po_number || "this purchase order"
-        }?\nThis action will reject the purchase order, de-finalize the vendors and notify relevant parties.`}
-        confirmButtonColor="danger"
-        confirmButtonText="Reject"
-        cancelButtonText="Cancel"
-      />
-
-      {/* PO Update Status to GRN */}
-      <ConfirmationModal
-        isOpen={showGRNUpdateModal}
-        onClose={handleMarkDispatchedCancel}
-        onConfirm={handleMarkGRNConfirm}
+        isOpen={showGRNUpdateModal} onClose={handleMarkDispatchedCancel} onConfirm={handleMarkGRNConfirm}
         title="Mark GRN for this PO"
-        description={`Are you sure you want to mark GRN for PO #${
-          pendingPO?.po_number || "this purchase order"
-        }?\nThis action will mark the status for this PO as GRN ( Goods Reciept Note ),
-        That will indicate that the goods has been delivered to the site.`}
+        description={`Are you sure you want to mark GRN for PO #${pendingPO?.po_number || "this purchase order"}?\nThis action will mark the status for this PO as GRN ( Goods Reciept Note ), That will indicate that the goods has been delivered to the site.`}
         customFooter={`This Action Cannot be Reversed!`}
-        confirmButtonColor="success"
-        confirmButtonText="Yes, Go Ahead"
-        cancelButtonText="No, Cancel It"
+        confirmButtonColor="success" confirmButtonText="Yes, Go Ahead" cancelButtonText="No, Cancel It"
       />
     </div>
   );

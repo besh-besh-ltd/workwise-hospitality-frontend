@@ -60,6 +60,26 @@ export const STATUS_CONFIG = {
     badgeBackground: '#198754',
     badgeText: '#ffffff',
     pulse: false
+  },
+  COMPLETED: {
+    key: 'completed',
+    label: 'Completed',
+    icon: BsCheckCircleFill,
+    borderColor: '#198754',
+    backgroundColor: '#d1e7dd',
+    badgeBackground: '#198754',
+    badgeText: '#ffffff',
+    pulse: false
+  },
+  PARTIALLY_COMPLETED: {
+    key: 'partially_completed',
+    label: 'Partially Completed',
+    icon: BsClockFill,
+    borderColor: '#fd7e14',
+    backgroundColor: '#fff3cd',
+    badgeBackground: '#fd7e14',
+    badgeText: '#ffffff',
+    pulse: false
   }
 };
 
@@ -70,6 +90,8 @@ export const STATUS_CONFIG = {
  * @returns {Object} Status configuration
  */
 export const getStatusConfig = (data, publishState) => {
+  if (data?.po_completed) return STATUS_CONFIG.COMPLETED;
+  if (data?.po_partially_completed) return STATUS_CONFIG.PARTIALLY_COMPLETED;
   if (publishState?.isPendingApproval) return STATUS_CONFIG.PENDING_APPROVAL;
   if (publishState?.isReadyToPublish) return STATUS_CONFIG.READY_TO_PUBLISH;
   if (data?.is_finalized) return STATUS_CONFIG.FINALIZED;

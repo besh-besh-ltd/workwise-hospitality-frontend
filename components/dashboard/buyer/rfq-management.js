@@ -62,6 +62,8 @@ const RfqManagement = () => {
       setActiveTab('draftRFQs')
     } else if (tab && tab == 'processing-rfq') {
       setActiveTab('processingRFQs')
+    } else if (tab && tab == 'completed-rfq') {
+      setActiveTab('completedRFQs')
     } else if (tab && tab == 'manage-rfq') {
       setActiveTab('manageRFQs')
     } else {
@@ -84,6 +86,8 @@ const handleTabChange = (tabKey) => {
     newQuery.tab = 'draft-rfq';
     // Reset draft_id when switching to draft tab
     newQuery = { tab: 'draft-rfq' };
+  } else if (tabKey === 'completedRFQs') {
+    newQuery.tab = 'completed-rfq';
   }
 
   setActiveTab(tabKey);
@@ -156,10 +160,19 @@ const handleTabChange = (tabKey) => {
                 >
                   Draft Tender / RFQ
                 </button>
+                <button
+                  id="completed_rfqs-rfq_tabs-rfq_management_page"
+                  className={`tab ${
+                    activeTab === "completedRFQs" ? "active" : ""
+                  }`}
+                  onClick={() => handleTabChange("completedRFQs")}
+                >
+                  Completed
+                </button>
               </div>
 
-              {/* Filter Section - Shared across pending and manage tabs */}
-              {(activeTab === "pendingRFQs" || activeTab === "manageRFQs") && (
+              {/* Filter Section - Shared across pending, manage, and completed tabs */}
+              {(activeTab === "pendingRFQs" || activeTab === "manageRFQs" || activeTab === "completedRFQs") && (
                 <div className="manage-rfq-con pb-0">
                   <FilterSection setFilterData={setFilterData} />
                 </div>
@@ -175,13 +188,16 @@ const handleTabChange = (tabKey) => {
                 </div>
               )}
               {activeTab === "manageRFQs" && (
-                <ManageRFQ filterData={filterData} setFilterData={setFilterData} />
+                <ManageRFQ filterData={{ ...filterData, completed_status: 'active' }} setFilterData={setFilterData} />
               )}
               {activeTab === "createRFQs" && (
                 <CreateRFQ/>
               )}
               {activeTab === "draftRFQs" && (
                 <DraftRFQ/>
+              )}
+              {activeTab === "completedRFQs" && (
+                <ManageRFQ filterData={{ ...filterData, completed_status: 'completed' }} setFilterData={setFilterData} />
               )}
             </div>
           </div>
