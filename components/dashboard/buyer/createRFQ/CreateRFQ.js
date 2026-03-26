@@ -2750,31 +2750,55 @@ useEffect(() => {
                               <div className="row mt-3">
                                 {userHotelMappings.length > 0 && (
                                   <div className="col-md-4">
-                                    <label className="form-label fw-medium">Select Business Units</label>
-                                    <Select
-                                      id="select_hotels-create_rfq_page"
-                                      isMulti
-                                      options={userHotelMappings}
-                                      value={userHotelMappings.filter(opt =>
-                                        selectedHotelIds.includes(opt.hospitality_hotel_id)
-                                      )}
-                                      onChange={(selectedOptions) => {
-                                        const ids = selectedOptions
-                                          ? selectedOptions.map(opt => opt.hospitality_hotel_id)
-                                          : [];
-                                        handleHotelSelectionChange(ids);
-                                      }}
-                                      placeholder="Select Business Units..."
-                                      closeMenuOnSelect={false}
-                                      classNamePrefix="react-select"
-                                      isClearable
-                                      formatOptionLabel={(option) => (
-                                        <div>
-                                          <span>{option.hotel_name}</span>
-                                        </div>
-                                      )}
-                                      getOptionValue={(option) => option.hospitality_hotel_id}
-                                    />
+                                    <label className="form-label fw-medium">Business Units</label>
+                                    {selectedHotelIds.length > 0 ? (
+                                      <div className="d-flex flex-wrap gap-2" style={{ padding: '6px 0' }}>
+                                        {userHotelMappings
+                                          .filter(opt => selectedHotelIds.includes(opt.hospitality_hotel_id))
+                                          .map(opt => (
+                                            <span
+                                              key={opt.hospitality_hotel_id}
+                                              style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                padding: '4px 10px',
+                                                fontSize: 13,
+                                                fontWeight: 500,
+                                                color: '#1e293b',
+                                                background: '#f1f5f9',
+                                                borderRadius: 6,
+                                                border: '1px solid #e2e8f0',
+                                              }}
+                                            >
+                                              {opt.hotel_name}
+                                            </span>
+                                          ))
+                                        }
+                                      </div>
+                                    ) : (
+                                      <Select
+                                        id="select_hotels-create_rfq_page"
+                                        isMulti
+                                        options={userHotelMappings}
+                                        value={[]}
+                                        onChange={(selectedOptions) => {
+                                          const ids = selectedOptions
+                                            ? selectedOptions.map(opt => opt.hospitality_hotel_id)
+                                            : [];
+                                          handleHotelSelectionChange(ids);
+                                        }}
+                                        placeholder="Select Business Units..."
+                                        closeMenuOnSelect={false}
+                                        classNamePrefix="react-select"
+                                        isClearable
+                                        formatOptionLabel={(option) => (
+                                          <div>
+                                            <span>{option.hotel_name}</span>
+                                          </div>
+                                        )}
+                                        getOptionValue={(option) => option.hospitality_hotel_id}
+                                      />
+                                    )}
                                   </div>
                                 )}
 
