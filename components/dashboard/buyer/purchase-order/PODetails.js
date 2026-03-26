@@ -104,7 +104,7 @@ const renderDueDateCell = (dueDateStr, isTask = false) => {
 
 
 const formatIST = (dateStr) =>
-  dateStr ? formatDisplayDate(dateStr, { includeTime: true }) : 'N/A';
+  dateStr ? new Date(dateStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A';
 
 const elipsisToLimit = (text, limit = 45) => {
   return text.length > limit ? text.slice(0, limit).concat('...') : text;
