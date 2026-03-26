@@ -51,6 +51,9 @@ const RFQListSidebar = ({
   onItemClick,
   // Identifier for test IDs
   pageId = 'default',
+  // Mobile drawer mode (opt-in: pass undefined to keep existing behavior)
+  mobileOpen,
+  onMobileClose,
 }) => {
   const router = useRouter();
   const TAB_STORAGE_KEY = `rfqSidebarTab_${pageId}`;
@@ -148,16 +151,23 @@ const RFQListSidebar = ({
     );
   };
 
+  const isMobileDrawer = typeof mobileOpen === 'boolean';
+
   return (
-    <div
-      ref={wrapperRef}
-      className={styles.wrapper}
-      style={{
-        width: sidebarWidth,
-        minWidth: sidebarWidth,
-        transition: isResizing ? 'none' : 'width 0.2s ease, min-width 0.2s ease',
-      }}
-    >
+    <>
+      {/* Mobile overlay backdrop */}
+      {isMobileDrawer && mobileOpen && (
+        <div className={styles.overlay} onClick={() => onMobileClose?.()} />
+      )}
+      <div
+        ref={wrapperRef}
+        className={`${styles.wrapper} ${isMobileDrawer ? styles.wrapperMobile : ''} ${isMobileDrawer && mobileOpen ? styles.wrapperMobileOpen : ''}`}
+        style={isMobileDrawer ? undefined : {
+          width: sidebarWidth,
+          minWidth: sidebarWidth,
+          transition: isResizing ? 'none' : 'width 0.2s ease, min-width 0.2s ease',
+        }}
+      >
       <div className={styles.sidebar}>
         {/* Header */}
         <div className={styles.sidebarHeader}>
@@ -325,9 +335,10 @@ const RFQListSidebar = ({
               }, {})
             ).toString();
 
+            const isCompleted = tags.some(t => t.variant === 'success');
             let cardClass = styles.rfqCard;
             if (isSelected) cardClass += ` ${styles.rfqCardSelected}`;
-            else if (item.approval_required) cardClass += ` ${styles.rfqCardActionRequired}`;
+            else if (item.approval_required && !isCompleted) cardClass += ` ${styles.rfqCardActionRequired}`;
 
             return (
               <div
@@ -339,24 +350,22 @@ const RFQListSidebar = ({
                   } else {
                     router.push(`${linkPrefix}?${hrefQuery}`, undefined, { shallow: true });
                   }
+                  if (isMobileDrawer) onMobileClose?.();
                 }}
                 className={cardClass}
                 style={{ cursor: 'pointer' }}
                 id={`rfq_${item.rfq_no}-rfq_sidebar-${pageId}`}
               >
-                <span className={`${styles.entityBadge} ${isTender ? styles.entityBadgeTender : styles.entityBadgeRFQ}`}>
-                  {isTender ? 'Tender' : 'RFQ'}
-                </span>
+                <div className={styles.rfqCardRow}>
+                  <p className={styles.rfqNumber} title={formatRFQNumber(item.rfq_no, item.is_tender)}>
+                    {formatRFQNumber(item.rfq_no, item.is_tender)}
+                  </p>
+                  <span className={styles.entityType}>{isTender ? 'Tender' : 'RFQ'}</span>
+                </div>
 
                 {item.title && <p className={styles.rfqTitle} title={item.title}>{item.title}</p>}
 
-                <p className={styles.rfqNumber} title={formatRFQNumber(item.rfq_no, item.is_tender)}>
-                  {formatRFQNumber(item.rfq_no, item.is_tender)}
-                </p>
-
-                {item.project_name && <p className={styles.rfqProject} title={item.project_name}>{item.project_name}</p>}
-
-                {tags.length > 0 && !isSelected && (
+                {tags.length > 0 && (
                   <div className={styles.rfqMeta}>
                     {tags.map((tag, idx) => renderTag(tag, idx))}
                   </div>
@@ -381,16 +390,23 @@ const RFQListSidebar = ({
               Loading more...
             </div>
           )}
+
+          {!loading && filteredList.length > 0 && !(showLoadMore && hasMore) && (
+            <div className={styles.endOfList}>End of list</div>
+          )}
         </div>
       </div>
 
       {/* Resize drag handle */}
-      <div
-        className={`${styles.resizeHandle} ${isResizing ? styles.resizeHandleActive : ''}`}
-        onMouseDown={handleMouseDown}
-        onDoubleClick={handleDoubleClick}
-      />
+      {!isMobileDrawer && (
+        <div
+          className={`${styles.resizeHandle} ${isResizing ? styles.resizeHandleActive : ''}`}
+          onMouseDown={handleMouseDown}
+          onDoubleClick={handleDoubleClick}
+        />
+      )}
     </div>
+    </>
   );
 };
 

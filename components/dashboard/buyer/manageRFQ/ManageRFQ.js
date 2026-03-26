@@ -95,6 +95,7 @@ const ManageRFQ = ({ filterData, setFilterData }) => {
                   key={`rfq_card_${item.id}`}
                   data={item}
                   onSendReminder={handleSendReminder}
+                  hasEditPermission={item.can_edit}
                 />
               ))}
             </div>

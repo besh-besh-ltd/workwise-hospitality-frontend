@@ -370,22 +370,52 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
           flex-wrap: wrap;
         }
         .at-approver-name {
-          font-size: 0.82rem;
-          font-weight: 500;
+          font-size: 0.85rem;
+          font-weight: 600;
           color: #2d3436;
-          white-space: nowrap;
         }
         .at-approver-meta {
-          font-size: 0.72rem;
+          font-size: 0.75rem;
           color: #adb5bd;
-          white-space: nowrap;
         }
         .at-approver-status-tag {
-          font-size: 0.68rem;
+          font-size: 0.72rem;
           font-weight: 600;
-          padding: 2px 8px;
+          padding: 3px 10px;
           border-radius: 10px;
           white-space: nowrap;
+        }
+
+        @media (max-width: 768px) {
+          .at-approver {
+            flex-wrap: wrap;
+            gap: 6px;
+          }
+          .at-approver-info {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+          }
+          .at-approver-name {
+            font-size: 0.88rem;
+          }
+          .at-approver-meta {
+            font-size: 0.76rem;
+          }
+          .at-step-title {
+            font-size: 0.88rem;
+          }
+          .at-rule-tag {
+            font-size: 0.65rem;
+          }
+          .at-timeline {
+            padding-left: 22px;
+          }
+          .at-marker {
+            left: -18px;
+            width: 18px;
+            height: 18px;
+          }
         }
         .at-approver-status-tag.approved {
           color: #0f5132;

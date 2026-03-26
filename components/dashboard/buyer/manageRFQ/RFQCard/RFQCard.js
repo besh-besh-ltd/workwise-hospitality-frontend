@@ -9,7 +9,7 @@ import PublishDateTimer from '@/components/shared/PublishDateTimer';
 import { getStatusConfig, STATUS_CONFIG } from './statusConfig';
 import styles from './RFQCard.module.scss';
 
-const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
+const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermission = true }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAutoPublished, setIsAutoPublished] = useState(false);
 
@@ -54,11 +54,12 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
   // Days remaining calculation
   const getDaysRemaining = () => {
     if (!data.bid_end_date) return null;
-    const endDate = moment(data.bid_end_date);
-    const today = moment();
+    const endDate = moment(data.bid_end_date).startOf('day');
+    const today = moment().startOf('day');
     const days = endDate.diff(today, 'days');
     if (days < 0) return { text: 'Ended', urgent: true };
     if (days === 0) return { text: 'Ends today', urgent: true };
+    if (days === 1) return { text: 'Ends tomorrow', urgent: true };
     if (days <= 3) return { text: `${days}d left`, urgent: true };
     return { text: `${days}d left`, urgent: false };
   };
@@ -267,13 +268,24 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
             </button>
           </Link>
 
-          {/* Do not show Edit for pending-approval tenders */}
-          {publishState.canEdit && !isPendingApproval && (
-            <Link href={publishState.editUrl(data.id)}>
-              <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>
+          {/* Edit button: hidden if finalized, disabled if no permission */}
+          {publishState.canEdit && !isPendingApproval && !data.is_finalized && (
+            hasEditPermission ? (
+              <Link href={publishState.editUrl(data.id)}>
+                <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>
+                  Edit
+                </button>
+              </Link>
+            ) : (
+              <button
+                className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}
+                disabled
+                title="You do not have permission to edit this RFQ"
+                style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              >
                 Edit
               </button>
-            </Link>
+            )
           )}
 
           {!publishState.isPrePublishState && !isPendingApproval && (

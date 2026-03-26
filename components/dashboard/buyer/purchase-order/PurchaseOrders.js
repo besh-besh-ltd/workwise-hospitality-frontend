@@ -18,10 +18,14 @@ import { getUserMappings } from "@/services/hospitality";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
+import useIsMobile from "@/hooks/useIsMobile";
+import { BsList } from "react-icons/bs";
 import styles from "./PurchaseOrder.module.scss";
 
 const PurchaseOrders = () => {
   const router = useRouter();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { rfq, po, edit } = router.query;
   const [loading, setloading] = useState(false);
@@ -369,8 +373,15 @@ const PurchaseOrders = () => {
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
           <div className={styles.layoutRow}>
+              {isMobile && (
+                <button className={styles.mobileSidebarToggle} onClick={() => setSidebarOpen(true)}>
+                  <BsList size={18} /> Select RFQ
+                </button>
+              )}
               <RFQListSidebar
                 title="Purchase Orders"
+                mobileOpen={isMobile ? sidebarOpen : undefined}
+                onMobileClose={() => setSidebarOpen(false)}
                 rfqList={myRFQs}
                 loading={rfqLoading}
                 selectedRfqId={rfq}

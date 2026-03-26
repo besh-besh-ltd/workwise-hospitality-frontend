@@ -1497,10 +1497,12 @@ const EditRFQ = () => {
   // Handle access denied (no read permission)
   if (hotelIds.length > 0 && !permissionsLoading && !canRead) {
     return (
-      <AccessDeniedPage
-        title="Access Denied"
-        message={`You do not have permission to view this ${getEntityLabel(rfqData?.is_tender)}. This may be because you are not assigned to the business units associated with this ${getEntityLabel(rfqData?.is_tender)}.`}
-      />
+      <div style={{ paddingTop: 80, paddingLeft: 'clamp(16px, 3vw, 40px)', paddingRight: 'clamp(16px, 3vw, 40px)' }}>
+        <AccessDeniedPage
+          title="Access Denied"
+          message={`You do not have permission to view this ${getEntityLabel(rfqData?.is_tender)}. This may be because you are not assigned to the business units associated with this ${getEntityLabel(rfqData?.is_tender)}.`}
+        />
+      </div>
     );
   }
 

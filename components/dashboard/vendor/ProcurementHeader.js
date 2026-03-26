@@ -25,6 +25,7 @@ const ProcurementHeader = ({
   queryMeta,
   onHotelChange,
   isLoading,
+  disableHotelSelect = false,
 }) => {
   const draftHref =
     queryMeta.rfq_id != null
@@ -135,6 +136,7 @@ const ProcurementHeader = ({
           <div className={styles.hotelSelectWrapper}>
             <Select
               isMulti
+              isDisabled={disableHotelSelect}
               options={userHotelMappings.filter((opt) => opt.hotel_name)}
               value={userHotelMappings.filter(
                 (opt) =>

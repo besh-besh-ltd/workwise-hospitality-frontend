@@ -5,6 +5,7 @@ import { IoMdEye } from 'react-icons/io';
 import { FiAlertTriangle, FiUser } from 'react-icons/fi';
 import { BsFilePdf } from 'react-icons/bs';
 import { addCommasToNumber } from '@/utils/sharedFunctions';
+import useIsMobile from '@/hooks/useIsMobile';
 import styles from './POCard.module.scss';
 
 const POCard = ({
@@ -99,11 +100,49 @@ const POCard = ({
     return { ...milestone, urgency, isOverdue: diffDays < 0, daysUntilDue: diffDays, formattedDate: dueDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) };
   }, [po.upcoming_milestones]);
 
+  const isMobile = useIsMobile();
+
   const handleRowClick = () => onClick?.(po);
   const handleApprove = (e) => { e.stopPropagation(); onApprove?.(po); };
   const handleReject = (e) => { e.stopPropagation(); onReject?.(po); };
   const handleInitiate = (e) => { e.stopPropagation(); initiatePO?.(); };
   const handleView = (e) => { e.stopPropagation(); onClick?.(po); };
+
+  if (isMobile) {
+    return (
+      <div className={`${styles.mobileCard} ${showApprovalActions ? styles.userAction : ''}`} onClick={handleRowClick}>
+        <div className={styles.mobileCardTop}>
+          <Badge bg={currentStatus.variant} className={styles.statusBadge}>{currentStatus.label}</Badge>
+          <span className={styles.poNum}>#{po.po_number}</span>
+        </div>
+        <div className={styles.mobileCardMiddle}>
+          <div className={styles.mobileVendor}>{po.finalized_vendor_name || 'No vendor'}</div>
+          <div className={styles.mobileValueRow}>
+            <span className={styles.mobileValue}>₹{addCommasToNumber(po.total_value)}</span>
+            {totalQuantity > 0 && <span className={styles.mobileQty}>{parseFloat(Number(totalQuantity).toFixed(2))} {unit}</span>}
+          </div>
+        </div>
+        <div className={styles.mobileCardActions}>
+          {showApprovalActions ? (
+            <>
+              <button className={styles.approveBtn} onClick={handleApprove}>
+                <MdCheck size={16} /> Approve
+              </button>
+              <button className={styles.rejectBtn} onClick={handleReject}>
+                <MdClose size={16} /> Reject
+              </button>
+            </>
+          ) : isDraft && initiatePO ? (
+            <button className={styles.initiateBtn} onClick={handleInitiate}>Initiate PO</button>
+          ) : (
+            <button className={styles.viewBtn} onClick={handleView}>
+              <IoMdEye size={14} /> View PO
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -151,7 +190,7 @@ const POCard = ({
       </OverlayTrigger>
 
       <div className={styles.colQuantity}>
-        {totalQuantity > 0 ? (<><span className={styles.qtyNumber}>{totalQuantity}</span><span className={styles.qtyUnit}>{unit}</span></>) : '—'}
+        {totalQuantity > 0 ? (<><span className={styles.qtyNumber}>{parseFloat(Number(totalQuantity).toFixed(2))}</span><span className={styles.qtyUnit}>{unit}</span></>) : '—'}
       </div>
 
       <div className={styles.colValue}>₹{addCommasToNumber(po.total_value)}</div>

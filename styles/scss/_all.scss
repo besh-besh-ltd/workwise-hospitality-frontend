@@ -9228,3 +9228,7 @@ html, body {
 .Toastify__toast--info .Toastify__progress-bar { background: #2E5BA8; }
 .Toastify__toast--info .Toastify__toast-icon svg { fill: #2E5BA8; }
 .Toastify__toast--info .Toastify__close-button { color: #1e3a5f; }
+
+.btn-close {
+  overflow: visible !important;
+}

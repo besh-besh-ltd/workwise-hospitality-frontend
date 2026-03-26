@@ -13,6 +13,9 @@ import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { debounce } from "lodash";
 import { getRFQHotels, getUserMappings } from "@/services/hospitality";
 import AddTenderItemModal from "@/components/modal/AddTenderItemModal";
+import { useModulePermissions } from "@/hooks/useModulePermissions";
+import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
+import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ProcurementHeader from "./ProcurementHeader";
 import ProductSearch from "./ProductSearch";
 import styles from "./Search.module.css";
@@ -85,6 +88,22 @@ const Search = ({ title, type }) => {
 
   // ── Derived State ───────────────────────────
   const isProcurementMode = !!(queryMeta.orderType || queryMeta.rfq_id);
+
+  // ── Permissions ────────────────────────────
+  const moduleKey = queryMeta.orderType === "tender" ? "boq" : "rfq";
+  const {
+    canRead,
+    canCreate,
+    loading: permissionsLoading,
+  } = useModulePermissions({
+    moduleKey,
+    hotelIds: selectedHotelIds,
+    enabled: selectedHotelIds.length > 0 && isProcurementMode,
+  });
+
+  const hasWriteAccess = selectedHotelIds.length === 0 || permissionsLoading || canCreate;
+  const isReadOnly = selectedHotelIds.length > 0 && !permissionsLoading && canRead && !canCreate;
+  const isAccessDenied = selectedHotelIds.length > 0 && !permissionsLoading && !canRead;
 
   const currentStep = useMemo(() => {
     if (!queryMeta.orderType && !queryMeta.rfq_id) return 1;
@@ -233,6 +252,11 @@ const Search = ({ title, type }) => {
       return;
     }
 
+    if (!hasWriteAccess) {
+      toast.warn("Only members with write permissions can add products.");
+      return;
+    }
+
     setTenderProduct({
       name: item.variant_name || item.product_name,
       variant_id: item.variant_id,
@@ -337,23 +361,42 @@ const Search = ({ title, type }) => {
             queryMeta={queryMeta}
             onHotelChange={setSelectedHotelIds}
             isLoading={isLoading}
+            disableHotelSelect={!!queryMeta.rfq_id}
           />
 
-          <ProductSearch
-            searchProduct={searchProduct}
-            onSearchChange={handleSearchChange}
-            suggestions={suggestions}
-            suggestionLoading={suggestionLoading}
-            isOpen={open.input}
-            onSuggestionClick={handleAutocompleteClick}
-            onClose={() => setOpen({ ...open, input: false })}
-            searchRef={searchRef}
-            showHotelWarning={
-              (queryMeta.orderType === "tender" ||
-                queryMeta.orderType === "rfq") &&
-              selectedHotelIds.length === 0
-            }
-          />
+          {isAccessDenied && (
+            <div style={{ padding: '0 clamp(16px, 3vw, 40px)', marginBottom: 16 }}>
+              <AccessDeniedPage showBackButton={false} />
+            </div>
+          )}
+
+          {isReadOnly && !isAccessDenied && (
+            <div style={{ padding: '0 clamp(16px, 3vw, 40px)', marginBottom: 16 }}>
+              <ReadOnlyBanner
+                title="View Only Mode"
+                message="You have read-only access for the selected business units. Only members with create permissions can add products."
+              />
+            </div>
+          )}
+
+          {(
+            <ProductSearch
+              searchProduct={searchProduct}
+              onSearchChange={handleSearchChange}
+              suggestions={suggestions}
+              suggestionLoading={suggestionLoading}
+              isOpen={open.input}
+              onSuggestionClick={handleAutocompleteClick}
+              onClose={() => setOpen({ ...open, input: false })}
+              searchRef={searchRef}
+              readOnly={isReadOnly || isAccessDenied}
+              showHotelWarning={
+                (queryMeta.orderType === "tender" ||
+                  queryMeta.orderType === "rfq") &&
+                selectedHotelIds.length === 0
+              }
+            />
+          )}
 
         </>
       )}

@@ -18,14 +18,16 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
-import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText } from "react-icons/bs";
-import ReadMore from "@/components/shared/ReadMore";
+import useIsMobile from "@/hooks/useIsMobile";
+import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList } from "react-icons/bs";
 import styles from "./TechnicalEvaluation.module.scss";
 
 
 
 const BuyerTechnicalEvaluation = () => {
   const router = useRouter();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rfq_id, setRfqId] = useState(router.query.rfq_id || null);
   const activeRfqRef = useRef(rfq_id); // Track active rfq_id to prevent stale updates
   const [loading, setLoading] = useState(false); // sidebar RFQ list loading only
@@ -494,11 +496,18 @@ const BuyerTechnicalEvaluation = () => {
 
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
-          <div className="row" style={{ flexWrap: 'nowrap', gap: '16px' }}>
+          <div className={styles.layoutRow}>
 
             {/* RFQ List */}
+              {isMobile && (
+                <button className={styles.mobileSidebarToggle} onClick={() => setSidebarOpen(true)}>
+                  <BsList size={18} /> Select RFQ
+                </button>
+              )}
               <RFQListSidebar
                 title="Technical Evaluation"
+                mobileOpen={isMobile ? sidebarOpen : undefined}
+                onMobileClose={() => setSidebarOpen(false)}
                 rfqList={rfqList}
                 loading={loading}
                 selectedRfqId={rfq_id}
@@ -543,7 +552,7 @@ const BuyerTechnicalEvaluation = () => {
               />
 
             {/* Main Container */}
-            <div className="col-md-10" style={{ flex: '1 1 0%', width: 'auto', maxWidth: 'none', minWidth: 0, overflow: 'hidden' }}>
+            <div className={styles.contentColumn}>
               <div className="quote-sec-table quote-sec-tab">
 
                 {/* Inline loader - shows inside content area while loading/verifying */}
@@ -595,20 +604,19 @@ const BuyerTechnicalEvaluation = () => {
                   <div className={styles.rfqHeader}>
                     {/* Hero Strip */}
                     <div className={styles.rfqHero}>
-                      <div className={styles.rfqHeroLeft}>
-                        <div className={styles.rfqHeroNumber}>
-                          <span>{entityLabel} No: {currentRfq.rfq_no}</span>
-                          <span className={`${styles.rfqTypeBadge} ${currentRfq.is_tender === 1 ? styles.tenderType : styles.rfqType}`}>
-                            {currentRfq.is_tender === 1 ? 'Tender' : 'RFQ'}
-                          </span>
+                      <div className={styles.rfqHeroCenter}>
+                        <div className={styles.rfqHeroNumberRow}>
+                          <span>{entityLabel}</span>
+                          <span className={styles.rfqHeroNum}>#{currentRfq.rfq_no}</span>
+                          <Badge
+                            bg={rfqCompletionMap.get(currentRfq.id) === true ? 'success' : currentRfq.approval_required ? 'warning' : 'info'}
+                            className={styles.rfqStatusBadge}
+                          >
+                            {rfqCompletionMap.get(currentRfq.id) === true ? 'Completed' : currentRfq.approval_required ? 'Pending Approval' : 'In Progress'}
+                          </Badge>
                         </div>
                         {currentRfq.title && currentRfq.title != "" && (
-                          <ReadMore
-                            content={currentRfq.title}
-                            maxLines={2}
-                            additionalClasses={styles.rfqHeroTitle}
-                            linkClassName="text-white"
-                          />
+                          <p className={styles.rfqHeroSubTitle}>{currentRfq.title}</p>
                         )}
                         {currentRfq.project_name && currentRfq.project_name != "" && (
                           <p className={styles.rfqHeroProject}>{currentRfq.project_name}</p>

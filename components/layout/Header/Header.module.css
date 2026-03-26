@@ -6,29 +6,30 @@
   background: rgba(255, 255, 255, 0.97);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(15, 23, 42, 0.09);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   overflow: visible;
 }
 
 .sticky,
 .alwaysWhite {
-  border-bottom: 1px solid rgba(15, 23, 42, 0.1);
-  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.08);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04),
+              0 4px 12px rgba(15, 23, 42, 0.03);
 }
 
 .headerInner {
-  height: 64px;
+  height: 50px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 16px;
-  padding: 0 clamp(16px, 2.5vw, 44px);
+  gap: 12px;
+  padding: 0 clamp(16px, 2.5vw, 40px);
 }
 
 .logo {
-  width: clamp(124px, 11vw, 172px);
-  min-width: 124px;
+  width: clamp(110px, 9vw, 148px);
+  min-width: 110px;
   display: flex;
   align-items: center;
 }
@@ -41,7 +42,7 @@
 .logoImage {
   width: 100%;
   height: auto;
-  max-height: 36px;
+  max-height: 28px;
   object-fit: contain;
 }
 
@@ -49,6 +50,8 @@
   min-width: 0;
   overflow: hidden;
   justify-self: center;
+  display: flex;
+  align-items: center;
 }
 
 .dashNavList {
@@ -57,7 +60,7 @@
   padding: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   white-space: nowrap;
 }
 
@@ -65,34 +68,22 @@
   position: relative;
 }
 
-.dashNavItem + .dashNavItem::before {
-  content: "";
-  position: absolute;
-  left: -4px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #cbd5e1;
-}
-
 .dashNavLink {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
   line-height: 1;
   text-decoration: none;
-  color: #475569;
+  color: #64748b;
   font-weight: 500;
-  transition: color 0.2s ease, background-color 0.2s ease;
+  transition: color 0.15s ease, background-color 0.15s ease;
 }
 
 .dashNavLink:hover {
   color: #2e5ba8;
-  background: #f2f6ff;
+  background: #f0f4ff;
 }
 
 .dashNavItemActive .dashNavLink {
@@ -111,12 +102,13 @@
 .userTrigger {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 10px 4px 4px;
+  gap: 6px;
+  padding: 3px 8px 3px 3px;
   border-radius: 999px;
   border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .userTrigger:hover,
@@ -138,9 +130,9 @@
 }
 
 .userAvatar {
-  width: 30px;
-  height: 30px;
-  font-size: 13px;
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
 }
 
 .userInfo {
@@ -152,15 +144,18 @@
 
 .userName {
   color: #1f2937;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .userContext {
-  color: #64748b;
-  font-size: 11px;
-  max-width: 160px;
+  color: #94a3b8;
+  font-size: 10px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -182,9 +177,10 @@
   top: calc(100% + 10px);
   width: 280px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.16);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.06),
+              0 10px 24px -3px rgba(15, 23, 42, 0.1);
   z-index: 1050;
   overflow: hidden;
   animation: popoverIn 0.15s ease;
@@ -211,9 +207,9 @@
 }
 
 .popoverAvatar {
-  width: 40px;
-  height: 40px;
-  font-size: 16px;
+  width: 36px;
+  height: 36px;
+  font-size: 14px;
 }
 
 .popoverUserName {
@@ -312,6 +308,15 @@
   justify-content: center;
   flex-direction: column;
   gap: 4px;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hamburger:focus,
+.hamburger:focus-visible,
+.hamburger:active {
+  outline: none;
+  box-shadow: none;
 }
 
 .hamburger:hover {
@@ -339,80 +344,209 @@
   transform: translateY(-6px) rotate(-45deg);
 }
 
-.mobileOverlay {
+/* ── Mobile menu backdrop ── */
+.mobileBackdrop {
   position: fixed;
-  top: 64px;
+  top: 0;
   left: 0;
-  width: 100%;
-  height: calc(100vh - 64px);
-  background: #ffffff;
-  z-index: 1021;
-  overflow-y: auto;
-  border-top: 1px solid #e2e8f0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9998;
 }
 
-.mobileUserSection {
-  padding: 16px 20px;
+/* ── Mobile drawer ── */
+.mobileDrawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 85vw;
+  max-width: 320px;
+  height: 100vh;
+  background: #fff;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.08);
+  animation: slideInRight 0.25s ease;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.mobileDrawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.mobileDrawerTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mobileCloseBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobileCloseBtn:focus,
+.mobileCloseBtn:focus-visible,
+.mobileCloseBtn:active {
+  outline: none;
+  box-shadow: none;
+}
+
+.mobileCloseBtn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+/* ── User card ── */
+.mobileUserCard {
   display: flex;
   align-items: center;
   gap: 10px;
-  border-bottom: 1px solid #eef2f7;
+  padding: 14px 16px;
+  margin: 8px 12px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #f1f5f9;
+  flex-shrink: 0;
 }
 
 .mobileUserAvatar {
-  width: 38px;
-  height: 38px;
-  font-size: 15px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2E5BA8, #3b6dc2);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .mobileUserName {
-  color: #0f172a;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mobileUserRole {
-  color: #64748b;
-  font-size: 12px;
+  font-size: 11px;
+  color: #94a3b8;
   text-transform: capitalize;
 }
 
-.mobileNav {
-  padding: 10px 0;
+/* ── Scrollable body ── */
+.mobileDrawerBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
 }
 
-.mobileNavList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.mobileSectionLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 12px 16px 4px 16px;
 }
 
-.mobileNavList li a,
-.mobileNavList li span {
-  display: block;
-  padding: 13px 20px;
-  color: #1e293b;
-  font-size: 15px;
+.mobileNavItem {
+  display: flex;
+  align-items: center;
+  padding: 11px 16px;
+  color: #475569;
+  font-size: 14px;
   font-weight: 500;
   text-decoration: none;
-  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  border: none;
+  background: none;
+  width: 100%;
 }
 
-.mobileNavList li a:hover {
-  background: #f8fbff;
-  color: #2e5ba8;
+.mobileNavItem:hover {
+  background: #f8fafc;
+  color: #1e293b;
 }
 
-.mobileNavList li.active a {
-  color: #2e5ba8;
-  background: #eef4ff;
+.mobileNavItemActive {
+  color: var(--primary-color, #2E5BA8);
   font-weight: 600;
+  background: #f0f4fa;
+  border-left: 3px solid var(--primary-color, #2E5BA8);
 }
 
-.mobileDivider {
-  height: 1px;
-  background: #e2e8f0;
-  margin: 8px 0;
+/* ── Footer ── */
+.mobileDrawerFooter {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  gap: 8px;
+}
+
+.mobileFooterBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: #475569;
+  transition: all 0.15s ease;
+}
+
+.mobileFooterBtn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.mobileFooterBtnDanger {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.mobileFooterBtnDanger:hover {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .hideDesktop {
@@ -425,13 +559,17 @@
 
 @media (max-width: 1200px) {
   .headerInner {
-    padding: 0 14px;
-    gap: 10px;
+    padding: 0 12px;
+    gap: 8px;
   }
 
   .dashNavLink {
-    padding: 7px 10px;
+    padding: 4px 8px;
     font-size: 12px;
+  }
+
+  .dashNavList {
+    gap: 1px;
   }
 }
 
@@ -450,24 +588,21 @@
 
   .hamburger {
     display: inline-flex;
+    margin-left: auto;
   }
 
   .headerInner {
-    height: 56px;
+    height: 46px;
     grid-template-columns: auto 1fr auto;
     padding: 0 12px;
   }
 
-  .mobileOverlay {
-    top: 56px;
-    height: calc(100vh - 56px);
-  }
 }
 
 @media (max-width: 768px) {
   .logo {
-    width: 122px;
-    min-width: 122px;
+    width: 108px;
+    min-width: 108px;
   }
 
   .userInfo,
