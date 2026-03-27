@@ -21,7 +21,8 @@ import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal";
 import ProductNegotiationBadge from "./ProductNegotiationBadge";
 import { checkOpenClarification } from "@/services/clarification";
-import { getAllVendorNegotiationStatus } from "@/services/negotiation";
+import { getAllVendorNegotiationStatus, getAllActiveNegotiationRounds } from "@/services/negotiation";
+import { checkBidExpired } from "@/utils/sharedFunctions";
 import { Alert } from "react-bootstrap";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
 
@@ -107,6 +108,10 @@ const [openClarification, setOpenClarification] = useState(null);
 const [isOwnerOfOpenClarification, setIsOwnerOfOpenClarification] = useState(false);
 // Negotiation quote submitted state - tracks products where vendor has already submitted negotiation quote
 const [negotiationQuoteSubmitted, setNegotiationQuoteSubmitted] = useState({});
+// Bid expiry and active negotiation round state
+const [isBidExpired, setIsBidExpired] = useState(false);
+const [activeNegotiationProductIds, setActiveNegotiationProductIds] = useState(new Set());
+const [hasActiveNegotiationRounds, setHasActiveNegotiationRounds] = useState(false);
 // Changes by Agnij [Preserve form state when Razorpay modal opens]
 const formStateRef = useRef(null);
 const shouldAutoSendQuoteRef = useRef(false);
@@ -397,6 +402,46 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
     };
     checkNegotiationStatus();
   }, [id, rfqDetails?.id]);
+
+  // Check bid expiry and fetch active negotiation rounds
+  useEffect(() => {
+    if (!rfqDetails?.bid_end_date) {
+      setIsBidExpired(false);
+      setActiveNegotiationProductIds(new Set());
+      setHasActiveNegotiationRounds(false);
+      return;
+    }
+    const expired = checkBidExpired(rfqDetails.bid_end_date);
+    setIsBidExpired(expired);
+
+    if (expired && id) {
+      const fetchActiveRounds = async () => {
+        try {
+          const response = await getAllActiveNegotiationRounds(id);
+          const now = new Date();
+          const activeRounds = (response?.data || []).filter(
+            r => {
+              if (r.status !== 'ACTIVE' || !r.end_date) return false;
+              // Backend sends end_date in UTC without timezone suffix — append Z to parse as UTC
+              const endDateStr = r.end_date.includes('+') || r.end_date.includes('Z') ? r.end_date : r.end_date.replace(' ', 'T') + 'Z';
+              return new Date(endDateStr) > now;
+            }
+          );
+          const productIds = new Set(activeRounds.map(r => r.rfq_product_id));
+          setActiveNegotiationProductIds(productIds);
+          setHasActiveNegotiationRounds(productIds.size > 0);
+        } catch (error) {
+          console.error("Error checking active negotiation rounds:", error);
+          setActiveNegotiationProductIds(new Set());
+          setHasActiveNegotiationRounds(false);
+        }
+      };
+      fetchActiveRounds();
+    } else {
+      setActiveNegotiationProductIds(new Set());
+      setHasActiveNegotiationRounds(false);
+    }
+  }, [rfqDetails?.bid_end_date, id]);
 
   // Changes by Agnij <2024-07-30> [Add debug logging for reverse auction status]
   useEffect(() => {
@@ -999,25 +1044,31 @@ return { deletedTerms, createdTerms, updatedTerms };
       payload.global_payment_term_list = paymentTermsUpdate;
 
       let quote_id = rfqDetails.quotations[0].id;
-      const updatedProducts = quoteProducts.map(product => {
-        if(product.unit_price == 0) {
-          product.tax = 0;
-          product.freight_price = 0;
-          product.package_price = 0;
-          product.total_price = 0;
-        }
+      const updatedProducts = quoteProducts
+        .filter(product => {
+          // When bid expired, only include products with active negotiation rounds
+          if (isBidExpired && !activeNegotiationProductIds.has(product.id)) return false;
+          return true;
+        })
+        .map(product => {
+          if(product.unit_price == 0) {
+            product.tax = 0;
+            product.freight_price = 0;
+            product.package_price = 0;
+            product.total_price = 0;
+          }
 
-        product.freight_price = parseFloat(product.freight_price) || 0;
-        product.tax = parseFloat(product.tax) || 0;
-        product.package_price = parseFloat(product.package_price) || 0;
-        product.total_price = parseFloat(product.total_price) || 0;
+          product.freight_price = parseFloat(product.freight_price) || 0;
+          product.tax = parseFloat(product.tax) || 0;
+          product.package_price = parseFloat(product.package_price) || 0;
+          product.total_price = parseFloat(product.total_price) || 0;
 
-        product.freight_mode = chargesMode.freight[product.id] || product.freight_mode;
-        product.package_mode = chargesMode.package[product.id] || product.package_mode;
-        product.tax_mode = chargesMode.tax[product.id] || product.tax_mode;
+          product.freight_mode = chargesMode.freight[product.id] || product.freight_mode;
+          product.package_mode = chargesMode.package[product.id] || product.package_mode;
+          product.tax_mode = chargesMode.tax[product.id] || product.tax_mode;
 
-        return product;
-      })
+          return product;
+        })
       payload = { ...payload, products: updatedProducts };
 
       setsubmitLoading(true);
@@ -1047,9 +1098,11 @@ return { deletedTerms, createdTerms, updatedTerms };
       );
       let filteredquoteProducts = quoteProducts.filter((item) => {
         // Exclude finalized products and products with negotiation quotes already submitted
-        if (!allFinalizedProducts.includes(item.product_id) && !negotiationQuoteSubmitted[item.id]) {
-          return item;
-        }
+        if (allFinalizedProducts.includes(item.product_id)) return false;
+        if (negotiationQuoteSubmitted[item.id]) return false;
+        // When bid expired, only include products with active negotiation rounds
+        if (isBidExpired && !activeNegotiationProductIds.has(item.id)) return false;
+        return true;
       });
 
       const updatedProducts = filteredquoteProducts.map(product => {
@@ -1650,9 +1703,15 @@ return { deletedTerms, createdTerms, updatedTerms };
                         <div>{rfqDetails.contact_number}</div>
                       </div>
                     )}
+                    {rfqDetails?.bid_end_date && (
+                      <div className="text-start">
+                        <strong>Quote Submission Deadline:</strong>
+                        <div>{formatDisplayDate(rfqDetails.bid_end_date, { includeTime: true })}</div>
+                      </div>
+                    )}
                   </div>
-                  
-       
+
+
         {/* AI file upload start here */}
        <div>
        {/* <div>
@@ -2172,7 +2231,9 @@ return { deletedTerms, createdTerms, updatedTerms };
 
                                 // Check if this specific product has a negotiation quote already submitted
                                 const isNegotiationSubmittedForProduct = !!negotiationQuoteSubmitted[item.id];
-                                const isProductDisabled = isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct;
+                                // When bid has expired, disable products that do NOT have an active negotiation round
+                                const isBidExpiredForProduct = isBidExpired && !activeNegotiationProductIds.has(item.id);
+                                const isProductDisabled = isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct || isBidExpiredForProduct;
 
                                 return (
                                   <tr
@@ -2861,6 +2922,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                             type="submit"
                             className="btn btn-primary"
                             onClick={() => setregretModal(true)}
+                            disabled={isBidExpired}
+                            title={isBidExpired ? "Bidding period has ended" : ""}
                           >
                             Regret Quote
                           </button>
@@ -2868,6 +2931,17 @@ return { deletedTerms, createdTerms, updatedTerms };
                       </div>
                       <div className="col-md-6">
                         {/* Changes by Agnij 2024-07-30 [Disable send quote button when no fields are filled] */}
+                        {/* Bid expiry alerts */}
+                        {isBidExpired && !hasActiveNegotiationRounds && (
+                          <Alert variant="danger" className="mb-3 py-2">
+                            <small><strong>Bidding Period Ended:</strong> The quote submission deadline has passed.</small>
+                          </Alert>
+                        )}
+                        {isBidExpired && hasActiveNegotiationRounds && (
+                          <Alert variant="info" className="mb-3 py-2">
+                            <small><strong>Bidding Period Ended:</strong> Only products with active negotiation rounds can be updated.</small>
+                          </Alert>
+                        )}
                         {/* Show info if some products have negotiation quotes submitted */}
                         {Object.keys(negotiationQuoteSubmitted).length > 0 && (
                           <Alert variant={Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0) ? "danger" : "info"} className="mb-3 py-2">
@@ -2901,12 +2975,15 @@ return { deletedTerms, createdTerms, updatedTerms };
                             !isAnyFieldFilled() ||
                             tenderPaymentLoading ||
                             hasPendingTechEval ||
+                            (isBidExpired && !hasActiveNegotiationRounds) ||
                             (rfqDetails?.vendor_clarification_date &&
                               (isClarificationWindowActive || hasOpenClarification)) ||
                             (Object.keys(negotiationQuoteSubmitted).length > 0 && Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0))
                           }
                           title={
-                            hasPendingTechEval
+                            (isBidExpired && !hasActiveNegotiationRounds)
+                              ? "Quotations aren't allowed now"
+                              : hasPendingTechEval
                               ? "Quote submission disabled - Technical evaluation is pending"
                               : (Object.keys(negotiationQuoteSubmitted).length > 0 && Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0))
                               ? "Quote submission disabled - Negotiation quotes submitted for all products"
@@ -2918,7 +2995,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                               : ""
                           }
                         >
-                          {(Object.keys(negotiationQuoteSubmitted).length > 0 && Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0)) ? 'All Quotes Submitted' : 'Send Quote'}
+                          {(isBidExpired && !hasActiveNegotiationRounds) ? 'Send Quote' : (Object.keys(negotiationQuoteSubmitted).length > 0 && Object.keys(negotiationQuoteSubmitted).length >= (rfqDetails?.products?.filter(p => isAvailableForQuote(p))?.length || 0)) ? 'All Quotes Submitted' : 'Send Quote'}
                         </button>
                       </div>
                     </div>

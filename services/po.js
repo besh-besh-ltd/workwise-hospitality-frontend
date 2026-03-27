@@ -1,4 +1,5 @@
 import axiosInstance from "@/lib/axios";
+import axiosFormData from "@/lib/axiosFormData";
 
 export const getPoData = async (rfq_id, params) => {
   const res = await axiosInstance.get(`/po/rfq/${rfq_id}`, { params });
@@ -89,3 +90,15 @@ export const handleAddSiteRep = async (payload) => {
   const res = await axiosInstance.post(`/po/addSiteRepresentative`, payload);
   return res;
 }
+
+export const handleRegeneratePO = async (po_id) => {
+  const res = await axiosInstance.post(`/po/regenerate/${po_id}`);
+  return res.data;
+};
+
+export const handleUploadPODocument = async (po_id, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await axiosFormData.post(`/po/upload-pdf/${po_id}`, formData);
+  return res.data;
+};

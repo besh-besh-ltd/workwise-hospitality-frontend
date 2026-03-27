@@ -28,6 +28,7 @@ import {
 } from "@/components/dashboard/buyer/clarification";
 import { getClarifications } from "@/services/clarification";
 import NegotiationColumnCell from "@/components/dashboard/buyer/negotiation/NegotiationColumnCell";
+import { getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { Badge, Button, Alert } from "react-bootstrap";
 import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill } from "react-icons/bs";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
@@ -182,6 +183,7 @@ const RfqManagementPreview = () => {
   // Track negotiation column visibility (null=loading, true=show, false=hide)
   const [showNegotiationCol, setShowNegotiationCol] = useState(null);
   const negotiationResultsRef = useRef({});
+  const [hasActiveNegotiationRounds, setHasActiveNegotiationRounds] = useState(false);
 
   // Update localId when router.query.id becomes available (after hydration)
   useEffect(() => {
@@ -717,7 +719,8 @@ const RfqManagementPreview = () => {
     const now = new Date();
     // Consider memoizing date objects outside this callback with useMemo for performance optimization
     const bidEndDateRaw = rfqDetails?.bid_end_date ? new Date(rfqDetails.bid_end_date) : null;
-    const bidEndDateEndOfDay = bidEndDateRaw ? new Date(bidEndDateRaw.getFullYear(), bidEndDateRaw.getMonth(), bidEndDateRaw.getDate(), 23, 59, 59, 999) : null;
+    // Use exact bid_end_date time, no end-of-day rounding
+    const bidEndDateEndOfDay = bidEndDateRaw;
     const raStartDate = rfqDetails?.ra_start_date ? new Date(rfqDetails.ra_start_date) : null;
     const raEndDate = rfqDetails?.ra_end_date ? new Date(rfqDetails.ra_end_date) : null;
 
@@ -767,21 +770,27 @@ const RfqManagementPreview = () => {
         // Priority 4: Past Bid End Date
         // Changes by Agnij 2025-05-05 [Ensure quotes can be updated until end of bid end date]
         else if (bidEndDateEndOfDay && now > bidEndDateEndOfDay) {
-            isDisabled = true; // Disable by default if bid ended
-            if (isReverseAuction) {
-                if (raEndDate && now > raEndDate) {
-                    message = "Reverse Auction has Ended";
-                } else if (raStartDate && now < raStartDate) {
-                    message = "Bidding Period Ended (Reverse Auction Pending)";
-                } else if (!raStartDate || !raEndDate) {
-                    message = "Bidding Period Ended (RA Dates Invalid)";
-                } else {
-                    // Should not happen if Priority 1 caught active RA, but acts as fallback
-                    message = "Bidding Period Ended";
-                }
+            if (hasActiveNegotiationRounds) {
+                // Active negotiation round exists — allow vendor to submit/update quote
+                isDisabled = false;
+                message = "Send Quote";
             } else {
-                // No RA, bid just ended
-                message = "Bidding Period has Ended";
+                isDisabled = true; // Disable if bid ended and no active negotiation rounds
+                if (isReverseAuction) {
+                    if (raEndDate && now > raEndDate) {
+                        message = "Reverse Auction has Ended";
+                    } else if (raStartDate && now < raStartDate) {
+                        message = "Bidding Period Ended (Reverse Auction Pending)";
+                    } else if (!raStartDate || !raEndDate) {
+                        message = "Bidding Period Ended (RA Dates Invalid)";
+                    } else {
+                        // Should not happen if Priority 1 caught active RA, but acts as fallback
+                        message = "Bidding Period Ended";
+                    }
+                } else {
+                    // No RA, bid just ended
+                    message = "Bidding Period has Ended";
+                }
             }
         }
         // Priority 5: Invalid RFQ State (No Bid End Date)
@@ -812,13 +821,40 @@ const RfqManagementPreview = () => {
       }
     }
 
-  }, [rfqDetails, productleftforbid, hasOpenClarification]);
+  }, [rfqDetails, productleftforbid, hasOpenClarification, hasActiveNegotiationRounds]);
 
   useEffect(() => {
     if (rfqDetails) {
       checkIfQuotationSendIsPossible();
     }
   }, [rfqDetails, checkIfQuotationSendIsPossible]);
+
+  // Fetch active negotiation rounds to allow quote submission after bid end date
+  useEffect(() => {
+    const checkActiveNegotiationRounds = async () => {
+      if (!id) return;
+      try {
+        const response = await getAllActiveNegotiationRounds(id);
+        // Backend returns rounds with status IN ('PENDING_APPROVAL', 'ACTIVE')
+        // but does NOT filter by end_date > NOW(). We must filter on frontend
+        // to match the backend createQuote/updateQuoteItems check:
+        //   status = 'ACTIVE' AND end_date > NOW()
+        const now = new Date();
+        const activeRounds = (response?.data || []).filter(
+          r => {
+            if (r.status !== 'ACTIVE' || !r.end_date) return false;
+            // Backend sends end_date in UTC without timezone suffix — append Z to parse as UTC
+            const endDateStr = r.end_date.includes('+') || r.end_date.includes('Z') ? r.end_date : r.end_date.replace(' ', 'T') + 'Z';
+            return new Date(endDateStr) > now;
+          }
+        );
+        setHasActiveNegotiationRounds(activeRounds.length > 0);
+      } catch (error) {
+        setHasActiveNegotiationRounds(false);
+      }
+    };
+    checkActiveNegotiationRounds();
+  }, [id, rfqDetails?.id]);
 
   const handleRegretQuote = ({ regret_reason }, resetForm) => {
     let bidProducts = [];
@@ -1353,8 +1389,6 @@ const RfqManagementPreview = () => {
                       onClick={goToQuoteCreation}
                       disabled={
                         hasPendingTechEval ||
-                        (quoteDisabled &&
-                          statusMessage !== "Reverse Auction is Active") ||
                         rfqDetails.status == 2 ||
                         rfqDetails.products?.every(
                           (item) =>
@@ -1365,15 +1399,13 @@ const RfqManagementPreview = () => {
                       }
                       title={hasPendingTechEval ? "Technical evaluation is pending - complete all tech eval responses first" : ""}
                     >
-                      {hasPendingTechEval ? "Tech Eval Pending" : isReverseAuctionActive ? "Send Quote" : statusMessage}
+                      {hasPendingTechEval ? "Tech Eval Pending" : isReverseAuctionActive ? "Send Quote" : (quoteDisabled && statusMessage !== "Reverse Auction is Active") ? "View Inquiry" : statusMessage}
                     </button>
                   )}
                   {rfqDetails.status == 1 &&
                   !rfqDetails?.quotations[0]?.is_regret &&
                   productleftforbid &&
-                  isSubmitAble &&
                   rfqDetails.quotations?.length > 0 &&
-                  !hasOpenClarification &&
                   !rfqDetails.products?.some(
                     (item) =>
                       item.finalization_status ===
@@ -1403,7 +1435,7 @@ const RfqManagementPreview = () => {
                     >
                       <>
                         <FontAwesomeIcon icon={faEdit} className="me-2" />
-                        {hasPendingTechEval ? "Tech Eval Pending" : "Update Your Quote"}
+                        {hasPendingTechEval ? "Tech Eval Pending" : (!isSubmitAble && !hasActiveNegotiationRounds) ? "View Quote" : "Update Your Quote"}
                       </>
                     </button>
                   ) : null}
@@ -2145,7 +2177,6 @@ const RfqManagementPreview = () => {
 
                                         {rfqDetails.status === 2 ||
                                         !productleftforbid ||
-                                        quoteDisabled ||
                                         rfqDetails.products?.every(
                                           (item) =>
                                             item.finalization_status ===
@@ -2167,10 +2198,7 @@ const RfqManagementPreview = () => {
                                               width: "240px",
                                               opacity: "0.5",
                                             }}
-                                            disabled={
-                                              quoteDisabled ||
-                                              rfqDetails.status === 2
-                                            }
+                                            disabled
                                           >
                                             <FontAwesomeIcon
                                               icon={faCircleExclamation}
@@ -2233,7 +2261,7 @@ const RfqManagementPreview = () => {
                                                 icon={faEdit}
                                                 className="me-2"
                                               />
-                                              Update Your Quote
+                                              {quoteDisabled && !hasActiveNegotiationRounds ? "View Quote" : "Update Your Quote"}
                                             </button>
                                           </Link>
                                         )}

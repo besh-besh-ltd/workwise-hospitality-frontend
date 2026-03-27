@@ -1079,10 +1079,13 @@ export const getSummarisedDeviation = (rfq_id) => {
   })
 }
 
-export const fetchDeviationPreviews = (rfq_product_id, user_id) => {
+export const fetchDeviationPreviews = (rfq_product_id, user_id, token) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/get-deviation-previews`, { rfq_product_id, user_id });
+      let response = await axiosInstance.post(
+        `/rfq/get-deviation-previews${token ? `?token=${token}` : ''}`,
+        { rfq_product_id, user_id }
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
