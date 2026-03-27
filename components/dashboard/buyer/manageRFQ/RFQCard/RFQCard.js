@@ -51,13 +51,21 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
   // Click to expand/collapse
   const handleToggleExpand = () => setIsExpanded(!isExpanded);
 
-  // Days remaining calculation
+  // Days remaining calculation — uses IST for accurate comparison
   const getDaysRemaining = () => {
     if (!data.bid_end_date) return null;
-    const endDate = moment(data.bid_end_date).startOf('day');
-    const today = moment().startOf('day');
-    const days = endDate.diff(today, 'days');
-    if (days < 0) return { text: 'Ended', urgent: true };
+    // Convert to IST for accurate comparison
+    const endIST = moment.utc(data.bid_end_date).utcOffset('+05:30');
+    const nowIST = moment().utcOffset('+05:30');
+
+    // First check: has the exact end time already passed?
+    if (endIST.isBefore(nowIST)) return { text: 'Ended', urgent: true };
+
+    // Compare calendar dates in IST for "today/tomorrow" labels
+    const endDay = endIST.clone().startOf('day');
+    const todayDay = nowIST.clone().startOf('day');
+    const days = endDay.diff(todayDay, 'days');
+
     if (days === 0) return { text: 'Ends today', urgent: true };
     if (days === 1) return { text: 'Ends tomorrow', urgent: true };
     if (days <= 3) return { text: `${days}d left`, urgent: true };
