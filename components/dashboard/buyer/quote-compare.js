@@ -26,7 +26,7 @@ import {
 } from "@/utils/sharedFunctions";
 import { toast } from "react-toastify";
 import { getProjectAvailableBudget, getAllProjects as getAllProjectsService } from "@/services/project";
-import { getUserMappings } from "@/services/hospitality";
+import { useSelector } from "react-redux";
 import { Alert } from "react-bootstrap";
 import { BsFileEarmarkText } from "react-icons/bs";
 import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
@@ -54,6 +54,7 @@ import revampStyles from "@/components/dashboard/buyer/quoteCompare/QuoteCompare
 
 
 const QuoteCompare = () => {
+  const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -479,14 +480,9 @@ const openModalForVariant = (variantId) => {
         })
   }
 
-  const fetchUserHotelMappings = async () => {
-    try {
-      const response = await getUserMappings();
-      const mappings = (response?.data || []).filter(m => m.hospitality_hotel_id != null);
-      setUserHotelMappings(mappings);
-    } catch (error) {
-      console.error("Error fetching user hotel mappings", error);
-    }
+  const fetchUserHotelMappings = () => {
+    const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
+    setUserHotelMappings(mappings);
   }
 
   const handleHotelSelectionChange = (hotelIds) => {

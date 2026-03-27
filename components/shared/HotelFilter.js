@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Select from 'react-select';
-import { getUserMappings } from '@/services/hospitality';
+import { useSelector } from 'react-redux';
 
 /**
  * Reusable Business Unit/Company Filter Component
@@ -19,26 +19,15 @@ const HotelFilter = ({
   placeholder = "Select Business Units...",
   className = ""
 }) => {
+  const userProfile = useSelector((state) => state.userProfile);
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchUserMappedHotels();
-  }, []);
-
-  const fetchUserMappedHotels = async () => {
-    try {
-      setLoading(true);
-      const response = await getUserMappings();
-      const mappings = (response?.data || []).filter(m => m.hospitality_hotel_id != null);
-      setUserHotelMappings(mappings);
-    } catch (error) {
-      console.error("Error fetching user hotel mappings", error);
-      setUserHotelMappings([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
+    setUserHotelMappings(mappings);
+    setLoading(false);
+  }, [userProfile]);
 
   const handleChange = (selectedOptions) => {
     if (isMulti) {

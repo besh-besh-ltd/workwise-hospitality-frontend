@@ -21,7 +21,7 @@ import {
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { getAllProjects as getAllProjectsService, getProjectTableDataById, getProjectsByHospitalityContext, getProjectHospitalityContext, getRfqFilters } from "@/services/project";
-import { getMyHospitalityContexts, getUserMappings } from "@/services/hospitality";
+import { getMyHospitalityContexts } from "@/services/hospitality";
 import { getDepartments } from "@/services/rbac";
 import { getApprovalProcesses } from "@/services/process";
 import HotelFilter from "@/components/shared/HotelFilter";
@@ -296,9 +296,8 @@ const CreateRFQ = () => {
 
   const fetchHospitalityContexts = async () => {
     try {
-      // Fetch user hotel mappings for the multi-select dropdown
-      const mappingsRes = await getUserMappings();
-      const mappings = (mappingsRes?.data || []).filter(m => m.hospitality_hotel_id != null);
+      // Read user hotel mappings from profile
+      const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
       setUserHotelMappings(mappings);
 
       // Also fetch contexts for the company/hotel hierarchy dropdown

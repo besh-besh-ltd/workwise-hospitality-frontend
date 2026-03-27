@@ -17,7 +17,7 @@ import {
   setStoredHospitalityContext,
   subscribeHospitalityContext,
 } from "@/utils/hospitalityContext";
-import { getUserMappings } from "@/services/hospitality";
+
 
 import { initialMainNavs, roleMenus, websiteMenu, ANNOUNCEMENT_TEXT } from "./headerConfig";
 import UserMenu from "./UserMenu";
@@ -221,23 +221,16 @@ const Header = () => {
         setUserBusinessUnits([]);
       }
       if (hospitalityEnabled) {
-        getUserMappings()
-          .then((mappingsRes) => {
-            if (!isMounted) return;
-            const allMappings = mappingsRes?.data || [];
-            const seen = new Set();
-            const uniqueMappings = allMappings
-              .filter((m) => m.hospitality_hotel_id != null)
-              .filter((m) => {
-                if (seen.has(m.hospitality_hotel_id)) return false;
-                seen.add(m.hospitality_hotel_id);
-                return true;
-              });
-            setUserBusinessUnits(uniqueMappings);
-          })
-          .catch(() => {
-            if (isMounted) setUserBusinessUnits([]);
+        const allMappings = userProfile?.hospitality_mappings || [];
+        const seen = new Set();
+        const uniqueMappings = allMappings
+          .filter((m) => m.hospitality_hotel_id != null)
+          .filter((m) => {
+            if (seen.has(m.hospitality_hotel_id)) return false;
+            seen.add(m.hospitality_hotel_id);
+            return true;
           });
+        setUserBusinessUnits(uniqueMappings);
       }
     } else {
       setIsHospitalityCompany(false);

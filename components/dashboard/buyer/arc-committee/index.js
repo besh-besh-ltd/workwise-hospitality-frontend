@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import { getArcRfqList, getTenderLifecycle, performArcAction } from "@/services/arc";
 import { getRFQById } from "@/services/rfq";
 import { getAllProjects as getAllProjectsService } from '@/services/project';
-import { getUserMappings } from '@/services/hospitality';
+import { useSelector } from 'react-redux';
 import { formatRFQNumber } from "@/utils/sharedFunctions";
 import { toast } from "react-toastify";
 import FullLoader from "@/components/shared/FullLoader";
@@ -22,6 +22,7 @@ import StageTimeline from "./StageTimeline";
 import { mapLifecycleToStages, STAGE_DEFINITIONS } from "./utils/stageMapper";
 
 const ArcCommittee = () => {
+  const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const { rfq_id } = router.query;
   const [loading, setLoading] = useState(false);
@@ -192,14 +193,9 @@ const ArcCommittee = () => {
       });
   };
 
-  const fetchUserHotelMappings = async () => {
-    try {
-      const response = await getUserMappings();
-      const mappings = (response?.data || []).filter(m => m.hospitality_hotel_id != null);
-      setUserHotelMappings(mappings);
-    } catch (error) {
-      console.error("Error fetching user hotel mappings", error);
-    }
+  const fetchUserHotelMappings = () => {
+    const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
+    setUserHotelMappings(mappings);
   };
 
   const handleHotelSelectionChange = (hotelIds) => {

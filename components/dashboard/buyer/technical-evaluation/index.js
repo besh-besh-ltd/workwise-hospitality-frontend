@@ -7,7 +7,7 @@ import { getUserDetails as getAuthUser } from "@/services/Auth";
 import ClauseProductItem from "./ClauseProductItem";
 import { toast } from "react-toastify";
 import { getAllProjects as getAllProjectsService } from '@/services/project';
-import { getUserMappings } from '@/services/hospitality';
+import { useSelector } from 'react-redux';
 import Select from 'react-select';
 import { formatDisplayDate, formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
@@ -25,6 +25,7 @@ import styles from "./TechnicalEvaluation.module.scss";
 
 
 const BuyerTechnicalEvaluation = () => {
+  const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -130,14 +131,9 @@ const BuyerTechnicalEvaluation = () => {
         })
   }
 
-  const fetchUserHotelMappings = async () => {
-    try {
-      const response = await getUserMappings();
-      const mappings = (response?.data || []).filter(m => m.hospitality_hotel_id != null);
-      setUserHotelMappings(mappings);
-    } catch (error) {
-      console.error("Error fetching user hotel mappings", error);
-    }
+  const fetchUserHotelMappings = () => {
+    const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
+    setUserHotelMappings(mappings);
   }
 
   const handleHotelSelectionChange = (hotelIds) => {

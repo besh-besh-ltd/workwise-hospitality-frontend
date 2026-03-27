@@ -19,7 +19,7 @@ import { toast } from "react-toastify";
 import { getAllProjects } from "@/services/project";
 import { getDepartments } from "@/services/rbac";
 import { getCountryCodes } from "@/services/cms";
-import { getUserMappings, getRFQHotels } from "@/services/hospitality";
+import { getRFQHotels } from "@/services/hospitality";
 import * as Yup from "yup";
 import { formatISOToDateTimeLocal, getEntityLabel } from "@/utils/sharedFunctions";
 import ViewVendorModal from "./ViewVendorModal";
@@ -113,6 +113,7 @@ const EditRFQ = () => {
   // Add a ref to track if we've already refreshed terms to avoid infinite loop
   const termRefreshCompletedRef = useRef(false);
 
+  const userProfile = useSelector((state) => state.userProfile);
   const storeLoading = useSelector((state) => state.storeLoading);
   const rfqFormDataFromStore = useSelector((state) => state.rfqFormData || {});
   const allTerms = useSelector((state) => state.allTerms || []);
@@ -201,14 +202,9 @@ const EditRFQ = () => {
     }
   };
 
-  const fetchUserHotelMappings = async () => {
-    try {
-      const response = await getUserMappings();
-      const mappings = (response?.data || []).filter(m => m.hospitality_hotel_id != null);
-      setUserHotelMappings(mappings);
-    } catch (error) {
-      console.error("Error fetching hotel mappings:", error);
-    }
+  const fetchUserHotelMappings = () => {
+    const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
+    setUserHotelMappings(mappings);
   };
 
   const handleTermChange = (e, item) => {
