@@ -1,41 +1,11 @@
 import FullLoader from "@/components/shared/FullLoader";
-import { getPendingApprovalRFQs } from "@/services/rfq";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import RFQCard from "./RFQCard";
 import Pagination from "@/components/shared/Pagination";
 import { Alert } from "react-bootstrap";
 import { BsCheckCircleFill, BsExclamationTriangleFill } from "react-icons/bs";
 
-const PendingApprovalsList = ({ filterData, setFilterData, onCountChange }) => {
-  const [loading, setLoading] = useState(false);
-  const [pendingRFQs, setPendingRFQs] = useState([]);
-  const [totalRFQs, setTotalRFQs] = useState(0);
-
-  const fetchPendingApprovals = () => {
-    setLoading(true);
-
-    getPendingApprovalRFQs({ ...filterData })
-      .then((body) => {
-        setLoading(false);
-        // API returns { status, data: listRfq[], total_items }; axios wraps in res.data
-        const list = Array.isArray(body.data) ? body.data : [];
-        const total = typeof body.total_items === "number" ? body.total_items : 0;
-        setPendingRFQs(list);
-        setTotalRFQs(total);
-        // Notify parent of count change for badge
-        if (onCountChange) {
-          onCountChange(total);
-        }
-      })
-      .catch((err) => {
-        setLoading(false);
-        console.log(err);
-      });
-  };
-
-  useEffect(() => {
-    fetchPendingApprovals();
-  }, [filterData]);
+const PendingApprovalsList = ({ filterData, setFilterData, pendingRFQs = [], totalRFQs = 0, loading = false }) => {
 
   return (
     <div className="pending-approvals-list">
