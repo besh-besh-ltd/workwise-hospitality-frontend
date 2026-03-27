@@ -167,7 +167,7 @@ const handleTabChange = (tabKey) => {
                   }`}
                   onClick={() => handleTabChange("completedRFQs")}
                 >
-                  Completed
+                  Approved Tender / RFQ
                 </button>
               </div>
 

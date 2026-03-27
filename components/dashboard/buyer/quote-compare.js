@@ -34,6 +34,8 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import NegotiationCompactBanner from "./negotiation/NegotiationCompactBanner";
 import { getAllActiveNegotiationRounds, getRoundQuotes } from "@/services/negotiation";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
+import useIsMobile from "@/hooks/useIsMobile";
+import { BsList } from "react-icons/bs";
 import useQuoteCompareViewModel from "@/hooks/useQuoteCompareViewModel";
 import { buildComparisonContextTables } from "@/utils/quoteCompareTableViewModel";
 import QuoteCompareHeaderCard from "@/components/dashboard/buyer/quoteCompare/QuoteCompareHeaderCard";
@@ -53,6 +55,8 @@ import revampStyles from "@/components/dashboard/buyer/quoteCompare/QuoteCompare
 
 const QuoteCompare = () => {
   const router = useRouter();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { rfq_product_id, source, tab = "product" } = router.query;
   const [rfq, setRfq] = useState(router.query.rfq || null);
   const tabOptions = ["product", "category", "cost"];
@@ -1664,9 +1668,16 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
-          <div className={`row ${revampStyles.layoutRow}`}>
+          <div className={revampStyles.layoutRow}>
+              {isMobile && (
+                <button className={revampStyles.mobileSidebarToggle} onClick={() => setSidebarOpen(true)}>
+                  <BsList size={18} /> Select RFQ
+                </button>
+              )}
               <RFQListSidebar
                 title="Quote Comparison"
+                mobileOpen={isMobile ? sidebarOpen : undefined}
+                onMobileClose={() => setSidebarOpen(false)}
                 rfqList={myRFQs}
                 loading={loading}
                 selectedRfqId={rfq}
@@ -1789,52 +1800,51 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 {!isContentLoading && isAccessDenied ? (
                   <AccessDeniedPage showBackButton={false} />
                 ) : !isContentLoading ? (
-                <div className={revampStyles.workspaceStack}>
+                <>
                 {!quotesLoading && currentRFQ && (
-                  <section className={revampStyles.surfaceBlock}>
-                    <QuoteCompareHeaderCard
-                      currentRFQ={currentRFQ}
-                      actions={
-                        rfq && quotes && quotes.length > 0 ? (
-                          <>
+                  <QuoteCompareHeaderCard
+                    currentRFQ={currentRFQ}
+                    actions={
+                      rfq && quotes && quotes.length > 0 ? (
+                        <>
+                          <button
+                            type="button"
+                            id="download_quote_actions-quote_compare_page"
+                            onClick={handleDownloadQuote}
+                            className={revampStyles.actionBtn}
+                          >
+                            {downloadLoading ? "Generating Excel..." : "Download Excel"}
+                          </button>
+                          {quotes[0]?.rfq[0]?.status == 1 ? (
                             <button
                               type="button"
-                              id="download_quote_actions-quote_compare_page"
-                              onClick={handleDownloadQuote}
+                              id="close_rfq_actions-quote_compare_page"
+                              onClick={handleRFqClose}
                               className={revampStyles.actionBtn}
                             >
-                              {downloadLoading ? "Generating Excel..." : "Download Excel"}
+                              {closeRFqLoading
+                                ? "Processing..."
+                                : `Mark ${getEntityLabel(currentRFQ?.is_tender)} Closed`}
                             </button>
-                            {quotes[0]?.rfq[0]?.status == 1 ? (
-                              <button
-                                type="button"
-                                id="close_rfq_actions-quote_compare_page"
-                                onClick={handleRFqClose}
-                                className={revampStyles.actionBtn}
-                              >
-                                {closeRFqLoading
-                                  ? "Processing..."
-                                  : `Mark ${getEntityLabel(currentRFQ?.is_tender)} Closed`}
-                              </button>
-                            ) : (
-                              <button type="button" disabled className={revampStyles.actionBtn}>
-                                {getEntityLabel(currentRFQ?.is_tender)} closed
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={handleNormalizeClick}
-                              id="normalize_quotes_button-top_actions-compare_quotes_page"
-                              className={revampStyles.actionBtn}
-                            >
-                              {normalizeFilter ? "Remove Normalization" : "Normalize Quotes"}
+                          ) : (
+                            <button type="button" disabled className={revampStyles.actionBtn}>
+                              {getEntityLabel(currentRFQ?.is_tender)} closed
                             </button>
-                          </>
-                        ) : null
-                      }
-                    />
-                  </section>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleNormalizeClick}
+                            id="normalize_quotes_button-top_actions-compare_quotes_page"
+                            className={revampStyles.actionBtn}
+                          >
+                            {normalizeFilter ? "Remove Normalization" : "Normalize Quotes"}
+                          </button>
+                        </>
+                      ) : null
+                    }
+                  />
                 )}
+                <div className={revampStyles.workspaceStack}>
 
                 {showNegotiationZone && (
                   <section className={revampStyles.zoneBlock}>
@@ -1969,6 +1979,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   </section>
                 )}
                 </div>
+                </>
                 ) : null}
               </div>
             </div>

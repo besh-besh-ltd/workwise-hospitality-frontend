@@ -12,23 +12,31 @@ const ProductSearch = ({
   onClose,
   searchRef,
   showHotelWarning,
+  readOnly = false,
 }) => {
+  const isRestricted = readOnly || showHotelWarning;
+
   return (
     <div className={styles.searchSection}>
-      <div className={styles.searchWrapper} ref={searchRef}>
+      <div
+        className={styles.searchWrapper}
+        ref={searchRef}
+        title={readOnly ? "You do not have permissions to search products" : undefined}
+      >
         <BsSearch className={styles.searchIcon} />
         <input
           className={`${styles.searchBar} ${
-            showHotelWarning ? styles.searchBarDisabled : ""
+            isRestricted ? styles.searchBarDisabled : ""
           }`}
           type="text"
           name="search"
           id="search_vendors-search_bar-vendor_search_page"
-          placeholder="Search for products to add... (e.g. Flanges, Pipes, Valves)"
-          onChange={onSearchChange}
-          onFocus={onSearchChange}
+          placeholder={readOnly ? "You do not have permissions to search products" : "Search for products to add... (e.g. Flanges, Pipes, Valves)"}
+          onChange={readOnly ? undefined : onSearchChange}
+          onFocus={readOnly ? undefined : onSearchChange}
           autoComplete="off"
           value={searchProduct}
+          readOnly={readOnly}
         />
 
         {/* Search helper text */}
@@ -100,8 +108,9 @@ const ProductSearch = ({
                         {suggestions.map((item, index) => (
                           <div
                             key={`sp_${item.product_id || index}`}
-                            className={styles.suggestionItem}
+                            className={`${styles.suggestionItem} ${readOnly ? styles.suggestionItemDisabled : ''}`}
                             onClick={() => onSuggestionClick(item)}
+                            title={readOnly ? 'Only members with write permissions can add products' : ''}
                             id={`product_list_item_${
                               item.product_id || index
                             }-product_list-vendor_search_page`}
@@ -118,12 +127,16 @@ const ProductSearch = ({
                                 {item.product_name}
                               </div>
                             </div>
-                            {item.vendor_count !== undefined &&
-                              parseInt(item.vendor_count) === 0 && (
+                            {readOnly ? (
+                              <span className={styles.suggestionBadgeReadOnly}>
+                                View only
+                              </span>
+                            ) : item.vendor_count !== undefined &&
+                              parseInt(item.vendor_count) === 0 ? (
                                 <span className={styles.suggestionBadge}>
                                   No vendors
                                 </span>
-                              )}
+                              ) : null}
                           </div>
                         ))}
                       </>

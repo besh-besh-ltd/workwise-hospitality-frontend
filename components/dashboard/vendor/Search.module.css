@@ -355,6 +355,37 @@
   margin-left: 4px;
 }
 
+.hotelLocked {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: #f1f5f9;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.hotelBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.hotelBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #264FA0;
+  background: rgba(46, 91, 168, 0.06);
+  border: 1px solid rgba(46, 91, 168, 0.12);
+  border-radius: 8px;
+}
+
 .hotelSelectWrapper {
   flex: 1;
 }
@@ -508,6 +539,27 @@
   font-weight: 600;
   color: #92400e;
   background: #fef3c7;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+
+.suggestionItemDisabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.suggestionItemDisabled:hover {
+  background: transparent;
+}
+
+.suggestionBadgeReadOnly {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
   padding: 3px 8px;
   border-radius: 6px;
   white-space: nowrap;

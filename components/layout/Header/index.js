@@ -266,12 +266,10 @@ const Header = () => {
 
       if (windowWidth < 768) {
         visibleCount = 0;
-      } else if (windowWidth < 1200) {
-        visibleCount = Math.max(2, Math.floor((windowWidth - 400) / 150));
+      } else if (windowWidth < 1100) {
+        visibleCount = Math.max(3, Math.floor((windowWidth - 350) / 130));
       } else if (windowWidth < 1400) {
-        visibleCount = Math.max(3, Math.floor((windowWidth - 400) / 140));
-      } else if (windowWidth < 1600) {
-        visibleCount = Math.max(4, navItems.length - 2);
+        visibleCount = Math.max(4, Math.floor((windowWidth - 350) / 120));
       }
       visibleCount = Math.min(visibleCount, navItems.length);
       setHiddenNavItems(navItems.slice(visibleCount));
@@ -285,7 +283,7 @@ const Header = () => {
   // ── Render ────────────────────────────────────
   return (
     <>
-      <header className={`main-header ${styles.header} ${headerStateClass} ${sticky ? styles.sticky : ""} ${menuClass ? "menu-open" : ""}`}>
+      <header className={`${styles.header} ${headerStateClass} ${sticky ? styles.sticky : ""}`}>
         <div className={styles.headerInner}>
           {/* Logo */}
           <div className={styles.logo}>

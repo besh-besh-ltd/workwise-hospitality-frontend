@@ -9,7 +9,7 @@ import PublishDateTimer from '@/components/shared/PublishDateTimer';
 import { getStatusConfig, STATUS_CONFIG } from './statusConfig';
 import styles from './RFQCard.module.scss';
 
-const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
+const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermission = true }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAutoPublished, setIsAutoPublished] = useState(false);
 
@@ -51,14 +51,23 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
   // Click to expand/collapse
   const handleToggleExpand = () => setIsExpanded(!isExpanded);
 
-  // Days remaining calculation
+  // Days remaining calculation — uses IST for accurate comparison
   const getDaysRemaining = () => {
     if (!data.bid_end_date) return null;
-    const endDate = moment(data.bid_end_date);
-    const today = moment();
-    const days = endDate.diff(today, 'days');
-    if (days < 0) return { text: 'Ended', urgent: true };
+    // Convert to IST for accurate comparison
+    const endIST = moment.utc(data.bid_end_date).utcOffset('+05:30');
+    const nowIST = moment().utcOffset('+05:30');
+
+    // First check: has the exact end time already passed?
+    if (endIST.isBefore(nowIST)) return { text: 'Ended', urgent: true };
+
+    // Compare calendar dates in IST for "today/tomorrow" labels
+    const endDay = endIST.clone().startOf('day');
+    const todayDay = nowIST.clone().startOf('day');
+    const days = endDay.diff(todayDay, 'days');
+
     if (days === 0) return { text: 'Ends today', urgent: true };
+    if (days === 1) return { text: 'Ends tomorrow', urgent: true };
     if (days <= 3) return { text: `${days}d left`, urgent: true };
     return { text: `${days}d left`, urgent: false };
   };
@@ -267,13 +276,24 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder }) => {
             </button>
           </Link>
 
-          {/* Do not show Edit for pending-approval tenders */}
-          {publishState.canEdit && !isPendingApproval && (
-            <Link href={publishState.editUrl(data.id)}>
-              <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>
+          {/* Edit button: hidden if finalized, disabled if no permission */}
+          {publishState.canEdit && !isPendingApproval && !data.is_finalized && (
+            hasEditPermission ? (
+              <Link href={publishState.editUrl(data.id)}>
+                <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>
+                  Edit
+                </button>
+              </Link>
+            ) : (
+              <button
+                className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}
+                disabled
+                title="You do not have permission to edit this RFQ"
+                style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              >
                 Edit
               </button>
-            </Link>
+            )
           )}
 
           {!publishState.isPrePublishState && !isPendingApproval && (

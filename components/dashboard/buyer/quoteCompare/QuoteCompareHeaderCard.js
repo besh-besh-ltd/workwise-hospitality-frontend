@@ -1,13 +1,14 @@
 import React from "react";
+import { Badge } from "react-bootstrap";
+import { BsArrowLeft } from "react-icons/bs";
 import {
   formatDisplayDate,
   formatRFQNumber,
   getEntityLabel,
 } from "@/utils/sharedFunctions";
-import ReadMore from "@/components/shared/ReadMore";
 import styles from "./QuoteCompareRevamp.module.scss";
 
-const QuoteCompareHeaderCard = ({ currentRFQ, actions }) => {
+const QuoteCompareHeaderCard = ({ currentRFQ, actions, onBack }) => {
   if (!currentRFQ) return null;
 
   const entityLabel = getEntityLabel(currentRFQ?.is_tender);
@@ -35,32 +36,25 @@ const QuoteCompareHeaderCard = ({ currentRFQ, actions }) => {
   return (
     <div className={styles.heroCard}>
       <div className={styles.heroTop}>
-        <div className={styles.heroTitleBlock}>
-          <div className={styles.heroEntity}>
+        <div className={styles.heroCenter}>
+          <div className={styles.heroNumberRow}>
             <span>{entityLabel}</span>
-            <span className={`${styles.badge} ${styles.badgeLight}`}>
-              {formatRFQNumber(currentRFQ?.rfq_no, currentRFQ?.is_tender) || "-"}
-            </span>
-            <span
-              className={`${styles.badge} ${
-                isClosed ? styles.badgeWarning : styles.badgeSuccess
-              }`}
-            >
+            <span className={styles.heroNum}>#{currentRFQ?.rfq_no}</span>
+            <Badge bg={isClosed ? "warning" : "success"} className={styles.heroStatusBadge}>
               {isClosed ? "Closed" : "Open"}
-            </span>
+            </Badge>
           </div>
-          <ReadMore
-            content={currentRFQ?.title || "Quote Comparison"}
-            maxLines={2}
-            additionalClasses={styles.heroTitle}
-            linkClassName="text-white"
-          />
-          <p className={styles.heroSubTitle}>
-            {currentRFQ?.comment || "Compare vendors side-by-side across costs, terms, and risk signals."}
-          </p>
+          {currentRFQ?.title && (
+            <p className={styles.heroSubTitle}>{currentRFQ.title}</p>
+          )}
+          {currentRFQ?.comment && currentRFQ.comment !== currentRFQ.title && (
+            <p className={styles.heroDescription}>{currentRFQ.comment}</p>
+          )}
         </div>
-        {actions ? <div className={styles.actionRail}>{actions}</div> : null}
+
+        {actions && <div className={styles.heroActions}>{actions}</div>}
       </div>
+
       <div className={styles.heroMetaGrid}>
         {meta.map((item) => (
           <div className={styles.heroMetaItem} key={item.label}>

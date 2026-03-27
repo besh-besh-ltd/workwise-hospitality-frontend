@@ -7,6 +7,8 @@ import Pagination from "@/components/shared/Pagination";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import POCard from "./POCard";
 import ApproveModal from "./ApproveModal";
+import useIsMobile from "@/hooks/useIsMobile";
+import { BsFunnel } from "react-icons/bs";
 import cardStyles from "./POCard.module.scss";
 
 const statusVariants = {
@@ -17,6 +19,83 @@ const statusVariants = {
   invoice_raised: "success",
   dispatched: "success",
   GRN: "success"
+};
+
+const filterInputStyle = { padding: '7px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#1a2730', outline: 'none', width: '100%' };
+const filterLabelStyle = { fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' };
+
+const FilterBar = ({ filters, setFilters, resetFilters, companyUsers, statusVariants }) => {
+  const isMobile = useIsMobile();
+  const [open, setOpen] = useState(false);
+
+  const filterFields = (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
+        <span style={filterLabelStyle}>PO Number</span>
+        <input type="text" value={filters.poNumber} placeholder="Search..." style={filterInputStyle}
+          onChange={(e) => setFilters({ ...filters, poNumber: e.target.value })} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
+        <span style={filterLabelStyle}>Initiated By</span>
+        <select value={filters.initiatedBy} style={filterInputStyle}
+          onChange={(e) => setFilters({ ...filters, initiatedBy: e.target.value })}>
+          <option value="">All</option>
+          {companyUsers && companyUsers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
+        <span style={filterLabelStyle}>Status</span>
+        <select value={filters.status} style={filterInputStyle}
+          onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
+          <option value="">All</option>
+          {Object.keys(statusVariants).map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>)}
+        </select>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
+        <span style={filterLabelStyle}>From</span>
+        <input type="date" value={filters.dateFrom} style={filterInputStyle}
+          onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
+        <span style={filterLabelStyle}>To</span>
+        <input disabled={!filters.dateFrom} type="date" min={filters.dateFrom} value={filters.dateTo}
+          style={{ ...filterInputStyle, background: !filters.dateFrom ? '#f1f5f9' : '#fff' }}
+          onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })} />
+      </div>
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setOpen(!open)}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 12px', fontSize: 13, fontWeight: 600, color: '#495057', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 8, cursor: 'pointer' }}>
+            <BsFunnel size={13} /> Filters {open ? '▲' : '▼'}
+          </button>
+          <button onClick={resetFilters} id="clear_filters-po_listing-purchase_order_page"
+            style={{ padding: '8px 14px', fontSize: 12, fontWeight: 600, color: '#6c757d', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', flexShrink: 0 }}>
+            Clear
+          </button>
+        </div>
+        {open && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8, padding: 12, background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+            {filterFields}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, padding: '14px 16px', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10, marginBottom: 16 }}>
+      {filterFields}
+      <button onClick={resetFilters} id="clear_filters-po_listing-purchase_order_page"
+        style={{ padding: '7px 16px', fontSize: 12, fontWeight: 600, color: '#6c757d', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0 }}>
+        Clear
+      </button>
+    </div>
+  );
 };
 
 const POListing = ({
@@ -93,48 +172,13 @@ const POListing = ({
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, padding: '14px 16px', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10, marginBottom: 16 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>PO Number</span>
-          <input type="text" value={filters.poNumber} placeholder="Search..."
-            style={{ padding: '7px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#1a2730', outline: 'none', width: '100%' }}
-            onChange={(e) => setFilters({ ...filters, poNumber: e.target.value })} />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Initiated By</span>
-          <select value={filters.initiatedBy}
-            style={{ padding: '7px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#1a2730', outline: 'none', width: '100%' }}
-            onChange={(e) => setFilters({ ...filters, initiatedBy: e.target.value })}>
-            <option value="">All</option>
-            {companyUsers && companyUsers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Status</span>
-          <select value={filters.status}
-            style={{ padding: '7px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#1a2730', outline: 'none', width: '100%' }}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
-            <option value="">All</option>
-            {Object.keys(statusVariants).map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>)}
-          </select>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>From</span>
-          <input type="date" value={filters.dateFrom}
-            style={{ padding: '7px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#1a2730', outline: 'none', width: '100%' }}
-            onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })} />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>To</span>
-          <input disabled={!filters.dateFrom} type="date" min={filters.dateFrom} value={filters.dateTo}
-            style={{ padding: '7px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, background: !filters.dateFrom ? '#f1f5f9' : '#fff', color: '#1a2730', outline: 'none', width: '100%' }}
-            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })} />
-        </div>
-        <button onClick={resetFilters} id="clear_filters-po_listing-purchase_order_page"
-          style={{ padding: '7px 16px', fontSize: 12, fontWeight: 600, color: '#6c757d', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0 }}>
-          Clear
-        </button>
-      </div>
+      <FilterBar
+        filters={filters}
+        setFilters={setFilters}
+        resetFilters={resetFilters}
+        companyUsers={companyUsers}
+        statusVariants={statusVariants}
+      />
 
       {/* PO Table Rows */}
       <div className={cardStyles.rowContainer}>

@@ -25,6 +25,7 @@ const ProcurementHeader = ({
   queryMeta,
   onHotelChange,
   isLoading,
+  disableHotelSelect = false,
 }) => {
   const draftHref =
     queryMeta.rfq_id != null
@@ -126,37 +127,51 @@ const ProcurementHeader = ({
           <label className={styles.hotelSelectLabel}>
             <BsBuilding size={14} />
             Business Units
-            {selectedHotelIds.length > 0 && (
-              <span className={styles.hotelCount}>
-                {selectedHotelIds.length} selected
-              </span>
+            {disableHotelSelect && selectedHotelIds.length > 0 && (
+              <span className={styles.hotelLocked}>Locked</span>
             )}
           </label>
           <div className={styles.hotelSelectWrapper}>
-            <Select
-              isMulti
-              options={userHotelMappings.filter((opt) => opt.hotel_name)}
-              value={userHotelMappings.filter(
-                (opt) =>
-                  opt.hotel_name &&
-                  selectedHotelIds.includes(opt.hospitality_hotel_id)
-              )}
-              onChange={(selectedOptions) => {
-                const ids = selectedOptions
-                  ? selectedOptions.map((opt) => opt.hospitality_hotel_id)
-                  : [];
-                onHotelChange(ids);
-              }}
-              placeholder="Select the business units for this procurement..."
-              closeMenuOnSelect={false}
-              classNamePrefix="rs"
-              getOptionValue={(option) => option.hospitality_hotel_id}
-              getOptionLabel={(option) => option.hotel_name}
-            />
-            {selectedHotelIds.length === 0 && (
-              <div className={styles.hotelWarning}>
-                Select at least one business unit to start adding products
+            {disableHotelSelect && selectedHotelIds.length > 0 ? (
+              <div className={styles.hotelBadges}>
+                {userHotelMappings
+                  .filter((opt) => opt.hotel_name && selectedHotelIds.includes(opt.hospitality_hotel_id))
+                  .map((opt) => (
+                    <span key={opt.hospitality_hotel_id} className={styles.hotelBadge}>
+                      <BsBuilding size={11} />
+                      {opt.hotel_name}
+                    </span>
+                  ))
+                }
               </div>
+            ) : (
+              <>
+                <Select
+                  isMulti
+                  options={userHotelMappings.filter((opt) => opt.hotel_name)}
+                  value={userHotelMappings.filter(
+                    (opt) =>
+                      opt.hotel_name &&
+                      selectedHotelIds.includes(opt.hospitality_hotel_id)
+                  )}
+                  onChange={(selectedOptions) => {
+                    const ids = selectedOptions
+                      ? selectedOptions.map((opt) => opt.hospitality_hotel_id)
+                      : [];
+                    onHotelChange(ids);
+                  }}
+                  placeholder="Select the business units for this procurement..."
+                  closeMenuOnSelect={false}
+                  classNamePrefix="rs"
+                  getOptionValue={(option) => option.hospitality_hotel_id}
+                  getOptionLabel={(option) => option.hotel_name}
+                />
+                {selectedHotelIds.length === 0 && (
+                  <div className={styles.hotelWarning}>
+                    Select at least one business unit to start adding products
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

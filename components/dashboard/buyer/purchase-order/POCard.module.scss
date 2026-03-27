@@ -191,6 +191,74 @@ $urgency-critical: #dc3545;
 .emptyRow { display: flex; align-items: center; justify-content: center; padding: 40px 20px; color: #6c757d; font-size: 0.9rem; }
 
 // ========================================
+// MOBILE CARD LAYOUT
+// ========================================
+.mobileCard {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  border-bottom: 1px solid #e9ecef;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  &:hover { background: #f8f9fa; }
+  &:last-child { border-bottom: none; }
+  &.userAction {
+    border-left: 3px solid #e85d04;
+    background: #fff5eb;
+  }
+}
+
+.mobileCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mobileCardMiddle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mobileVendor {
+  font-size: 0.85rem;
+  color: #495057;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobileValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.mobileValue {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #28a745;
+}
+
+.mobileQty {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.mobileCardActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  .approveBtn, .rejectBtn, .viewBtn, .initiateBtn {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+}
+
+// ========================================
 // RESPONSIVE
 // ========================================
 @media (max-width: 1200px) { .colInitiator { display: none; } .projectName { display: none; } }
@@ -200,11 +268,6 @@ $urgency-critical: #dc3545;
   .approveBtn, .rejectBtn, .viewBtn, .pdfBtn { span { display: none; } padding: 5px 8px; }
 }
 @media (max-width: 768px) {
-  .headerRow, .poRow { gap: 6px; padding: 8px; }
-  .colPending, .colQuantity { display: none; }
-  .colStatus { width: 80px; }
-  .colPoNumber { width: 90px; }
-  .colVendor { width: 100px; }
-  .colValue { width: 85px; padding-right: 6px; margin-right: 4px; }
-  .pdfBtn { display: none; }
+  .headerRow { display: none; }
+  .poRow { display: none; }
 }

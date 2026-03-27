@@ -22,6 +22,7 @@ import CreateTaskModal from './CreateTaskModal';
 import Pagination from '@/components/shared/Pagination';
 import { getProjectAvailableBudget } from '@/services/project';
 import { addCommasToNumber, formatDisplayDate, formatToINRShort } from '@/utils/sharedFunctions';
+import useIsMobile from '@/hooks/useIsMobile';
 import Link from 'next/link';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
 import CommonFormInput from '@/components/shared/CommonFormInput';
@@ -63,12 +64,12 @@ const PODetailItem = ({ label, value }) => (
 );
 
 const TimelineItem = ({ title, name, icon, time, remarks }) => (
-  <div className="d-flex align-items-start">
-    <div style={{ fontSize: '1.5rem', color: '#0d6efd', marginRight: '0.8rem' }}>{icon}</div>
-    <div>
-      <h6 className='fw-semibold mb-0'>{title}</h6>
-      <small className="text-muted">{name} • {time || 'N/A'}</small>
-      {remarks && <div className="fst-italic text-muted text-sm">"{remarks}"</div>}
+  <div className="d-flex align-items-start" style={{ gap: '0.7rem' }}>
+    <div style={{ flexShrink: 0 }}>{icon}</div>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 2 }}>{title}</div>
+      <div style={{ fontSize: '0.8rem', color: '#6c757d', wordBreak: 'break-word' }}>{name} &bull; {time || 'N/A'}</div>
+      {remarks && <div style={{ fontSize: '0.78rem', fontStyle: 'italic', color: '#6c757d', wordBreak: 'break-word', marginTop: 2 }}>"{remarks}"</div>}
     </div>
   </div>
 );
@@ -104,7 +105,7 @@ const renderDueDateCell = (dueDateStr, isTask = false) => {
 
 
 const formatIST = (dateStr) =>
-  dateStr ? formatDisplayDate(dateStr, { includeTime: true }) : 'N/A';
+  dateStr ? new Date(dateStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A';
 
 const elipsisToLimit = (text, limit = 45) => {
   return text.length > limit ? text.slice(0, limit).concat('...') : text;
@@ -179,6 +180,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   const [actionLoading, setActionLoading] = useState(null); // 'initiate' | 'grn' | 'hsn' | 'gst' | null
 
   const router = useRouter();
+  const isMobile = useIsMobile();
 
   const handleMilestoneDeletion = async (id) => {
     try {
@@ -327,28 +329,30 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   }, [data]);
 
   // === NON-EDIT VIEW ===
+  const showMobileApprovalBar = isMobile && canApprove && is_approver && status === 'pending_approval';
+
   if(!isEditing) {
     return (
-      <div>
-        {/* ── Hero Header Card (matches Tech Eval pattern) ── */}
+      <div style={showMobileApprovalBar ? { paddingBottom: 70 } : undefined}>
+        {/* ── Hero Header Card ── */}
         <div className={styles.detailsHeader}>
           <div className={styles.detailsHero}>
-            <div className={styles.detailsHeroLeft}>
-              <div className={styles.detailsHeroNumber}>
-                <span>Purchase Order #{po_number}</span>
-                <Badge bg={statusColors[status] || 'secondary'} style={{ fontSize: '0.7rem', padding: '4px 10px', textTransform: 'uppercase' }}>
-                  {status.replace('_', ' ')}
-                </Badge>
-              </div>
-              <p className={styles.detailsHeroSub}>
-                Initiated by {initiated_by_name || '-'} &middot; {formatIST(created_at)}
-                {rfq_no && <> &middot; RFQ #{rfq_no}{rfq_title ? ` — ${rfq_title}` : ''}</>}
-              </p>
-            </div>
-            <div className={styles.detailsHeroActions}>
-              <button className={styles.heroBtn} onClick={handleBack} id="back_button-po_details-purchase_order_page">
-                <BsArrowLeft size={14} /> Back
+            <div className={styles.detailsHeroNumber}>
+              <button className={styles.heroBackBtn} onClick={handleBack} id="back_button-po_details-purchase_order_page">
+                <BsArrowLeft size={14} />
               </button>
+              <span>Purchase Order</span>
+              <span className={styles.detailsHeroPONum}>#{po_number}</span>
+              <Badge bg={statusColors[status] || 'secondary'} className={styles.heroStatusBadge}>
+                {status.replace('_', ' ')}
+              </Badge>
+            </div>
+            <p className={styles.detailsHeroSub}>
+              <BsPersonPlus size={12} style={{ opacity: 0.7, marginRight: 4 }} />
+              {initiated_by_name || '-'} &middot; {formatIST(created_at)}
+              {rfq_no && <> &middot; RFQ #{rfq_no}{rfq_title ? ` — ${rfq_title}` : ''}</>}
+            </p>
+            <div className={styles.detailsHeroActions}>
               {canWrite && !restrictModifyPO(status) && (
                 <button className={`${styles.heroBtn} ${styles.heroBtnSolid}`} onClick={() => setShowEditConfirmModal(true)} id="edit_button-po_details-purchase_order_page">
                   <BsPencilSquare size={13} /> Edit
@@ -397,7 +401,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               <div className={styles.detailsMetaIcon}><BsBoxSeam size={15} /></div>
               <div>
                 <div className={styles.detailsMetaLabel}>Quantity</div>
-                <div className={styles.detailsMetaValue}>{quantity}</div>
+                <div className={styles.detailsMetaValue}>{parseFloat(Number(quantity).toFixed(2))}</div>
               </div>
             </div>
             <div className={styles.detailsMetaItem}>
@@ -463,27 +467,35 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           <div className={styles.sectionCard} style={{ marginBottom: 16 }}>
             <div className={styles.sectionBody}>
               <div className="d-flex align-items-center gap-3">
-                <BsFilePdf size={28} className="text-danger" />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1a2730' }}>PO_{po_number}.pdf</div>
+                <BsFilePdf size={28} className="text-danger" style={{ flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1a2730', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>PO_{po_number}.pdf</div>
                   <div style={{ fontSize: 12, color: '#6c757d' }}>Purchase Order Document</div>
                 </div>
-                <a className={styles.heroBtn} href={poPdfUrl} target="__blank" style={{ textDecoration: 'none', color: '#2E5BA8', background: 'rgba(46,91,168,0.06)', borderColor: 'rgba(46,91,168,0.2)' }}>
-                  View Document <FiExternalLink size={13} />
-                </a>
+                {!isMobile && (
+                  <a className={styles.heroBtn} href={poPdfUrl} target="__blank" style={{ textDecoration: 'none', color: '#2E5BA8', background: 'rgba(46,91,168,0.06)', borderColor: 'rgba(46,91,168,0.2)', whiteSpace: 'nowrap' }}>
+                    View Document <FiExternalLink size={13} />
+                  </a>
+                )}
               </div>
+              {isMobile && (
+                <a className={styles.heroBtn} href={poPdfUrl} target="__blank"
+                  style={{ textDecoration: 'none', color: '#2E5BA8', background: 'rgba(46,91,168,0.06)', borderColor: 'rgba(46,91,168,0.2)', display: 'flex', justifyContent: 'center', marginTop: 10, width: '100%' }}>
+                  View Document <FiExternalLink size={13} style={{ marginLeft: 6 }} />
+                </a>
+              )}
             </div>
           </div>
         )}
 
         {/* ── Vendor & Buyer (compact inline) ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+        <div className={styles.vendorBuyerGrid}>
           <Link href={`/vendor/vendor-profile?id=${finalized_vendor_id}`} target="__blank" style={{ textDecoration: 'none' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, transition: 'all 0.15s', cursor: 'pointer' }}>
               <div className={styles.detailsMetaIcon} style={{ width: 36, height: 36, flexShrink: 0 }}><BsPerson size={16} /></div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#1a2730', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{finalized_vendor_name}</div>
-                <div style={{ fontSize: 11.5, color: '#6c757d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#1a2730', overflow: 'hidden', textOverflow: 'ellipsis' }}>{finalized_vendor_name}</div>
+                <div style={{ fontSize: 11.5, color: '#6c757d', wordBreak: 'break-word' }}>
                   {finalized_vendor_email || ''}{finalized_vendor_phone ? ` · +91 ${finalized_vendor_phone}` : ''}
                 </div>
               </div>
@@ -491,9 +503,9 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10 }}>
             <div className={styles.detailsMetaIcon} style={{ width: 36, height: 36, flexShrink: 0, background: '#e8f5e8', color: '#428B41' }}><BsBuilding size={16} /></div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#1a2730', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{buyer_company_name || '-'}{buyer_business_unit ? ` · ${buyer_business_unit}` : ''}</div>
-              <div style={{ fontSize: 11.5, color: '#6c757d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ minWidth: 0, overflow: 'hidden' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#1a2730', overflow: 'hidden', textOverflow: 'ellipsis' }}>{buyer_company_name || '-'}{buyer_business_unit ? ` · ${buyer_business_unit}` : ''}</div>
+              <div style={{ fontSize: 11.5, color: '#6c757d', wordBreak: 'break-word' }}>
                 {buyer_gstin ? `GSTIN: ${buyer_gstin}` : ''}{initiated_by_name ? `${buyer_gstin ? ' · ' : ''}${initiated_by_name}` : ''}
               </div>
             </div>
@@ -531,9 +543,9 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                       >
                         {/* Accordion header: main outer details (same as above hr earlier) */}
                         <Accordion.Header>
-                          <div className="w-100 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <div className="d-flex flex-column gap-1">
-                              <div className="fw-semibold">
+                          <div className="w-100 d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div className="d-flex flex-column gap-1" style={{ minWidth: 0, flex: 1 }}>
+                              <div className="fw-semibold" style={{ wordBreak: 'break-word' }}>
                                 {prod.name || "Unnamed Product"}
                               </div>
                               <div className="small text-muted">
@@ -547,10 +559,10 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                                 )}
                               </div>
                             </div>
-  
-                            <div className="text-end me-3">
+
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
                               <div className="small text-muted">Total Amount</div>
-                              <div className="fw-semibold fs-6">
+                              <div className="fw-semibold" style={{ fontSize: '0.95rem' }}>
                                 ₹
                                 {typeof addCommasToNumber === "function"
                                   ? addCommasToNumber(prod.total_price)
@@ -567,7 +579,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                             <div className="small">
                               <div className="text-muted">Quantity</div>
                               <div className="fw-semibold">
-                                {prod.quantity} {prod.unit}
+                                {parseFloat(Number(prod.quantity).toFixed(2))} {prod.unit}
                               </div>
                             </div>
   
@@ -707,7 +719,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           </div>
         </div>
 
-        <div className="mb-3 d-flex gap-3">
+        <div className={`mb-3 ${styles.hsnGstRow}`}>
           <div className={`${styles.sectionCard} w-100`}>
             <div className={styles.sectionHeader}>
               <h5 className={styles.sectionTitle}>HSN Codes</h5>
@@ -912,6 +924,41 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               </button>
             )}
           </div>
+          {isMobile ? (
+            <div className={styles.sectionBody} style={{ padding: 0 }}>
+              {payment_milestones && payment_milestones.length > 0 ? (
+                payment_milestones.map((milestone) => (
+                  <div key={milestone.id} style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="fw-semibold" style={{ fontSize: '0.85rem' }}>{milestone.milestone_name}</span>
+                      <Badge bg={milestoneBadges[milestone.status]} className="text-capitalize" style={{ fontSize: '0.7rem' }}>{milestone.status}</Badge>
+                    </div>
+                    {milestone.milestone_description && (
+                      <div className="text-muted" style={{ fontSize: '0.78rem', marginBottom: 4 }}>{elipsisToLimit(milestone.milestone_description, 60)}</div>
+                    )}
+                    <div className="d-flex justify-content-between align-items-center" style={{ fontSize: '0.78rem' }}>
+                      <span className="text-muted">Due: <strong>{new Date(milestone.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
+                      {canWrite && milestone.status != "deleted" && (
+                        <div className="d-flex gap-2">
+                          <button className="minimal-btn" style={{ backgroundColor: '#fdeceb', borderColor: '#f5b5b5', color: '#dc3545', padding: '4px 8px' }}
+                            onClick={() => handleMilestoneEdition(milestone)} id={`edit_milestone_${milestone.id}-milestone_actions-po_details`}>
+                            <HiPencil size={16} />
+                          </button>
+                          <button className="minimal-btn" style={{ backgroundColor: '#fdeceb', borderColor: '#f5b5b5', color: '#dc3545', padding: '4px 8px' }}
+                            onClick={() => { setDeleteMilestoneId(milestone.id); setShowDeleteMilestoneConfirmModal(true); }}
+                            id={`delete_milestone_${milestone.id}-milestone_actions-po_details`}>
+                            <HiOutlineTrash size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-muted p-3" style={{ fontSize: '0.85rem' }}>No payment milestones found.</div>
+              )}
+            </div>
+          ) : (
           <div className="table-responsive p-0">
             <table className="table table-stripped align-middle m-0 text-center">
               <thead className="table-light">
@@ -1012,6 +1059,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               </tbody>
             </table>
           </div>
+          )}
         </div>
 
         {/* Task Timelines */}
@@ -1029,6 +1077,41 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               </button>
             )}
           </div>
+          {isMobile ? (
+            <div className={styles.sectionBody} style={{ padding: 0 }}>
+              {tasks?.data && tasks.data.length > 0 ? (
+                tasks.data.map((task) => (
+                  <div key={task.id} style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="fw-semibold" style={{ fontSize: '0.85rem' }}>{task.task_name}</span>
+                      <Badge bg={milestoneBadges[task.status]} className="text-capitalize" style={{ fontSize: '0.7rem' }}>{task.status}</Badge>
+                    </div>
+                    {task.task_description && (
+                      <div className="text-muted" style={{ fontSize: '0.78rem', marginBottom: 4 }}>{elipsisToLimit(task.task_description, 60)}</div>
+                    )}
+                    <div className="d-flex justify-content-between align-items-center" style={{ fontSize: '0.78rem' }}>
+                      <span className="text-muted">Completion: <strong>{new Date(task.completion_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
+                      {canWrite && (
+                        <div className="d-flex gap-2">
+                          <button className="minimal-btn" style={{ backgroundColor: '#fdeceb', borderColor: '#f5b5b5', color: '#dc3545', padding: '4px 8px' }}
+                            onClick={() => handleTaskEdition(task)} id={`edit_task_${task.id}-task_actions-po_details`}>
+                            <HiPencil size={16} />
+                          </button>
+                          <button className="minimal-btn" style={{ backgroundColor: '#fdeceb', borderColor: '#f5b5b5', color: '#dc3545', padding: '4px 8px' }}
+                            onClick={() => { setDeleteTaskId(task.id); setShowDeleteTaskConfirmModal(true); }}
+                            id={`delete_task_${task.id}-task_actions-po_details`}>
+                            <HiOutlineTrash size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-muted p-3" style={{ fontSize: '0.85rem' }}>No tasks found.</div>
+              )}
+            </div>
+          ) : (
           <div className="table-responsive p-0">
             <table className="table table-stripped align-middle m-0 text-center">
               <thead className="table-light">
@@ -1102,6 +1185,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               </tbody>
             </table>
           </div>
+          )}
           {tasks?.data && (
             <div style={{ padding: '12px 20px', borderTop: '1px solid #f1f5f9' }}>
               <Pagination
@@ -1236,6 +1320,20 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           confirmButtonText="Yes, Go Ahead"
           cancelButtonText="No, Cancel It"
         />
+
+        {/* Sticky mobile approval bar */}
+        {isMobile && canApprove && is_approver && status === 'pending_approval' && (
+          <div className={styles.mobileApprovalBar}>
+            <button className={styles.mobileApproveBtn} onClick={() => setShowApproveConfirmModal(true)}>
+              Approve
+            </button>
+            <button className={styles.mobileRejectBtn} onClick={() => {
+              if (handlePODecision) handlePODecision(id, { decision: "rejected", type: "approval" });
+            }}>
+              Reject
+            </button>
+          </div>
+        )}
       </div>
     );
   }

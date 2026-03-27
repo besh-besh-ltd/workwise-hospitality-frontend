@@ -62,34 +62,70 @@ $badge-tones: (
 }
 
 .heroCard {
-  @include panel(#e6ebf2, $radius-lg);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
   overflow: hidden;
+  margin-bottom: 20px;
 }
 
 .heroTop {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 18px 20px;
-  background: linear-gradient(135deg, $brand-primary 0%, $brand-primary-dark 100%);
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 28px;
+  background: linear-gradient(135deg, #1e3a6e 0%, $brand-primary 50%, #3b6dc2 100%);
   color: $surface-white;
+  position: relative;
 }
 
-.heroTitleBlock {
-  min-width: 0;
+.heroTop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 80% 20%, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
 }
 
-.heroEntity {
-  display: inline-flex;
-  gap: 8px;
+.heroCenter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.heroNumberRow {
+  display: flex;
   align-items: center;
-  font-size: 13px;
-  font-weight: 600;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0.85;
+  letter-spacing: 0.3px;
+  flex-wrap: wrap;
+}
+
+.heroNum {
+  font-size: 22px;
+  font-weight: 800;
+  opacity: 1;
+  letter-spacing: -0.5px;
+}
+
+.heroStatusBadge {
+  font-size: 0.65rem !important;
+  padding: 3px 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.4px;
+  font-weight: 700 !important;
+  border-radius: 20px !important;
+  opacity: 1;
+  vertical-align: middle;
 }
 
 .heroTitle {
-  margin: 6px 0 4px;
+  margin: 0;
   font-size: 20px;
   font-weight: 700;
   line-height: 1.3;
@@ -99,7 +135,25 @@ $badge-tones: (
 .heroSubTitle {
   margin: 0;
   font-size: 13px;
-  opacity: 0.9;
+  opacity: 0.85;
+}
+
+.heroDescription {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.65;
+  line-height: 1.4;
+}
+
+.heroActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.1);
 }
 
 .badge {
@@ -379,16 +433,19 @@ $badge-tones: (
   display: flex;
   flex-wrap: nowrap;
   align-items: flex-start;
-  row-gap: 14px;
-  column-gap: 14px;
+  gap: 16px;
 }
 
 .contentColumn {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 0;
-  width: 0;
+  flex: 1 1 0%;
+  width: auto;
+  max-width: none;
   min-width: 0;
+  overflow: hidden;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 20px;
 }
 
 .workspaceStack {
@@ -543,14 +600,34 @@ $badge-tones: (
   }
 }
 
-@media (max-width: 991px) {
+.mobileSidebarToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
   .layoutRow {
     flex-wrap: wrap;
-    column-gap: 0;
+    gap: 0;
   }
 
   .contentColumn {
-    width: 100%;
     flex: 1 1 100%;
+    width: 100%;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    padding: 12px;
   }
 }
