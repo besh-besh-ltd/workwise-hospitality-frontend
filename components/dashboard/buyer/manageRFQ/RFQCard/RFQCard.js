@@ -16,22 +16,35 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
   const publishState = getRFQPublishState(data);
   const isTender = data.is_tender === 1 || data.is_tender === true;
 
-  // Lightweight auto-publish detection (only fetches instance list, not details)
+  // Auto-publish detection
+  // For RFQs: approval instances are merged into the getRFQS response
+  // For Tenders: still need a separate API call
   useEffect(() => {
     if (!data?.id || !data?.is_published) return;
-    const entityType = isTender ? 'TENDER' : 'RFQ';
-    getEntityApprovalInstances(entityType, data.id)
-      .then(res => {
-        const instances = res?.data?.data || res?.data || [];
-        if (instances.length > 0) {
-          const latest = instances[0];
-          const meta = typeof latest.metadata === 'string' ? JSON.parse(latest.metadata) : latest.metadata;
-          if (meta?.auto_approved === true || !!meta?.auto_approved_reason) {
-            setIsAutoPublished(true);
-          }
+
+    const checkAutoPublished = (instances) => {
+      if (instances.length > 0) {
+        const latest = instances[0];
+        const meta = typeof latest.metadata === 'string' ? JSON.parse(latest.metadata) : latest.metadata;
+        if (meta?.auto_approved === true || !!meta?.auto_approved_reason) {
+          setIsAutoPublished(true);
         }
-      })
-      .catch(() => {});
+      }
+    };
+
+    if (!isTender) {
+      // RFQ: read from merged data
+      const instances = data.approval || [];
+      checkAutoPublished(instances);
+    } else {
+      // Tender: fetch separately
+      getEntityApprovalInstances('TENDER', data.id)
+        .then(res => {
+          const instances = res?.data?.data || res?.data || [];
+          checkAutoPublished(instances);
+        })
+        .catch(() => {});
+    }
   }, [data?.id, data?.is_published, isTender]);
   const isBacklog = isPendingApproval && data.is_published === 1 && data.status === 1;
   const statusConfig = isBacklog ? STATUS_CONFIG.PUBLISHED_WITHOUT_APPROVAL : getStatusConfig(data, publishState);
