@@ -209,7 +209,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
   const loadDeviationPreviews = async () => {
     if (!product?.id || !currentUserProfile?.id) return;
     try {
-      const res = await fetchDeviationPreviews(product.id, currentUserProfile.id);
+      const res = await fetchDeviationPreviews(product.id, currentUserProfile.id, token);
       if (res?.data) {
         const grouped = {};
         res.data.forEach(msg => {
@@ -470,29 +470,70 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                         }
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
-                          style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff", fontSize: "13px" }}
-                          onClick={() => toggleChat(clauseItem.clause_id)}
-                          id="explanation_deviation-clause_actions-technical_evaluation_page"
-                        >
-                          Explanation / Deviation
-                        </button>
-                        {/* Deviation message preview */}
-                        {deviationPreviews[`${clauseItem.clause_id}`] && deviationPreviews[`${clauseItem.clause_id}`].length > 0 && (
-                          <div style={{ marginTop: "6px", padding: "6px 8px", background: "#f8f9fa", borderRadius: "4px", border: "1px solid #e9ecef", fontSize: "11px", lineHeight: "1.5", maxWidth: "220px" }}>
-                            {deviationPreviews[`${clauseItem.clause_id}`].map((m, i) => {
-                              const name = String(m.sender_id) == String(currentUserProfile?.id) ? "You" : (otherUser?.name || "Buyer");
-                              const text = m.text?.length > 40 ? m.text.substring(0, 40) + "..." : m.text;
-                              return (
-                                <div key={i} style={{ color: "#495057", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={`${name}: ${m.text}`}>
-                                  <strong>{name}:</strong> {text}
+                        {(() => {
+                          const msgs = deviationPreviews[`${clauseItem.clause_id}`] || [];
+                          const hasMessages = msgs.length > 0;
+                          return (
+                            <>
+                              <button
+                                type="button"
+                                className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
+                                style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff", fontSize: "13px", position: "relative" }}
+                                onClick={() => toggleChat(clauseItem.clause_id)}
+                                id="explanation_deviation-clause_actions-technical_evaluation_page"
+                              >
+                                Explanation / Deviation
+                                {hasMessages && (
+                                  <span style={{
+                                    position: "absolute", top: "-6px", right: "-6px",
+                                    minWidth: "16px", height: "16px", padding: "0 4px",
+                                    borderRadius: "8px", background: "#dc3545", color: "#fff",
+                                    fontSize: "9px", fontWeight: 700, display: "inline-flex",
+                                    alignItems: "center", justifyContent: "center", lineHeight: 1
+                                  }}>{msgs.length}</span>
+                                )}
+                              </button>
+                              {hasMessages && (
+                                <div
+                                  onClick={() => toggleChat(clauseItem.clause_id)}
+                                  role="button"
+                                  style={{
+                                    marginTop: "6px", padding: "6px", background: "#ffffff",
+                                    borderRadius: "8px", border: "1px solid #e2e8f0",
+                                    fontSize: "11px", lineHeight: "1.4", maxWidth: "220px",
+                                    cursor: "pointer", display: "flex", flexDirection: "column", gap: "4px",
+                                    transition: "border-color 0.15s ease, box-shadow 0.15s ease"
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary-color)'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.08)'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none'; }}
+                                >
+                                  {msgs.slice(0, 2).map((m, i) => {
+                                    const isOwn = String(m.sender_id) == String(currentUserProfile?.id);
+                                    const name = isOwn ? "You" : (otherUser?.contactName || "Buyer");
+                                    const text = m.text?.length > 35 ? m.text.substring(0, 35) + "..." : m.text;
+                                    return (
+                                      <div key={i} style={{
+                                        padding: "4px 8px", borderRadius: "6px",
+                                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                                        fontSize: "10.5px",
+                                        background: isOwn ? "#eff6ff" : "#f1f5f9",
+                                        color: isOwn ? "#1e40af" : "#475569",
+                                        borderLeft: isOwn ? "2px solid #3b82f6" : "2px solid #94a3b8"
+                                      }} title={`${name}: ${m.text}`}>
+                                        <strong style={{ fontSize: "10px" }}>{name}:</strong> {text}
+                                      </div>
+                                    );
+                                  })}
+                                  {msgs.length > 2 && (
+                                    <div style={{ fontSize: "10px", color: "var(--primary-color)", fontWeight: 600, textAlign: "center", padding: "2px 0" }}>
+                                      +{msgs.length - 2} more
+                                    </div>
+                                  )}
                                 </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                              )}
+                            </>
+                          );
+                        })()}
                       </td>
 
                     </tr>
@@ -507,6 +548,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                         otherUser={otherUser}
                         product = {product}
                         token ={token}
+                        rfq_no={otherUser}
                       />
                     }
                   </>)

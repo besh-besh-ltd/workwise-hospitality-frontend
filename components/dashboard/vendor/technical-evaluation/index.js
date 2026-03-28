@@ -20,6 +20,7 @@ const VendorTechnicalEvaluation = () => {
     if (currentRfq) {
       // ✅ Create an object with required fields
       const userObj = {
+        buyer_id: currentRfq.created_by,
         vendor_id: currentRfq.created_by,
         companyName: currentRfq.company_name,
         contactName: currentRfq.contact_name,

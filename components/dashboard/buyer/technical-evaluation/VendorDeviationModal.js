@@ -73,8 +73,8 @@ const VendorDeviationModal = ({
 
     const payload = {
       clause_id: clause.clause_id,
-      sender_id: userData.id,
-      receiver_id: vendor.vendor_id || vendor.value
+      sender_id: parseInt(userData.id),
+      receiver_id: parseInt(vendor.vendor_id || vendor.value)
     };
 
     try {
@@ -101,8 +101,8 @@ const VendorDeviationModal = ({
 
     let payload = {
       clause_id: clause.clause_id,
-      sender_id: userData.id,
-      receiver_id: vendor.vendor_id || vendor.value,
+      sender_id: parseInt(userData.id),
+      receiver_id: parseInt(vendor.vendor_id || vendor.value),
       text: messageText,
       file_url: files,
       product: product,
@@ -304,7 +304,9 @@ const VendorDeviationModal = ({
               return sender.name || "User";
             })();
 
-            const isOwnMessage = msg.created_by === userData.id;
+            // All evaluator/buyer messages on the right, only vendor messages on the left
+            const isVendorMessage = String(msg.created_by) === String(vendor?.vendor_id || vendor?.value);
+            const isOwnMessage = !isVendorMessage;
 
             return (
               <div
@@ -359,12 +361,14 @@ const VendorDeviationModal = ({
                     marginTop: '6px',
                     opacity: 0.7
                   }}>
-                    {new Date(msg.created_at).toLocaleString('en-US', {
+                    {msg.created_at ? new Date(msg.created_at + '+05:30').toLocaleString('en-IN', {
                       month: 'short',
                       day: 'numeric',
                       hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                      minute: '2-digit',
+                      hour12: true,
+                      timeZone: 'Asia/Kolkata'
+                    }) : ''}
                   </div>
                 </div>
               </div>

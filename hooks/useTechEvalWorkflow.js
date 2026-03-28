@@ -58,9 +58,9 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
       return TECH_EVAL_WORKFLOW_STATES.COMPLETED;
     }
 
-    // Check if any round is pending approval
+    // Check if any round is pending approval (PENDING = just created, SUBMITTED = sent for approval)
     const hasPendingRound = data.rounds?.some(
-      r => r.status === ROUND_STATUS.PENDING
+      r => r.status === ROUND_STATUS.PENDING || r.status === ROUND_STATUS.SUBMITTED
     );
     if (hasPendingRound) {
       return TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL;

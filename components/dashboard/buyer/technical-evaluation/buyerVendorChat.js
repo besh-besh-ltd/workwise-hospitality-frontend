@@ -57,8 +57,8 @@ const BuyerVendorChat = ({
   const getChatData = async () => {
     const payload = {
       clause_id: data.clause_id,
-      sender_id: userData.id,
-      receiver_id: otherUser?.vendor_id || otherUser
+      sender_id: parseInt(userData.id),
+      receiver_id: parseInt(otherUser?.buyer_id || otherUser?.vendor_id || otherUser)
     }
     try {
       setLoading(true)
@@ -80,8 +80,8 @@ const BuyerVendorChat = ({
 
     let payload = {
       clause_id: data.clause_id,
-      sender_id: userData.id,
-      receiver_id: otherUser.vendor_id,
+      sender_id: parseInt(userData.id),
+      receiver_id: parseInt(otherUser?.buyer_id || otherUser?.vendor_id),
       text: messageText,
       file_url: files,
       product:product,
@@ -223,14 +223,14 @@ const BuyerVendorChat = ({
                   <div
                     key={`cmnt_${msg.comment_id}`}
                     ref={idx === messages.length - 1 ? latestMessageRef : null}
-                    className={`d-flex ${msg.created_by === userData.id ? "justify-content-end" : ""} mb-2`}
+                    className={`d-flex ${String(msg.created_by) === String(userData.id) ? "justify-content-end" : ""} mb-2`}
                   >
                     <div
                       className={`text-dark px-3 py-2 me-2 `}
                       style={{
                         maxWidth: "70%",
-                        backgroundColor: msg.created_by === userData.id ? "#d1e7fd" : "#e0e0e0",
-                        borderRadius: msg.created_by === userData.id ? "10px 0 0 10px" : "0 10px 10px 0"
+                        backgroundColor: String(msg.created_by) === String(userData.id) ? "#d1e7fd" : "#e0e0e0",
+                        borderRadius: String(msg.created_by) === String(userData.id) ? "10px 0 0 10px" : "0 10px 10px 0"
                       }}
                     >
                       <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 2 }}>
@@ -244,6 +244,18 @@ const BuyerVendorChat = ({
                             Class="badge text-bg-secondary rounded-pill py-0"
                             Style={{ fontSize: "10px" }}
                           />
+                        </div>
+                      )}
+                      {msg.created_at && (
+                        <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.6 }}>
+                          {new Date(msg.created_at + '+05:30').toLocaleString('en-IN', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                            timeZone: 'Asia/Kolkata'
+                          })}
                         </div>
                       )}
                     </div>

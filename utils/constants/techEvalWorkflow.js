@@ -26,6 +26,7 @@ export const TARGET_PASSED_VENDORS = 5;
 // Round status values from backend
 export const ROUND_STATUS = {
   PENDING: 'PENDING',
+  SUBMITTED: 'SUBMITTED',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED'
 };

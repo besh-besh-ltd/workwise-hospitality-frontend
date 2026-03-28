@@ -71,13 +71,13 @@ const UnifiedSubmitForApproval = ({
     );
   }
 
-  const isDisabled = evaluatedProductCount === 0 || unifiedSubmitLoading;
+  const isDisabled = evaluatedProductCount < productCount || unifiedSubmitLoading;
 
   let tooltipMessage = "";
-  if (evaluatedProductCount === 0) {
-    tooltipMessage = "Evaluate at least one vendor in a product before submitting";
+  if (evaluatedProductCount < productCount) {
+    tooltipMessage = `All products must have at least one vendor evaluated before submitting (${evaluatedProductCount}/${productCount} ready)`;
   } else {
-    tooltipMessage = `Submit ${evaluatedProductCount} of ${productCount} evaluated product(s) for approval`;
+    tooltipMessage = `Submit ${evaluatedProductCount} product(s) for approval`;
   }
 
   return (

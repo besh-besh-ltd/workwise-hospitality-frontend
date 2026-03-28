@@ -92,6 +92,41 @@
   font-weight: 600;
 }
 
+/* Pending approval indicator dot — absolute within dashNavItem (position:relative) */
+.approvalDot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: approvalDotPulse 2s infinite;
+  pointer-events: none;
+}
+
+@keyframes approvalDotPulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
+  }
+}
+
+/* Inline dot for popover overflow items and mobile nav */
+.inlineApprovalDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  margin-left: auto;
+  flex-shrink: 0;
+  animation: approvalDotPulse 2s infinite;
+}
+
 .headerActions {
   display: flex;
   align-items: center;

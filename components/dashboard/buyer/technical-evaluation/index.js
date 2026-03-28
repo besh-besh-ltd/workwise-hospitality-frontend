@@ -4,6 +4,7 @@ import AsyncSelect from "react-select/async";
 import { useRouter } from "next/router";
 import { getRfqs, fetchVendorSelectionOption, getAllClauses, getRFQById, submitTechEvalForApproval } from "@/services/rfq";
 import { getUserDetails as getAuthUser } from "@/services/Auth";
+import { useSelector } from "react-redux";
 import ClauseProductItem from "./ClauseProductItem";
 import { toast } from "react-toastify";
 import { getAllProjects as getAllProjectsService } from '@/services/project';
@@ -28,6 +29,7 @@ const BuyerTechnicalEvaluation = () => {
   const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const isMobile = useIsMobile();
+  const reduxUserProfile = useSelector((state) => state.userProfile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rfq_id, setRfqId] = useState(router.query.rfq_id || null);
   const activeRfqRef = useRef(rfq_id); // Track active rfq_id to prevent stale updates
@@ -165,9 +167,15 @@ const BuyerTechnicalEvaluation = () => {
   }, [rfqNo, selectedproject, isTenderFilter]);
 
   const getUserDetails = () => {
-    const user = getAuthUser();
-    if (user) {
-      setcurrentUserProfile({ id: user.sub, name: user.name, ...user });
+    // Prefer Redux persisted profile (populated from /users/get-profile API with correct DB id)
+    // Fall back to JWT decode only if Redux profile is unavailable
+    if (reduxUserProfile && reduxUserProfile.id) {
+      setcurrentUserProfile(reduxUserProfile);
+    } else {
+      const user = getAuthUser();
+      if (user) {
+        setcurrentUserProfile({ id: user.sub, name: user.name, ...user });
+      }
     }
   };
 
@@ -340,14 +348,16 @@ const BuyerTechnicalEvaluation = () => {
     });
   }, [clauseInfo]);
 
-  // Count how many products have at least one vendor evaluated
+  // Count how many products have at least one vendor fully evaluated (all clauses scored)
+  // Uses productEvaluationStatus from child components which checks score_timestamp on every clause
   const evaluatedProductCount = useMemo(() => {
     if (!clauseInfo || clauseInfo.length === 0) return 0;
-    return clauseInfo.filter(rfqProduct => {
-      const vendors = rfqProduct?.vendors || [];
-      return vendors.some(v => v.has_marks);
-    }).length;
-  }, [clauseInfo]);
+    let count = 0;
+    for (const [, status] of productEvaluationStatus) {
+      if (status?.evaluatedVendorCount > 0) count++;
+    }
+    return count;
+  }, [clauseInfo, productEvaluationStatus]);
 
   // Unified submit handler for all products
   const handleUnifiedSubmitForApproval = async () => {
@@ -356,14 +366,14 @@ const BuyerTechnicalEvaluation = () => {
     try {
       setUnifiedSubmitLoading(true);
 
-      // Only submit products that have at least one vendor evaluated
+      // Only submit products that have at least one vendor fully evaluated (all clauses scored)
       const evaluatedProducts = clauseInfo.filter(rfqProduct => {
-        const vendors = rfqProduct?.vendors || [];
-        return vendors.some(v => v.has_marks);
+        const status = productEvaluationStatus.get(rfqProduct.rfq_product_id);
+        return status?.evaluatedVendorCount > 0;
       });
 
       if (evaluatedProducts.length === 0) {
-        toast.error("No products have been evaluated yet.");
+        toast.error("No products have been fully evaluated yet. Score all clauses for at least one vendor per product.");
         return;
       }
 
