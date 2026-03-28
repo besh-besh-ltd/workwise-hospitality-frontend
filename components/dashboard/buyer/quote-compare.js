@@ -25,7 +25,7 @@ import {
   getEntityLabel,
 } from "@/utils/sharedFunctions";
 import { toast } from "react-toastify";
-import { getProjectAvailableBudget, getAllProjects as getAllProjectsService } from "@/services/project";
+import { getProjectAvailableBudget } from "@/services/project";
 import { useSelector } from "react-redux";
 import { Alert } from "react-bootstrap";
 import { BsFileEarmarkText } from "react-icons/bs";
@@ -82,9 +82,6 @@ const QuoteCompare = () => {
   const [freightFilter, setFreightFilter] = useState(false);
   const [normalizeFilter, setNormalizeFilter] = useState(false);
   const [rfqNo, setRfqNo] =useState(null);
-  const [projects, setProjects] = useState(null);
-  const [allProjects, setAllProjects] = useState(null);
-  const [selectedproject, setSelectedproject] = useState(null);
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [openModals, setOpenModals] = useState({});
@@ -366,10 +363,9 @@ const QuoteCompare = () => {
     }
   };
 
-  // Initial load: fetch sidebar RFQs, projects, hotel mappings (once)
+  // Initial load: fetch sidebar RFQs, hotel mappings (once)
   useEffect(() => {
     getAllRFQs();
-    getAllProjects();
     fetchUserHotelMappings();
   }, []);
 
@@ -403,7 +399,7 @@ const QuoteCompare = () => {
         getAllRFQs(true);
     }, 500);
     return () => clearTimeout(handler);
-  }, [rfqNo, selectedproject, isTenderFilter]);
+  }, [rfqNo, isTenderFilter]);
 
 
   const closeModalForVariant = (variantId) => {
@@ -465,21 +461,6 @@ const transformData = (data) => {
 const openModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: true }));
 };
-  const getAllProjects = () => {
-    getAllProjectsService()
-        .then((res) => {
-            let d = [];
-            (res.data.data || res.data || []).map((item) => {
-                d.push({ label: item.name, value: item.id, hospitality_company_id: item.hospitality_company_id, hotel_id: item.hotel_id });
-            });
-            setProjects(d);
-            setAllProjects(d);
-        })
-        .catch((error) => {
-            console.error(error)
-        })
-  }
-
   const fetchUserHotelMappings = () => {
     const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
     setUserHotelMappings(mappings);
@@ -487,17 +468,6 @@ const openModalForVariant = (variantId) => {
 
   const handleHotelSelectionChange = (hotelIds) => {
     setSelectedHotelIds(hotelIds);
-    
-    // Filter projects based on selected hotels
-    if (!hotelIds || hotelIds.length === 0) {
-      setProjects(allProjects);
-    } else {
-      const filtered = allProjects.filter(p => hotelIds.includes(p.hotel_id));
-      setProjects(filtered);
-    }
-    
-    // Reset project selection when hotels change
-    setSelectedproject(null);
   }
 
   const handleFreightFilterChange = (e) => {
@@ -528,7 +498,7 @@ const handleCloseNormalizeModal = () => {
  
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
-    getRfqs({ tech_eval: false, page, limit, project_id: selectedproject ? selectedproject : -1, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote" })
+    getRfqs({ tech_eval: false, page, limit, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote" })
       .then((res) => {
         setloading(false);
         const newData = Array.isArray(res) ? res : [];
@@ -1713,8 +1683,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 userHotelMappings={userHotelMappings}
                 selectedHotelIds={selectedHotelIds}
                 onHotelSelectionChange={handleHotelSelectionChange}
-                projects={projects || []}
-                onProjectChange={(val) => setSelectedproject(val)}
                 showTypeFilter={true}
                 isTenderFilter={isTenderFilter}
                 onTenderFilterChange={(val) => {

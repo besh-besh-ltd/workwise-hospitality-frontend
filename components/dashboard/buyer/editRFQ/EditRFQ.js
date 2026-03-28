@@ -16,7 +16,6 @@ import {
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { getAllProjects } from "@/services/project";
 import { getDepartments } from "@/services/rbac";
 import { getCountryCodes } from "@/services/cms";
 import { getRFQHotels } from "@/services/hospitality";
@@ -103,7 +102,6 @@ const EditRFQ = () => {
   const [rfqLoading, setRfqLoading] = useState(true);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
-  const [projects, setProjects] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [rfqData, setRfqData] = useState(null);
   const [products, setProducts] = useState([]);
@@ -434,16 +432,6 @@ const EditRFQ = () => {
           rfqData.contact_number = fullContactNumber.replace(/[^0-9]/g, "");
         }
       }
-
-      const projectsResponse = await getAllProjects();
-      const projectsData = projectsResponse?.data?.data || projectsResponse?.data || [];
-      const formattedProjects = projectsData.map(project => ({
-        value: project.id,
-        label: project.name || `Project #${project.id}`,
-        hospitality_company_id: project.hospitality_company_id,
-        hotel_id: project.hotel_id
-      }));
-      setProjects(formattedProjects);
 
       const storeData = {
         rfq_id: rfqData.id,
@@ -2021,34 +2009,6 @@ const EditRFQ = () => {
                                 </div>
                               )}
                               getOptionValue={(option) => option.hospitality_hotel_id}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Select Project - only for RFQ, not Tender */}
-                      {rfqData?.is_tender !== 1 && (
-                        <div className="col-md-6">
-                          <div className="mb-3">
-                            <label className="form-label fw-medium">Select Project</label>
-                            <Select
-                              key={`project-select-${rfqFormDataFromStore.project_id || 'none'}`}
-                              options={projects}
-                              value={(() => {
-                                if (!rfqFormDataFromStore.project_id) return null;
-                                const projectId = parseInt(rfqFormDataFromStore.project_id);
-                                const match = projects.find(p => parseInt(p.value) === projectId);
-                                return match || null;
-                              })()}
-                              onChange={(selectedOption) => {
-                                const projectId = selectedOption ? parseInt(selectedOption.value) : null;
-                                dispatch(setOtherFormFields({ project_id: projectId }));
-                                setHasUnsavedChanges(true);
-                              }}
-                              placeholder="Select Project"
-                              className="basic-select"
-                              classNamePrefix="select"
-                              isClearable={true}
                             />
                           </div>
                         </div>

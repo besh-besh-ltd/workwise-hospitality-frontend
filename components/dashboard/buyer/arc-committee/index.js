@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { getArcRfqList, getTenderLifecycle, performArcAction } from "@/services/arc";
 import { getRFQById } from "@/services/rfq";
-import { getAllProjects as getAllProjectsService } from '@/services/project';
 import { useSelector } from 'react-redux';
 import { formatRFQNumber } from "@/utils/sharedFunctions";
 import { toast } from "react-toastify";
@@ -29,9 +28,6 @@ const ArcCommittee = () => {
   const [rfqList, setRfqList] = useState([]);
   const [currentRfq, setCurrentRfq] = useState(null);
   const [lifecycleData, setLifecycleData] = useState(null);
-  const [projects, setProjects] = useState([]);
-  const [allProjects, setAllProjects] = useState([]);
-  const [selectedProject, setSelectedProject] = useState(null);
   const [isTenderFilter, setIsTenderFilter] = useState(null);
   const [rfqNo, setRfqNo] = useState(null);
   const [userHotelMappings, setUserHotelMappings] = useState([]);
@@ -113,7 +109,6 @@ const ArcCommittee = () => {
   }));
 
   useEffect(() => {
-    getAllProjects();
     fetchUserHotelMappings();
   }, []);
 
@@ -125,7 +120,7 @@ const ArcCommittee = () => {
     return () => {
       clearTimeout(handler);
     };
-  }, [selectedProject, isTenderFilter, rfqNo, selectedHotelIds, showAll]);
+  }, [isTenderFilter, rfqNo, selectedHotelIds, showAll]);
 
   // Stage 1: Fetch RFQ metadata for permission context when rfq_id changes
   useEffect(() => {
@@ -178,21 +173,6 @@ const ArcCommittee = () => {
     }
   }, [stageData.currentStage]);
 
-  const getAllProjects = () => {
-    getAllProjectsService()
-      .then((res) => {
-        let d = [];
-        (res.data.data || res.data || []).map((item) => {
-          d.push({ label: item.name, value: item.id, hospitality_company_id: item.hospitality_company_id, hotel_id: item.hotel_id });
-        });
-        setProjects(d);
-        setAllProjects(d);
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  };
-
   const fetchUserHotelMappings = () => {
     const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
     setUserHotelMappings(mappings);
@@ -200,15 +180,6 @@ const ArcCommittee = () => {
 
   const handleHotelSelectionChange = (hotelIds) => {
     setSelectedHotelIds(hotelIds);
-
-    if (!hotelIds || hotelIds.length === 0) {
-      setProjects(allProjects);
-    } else {
-      const filtered = allProjects.filter(p => hotelIds.includes(p.hotel_id));
-      setProjects(filtered);
-    }
-
-    setSelectedProject(null);
   };
 
   const loadRfqList = async () => {
@@ -217,7 +188,6 @@ const ArcCommittee = () => {
       const params = {
         page: 1,
         limit: 100,
-        project_id: selectedProject || -1,
         is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null,
         rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
         module_keys: "arc",
@@ -471,18 +441,6 @@ const ArcCommittee = () => {
                     />
                   </div>
                 )}
-                <div className="py-2">
-                    <label>Select Project</label>
-                    <Select
-                        options={projects}
-                        onChange={(selectedOption) => setSelectedProject(selectedOption?.value ? selectedOption.value : -1)}
-                        value={selectedProject && selectedProject !== -1 ? projects.find(p => p.value === selectedProject) : null}
-                        name="project_id"
-                        placeholder="Select"
-                        isClearable
-                        id="select_project_filter-rfq_list-arc_committee_page"
-                    />
-                </div>
                 <div className="py-2">
                   <Form.Check
                     type="switch"

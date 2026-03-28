@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import { HiX } from "react-icons/hi";
 import { getDepartments, getRoles, getRolePermissions } from "@/services/rbac";
 import { getHospitalityEntities } from "@/services/hospitality";
-import { getProfile } from "@/services/Auth";
 import styles from "@/components/dashboard/admin/account-management/manage-accounts/ManageAccounts.module.scss";
 
 export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDepartment: propSelectedDepartment, isEditMode = true, onRemoveRole, userDepartments = [], userId = null, externalMappings = null }) {
+  const userProfile = useSelector((state) => state.userProfile);
   const [roles, setRoles] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [allCompanies, setAllCompanies] = useState([]);
@@ -71,22 +72,10 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       return;
     }
 
-    setUserMappingsLoaded(false);
-    const loadUserMappings = async () => {
-      try {
-        const response = await getProfile();
-        const mappings = response?.data?.hospitality_mappings || [];
-        setUserMappings(mappings);
-      } catch (error) {
-        console.error("Error loading user mappings:", error);
-        setUserMappings([]);
-      } finally {
-        setUserMappingsLoaded(true);
-      }
-    };
-
-    loadUserMappings();
-  }, [userId, isEditMode]);
+    const mappings = userProfile?.hospitality_mappings || [];
+    setUserMappings(mappings);
+    setUserMappingsLoaded(true);
+  }, [userId, isEditMode, userProfile]);
 
   useEffect(() => {
     // When externalMappings are provided (create page), use them to filter

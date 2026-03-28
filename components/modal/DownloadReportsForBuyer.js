@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import Modal from "react-modal";
 import Select, { components } from 'react-select';
 import * as XLSX from "xlsx";
@@ -6,7 +6,6 @@ import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import {
   getProductReportData,
-  getAllProjects,
   getProjectReportData,
   sendReportOnEmail,
 } from "@/services/project";
@@ -126,25 +125,7 @@ const DownloadReportsForBuyer = (props) => {
       });
   };
 
-  // Fetch project options
-  const fetchProjectList = async () => {
-    try {
-      setOptionLoading(true);
-      const res = await getAllProjects();
-      const formattedProjects = (res.data.data || res.data || []).map((item) => ({
-        label: item.name,
-        value: item.id,
-      }));
-      setOptions(formattedProjects);
-    } catch (error) {
-      toast.error(error.message);
-      console.error("Error fetching project list:", error);
-    } finally {
-      setOptionLoading(false);
-    }
-  };
-
-  // Function to format product data along with it's categories 
+  // Function to format product data along with it's categories
   const formatGroupedData = (groupedData) => {
     return Object.values(groupedData).flatMap(items =>
       items.map(item => ({
@@ -561,13 +542,6 @@ const DownloadReportsForBuyer = (props) => {
     const project = projectOptions.filter(p => p.value == projectId);
     return project ? project[0].label : "Project";
   };
-
-  useEffect(() => {
-    if (reportType === "projectWise") {
-      fetchProjectList();
-    }
-  }, [reportType]);
-
 
   return (
     <Modal
