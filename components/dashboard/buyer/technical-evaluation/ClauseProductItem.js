@@ -12,7 +12,6 @@ import { BsThreeDotsVertical, BsCheckCircleFill, BsXCircleFill, BsChatDots, BsPe
 import { ApprovalWorkflowSection } from "@/components/dashboard/buyer/approval";
 import { useTechEvalWorkflow } from '@/hooks/useTechEvalWorkflow';
 import TechEvalWorkflowStatus from './TechEvalWorkflowStatus';
-import TechEvalFailedHistory from './TechEvalFailedHistory';
 import { TECH_EVAL_WORKFLOW_STATES } from '@/utils/constants/techEvalWorkflow';
 import { checkBidExpired } from '@/utils/sharedFunctions';
 import styles from './TechnicalEvaluation.module.scss';
@@ -103,14 +102,18 @@ const ClauseProductItem = ({
     };
 
     const pendingRound =
-        rounds?.find((round) => ["PENDING", "IN_PROGRESS"].includes(String(round?.status || "").toUpperCase())) || null;
+        rounds?.find((round) => ["PENDING", "IN_PROGRESS", "SUBMITTED"].includes(String(round?.status || "").toUpperCase())) || null;
 
     // TECHNICAL approval entity is round-based (pending round id), not rfq_product_id
     const approvalEntityId = getRoundEntityId(pendingRound) || getRoundEntityId(latestRound);
 
-    // Derived: Check if approval is pending (freeze all actions)
+    // Derived: Check if approval is pending (used for parent "Approval Pending" banner)
     const isPendingApproval =
         workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL || !!pendingRound;
+
+    // Derived: Lock editing unless actively evaluating (EVALUATING = initial eval or after rejection)
+    // Locked during: PENDING_APPROVAL (submitted), AWAITING_NEXT_ROUND (approved), COMPLETED
+    const isEditLocked = workflowState !== TECH_EVAL_WORKFLOW_STATES.EVALUATING;
 
     // Derived: Check if quote submission deadline has NOT yet passed (lock tech eval edits until deadline)
     const isBidEndNotPassed = currentRfq?.bid_end_date ? !checkBidExpired(currentRfq.bid_end_date) : false;
@@ -236,7 +239,10 @@ const ClauseProductItem = ({
             if (res?.data) {
                 const grouped = {};
                 res.data.forEach(msg => {
-                    const vendorId = String(msg.sender_id) == String(currentUserProfile?.id) ? String(msg.receiver_id) : String(msg.sender_id);
+                    // Identify vendor by checking against the known vendors list
+                    // This ensures messages from ANY evaluator to a vendor are grouped correctly
+                    const isVendorSender = _vendors?.some(v => String(v.vendor_id) == String(msg.sender_id));
+                    const vendorId = isVendorSender ? String(msg.sender_id) : String(msg.receiver_id);
                     const key = `${msg.clause_id}_${vendorId}`;
                     if (!grouped[key]) grouped[key] = [];
                     grouped[key].push(msg);
@@ -393,7 +399,7 @@ const ClauseProductItem = ({
         setSelectedVendorForRemark(vendor);
         // Only set remark for sampling clauses
         setBuyerRemark(clause.clause_type === 'sampling' ? (response?.buyer_remark ?? "") : "");
-        setBuyerMarks(response?.buyer_marks !== undefined && response?.buyer_marks !== null ? response.buyer_marks : "");
+        setBuyerMarks(response?.score_timestamp && response?.buyer_marks !== undefined && response?.buyer_marks !== null ? response.buyer_marks : "");
         setShowRemarkModal(true);
     }
     
@@ -579,10 +585,6 @@ const ClauseProductItem = ({
           />
         )} */}
 
-        {/* Failed Vendor History - Grouped by round */}
-        {failedVerifiedVendors.length > 0 && (
-          <TechEvalFailedHistory vendors={failedVerifiedVendors} />
-        )}
 
         {/* Buyer All Clauses */}
         {loading ? (
@@ -754,7 +756,7 @@ const ClauseProductItem = ({
                                         {(() => {
                                           const isScored = !!response?.score_timestamp;
                                           const disagrees = clauseItem.clause_type !== 'sampling' && response?.vendor_response == "I Dont Agree";
-                                          const canEdit = canWrite && !permissionsLoading && !isPendingApproval && !isBidEndNotPassed;
+                                          const canEdit = canWrite && !permissionsLoading && !isEditLocked && !isBidEndNotPassed;
                                           const previewKey = `${clauseItem.clause_id}_${String(vendor.vendor_id)}`;
                                           const previewMsgs = deviationPreviews[previewKey];
                                           const hasMessages = previewMsgs?.length > 0;
@@ -783,7 +785,7 @@ const ClauseProductItem = ({
                                                   tabIndex={canEdit ? 0 : undefined}
                                                   title={
                                                     !canWrite ? "No permission"
-                                                      : isPendingApproval ? "Frozen during approval"
+                                                      : isEditLocked ? "Evaluation locked"
                                                       : isBidEndNotPassed ? "Locked until bid submission deadline"
                                                       : isScored ? `${response.buyer_marks ?? 0}/${clauseItem.weightage || 0} · Click to edit` : "Click to score"
                                                   }
@@ -820,22 +822,36 @@ const ClauseProductItem = ({
                                                   <button
                                                     className={styles.deviationLink}
                                                     onClick={() => openDeviationModal(clauseItem, vendor)}
-                                                    disabled={isPendingApproval && !canApprove}
+                                                    disabled={isEditLocked && !canApprove}
                                                     id={`view_deviation_${clauseItem.clause_id}_${vendor.vendor_id}-deviation_actions-technical_evaluation_page`}
                                                   >
                                                     <BsChatDots size={11} /> {hasMessages ? 'View Deviation' : 'Deviation'}
+                                                    {hasMessages && (
+                                                      <span className={styles.deviationBadge}>{previewMsgs.length}</span>
+                                                    )}
                                                   </button>
                                                   {hasMessages && (
-                                                    <div className={styles.deviationPreview}>
-                                                      {previewMsgs.map((m, i) => {
-                                                        const name = String(m.sender_id) == String(currentUserProfile?.id) ? "You" : vendorLabel;
-                                                        const text = m.text?.length > 40 ? m.text.substring(0, 40) + "..." : m.text;
+                                                    <div
+                                                      className={styles.deviationPreview}
+                                                      onClick={() => openDeviationModal(clauseItem, vendor)}
+                                                      role="button"
+                                                      tabIndex={0}
+                                                    >
+                                                      {previewMsgs.slice(0, 2).map((m, i) => {
+                                                        const isVendor = _vendors?.some(v => String(v.vendor_id) == String(m.sender_id));
+                                                        const name = isVendor ? vendorLabel : "Evaluator";
+                                                        const text = m.text?.length > 35 ? m.text.substring(0, 35) + "..." : m.text;
                                                         return (
-                                                          <div key={i} className={styles.deviationPreviewMsg} title={`${name}: ${m.text}`}>
-                                                            <strong>{name}:</strong> {text}
+                                                          <div key={i} className={`${styles.deviationPreviewMsg} ${isVendor ? styles.deviationPreviewVendor : styles.deviationPreviewEvaluator}`} title={`${name}: ${m.text}`}>
+                                                            <span className={styles.deviationPreviewName}>{name}:</span> {text}
                                                           </div>
                                                         );
                                                       })}
+                                                      {previewMsgs.length > 2 && (
+                                                        <div className={styles.deviationPreviewMore}>
+                                                          +{previewMsgs.length - 2} more
+                                                        </div>
+                                                      )}
                                                     </div>
                                                   )}
                                                 </>
@@ -895,11 +911,11 @@ const ClauseProductItem = ({
                                     <>
                                         <button
                                             type="button"
-                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isPendingApproval || isBidEndNotPassed) ? styles.btnDisabled : styles.btnSuccess}`}
+                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed) ? styles.btnDisabled : styles.btnSuccess}`}
                                             onClick={() => addToTechnicallyAccepted()}
-                                            disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndNotPassed}
+                                            disabled={!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed}
                                             title={
-                                              isPendingApproval ? "Actions frozen during pending approval"
+                                              isEditLocked ? "Evaluation locked"
                                                 : isBidEndNotPassed ? "Technical acceptance is locked until the bid submission deadline"
                                                 : (!canWrite ? "You don't have permission to accept vendors" : "")
                                             }
@@ -909,11 +925,11 @@ const ClauseProductItem = ({
                                         </button>
                                         <button
                                             type="button"
-                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isPendingApproval || isBidEndNotPassed) ? styles.btnDisabled : styles.btnDanger}`}
+                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed) ? styles.btnDisabled : styles.btnDanger}`}
                                             onClick={() => setShowRejectConfirmModal(true)}
-                                            disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndNotPassed}
+                                            disabled={!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed}
                                             title={
-                                              isPendingApproval ? "Actions frozen during pending approval"
+                                              isEditLocked ? "Evaluation locked"
                                                 : isBidEndNotPassed ? "Technical rejection is locked until the bid submission deadline"
                                                 : (!canWrite ? "You don't have permission to reject vendors" : "")
                                             }
@@ -985,10 +1001,10 @@ const ClauseProductItem = ({
                                                 {clauseItem.clause_type !== 'sampling' && (
                                                   <button
                                                       type="button"
-                                                      className={`${styles.btn} ${(isPendingApproval && !canApprove) ? styles.btnDisabled : styles.btnOutline}`}
+                                                      className={`${styles.btn} ${(isEditLocked && !canApprove) ? styles.btnDisabled : styles.btnOutline}`}
                                                       onClick={() => toggleChat(clauseItem.clause_id)}
-                                                      disabled={isPendingApproval && !canApprove}
-                                                      title={(isPendingApproval && !canApprove) ? "Actions frozen during pending approval" : "View explanation / deviation"}
+                                                      disabled={isEditLocked && !canApprove}
+                                                      title={(isEditLocked && !canApprove) ? "Evaluation locked" : "View explanation / deviation"}
                                                       id={`explanation_deviation_${clauseItem.clause_id}-clause_actions-technical_evaluation_page`}
                                                   >
                                                       <BsChatDots size={12} /> Explanation / Deviation
@@ -1089,37 +1105,24 @@ const ClauseProductItem = ({
             <div className="mb-3">
               <label className="form-label fw-semibold">Give Score</label>
 
-              {/* Visual score display */}
-              {buyerMarks !== "" && buyerMarks !== null && selectedClauseForRemark?.weightage && (
-                <div className={styles.scoreModalDisplay}>
-                  <span className={styles.scoreModalValue}>{buyerMarks}</span>
-                  <span className={styles.scoreModalMax}>/ {selectedClauseForRemark.weightage}</span>
-                  {(() => {
-                    const pct = selectedClauseForRemark.weightage ? Math.round((parseInt(buyerMarks) / selectedClauseForRemark.weightage) * 100) : 0;
-                    const pass = pct >= (minimumPassingScore || 0);
-                    return (
-                      <span className={`${styles.scoreModalPercentage} ${pass ? styles.scoreModalPercentagePass : styles.scoreModalPercentageFail}`}>
-                        {pct}%
-                      </span>
-                    );
-                  })()}
-                </div>
-              )}
-
-              <Form.Control
-                type="number"
-                placeholder="Enter score"
-                min="0"
-                max={selectedClauseForRemark?.weightage || 100}
-                value={buyerMarks}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setBuyerMarks(value);
-                }}
-                className={buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0)
-                  ? 'border-danger'
-                  : ''}
-              />
+              <div className="d-flex align-items-center gap-2">
+                <Form.Control
+                  type="text"
+                  placeholder="0"
+                  value={buyerMarks}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || /^\d+$/.test(value)) {
+                      setBuyerMarks(value);
+                    }
+                  }}
+                  className={buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0)
+                    ? 'border-danger'
+                    : ''}
+                  style={{ width: '80px' }}
+                />
+                <span className="fw-semibold text-muted" style={{ fontSize: '16px' }}>/ {selectedClauseForRemark?.weightage || 0}</span>
+              </div>
               {buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0) && (
                 <small className="text-danger">
                   Marks ({buyerMarks}) cannot exceed weightage ({selectedClauseForRemark?.weightage || 0})

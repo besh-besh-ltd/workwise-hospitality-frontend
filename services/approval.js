@@ -158,6 +158,25 @@ export const cancelApproval = (payload) =>
     }
   });
 
+export const getPendingApprovalCounts = (params = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const queryParams = new URLSearchParams();
+      Object.keys(params).forEach((key) => {
+        if (params[key] !== null && params[key] !== undefined && params[key] !== "") {
+          queryParams.append(key, params[key]);
+        }
+      });
+      const queryString = queryParams.toString();
+      const response = await axiosInstance.get(
+        `/general/hospitality/approval/pending/counts${queryString ? `?${queryString}` : ""}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 export const getDepartmentSubGraphPreview = (policyId, params = {}) =>
   new Promise(async (resolve, reject) => {
     try {

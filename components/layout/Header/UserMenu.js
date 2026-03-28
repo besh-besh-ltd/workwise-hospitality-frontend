@@ -24,6 +24,7 @@ const UserMenu = ({
   onToggle,
   onLogout,
   onClose,
+  hasPendingApproval,
 }) => {
   const popoverRef = useRef(null);
 
@@ -101,6 +102,9 @@ const UserMenu = ({
                     onClick={onClose}
                   >
                     {item.label}
+                    {hasPendingApproval?.(item.href) && (
+                      <span className={styles.inlineApprovalDot} />
+                    )}
                   </Link>
                 ))}
               </div>

@@ -19,6 +19,7 @@ import {
 } from "@/utils/hospitalityContext";
 import { getUserMappings } from "@/services/hospitality";
 
+import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
 import { initialMainNavs, roleMenus, websiteMenu, ANNOUNCEMENT_TEXT } from "./headerConfig";
 import UserMenu from "./UserMenu";
 import MobileMenu from "./MobileMenu";
@@ -84,6 +85,10 @@ const Header = () => {
     const isPrivate = pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor");
     return !isPrivate && pathname === "/";
   };
+
+  const { hasPendingApproval } = usePendingApprovalIndicators({
+    enabled: !!loggedinUser && !!isDashboardPage,
+  });
 
   const currentRoleMenu = useMemo(() => {
     const baseMenu = roleMenus[currentUserType] || [];
@@ -391,6 +396,9 @@ const Header = () => {
                         <Link href={item.href} className={styles.dashNavLink}>
                           {item.label}
                         </Link>
+                        {hasPendingApproval(item.href) && (
+                          <span className={styles.approvalDot} />
+                        )}
                       </li>
                     ))}
                 </ul>
@@ -412,6 +420,7 @@ const Header = () => {
                 onToggle={() => setPopoverVisible(!popoverVisible)}
                 onLogout={handleLogout}
                 onClose={() => setPopoverVisible(false)}
+                hasPendingApproval={hasPendingApproval}
               />
             </div>
           )}
@@ -466,6 +475,7 @@ const Header = () => {
             setMenuClass(false);
           }}
           onClose={() => setMenuClass(false)}
+          hasPendingApproval={hasPendingApproval}
         />
       </header>
 

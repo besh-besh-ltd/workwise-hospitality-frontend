@@ -28,6 +28,7 @@ import {
 } from "@/components/dashboard/buyer/clarification";
 import { getClarifications } from "@/services/clarification";
 import NegotiationColumnCell from "@/components/dashboard/buyer/negotiation/NegotiationColumnCell";
+import { getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { Badge, Button, Alert } from "react-bootstrap";
 import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill } from "react-icons/bs";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
@@ -182,6 +183,7 @@ const RfqManagementPreview = () => {
   // Track negotiation column visibility (null=loading, true=show, false=hide)
   const [showNegotiationCol, setShowNegotiationCol] = useState(null);
   const negotiationResultsRef = useRef({});
+  const [hasActiveNegotiationRounds, setHasActiveNegotiationRounds] = useState(false);
 
   // Update localId when router.query.id becomes available (after hydration)
   useEffect(() => {
@@ -717,7 +719,8 @@ const RfqManagementPreview = () => {
     const now = new Date();
     // Consider memoizing date objects outside this callback with useMemo for performance optimization
     const bidEndDateRaw = rfqDetails?.bid_end_date ? new Date(rfqDetails.bid_end_date) : null;
-    const bidEndDateEndOfDay = bidEndDateRaw ? new Date(bidEndDateRaw.getFullYear(), bidEndDateRaw.getMonth(), bidEndDateRaw.getDate(), 23, 59, 59, 999) : null;
+    // Use exact bid_end_date time, no end-of-day rounding
+    const bidEndDateEndOfDay = bidEndDateRaw;
     const raStartDate = rfqDetails?.ra_start_date ? new Date(rfqDetails.ra_start_date) : null;
     const raEndDate = rfqDetails?.ra_end_date ? new Date(rfqDetails.ra_end_date) : null;
 
@@ -767,21 +770,27 @@ const RfqManagementPreview = () => {
         // Priority 4: Past Bid End Date
         // Changes by Agnij 2025-05-05 [Ensure quotes can be updated until end of bid end date]
         else if (bidEndDateEndOfDay && now > bidEndDateEndOfDay) {
-            isDisabled = true; // Disable by default if bid ended
-            if (isReverseAuction) {
-                if (raEndDate && now > raEndDate) {
-                    message = "Reverse Auction has Ended";
-                } else if (raStartDate && now < raStartDate) {
-                    message = "Bidding Period Ended (Reverse Auction Pending)";
-                } else if (!raStartDate || !raEndDate) {
-                    message = "Bidding Period Ended (RA Dates Invalid)";
-                } else {
-                    // Should not happen if Priority 1 caught active RA, but acts as fallback
-                    message = "Bidding Period Ended";
-                }
+            if (hasActiveNegotiationRounds) {
+                // Active negotiation round exists — allow vendor to submit/update quote
+                isDisabled = false;
+                message = "Send Quote";
             } else {
-                // No RA, bid just ended
-                message = "Bidding Period has Ended";
+                isDisabled = true; // Disable if bid ended and no active negotiation rounds
+                if (isReverseAuction) {
+                    if (raEndDate && now > raEndDate) {
+                        message = "Reverse Auction has Ended";
+                    } else if (raStartDate && now < raStartDate) {
+                        message = "Bidding Period Ended (Reverse Auction Pending)";
+                    } else if (!raStartDate || !raEndDate) {
+                        message = "Bidding Period Ended (RA Dates Invalid)";
+                    } else {
+                        // Should not happen if Priority 1 caught active RA, but acts as fallback
+                        message = "Bidding Period Ended";
+                    }
+                } else {
+                    // No RA, bid just ended
+                    message = "Bidding Period has Ended";
+                }
             }
         }
         // Priority 5: Invalid RFQ State (No Bid End Date)
@@ -812,13 +821,40 @@ const RfqManagementPreview = () => {
       }
     }
 
-  }, [rfqDetails, productleftforbid, hasOpenClarification]);
+  }, [rfqDetails, productleftforbid, hasOpenClarification, hasActiveNegotiationRounds]);
 
   useEffect(() => {
     if (rfqDetails) {
       checkIfQuotationSendIsPossible();
     }
   }, [rfqDetails, checkIfQuotationSendIsPossible]);
+
+  // Fetch active negotiation rounds to allow quote submission after bid end date
+  useEffect(() => {
+    const checkActiveNegotiationRounds = async () => {
+      if (!id) return;
+      try {
+        const response = await getAllActiveNegotiationRounds(id);
+        // Backend returns rounds with status IN ('PENDING_APPROVAL', 'ACTIVE')
+        // but does NOT filter by end_date > NOW(). We must filter on frontend
+        // to match the backend createQuote/updateQuoteItems check:
+        //   status = 'ACTIVE' AND end_date > NOW()
+        const now = new Date();
+        const activeRounds = (response?.data || []).filter(
+          r => {
+            if (r.status !== 'ACTIVE' || !r.end_date) return false;
+            // Backend sends end_date in UTC without timezone suffix — append Z to parse as UTC
+            const endDateStr = r.end_date.includes('+') || r.end_date.includes('Z') ? r.end_date : r.end_date.replace(' ', 'T') + 'Z';
+            return new Date(endDateStr) > now;
+          }
+        );
+        setHasActiveNegotiationRounds(activeRounds.length > 0);
+      } catch (error) {
+        setHasActiveNegotiationRounds(false);
+      }
+    };
+    checkActiveNegotiationRounds();
+  }, [id, rfqDetails?.id]);
 
   const handleRegretQuote = ({ regret_reason }, resetForm) => {
     let bidProducts = [];
@@ -1211,7 +1247,7 @@ const RfqManagementPreview = () => {
                   <button
                     id="view_queries-rfq_header-inquiries_details_page"
                     type="button"
-                    className="btn btn-primary position-relative"
+                    className="btn btn-primary btn-sm p-2 position-relative"
                     style={{ minWidth: 140 }}
                     onClick={(e) => {
                       e.preventDefault();
@@ -1259,7 +1295,7 @@ const RfqManagementPreview = () => {
                           return isWithinClarificationPeriod ? (
                             <button
                               type="button"
-                              className="btn btn-warning"
+                              className="btn btn-warning btn-sm p-2"
                               onClick={() => setShowRaiseClarificationModal(true)}
                             >
                               Raise Clarification
@@ -1272,7 +1308,7 @@ const RfqManagementPreview = () => {
                           return (
                             <button
                               type="button"
-                              className="btn btn-warning position-relative"
+                              className="btn btn-warning btn-sm p-2 position-relative"
                               onClick={() => {
                                 setSelectedClarification(openClarification);
                                 setShowClarificationDetailModal(true);
@@ -1290,7 +1326,7 @@ const RfqManagementPreview = () => {
                         return (
                           <button
                             type="button"
-                            className="btn btn-secondary"
+                            className="btn btn-secondary btn-sm p-2"
                             disabled
                             title="Another vendor has raised a clarification. Please wait for it to be resolved."
                           >
@@ -1303,7 +1339,7 @@ const RfqManagementPreview = () => {
                       {clarifications.length > 0 && (
                         <button
                           type="button"
-                          className="btn btn-dark position-relative"
+                          className="btn btn-dark btn-sm p-2 position-relative"
                           onClick={() => setShowClarificationListModal(true)}
                         >
                           My Clarifications
@@ -1324,7 +1360,7 @@ const RfqManagementPreview = () => {
                     productleftforbid && (
                       <button
                         type="button"
-                        className="btn btn-danger"
+                        className="btn btn-danger btn-sm p-2"
                         onClick={(e) => {
                           e.preventDefault();
                           setregretModal(true);
@@ -1347,14 +1383,12 @@ const RfqManagementPreview = () => {
                   {!enableBuyerView && rfqDetails.quotations.length === 0 && (
                     <button
                       type="button"
-                      className={`btn ${
+                      className={`btn btn-sm p-2 ${
                         isReverseAuctionActive ? "btn-success" : "btn-secondary"
                       }`}
                       onClick={goToQuoteCreation}
                       disabled={
                         hasPendingTechEval ||
-                        (quoteDisabled &&
-                          statusMessage !== "Reverse Auction is Active") ||
                         rfqDetails.status == 2 ||
                         rfqDetails.products?.every(
                           (item) =>
@@ -1365,47 +1399,49 @@ const RfqManagementPreview = () => {
                       }
                       title={hasPendingTechEval ? "Technical evaluation is pending - complete all tech eval responses first" : ""}
                     >
-                      {hasPendingTechEval ? "Tech Eval Pending" : isReverseAuctionActive ? "Send Quote" : statusMessage}
+                      {hasPendingTechEval ? "Tech Eval Pending" : isReverseAuctionActive ? "Send Quote" : (quoteDisabled && statusMessage !== "Reverse Auction is Active") ? "View Inquiry" : statusMessage}
                     </button>
                   )}
+                  {/* View Quote / Update Your Quote Button */}
                   {rfqDetails.status == 1 &&
                   !rfqDetails?.quotations[0]?.is_regret &&
-                  productleftforbid &&
-                  isSubmitAble &&
-                  rfqDetails.quotations?.length > 0 &&
-                  !hasOpenClarification &&
-                  !rfqDetails.products?.some(
-                    (item) =>
-                      item.finalization_status ===
-                        "Another vendor is finalized" ||
-                      item.finalization_status === "You are finalized"
-                  ) ? (
-                    <button
-                      id="update_your_quote-rfq_header-inquiries_details_page"
-                      type="button"
-                      className="btn btn-secondary m-0 p-2"
-                      style={{ width: "240px" }}
-                      disabled={hasPendingTechEval}
-                      title={hasPendingTechEval ? "Technical evaluation is pending - complete all tech eval responses first" : ""}
-                      onClick={() => {
-                        // Use localId which is guaranteed to be set after hydration
-                        const rfqId = localId || id;
-                        if (!rfqId) {
-                          toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
-                          return;
-                        }
-                        router.push(
-                          `/dashboard/vendor/send-quote?type=update-quote&id=${rfqId}${
-                            token !== undefined ? `&token=${token}` : ""
-                          }&showTechEvalRestrictions=${isReverseAuctionActive}`
-                        );
-                      }}
-                    >
-                      <>
-                        <FontAwesomeIcon icon={faEdit} className="me-2" />
-                        {hasPendingTechEval ? "Tech Eval Pending" : "Update Your Quote"}
-                      </>
-                    </button>
+                  rfqDetails.quotations?.length > 0 ? (
+                    (() => {
+                      const hasAnyFinalization = rfqDetails.products?.some(
+                        (item) =>
+                          item.finalization_status === "Another vendor is finalized" ||
+                          item.finalization_status === "You are finalized"
+                      );
+                      const isViewOnly = !productleftforbid || hasAnyFinalization || (!isSubmitAble && !hasActiveNegotiationRounds);
+
+                      return (
+                        <button
+                          id="update_your_quote-rfq_header-inquiries_details_page"
+                          type="button"
+                          className="btn btn-secondary btn-sm p-2 m-0 p-2"
+                          style={{ width: "240px" }}
+                          disabled={hasPendingTechEval}
+                          title={hasPendingTechEval ? "Technical evaluation is pending - complete all tech eval responses first" : ""}
+                          onClick={() => {
+                            const rfqId = localId || id;
+                            if (!rfqId) {
+                              toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
+                              return;
+                            }
+                            router.push(
+                              `/dashboard/vendor/send-quote?type=update-quote&id=${rfqId}${
+                                token !== undefined ? `&token=${token}` : ""
+                              }&showTechEvalRestrictions=${isReverseAuctionActive}`
+                            );
+                          }}
+                        >
+                          <>
+                            <FontAwesomeIcon icon={isViewOnly ? faEye : faEdit} className="me-2" />
+                            {hasPendingTechEval ? "Tech Eval Pending" : isViewOnly ? "View Quote" : "Update Your Quote"}
+                          </>
+                        </button>
+                      );
+                    })()
                   ) : null}
                 </div>}
               </div>
@@ -2143,58 +2179,67 @@ const RfqManagementPreview = () => {
                                           );
                                         })()}
 
-                                        {rfqDetails.status === 2 ||
-                                        !productleftforbid ||
-                                        quoteDisabled ||
-                                        rfqDetails.products?.every(
-                                          (item) =>
-                                            item.finalization_status ===
-                                              "Another vendor is finalized" ||
-                                            item.finalization_status ===
-                                              "You are finalized"
-                                        ) ? (
+                                        {rfqDetails.status === 2 ? (
                                           <button
                                             type="button"
-                                            className={`btn ${
-                                              rfqDetails.status === 2
-                                                ? "btn-danger"
-                                                : wasEndDatePassed &&
-                                                  isReverseAuctionActive
-                                                ? "btn-success"
-                                                : "btn-secondary"
-                                            } m-0 mx-auto mt-2`}
+                                            className="btn btn-danger m-0 mx-auto mt-2"
                                             style={{
                                               width: "240px",
                                               opacity: "0.5",
                                             }}
-                                            disabled={
-                                              quoteDisabled ||
-                                              rfqDetails.status === 2
-                                            }
+                                            disabled
                                           >
                                             <FontAwesomeIcon
                                               icon={faCircleExclamation}
                                               className="me-2"
                                             />
-                                            {rfqDetails.status === 2
-                                              ? "RFQ is Closed"
-                                              : rfqDetails.products?.some(
-                                                  (item) =>
-                                                    item.finalization_status ===
-                                                      "Another vendor is finalized" ||
-                                                    item.finalization_status ===
-                                                      "You are finalized"
-                                                )
-                                              ? rfqDetails.products?.some(
-                                                  (item) =>
-                                                    item.finalization_status ===
-                                                    "You are finalized"
-                                                )
-                                                ? "You are finalized"
-                                                : "Another vendor is finalized"
-                                              : statusMessage ||
-                                                "All Products are Finalized"}
+                                            RFQ is Closed
                                           </button>
+                                        ) : (!productleftforbid ||
+                                          rfqDetails.products?.every(
+                                            (item) =>
+                                              item.finalization_status === "Another vendor is finalized" ||
+                                              item.finalization_status === "You are finalized"
+                                          )) ? (
+                                          <div className="d-flex flex-column align-items-center gap-2">
+                                            <span className={`badge ${
+                                              rfqDetails.products?.some(
+                                                (item) => item.finalization_status === "You are finalized"
+                                              )
+                                                ? "bg-success"
+                                                : "bg-warning text-dark"
+                                            } px-3 py-2`} style={{ fontSize: "0.85rem" }}>
+                                              {rfqDetails.products?.some(
+                                                (item) => item.finalization_status === "You are finalized"
+                                              )
+                                                ? "You are finalized"
+                                                : "Another vendor is finalized"}
+                                            </span>
+                                            <Link
+                                              className="mx-auto"
+                                              href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
+                                                token !== undefined ? `&token=${token}` : ""
+                                              }&showTechEvalRestrictions=${isReverseAuctionActive}`}
+                                              onClick={(e) => {
+                                                if (!localId && !id) {
+                                                  e.preventDefault();
+                                                  toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
+                                                }
+                                              }}
+                                            >
+                                              <button
+                                                type="button"
+                                                className="btn btn-secondary m-0"
+                                                style={{ width: "240px" }}
+                                              >
+                                                <FontAwesomeIcon
+                                                  icon={faEye}
+                                                  className="me-2"
+                                                />
+                                                View Quote
+                                              </button>
+                                            </Link>
+                                          </div>
                                         ) : hasPendingTechEval ? (
                                             <button
                                               type="button"
@@ -2230,10 +2275,10 @@ const RfqManagementPreview = () => {
                                               style={{ width: "240px" }}
                                             >
                                               <FontAwesomeIcon
-                                                icon={faEdit}
+                                                icon={quoteDisabled && !hasActiveNegotiationRounds ? faEye : faEdit}
                                                 className="me-2"
                                               />
-                                              Update Your Quote
+                                              {quoteDisabled && !hasActiveNegotiationRounds ? "View Quote" : "Update Your Quote"}
                                             </button>
                                           </Link>
                                         )}

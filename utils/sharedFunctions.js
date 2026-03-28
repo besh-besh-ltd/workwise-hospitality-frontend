@@ -90,7 +90,13 @@ export const checkBidExpired = (bid_end_date) => {
         return false;
     }
     const CURRENT_DATE = new Date();
-    const END_DATE = new Date(bid_end_date);
+    let dateStr = bid_end_date;
+    if (typeof dateStr === 'string') {
+        dateStr = dateStr.replace(/\s+/, 'T');
+        // Normalize short timezone offsets: +00 → +00:00, -05 → -05:00
+        dateStr = dateStr.replace(/([+-]\d{2})$/, '$1:00');
+    }
+    const END_DATE = new Date(dateStr);
     return CURRENT_DATE > END_DATE;
 };
 
@@ -213,6 +219,8 @@ export const formatDisplayDate = (dateStr, options = {}) => {
     // Just normalize "YYYY-MM-DD HH:MM" format to "YYYY-MM-DDTHH:MM" for valid Date parsing
     if (typeof dateStr === 'string' && /\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(dateStr)) {
         parsedInput = dateStr.replace(' ', 'T');
+        // Normalize short timezone offsets: +00 → +00:00, -05 → -05:00
+        parsedInput = parsedInput.replace(/([+-]\d{2})$/, '$1:00');
     }
 
     const date = parsedInput instanceof Date ? parsedInput : new Date(parsedInput);

@@ -16,6 +16,7 @@ const MobileMenu = ({
   onLoginClick,
   onBookCallClick,
   onClose,
+  hasPendingApproval,
 }) => {
   if (!isOpen) return null;
 
@@ -91,6 +92,9 @@ const MobileMenu = ({
                     onClick={onClose}
                   >
                     {item.label}
+                    {hasPendingApproval?.(item.href) && (
+                      <span className={styles.inlineApprovalDot} />
+                    )}
                   </Link>
                 );
               })}
