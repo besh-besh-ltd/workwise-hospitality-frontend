@@ -7,8 +7,6 @@ import { getUserDetails as getAuthUser } from "@/services/Auth";
 import { useSelector } from "react-redux";
 import ClauseProductItem from "./ClauseProductItem";
 import { toast } from "react-toastify";
-import { getAllProjects as getAllProjectsService } from '@/services/project';
-import { getUserMappings } from '@/services/hospitality';
 import Select from 'react-select';
 import { formatDisplayDate, formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
@@ -26,6 +24,7 @@ import styles from "./TechnicalEvaluation.module.scss";
 
 
 const BuyerTechnicalEvaluation = () => {
+  const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const isMobile = useIsMobile();
   const reduxUserProfile = useSelector((state) => state.userProfile);
@@ -58,9 +57,6 @@ const BuyerTechnicalEvaluation = () => {
   const [vendorMap, setVendorMap] = useState(new Map());
   const [clauseMap, setClauseMap] = useState(null);
   const [rfqNo, setRfqNo] =useState(null);
-  const [projects, setProjects] = useState(null);
-  const [allProjects, setAllProjects] = useState(null);
-  const [selectedproject, setSelectedproject] = useState(null);
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [clauseInfo, setClauseInfo] = useState(null);
@@ -117,44 +113,13 @@ const BuyerTechnicalEvaluation = () => {
   // Track if we've verified permissions for the current RFQ
   const [permissionsVerified, setPermissionsVerified] = useState(false);
 
-  const getAllProjects = () => {
-    getAllProjectsService()
-        .then((res) => {
-            let d = [];
-            (res.data.data || res.data || []).map((item) => {
-                d.push({ label: item.name, value: item.id, hospitality_company_id: item.hospitality_company_id, hotel_id: item.hotel_id });
-            });
-            setProjects(d);
-            setAllProjects(d);
-        })
-        .catch((error) => {
-            console.log(error)
-        })
-  }
-
-  const fetchUserHotelMappings = async () => {
-    try {
-      const response = await getUserMappings();
-      const mappings = (response?.data || []).filter(m => m.hospitality_hotel_id != null);
-      setUserHotelMappings(mappings);
-    } catch (error) {
-      console.error("Error fetching user hotel mappings", error);
-    }
+  const fetchUserHotelMappings = () => {
+    const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
+    setUserHotelMappings(mappings);
   }
 
   const handleHotelSelectionChange = (hotelIds) => {
     setSelectedHotelIds(hotelIds);
-    
-    // Filter projects based on selected hotels
-    if (!hotelIds || hotelIds.length === 0) {
-      setProjects(allProjects);
-    } else {
-      const filtered = allProjects.filter(p => hotelIds.includes(p.hotel_id));
-      setProjects(filtered);
-    }
-    
-    // Reset project selection when hotels change
-    setSelectedproject(null);
   }
 
   const filtersInitialized = useRef(false);
@@ -168,7 +133,7 @@ const BuyerTechnicalEvaluation = () => {
       getTechEvaluationRFQsByUser();
     }, 500);
     return () => clearTimeout(handler);
-  }, [rfqNo, selectedproject, isTenderFilter]);
+  }, [rfqNo, isTenderFilter]);
 
   const getUserDetails = () => {
     // Prefer Redux persisted profile (populated from /users/get-profile API with correct DB id)
@@ -190,7 +155,6 @@ const BuyerTechnicalEvaluation = () => {
         tech_eval: true,
         page: 1,
         limit: 100,
-        project_id: selectedproject ? selectedproject : -1,
         rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
         sort: 'DESC',
         is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null,
@@ -407,7 +371,6 @@ const BuyerTechnicalEvaluation = () => {
   useEffect(() => {
     getUserDetails();
     getTechEvaluationRFQsByUser();
-    getAllProjects();
     fetchUserHotelMappings();
   }, []);
 
@@ -543,8 +506,6 @@ const BuyerTechnicalEvaluation = () => {
                 userHotelMappings={userHotelMappings}
                 selectedHotelIds={selectedHotelIds}
                 onHotelSelectionChange={handleHotelSelectionChange}
-                projects={projects || []}
-                onProjectChange={(val) => setSelectedproject(val)}
                 showTypeFilter={true}
                 isTenderFilter={isTenderFilter}
                 onTenderFilterChange={(val) => setIsTenderFilter(val)}

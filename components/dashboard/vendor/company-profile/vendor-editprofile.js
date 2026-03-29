@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
-import { setUserProfile } from "@/redux/slice";
+import { useSelector } from "react-redux";
 import Image from "next/image";
 import Head from "next/head";
 import Link from "next/link";
@@ -8,7 +7,7 @@ import { useRouter } from "next/router";
 import { faTimesCircle, faEnvelope, faFileLines } from "@fortawesome/free-regular-svg-icons";
 import { faCheckCircle, faLocation, faPhone, faUser } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { getProfile, getUserPaymentTerms } from "@/services/Auth";
+import { getUserPaymentTerms } from "@/services/Auth";
 import {
   getPastRFQS,
   getVendorDetailsByID,
@@ -30,7 +29,7 @@ import { PiCrownSimpleFill } from "react-icons/pi";
 
 
 const VendorProfile = () => {
-  const dispatch = useDispatch();
+  const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const { id } = router.query;
   const [loading, setloading] = useState(false);
@@ -109,9 +108,9 @@ useEffect(() => {
   useEffect(() => {
     if (isLoggedin) {
       getVendorPastRfq();
-      getBuyerProfile();
+      applyBuyerProfile();
     }
-  }, [vendorDetails]);
+  }, [vendorDetails, userProfile]);
 
   useEffect(() => {
     // fetch country codes once
@@ -198,16 +197,15 @@ useEffect(() => {
       });
   };
 
-  const getBuyerProfile = async () => {
-    const res = await getProfile();
-    dispatch(setUserProfile(res.data));
-    const userTypeVal = parseInt(res.data.user_type ?? res.data.register_as ?? 0, 10);
+  const applyBuyerProfile = () => {
+    if (!userProfile) return;
+    const userTypeVal = parseInt(userProfile.user_type ?? userProfile.register_as ?? 0, 10);
     setIsBuyerUser(userTypeVal === 2);
-    setcurrentUserProfile(res.data);
+    setcurrentUserProfile(userProfile);
     calculateReviews();
     if (vendorDetails) {
       let alreadyReviewed = vendorDetails?.reviews?.some(
-        (item) => item.reviewed_by == res.data.id
+        (item) => item.reviewed_by == userProfile.id
       );
       if (alreadyReviewed) {
         setCanSubmitReview(false);

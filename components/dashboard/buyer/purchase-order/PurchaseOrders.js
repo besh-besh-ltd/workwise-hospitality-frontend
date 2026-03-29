@@ -14,7 +14,7 @@ import UpdateGRNModal from "./UpdateGRNModal";
 import { Badge, Alert } from "react-bootstrap";
 import { BsFileEarmarkText } from "react-icons/bs";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
-import { getUserMappings } from "@/services/hospitality";
+import { useSelector } from "react-redux";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
@@ -23,6 +23,7 @@ import { BsList } from "react-icons/bs";
 import styles from "./PurchaseOrder.module.scss";
 
 const PurchaseOrders = () => {
+  const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -311,14 +312,9 @@ const PurchaseOrders = () => {
     }
   }
 
-  const fetchUserHotelMappings = async () => {
-    try {
-      const response = await getUserMappings();
-      const mappings = (response?.data || []).filter(m => m.hospitality_hotel_id != null);
-      setUserHotelMappings(mappings);
-    } catch (error) {
-      console.error("Error fetching user hotel mappings", error);
-    }
+  const fetchUserHotelMappings = () => {
+    const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
+    setUserHotelMappings(mappings);
   };
 
   useEffect(() => {
