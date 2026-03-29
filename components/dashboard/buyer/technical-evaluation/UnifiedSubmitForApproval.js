@@ -19,10 +19,17 @@ const UnifiedSubmitForApproval = ({
   onConfirm,
   onCancel,
   productCount,
-  evaluatedProductCount = 0
+  evaluatedProductCount = 0,
+  isBidExpired = false
 }) => {
   // Don't show button if user doesn't have write permissions
   if (!canWrite || permissionsLoading) return null;
+
+  // Don't show if bid end date hasn't passed yet (evaluators can't score yet)
+  if (!isBidExpired) return null;
+
+  // Don't show if no product has a valid evaluation (at least one vendor scored)
+  if (evaluatedProductCount === 0 && !hasAnyPendingApproval) return null;
 
   // Don't show button if there's already a pending approval
   if (hasAnyPendingApproval) {

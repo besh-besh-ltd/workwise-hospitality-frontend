@@ -10,7 +10,7 @@ import { toast } from "react-toastify";
 import { getAllProjects as getAllProjectsService } from '@/services/project';
 import { getUserMappings } from '@/services/hospitality';
 import Select from 'react-select';
-import { formatDisplayDate, formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
+import { formatDisplayDate, formatRFQNumber, getEntityLabel, checkBidExpired } from "@/utils/sharedFunctions";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
@@ -70,7 +70,6 @@ const BuyerTechnicalEvaluation = () => {
   const [productEvaluationStatus, setProductEvaluationStatus] = useState(new Map());
   const [showUnifiedSubmitModal, setShowUnifiedSubmitModal] = useState(false);
   const [unifiedSubmitLoading, setUnifiedSubmitLoading] = useState(false);
-  const [rfqCompletionMap, setRfqCompletionMap] = useState(new Map());
 
   // Extract hotel IDs for permission checks - use hotel_id from RFQ data
   const hotelIds = useMemo(() => {
@@ -320,6 +319,11 @@ const BuyerTechnicalEvaluation = () => {
     });
   };
 
+  // Bid end date must have passed before evaluation/submission is allowed
+  const isBidExpired = useMemo(() => {
+    return currentRfq?.bid_end_date ? checkBidExpired(currentRfq.bid_end_date) : false;
+  }, [currentRfq?.bid_end_date]);
+
   // Check if all products are fully evaluated
   const areAllProductsEvaluated = useMemo(() => {
     if (!clauseInfo || clauseInfo.length === 0) return false;
@@ -365,7 +369,7 @@ const BuyerTechnicalEvaluation = () => {
 
   // Unified submit handler for all products
   const handleUnifiedSubmitForApproval = async () => {
-    if (!currentRfq || !clauseInfo) return;
+    if (!currentRfq || !clauseInfo || !isBidExpired) return;
 
     try {
       setUnifiedSubmitLoading(true);
@@ -425,34 +429,6 @@ const BuyerTechnicalEvaluation = () => {
       fetchEvaluationData();
     }
   }, [rfq_id, currentRfq, permissionsLoading, canRead, permissionsVerified]);
-
-  // Build completion map from backend te_completed field (no extra API calls needed)
-  useEffect(() => {
-    if (!rfqList || rfqList.length === 0) {
-      setRfqCompletionMap(new Map());
-      return;
-    }
-    const map = new Map();
-    rfqList.forEach(rfq => map.set(rfq.id, rfq.te_completed === true));
-    setRfqCompletionMap(map);
-  }, [rfqList]);
-
-  // Keep rfqCompletionMap in sync when current RFQ's evaluation status changes
-  useEffect(() => {
-    if (!rfq_id || !clauseInfo || clauseInfo.length === 0) return;
-
-    const productIds = clauseInfo.map(item => item.rfq_product_id);
-    const allComplete = productIds.every(productId => {
-      const status = productEvaluationStatus.get(productId);
-      return status?.workflowComplete === true;
-    });
-
-    setRfqCompletionMap(prev => {
-      const newMap = new Map(prev);
-      newMap.set(parseInt(rfq_id), allComplete);
-      return newMap;
-    });
-  }, [rfq_id, clauseInfo, productEvaluationStatus]);
 
   // Access Denied check - show when user has no read permission
   // Only check when an RFQ is selected and we have permission context
@@ -528,13 +504,15 @@ const BuyerTechnicalEvaluation = () => {
                   {
                     key: 'action_required',
                     label: 'Action Required',
-                    filter: (item) => rfqCompletionMap.get(item.id) !== true,
+                    filter: (item) => item.has_pending_evaluation || item.te_approval_rejected || item.approval_required,
                   },
                   {
-                    key: 'action_completed',
-                    label: 'Completed',
-                    filter: (item) => rfqCompletionMap.get(item.id) === true,
+                    key: 'in_progress',
+                    label: 'In Progress',
+                    filter: (item) => !item.has_pending_evaluation && !item.te_approval_rejected
+                      && !item.approval_required && item.has_pending_te_approval,
                   },
+                  { key: 'all', label: 'All', filter: null },
                 ]}
                 defaultTab="action_required"
                 rfqNo={rfqNo}
@@ -550,13 +528,11 @@ const BuyerTechnicalEvaluation = () => {
                 onTenderFilterChange={(val) => setIsTenderFilter(val)}
                 getItemTags={(item, isSelected) => {
                   if (isSelected) return [];
-                  const tags = [];
-                  if (rfqCompletionMap.get(item.id) === true) {
-                    tags.push({ label: 'Completed', variant: 'success' });
-                  } else if (item.approval_required) {
-                    tags.push({ label: 'Approval Pending', variant: 'warning' });
-                  }
-                  return tags;
+                  if (item.te_approval_rejected) return [{ label: 'Evaluation Rejected', variant: 'danger' }];
+                  if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
+                  if (item.has_pending_te_approval) return [{ label: 'In Approval', variant: 'info' }];
+                  if (item.te_completed === true) return [{ label: 'Completed', variant: 'success' }];
+                  return [];
                 }}
                 pageId="technical_evaluation"
               />
@@ -619,10 +595,10 @@ const BuyerTechnicalEvaluation = () => {
                           <span>{entityLabel}</span>
                           <span className={styles.rfqHeroNum}>#{currentRfq.rfq_no}</span>
                           <Badge
-                            bg={rfqCompletionMap.get(currentRfq.id) === true ? 'success' : currentRfq.approval_required ? 'warning' : 'info'}
+                            bg={currentRfq.te_approval_rejected ? 'danger' : currentRfq.te_completed === true ? 'success' : currentRfq.approval_required ? 'warning' : 'info'}
                             className={styles.rfqStatusBadge}
                           >
-                            {rfqCompletionMap.get(currentRfq.id) === true ? 'Completed' : currentRfq.approval_required ? 'Pending Approval' : 'In Progress'}
+                            {currentRfq.te_approval_rejected ? 'Evaluation Rejected' : currentRfq.te_completed === true ? 'Completed' : currentRfq.approval_required ? 'Pending Approval' : 'In Progress'}
                           </Badge>
                         </div>
                         {currentRfq.title && currentRfq.title != "" && (
@@ -767,6 +743,7 @@ const BuyerTechnicalEvaluation = () => {
                         onCancel={() => setShowUnifiedSubmitModal(false)}
                         productCount={clauseInfo.length}
                         evaluatedProductCount={evaluatedProductCount}
+                        isBidExpired={isBidExpired}
                       />
                     )}
                   </>

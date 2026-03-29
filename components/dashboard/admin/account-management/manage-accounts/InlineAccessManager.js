@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { HiX } from "react-icons/hi";
-import { BsBuilding } from "react-icons/bs";
+import { BsBuilding, BsCheckCircleFill } from "react-icons/bs";
 import { validateMapping } from "./accessUtils";
 import styles from "./ManageAccounts.module.scss";
 
@@ -17,6 +17,12 @@ const InlineAccessManager = ({
     accessLevel: "all",
     hotelId: "",
   });
+  const [successMsg, setSuccessMsg] = useState(null);
+  const successTimer = useRef(null);
+
+  useEffect(() => {
+    return () => { if (successTimer.current) clearTimeout(successTimer.current); };
+  }, []);
 
   // Companies already mapped at company-level (all BUs) should be excluded entirely
   const companyLevelMappedIds = new Set(
@@ -53,33 +59,39 @@ const InlineAccessManager = ({
   )?.name;
 
   const handleAdd = () => {
+    const mappingLevel = form.accessLevel === "all" ? "company" : "hotel";
     const error = validateMapping({
       selectedCompanyId: form.selectedCompanyId,
-      mappingLevel: form.accessLevel === "all" ? "company" : "hotel",
+      mappingLevel,
       hotelId: form.hotelId,
     });
     if (error) return;
 
+    const label = mappingLevel === "company"
+      ? `${selectedCompanyName || "Company"} (All Business Units)`
+      : `${selectedHotelName || "Business Unit"} — ${selectedCompanyName || "Company"}`;
+
     onAddMapping({
       companyId: form.selectedCompanyId,
       companyName: selectedCompanyName || "Company",
-      mappingLevel: form.accessLevel === "all" ? "company" : "hotel",
+      mappingLevel,
       hotelId: form.hotelId,
       hotelName: selectedHotelName || "Business Unit",
       autoMapProjects: true,
     });
 
-    setForm((prev) => ({
-      ...prev,
-      hotelId: "",
-    }));
+    setForm({ selectedCompanyId: "", accessLevel: "all", hotelId: "" });
+
+    if (successTimer.current) clearTimeout(successTimer.current);
+    setSuccessMsg(label);
+    successTimer.current = setTimeout(() => setSuccessMsg(null), 3000);
   };
 
   return (
     <div>
       {/* Current Access */}
       {pendingMappings.length > 0 ? (
-        <div className={styles.accessList} style={{ marginBottom: 16 }}>
+        <div className={styles.accessList} style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
           {pendingMappings.map((mapping, index) => (
             <div key={index} className={styles.accessRow}>
               <div className={styles.accessRowInfo}>
@@ -206,6 +218,19 @@ const InlineAccessManager = ({
             </>
           )}
 
+          {successMsg && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 12px', marginBottom: 12, borderRadius: 8,
+              background: '#f0fdf4', border: '1px solid #bbf7d0',
+              fontSize: 13, color: '#166534', fontWeight: 500,
+              animation: 'fadeInAccess 0.2s ease',
+            }}>
+              <BsCheckCircleFill size={14} style={{ flexShrink: 0 }} />
+              <span>Access granted for {successMsg}</span>
+            </div>
+          )}
+
           <button
             type="button"
             className={styles.primaryBtn}
@@ -214,6 +239,12 @@ const InlineAccessManager = ({
           >
             Grant Access
           </button>
+          <style jsx>{`
+            @keyframes fadeInAccess {
+              from { opacity: 0; transform: translateY(-4px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
         </div>
       )}
     </div>

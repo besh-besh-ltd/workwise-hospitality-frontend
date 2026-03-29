@@ -289,10 +289,10 @@
 }
 
 .scoringTable {
-  width: max-content;
   min-width: 100%;
   border-collapse: collapse;
   margin: 0;
+  table-layout: fixed;
 }
 
 .scoringTable th,
@@ -301,6 +301,12 @@
   vertical-align: top;
   border-bottom: 1px solid #eef0f2;
   font-size: 13px;
+}
+
+/* Divider between vendor columns (skip the first sticky clause column) */
+.scoringTable th + th,
+.scoringTable td + td {
+  border-left: 1px solid #eef0f2;
 }
 
 .scoringTable thead th {
@@ -342,19 +348,13 @@
   background-color: #fafbfc;
 }
 
-/* Row hover */
-.scoringTable tbody tr:hover td {
-  background-color: #f0f6ff;
-}
-
-.scoringTable tbody tr:hover td:first-child {
-  background-color: #f0f6ff;
-}
 
 
 /* --- 4. Vendor Headers --- */
 .vendorHeader {
   min-width: 200px;
+  width: 200px;
+  border-left: 1px solid #eef0f2;
 }
 
 .vendorHeaderTop {

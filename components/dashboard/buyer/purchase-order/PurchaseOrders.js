@@ -391,13 +391,21 @@ const PurchaseOrders = () => {
                   {
                     key: 'action_required',
                     label: 'Action Required',
-                    filter: (item) => !item.po_completed,
+                    filter: (item) => {
+                      if (item.po_completed === true) return false;
+                      return item.has_draft_po === true || item.approval_required === true;
+                    },
                   },
                   {
-                    key: 'action_completed',
-                    label: 'Completed',
-                    filter: (item) => item.po_completed === true,
+                    key: 'in_progress',
+                    label: 'In Progress',
+                    filter: (item) => {
+                      if (item.po_completed === true) return false;
+                      if (item.has_draft_po === true || item.approval_required === true) return false;
+                      return item.has_pending_po_approval === true;
+                    },
                   },
+                  { key: 'all', label: 'All', filter: null },
                 ]}
                 defaultTab="action_required"
                 rfqNo={rfqNo}
@@ -409,15 +417,11 @@ const PurchaseOrders = () => {
                 showTypeFilter={false}
                 getItemTags={(item, isSelected) => {
                   if (isSelected) return [];
-                  const tags = [];
-                  if (item.po_completed) {
-                    tags.push({ label: 'Completed', variant: 'success' });
-                  } else if (item.approval_required) {
-                    tags.push({ label: 'Approval Pending', variant: 'warning' });
-                  } else {
-                    tags.push({ label: 'In Progress', variant: 'info' });
-                  }
-                  return tags;
+                  if (item.po_completed) return [{ label: 'Completed', variant: 'success' }];
+                  if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
+                  if (item.has_draft_po) return [{ label: 'Draft', variant: 'neutral' }];
+                  if (item.has_pending_po_approval) return [{ label: 'In Approval', variant: 'info' }];
+                  return [{ label: 'In Progress', variant: 'info' }];
                 }}
                 pageId="purchase_order"
               />

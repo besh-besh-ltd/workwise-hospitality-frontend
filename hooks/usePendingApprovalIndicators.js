@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getPendingApprovalCounts } from "@/services/approval";
+import storageInstance from "@/utils/storageInstance";
 import {
   getStoredHospitalityContext,
   subscribeHospitalityContext,
@@ -24,7 +25,7 @@ export const usePendingApprovalIndicators = ({ enabled = true } = {}) => {
   const fetchIdRef = useRef(0);
 
   const fetchCounts = useCallback(async () => {
-    if (!enabled) {
+    if (!enabled || !storageInstance.getStorage("token")) {
       setPendingHrefs(new Set());
       return;
     }

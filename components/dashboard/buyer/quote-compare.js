@@ -532,7 +532,7 @@ const handleCloseNormalizeModal = () => {
  
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
-    getRfqs({ tech_eval: false, page, limit, project_id: selectedproject ? selectedproject : -1, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote" })
+    getRfqs({ tech_eval: false, page, limit, project_id: selectedproject ? selectedproject : -1, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote,arc" })
       .then((res) => {
         setloading(false);
         const newData = Array.isArray(res) ? res : [];
@@ -1687,30 +1687,31 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 extraQueryParams={{ tab: activeTab }}
                 tabs={[
                   {
-                    key: 'negotiation_pending',
-                    label: 'Negotiation',
+                    key: 'action_required',
+                    label: 'Action Required',
                     filter: (item) => {
-                      const hasActiveQuotes = parseInt(item.active_quote_count || 0) > 0;
-                      const approvalFullyDone = item.finalization_approval_completed === true;
-                      const approvalPartiallyDone = item.finalization_partially_approved === true;
-                      // Items with completed finalization approval go to Finalized tab
-                      if (approvalFullyDone || approvalPartiallyDone) return false;
-                      return hasActiveQuotes || item.has_finalization || item.is_finalized || item.approval_required;
+                      // User is current approver
+                      if (item.approval_required) return true;
+                      // Already fully done or all finalized (in approval) or partially approved
+                      if (item.finalization_approval_completed === true) return false;
+                      if (item.is_finalized === true) return false;
+                      if (item.finalization_partially_approved === true) return false;
+                      // Products still need finalization and vendors have responded
+                      return parseInt(item.active_quote_count || 0) > 0;
                     },
                   },
                   {
-                    key: 'finalization_completed',
-                    label: 'Finalized',
-                    filter: (item) => item.finalization_approval_completed === true
-                      || item.finalization_partially_approved === true,
+                    key: 'in_progress',
+                    label: 'In Progress',
+                    filter: (item) => {
+                      if (item.approval_required || item.finalization_approval_completed) return false;
+                      return (item.is_finalized && !item.finalization_approval_completed)
+                        || item.finalization_partially_approved;
+                    },
                   },
-                  {
-                    key: 'all',
-                    label: 'All',
-                    filter: null,
-                  },
+                  { key: 'all', label: 'All', filter: null },
                 ]}
-                defaultTab="all"
+                defaultTab="action_required"
                 rfqNo={rfqNo}
                 onRfqNoChange={(val) => setRfqNo(val)}
                 searchPlaceholder="Search by number..."
@@ -1727,19 +1728,11 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 }}
                 getItemTags={(item, isSelected) => {
                   if (isSelected) return [];
-                  const tags = [];
-                  if (item.finalization_approval_completed) {
-                    tags.push({ label: 'Finalized', variant: 'success' });
-                  } else if (item.finalization_partially_approved) {
-                    tags.push({ label: 'Partially Finalized', variant: 'warning' });
-                  } else if (item.approval_required) {
-                    tags.push({ label: 'Approval Pending', variant: 'warning' });
-                  } else if (item.has_finalization || item.is_finalized) {
-                    tags.push({ label: 'Awaiting Approval', variant: 'info' });
-                  } else {
-                    tags.push({ label: 'In Negotiation', variant: 'info' });
-                  }
-                  return tags;
+                  if (item.finalization_approval_completed) return [{ label: 'Finalized', variant: 'success' }];
+                  if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
+                  if (item.is_finalized || item.finalization_partially_approved) return [{ label: 'Awaiting Approval', variant: 'info' }];
+                  if (item.has_finalization) return [{ label: 'Partially Finalized', variant: 'purple' }];
+                  return [{ label: 'In Negotiation', variant: 'info' }];
                 }}
                 showLoadMore={true}
                 hasMore={hasMoreQuotes}
