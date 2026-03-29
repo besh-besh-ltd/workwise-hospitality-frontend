@@ -33,7 +33,7 @@ const ManageRFQ = ({ filterData, setFilterData }) => {
   };
 
   useEffect(() => {
-    getAllRFQs();
+    getAllRFQs(); 
   }, [filterData]);
 
   // Handle send reminder
