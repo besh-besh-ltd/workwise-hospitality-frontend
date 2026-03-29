@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Badge } from 'react-bootstrap';
-import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, Folder, Package, FileText, Gavel, AlertTriangle, Zap } from 'lucide-react';
+import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, Users, Folder, Package, FileText, Gavel, AlertTriangle, Zap } from 'lucide-react';
 import Link from 'next/link';
 import moment from 'moment';
 import { getRFQPublishState, formatRFQNumber, textCapitalize } from '@/utils/sharedFunctions';
@@ -124,8 +124,16 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               </>
             ) : (
               <span className={styles.productText}>No products</span>
-            )}  
+            )}
           </div>
+
+          {/* Vendor Count */}
+          {totalVendors > 0 && (
+            <div className={styles.productsPreview} title={`${totalVendors} vendors invited`}>
+              <Users size={12} className={styles.productsIcon} />
+              <span className={styles.productText}>{totalVendors} {totalVendors === 1 ? 'Vendor' : 'Vendors'}</span>
+            </div>
+          )}
         </div>
 
         {/* Right Section: Metrics + Date + Actions */}
@@ -190,8 +198,8 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
             <AlertTriangle size={14} />
           </div>
           <div className={styles.backlogText}>
-            <strong>Published without your approval.</strong>{' '}
-            This {isTender ? 'tender' : 'RFQ'} was auto-published as the approval was not completed in time. No action is required from you.
+            <strong>Published without approval.</strong>{' '}
+            This {isTender ? 'tender' : 'RFQ'} was auto-published as the approval was not completed in time. No action is required.
           </div>
         </div>
       )}

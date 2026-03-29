@@ -271,10 +271,10 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
               </div>
               <div>
                 <div className="apb-skipped-text">
-                  <strong>Published without your approval.</strong>
+                  <strong>Published without approval.</strong>
                 </div>
                 <div className="apb-skipped-sub">
-                  This {entityLabel.toLowerCase()} was auto-published as the approval was not completed in time. No action is required from you.
+                  This {entityLabel.toLowerCase()} was auto-published as the approval was not completed in time. No action is required.
                 </div>
               </div>
             </div>
@@ -511,10 +511,10 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
             </div>
             <div>
               <div className="apb-skipped-text">
-                <strong>Published without your approval.</strong>
+                <strong>Published without approval.</strong>
               </div>
               <div className="apb-skipped-sub">
-                This {entityLabel.toLowerCase()} was auto-published as the approval was not completed in time. No action is required from you.
+                This {entityLabel.toLowerCase()} was auto-published as the approval was not completed in time. No action is required.
               </div>
             </div>
           </div>

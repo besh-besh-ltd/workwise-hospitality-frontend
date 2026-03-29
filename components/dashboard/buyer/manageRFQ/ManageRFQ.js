@@ -14,7 +14,7 @@ const ManageRFQ = ({ filterData, setFilterData }) => {
   // Reminder modal state
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [selectedRFQ, setSelectedRFQ] = useState(null);
-  const [vendors, setVendors] = useState([]);
+  const [vendorCount, setVendorCount] = useState(0);
   const [modalLoading, setModalLoading] = useState(false);
 
   const getAllRFQs = () => {
@@ -44,7 +44,7 @@ const ManageRFQ = ({ filterData, setFilterData }) => {
 
     try {
       const response = await getVendorsForReminder(rfqData.id);
-      setVendors(response.data || []);
+      setVendorCount(response.vendor_count || 0);
     } catch (err) {
       console.error("Error fetching vendors:", err);
       toast.error("Failed to load vendors. Please try again.");
@@ -54,9 +54,9 @@ const ManageRFQ = ({ filterData, setFilterData }) => {
     }
   };
 
-  const handleSendSelectiveReminder = async (selectedVendorIds) => {
+  const handleSendAllReminder = async () => {
     try {
-      const response = await sendSelectiveReminder(selectedRFQ.id, selectedVendorIds);
+      const response = await sendSelectiveReminder(selectedRFQ.id, []);
       if (response.message && response.message !== "") {
         toast.success(response.message);
       }
@@ -72,7 +72,7 @@ const ManageRFQ = ({ filterData, setFilterData }) => {
 
   const handleCloseModal = () => {
     setShowVendorModal(false);
-    setVendors([]);
+    setVendorCount(0);
     setSelectedRFQ(null);
   };
 
@@ -119,11 +119,9 @@ const ManageRFQ = ({ filterData, setFilterData }) => {
       <VendorSelectionModal
         isOpen={showVendorModal}
         onClose={handleCloseModal}
-        onSendReminder={handleSendSelectiveReminder}
-        vendors={vendors}
+        onSendReminder={handleSendAllReminder}
+        vendorCount={vendorCount}
         loading={modalLoading}
-        // For tenders, reminders should go to all vendors and vendor
-        // identities must remain hidden. Pass flag so modal can adapt UI.
         isTender={selectedRFQ?.is_tender === 1}
       />
     </>
