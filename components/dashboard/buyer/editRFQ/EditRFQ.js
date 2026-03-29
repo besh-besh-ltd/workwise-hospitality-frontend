@@ -1,14 +1,14 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import Select from 'react-select';
-import { updateRfq, getTerms, vendorApproveList, getRFQById, getVendorsForProduct, addProductToExistingRfq } from "@/services/rfq";
+import { updateRfq, getTerms, vendorApproveList, getRFQById, getVendorsForProduct, addProductToExistingRfq, refreshVendors, previewRefreshVendors } from "@/services/rfq";
 import { Form, Formik } from "formik";
 
 import Loader from "@/components/shared/Loader";
 import { useDispatch, useSelector } from "react-redux";
 import {
   intializeRfq,
-  clearState,
+  clearRfqState,
   setOtherFormFields,
   setTermsData,
   setAllTerms,
@@ -32,6 +32,8 @@ import { editRfqSchema } from "@/utils/schema";
 import { cleanUpdatableData } from "../createRFQ/CreateRFQ";
 import AddSpecModal from "./AddSpecModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import Modal from "react-modal";
+import { BsArrowRepeat, BsPeopleFill, BsCheckCircleFill } from "react-icons/bs";
 import useModulePermissions from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
@@ -149,6 +151,11 @@ const EditRFQ = () => {
   const [isUpdateConfirm, setIsUpdateConfirm] = useState(false);
   const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
   const [pendingFormValues, setPendingFormValues] = useState(null);
+
+  // Refresh vendors modal state
+  const [showRefreshModal, setShowRefreshModal] = useState(false);
+  const [refreshStep, setRefreshStep] = useState('confirm');
+  const [refreshCount, setRefreshCount] = useState(0);
 
   // Hotel selection state
   const [userHotelMappings, setUserHotelMappings] = useState([]);
@@ -268,7 +275,7 @@ const EditRFQ = () => {
   
   useEffect(() => {
     // Clear Redux store first
-    dispatch(clearState());
+    dispatch(clearRfqState());
     
     // Reset refs for a fresh start
     termRefreshCompletedRef.current = false;
@@ -904,7 +911,7 @@ const EditRFQ = () => {
             }));
             
             // Clear and update the terms in Redux to prevent duplication
-            dispatch(clearState());
+            dispatch(clearRfqState());
             
             // IMPORTANT: Update Redux store - use display format for UI
             dispatch(
@@ -1490,11 +1497,46 @@ const EditRFQ = () => {
     );
   }
 
+  const handleRefreshPreview = async () => {
+    setRefreshStep('loading');
+    try {
+      const res = await previewRefreshVendors(rfqData.id);
+      setRefreshCount(res?.data?.totalAvailable || 0);
+      setRefreshStep('result');
+    } catch {
+      toast.error("Failed to check for new vendors");
+      setShowRefreshModal(false);
+      setRefreshStep('confirm');
+    }
+  };
+
+  const handleRefreshConfirm = async () => {
+    setRefreshStep('applying');
+    try {
+      await refreshVendors(rfqData.id);
+      setRefreshStep('done');
+    } catch {
+      toast.error("Failed to add vendors");
+      setShowRefreshModal(false);
+      setRefreshStep('confirm');
+    }
+  };
+
+  const handleRefreshClose = () => {
+    const wasDone = refreshStep === 'done';
+    setShowRefreshModal(false);
+    setRefreshStep('confirm');
+    setRefreshCount(0);
+    if (wasDone) fetchInitialData();
+  };
+
+  const entityLabel = getEntityLabel(rfqData?.is_tender);
+
   return (
     <>
       <div className="bg-dark-blue text-white p-3 mb-4">
         <div className="container-fluid">
-          <h1 className="fs-4 m-0">Edit {getEntityLabel(rfqData?.is_tender)} #{rfqData?.rfq_no}</h1>
+          <h1 className="fs-4 m-0">Edit {entityLabel} #{rfqData?.rfq_no}</h1>
         </div>
       </div>
 
@@ -1520,8 +1562,22 @@ const EditRFQ = () => {
         <div style={{
           borderRadius: 0
         }} className="mb-4">
-          <div className="mb-3">
+          <div className="mb-3 d-flex align-items-center justify-content-between">
             <h4 className="mb-0">{getEntityLabel(rfqData?.is_tender)} #{rfqData?.rfq_no} details</h4>
+            <button
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '6px 14px', border: '1px solid #000080', borderRadius: 6,
+                background: '#fff', color: '#000080', fontWeight: 500, fontSize: 13,
+                cursor: 'pointer', transition: 'all 0.2s ease',
+              }}
+              onClick={() => setShowRefreshModal(true)}
+              onMouseEnter={e => { e.currentTarget.style.background = '#000080'; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#000080'; }}
+              id="refresh_vendors-rfq_actions-edit_rfq_page"
+            >
+              <BsArrowRepeat size={14} /> Refresh Vendors
+            </button>
           </div>
           {/* <div className="p-0">
             {rfqLoading ? (
@@ -2572,6 +2628,152 @@ const EditRFQ = () => {
         confirmButtonText={`Update ${getEntityLabel(rfqData?.is_tender)}`}
         cancelButtonText="Cancel"
       />
+
+      {/* Refresh Vendors Modal */}
+      <Modal
+        isOpen={showRefreshModal}
+        onRequestClose={refreshStep === 'loading' || refreshStep === 'applying' ? undefined : handleRefreshClose}
+        ariaHideApp={false}
+        contentLabel="Refresh Vendors"
+        style={{
+          overlay: {
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '1rem', zIndex: 1050,
+          },
+          content: {
+            position: 'relative', inset: 'auto',
+            maxWidth: '400px', width: '100%',
+            border: 'none', background: 'white', borderRadius: '16px',
+            overflow: 'hidden', padding: '0',
+            boxShadow: '0 24px 48px -12px rgba(0, 0, 0, 0.18)',
+          },
+        }}
+      >
+        <div style={{ padding: '32px 28px 24px', textAlign: 'center' }}>
+          {/* Loading states */}
+          {(refreshStep === 'loading' || refreshStep === 'applying') && (
+            <div style={{ padding: '20px 0' }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: '50%',
+                border: '3px solid #e2e8f0', borderTopColor: 'var(--primary-color, #2E5BA8)',
+                animation: 'refreshSpin 0.7s linear infinite',
+                margin: '0 auto 12px',
+              }} />
+              <p style={{ fontSize: 13, color: '#94a3b8', margin: 0 }}>
+                {refreshStep === 'loading' ? 'Checking for new vendors...' : 'Adding vendors...'}
+              </p>
+            </div>
+          )}
+
+          {/* Step 1: Confirm */}
+          {refreshStep === 'confirm' && (
+            <>
+              <div style={{
+                width: 56, height: 56, borderRadius: '16px', margin: '0 auto 20px',
+                background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <BsArrowRepeat size={22} style={{ color: 'var(--primary-color, #2E5BA8)' }} />
+              </div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: '#1e293b', margin: '0 0 6px' }}>Refresh Vendors</p>
+              <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 24px', lineHeight: 1.5 }}>
+                Check for new eligible vendors across all products in this {entityLabel.toLowerCase()} after it was published.
+              </p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={handleRefreshClose} style={{
+                  flex: 1, padding: '10px 16px', borderRadius: 10,
+                  border: '1px solid #e2e8f0', background: '#fff',
+                  fontSize: 13, fontWeight: 600, color: '#475569', cursor: 'pointer',
+                }}>Cancel</button>
+                <button onClick={handleRefreshPreview} style={{
+                  flex: 1, padding: '10px 16px', borderRadius: 10,
+                  border: 'none', background: 'var(--primary-color, #2E5BA8)',
+                  fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}>
+                  <BsArrowRepeat size={13} /> Check Now
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Step 2: Result */}
+          {refreshStep === 'result' && (
+            <>
+              <div style={{
+                width: 56, height: 56, borderRadius: '16px', margin: '0 auto 20px',
+                background: refreshCount > 0
+                  ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
+                  : '#f1f5f9',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <BsPeopleFill size={22} style={{ color: refreshCount > 0 ? 'var(--primary-color, #2E5BA8)' : '#94a3b8' }} />
+              </div>
+              {refreshCount > 0 ? (
+                <>
+                  <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, marginBottom: 8 }}>
+                    <span style={{ fontSize: 32, fontWeight: 700, lineHeight: 1, color: 'var(--primary-color, #2E5BA8)' }}>{refreshCount}</span>
+                    <span style={{ fontSize: 14, fontWeight: 500, color: '#64748b' }}>new {refreshCount === 1 ? 'vendor' : 'vendors'}</span>
+                  </div>
+                  <p style={{ fontSize: 14, color: '#475569', margin: '0 0 24px', lineHeight: 1.5 }}>
+                    <strong style={{ color: '#1e293b' }}>{refreshCount} {refreshCount === 1 ? 'vendor' : 'vendors'}</strong> will be added across all products in this {entityLabel.toLowerCase()}.
+                  </p>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button onClick={handleRefreshClose} style={{
+                      flex: 1, padding: '10px 16px', borderRadius: 10,
+                      border: '1px solid #e2e8f0', background: '#fff',
+                      fontSize: 13, fontWeight: 600, color: '#475569', cursor: 'pointer',
+                    }}>Cancel</button>
+                    <button onClick={handleRefreshConfirm} style={{
+                      flex: 1, padding: '10px 16px', borderRadius: 10,
+                      border: 'none', background: 'var(--primary-color, #2E5BA8)',
+                      fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer',
+                    }}>Confirm</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: '#475569', margin: '0 0 4px' }}>All up to date</p>
+                  <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px' }}>All products already have all eligible vendors.</p>
+                  <button onClick={handleRefreshClose} style={{
+                    width: '100%', padding: '10px 16px', borderRadius: 10,
+                    border: '1px solid #e2e8f0', background: '#fff',
+                    fontSize: 13, fontWeight: 600, color: '#475569', cursor: 'pointer',
+                  }}>Close</button>
+                </>
+              )}
+            </>
+          )}
+
+          {/* Step 3: Done */}
+          {refreshStep === 'done' && (
+            <>
+              <div style={{
+                width: 56, height: 56, borderRadius: '16px', margin: '0 auto 20px',
+                background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <BsCheckCircleFill size={22} style={{ color: '#16a34a' }} />
+              </div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: '#1e293b', margin: '0 0 4px' }}>Vendors added</p>
+              <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 20px' }}>New vendors have been added across all products.</p>
+              <button onClick={handleRefreshClose} style={{
+                width: '100%', padding: '10px 16px', borderRadius: 10,
+                border: 'none', background: 'var(--primary-color, #2E5BA8)',
+                fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer',
+              }}>Done</button>
+            </>
+          )}
+        </div>
+
+        <style jsx>{`
+          @keyframes refreshSpin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </Modal>
 
     </>
   );

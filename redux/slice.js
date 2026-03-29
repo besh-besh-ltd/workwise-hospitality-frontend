@@ -77,6 +77,10 @@ export const rfqProductsSlice = createSlice({
       return initialState;
     },
 
+    clearRfqState: (state, action) => {
+      return { ...initialState, userProfile: state.userProfile };
+    },
+
     addRfqProduct: (state, action) => {
       let data = {
         product_id: action.payload.product_id,
@@ -344,6 +348,7 @@ export const {
   intializeRfq,
   setStoreLoading,
   clearState,
+  clearRfqState,
   addRfqProduct,
   removeRfqProduct,
   addProductSpecValue,

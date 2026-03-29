@@ -82,6 +82,8 @@ const RfqManagement = () => {
       setActiveTab('processingRFQs')
     } else if (tab && tab == 'completed-rfq') {
       setActiveTab('completedRFQs')
+    } else if (tab && tab == 'closed-rfq') {
+      setActiveTab('closedRFQs')
     } else if (tab && tab == 'manage-rfq') {
       setActiveTab('manageRFQs')
     } else {
@@ -93,6 +95,7 @@ const RfqManagement = () => {
 
   const activeFilterData = useMemo(() => ({ ...filterData, completed_status: 'active' }), [filterData]);
   const completedFilterData = useMemo(() => ({ ...filterData, completed_status: 'completed' }), [filterData]);
+  const closedFilterData = useMemo(() => ({ ...filterData, completed_status: 'closed' }), [filterData]);
 
 const handleTabChange = (tabKey) => {
   let newQuery = { tab: '' };
@@ -107,6 +110,8 @@ const handleTabChange = (tabKey) => {
     newQuery = { tab: 'draft-rfq' };
   } else if (tabKey === 'completedRFQs') {
     newQuery.tab = 'completed-rfq';
+  } else if (tabKey === 'closedRFQs') {
+    newQuery.tab = 'closed-rfq';
   }
 
   setActiveTab(tabKey);
@@ -171,6 +176,15 @@ const handleTabChange = (tabKey) => {
                   Draft Tender / RFQ
                 </button>
                 <button
+                  id="closed_rfqs-rfq_tabs-rfq_management_page"
+                  className={`tab ${
+                    activeTab === "closedRFQs" ? "active" : ""
+                  }`}
+                  onClick={() => handleTabChange("closedRFQs")}
+                >
+                  Closed Tender / RFQ
+                </button>
+                <button
                   id="completed_rfqs-rfq_tabs-rfq_management_page"
                   className={`tab ${
                     activeTab === "completedRFQs" ? "active" : ""
@@ -182,7 +196,7 @@ const handleTabChange = (tabKey) => {
               </div>
 
               {/* Filter Section - Shared across pending, manage, and completed tabs */}
-              {(activeTab === "pendingRFQs" || activeTab === "manageRFQs" || activeTab === "completedRFQs") && (
+              {(activeTab === "pendingRFQs" || activeTab === "manageRFQs" || activeTab === "closedRFQs" || activeTab === "completedRFQs") && (
                 <div className="manage-rfq-con pb-0">
                   <FilterSection setFilterData={setFilterData} />
                 </div>
@@ -208,6 +222,9 @@ const handleTabChange = (tabKey) => {
               )}
               {activeTab === "draftRFQs" && (
                 <DraftRFQ/>
+              )}
+              {activeTab === "closedRFQs" && (
+                <ManageRFQ filterData={closedFilterData} setFilterData={setFilterData} />
               )}
               {activeTab === "completedRFQs" && (
                 <ManageRFQ filterData={completedFilterData} setFilterData={setFilterData} />

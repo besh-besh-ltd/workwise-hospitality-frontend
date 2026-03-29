@@ -257,6 +257,17 @@ export const refreshVendors = (rfqId) => {
   })
 }
 
+export const previewRefreshVendors = (rfqId) => {
+  return new Promise(async (resolve, reject)=> {
+    try {
+      const response = await axiosInstance.post(`/rfq/refresh-vendors`, { rfq_id: rfqId, preview: true });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  })
+}
+
 export const getRFQS = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {

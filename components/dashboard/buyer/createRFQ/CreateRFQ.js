@@ -10,7 +10,7 @@ import Loader from "@/components/shared/Loader";
 import { useDispatch, useSelector } from "react-redux";
 import {
   intializeRfq,
-  clearState,
+  clearRfqState,
   setOtherFormFields,
   setTermsData,
   setTermFiles,
@@ -952,7 +952,7 @@ useEffect(() => {
         rfqFormDataRef.current = {};
 
         router.push("/dashboard/buyer/rfq-management");
-        dispatch(clearState());
+        dispatch(clearRfqState());
       })
       .catch((err) => {
         setMainLoading(false);
@@ -1285,7 +1285,7 @@ useEffect(() => {
   };
 
   const getDraftInitialData = async () => {
-    dispatch(clearState());
+    dispatch(clearRfqState());
     dispatch(setStoreLoading(true));
     try {
       // If a draft_id is provided in the URL, load that specific draft
@@ -1401,7 +1401,7 @@ useEffect(() => {
   const handleSheetChange = async (selectedOption) => {
     if (!selectedOption || !draftRfqId) return;
     
-    dispatch(clearState());
+    dispatch(clearRfqState());
 
     setSelectedSheet(selectedOption);
     setMainLoading(true);
@@ -2125,7 +2125,7 @@ useEffect(() => {
     // Changes by Agnij 2025-06-17 [Reset state when draft_id changes]
     // If no draft_id is present, clear state and force a fresh draft
     if (!draft_id) {
-      dispatch(clearState());
+      dispatch(clearRfqState());
       // Create a fresh draft
       const loadFreshDraft = async () => {
         dispatch(setStoreLoading(true));
@@ -2153,7 +2153,7 @@ useEffect(() => {
         if (!isNaN(id) && id > 0) {
           setDraftRfqId(id);
           
-          dispatch(clearState());
+          dispatch(clearRfqState());
           
           loadDraft(id);
         }
