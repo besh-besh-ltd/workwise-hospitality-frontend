@@ -1,95 +1,90 @@
-import React from 'react';
-import { Badge } from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import { getTechEvalDashboard } from '@/services/rfq';
+import { BsCheckCircleFill, BsArrowRepeat, BsPersonCheckFill, BsPersonXFill } from 'react-icons/bs';
 import styles from './TechnicalEvaluation.module.scss';
 
-/**
- * EvaluationProgressTracker
- *
- * Tracks technical evaluation completion: a product counts as "completed" when
- * its workflow is complete (5 vendors passed & approved). "In progress" means
- * the product has an ongoing round or evaluated vendors but is not yet complete.
- */
-const EvaluationProgressTracker = ({ productEvaluationStatus, clauseInfo }) => {
-  if (!clauseInfo || clauseInfo.length === 0) return null;
+const EvaluationProgressTracker = ({ rfqId }) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const productIds = clauseInfo.map(item => item.rfq_product_id);
-  const totalProducts = productIds.length;
-
-  let completedCount = 0;
-  let inProgressCount = 0;
-
-  productIds.forEach(productId => {
-    const status = productEvaluationStatus.get(productId);
-    if (status) {
-      if (status.workflowComplete) {
-        completedCount++;
-      } else if (status.isPendingApproval || status.evaluatedVendorCount > 0) {
-        inProgressCount++;
-      }
+  useEffect(() => {
+    if (!rfqId) {
+      setData(null);
+      setLoading(false);
+      return;
     }
-  });
 
-  const allCompleted = completedCount === totalProducts && totalProducts > 0;
-  const progressPercentage = totalProducts > 0 ? Math.round((completedCount / totalProducts) * 100) : 0;
+    setLoading(true);
+    getTechEvalDashboard(rfqId)
+      .then((res) => {
+        setData(res?.data?.data || res?.data || null);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch tech eval dashboard:', err);
+        setData(null);
+      })
+      .finally(() => setLoading(false));
+  }, [rfqId]);
+
+  if (loading) {
+    return (
+      <div className={styles.dashboardGrid}>
+        {[1, 2, 3, 4].map(i => (
+          <div className={`${styles.dashboardCard} ${styles.dashboardCardLoading}`} key={i}>
+            <div className={styles.dashboardCardShimmer} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const cards = [
+    {
+      label: 'Products Completed',
+      value: data.products_completed ?? 0,
+      total: data.total_products ?? null,
+      icon: <BsCheckCircleFill size={20} />,
+      colorClass: styles.dashboardCardCompleted,
+    },
+    {
+      label: 'Products In Progress',
+      value: data.products_in_progress ?? 0,
+      total: data.total_products ?? null,
+      icon: <BsArrowRepeat size={20} />,
+      colorClass: styles.dashboardCardInProgress,
+    },
+    {
+      label: 'Vendors Passed',
+      value: data.vendors_passed ?? 0,
+      icon: <BsPersonCheckFill size={20} />,
+      colorClass: styles.dashboardCardPassed,
+    },
+    {
+      label: 'Vendors Failed',
+      value: data.vendors_failed ?? 0,
+      icon: <BsPersonXFill size={20} />,
+      colorClass: styles.dashboardCardFailed,
+    },
+  ];
 
   return (
-    <div className={styles.progressTracker}>
-      <div className={styles.progressTrackerHeader}>
-        <div className={styles.progressTrackerLeft}>
-          <div className={`${styles.progressTrackerIcon} ${allCompleted ? styles.progressTrackerIconComplete : styles.progressTrackerIconProgress}`}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
-          </div>
-          <h6 className={styles.progressTrackerTitle}>Evaluation Progress</h6>
-        </div>
-
-        {allCompleted && (
-          <Badge bg="success" style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: '6px', letterSpacing: '0.3px' }}>
-            Complete
-          </Badge>
-        )}
-        {!allCompleted && inProgressCount > 0 && (
-          <Badge bg="warning" style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: '6px', letterSpacing: '0.3px' }}>
-            {inProgressCount} In Progress
-          </Badge>
-        )}
-      </div>
-
-      {/* Progress Bar */}
-      <div className={styles.progressBar}>
-        <div
-          className={`${styles.progressBarFill} ${allCompleted ? styles.progressBarComplete : styles.progressBarProgress}`}
-          style={{ width: `${progressPercentage}%` }}
-        />
-      </div>
-
-      {/* Stats */}
-      <div className={styles.progressStats}>
-        <div className={styles.progressStat}>
-          <div className={styles.progressStatLabel}>Products Completed</div>
-          <div className={styles.progressStatValue}>
-            {completedCount}
-            <span className={styles.progressStatTotal}>/ {totalProducts}</span>
+    <div className={styles.dashboardGrid}>
+      {cards.map((card, idx) => (
+        <div className={`${styles.dashboardCard} ${card.colorClass}`} key={idx}>
+          <div className={styles.dashboardCardIcon}>{card.icon}</div>
+          <div className={styles.dashboardCardContent}>
+            <span className={styles.dashboardCardValue}>
+              {card.value}
+              {card.total != null && (
+                <span className={styles.dashboardCardTotal}>/ {card.total}</span>
+              )}
+            </span>
+            <span className={styles.dashboardCardLabel}>{card.label}</span>
           </div>
         </div>
-
-        <div className={styles.progressStat}>
-          <div className={styles.progressStatLabel}>Products In Progress</div>
-          <div className={styles.progressStatValue}>
-            {inProgressCount}
-            <span className={styles.progressStatTotal}>/ {totalProducts}</span>
-          </div>
-        </div>
-
-        <div className={styles.progressStat}>
-          <div className={styles.progressStatLabel}>Overall Progress</div>
-          <div className={styles.progressStatValue} style={{ color: allCompleted ? '#28a745' : '#0d6efd' }}>
-            {progressPercentage}%
-          </div>
-        </div>
-      </div>
+      ))}
     </div>
   );
 };

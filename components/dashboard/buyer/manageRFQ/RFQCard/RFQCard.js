@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, Badge } from 'react-bootstrap';
 import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, Users, Folder, Package, FileText, Gavel, AlertTriangle, Zap } from 'lucide-react';
 import Link from 'next/link';
 import moment from 'moment';
 import { getRFQPublishState, formatRFQNumber, textCapitalize } from '@/utils/sharedFunctions';
-import { getEntityApprovalInstances } from '@/services/approval';
 import PublishDateTimer from '@/components/shared/PublishDateTimer';
 import { getStatusConfig, STATUS_CONFIG } from './statusConfig';
 import styles from './RFQCard.module.scss';
@@ -15,24 +14,6 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
 
   const publishState = getRFQPublishState(data);
   const isTender = data.is_tender === 1 || data.is_tender === true;
-
-  // Lightweight auto-publish detection (only fetches instance list, not details)
-  useEffect(() => {
-    if (!data?.id || !data?.is_published) return;
-    const entityType = isTender ? 'TENDER' : 'RFQ';
-    getEntityApprovalInstances(entityType, data.id)
-      .then(res => {
-        const instances = res?.data?.data || res?.data || [];
-        if (instances.length > 0) {
-          const latest = instances[0];
-          const meta = typeof latest.metadata === 'string' ? JSON.parse(latest.metadata) : latest.metadata;
-          if (meta?.auto_approved === true || !!meta?.auto_approved_reason) {
-            setIsAutoPublished(true);
-          }
-        }
-      })
-      .catch(() => {});
-  }, [data?.id, data?.is_published, isTender]);
   const isBacklog = isPendingApproval && data.is_published === 1 && data.status === 1;
   const statusConfig = isBacklog ? STATUS_CONFIG.PUBLISHED_WITHOUT_APPROVAL : getStatusConfig(data, publishState);
   const StatusIcon = statusConfig.icon;
@@ -40,7 +21,6 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
   // Calculate quote progress
   const totalVendors = data.vendors?.[0]?.total_vendors || 0;
   const quotesReceived = data.vendors?.[0]?.quote_received || 0;
-  const quoteProgress = totalVendors > 0 ? (quotesReceived / totalVendors) * 100 : 0;
   const allQuotesReceived = totalVendors > 0 && quotesReceived === totalVendors;
 
   // Product list

@@ -20,8 +20,8 @@ import {
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { getAllProjects as getAllProjectsService, getProjectTableDataById, getProjectsByHospitalityContext, getProjectHospitalityContext, getRfqFilters } from "@/services/project";
-import { getMyHospitalityContexts, getUserMappings } from "@/services/hospitality";
+import { getProjectTableDataById, getProjectsByHospitalityContext, getProjectHospitalityContext, getRfqFilters } from "@/services/project";
+import { getMyHospitalityContexts } from "@/services/hospitality";
 import { getDepartments } from "@/services/rbac";
 import { getApprovalProcesses } from "@/services/process";
 import HotelFilter from "@/components/shared/HotelFilter";
@@ -112,7 +112,6 @@ const CreateRFQ = () => {
 
   const userProfile = useSelector((state) => state.userProfile);
   const [vendorApprovedList, setVendorApprovedList] = useState([]);
-  const [projects, setProjects] = useState([]);
   const [rfqProducts, setRfqProducts] = useState([]);
   const [draftRfqId, setDraftRfqId] = useState(draft_id ? parseInt(draft_id) : -1);
 
@@ -124,7 +123,6 @@ const CreateRFQ = () => {
   
   // Hospitality context states
   const [hospitalityContexts, setHospitalityContexts] = useState([]);
-  const [allProjects, setAllProjects] = useState([]);
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -275,30 +273,10 @@ const CreateRFQ = () => {
         });
     };
 
-  const getAllProjects = async () => {
-    try {
-      const res = await getAllProjectsService();
-      const projectsData = res?.data?.data || res?.data || [];
-      const formatted = projectsData.map((item) => ({
-        label: item.name || `Project #${item.id}`,
-        value: item.id,
-        hospitality_company_id: item.hospitality_company_id,
-        hotel_id: item.hotel_id,
-      }));
-      setProjects(formatted);
-      setAllProjects(formatted);
-    } catch (error) {
-      toast.error(error?.message || "Failed to load projects");
-      setProjects([]);
-      setAllProjects([]);
-    }
-  }
-
   const fetchHospitalityContexts = async () => {
     try {
-      // Fetch user hotel mappings for the multi-select dropdown
-      const mappingsRes = await getUserMappings();
-      const mappings = (mappingsRes?.data || []).filter(m => m.hospitality_hotel_id != null);
+      // Read user hotel mappings from profile
+      const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
       setUserHotelMappings(mappings);
 
       // Also fetch contexts for the company/hotel hierarchy dropdown
@@ -361,22 +339,11 @@ const CreateRFQ = () => {
 
   const handleHotelSelectionChange = (hotelIds) => {
     setSelectedHotelIds(hotelIds);
-    
-    // Filter projects: include hotel-mapped and company-level mapped projects for selected hotels' companies
+
     if (!hotelIds || hotelIds.length === 0) {
-      setProjects(allProjects);
       dispatch(setOtherFormFields({ field_name: "hotel_id", value: null }));
       dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: null }));
     } else {
-      const companyIdsForHotels = [...new Set(
-        (userHotelMappings || []).filter(h => hotelIds.includes(h.hospitality_hotel_id)).map(h => h.hospitality_company_id)
-      )];
-      const filtered = allProjects.filter(p =>
-        hotelIds.includes(p.hotel_id) ||
-        (p.hotel_id == null && p.hospitality_company_id != null && companyIdsForHotels.includes(p.hospitality_company_id))
-      );
-      setProjects(filtered);
-      
       // If single hotel selected, set the hotel_id and company_id
       if (hotelIds.length === 1) {
         const selectedHotel = userHotelMappings.find(h => h.hospitality_hotel_id === hotelIds[0]);
@@ -386,8 +353,7 @@ const CreateRFQ = () => {
         }
       }
     }
-    
-    // Reset project selection when hotels change
+
     dispatch(setOtherFormFields({ field_name: "project_id", value: -1 }));
     setHasUnsavedChanges(true);
   }
@@ -396,42 +362,17 @@ const CreateRFQ = () => {
     if (!selectedOption) {
       dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: null }));
       dispatch(setOtherFormFields({ field_name: "hotel_id", value: null }));
-      setProjects(allProjects);
       return;
     }
     if (selectedOption.type === 'company') {
       dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: selectedOption.id }));
       dispatch(setOtherFormFields({ field_name: "hotel_id", value: null }));
-      const filtered = allProjects.filter(p => p.hospitality_company_id === selectedOption.id);
-      setProjects(filtered);
     } else if (selectedOption.type === 'hotel') {
       dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: selectedOption.company_id }));
       dispatch(setOtherFormFields({ field_name: "hotel_id", value: selectedOption.id }));
-      const filtered = allProjects.filter(p => p.hotel_id === selectedOption.id);
-      setProjects(filtered);
     }
     dispatch(setOtherFormFields({ field_name: "project_id", value: -1 }));
     setHasUnsavedChanges(true);
-  }
-
-  const handleProjectChangeWithContext = async (selectedOption, actionMeta) => {
-    const projectId = selectedOption?.value;
-    if (projectId && projectId !== -1) {
-      const selectedProject = allProjects.find(p => p.value === projectId);
-      if (selectedProject) {
-        if (selectedProject.hotel_id) {
-          dispatch(setOtherFormFields({ field_name: "hotel_id", value: selectedProject.hotel_id }));
-          const hotel = hospitalityContexts.find(c => c.type === 'hotel' && c.id === selectedProject.hotel_id);
-          if (hotel) {
-            dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: hotel.company_id }));
-          }
-        } else if (selectedProject.hospitality_company_id) {
-          dispatch(setOtherFormFields({ field_name: "hospitality_company_id", value: selectedProject.hospitality_company_id }));
-          dispatch(setOtherFormFields({ field_name: "hotel_id", value: null }));
-        }
-      }
-    }
-    handleFormFieldChange(null, selectedOption, actionMeta);
   }
 
   const getVendorApproveList = async () => {
@@ -2170,7 +2111,6 @@ useEffect(() => {
   useEffect(() => {
     try {
       getVendorApproveList();
-      getAllProjects();
       fetchCountryCodes();
       fetchHospitalityContexts();
       fetchDepartments();
@@ -3101,34 +3041,6 @@ useEffect(() => {
                                     </div>
                                   </>
                                 )}
-
-                                {/* Select Project dropdown hidden
-                                {rfqFormDataFromStore.is_tender !== 1 && (
-                                <div className="col-md-4">
-                                  <FormikField
-                                    id="select_project-create_rfq_page"
-                                    label="Select Project"
-                                    value={rfqFormDataFromStore.project_id}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
-                                    type="select"
-                                    selectOptions={[
-                                      { label: "Select Project", value: "" },
-                                      ...projects.map((project) => ({
-                                        label: project.label,
-                                        value: project.value,
-                                      })),
-                                    ]}
-                                    isRequired={false}
-                                    name="project_id"
-                                    touched={touched}
-                                    errors={errors}
-                                    showOptionalLabel={false}
-                                  />
-                                </div>
-                                )}
-                                */}
-
 
                                 <div className="col-md-4">
                                   <FormikField

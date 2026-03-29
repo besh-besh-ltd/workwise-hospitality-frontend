@@ -1,21 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Select from 'react-select';
-import { getUserMappings } from '@/services/hospitality';
+import { useSelector } from 'react-redux';
 
 
 const FilterSection = ({ title, setFilterData }) => {
+    const userProfile = useSelector((state) => state.userProfile);
     const [rfqNo, setRfqNo] =useState(null);
     const [userHotelMappings, setUserHotelMappings] = useState([]);
     const [selectedHotelIds, setSelectedHotelIds] = useState([]);
+    const isInitialRfqNo = useRef(true);
 
     useEffect(() => {
+        if (isInitialRfqNo.current) {
+            isInitialRfqNo.current = false;
+            return;
+        }
         const handler = setTimeout(() => {
                 setFilterData((prevState) => ({
                     ...prevState,
                     ["rfq_no"]: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
                 }));
         }, 1000);
-    
+
         return () => {
           clearTimeout(handler);
         };
@@ -45,23 +51,14 @@ const FilterSection = ({ title, setFilterData }) => {
         }));
     }
 
-    const fetchUserHotelMappings = async () => {
-        try {
-            const response = await getUserMappings();
-            const mappings = response?.data || [];
-            setUserHotelMappings(mappings);
-        } catch (error) {
-            console.error("Error fetching user hotel mappings", error);
-        }
-    }
-
     const handleHotelSelectionChange = (hotelIds) => {
         setSelectedHotelIds(hotelIds);
     }
 
     useEffect(() => {
-        fetchUserHotelMappings();
-    }, []);
+        const mappings = userProfile?.hospitality_mappings || [];
+        setUserHotelMappings(mappings);
+    }, [userProfile]);
 
     return (
         <div className="filter-section">

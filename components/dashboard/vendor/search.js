@@ -11,7 +11,8 @@ import { toast } from "react-toastify";
 import { useRouter } from "next/router";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { debounce } from "lodash";
-import { getRFQHotels, getUserMappings } from "@/services/hospitality";
+import { getRFQHotels } from "@/services/hospitality";
+import { useSelector } from "react-redux";
 import AddTenderItemModal from "@/components/modal/AddTenderItemModal";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
@@ -42,6 +43,7 @@ const GUIDE_STEPS = [
 ];
 
 const Search = ({ title, type }) => {
+  const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const { loggedin } = router.query;
 
@@ -165,16 +167,11 @@ const Search = ({ title, type }) => {
   }, [router, loggedin]);
 
   // ── API Functions ───────────────────────────
-  const getUSerMappedHotelsAndCompanies = async () => {
-    try {
-      const response = await getUserMappings();
-      const mappings = (response?.data || []).filter(
-        (m) => m.hospitality_hotel_id != null
-      );
-      setUserHotelMappings(mappings);
-    } catch (error) {
-      console.error("Error fetching user mappings", error);
-    }
+  const getUSerMappedHotelsAndCompanies = () => {
+    const mappings = (userProfile?.hospitality_mappings || []).filter(
+      (m) => m.hospitality_hotel_id != null
+    );
+    setUserHotelMappings(mappings);
   };
 
   const getRfqMappedHotels = async (rfq_id) => {
