@@ -1311,6 +1311,18 @@ export const extractQuotation = (quotation_document, rfq_data) => {
   return axios.post(`${quotationAIServerUrl}/extract_quotation`, formData);
 };
 
+/** Get technical evaluation dashboard summary for an RFQ */
+export const getTechEvalDashboard = (rfq_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/technical/dashboard/${rfq_id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error?.message || "Failed to fetch dashboard data" });
+    }
+  });
+};
+
 /** Submit technical evaluation for approval - creates an approval workflow instance */
 export const submitTechEvalForApproval = (payload) => {
   return new Promise(async (resolve, reject) => {

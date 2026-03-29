@@ -18,7 +18,7 @@ import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
 import useIsMobile from "@/hooks/useIsMobile";
-import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList } from "react-icons/bs";
+import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown } from "react-icons/bs";
 import styles from "./TechnicalEvaluation.module.scss";
 
 
@@ -67,6 +67,16 @@ const BuyerTechnicalEvaluation = () => {
   const [showUnifiedSubmitModal, setShowUnifiedSubmitModal] = useState(false);
   const [unifiedSubmitLoading, setUnifiedSubmitLoading] = useState(false);
   const [rfqCompletionMap, setRfqCompletionMap] = useState(new Map());
+  const [expandedProducts, setExpandedProducts] = useState(new Set());
+
+  const toggleProductExpand = (productId) => {
+    setExpandedProducts(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
 
   // Extract hotel IDs for permission checks - use hotel_id from RFQ data
   const hotelIds = useMemo(() => {
@@ -205,6 +215,8 @@ const BuyerTechnicalEvaluation = () => {
     try {
       setContentLoading(true);
       setClauseInfo(null); // Clear previous evaluation data immediately
+      setExpandedProducts(new Set());
+      setProductEvaluationStatus(new Map());
       const rfqDetailsRes = await getRFQById(rfq_id);
 
       // Stale check — if user clicked another RFQ while this was loading, discard
@@ -263,6 +275,15 @@ const BuyerTechnicalEvaluation = () => {
 
       setVendorMap(vMap);
       setClauseMap(c_map);
+
+      // Auto-expand the first product
+      if (res.data?.length > 0) {
+        const firstProductId = res.data[0].rfq_product_id;
+        const firstProduct = currentRfq?.products?.find(p => p.id == firstProductId);
+        if (firstProduct) {
+          setExpandedProducts(new Set([firstProduct.id]));
+        }
+      }
     } catch (error) {
       if (activeRfqRef.current !== requestId) return; // Stale — ignore
       console.log(error);
@@ -638,10 +659,7 @@ const BuyerTechnicalEvaluation = () => {
 
                     {/* Evaluation Progress Tracker */}
                     {clauseInfo && clauseInfo.length > 0 && (
-                      <EvaluationProgressTracker
-                        clauseInfo={clauseInfo}
-                        productEvaluationStatus={productEvaluationStatus}
-                      />
+                      <EvaluationProgressTracker rfqId={rfq_id} />
                     )}
 
                     {/* Quoted Vendors Filter */}
@@ -668,7 +686,7 @@ const BuyerTechnicalEvaluation = () => {
                           return (
                             <div className={styles.productCard} key={`product_${product.id}`}>
                               {/* Product Header */}
-                              <div className={styles.productHeader}>
+                              <div className={`${styles.productHeader} ${expandedProducts.has(product.id) ? styles.productHeaderActive : ''}`} onClick={() => toggleProductExpand(product.id)}>
                                 <div className={styles.productHeaderLeft}>
                                   <span className={styles.productBadge}>
                                     Product {productIndex + 1} of {clauseInfo.length}
@@ -680,33 +698,38 @@ const BuyerTechnicalEvaluation = () => {
                                     Spec: {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
                                   </p>
                                 </div>
+                                <div className={`${styles.expandToggle} ${expandedProducts.has(product.id) ? styles.expanded : ''}`}>
+                                  <BsChevronDown size={18} />
+                                </div>
                               </div>
 
                               {/* Product Body */}
-                              <div className={styles.productBody}>
-                                <ClauseProductItem
-                                  type={"buyer"}
-                                  rfq_id={rfq_id}
-                                  product={{
-                                    ...product,
-                                    tbl_rfq_product_tech_evaluation_id: rfqProduct.evaluation_id
-                                  }}
-                                  currentUserProfile={currentUserProfile}
-                                  currentRfq={currentRfq}
-                                  getVendors={async () => await getVendorSelectionOption(product.id)}
-                                  clauseInfo={rfqProduct?.clauses ?? []}
-                                  vendors={rfqProduct?.vendors ?? []}
-                                  refetch={fetchEvaluationData}
-                                  selectedVendor={vendorMap.get(product.id)}
-                                  selectedVendors={productSelectedVendors.map(vendor => vendor.value)}
-                                  minimumPassingScore={rfqProduct?.minimum_passing_score}
-                                  canWrite={canWrite}
-                                  canApprove={canApprove}
-                                  permissionsLoading={permissionsLoading}
-                                  onEvaluationStatusChange={handleEvaluationStatusChange}
-                                  quotedVendorsOnly={quotedVendorsOnly}
-                                />
-                              </div>
+                              {expandedProducts.has(product.id) && (
+                                <div className={styles.productBody}>
+                                  <ClauseProductItem
+                                    type={"buyer"}
+                                    rfq_id={rfq_id}
+                                    product={{
+                                      ...product,
+                                      tbl_rfq_product_tech_evaluation_id: rfqProduct.evaluation_id
+                                    }}
+                                    currentUserProfile={currentUserProfile}
+                                    currentRfq={currentRfq}
+                                    getVendors={async () => await getVendorSelectionOption(product.id)}
+                                    clauseInfo={rfqProduct?.clauses ?? []}
+                                    vendors={rfqProduct?.vendors ?? []}
+                                    refetch={fetchEvaluationData}
+                                    selectedVendor={vendorMap.get(product.id)}
+                                    selectedVendors={productSelectedVendors.map(vendor => vendor.value)}
+                                    minimumPassingScore={rfqProduct?.minimum_passing_score}
+                                    canWrite={canWrite}
+                                    canApprove={canApprove}
+                                    permissionsLoading={permissionsLoading}
+                                    onEvaluationStatusChange={handleEvaluationStatusChange}
+                                    quotedVendorsOnly={quotedVendorsOnly}
+                                  />
+                                </div>
+                              )}
                             </div>
                           )
                         }
