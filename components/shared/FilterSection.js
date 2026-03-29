@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Select from 'react-select';
 import { useSelector } from 'react-redux';
 
@@ -8,15 +8,20 @@ const FilterSection = ({ title, setFilterData }) => {
     const [rfqNo, setRfqNo] =useState(null);
     const [userHotelMappings, setUserHotelMappings] = useState([]);
     const [selectedHotelIds, setSelectedHotelIds] = useState([]);
+    const isInitialRfqNo = useRef(true);
 
     useEffect(() => {
+        if (isInitialRfqNo.current) {
+            isInitialRfqNo.current = false;
+            return;
+        }
         const handler = setTimeout(() => {
                 setFilterData((prevState) => ({
                     ...prevState,
                     ["rfq_no"]: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
                 }));
         }, 1000);
-    
+
         return () => {
           clearTimeout(handler);
         };
