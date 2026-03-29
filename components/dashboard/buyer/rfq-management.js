@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { Badge } from "react-bootstrap";
 import { BsBellFill } from "react-icons/bs";
 import ManageRFQ from "./manageRFQ/ManageRFQ";
+import CreateRFQ from "./createRFQ/CreateRFQ";
 import DraftRFQ from "./draftRFQ/DraftRFQ";
 import PendingApprovalsList from "./manageRFQ/PendingApprovalsList";
 import FilterSection from "@/components/shared/FilterSection";
@@ -73,7 +74,9 @@ const RfqManagement = () => {
   }, []);
 
   useEffect(() => {
-    if(tab && tab == 'draft-rfq'){
+    if(tab && tab == 'create-rfq'){
+      setActiveTab('createRFQs')
+    } else if(tab && tab == 'draft-rfq'){
       setActiveTab('draftRFQs')
     } else if (tab && tab == 'processing-rfq') {
       setActiveTab('processingRFQs')
@@ -158,7 +161,7 @@ const handleTabChange = (tabKey) => {
                 >
                   Manage Tender / RFQ
                 </button>
-<button
+                <button
                   id="draft_rfqs-rfq_tabs-rfq_management_page"
                   className={`tab ${
                     activeTab === "draftRFQs" ? "active" : ""
@@ -196,10 +199,14 @@ const handleTabChange = (tabKey) => {
                   />
                 </div>
               )}
+
+              {activeTab === "createRFQs" && (
+                <CreateRFQ/>
+              )}
               {activeTab === "manageRFQs" && (
                 <ManageRFQ filterData={activeFilterData} setFilterData={setFilterData} />
               )}
-{activeTab === "draftRFQs" && (
+              {activeTab === "draftRFQs" && (
                 <DraftRFQ/>
               )}
               {activeTab === "completedRFQs" && (
