@@ -264,23 +264,6 @@ export const getProjectMappings = (projectId) =>
   });
 
 
-  //  fetched mapped hotels/company for a user
-export const getUserMappings = (userId) =>
-  new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get(
-        `/hospitality/user/mappings`,
-        {
-          params: { userId }
-        }
-      );
-      resolve(response);
-    } catch (error) {
-      reject({ message: error });
-    }
-  });
-
-
   // fetch mapped hotels for a given RFQ
 export const getRFQHotels = (rfqId) =>
   new Promise(async (resolve, reject) => {
@@ -302,6 +285,16 @@ export const deleteProjectMapping = (projectId, payload) =>
         `/hospitality/project/${projectId}/mapping`,
         { data: payload }
       );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const getUserMappingsById = (userId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/hospitality/user/${userId}/mappings`);
       resolve(response);
     } catch (error) {
       reject({ message: error });

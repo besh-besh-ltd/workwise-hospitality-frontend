@@ -4,12 +4,11 @@ import AsyncSelect from "react-select/async";
 import { useRouter } from "next/router";
 import { getRfqs, fetchVendorSelectionOption, getAllClauses, getRFQById, submitTechEvalForApproval } from "@/services/rfq";
 import { getUserDetails as getAuthUser } from "@/services/Auth";
+import { useSelector } from "react-redux";
 import ClauseProductItem from "./ClauseProductItem";
 import { toast } from "react-toastify";
-import { getAllProjects as getAllProjectsService } from '@/services/project';
-import { getUserMappings } from '@/services/hospitality';
 import Select from 'react-select';
-import { formatDisplayDate, formatRFQNumber, getEntityLabel } from "@/utils/sharedFunctions";
+import { formatDisplayDate, formatRFQNumber, getEntityLabel, checkBidExpired } from "@/utils/sharedFunctions";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
@@ -19,14 +18,16 @@ import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
 import useIsMobile from "@/hooks/useIsMobile";
-import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList } from "react-icons/bs";
+import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown } from "react-icons/bs";
 import styles from "./TechnicalEvaluation.module.scss";
 
 
 
 const BuyerTechnicalEvaluation = () => {
+  const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const isMobile = useIsMobile();
+  const reduxUserProfile = useSelector((state) => state.userProfile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rfq_id, setRfqId] = useState(router.query.rfq_id || null);
   const activeRfqRef = useRef(rfq_id); // Track active rfq_id to prevent stale updates
@@ -56,19 +57,27 @@ const BuyerTechnicalEvaluation = () => {
   const [vendorMap, setVendorMap] = useState(new Map());
   const [clauseMap, setClauseMap] = useState(null);
   const [rfqNo, setRfqNo] =useState(null);
-  const [projects, setProjects] = useState(null);
-  const [allProjects, setAllProjects] = useState(null);
-  const [selectedproject, setSelectedproject] = useState(null);
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [clauseInfo, setClauseInfo] = useState(null);
   const [selectedVendorsMap, setSelectedVendorsMap] = useState(new Map());
   const [isTenderFilter, setIsTenderFilter] = useState(null);
   const [quotedVendorsOnly, setQuotedVendorsOnly] = useState(true);
+  const [showFailedVendors, setShowFailedVendors] = useState(false);
   const [productEvaluationStatus, setProductEvaluationStatus] = useState(new Map());
   const [showUnifiedSubmitModal, setShowUnifiedSubmitModal] = useState(false);
   const [unifiedSubmitLoading, setUnifiedSubmitLoading] = useState(false);
   const [rfqCompletionMap, setRfqCompletionMap] = useState(new Map());
+  const [expandedProducts, setExpandedProducts] = useState(new Set());
+
+  const toggleProductExpand = (productId) => {
+    setExpandedProducts(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
 
   // Extract hotel IDs for permission checks - use hotel_id from RFQ data
   const hotelIds = useMemo(() => {
@@ -115,44 +124,13 @@ const BuyerTechnicalEvaluation = () => {
   // Track if we've verified permissions for the current RFQ
   const [permissionsVerified, setPermissionsVerified] = useState(false);
 
-  const getAllProjects = () => {
-    getAllProjectsService()
-        .then((res) => {
-            let d = [];
-            (res.data.data || res.data || []).map((item) => {
-                d.push({ label: item.name, value: item.id, hospitality_company_id: item.hospitality_company_id, hotel_id: item.hotel_id });
-            });
-            setProjects(d);
-            setAllProjects(d);
-        })
-        .catch((error) => {
-            console.log(error)
-        })
-  }
-
-  const fetchUserHotelMappings = async () => {
-    try {
-      const response = await getUserMappings();
-      const mappings = (response?.data || []).filter(m => m.hospitality_hotel_id != null);
-      setUserHotelMappings(mappings);
-    } catch (error) {
-      console.error("Error fetching user hotel mappings", error);
-    }
+  const fetchUserHotelMappings = () => {
+    const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
+    setUserHotelMappings(mappings);
   }
 
   const handleHotelSelectionChange = (hotelIds) => {
     setSelectedHotelIds(hotelIds);
-    
-    // Filter projects based on selected hotels
-    if (!hotelIds || hotelIds.length === 0) {
-      setProjects(allProjects);
-    } else {
-      const filtered = allProjects.filter(p => hotelIds.includes(p.hotel_id));
-      setProjects(filtered);
-    }
-    
-    // Reset project selection when hotels change
-    setSelectedproject(null);
   }
 
   const filtersInitialized = useRef(false);
@@ -166,12 +144,18 @@ const BuyerTechnicalEvaluation = () => {
       getTechEvaluationRFQsByUser();
     }, 500);
     return () => clearTimeout(handler);
-  }, [rfqNo, selectedproject, isTenderFilter]);
+  }, [rfqNo, isTenderFilter]);
 
   const getUserDetails = () => {
-    const user = getAuthUser();
-    if (user) {
-      setcurrentUserProfile({ id: user.sub, name: user.name, ...user });
+    // Prefer Redux persisted profile (populated from /users/get-profile API with correct DB id)
+    // Fall back to JWT decode only if Redux profile is unavailable
+    if (reduxUserProfile && reduxUserProfile.id) {
+      setcurrentUserProfile(reduxUserProfile);
+    } else {
+      const user = getAuthUser();
+      if (user) {
+        setcurrentUserProfile({ id: user.sub, name: user.name, ...user });
+      }
     }
   };
 
@@ -182,7 +166,6 @@ const BuyerTechnicalEvaluation = () => {
         tech_eval: true,
         page: 1,
         limit: 100,
-        project_id: selectedproject ? selectedproject : -1,
         rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
         sort: 'DESC',
         is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null,
@@ -233,6 +216,8 @@ const BuyerTechnicalEvaluation = () => {
     try {
       setContentLoading(true);
       setClauseInfo(null); // Clear previous evaluation data immediately
+      setExpandedProducts(new Set());
+      setProductEvaluationStatus(new Map());
       const rfqDetailsRes = await getRFQById(rfq_id);
 
       // Stale check — if user clicked another RFQ while this was loading, discard
@@ -291,6 +276,15 @@ const BuyerTechnicalEvaluation = () => {
 
       setVendorMap(vMap);
       setClauseMap(c_map);
+
+      // Auto-expand the first product
+      if (res.data?.length > 0) {
+        const firstProductId = res.data[0].rfq_product_id;
+        const firstProduct = currentRfq?.products?.find(p => p.id == firstProductId);
+        if (firstProduct) {
+          setExpandedProducts(new Set([firstProduct.id]));
+        }
+      }
     } catch (error) {
       if (activeRfqRef.current !== requestId) return; // Stale — ignore
       console.log(error);
@@ -311,6 +305,11 @@ const BuyerTechnicalEvaluation = () => {
       return newMap;
     });
   };
+
+  // Bid end date must have passed before evaluation/submission is allowed
+  const isBidExpired = useMemo(() => {
+    return currentRfq?.bid_end_date ? checkBidExpired(currentRfq.bid_end_date) : false;
+  }, [currentRfq?.bid_end_date]);
 
   // Check if all products are fully evaluated
   const areAllProductsEvaluated = useMemo(() => {
@@ -344,30 +343,32 @@ const BuyerTechnicalEvaluation = () => {
     });
   }, [clauseInfo]);
 
-  // Count how many products have at least one vendor evaluated
+  // Count how many products have at least one vendor fully evaluated (all clauses scored)
+  // Uses productEvaluationStatus from child components which checks score_timestamp on every clause
   const evaluatedProductCount = useMemo(() => {
     if (!clauseInfo || clauseInfo.length === 0) return 0;
-    return clauseInfo.filter(rfqProduct => {
-      const vendors = rfqProduct?.vendors || [];
-      return vendors.some(v => v.has_marks);
-    }).length;
-  }, [clauseInfo]);
+    let count = 0;
+    for (const [, status] of productEvaluationStatus) {
+      if (status?.evaluatedVendorCount > 0) count++;
+    }
+    return count;
+  }, [clauseInfo, productEvaluationStatus]);
 
   // Unified submit handler for all products
   const handleUnifiedSubmitForApproval = async () => {
-    if (!currentRfq || !clauseInfo) return;
+    if (!currentRfq || !clauseInfo || !isBidExpired) return;
 
     try {
       setUnifiedSubmitLoading(true);
 
-      // Only submit products that have at least one vendor evaluated
+      // Only submit products that have at least one vendor fully evaluated (all clauses scored)
       const evaluatedProducts = clauseInfo.filter(rfqProduct => {
-        const vendors = rfqProduct?.vendors || [];
-        return vendors.some(v => v.has_marks);
+        const status = productEvaluationStatus.get(rfqProduct.rfq_product_id);
+        return status?.evaluatedVendorCount > 0;
       });
 
       if (evaluatedProducts.length === 0) {
-        toast.error("No products have been evaluated yet.");
+        toast.error("No products have been fully evaluated yet. Score all clauses for at least one vendor per product.");
         return;
       }
 
@@ -397,7 +398,6 @@ const BuyerTechnicalEvaluation = () => {
   useEffect(() => {
     getUserDetails();
     getTechEvaluationRFQsByUser();
-    getAllProjects();
     fetchUserHotelMappings();
   }, []);
 
@@ -415,34 +415,6 @@ const BuyerTechnicalEvaluation = () => {
       fetchEvaluationData();
     }
   }, [rfq_id, currentRfq, permissionsLoading, canRead, permissionsVerified]);
-
-  // Build completion map from backend te_completed field (no extra API calls needed)
-  useEffect(() => {
-    if (!rfqList || rfqList.length === 0) {
-      setRfqCompletionMap(new Map());
-      return;
-    }
-    const map = new Map();
-    rfqList.forEach(rfq => map.set(rfq.id, rfq.te_completed === true));
-    setRfqCompletionMap(map);
-  }, [rfqList]);
-
-  // Keep rfqCompletionMap in sync when current RFQ's evaluation status changes
-  useEffect(() => {
-    if (!rfq_id || !clauseInfo || clauseInfo.length === 0) return;
-
-    const productIds = clauseInfo.map(item => item.rfq_product_id);
-    const allComplete = productIds.every(productId => {
-      const status = productEvaluationStatus.get(productId);
-      return status?.workflowComplete === true;
-    });
-
-    setRfqCompletionMap(prev => {
-      const newMap = new Map(prev);
-      newMap.set(parseInt(rfq_id), allComplete);
-      return newMap;
-    });
-  }, [rfq_id, clauseInfo, productEvaluationStatus]);
 
   // Access Denied check - show when user has no read permission
   // Only check when an RFQ is selected and we have permission context
@@ -518,13 +490,15 @@ const BuyerTechnicalEvaluation = () => {
                   {
                     key: 'action_required',
                     label: 'Action Required',
-                    filter: (item) => rfqCompletionMap.get(item.id) !== true,
+                    filter: (item) => item.has_pending_evaluation || item.te_approval_rejected || item.approval_required,
                   },
                   {
-                    key: 'action_completed',
-                    label: 'Completed',
-                    filter: (item) => rfqCompletionMap.get(item.id) === true,
+                    key: 'in_progress',
+                    label: 'In Progress',
+                    filter: (item) => !item.has_pending_evaluation && !item.te_approval_rejected
+                      && !item.approval_required && item.has_pending_te_approval,
                   },
+                  { key: 'all', label: 'All', filter: null },
                 ]}
                 defaultTab="action_required"
                 rfqNo={rfqNo}
@@ -533,20 +507,16 @@ const BuyerTechnicalEvaluation = () => {
                 userHotelMappings={userHotelMappings}
                 selectedHotelIds={selectedHotelIds}
                 onHotelSelectionChange={handleHotelSelectionChange}
-                projects={projects || []}
-                onProjectChange={(val) => setSelectedproject(val)}
                 showTypeFilter={true}
                 isTenderFilter={isTenderFilter}
                 onTenderFilterChange={(val) => setIsTenderFilter(val)}
                 getItemTags={(item, isSelected) => {
                   if (isSelected) return [];
-                  const tags = [];
-                  if (rfqCompletionMap.get(item.id) === true) {
-                    tags.push({ label: 'Completed', variant: 'success' });
-                  } else if (item.approval_required) {
-                    tags.push({ label: 'Approval Pending', variant: 'warning' });
-                  }
-                  return tags;
+                  if (item.te_approval_rejected) return [{ label: 'Evaluation Rejected', variant: 'danger' }];
+                  if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
+                  if (item.has_pending_te_approval) return [{ label: 'In Approval', variant: 'info' }];
+                  if (item.te_completed === true) return [{ label: 'Completed', variant: 'success' }];
+                  return [];
                 }}
                 pageId="technical_evaluation"
               />
@@ -609,10 +579,10 @@ const BuyerTechnicalEvaluation = () => {
                           <span>{entityLabel}</span>
                           <span className={styles.rfqHeroNum}>#{currentRfq.rfq_no}</span>
                           <Badge
-                            bg={rfqCompletionMap.get(currentRfq.id) === true ? 'success' : currentRfq.approval_required ? 'warning' : 'info'}
+                            bg={currentRfq.te_approval_rejected ? 'danger' : currentRfq.te_completed === true ? 'success' : currentRfq.approval_required ? 'warning' : 'info'}
                             className={styles.rfqStatusBadge}
                           >
-                            {rfqCompletionMap.get(currentRfq.id) === true ? 'Completed' : currentRfq.approval_required ? 'Pending Approval' : 'In Progress'}
+                            {currentRfq.te_approval_rejected ? 'Evaluation Rejected' : currentRfq.te_completed === true ? 'Completed' : currentRfq.approval_required ? 'Pending Approval' : 'In Progress'}
                           </Badge>
                         </div>
                         {currentRfq.title && currentRfq.title != "" && (
@@ -667,21 +637,28 @@ const BuyerTechnicalEvaluation = () => {
 
                     {/* Evaluation Progress Tracker */}
                     {clauseInfo && clauseInfo.length > 0 && (
-                      <EvaluationProgressTracker
-                        clauseInfo={clauseInfo}
-                        productEvaluationStatus={productEvaluationStatus}
-                      />
+                      <EvaluationProgressTracker rfqId={rfq_id} />
                     )}
 
                     {/* Quoted Vendors Filter */}
                     {clauseInfo && clauseInfo.length > 0 && (
-                      <div className="d-flex align-items-center gap-2 mb-3 mt-2" style={{ padding: '8px 12px', background: '#f8f9fa', borderRadius: 8, width: 'fit-content' }}>
+                      <div className="d-flex align-items-center gap-3 mb-3 mt-2" style={{ padding: '8px 12px', background: '#f8f9fa', borderRadius: 8, width: 'fit-content' }}>
                         <Form.Check
                           type="switch"
                           id="quoted-vendors-toggle"
                           label="Quoted Vendors Only"
                           checked={quotedVendorsOnly}
-                          onChange={(e) => setQuotedVendorsOnly(e.target.checked)}
+                          onChange={(e) => { setQuotedVendorsOnly(e.target.checked); if (e.target.checked) setShowFailedVendors(false); }}
+                          disabled={showFailedVendors}
+                          style={{ fontSize: '0.85rem', fontWeight: 500, margin: 0 }}
+                        />
+                        <div style={{ width: 1, height: 18, background: '#dee2e6' }} />
+                        <Form.Check
+                          type="switch"
+                          id="failed-vendors-toggle"
+                          label="Show Failed Vendors"
+                          checked={showFailedVendors}
+                          onChange={(e) => { setShowFailedVendors(e.target.checked); if (e.target.checked) setQuotedVendorsOnly(false); }}
                           style={{ fontSize: '0.85rem', fontWeight: 500, margin: 0 }}
                         />
                       </div>
@@ -697,7 +674,7 @@ const BuyerTechnicalEvaluation = () => {
                           return (
                             <div className={styles.productCard} key={`product_${product.id}`}>
                               {/* Product Header */}
-                              <div className={styles.productHeader}>
+                              <div className={`${styles.productHeader} ${expandedProducts.has(product.id) ? styles.productHeaderActive : ''}`} onClick={() => toggleProductExpand(product.id)}>
                                 <div className={styles.productHeaderLeft}>
                                   <span className={styles.productBadge}>
                                     Product {productIndex + 1} of {clauseInfo.length}
@@ -709,33 +686,39 @@ const BuyerTechnicalEvaluation = () => {
                                     Spec: {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
                                   </p>
                                 </div>
+                                <div className={`${styles.expandToggle} ${expandedProducts.has(product.id) ? styles.expanded : ''}`}>
+                                  <BsChevronDown size={18} />
+                                </div>
                               </div>
 
                               {/* Product Body */}
-                              <div className={styles.productBody}>
-                                <ClauseProductItem
-                                  type={"buyer"}
-                                  rfq_id={rfq_id}
-                                  product={{
-                                    ...product,
-                                    tbl_rfq_product_tech_evaluation_id: rfqProduct.evaluation_id
-                                  }}
-                                  currentUserProfile={currentUserProfile}
-                                  currentRfq={currentRfq}
-                                  getVendors={async () => await getVendorSelectionOption(product.id)}
-                                  clauseInfo={rfqProduct?.clauses ?? []}
-                                  vendors={rfqProduct?.vendors ?? []}
-                                  refetch={fetchEvaluationData}
-                                  selectedVendor={vendorMap.get(product.id)}
-                                  selectedVendors={productSelectedVendors.map(vendor => vendor.value)}
-                                  minimumPassingScore={rfqProduct?.minimum_passing_score}
-                                  canWrite={canWrite}
-                                  canApprove={canApprove}
-                                  permissionsLoading={permissionsLoading}
-                                  onEvaluationStatusChange={handleEvaluationStatusChange}
-                                  quotedVendorsOnly={quotedVendorsOnly}
-                                />
-                              </div>
+                              {expandedProducts.has(product.id) && (
+                                <div className={styles.productBody}>
+                                  <ClauseProductItem
+                                    type={"buyer"}
+                                    rfq_id={rfq_id}
+                                    product={{
+                                      ...product,
+                                      tbl_rfq_product_tech_evaluation_id: rfqProduct.evaluation_id
+                                    }}
+                                    currentUserProfile={currentUserProfile}
+                                    currentRfq={currentRfq}
+                                    getVendors={async () => await getVendorSelectionOption(product.id)}
+                                    clauseInfo={rfqProduct?.clauses ?? []}
+                                    vendors={rfqProduct?.vendors ?? []}
+                                    refetch={fetchEvaluationData}
+                                    selectedVendor={vendorMap.get(product.id)}
+                                    selectedVendors={productSelectedVendors.map(vendor => vendor.value)}
+                                    minimumPassingScore={rfqProduct?.minimum_passing_score}
+                                    canWrite={canWrite}
+                                    canApprove={canApprove}
+                                    permissionsLoading={permissionsLoading}
+                                    onEvaluationStatusChange={handleEvaluationStatusChange}
+                                    quotedVendorsOnly={quotedVendorsOnly}
+                                    showFailedVendors={showFailedVendors}
+                                  />
+                                </div>
+                              )}
                             </div>
                           )
                         }
@@ -757,6 +740,7 @@ const BuyerTechnicalEvaluation = () => {
                         onCancel={() => setShowUnifiedSubmitModal(false)}
                         productCount={clauseInfo.length}
                         evaluatedProductCount={evaluatedProductCount}
+                        isBidExpired={isBidExpired}
                       />
                     )}
                   </>

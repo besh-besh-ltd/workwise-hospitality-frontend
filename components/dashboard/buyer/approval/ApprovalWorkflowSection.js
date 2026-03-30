@@ -607,12 +607,15 @@ const ApprovalWorkflowSection = ({
               </div>
               {totalSteps > 0 && (
                 <div className="d-flex align-items-center gap-2 mt-1">
-                  <span className="aws-step-info">Step {currentStep} of {totalSteps}</span>
+                  <span className="aws-step-info" style={effectiveBacklog ? { color: '#dc3545' } : undefined}>
+                    {effectiveBacklog ? `Expired at step ${currentStep} of ${totalSteps}` : `Step ${currentStep} of ${totalSteps}`}
+                  </span>
                   <div className="aws-progress-track">
                     {steps.map((step) => {
                       const pipColor =
                         step.status === "APPROVED" ? "#198754" :
                         step.status === "REJECTED" ? "#dc3545" :
+                        effectiveBacklog && step.status === "PENDING" ? "#dc3545" :
                         step.status === "PENDING" && step.step_order === currentStep ? "#ffc107" :
                         "#dee2e6";
                       return (
@@ -722,6 +725,7 @@ const ApprovalWorkflowSection = ({
                   steps={steps}
                   currentStep={currentStep}
                   initiatedBy={initiatedBy}
+                  instanceStatus={effectiveBacklog ? 'BACKLOG' : status}
                 />
 
                 {/* Action buttons when hidden from top */}

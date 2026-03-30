@@ -1,10 +1,9 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { addChatComment, fetchChatData, getVendorDetailsByID } from '@/services/rfq';
-import { getProfileById } from '@/services/Auth';
+import { addChatComment, fetchChatData } from '@/services/rfq';
 import { toast } from 'react-toastify';
 import { handleFileUpload } from '@/utils/sharedFunctions';
+import moment from 'moment';
 import FileLink from '@/components/shared/FileLink';
-import FullLoader from '@/components/shared/FullLoader';
 import { Modal } from 'react-bootstrap';
 
 /**
@@ -33,9 +32,6 @@ const VendorDeviationModal = ({
   const [loading, setLoading] = useState(false);
   const latestMessageRef = useRef(null);
   const fileInputRef = useRef(null);
-  const [userMap, setUserMap] = useState({});
-
-  const isTender = rfq_no?.is_tender === 1 || rfq_no?.is_tender === "1";
 
   // Always use anonymized code in technical evaluation to prevent bias
   const vendorDisplayName = useMemo(() => {
@@ -73,8 +69,8 @@ const VendorDeviationModal = ({
 
     const payload = {
       clause_id: clause.clause_id,
-      sender_id: userData.id,
-      receiver_id: vendor.vendor_id || vendor.value
+      sender_id: parseInt(userData.id),
+      receiver_id: parseInt(vendor.vendor_id || vendor.value)
     };
 
     try {
@@ -101,8 +97,8 @@ const VendorDeviationModal = ({
 
     let payload = {
       clause_id: clause.clause_id,
-      sender_id: userData.id,
-      receiver_id: vendor.vendor_id || vendor.value,
+      sender_id: parseInt(userData.id),
+      receiver_id: parseInt(vendor.vendor_id || vendor.value),
       text: messageText,
       file_url: files,
       product: product,
@@ -126,55 +122,11 @@ const VendorDeviationModal = ({
     }
   };
 
-  // Fetch and cache sender info if needed
-  const fetchUserProfile = async (userId) => {
-    if (userMap[userId]) return;
-    let profile = null;
-    try {
-      if (userId === userData.id) {
-        profile = userData;
-      } else {
-        // Try vendor first
-        let res = await getVendorDetailsByID(userId);
-        if (res?.data && res.data.company_name) {
-          profile = {
-            user_type: 3, // vendor
-            name: res.data.company_name,
-            id: userId,
-          };
-        } else {
-          // Fallback to buyer/engineer/management
-          let res2 = await getProfileById(userId);
-          if (res2?.data) {
-            profile = {
-              user_type: res2.data.user_type,
-              name: res2.data.name,
-              id: userId,
-            };
-          }
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-    if (profile) {
-      setUserMap((prev) => ({ ...prev, [userId]: profile }));
-    }
-  };
-
   useEffect(() => {
     if (show && clause && vendor) {
       getChatData();
     }
   }, [show, clause, vendor]);
-
-  // On messages load, fetch sender info for all unique senders
-  useEffect(() => {
-    if (messages) {
-      const uniqueIds = Array.from(new Set(messages.map((m) => m.created_by)));
-      uniqueIds.forEach((id) => fetchUserProfile(id));
-    }
-  }, [messages]);
 
   useEffect(() => {
     if (latestMessageRef.current) {
@@ -188,11 +140,11 @@ const VendorDeviationModal = ({
       setMessages(null);
       setMessageText("");
       setFiles(null);
-      setUserMap({});
     }
   }, [show]);
 
   return (
+    <>
     <Modal
       show={show}
       onHide={onHide}
@@ -254,9 +206,20 @@ const VendorDeviationModal = ({
             padding: '24px',
             background: '#ffffff'
           }}
-          className="hasFullLoader"
         >
-          {loading && <FullLoader />}
+          {loading && (
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', height: '100%', gap: 12,
+            }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%',
+                border: '3px solid #e2e8f0', borderTopColor: 'var(--primary-color, #2E5BA8)',
+                animation: 'deviationSpin 0.7s linear infinite',
+              }} />
+              <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>Loading messages...</span>
+            </div>
+          )}
 
           {!loading && messages && messages.length === 0 && (
             <div style={{
@@ -290,21 +253,14 @@ const VendorDeviationModal = ({
           )}
 
           {messages && messages.map((msg, idx) => {
-            const sender = userMap[msg.created_by] || {};
+            // Vendor senders always show "Vendor", evaluators show their name from backend
+            const senderLabel = (msg.sender_user_type === 3 || msg.sender_user_type === '3')
+              ? "Vendor"
+              : (msg.sender_name || "Evaluator");
 
-            // Anonymize vendor identity in tender mode
-            const senderLabel = (() => {
-              if (!sender) return "";
-
-              // Always hide real vendor name in technical evaluation to prevent bias
-              if (sender.user_type === 3) {
-                return vendorDisplayName;
-              }
-
-              return sender.name || "User";
-            })();
-
-            const isOwnMessage = msg.created_by === userData.id;
+            // All evaluator/buyer messages on the right, only vendor messages on the left
+            const isVendorMessage = String(msg.created_by) === String(vendor?.vendor_id || vendor?.value);
+            const isOwnMessage = !isVendorMessage;
 
             return (
               <div
@@ -359,12 +315,7 @@ const VendorDeviationModal = ({
                     marginTop: '6px',
                     opacity: 0.7
                   }}>
-                    {new Date(msg.created_at).toLocaleString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    {msg.created_at ? moment.utc(msg.created_at).utcOffset('+05:30').format('DD MMM, hh:mm a') : ''}
                   </div>
                 </div>
               </div>
@@ -530,6 +481,12 @@ const VendorDeviationModal = ({
         </div>
       </Modal.Body>
     </Modal>
+    <style jsx global>{`
+      @keyframes deviationSpin {
+        to { transform: rotate(360deg); }
+      }
+    `}</style>
+    </>
   );
 };
 

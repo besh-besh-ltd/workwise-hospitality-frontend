@@ -224,6 +224,19 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+
+  &:hover {
+    background: linear-gradient(135deg, #eef4ff 0%, #f8fbff 100%);
+    box-shadow: 0 4px 12px rgba(46, 91, 168, 0.1);
+    transform: translateY(-1px);
+  }
+
+  &.productHeaderActive {
+    background: linear-gradient(135deg, #eef4ff 0%, #f8fbff 100%);
+    box-shadow: 0 4px 12px rgba(46, 91, 168, 0.1);
+  }
 }
 
 .productHeaderLeft {
@@ -255,6 +268,27 @@
   font-size: 13px;
   color: #64748b;
   margin: 0;
+}
+
+.expandToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  color: #64748b;
+  transition: transform 0.25s ease, background-color 0.2s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    background: #e8efff;
+    color: #2E5BA8;
+  }
+
+  &.expanded {
+    transform: rotate(180deg);
+  }
 }
 
 .productBody {
@@ -289,10 +323,10 @@
 }
 
 .scoringTable {
-  width: max-content;
   min-width: 100%;
   border-collapse: collapse;
   margin: 0;
+  table-layout: fixed;
 }
 
 .scoringTable th,
@@ -301,6 +335,12 @@
   vertical-align: top;
   border-bottom: 1px solid #eef0f2;
   font-size: 13px;
+}
+
+/* Divider between vendor columns (skip the first sticky clause column) */
+.scoringTable th + th,
+.scoringTable td + td {
+  border-left: 1px solid #eef0f2;
 }
 
 .scoringTable thead th {
@@ -342,19 +382,13 @@
   background-color: #fafbfc;
 }
 
-/* Row hover */
-.scoringTable tbody tr:hover td {
-  background-color: #f0f6ff;
-}
-
-.scoringTable tbody tr:hover td:first-child {
-  background-color: #f0f6ff;
-}
 
 
 /* --- 4. Vendor Headers --- */
 .vendorHeader {
   min-width: 200px;
+  width: 200px;
+  border-left: 1px solid #eef0f2;
 }
 
 .vendorHeaderTop {
@@ -702,20 +736,73 @@
 /* --- 7. Deviation Preview --- */
 .deviationPreview {
   margin-top: 6px;
-  padding: 8px 10px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border: 1px solid #e9ecef;
+  padding: 6px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
   font-size: 11px;
-  line-height: 1.5;
+  line-height: 1.4;
   max-width: 220px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.deviationPreview:hover {
+  border-color: #2E5BA8;
+  box-shadow: 0 1px 4px rgba(46, 91, 168, 0.12);
 }
 
 .deviationPreviewMsg {
-  color: #495057;
+  padding: 4px 8px;
+  border-radius: 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 10.5px;
+}
+
+.deviationPreviewName {
+  font-weight: 600;
+  font-size: 10px;
+}
+
+.deviationPreviewVendor {
+  background: #f1f5f9;
+  color: #475569;
+  border-left: 2px solid #94a3b8;
+}
+
+.deviationPreviewEvaluator {
+  background: #eff6ff;
+  color: #1e40af;
+  border-left: 2px solid #3b82f6;
+}
+
+.deviationPreviewMore {
+  font-size: 10px;
+  color: #2E5BA8;
+  font-weight: 600;
+  text-align: center;
+  padding: 2px 0;
+}
+
+.deviationBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #2E5BA8;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 2px;
 }
 
 
@@ -875,113 +962,124 @@
 
 
 /* --- 10. Progress Tracker --- */
-.progressTracker {
+/* --- Dashboard Cards --- */
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
   margin-bottom: 20px;
-  padding: 20px 24px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border: 1px solid #dee2e6;
+}
+
+.dashboardCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+  }
 }
 
-.progressTrackerHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.progressTrackerLeft {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.progressTrackerIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+.dashboardCardIcon {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
 }
 
-.progressTrackerIconComplete {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-}
-
-.progressTrackerIconProgress {
-  background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
-}
-
-.progressTrackerTitle {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: #212529;
-}
-
-.progressBar {
-  width: 100%;
-  height: 8px;
-  background: #e9ecef;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 16px;
-}
-
-.progressBarFill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-
-.progressBarComplete {
-  background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
-}
-
-.progressBarProgress {
-  background: linear-gradient(90deg, #0d6efd 0%, #0a58ca 100%);
-  background-size: 200% 100%;
-  animation: shimmer 2s linear infinite;
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-.progressStats {
+.dashboardCardContent {
   display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
-.progressStat {
-  flex: 1 1 auto;
-  min-width: 160px;
-}
-
-.progressStatLabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: #6c757d;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.progressStatValue {
-  font-size: 20px;
+.dashboardCardValue {
+  font-size: 22px;
   font-weight: 700;
-  color: #212529;
+  color: #0f172a;
+  line-height: 1.2;
 }
 
-.progressStatTotal {
+.dashboardCardTotal {
   font-size: 14px;
   font-weight: 500;
-  color: #6c757d;
-  margin-left: 4px;
+  color: #94a3b8;
+  margin-left: 3px;
+}
+
+.dashboardCardLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* Card color variants */
+.dashboardCardCompleted {
+  border-left: 4px solid #28a745;
+
+  .dashboardCardIcon {
+    background: #e6f7ed;
+    color: #28a745;
+  }
+}
+
+.dashboardCardInProgress {
+  border-left: 4px solid #f59e0b;
+
+  .dashboardCardIcon {
+    background: #fef3cd;
+    color: #d97706;
+  }
+}
+
+.dashboardCardPassed {
+  border-left: 4px solid #0d6efd;
+
+  .dashboardCardIcon {
+    background: #e0edff;
+    color: #0d6efd;
+  }
+}
+
+.dashboardCardFailed {
+  border-left: 4px solid #dc3545;
+
+  .dashboardCardIcon {
+    background: #fde8ea;
+    color: #dc3545;
+  }
+}
+
+/* Loading shimmer */
+.dashboardCardLoading {
+  min-height: 76px;
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboardCardShimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: dashboardShimmer 1.5s ease infinite;
+}
+
+@keyframes dashboardShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 
@@ -1317,14 +1415,20 @@
   }
 
   .productHeader {
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     align-items: flex-start;
     gap: 8px;
   }
 
-  .progressStats {
-    flex-direction: column;
-    gap: 16px;
+  .productHeaderLeft {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dashboardGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
   .approvedBanner {

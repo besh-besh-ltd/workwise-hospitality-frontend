@@ -6,9 +6,9 @@ import { getCompanyUsersDetailed, updateUserAccount } from "@/services/Auth";
 import {
   getHospitalityCompanies,
   getHospitalityHotels,
-  getUserMappings,
   mapHospitalityUsers,
   deleteUserMapping,
+  getUserMappingsById,
 } from "@/services/hospitality";
 import { getUserRoleScopes, getUserDepartments } from "@/services/rbac";
 import { toast } from "react-toastify";
@@ -204,7 +204,7 @@ const ManageAccountsPage = () => {
     if (isHospitalityCompany) {
       promises.push(
         getUserRoleScopes(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => []),
-        getUserMappings(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => [])
+        Promise.resolve(userProfile?.hospitality_mappings || [])
       );
     } else {
       promises.push(Promise.resolve([]), Promise.resolve([]));
@@ -235,9 +235,10 @@ const ManageAccountsPage = () => {
 
   const handleManageAccess = async (account) => {
     setAccessModal({ open: true, account });
+    setAccessModalMappings([]);
     try {
-      const mappingsRes = await getUserMappings(account.id);
-      setAccessModalMappings(mappingsRes?.data?.data || mappingsRes?.data || []);
+      const res = await getUserMappingsById(account.id);
+      setAccessModalMappings(res?.data || []);
     } catch {
       setAccessModalMappings([]);
     }
@@ -261,8 +262,10 @@ const ManageAccountsPage = () => {
         auto_map_projects: autoMapProjects,
       });
       toast.success("Access added successfully");
-      const mappingsRes = await getUserMappings(user.id).catch(() => ({ data: [] }));
-      setAccessModalMappings(mappingsRes?.data?.data || mappingsRes?.data || []);
+      try {
+        const res = await getUserMappingsById(user.id);
+        setAccessModalMappings(res?.data || []);
+      } catch { /* ignore */ }
       refreshCurrentPage();
     } catch (error) {
       toast.error(
@@ -281,8 +284,7 @@ const ManageAccountsPage = () => {
         hotel_id: mapping.mapping_type === 1 ? mapping.hospitality_hotel_id : null,
       });
       toast.success("Access removed");
-      const mappingsRes = await getUserMappings(userId).catch(() => ({ data: [] }));
-      setAccessModalMappings(mappingsRes?.data?.data || mappingsRes?.data || []);
+      setAccessModalMappings(userProfile?.hospitality_mappings || []);
       refreshCurrentPage();
     } catch (error) {
       toast.error(

@@ -19,10 +19,17 @@ const UnifiedSubmitForApproval = ({
   onConfirm,
   onCancel,
   productCount,
-  evaluatedProductCount = 0
+  evaluatedProductCount = 0,
+  isBidExpired = false
 }) => {
   // Don't show button if user doesn't have write permissions
   if (!canWrite || permissionsLoading) return null;
+
+  // Don't show if bid end date hasn't passed yet (evaluators can't score yet)
+  if (!isBidExpired) return null;
+
+  // Don't show if no product has a valid evaluation (at least one vendor scored)
+  if (evaluatedProductCount === 0 && !hasAnyPendingApproval) return null;
 
   // Don't show button if there's already a pending approval
   if (hasAnyPendingApproval) {
@@ -71,13 +78,13 @@ const UnifiedSubmitForApproval = ({
     );
   }
 
-  const isDisabled = evaluatedProductCount === 0 || unifiedSubmitLoading;
+  const isDisabled = evaluatedProductCount < productCount || unifiedSubmitLoading;
 
   let tooltipMessage = "";
-  if (evaluatedProductCount === 0) {
-    tooltipMessage = "Evaluate at least one vendor in a product before submitting";
+  if (evaluatedProductCount < productCount) {
+    tooltipMessage = `All products must have at least one vendor evaluated before submitting (${evaluatedProductCount}/${productCount} ready)`;
   } else {
-    tooltipMessage = `Submit ${evaluatedProductCount} of ${productCount} evaluated product(s) for approval`;
+    tooltipMessage = `Submit ${evaluatedProductCount} product(s) for approval`;
   }
 
   return (

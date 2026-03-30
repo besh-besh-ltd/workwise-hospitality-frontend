@@ -25,8 +25,8 @@ import {
   getEntityLabel,
 } from "@/utils/sharedFunctions";
 import { toast } from "react-toastify";
-import { getProjectAvailableBudget, getAllProjects as getAllProjectsService } from "@/services/project";
-import { getUserMappings } from "@/services/hospitality";
+import { getProjectAvailableBudget } from "@/services/project";
+import { useSelector } from "react-redux";
 import { Alert } from "react-bootstrap";
 import { BsFileEarmarkText } from "react-icons/bs";
 import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
@@ -54,6 +54,7 @@ import revampStyles from "@/components/dashboard/buyer/quoteCompare/QuoteCompare
 
 
 const QuoteCompare = () => {
+  const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -81,9 +82,6 @@ const QuoteCompare = () => {
   const [freightFilter, setFreightFilter] = useState(false);
   const [normalizeFilter, setNormalizeFilter] = useState(false);
   const [rfqNo, setRfqNo] =useState(null);
-  const [projects, setProjects] = useState(null);
-  const [allProjects, setAllProjects] = useState(null);
-  const [selectedproject, setSelectedproject] = useState(null);
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [openModals, setOpenModals] = useState({});
@@ -365,10 +363,9 @@ const QuoteCompare = () => {
     }
   };
 
-  // Initial load: fetch sidebar RFQs, projects, hotel mappings (once)
+  // Initial load: fetch sidebar RFQs, hotel mappings (once)
   useEffect(() => {
     getAllRFQs();
-    getAllProjects();
     fetchUserHotelMappings();
   }, []);
 
@@ -402,7 +399,7 @@ const QuoteCompare = () => {
         getAllRFQs(true);
     }, 500);
     return () => clearTimeout(handler);
-  }, [rfqNo, selectedproject, isTenderFilter]);
+  }, [rfqNo, isTenderFilter]);
 
 
   const closeModalForVariant = (variantId) => {
@@ -464,44 +461,13 @@ const transformData = (data) => {
 const openModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: true }));
 };
-  const getAllProjects = () => {
-    getAllProjectsService()
-        .then((res) => {
-            let d = [];
-            (res.data.data || res.data || []).map((item) => {
-                d.push({ label: item.name, value: item.id, hospitality_company_id: item.hospitality_company_id, hotel_id: item.hotel_id });
-            });
-            setProjects(d);
-            setAllProjects(d);
-        })
-        .catch((error) => {
-            console.error(error)
-        })
-  }
-
-  const fetchUserHotelMappings = async () => {
-    try {
-      const response = await getUserMappings();
-      const mappings = (response?.data || []).filter(m => m.hospitality_hotel_id != null);
-      setUserHotelMappings(mappings);
-    } catch (error) {
-      console.error("Error fetching user hotel mappings", error);
-    }
+  const fetchUserHotelMappings = () => {
+    const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
+    setUserHotelMappings(mappings);
   }
 
   const handleHotelSelectionChange = (hotelIds) => {
     setSelectedHotelIds(hotelIds);
-    
-    // Filter projects based on selected hotels
-    if (!hotelIds || hotelIds.length === 0) {
-      setProjects(allProjects);
-    } else {
-      const filtered = allProjects.filter(p => hotelIds.includes(p.hotel_id));
-      setProjects(filtered);
-    }
-    
-    // Reset project selection when hotels change
-    setSelectedproject(null);
   }
 
   const handleFreightFilterChange = (e) => {
@@ -532,7 +498,7 @@ const handleCloseNormalizeModal = () => {
  
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
-    getRfqs({ tech_eval: false, page, limit, project_id: selectedproject ? selectedproject : -1, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote" })
+    getRfqs({ tech_eval: false, page, limit, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote" })
       .then((res) => {
         setloading(false);
         const newData = Array.isArray(res) ? res : [];
@@ -1687,38 +1653,37 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 extraQueryParams={{ tab: activeTab }}
                 tabs={[
                   {
-                    key: 'negotiation_pending',
-                    label: 'Negotiation',
+                    key: 'action_required',
+                    label: 'Action Required',
                     filter: (item) => {
-                      const hasActiveQuotes = parseInt(item.active_quote_count || 0) > 0;
-                      const approvalFullyDone = item.finalization_approval_completed === true;
-                      const approvalPartiallyDone = item.finalization_partially_approved === true;
-                      // Items with completed finalization approval go to Finalized tab
-                      if (approvalFullyDone || approvalPartiallyDone) return false;
-                      return hasActiveQuotes || item.has_finalization || item.is_finalized || item.approval_required;
+                      // User is current approver
+                      if (item.approval_required) return true;
+                      // Already fully done or all finalized (in approval) or partially approved
+                      if (item.finalization_approval_completed === true) return false;
+                      if (item.is_finalized === true) return false;
+                      if (item.finalization_partially_approved === true) return false;
+                      // Products still need finalization and vendors have responded
+                      return parseInt(item.active_quote_count || 0) > 0;
                     },
                   },
                   {
-                    key: 'finalization_completed',
-                    label: 'Finalized',
-                    filter: (item) => item.finalization_approval_completed === true
-                      || item.finalization_partially_approved === true,
+                    key: 'in_progress',
+                    label: 'In Progress',
+                    filter: (item) => {
+                      if (item.approval_required || item.finalization_approval_completed) return false;
+                      return (item.is_finalized && !item.finalization_approval_completed)
+                        || item.finalization_partially_approved;
+                    },
                   },
-                  {
-                    key: 'all',
-                    label: 'All',
-                    filter: null,
-                  },
+                  { key: 'all', label: 'All', filter: null },
                 ]}
-                defaultTab="all"
+                defaultTab="action_required"
                 rfqNo={rfqNo}
                 onRfqNoChange={(val) => setRfqNo(val)}
                 searchPlaceholder="Search by number..."
                 userHotelMappings={userHotelMappings}
                 selectedHotelIds={selectedHotelIds}
                 onHotelSelectionChange={handleHotelSelectionChange}
-                projects={projects || []}
-                onProjectChange={(val) => setSelectedproject(val)}
                 showTypeFilter={true}
                 isTenderFilter={isTenderFilter}
                 onTenderFilterChange={(val) => {
@@ -1727,19 +1692,11 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 }}
                 getItemTags={(item, isSelected) => {
                   if (isSelected) return [];
-                  const tags = [];
-                  if (item.finalization_approval_completed) {
-                    tags.push({ label: 'Finalized', variant: 'success' });
-                  } else if (item.finalization_partially_approved) {
-                    tags.push({ label: 'Partially Finalized', variant: 'warning' });
-                  } else if (item.approval_required) {
-                    tags.push({ label: 'Approval Pending', variant: 'warning' });
-                  } else if (item.has_finalization || item.is_finalized) {
-                    tags.push({ label: 'Awaiting Approval', variant: 'info' });
-                  } else {
-                    tags.push({ label: 'In Negotiation', variant: 'info' });
-                  }
-                  return tags;
+                  if (item.finalization_approval_completed) return [{ label: 'Finalized', variant: 'success' }];
+                  if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
+                  if (item.is_finalized || item.finalization_partially_approved) return [{ label: 'Awaiting Approval', variant: 'info' }];
+                  if (item.has_finalization) return [{ label: 'Partially Finalized', variant: 'purple' }];
+                  return [{ label: 'In Negotiation', variant: 'info' }];
                 }}
                 showLoadMore={true}
                 hasMore={hasMoreQuotes}

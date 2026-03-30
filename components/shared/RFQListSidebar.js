@@ -1,8 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Select from 'react-select';
+import { BsExclamationCircleFill, BsHourglassSplit, BsInboxFill, BsCircle } from 'react-icons/bs';
 import { formatRFQNumber } from '@/utils/sharedFunctions';
 import styles from './RFQListSidebar.module.css';
+
+const DEFAULT_TAB_ICONS = {
+  action_required: BsExclamationCircleFill,
+  in_progress: BsHourglassSplit,
+  all: BsInboxFill,
+};
 
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 480;
@@ -179,19 +186,29 @@ const RFQListSidebar = ({
           <div className={styles.tabBar}>
             {tabs.map(tab => {
               const isActive = activeTab === tab.key;
+              const TabIcon = tab.icon || DEFAULT_TAB_ICONS[tab.key] || BsCircle;
+              const count = tabCounts[tab.key] ?? 0;
               return (
-                <button
-                  key={tab.key}
-                  className={`${styles.tab} ${isActive ? styles.tabActive : ''}`}
-                  onClick={() => setActiveTab(tab.key)}
-                  title={tab.label}
-                  id={`tab_${tab.key}-rfq_sidebar-${pageId}`}
-                >
-                  {tab.label}
-                  <span className={`${styles.tabCount} ${isActive ? styles.tabCountActive : styles.tabCountDefault}`}>
-                    {tabCounts[tab.key] ?? 0}
-                  </span>
-                </button>
+                <div className={`${styles.tabSlot} ${isActive ? styles.tabSlotActive : ''}`} key={tab.key}>
+                  <button
+                    className={`${styles.tab} ${isActive ? styles.tabActive : ''}`}
+                    onClick={() => setActiveTab(tab.key)}
+                    id={`tab_${tab.key}-rfq_sidebar-${pageId}`}
+                  >
+                    <span className={styles.tabIcon}>
+                      <TabIcon size={13} />
+                    </span>
+                    <span className={styles.tabContent}>
+                      <span className={styles.tabLabel}>{tab.label}</span>
+                      <span className={styles.tabCount}>{count}</span>
+                    </span>
+                  </button>
+                  {!isActive && (
+                    <span className={styles.tabTooltip}>
+                      {tab.label} ({count})
+                    </span>
+                  )}
+                </div>
               );
             })}
           </div>

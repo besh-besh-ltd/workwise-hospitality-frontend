@@ -257,6 +257,17 @@ export const refreshVendors = (rfqId) => {
   })
 }
 
+export const previewRefreshVendors = (rfqId) => {
+  return new Promise(async (resolve, reject)=> {
+    try {
+      const response = await axiosInstance.post(`/rfq/refresh-vendors`, { rfq_id: rfqId, preview: true });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  })
+}
+
 export const getRFQS = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -1079,10 +1090,13 @@ export const getSummarisedDeviation = (rfq_id) => {
   })
 }
 
-export const fetchDeviationPreviews = (rfq_product_id, user_id) => {
+export const fetchDeviationPreviews = (rfq_product_id, user_id, token) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/get-deviation-previews`, { rfq_product_id, user_id });
+      let response = await axiosInstance.post(
+        `/rfq/get-deviation-previews${token ? `?token=${token}` : ''}`,
+        { rfq_product_id, user_id }
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -1306,6 +1320,18 @@ export const extractQuotation = (quotation_document, rfq_data) => {
   formData.append("mode", "vlm")
 
   return axios.post(`${quotationAIServerUrl}/extract_quotation`, formData);
+};
+
+/** Get technical evaluation dashboard summary for an RFQ */
+export const getTechEvalDashboard = (rfq_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/technical/dashboard/${rfq_id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error?.message || "Failed to fetch dashboard data" });
+    }
+  });
 };
 
 /** Submit technical evaluation for approval - creates an approval workflow instance */

@@ -9,6 +9,8 @@ import {
   BsChatLeftTextFill,
   BsCheckLg,
   BsCircle,
+  BsSkipForwardFill,
+  BsExclamationTriangleFill,
 } from "react-icons/bs";
 import moment from "moment";
 
@@ -53,35 +55,57 @@ const statusConfig = {
     cardBg: "#fafafa",
     cardBorder: "#d3d6d8",
   },
+  EXPIRED: {
+    stepIcon: BsExclamationTriangleFill,
+    color: "#dc3545",
+    bgColor: "#f8d7da",
+    borderColor: "#dc3545",
+    label: "Expired",
+    badgeVariant: "danger",
+    cardBg: "#fef8f8",
+    cardBorder: "#f5c2c7",
+  },
 };
 
-const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
+const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus }) => {
   const [expandedSteps, setExpandedSteps] = useState({});
 
-  // Auto-expand the current pending step
+  const isExpired = instanceStatus === 'BACKLOG' || instanceStatus === 'CANCELLED';
+
+  // Auto-expand the current pending step (or first expired step)
   useEffect(() => {
     if (steps.length > 0) {
-      const pendingStep = steps.find(
-        (s) => s.step_order === currentStep && s.status === "PENDING"
-      );
-      if (pendingStep) {
-        setExpandedSteps((prev) => ({ ...prev, [pendingStep.id]: true }));
+      const targetStep = isExpired
+        ? steps.find((s) => s.status === "PENDING")
+        : steps.find((s) => s.step_order === currentStep && s.status === "PENDING");
+      if (targetStep) {
+        setExpandedSteps((prev) => ({ ...prev, [targetStep.id]: true }));
       }
     }
-  }, [steps, currentStep]);
+  }, [steps, currentStep, isExpired]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
     return moment.utc(dateStr).utcOffset('+05:30').format("DD-MM-YYYY hh:mm a");
   };
 
-  const getApproverStatus = (status) => {
+  // Determine effective approver display status
+  // - isStepApproved: when a step with ANY rule is approved, remaining PENDING approvers are "Skipped"
+  // - isExpired: when instance is backlog/cancelled, remaining PENDING approvers show "Expired"
+  const getApproverStatus = (status, { isStepApproved = false } = {}) => {
     switch (status) {
       case "APPROVED":
         return { icon: BsCheckCircleFill, color: "#198754", text: "Approved", dotColor: "#198754" };
       case "REJECTED":
         return { icon: BsXCircleFill, color: "#dc3545", text: "Rejected", dotColor: "#dc3545" };
       default:
+        // PENDING approver — context matters
+        if (isExpired) {
+          return { icon: BsExclamationTriangleFill, color: "#dc3545", text: "Expired", dotColor: "#dc3545" };
+        }
+        if (isStepApproved) {
+          return { icon: BsSkipForwardFill, color: "#adb5bd", text: "Skipped", dotColor: "#cbd5e1" };
+        }
         return { icon: BsClockFill, color: "#adb5bd", text: "Waiting", dotColor: "#dee2e6" };
     }
   };
@@ -361,6 +385,11 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
           border-color: #dee2e6;
           background: #f8f9fa;
         }
+        .at-approver-icon-wrap.skipped {
+          border-color: #e2e8f0;
+          background: #f1f5f9;
+          opacity: 0.6;
+        }
         .at-approver-info {
           flex: 1;
           min-width: 0;
@@ -429,6 +458,12 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
           color: #6c757d;
           background: #f0f0f0;
         }
+        .at-approver-status-tag.skipped {
+          color: #94a3b8;
+          background: #f1f5f9;
+          text-decoration: line-through;
+          opacity: 0.7;
+        }
         .at-comment-btn {
           cursor: pointer;
           opacity: 0.5;
@@ -481,18 +516,25 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
       {/* Timeline */}
       <div className="at-timeline">
         {steps.map((step, index) => {
-          const config = statusConfig[step.status] || statusConfig.PENDING;
+          // For expired instances, show PENDING steps as EXPIRED
+          const effectiveStepStatus = (isExpired && step.status === "PENDING") ? "EXPIRED" : step.status;
+          const config = statusConfig[effectiveStepStatus] || statusConfig.PENDING;
           const StepIcon = config.stepIcon;
-          const isCurrentPending = step.step_order === currentStep && step.status === "PENDING";
-          const isExpanded = !!expandedSteps[step.id];
+          const isCurrentPending = !isExpired && step.step_order === currentStep && step.status === "PENDING";
+          const isStepExpired = isExpired && step.status === "PENDING";
+          const isExpandedStep = !!expandedSteps[step.id];
+          // For ANY-rule steps that are APPROVED, remaining PENDING approvers are skipped
+          const isStepApprovedAny = step.status === "APPROVED" && step.decision_rule === "ANY";
 
           const markerClass = step.status === "APPROVED" ? "approved"
             : step.status === "REJECTED" ? "rejected"
+            : isStepExpired ? "rejected"
             : isCurrentPending ? "current" : "";
 
           const cardClass = isCurrentPending ? "is-current-pending"
             : step.status === "APPROVED" ? "is-approved"
-            : step.status === "REJECTED" ? "is-rejected" : "";
+            : step.status === "REJECTED" ? "is-rejected"
+            : isStepExpired ? "is-rejected" : "";
 
           return (
             <div className={`at-step-card ${cardClass}`} key={step.id}>
@@ -520,7 +562,7 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
                   {/* Approver dots - quick visual summary */}
                   <div className="at-approver-dots">
                     {step.approvers?.map((a) => {
-                      const aStatus = getApproverStatus(a.status);
+                      const aStatus = getApproverStatus(a.status, { isStepApproved: isStepApprovedAny });
                       return (
                         <OverlayTrigger
                           key={a.user_id}
@@ -535,12 +577,12 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
                       );
                     })}
                   </div>
-                  <span className="at-expand-hint">{isExpanded ? "▲" : "▼"}</span>
+                  <span className="at-expand-hint">{isExpandedStep ? "▲" : "▼"}</span>
                 </div>
               </div>
 
               {/* Approver details - grouped by department */}
-              <Collapse in={isExpanded}>
+              <Collapse in={isExpandedStep}>
                 <div>
                   <div className="at-step-body">
                     {(() => {
@@ -560,15 +602,21 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy }) => {
                             <div className="at-dept-label">{dept}</div>
                           )}
                           {deptGroups[dept].map((approver) => {
-                            const aStatus = getApproverStatus(approver.status);
+                            const aStatus = getApproverStatus(approver.status, { isStepApproved: isStepApprovedAny });
                             const AIcon = aStatus.icon;
+                            const isSkipped = approver.status === "PENDING" && isStepApprovedAny;
+                            const isApproverExpired = approver.status === "PENDING" && isExpired;
                             const iconClass = approver.status === "APPROVED" ? "done"
-                              : approver.status === "REJECTED" ? "failed" : "waiting";
+                              : approver.status === "REJECTED" ? "failed"
+                              : isApproverExpired ? "failed"
+                              : isSkipped ? "skipped" : "waiting";
                             const tagClass = approver.status === "APPROVED" ? "approved"
-                              : approver.status === "REJECTED" ? "rejected" : "waiting";
+                              : approver.status === "REJECTED" ? "rejected"
+                              : isApproverExpired ? "rejected"
+                              : isSkipped ? "skipped" : "waiting";
 
                             return (
-                              <div className="at-approver" key={approver.user_id}>
+                              <div className="at-approver" key={approver.user_id} style={isSkipped ? { opacity: 0.55 } : undefined}>
                                 <div className={`at-approver-icon-wrap ${iconClass}`}>
                                   <AIcon size={12} style={{ color: aStatus.color }} />
                                 </div>

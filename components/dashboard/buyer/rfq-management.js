@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from 'next/router';
 import { Badge } from "react-bootstrap";
 import { BsBellFill } from "react-icons/bs";
-import CreateRFQ from "./createRFQ/CreateRFQ";
 import ManageRFQ from "./manageRFQ/ManageRFQ";
+import CreateRFQ from "./createRFQ/CreateRFQ";
 import DraftRFQ from "./draftRFQ/DraftRFQ";
 import PendingApprovalsList from "./manageRFQ/PendingApprovalsList";
 import FilterSection from "@/components/shared/FilterSection";
@@ -13,6 +13,8 @@ import { getPendingApprovalRFQs } from "@/services/rfq";
 const RfqManagement = () => {
   const [activeTab, setActiveTab] = useState("pendingRFQs");
   const [pendingCount, setPendingCount] = useState(0);
+  const [pendingRFQs, setPendingRFQs] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
   const [filterData, setFilterData] = useState({
     project_id: -1,
     rfq_type: "",
@@ -26,20 +28,36 @@ const RfqManagement = () => {
   const router = useRouter();
   const {tab} = router.query;
 
-  const handlePendingCountChange = (count) => {
-    setPendingCount(count);
-  };
+  const isInitialMount = useRef(true);
 
-  // Fetch pending count on mount so badge is correct even when pending tab is not active
-  useEffect(() => {
-    getPendingApprovalRFQs({ page: 1, limit: 1 })
-      .then((res) => {
-        const body = res?.data ?? {};
-        const total = typeof body.total_items === "number" ? body.total_items : 0;
+  const fetchPendingApprovals = (filters) => {
+    setPendingLoading(true);
+    getPendingApprovalRFQs({ ...filters })
+      .then((body) => {
+        const list = Array.isArray(body?.data) ? body.data : [];
+        const total = typeof body?.total_items === "number" ? body.total_items : 0;
+        setPendingRFQs(list);
         setPendingCount(total);
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        setPendingRFQs([]);
+      })
+      .finally(() => {
+        setPendingLoading(false);
+      });
+  };
+
+  // Fetch pending approvals — once on mount (for badge), then only when filterData changes on the pending tab
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      fetchPendingApprovals(filterData);
+      return;
+    }
+    if (activeTab === "pendingRFQs") {
+      fetchPendingApprovals(filterData);
+    }
+  }, [filterData]);
 
   useEffect(() => {
     const handleBeforeUnload = (event) => {
@@ -64,6 +82,8 @@ const RfqManagement = () => {
       setActiveTab('processingRFQs')
     } else if (tab && tab == 'completed-rfq') {
       setActiveTab('completedRFQs')
+    } else if (tab && tab == 'closed-rfq') {
+      setActiveTab('closedRFQs')
     } else if (tab && tab == 'manage-rfq') {
       setActiveTab('manageRFQs')
     } else {
@@ -73,6 +93,10 @@ const RfqManagement = () => {
   
 
 
+  const activeFilterData = useMemo(() => ({ ...filterData, completed_status: 'active' }), [filterData]);
+  const completedFilterData = useMemo(() => ({ ...filterData, completed_status: 'completed' }), [filterData]);
+  const closedFilterData = useMemo(() => ({ ...filterData, completed_status: 'closed' }), [filterData]);
+
 const handleTabChange = (tabKey) => {
   let newQuery = { tab: '' };
 
@@ -80,14 +104,14 @@ const handleTabChange = (tabKey) => {
     newQuery.tab = 'pending-rfq';
   } else if (tabKey === 'manageRFQs') {
     newQuery.tab = 'manage-rfq';
-  } else if (tabKey === 'createRFQs') {
-    newQuery.tab = 'create-rfq';
   } else if (tabKey === 'draftRFQs') {
     newQuery.tab = 'draft-rfq';
     // Reset draft_id when switching to draft tab
     newQuery = { tab: 'draft-rfq' };
   } else if (tabKey === 'completedRFQs') {
     newQuery.tab = 'completed-rfq';
+  } else if (tabKey === 'closedRFQs') {
+    newQuery.tab = 'closed-rfq';
   }
 
   setActiveTab(tabKey);
@@ -143,15 +167,6 @@ const handleTabChange = (tabKey) => {
                   Manage Tender / RFQ
                 </button>
                 <button
-                  id="create_rfqs-rfq_tabs-rfq_management_page"
-                  className={`tab ${
-                    activeTab === "createRFQs" ? "active" : ""
-                  }`}
-                  onClick={() => handleTabChange("createRFQs")}
-                >
-                  Create Tender / RFQ
-                </button>
-                <button
                   id="draft_rfqs-rfq_tabs-rfq_management_page"
                   className={`tab ${
                     activeTab === "draftRFQs" ? "active" : ""
@@ -159,6 +174,15 @@ const handleTabChange = (tabKey) => {
                   onClick={() => handleTabChange("draftRFQs")}
                 >
                   Draft Tender / RFQ
+                </button>
+                <button
+                  id="closed_rfqs-rfq_tabs-rfq_management_page"
+                  className={`tab ${
+                    activeTab === "closedRFQs" ? "active" : ""
+                  }`}
+                  onClick={() => handleTabChange("closedRFQs")}
+                >
+                  Closed Tender / RFQ
                 </button>
                 <button
                   id="completed_rfqs-rfq_tabs-rfq_management_page"
@@ -172,7 +196,7 @@ const handleTabChange = (tabKey) => {
               </div>
 
               {/* Filter Section - Shared across pending, manage, and completed tabs */}
-              {(activeTab === "pendingRFQs" || activeTab === "manageRFQs" || activeTab === "completedRFQs") && (
+              {(activeTab === "pendingRFQs" || activeTab === "manageRFQs" || activeTab === "closedRFQs" || activeTab === "completedRFQs") && (
                 <div className="manage-rfq-con pb-0">
                   <FilterSection setFilterData={setFilterData} />
                 </div>
@@ -183,21 +207,27 @@ const handleTabChange = (tabKey) => {
                   <PendingApprovalsList
                     filterData={filterData}
                     setFilterData={setFilterData}
-                    onCountChange={handlePendingCountChange}
+                    pendingRFQs={pendingRFQs}
+                    totalRFQs={pendingCount}
+                    loading={pendingLoading}
                   />
                 </div>
               )}
-              {activeTab === "manageRFQs" && (
-                <ManageRFQ filterData={{ ...filterData, completed_status: 'active' }} setFilterData={setFilterData} />
-              )}
+
               {activeTab === "createRFQs" && (
                 <CreateRFQ/>
+              )}
+              {activeTab === "manageRFQs" && (
+                <ManageRFQ filterData={activeFilterData} setFilterData={setFilterData} />
               )}
               {activeTab === "draftRFQs" && (
                 <DraftRFQ/>
               )}
+              {activeTab === "closedRFQs" && (
+                <ManageRFQ filterData={closedFilterData} setFilterData={setFilterData} />
+              )}
               {activeTab === "completedRFQs" && (
-                <ManageRFQ filterData={{ ...filterData, completed_status: 'completed' }} setFilterData={setFilterData} />
+                <ManageRFQ filterData={completedFilterData} setFilterData={setFilterData} />
               )}
             </div>
           </div>

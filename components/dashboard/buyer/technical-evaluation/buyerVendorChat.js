@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { addChatComment, fetchChatData, getVendorDetailsByID } from '@/services/rfq';
-import { getProfileById } from '@/services/Auth';
+import { addChatComment, fetchChatData } from '@/services/rfq';
 import { toast } from 'react-toastify';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperclip, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
@@ -27,9 +26,6 @@ const BuyerVendorChat = ({
   const [loading, setLoading] = useState(false);
   const latestMessageRef = useRef(null);
   const fileInputRef = useRef(null);
-  const [userMap, setUserMap] = useState({}); // userId -> {name, company_name, user_type}
- 
-  const isTender = rfq_no?.is_tender === 1 || rfq_no?.is_tender === "1";
 
   const handleFileClick = () => {
     fileInputRef.current.click(); // Trigger the file input when the "Attach file" button is clicked
@@ -57,8 +53,8 @@ const BuyerVendorChat = ({
   const getChatData = async () => {
     const payload = {
       clause_id: data.clause_id,
-      sender_id: userData.id,
-      receiver_id: otherUser?.vendor_id || otherUser
+      sender_id: parseInt(userData.id),
+      receiver_id: parseInt(otherUser?.buyer_id || otherUser?.vendor_id || otherUser)
     }
     try {
       setLoading(true)
@@ -80,8 +76,8 @@ const BuyerVendorChat = ({
 
     let payload = {
       clause_id: data.clause_id,
-      sender_id: userData.id,
-      receiver_id: otherUser.vendor_id,
+      sender_id: parseInt(userData.id),
+      receiver_id: parseInt(otherUser?.buyer_id || otherUser?.vendor_id),
       text: messageText,
       file_url: files,
       product:product,
@@ -104,55 +100,11 @@ const BuyerVendorChat = ({
     }
   }
 
-  // Fetch and cache sender info if needed
-  const fetchUserProfile = async (userId) => {
-    if (userMap[userId]) return;
-    let profile = null;
-    try {
-      if (userId === userData.id) {
-        profile = userData;
-      } else {
-        // Try vendor first
-        let res = await getVendorDetailsByID(userId);
-        if (res?.data && res.data.company_name) {
-          profile = {
-            user_type: 3, // vendor
-            name: res.data.company_name,
-            id: userId,
-          };
-        } else {
-          // Fallback to buyer/engineer/management
-          let res2 = await getProfileById(userId);
-          if (res2?.data) {
-            profile = {
-              user_type: res2.data.user_type,
-              name: res2.data.name,
-              id: userId,
-            };
-          }
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-    if (profile) {
-      setUserMap((prev) => ({ ...prev, [userId]: profile }));
-    }
-  };
-
   useEffect(() => {
     if (data) {
       getChatData();
     }
   }, []);
-
-  // On messages load, fetch sender info for all unique senders
-  useEffect(() => {
-    if (messages) {
-      const uniqueIds = Array.from(new Set(messages.map((m) => m.created_by)));
-      uniqueIds.forEach((id) => fetchUserProfile(id));
-    }
-  }, [messages]);
 
   useEffect(() => {
     if (latestMessageRef.current) {
@@ -202,35 +154,22 @@ const BuyerVendorChat = ({
             {loading && <FullLoader />}
             {messages &&
               messages.map((msg, idx) => {
-                const sender = userMap[msg.created_by] || {};
-                // For tenders, anonymise vendor identities in the deviation chat.
-                // Buyer / internal users still see their normal names.
-                const senderLabel = (() => {
-                  if (!sender) return "";
-
-                  // Vendor user in tender → hide real company name
-                  if (isTender && sender.user_type === 3) {
-                    // Prefer anonymised label from selected vendor if available (e.g. "VEN-123")
-                    if (otherUser?.label) return otherUser.label;
-                    if (otherUser?.vendor_code) return `Vendor ${otherUser.vendor_code}`;
-                    if (otherUser?.rfq_product_vendor_id) return `VEN-${otherUser.rfq_product_vendor_id}`;
-                    return "Vendor";
-                  }
-
-                  return sender.name;
-                })();
+                // Vendor senders always show "Vendor", evaluators show their name from backend
+                const senderLabel = (msg.sender_user_type === 3 || msg.sender_user_type === '3')
+                  ? "Vendor"
+                  : (msg.sender_name || "Evaluator");
                 return (
                   <div
                     key={`cmnt_${msg.comment_id}`}
                     ref={idx === messages.length - 1 ? latestMessageRef : null}
-                    className={`d-flex ${msg.created_by === userData.id ? "justify-content-end" : ""} mb-2`}
+                    className={`d-flex ${String(msg.created_by) === String(userData.id) ? "justify-content-end" : ""} mb-2`}
                   >
                     <div
                       className={`text-dark px-3 py-2 me-2 `}
                       style={{
                         maxWidth: "70%",
-                        backgroundColor: msg.created_by === userData.id ? "#d1e7fd" : "#e0e0e0",
-                        borderRadius: msg.created_by === userData.id ? "10px 0 0 10px" : "0 10px 10px 0"
+                        backgroundColor: String(msg.created_by) === String(userData.id) ? "#d1e7fd" : "#e0e0e0",
+                        borderRadius: String(msg.created_by) === String(userData.id) ? "10px 0 0 10px" : "0 10px 10px 0"
                       }}
                     >
                       <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 2 }}>
@@ -244,6 +183,18 @@ const BuyerVendorChat = ({
                             Class="badge text-bg-secondary rounded-pill py-0"
                             Style={{ fontSize: "10px" }}
                           />
+                        </div>
+                      )}
+                      {msg.created_at && (
+                        <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.6 }}>
+                          {new Date(msg.created_at + '+05:30').toLocaleString('en-IN', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                            timeZone: 'Asia/Kolkata'
+                          })}
                         </div>
                       )}
                     </div>

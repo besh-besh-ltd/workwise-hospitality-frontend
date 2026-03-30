@@ -6,13 +6,12 @@ import FullLoader from '@/components/shared/FullLoader';
 import TE_Modal from './TE_Modal';
 import { toast } from 'react-toastify';
 import ReadMore from '@/components/shared/ReadMore';
-import { Dropdown, Modal, Form } from 'react-bootstrap';
+import { Modal, Form } from 'react-bootstrap';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
-import { BsThreeDotsVertical, BsCheckCircleFill, BsXCircleFill, BsChatDots, BsPencilSquare, BsShieldCheck, BsFileEarmark, BsPersonCheck } from "react-icons/bs";
+import { BsCheckCircleFill, BsXCircleFill, BsChatDots, BsPencilSquare, BsShieldCheck, BsFileEarmark, BsPersonCheck } from "react-icons/bs";
 import { ApprovalWorkflowSection } from "@/components/dashboard/buyer/approval";
 import { useTechEvalWorkflow } from '@/hooks/useTechEvalWorkflow';
 import TechEvalWorkflowStatus from './TechEvalWorkflowStatus';
-import TechEvalFailedHistory from './TechEvalFailedHistory';
 import { TECH_EVAL_WORKFLOW_STATES } from '@/utils/constants/techEvalWorkflow';
 import { checkBidExpired } from '@/utils/sharedFunctions';
 import styles from './TechnicalEvaluation.module.scss';
@@ -34,6 +33,7 @@ const ClauseProductItem = ({
   permissionsLoading = false,
   onEvaluationStatusChange, // Callback to notify parent about evaluation status
   quotedVendorsOnly = true,
+  showFailedVendors = false,
 }) => {
 
   const multipleVendorsSelected = selectedVendors && selectedVendors.length > 1;
@@ -68,14 +68,19 @@ const ClauseProductItem = ({
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
 
+    // Check if a response was actually scored by the evaluator.
+    // score_timestamp is defaulted to creation time, so compare against response_timestamp.
+    const isResponseScored = (resp) => {
+      if (!resp?.score_timestamp) return false;
+      return resp.response_timestamp !== resp.score_timestamp;
+    };
+
     // Helper: Check if a vendor has been truly scored for ALL clauses
-    // Uses score_timestamp (set only when buyer actually saves a score) instead of
-    // buyer_marks which the backend may default to 0 for unevaluated vendors
     const isVendorFullyScored = (vendorId) => {
       if (!clauseInfo || clauseInfo.length === 0) return false;
       return clauseInfo.every(clause => {
         const response = clause.vendor_responses?.find(r => String(r.vendor_id) == String(vendorId));
-        return response && !!response.score_timestamp;
+        return response && isResponseScored(response);
       });
     };
 
@@ -103,14 +108,18 @@ const ClauseProductItem = ({
     };
 
     const pendingRound =
-        rounds?.find((round) => ["PENDING", "IN_PROGRESS"].includes(String(round?.status || "").toUpperCase())) || null;
+        rounds?.find((round) => ["PENDING", "IN_PROGRESS", "SUBMITTED"].includes(String(round?.status || "").toUpperCase())) || null;
 
     // TECHNICAL approval entity is round-based (pending round id), not rfq_product_id
     const approvalEntityId = getRoundEntityId(pendingRound) || getRoundEntityId(latestRound);
 
-    // Derived: Check if approval is pending (freeze all actions)
+    // Derived: Check if approval is pending (used for parent "Approval Pending" banner)
     const isPendingApproval =
         workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL || !!pendingRound;
+
+    // Derived: Lock editing unless actively evaluating (EVALUATING = initial eval or after rejection)
+    // Locked during: PENDING_APPROVAL (submitted), AWAITING_NEXT_ROUND (approved), COMPLETED
+    const isEditLocked = workflowState !== TECH_EVAL_WORKFLOW_STATES.EVALUATING;
 
     // Derived: Check if quote submission deadline has NOT yet passed (lock tech eval edits until deadline)
     const isBidEndNotPassed = currentRfq?.bid_end_date ? !checkBidExpired(currentRfq.bid_end_date) : false;
@@ -236,7 +245,10 @@ const ClauseProductItem = ({
             if (res?.data) {
                 const grouped = {};
                 res.data.forEach(msg => {
-                    const vendorId = String(msg.sender_id) == String(currentUserProfile?.id) ? String(msg.receiver_id) : String(msg.sender_id);
+                    // Identify vendor by checking against the known vendors list
+                    // This ensures messages from ANY evaluator to a vendor are grouped correctly
+                    const isVendorSender = _vendors?.some(v => String(v.vendor_id) == String(msg.sender_id));
+                    const vendorId = isVendorSender ? String(msg.sender_id) : String(msg.receiver_id);
                     const key = `${msg.clause_id}_${vendorId}`;
                     if (!grouped[key]) grouped[key] = [];
                     grouped[key].push(msg);
@@ -350,15 +362,22 @@ const ClauseProductItem = ({
             return;
         }
 
-        // Validate marks against weightage
-        if (buyerMarks) {
-            const marksValue = parseInt(buyerMarks);
-            const weightage = selectedClauseForRemark.weightage || 0;
-            
-            if (marksValue > weightage) {
-                toast.error(`Marks (${marksValue}) cannot exceed the weightage (${weightage}) for this clause`);
-                return;
-            }
+        // Validate marks: required, minimum 1, and must not exceed weightage
+        if (buyerMarks === "" || buyerMarks === null || buyerMarks === undefined) {
+            toast.error("Please enter marks for this clause");
+            return;
+        }
+
+        const marksValue = parseInt(buyerMarks);
+        if (isNaN(marksValue) || marksValue < 1) {
+            toast.error("Marks must be at least 1");
+            return;
+        }
+
+        const weightage = selectedClauseForRemark.weightage || 0;
+        if (marksValue > weightage) {
+            toast.error(`Marks (${marksValue}) cannot exceed the weightage (${weightage}) for this clause`);
+            return;
         }
 
         const payload = {
@@ -393,7 +412,7 @@ const ClauseProductItem = ({
         setSelectedVendorForRemark(vendor);
         // Only set remark for sampling clauses
         setBuyerRemark(clause.clause_type === 'sampling' ? (response?.buyer_remark ?? "") : "");
-        setBuyerMarks(response?.buyer_marks !== undefined && response?.buyer_marks !== null ? response.buyer_marks : "");
+        setBuyerMarks(isResponseScored(response) && response?.buyer_marks !== undefined && response?.buyer_marks !== null ? response.buyer_marks : "");
         setShowRemarkModal(true);
     }
     
@@ -579,10 +598,6 @@ const ClauseProductItem = ({
           />
         )} */}
 
-        {/* Failed Vendor History - Grouped by round */}
-        {failedVerifiedVendors.length > 0 && (
-          <TechEvalFailedHistory vendors={failedVerifiedVendors} />
-        )}
 
         {/* Buyer All Clauses */}
         {loading ? (
@@ -615,6 +630,9 @@ const ClauseProductItem = ({
                           vendors
                             .filter(vendor => {
                               if (selectedVendors.length > 0 && !selectedVendors.includes(vendor.vendor_id)) return false;
+                              const isReplacedOut = vendor.is_replaced_out === true;
+                              if (showFailedVendors) return isReplacedOut;
+                              if (isReplacedOut) return false;
                               if (quotedVendorsOnly && !vendor.has_quoted) return false;
                               return true;
                             })
@@ -625,7 +643,7 @@ const ClauseProductItem = ({
                               const vendorEvaluated = isVendorFullyScored(vendor.vendor_id);
                               const vendorPartial = !vendorEvaluated && clauseInfo.some(clause => {
                                 const resp = clause.vendor_responses?.find(r => String(r.vendor_id) == String(vendor.vendor_id));
-                                return resp && !!resp.score_timestamp;
+                                return resp && isResponseScored(resp);
                               });
                               const colTintClass = vendorEvaluated
                                 ? (vendor.is_passed ? styles.vendorColPassed : styles.vendorColFailed)
@@ -637,34 +655,22 @@ const ClauseProductItem = ({
                                   <div className={styles.vendorHeaderTop}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                       <span className={styles.vendorCode}>{vendorCode}</span>
+                                      {vendor.evaluation_round && (
+                                        <span className="badge rounded-pill" style={{
+                                          fontSize: '10px', fontWeight: 700, padding: '3px 10px', letterSpacing: '0.5px',
+                                          background: vendor.is_replaced_out ? 'rgba(220, 38, 38, 0.1)' : 'rgba(22, 163, 74, 0.1)',
+                                          color: vendor.is_replaced_out ? '#dc2626' : '#16a34a',
+                                          border: `1px solid ${vendor.is_replaced_out ? 'rgba(220, 38, 38, 0.2)' : 'rgba(22, 163, 74, 0.2)'}`,
+                                        }}>
+                                          R{vendor.evaluation_round}
+                                        </span>
+                                      )}
                                       {!quotedVendorsOnly && !vendor.has_quoted && (
                                         <span className="badge rounded-pill py-1 px-2 text-bg-secondary" style={{ fontSize: '9px' }}>
                                           Not Quoted
                                         </span>
                                       )}
                                     </div>
-                                    <Dropdown className="dots-nav-anchor">
-                                      <Dropdown.Toggle as="button" className={styles.vendorMenuBtn}>
-                                        <BsThreeDotsVertical size={16} />
-                                      </Dropdown.Toggle>
-                                      <Dropdown.Menu>
-                                        <Dropdown.Item
-                                          href={`/dashboard/buyer/query?rfq_id=${rfq_id}&role=buyer&vendor_id=${vendor.vendor_id}&from_tech_eval=1&vendor_code=${vendorCode}`}
-                                          id={`talk_with_vendor_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
-                                        >
-                                          Talk with vendor
-                                        </Dropdown.Item>
-                                        {currentRfq?.is_tender !== 1 && (
-                                          <Dropdown.Item
-                                            target="_blank"
-                                            href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.vendor_id}`}
-                                            id={`view_vendor_profile_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
-                                          >
-                                            View Profile
-                                          </Dropdown.Item>
-                                        )}
-                                      </Dropdown.Menu>
-                                    </Dropdown>
                                   </div>
 
                                   {/* Score + status */}
@@ -741,6 +747,9 @@ const ClauseProductItem = ({
                                 vendors
                                   .filter(vendor => {
                                     if (selectedVendors.length > 0 && !selectedVendors.includes(vendor.vendor_id)) return false;
+                                    const isReplacedOut = vendor.is_replaced_out === true;
+                                    if (showFailedVendors) return isReplacedOut;
+                                    if (isReplacedOut) return false;
                                     if (quotedVendorsOnly && !vendor.has_quoted) return false;
                                     return true;
                                   })
@@ -752,9 +761,9 @@ const ClauseProductItem = ({
                                     return (
                                       <td key={vendor.vendor_id}>
                                         {(() => {
-                                          const isScored = !!response?.score_timestamp;
+                                          const isScored = isResponseScored(response);
                                           const disagrees = clauseItem.clause_type !== 'sampling' && response?.vendor_response == "I Dont Agree";
-                                          const canEdit = canWrite && !permissionsLoading && !isPendingApproval && !isBidEndNotPassed;
+                                          const canEdit = canWrite && !permissionsLoading && !isEditLocked && !isBidEndNotPassed;
                                           const previewKey = `${clauseItem.clause_id}_${String(vendor.vendor_id)}`;
                                           const previewMsgs = deviationPreviews[previewKey];
                                           const hasMessages = previewMsgs?.length > 0;
@@ -783,16 +792,16 @@ const ClauseProductItem = ({
                                                   tabIndex={canEdit ? 0 : undefined}
                                                   title={
                                                     !canWrite ? "No permission"
-                                                      : isPendingApproval ? "Frozen during approval"
+                                                      : isEditLocked ? "Evaluation locked"
                                                       : isBidEndNotPassed ? "Locked until bid submission deadline"
-                                                      : isScored ? `${response.buyer_marks ?? 0}/${clauseItem.weightage || 0} · Click to edit` : "Click to score"
+                                                      : isScored ? `${response.buyer_marks ?? '-'}/${clauseItem.weightage || 0} · Click to edit` : (canEdit ? "Click to score" : `-/${clauseItem.weightage || 0} · Not scored`)
                                                   }
                                                   id={`add_remark_${clauseItem.clause_id}_${vendor.vendor_id}-clause_actions-technical_evaluation_page`}
                                                 >
                                                   {isScored ? (
-                                                    <>{response.buyer_marks ?? 0} / {clauseItem.weightage || 0}{canEdit && <BsPencilSquare size={10} className={styles.scoreEditIcon} />}</>
+                                                    <>{response.buyer_marks ?? '-'} / {clauseItem.weightage || 0}{canEdit && <BsPencilSquare size={10} className={styles.scoreEditIcon} />}</>
                                                   ) : (
-                                                    canEdit ? <><BsPencilSquare size={11} /> Score</> : '—'
+                                                    canEdit ? <><BsPencilSquare size={11} /> Score</> : <>- / {clauseItem.weightage || 0}</>
                                                   )}
                                                 </span>
                                                 {response?.vendor_response_files && Array.isArray(response.vendor_response_files) && response.vendor_response_files.length > 0 && (
@@ -814,31 +823,30 @@ const ClauseProductItem = ({
                                                 </div>
                                               )}
 
-                                              {/* Deviation link + preview */}
-                                              {clauseItem.clause_type !== 'sampling' && (
-                                                <>
-                                                  <button
-                                                    className={styles.deviationLink}
-                                                    onClick={() => openDeviationModal(clauseItem, vendor)}
-                                                    disabled={isPendingApproval && !canApprove}
-                                                    id={`view_deviation_${clauseItem.clause_id}_${vendor.vendor_id}-deviation_actions-technical_evaluation_page`}
-                                                  >
-                                                    <BsChatDots size={11} /> {hasMessages ? 'View Deviation' : 'Deviation'}
-                                                  </button>
-                                                  {hasMessages && (
-                                                    <div className={styles.deviationPreview}>
-                                                      {previewMsgs.map((m, i) => {
-                                                        const name = String(m.sender_id) == String(currentUserProfile?.id) ? "You" : vendorLabel;
-                                                        const text = m.text?.length > 40 ? m.text.substring(0, 40) + "..." : m.text;
+                                              {/* Deviation preview */}
+                                              {clauseItem.clause_type !== 'sampling' && hasMessages && (
+                                                    <div
+                                                      className={styles.deviationPreview}
+                                                      onClick={() => openDeviationModal(clauseItem, vendor)}
+                                                      role="button"
+                                                      tabIndex={0}
+                                                    >
+                                                      {previewMsgs.slice(0, 2).map((m, i) => {
+                                                        const isVendor = _vendors?.some(v => String(v.vendor_id) == String(m.sender_id));
+                                                        const name = isVendor ? vendorLabel : "Evaluator";
+                                                        const text = m.text?.length > 35 ? m.text.substring(0, 35) + "..." : m.text;
                                                         return (
-                                                          <div key={i} className={styles.deviationPreviewMsg} title={`${name}: ${m.text}`}>
-                                                            <strong>{name}:</strong> {text}
+                                                          <div key={i} className={`${styles.deviationPreviewMsg} ${isVendor ? styles.deviationPreviewVendor : styles.deviationPreviewEvaluator}`} title={`${name}: ${m.text}`}>
+                                                            <span className={styles.deviationPreviewName}>{name}:</span> {text}
                                                           </div>
                                                         );
                                                       })}
+                                                      {previewMsgs.length > 2 && (
+                                                        <div className={styles.deviationPreviewMore}>
+                                                          +{previewMsgs.length - 2} more
+                                                        </div>
+                                                      )}
                                                     </div>
-                                                  )}
-                                                </>
                                               )}
                                             </div>
                                           );
@@ -895,11 +903,11 @@ const ClauseProductItem = ({
                                     <>
                                         <button
                                             type="button"
-                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isPendingApproval || isBidEndNotPassed) ? styles.btnDisabled : styles.btnSuccess}`}
+                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed) ? styles.btnDisabled : styles.btnSuccess}`}
                                             onClick={() => addToTechnicallyAccepted()}
-                                            disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndNotPassed}
+                                            disabled={!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed}
                                             title={
-                                              isPendingApproval ? "Actions frozen during pending approval"
+                                              isEditLocked ? "Evaluation locked"
                                                 : isBidEndNotPassed ? "Technical acceptance is locked until the bid submission deadline"
                                                 : (!canWrite ? "You don't have permission to accept vendors" : "")
                                             }
@@ -909,11 +917,11 @@ const ClauseProductItem = ({
                                         </button>
                                         <button
                                             type="button"
-                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isPendingApproval || isBidEndNotPassed) ? styles.btnDisabled : styles.btnDanger}`}
+                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed) ? styles.btnDisabled : styles.btnDanger}`}
                                             onClick={() => setShowRejectConfirmModal(true)}
-                                            disabled={!canWrite || permissionsLoading || isPendingApproval || isBidEndNotPassed}
+                                            disabled={!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed}
                                             title={
-                                              isPendingApproval ? "Actions frozen during pending approval"
+                                              isEditLocked ? "Evaluation locked"
                                                 : isBidEndNotPassed ? "Technical rejection is locked until the bid submission deadline"
                                                 : (!canWrite ? "You don't have permission to reject vendors" : "")
                                             }
@@ -985,10 +993,10 @@ const ClauseProductItem = ({
                                                 {clauseItem.clause_type !== 'sampling' && (
                                                   <button
                                                       type="button"
-                                                      className={`${styles.btn} ${(isPendingApproval && !canApprove) ? styles.btnDisabled : styles.btnOutline}`}
+                                                      className={`${styles.btn} ${(isEditLocked && !canApprove) ? styles.btnDisabled : styles.btnOutline}`}
                                                       onClick={() => toggleChat(clauseItem.clause_id)}
-                                                      disabled={isPendingApproval && !canApprove}
-                                                      title={(isPendingApproval && !canApprove) ? "Actions frozen during pending approval" : "View explanation / deviation"}
+                                                      disabled={isEditLocked && !canApprove}
+                                                      title={(isEditLocked && !canApprove) ? "Evaluation locked" : "View explanation / deviation"}
                                                       id={`explanation_deviation_${clauseItem.clause_id}-clause_actions-technical_evaluation_page`}
                                                   >
                                                       <BsChatDots size={12} /> Explanation / Deviation
@@ -1089,37 +1097,24 @@ const ClauseProductItem = ({
             <div className="mb-3">
               <label className="form-label fw-semibold">Give Score</label>
 
-              {/* Visual score display */}
-              {buyerMarks !== "" && buyerMarks !== null && selectedClauseForRemark?.weightage && (
-                <div className={styles.scoreModalDisplay}>
-                  <span className={styles.scoreModalValue}>{buyerMarks}</span>
-                  <span className={styles.scoreModalMax}>/ {selectedClauseForRemark.weightage}</span>
-                  {(() => {
-                    const pct = selectedClauseForRemark.weightage ? Math.round((parseInt(buyerMarks) / selectedClauseForRemark.weightage) * 100) : 0;
-                    const pass = pct >= (minimumPassingScore || 0);
-                    return (
-                      <span className={`${styles.scoreModalPercentage} ${pass ? styles.scoreModalPercentagePass : styles.scoreModalPercentageFail}`}>
-                        {pct}%
-                      </span>
-                    );
-                  })()}
-                </div>
-              )}
-
-              <Form.Control
-                type="number"
-                placeholder="Enter score"
-                min="0"
-                max={selectedClauseForRemark?.weightage || 100}
-                value={buyerMarks}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setBuyerMarks(value);
-                }}
-                className={buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0)
-                  ? 'border-danger'
-                  : ''}
-              />
+              <div className="d-flex align-items-center gap-2">
+                <Form.Control
+                  type="text"
+                  placeholder="0"
+                  value={buyerMarks}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || /^\d+$/.test(value)) {
+                      setBuyerMarks(value);
+                    }
+                  }}
+                  className={buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0)
+                    ? 'border-danger'
+                    : ''}
+                  style={{ width: '80px' }}
+                />
+                <span className="fw-semibold text-muted" style={{ fontSize: '16px' }}>/ {selectedClauseForRemark?.weightage || 0}</span>
+              </div>
               {buyerMarks && parseInt(buyerMarks) > (selectedClauseForRemark?.weightage || 0) && (
                 <small className="text-danger">
                   Marks ({buyerMarks}) cannot exceed weightage ({selectedClauseForRemark?.weightage || 0})

@@ -7,7 +7,7 @@ import {
   MdOutlinePersonOutline,
   MdTimeline
 } from 'react-icons/md';
-import { BsBoxSeam, BsPerson, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill, BsArrowLeft, BsPencilSquare, BsPersonPlus, BsCalendar3, BsCurrencyRupee, BsBuilding, BsTruck, BsFileEarmarkText, BsShieldCheck } from 'react-icons/bs';
+import { BsBoxSeam, BsPerson, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill, BsArrowLeft, BsPencilSquare, BsPersonPlus, BsCalendar3, BsCurrencyRupee, BsBuilding, BsTruck, BsFileEarmarkText, BsShieldCheck, BsArrowRepeat } from 'react-icons/bs';
 import { MdHistory } from "react-icons/md";
 import { HiOutlineTrash, HiPencil } from "react-icons/hi";
 import { BsFilePdf } from "react-icons/bs";
@@ -17,7 +17,7 @@ import styles from "./PurchaseOrder.module.scss";
 import CreateMilestoneModal from './CreateMilestoneModal';
 import ApprovalProgressCard from './ApprovalProgressCard';
 import { toast } from 'react-toastify';
-import { handleDeleteMilestone, handleDeleteTask, handleGetTasks, handleUpdateGST, handleUpdateHSN } from '@/services/po';
+import { handleDeleteMilestone, handleDeleteTask, handleGetTasks, handleUpdateGST, handleUpdateHSN, handleRegeneratePO, handleUploadPODocument } from '@/services/po';
 import CreateTaskModal from './CreateTaskModal';
 import Pagination from '@/components/shared/Pagination';
 import { getProjectAvailableBudget } from '@/services/project';
@@ -28,6 +28,7 @@ import ConfirmationModal from '@/components/modal/ConfirmationModal';
 import CommonFormInput from '@/components/shared/CommonFormInput';
 import { useRouter } from 'next/navigation';
 import PurchaseOrderEditView from './PurchaseOrderEditView';
+import RegeneratePOModal from './RegeneratePOModal';
 import AddSiteRepModal from './AddSiteRepModal';
 import ApproveModal from './ApproveModal';
 
@@ -178,6 +179,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   const [deleteMilestoneId, setDeleteMilestoneId] = useState(null);
   const [deleteTaskId, setDeleteTaskId] = useState(null);
   const [actionLoading, setActionLoading] = useState(null); // 'initiate' | 'grn' | 'hsn' | 'gst' | null
+  const [showRegenerateModal, setShowRegenerateModal] = useState(false);
+  const [regenerateLoading, setRegenerateLoading] = useState(false);
 
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -194,6 +197,34 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
       toast.error(error.message ?? "Something went wrong while deleting the milestone!");
     }
   }
+
+  const handleRegenerate = async () => {
+    setRegenerateLoading(true);
+    try {
+      await handleRegeneratePO(id);
+      toast.success("PO document regenerated successfully!");
+      await refetchPODetails();
+      setShowRegenerateModal(false);
+    } catch (error) {
+      toast.error(error.message || "Failed to regenerate PO document");
+    } finally {
+      setRegenerateLoading(false);
+    }
+  };
+
+  const handleUploadPO = async (file) => {
+    setRegenerateLoading(true);
+    try {
+      await handleUploadPODocument(id, file);
+      toast.success("PO document uploaded successfully!");
+      await refetchPODetails();
+      setShowRegenerateModal(false);
+    } catch (error) {
+      toast.error(error.message || "Failed to upload PO document");
+    } finally {
+      setRegenerateLoading(false);
+    }
+  };
 
   const handleTaskDeletion = async (id) => {
     try {
@@ -361,6 +392,11 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               {canWrite && (
                 <button className={styles.heroBtn} onClick={() => setShowAddSiteRepModal(true)} id="add-site-rep-po_details-purchase_order_page">
                   <BsPersonPlus size={14} /> Site Rep
+                </button>
+              )}
+              {canWrite && (
+                <button className={styles.heroBtn} onClick={() => setShowRegenerateModal(true)} id="regenerate_po-po_details-purchase_order_page">
+                  <BsArrowRepeat size={14} /> Regenerate PO Doc
                 </button>
               )}
               {canWrite && status === 'draft' && handleInitiatePO && (
@@ -1319,6 +1355,14 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           confirmButtonColor="success"
           confirmButtonText="Yes, Go Ahead"
           cancelButtonText="No, Cancel It"
+        />
+
+        <RegeneratePOModal
+          show={showRegenerateModal}
+          onClose={() => setShowRegenerateModal(false)}
+          onRegenerate={handleRegenerate}
+          onUpload={handleUploadPO}
+          isProcessing={regenerateLoading}
         />
 
         {/* Sticky mobile approval bar */}
