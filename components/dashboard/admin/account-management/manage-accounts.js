@@ -8,6 +8,7 @@ import {
   getHospitalityHotels,
   mapHospitalityUsers,
   deleteUserMapping,
+  getUserMappingsById,
 } from "@/services/hospitality";
 import { getUserRoleScopes, getUserDepartments } from "@/services/rbac";
 import { toast } from "react-toastify";
@@ -234,7 +235,13 @@ const ManageAccountsPage = () => {
 
   const handleManageAccess = async (account) => {
     setAccessModal({ open: true, account });
-    setAccessModalMappings(userProfile?.hospitality_mappings || []);
+    setAccessModalMappings([]);
+    try {
+      const res = await getUserMappingsById(account.id);
+      setAccessModalMappings(res?.data || []);
+    } catch {
+      setAccessModalMappings([]);
+    }
   };
 
   const handleAccessMapUser = async ({ companyId, mappingLevel, hotelId, autoMapProjects }) => {
@@ -255,7 +262,10 @@ const ManageAccountsPage = () => {
         auto_map_projects: autoMapProjects,
       });
       toast.success("Access added successfully");
-      setAccessModalMappings(userProfile?.hospitality_mappings || []);
+      try {
+        const res = await getUserMappingsById(user.id);
+        setAccessModalMappings(res?.data || []);
+      } catch { /* ignore */ }
       refreshCurrentPage();
     } catch (error) {
       toast.error(
