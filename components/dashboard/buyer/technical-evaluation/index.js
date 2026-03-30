@@ -63,6 +63,7 @@ const BuyerTechnicalEvaluation = () => {
   const [selectedVendorsMap, setSelectedVendorsMap] = useState(new Map());
   const [isTenderFilter, setIsTenderFilter] = useState(null);
   const [quotedVendorsOnly, setQuotedVendorsOnly] = useState(true);
+  const [showFailedVendors, setShowFailedVendors] = useState(false);
   const [productEvaluationStatus, setProductEvaluationStatus] = useState(new Map());
   const [showUnifiedSubmitModal, setShowUnifiedSubmitModal] = useState(false);
   const [unifiedSubmitLoading, setUnifiedSubmitLoading] = useState(false);
@@ -641,13 +642,23 @@ const BuyerTechnicalEvaluation = () => {
 
                     {/* Quoted Vendors Filter */}
                     {clauseInfo && clauseInfo.length > 0 && (
-                      <div className="d-flex align-items-center gap-2 mb-3 mt-2" style={{ padding: '8px 12px', background: '#f8f9fa', borderRadius: 8, width: 'fit-content' }}>
+                      <div className="d-flex align-items-center gap-3 mb-3 mt-2" style={{ padding: '8px 12px', background: '#f8f9fa', borderRadius: 8, width: 'fit-content' }}>
                         <Form.Check
                           type="switch"
                           id="quoted-vendors-toggle"
                           label="Quoted Vendors Only"
                           checked={quotedVendorsOnly}
-                          onChange={(e) => setQuotedVendorsOnly(e.target.checked)}
+                          onChange={(e) => { setQuotedVendorsOnly(e.target.checked); if (e.target.checked) setShowFailedVendors(false); }}
+                          disabled={showFailedVendors}
+                          style={{ fontSize: '0.85rem', fontWeight: 500, margin: 0 }}
+                        />
+                        <div style={{ width: 1, height: 18, background: '#dee2e6' }} />
+                        <Form.Check
+                          type="switch"
+                          id="failed-vendors-toggle"
+                          label="Show Failed Vendors"
+                          checked={showFailedVendors}
+                          onChange={(e) => { setShowFailedVendors(e.target.checked); if (e.target.checked) setQuotedVendorsOnly(false); }}
                           style={{ fontSize: '0.85rem', fontWeight: 500, margin: 0 }}
                         />
                       </div>
@@ -704,6 +715,7 @@ const BuyerTechnicalEvaluation = () => {
                                     permissionsLoading={permissionsLoading}
                                     onEvaluationStatusChange={handleEvaluationStatusChange}
                                     quotedVendorsOnly={quotedVendorsOnly}
+                                    showFailedVendors={showFailedVendors}
                                   />
                                 </div>
                               )}

@@ -33,6 +33,7 @@ const ClauseProductItem = ({
   permissionsLoading = false,
   onEvaluationStatusChange, // Callback to notify parent about evaluation status
   quotedVendorsOnly = true,
+  showFailedVendors = false,
 }) => {
 
   const multipleVendorsSelected = selectedVendors && selectedVendors.length > 1;
@@ -629,6 +630,9 @@ const ClauseProductItem = ({
                           vendors
                             .filter(vendor => {
                               if (selectedVendors.length > 0 && !selectedVendors.includes(vendor.vendor_id)) return false;
+                              const isReplacedOut = vendor.is_replaced_out === true;
+                              if (showFailedVendors) return isReplacedOut;
+                              if (isReplacedOut) return false;
                               if (quotedVendorsOnly && !vendor.has_quoted) return false;
                               return true;
                             })
@@ -651,6 +655,16 @@ const ClauseProductItem = ({
                                   <div className={styles.vendorHeaderTop}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                       <span className={styles.vendorCode}>{vendorCode}</span>
+                                      {vendor.evaluation_round && (
+                                        <span className="badge rounded-pill" style={{
+                                          fontSize: '10px', fontWeight: 700, padding: '3px 10px', letterSpacing: '0.5px',
+                                          background: vendor.is_replaced_out ? 'rgba(220, 38, 38, 0.1)' : 'rgba(22, 163, 74, 0.1)',
+                                          color: vendor.is_replaced_out ? '#dc2626' : '#16a34a',
+                                          border: `1px solid ${vendor.is_replaced_out ? 'rgba(220, 38, 38, 0.2)' : 'rgba(22, 163, 74, 0.2)'}`,
+                                        }}>
+                                          R{vendor.evaluation_round}
+                                        </span>
+                                      )}
                                       {!quotedVendorsOnly && !vendor.has_quoted && (
                                         <span className="badge rounded-pill py-1 px-2 text-bg-secondary" style={{ fontSize: '9px' }}>
                                           Not Quoted
@@ -733,6 +747,9 @@ const ClauseProductItem = ({
                                 vendors
                                   .filter(vendor => {
                                     if (selectedVendors.length > 0 && !selectedVendors.includes(vendor.vendor_id)) return false;
+                                    const isReplacedOut = vendor.is_replaced_out === true;
+                                    if (showFailedVendors) return isReplacedOut;
+                                    if (isReplacedOut) return false;
                                     if (quotedVendorsOnly && !vendor.has_quoted) return false;
                                     return true;
                                   })
