@@ -204,7 +204,7 @@ const ManageAccountsPage = () => {
     if (isHospitalityCompany) {
       promises.push(
         getUserRoleScopes(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => []),
-        Promise.resolve(userProfile?.hospitality_mappings || [])
+        getUserMappingsById(account.id).then((res) => res?.data || []).catch(() => [])
       );
     } else {
       promises.push(Promise.resolve([]), Promise.resolve([]));
