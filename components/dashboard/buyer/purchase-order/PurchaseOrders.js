@@ -435,16 +435,20 @@ const PurchaseOrders = () => {
                 </div>
               )}
 
-              {/* Inline loader while verifying permissions */}
-              {rfq && permissionsLoading && (
-                <div className={styles.emptyState} style={{ minHeight: '300px' }}>
-                  <div className={styles.emptyStateIcon} style={{ background: 'rgba(46, 91, 168, 0.08)' }}>
-                    <div className="spinner-border text-primary" role="status" style={{ width: '1.5rem', height: '1.5rem', borderWidth: '2px' }}>
-                      <span className="visually-hidden">Loading...</span>
+              {/* Unified loader for permissions check + data fetch */}
+              {rfq && (permissionsLoading || (!permissionsLoading && canRead && loading && !poData && !poDetails)) && (
+                <div className={styles.emptyState} style={{ minHeight: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div className={styles.emptyStateIcon} style={{ background: 'rgba(46, 91, 168, 0.08)', margin: '0 auto 12px' }}>
+                      <div className="spinner-border text-primary" role="status" style={{ width: '1.5rem', height: '1.5rem', borderWidth: '2px' }}>
+                        <span className="visually-hidden">Loading...</span>
+                      </div>
                     </div>
+                    <h4 className={styles.emptyStateTitle}>Loading Purchase Orders</h4>
+                    <p className={styles.emptyStateDesc}>
+                      {permissionsLoading ? 'Verifying access permissions...' : 'Fetching data...'}
+                    </p>
                   </div>
-                  <h4 className={styles.emptyStateTitle}>Loading Purchase Orders</h4>
-                  <p className={styles.emptyStateDesc}>Verifying access permissions...</p>
                 </div>
               )}
 
@@ -460,18 +464,6 @@ const PurchaseOrders = () => {
               {/* Content area */}
               {rfq && !permissionsLoading && canRead && (
                 <>
-                  {/* Loading state for PO data */}
-                  {loading && !poData && !poDetails && (
-                    <div className={styles.emptyState} style={{ minHeight: '250px' }}>
-                      <div className={styles.emptyStateIcon} style={{ background: 'rgba(46, 91, 168, 0.08)' }}>
-                        <div className="spinner-border text-primary" role="status" style={{ width: '1.5rem', height: '1.5rem', borderWidth: '2px' }}>
-                          <span className="visually-hidden">Loading...</span>
-                        </div>
-                      </div>
-                      <h4 className={styles.emptyStateTitle}>Loading Purchase Orders</h4>
-                      <p className={styles.emptyStateDesc}>Fetching data...</p>
-                    </div>
-                  )}
 
                   {/* PO Listing */}
                   {!po && poData && (
