@@ -57,7 +57,6 @@ export const roleMenus = {
     { href: "/dashboard/buyer/arc-committee", label: "ARC Committee", targetMenu: "nav" },
     { href: "/dashboard/buyer/purchase-order", label: "Purchase Orders", targetMenu: "nav" },
     { href: "/dashboard/buyer/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
-    { href: "/dashboard/buyer/vendor-management", label: "Vendor Management", targetMenu: "popup", icon: "people" },
   ],
   management: [
     { href: "/dashboard/management", label: "Dashboard", targetMenu: "nav" },
@@ -69,7 +68,6 @@ export const roleMenus = {
     { href: "/dashboard/buyer/purchase-order", label: "Purchase Orders", targetMenu: "nav" },
     { href: "/dashboard/management/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
     { href: "/dashboard/management/project-management", label: "Project Management", targetMenu: "popup", icon: "folder" },
-    { href: "/dashboard/buyer/vendor-management", label: "Vendor Management", targetMenu: "popup", icon: "people" },
   ],
   finance: [
     { href: "/dashboard/buyer/quote-compare", label: "Quote Comparison", targetMenu: "nav" },

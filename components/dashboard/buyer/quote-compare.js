@@ -1444,6 +1444,13 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     setfinalizeLoading(true);
     const specs = proditem.product_details[0].rfq_details;
 
+    // Use original (non-normalized) quote data for charges to prevent normalization from corrupting PO values
+    const origProduct = originalQuotes.find(p => p.id === proditem.id);
+    const origQuotation = origProduct?.quotations?.find(
+      q => String(q.quote_id) === String(item.quote_id)
+    );
+    const chargeSource = origQuotation || item;
+
     // PO-related payload - only include full details for PO route
     const poRequiredPayload = routeType === 'PO' ? {
       project_id: proditem.rfq[0].project_id,
@@ -1454,14 +1461,14 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         rfq_product_id: proditem.id,
         quantity: specs.find(spec => spec.title == 'Quantity')?.value ?? -1,
         unit: specs.find(spec => spec.title == 'Unit')?.value ?? "N/A",
-        unit_price: item.unit_price,
+        unit_price: chargeSource.unit_price,
         charges_meta: {
-          freight_price: item.freight_price,
-          freight_mode: item.freight_mode,
-          package_price: item.package_price,
-          package_mode: item.package_mode,
-          tax: item.tax,
-          tax_mode: item.tax_mode
+          freight_price: chargeSource.freight_price,
+          freight_mode: chargeSource.freight_mode,
+          package_price: chargeSource.package_price,
+          package_mode: chargeSource.package_mode,
+          tax: chargeSource.tax,
+          tax_mode: chargeSource.tax_mode
         },
         finalized_vendor_id: item.quote_details.created_by
       },

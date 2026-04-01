@@ -3,7 +3,7 @@ import Loader from '@/components/shared/Loader';
 import Pagination from '@/components/shared/Pagination';
 import { getProjectBudget, getProjectById, updateProject, uploadProjectFile } from '@/services/project';
 import { faEdit } from '@fortawesome/free-regular-svg-icons';
-import { faCloudArrowUp, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
+import { faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { set } from 'lodash';
 import Link from 'next/link';
@@ -707,19 +707,6 @@ const ProjectDetails = () => {
                       <div className="col-sm-4 col-md-6"></div>
                       <div className="col-sm-8 col-md-6">
                         <div className="d-flex justify-content-end">
-                          <Link
-                            href="/dashboard/buyer/vendor-management"
-                            className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "
-                            style={{ flex: "0 0 250px" }}
-                            id="upload_vendors-rfq_actions-project_details_page"
-                          >
-                            {" "}
-                            <FontAwesomeIcon
-                              icon={faCloudArrowUp}
-                              className="me-2"
-                            />{" "}
-                            Upload your Vendors
-                          </Link>
                           <Link
                             href="/boq-automation"
                             className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "

@@ -486,11 +486,9 @@ export const buildCategoryComparisonModel = (
     };
   });
 
-  const sortedVendors = vendorsWithTotals.sort((a, b) => {
-    if (a.total > 0 && b.total <= 0) return -1;
-    if (a.total <= 0 && b.total > 0) return 1;
-    return a.total - b.total;
-  });
+  const sortedVendors = vendorsWithTotals
+    .filter((v) => v.total > 0)
+    .sort((a, b) => a.total - b.total);
 
   const grouped = buildCategoryGroups(products);
 

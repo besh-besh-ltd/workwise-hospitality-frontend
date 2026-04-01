@@ -5,7 +5,7 @@ import { getDashboardData } from "@/services/Auth";
 import FullLoader from "@/components/shared/FullLoader";
 import { toast } from "react-toastify";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFileDownload, faUsers, faCartShopping, faChartBar, faFileInvoiceDollar, faFolderOpen, faGears } from "@fortawesome/free-solid-svg-icons";
+import { faFileDownload, faCartShopping, faChartBar, faFileInvoiceDollar, faFolderOpen, faGears } from "@fortawesome/free-solid-svg-icons";
 import DownloadReportsForBuyer from "@/components/modal/DownloadReportsForBuyer";
 import Link from "next/link";
 
@@ -246,19 +246,6 @@ const TopManagementPage = () => {
                   </div>
                   <div className="detail-con-icon p-order">
                     <FontAwesomeIcon icon={faCartShopping} size="2x" />
-                  </div>
-                </div>
-              </Link>
-            </div>
-            <div className="col-lg-4 col-md-6 buyer-col">
-              <Link href="/dashboard/buyer/vendor-management" className="text-decoration-none">
-                <div className="detail-con">
-                  <div className="detail-con-text">
-                    <h2>Vendor Management</h2>
-                    <span>Manage your vendor relationships</span>
-                  </div>
-                  <div className="detail-con-icon buy">
-                    <FontAwesomeIcon icon={faUsers} size="2x" />
                   </div>
                 </div>
               </Link>
