@@ -258,7 +258,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
 
         {/* Action Buttons */}
         <div className={styles.actionsRow} onClick={(e) => e.stopPropagation()}>
-          <Link href={`/dashboard/vendor/inquiries-details?type=buyer-view&id=${data.id}`}>
+          <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`}>
             <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>
               View Details
             </button>
@@ -305,7 +305,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
           )}
 
           {isPendingApproval && !isBacklog && (
-            <Link href={`/dashboard/vendor/inquiries-details?type=buyer-view&id=${data.id}`}>
+            <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`}>
               <button className={`btn btn-sm ${styles.actionBtn} ${styles.approveBtn}`}>
                 View Details
               </button>
