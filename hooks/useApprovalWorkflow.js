@@ -16,7 +16,7 @@ import {
  * @param {boolean} options.enabled - Whether to fetch (default: true)
  * @returns {Object} Approval state and action handlers
  */
-export const useApprovalWorkflow = ({ entityType, entityId, enabled = true, refreshTrigger = 0 }) => {
+export const useApprovalWorkflow = ({ entityType, entityId, allEntityIds, enabled = true, refreshTrigger = 0 }) => {
   const [instance, setInstance] = useState(null);
   const [allInstances, setAllInstances] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,14 +36,34 @@ export const useApprovalWorkflow = ({ entityType, entityId, enabled = true, refr
     setError(null);
 
     try {
-      // Get all approval instances for this entity
-      const response = await getEntityApprovalInstances(entityType, entityId);
-      const instances = response?.data?.data || response?.data || [];
+      // Determine which entity IDs to query
+      // For TECHNICAL, allEntityIds contains all round IDs — fetch across all rounds
+      const idsToFetch = (allEntityIds && allEntityIds.length > 0)
+        ? [...new Set(allEntityIds)] // dedupe
+        : [entityId];
 
-      if (instances && instances.length > 0) {
+      // Fetch instances for all entity IDs
+      const allInstancesRaw = [];
+      const seenIds = new Set();
+      for (const eid of idsToFetch) {
+        try {
+          const response = await getEntityApprovalInstances(entityType, eid);
+          const instances = response?.data?.data || response?.data || [];
+          for (const inst of instances) {
+            if (!seenIds.has(inst.id)) {
+              seenIds.add(inst.id);
+              allInstancesRaw.push(inst);
+            }
+          }
+        } catch {
+          // Skip failed fetches for individual entity IDs
+        }
+      }
+
+      if (allInstancesRaw.length > 0) {
         // Fetch details for ALL instances
         const detailedAll = [];
-        for (const inst of instances) {
+        for (const inst of allInstancesRaw) {
           try {
             const detailRes = await getApprovalInstanceDetails(inst.id);
             const detail = detailRes?.data?.data || detailRes?.data || null;
@@ -58,7 +78,7 @@ export const useApprovalWorkflow = ({ entityType, entityId, enabled = true, refr
         detailedAll.sort((a, b) => (a.id || 0) - (b.id || 0));
         setAllInstances(detailedAll);
 
-        // The active/current instance is the first one returned by API (latest)
+        // The active/current instance is the latest one
         setInstance(detailedAll.length > 0 ? detailedAll[detailedAll.length - 1] : null);
       } else {
         setInstance(null);
@@ -72,7 +92,7 @@ export const useApprovalWorkflow = ({ entityType, entityId, enabled = true, refr
     } finally {
       setLoading(false);
     }
-  }, [entityType, entityId, enabled, refreshTrigger]);
+  }, [entityType, entityId, allEntityIds?.join(','), enabled, refreshTrigger]);
 
   // Fetch on mount and when dependencies change
   useEffect(() => {

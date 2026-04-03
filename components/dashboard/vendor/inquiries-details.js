@@ -4,7 +4,7 @@ import { faEdit, faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import { Router, useRouter } from "next/router";
-import { closeRFQ, getAllClauses, getRFQById, sendQuotation, fetchVendorAgreement, getTechClearedVendorsResult, submitRFQApprovalAction } from "@/services/rfq";
+import { closeRFQ, getAllClauses, getRFQById, sendQuotation, fetchVendorAgreement, getTechClearedVendorsResult, submitRFQApprovalAction, getTechEvalStatus } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
 import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-icons";
@@ -32,6 +32,12 @@ import { getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { Badge, Button, Alert } from "react-bootstrap";
 import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill } from "react-icons/bs";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
+import BuyerTechnicalEvaluationSection from "@/components/dashboard/vendor/BuyerTechnicalEvaluationSection";
+import {
+  buildBuyerTechEvalProductSummary,
+  getBuyerTechEvalStatusConfig
+} from "@/components/dashboard/vendor/technicalEvaluationHelpers";
+import statusStyles from "@/components/dashboard/vendor/ViewRfqTechnicalStatus.module.scss";
 
 const TECH_EVAL_STYLES = {
   accepted: { bg: '#d1e7dd', border: '#198754', shadow: '0 2px 8px rgba(25, 135, 84, 0.2)' },
@@ -161,6 +167,8 @@ const RfqManagementPreview = () => {
   // Enhanced tech eval status tracking for detailed status display
   const [productTechEvalDetails, setProductTechEvalDetails] = useState({});
   const [loadingTechEvalDetails, setLoadingTechEvalDetails] = useState({});
+  const [buyerTechEvalStatusByProduct, setBuyerTechEvalStatusByProduct] = useState({});
+  const [buyerTechEvalLoadingByProduct, setBuyerTechEvalLoadingByProduct] = useState({});
 
   // Clarification state
   const [clarifications, setClarifications] = useState([]);
@@ -184,6 +192,7 @@ const RfqManagementPreview = () => {
   const [showNegotiationCol, setShowNegotiationCol] = useState(null);
   const negotiationResultsRef = useRef({});
   const [hasActiveNegotiationRounds, setHasActiveNegotiationRounds] = useState(false);
+  const buyerTechEvalRequestRef = useRef(0);
 
   // Update localId when router.query.id becomes available (after hydration)
   useEffect(() => {
@@ -191,6 +200,66 @@ const RfqManagementPreview = () => {
       setLocalId(id);
     }
   }, [id]);
+
+  const loadBuyerTechEvalOverview = useCallback(async (products = []) => {
+    if (type !== "buyer-view") {
+      setBuyerTechEvalStatusByProduct({});
+      setBuyerTechEvalLoadingByProduct({});
+      return;
+    }
+
+    const techEvalProducts = products.filter((product) => product?.tech_evaluation_status?.has_tech_eval);
+
+    if (techEvalProducts.length === 0) {
+      setBuyerTechEvalStatusByProduct({});
+      setBuyerTechEvalLoadingByProduct({});
+      return;
+    }
+
+    const requestId = buyerTechEvalRequestRef.current + 1;
+    buyerTechEvalRequestRef.current = requestId;
+
+    const loadingState = techEvalProducts.reduce((acc, product) => {
+      acc[product.id] = true;
+      return acc;
+    }, {});
+
+    setBuyerTechEvalStatusByProduct({});
+    setBuyerTechEvalLoadingByProduct(loadingState);
+
+    const results = await Promise.all(
+      techEvalProducts.map(async (product) => {
+        try {
+          const response = await getTechEvalStatus(product.id);
+          return {
+            productId: product.id,
+            data: response?.data?.data || response?.data || null
+          };
+        } catch (error) {
+          console.error(`Error fetching technical evaluation status for product ${product.id}:`, error);
+          return {
+            productId: product.id,
+            data: null
+          };
+        }
+      })
+    );
+
+    if (buyerTechEvalRequestRef.current !== requestId) {
+      return;
+    }
+
+    const nextStatus = {};
+    const nextLoading = {};
+
+    results.forEach(({ productId, data }) => {
+      nextStatus[productId] = data;
+      nextLoading[productId] = false;
+    });
+
+    setBuyerTechEvalStatusByProduct(nextStatus);
+    setBuyerTechEvalLoadingByProduct(nextLoading);
+  }, [type]);
 
   // Custom approval handler for RFQ/TENDER entity type
   const handleRFQApprove = async (comment, context) => {
@@ -236,7 +305,7 @@ const RfqManagementPreview = () => {
     if (id) {
       getRFQdetails();
     }
-  }, [id]);
+  }, [id, type, token]);
 
   // Fetch clarifications for RFQs and tenders
   const fetchClarifications = useCallback(async () => {
@@ -327,7 +396,7 @@ const RfqManagementPreview = () => {
 
   const getRFQdetails = () => {
     setloading(true);
-    getRFQById(id, token)
+    getRFQById(id, token, type === "buyer-view")
       .then((res) => {
         setloading(false);
         let val = checkBidExpired(res.data?.bid_end_date);
@@ -368,6 +437,7 @@ const RfqManagementPreview = () => {
         setproductleftforbid(hasUnfinalizedProducts);
 
         setrfqDetails(res.data);
+        loadBuyerTechEvalOverview(res.data?.products || []);
         checkIfQuotationSendIsPossible(res.data);
         updatecurrentLowest(res.data?.products);
       })
@@ -660,10 +730,10 @@ const RfqManagementPreview = () => {
           if (product.tech_evaluation_status.has_tech_eval && product.tech_evaluation_status.has_response !== undefined) {
             const status = determineStatusFromBackend(product.tech_evaluation_status, type === "buyer-view");
             setProductTechEvalDetails(prev => ({ ...prev, [product.id]: status }));
-          } else if (id && product.id) {
+          } else if (type !== "buyer-view" && id && product.id) {
             fetchProductTechEvalDetails(product.id, id);
           }
-        } else if (id && product.id) {
+        } else if (type !== "buyer-view" && id && product.id) {
           fetchProductTechEvalDetails(product.id, id);
         }
       });
@@ -688,6 +758,78 @@ const RfqManagementPreview = () => {
     } else {
       setCurrentLowest(null);
     }
+  };
+
+  const renderBuyerTechEvalCell = (item) => {
+    const summary = buildBuyerTechEvalProductSummary({
+      ...item,
+      technical_evaluators: rfqDetails?.technical_evaluators || []
+    }, buyerTechEvalStatusByProduct[item.id]);
+    const statusConfig = getBuyerTechEvalStatusConfig(summary.stateKey);
+    const isLoading = buyerTechEvalLoadingByProduct[item.id];
+    // Valid vendors = responded to clauses or submitted quotation (exclude pending vendor response)
+    const validVendors = (summary.selectedVendorCount || 0) - (summary.pendingVendorResponseCount || 0);
+    const hasFollowUp = summary.followUpNames?.length > 0 && summary.followUpLabel;
+    const isComplete = summary.stateKey === "COMPLETED";
+    const isRejected = summary.stateKey === "RE_EVALUATION_REQUIRED";
+    const tone = statusConfig.tone;
+
+    if (!item?.tech_evaluation_status?.has_tech_eval) {
+      return <span className="text-muted" style={{ fontSize: '0.78rem' }}>N/A</span>;
+    }
+
+    return (
+      <Link
+        href={`/dashboard/buyer/technical-evaluation?rfq_id=${id}&prod_id=${item.id}${token !== undefined ? `&token=${token}` : ""}`}
+        style={{ textDecoration: "none", display: "block", width: "100%" }}
+      >
+        <div className={statusStyles.teCell} style={{ borderColor: tone.border, borderLeftColor: tone.accent, background: tone.background }}>
+          {/* Status row */}
+          <div className={statusStyles.teCellStatusRow}>
+            <span className={statusStyles.teCellBadge} style={{ color: tone.color, borderColor: tone.border }}>
+              {isLoading ? "Loading..." : statusConfig.shortLabel}
+            </span>
+            {summary.currentRound > 0 && !isLoading && (
+              <span className={statusStyles.teCellStatusMeta} style={{ marginLeft: 6 }}>R{summary.currentRound}</span>
+            )}
+          </div>
+
+          {/* Vendor stats — compact row chips */}
+          <div className={statusStyles.teCellMetrics}>
+            <div className={statusStyles.teCellStat}>
+              <span className={statusStyles.teCellStatValue}>{validVendors}</span>
+              <span className={statusStyles.teCellStatLabel}>Vendors</span>
+            </div>
+            {(summary.passedCount > 0 || isComplete) && (
+              <div className={statusStyles.teCellStat} style={{ borderColor: 'rgba(34,197,94,0.2)', background: 'rgba(34,197,94,0.06)' }}>
+                <span className={statusStyles.teCellStatValue} style={{ color: '#166534' }}>{summary.passedCount}</span>
+                <span className={statusStyles.teCellStatLabel} style={{ color: '#16a34a' }}>Passed</span>
+              </div>
+            )}
+            {summary.failedCount > 0 && (
+              <div className={statusStyles.teCellStat} style={{ borderColor: 'rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)' }}>
+                <span className={statusStyles.teCellStatValue} style={{ color: '#991b1b' }}>{summary.failedCount}</span>
+                <span className={statusStyles.teCellStatLabel} style={{ color: '#dc2626' }}>Failed</span>
+              </div>
+            )}
+          </div>
+
+          {/* Follow-up / detail section */}
+          {!isLoading && (
+            <div className={statusStyles.teCellSection}>
+              {hasFollowUp ? (
+                <>
+                  <div className={statusStyles.teCellSectionLabel}>{summary.followUpLabel}</div>
+                  <div className={statusStyles.teCellSummary}>{summary.followUpNames.join(", ")}</div>
+                </>
+              ) : summary.compactDetail ? (
+                <div className={statusStyles.teCellFollowup}>{summary.compactDetail}</div>
+              ) : null}
+            </div>
+          )}
+        </div>
+      </Link>
+    );
   };
 
   const handleRFqClose = (e) => {
@@ -1740,6 +1882,14 @@ const RfqManagementPreview = () => {
                     </div>
 
                     <div className="details-table">
+                      {type === "buyer-view" && (
+                        <BuyerTechnicalEvaluationSection
+                          rfqDetails={rfqDetails}
+                          products={rfqDetails?.products || []}
+                          techEvalStatusByProduct={buyerTechEvalStatusByProduct}
+                        />
+                      )}
+
                       {rfqDetails?.products?.length > 0 && (
                       <div className="table-responsive">
                         <table className="table table-striped" style={{ tableLayout: "auto", width: "100%" }}>
@@ -1747,7 +1897,7 @@ const RfqManagementPreview = () => {
                             <tr className="text-nowrap">
                               <th style={{ minWidth: "120px", maxWidth: "200px", width: "auto" }}>Name of product</th>
                               {rfqDetails?.products?.some(p => p.tech_evaluation_status?.has_tech_eval) && (
-                                <th style={{ minWidth: "160px", maxWidth: "240px", width: "auto" }}>Technical Evaluation</th>
+                                <th style={{ minWidth: "315px", maxWidth: "315px", width: "315px" }}>Technical Evaluation</th>
                               )}
                               <th style={{ minWidth: "160px", maxWidth: "280px", width: "auto" }}>Size & specifications</th>
                               <th style={{ minWidth: "70px", maxWidth: "110px", width: "auto" }}>Quantity</th>
@@ -1796,7 +1946,7 @@ const RfqManagementPreview = () => {
                               return (
                                 <tr
                                   key={`${item?.id}_${item?.product_id}_${item?.variant}`}
-                                  style={getTechEvalRowStyle(productTechEvalDetails[item.id])}
+                                  style={type === "buyer-view" ? undefined : getTechEvalRowStyle(productTechEvalDetails[item.id])}
                                 >
                                   <td>
                                     {item?.product_details[0]?.name}
@@ -1805,16 +1955,21 @@ const RfqManagementPreview = () => {
                                   {/* Technical Evaluation - 2nd column */}
                                   {rfqDetails?.products?.some(p => p.tech_evaluation_status?.has_tech_eval) && (
                                     <td
-                                      style={getTechEvalCellStyle(
-                                        productTechEvalDetails[item.id],
-                                        item.tech_evaluation_status?.has_tech_eval,
-                                        loadingTechEvalDetails[item.id],
-                                        item.tech_evaluation_status?.is_accepted
-                                      )}
+                                      style={type === "buyer-view"
+                                        ? { padding: "8px 10px" }
+                                        : getTechEvalCellStyle(
+                                            productTechEvalDetails[item.id],
+                                            item.tech_evaluation_status?.has_tech_eval,
+                                            loadingTechEvalDetails[item.id],
+                                            item.tech_evaluation_status?.is_accepted
+                                          )
+                                      }
                                     >
                                       {item.tech_evaluation_status?.has_tech_eval ? (
                                         <div>
-                                          {loadingTechEvalDetails[item.id] ? (
+                                          {type === "buyer-view" ? (
+                                            renderBuyerTechEvalCell(item)
+                                          ) : loadingTechEvalDetails[item.id] ? (
                                             <div
                                               className="d-flex align-items-center justify-content-center"
                                               style={{

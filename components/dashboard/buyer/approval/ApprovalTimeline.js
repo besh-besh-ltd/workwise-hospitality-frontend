@@ -67,10 +67,12 @@ const statusConfig = {
   },
 };
 
-const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus }) => {
+const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus, isActionRequired = false }) => {
   const [expandedSteps, setExpandedSteps] = useState({});
 
   const isExpired = instanceStatus === 'BACKLOG' || instanceStatus === 'CANCELLED';
+  const isInstanceApproved = instanceStatus === 'APPROVED';
+  const isInstanceRejected = instanceStatus === 'REJECTED';
 
   // Auto-expand the current pending step (or first expired step)
   useEffect(() => {
@@ -100,6 +102,9 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
         return { icon: BsXCircleFill, color: "#dc3545", text: "Rejected", dotColor: "#dc3545" };
       default:
         // PENDING approver — context matters
+        if (isInstanceApproved) {
+          return { icon: BsCheckCircleFill, color: "#198754", text: "Approved", dotColor: "#198754" };
+        }
         if (isExpired) {
           return { icon: BsExclamationTriangleFill, color: "#dc3545", text: "Expired", dotColor: "#dc3545" };
         }
@@ -146,20 +151,9 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
           color: #495057;
         }
 
-        /* Timeline spine */
+        /* Timeline */
         .at-timeline {
           position: relative;
-          padding-left: 28px;
-        }
-        .at-timeline::before {
-          content: '';
-          position: absolute;
-          left: 13px;
-          top: 20px;
-          bottom: 20px;
-          width: 2px;
-          background: linear-gradient(180deg, #198754 0%, #dee2e6 50%, #dee2e6 100%);
-          border-radius: 1px;
         }
 
         /* Step card */
@@ -180,13 +174,39 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
         }
         .at-step-card.is-current-pending {
           border-color: #ffc107;
-          background: linear-gradient(135deg, #fffdf5 0%, #fff8e1 100%);
-          box-shadow: 0 0 0 1px rgba(255,193,7,0.15), 0 4px 16px rgba(255,193,7,0.10);
-          animation: at-glow 3s ease-in-out infinite;
+          background: linear-gradient(135deg, #fffdf5 0%, #fff8e1 50%, #fffdf5 100%);
+          background-size: 200% 200%;
+          box-shadow: 0 0 0 1px rgba(255,193,7,0.2), 0 4px 20px rgba(255,193,7,0.12);
+          animation: at-pending-bg 4s ease-in-out infinite, at-glow 2.5s ease-in-out infinite;
+        }
+        .at-step-card.is-action-required {
+          border-color: #f97316;
+          background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 50%, #fef3c7 100%);
+          background-size: 200% 200%;
+          box-shadow: 0 0 0 2px rgba(249,115,22,0.25), 0 6px 24px rgba(249,115,22,0.18);
+          animation: at-action-bg 3s ease-in-out infinite, at-action-glow 2s ease-in-out infinite;
+        }
+        @keyframes at-pending-bg {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
         }
         @keyframes at-glow {
-          0%, 100% { box-shadow: 0 0 0 1px rgba(255,193,7,0.15), 0 4px 16px rgba(255,193,7,0.10); }
-          50% { box-shadow: 0 0 0 2px rgba(255,193,7,0.25), 0 6px 24px rgba(255,193,7,0.18); }
+          0%, 100% { box-shadow: 0 0 0 1px rgba(255,193,7,0.2), 0 4px 20px rgba(255,193,7,0.12); }
+          50% { box-shadow: 0 0 0 3px rgba(255,193,7,0.35), 0 8px 28px rgba(255,193,7,0.22); }
+        }
+        @keyframes at-action-bg {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        @keyframes at-action-glow {
+          0%, 100% {
+            box-shadow: 0 0 0 2px rgba(249,115,22,0.25), 0 6px 24px rgba(249,115,22,0.18);
+            border-color: #f97316;
+          }
+          50% {
+            box-shadow: 0 0 0 4px rgba(249,115,22,0.4), 0 10px 36px rgba(249,115,22,0.3);
+            border-color: #ea580c;
+          }
         }
         .at-step-card.is-approved {
           border-color: #c3e6cb;
@@ -195,41 +215,6 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
         .at-step-card.is-rejected {
           border-color: #f5c2c7;
           background: #fef8f8;
-        }
-
-        /* Step marker on timeline */
-        .at-marker {
-          position: absolute;
-          left: -22px;
-          top: 14px;
-          width: 22px;
-          height: 22px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 2.5px solid #dee2e6;
-          background: #ffffff;
-          z-index: 2;
-          transition: all 0.3s ease;
-        }
-        .at-marker.approved {
-          background: #d1e7dd;
-          border-color: #198754;
-        }
-        .at-marker.rejected {
-          background: #f8d7da;
-          border-color: #dc3545;
-        }
-        .at-marker.current {
-          background: #fff3cd;
-          border-color: #ffc107;
-          animation: at-pulse 2s infinite;
-        }
-        @keyframes at-pulse {
-          0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
-          70% { box-shadow: 0 0 0 6px rgba(255, 193, 7, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
         }
 
         /* Step header row */
@@ -273,6 +258,10 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
           background: rgba(255,193,7,0.15);
           color: #856404;
         }
+        .at-step-card.is-action-required .at-rule-tag {
+          background: rgba(249,115,22,0.15);
+          color: #9a3412;
+        }
         .at-step-header-right {
           display: flex;
           align-items: center;
@@ -306,6 +295,9 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
         }
         .at-step-card.is-current-pending .at-step-body {
           border-top-color: rgba(255,193,7,0.15);
+        }
+        .at-step-card.is-action-required .at-step-body {
+          border-top-color: rgba(249,115,22,0.15);
         }
 
         /* Department group */
@@ -341,6 +333,9 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
         .at-step-card.is-current-pending .at-dept-group + .at-dept-group {
           border-top-color: rgba(255,193,7,0.2);
         }
+        .at-step-card.is-action-required .at-dept-group + .at-dept-group {
+          border-top-color: rgba(249,115,22,0.2);
+        }
 
         /* Approver row */
         .at-approver {
@@ -361,6 +356,12 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
         }
         .at-step-card.is-current-pending .at-approver:hover {
           background: rgba(255,193,7,0.10);
+        }
+        .at-step-card.is-action-required .at-approver {
+          background: rgba(249,115,22,0.06);
+        }
+        .at-step-card.is-action-required .at-approver:hover {
+          background: rgba(249,115,22,0.12);
         }
         .at-approver-icon-wrap {
           width: 26px;
@@ -438,12 +439,7 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
             font-size: 0.65rem;
           }
           .at-timeline {
-            padding-left: 22px;
-          }
-          .at-marker {
-            left: -18px;
-            width: 18px;
-            height: 18px;
+            padding-left: 0;
           }
         }
         .at-approver-status-tag.approved {
@@ -487,9 +483,24 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
           text-transform: uppercase;
           animation: at-tag-pulse 2s ease-in-out infinite;
         }
+        .at-action-tag {
+          font-size: 0.6rem;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          padding: 3px 8px;
+          border-radius: 4px;
+          background: linear-gradient(90deg, #f97316, #ef4444);
+          color: #ffffff;
+          text-transform: uppercase;
+          animation: at-action-tag-pulse 1.5s ease-in-out infinite;
+        }
         @keyframes at-tag-pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.7; }
+        }
+        @keyframes at-action-tag-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.85; transform: scale(1.05); }
         }
       `}</style>
 
@@ -516,38 +527,35 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
       {/* Timeline */}
       <div className="at-timeline">
         {steps.map((step, index) => {
-          // For expired instances, show PENDING steps as EXPIRED
-          const effectiveStepStatus = (isExpired && step.status === "PENDING") ? "EXPIRED" : step.status;
+          // Derive effective step status based on instance-level outcome
+          const effectiveStepStatus = (isExpired && step.status === "PENDING") ? "EXPIRED"
+            : (isInstanceApproved && step.status === "PENDING") ? "APPROVED"
+            : step.status;
           const config = statusConfig[effectiveStepStatus] || statusConfig.PENDING;
           const StepIcon = config.stepIcon;
-          const isCurrentPending = !isExpired && step.step_order === currentStep && step.status === "PENDING";
+          const isCurrentPending = !isExpired && !isInstanceApproved && !isInstanceRejected
+            && step.step_order === currentStep && step.status === "PENDING";
           const isStepExpired = isExpired && step.status === "PENDING";
           const isExpandedStep = !!expandedSteps[step.id];
           // For ANY-rule steps that are APPROVED, remaining PENDING approvers are skipped
           const isStepApprovedAny = step.status === "APPROVED" && step.decision_rule === "ANY";
 
-          const markerClass = step.status === "APPROVED" ? "approved"
-            : step.status === "REJECTED" ? "rejected"
-            : isStepExpired ? "rejected"
-            : isCurrentPending ? "current" : "";
+          const isStepActionRequired = isCurrentPending && isActionRequired;
 
-          const cardClass = isCurrentPending ? "is-current-pending"
+          const cardClass = isStepActionRequired ? "is-current-pending is-action-required"
+            : isCurrentPending ? "is-current-pending"
             : step.status === "APPROVED" ? "is-approved"
             : step.status === "REJECTED" ? "is-rejected"
             : isStepExpired ? "is-rejected" : "";
 
           return (
             <div className={`at-step-card ${cardClass}`} key={step.id}>
-              {/* Timeline marker */}
-              <div className={`at-marker ${markerClass}`}>
-                <StepIcon size={10} style={{ color: config.color }} />
-              </div>
-
               {/* Header row - always visible */}
               <div className="at-step-header" onClick={() => toggleStep(step.id)}>
                 <div className="at-step-header-left">
                   <span className="at-step-title">Step {step.step_order}</span>
-                  {isCurrentPending && <span className="at-current-tag">Current</span>}
+                  {isCurrentPending && !isStepActionRequired && <span className="at-current-tag">Current</span>}
+                  {isStepActionRequired && <span className="at-action-tag">Action Required</span>}
                   <Badge
                     bg={config.badgeVariant}
                     style={{ fontSize: "0.62rem", fontWeight: 500, padding: "2px 7px" }}
