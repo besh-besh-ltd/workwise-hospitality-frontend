@@ -169,7 +169,7 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
           <div className="d-flex flex-column gap-2">
             {isPendingApproval ? (
               <Link
-                href={`/dashboard/vendor/inquiries-details?type=buyer-view&id=${data?.id}`}
+                href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data?.id}`}
                 className="btn btn-warning btn-sm p-2 border-0 rounded-2 d-flex align-items-center justify-content-center gap-1"
                 style={{ minWidth: "140px" }}
                 id={`approve_rfq_${data?.id}-rfq_actions-pending_approval_page`}
@@ -180,7 +180,7 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
             ) : (
               <>
                 <Link
-                  href={`/dashboard/vendor/inquiries-details?type=buyer-view&id=${data?.id}`}
+                  href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data?.id}`}
                   className="page-link"
                   id={`view_rfq_${data?.id}-rfq_actions-manage_rfq_page`}
                 >

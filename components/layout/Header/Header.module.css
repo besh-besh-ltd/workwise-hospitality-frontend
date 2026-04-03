@@ -48,7 +48,7 @@
 
 .dashNav {
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   justify-self: center;
   display: flex;
   align-items: center;
@@ -90,6 +90,57 @@
   color: #2e5ba8;
   background: #e8efff;
   font-weight: 600;
+}
+
+/* ── Disabled/locked nav item (subscription required) ── */
+.dashNavDisabled {
+  position: relative;
+}
+
+.dashNavDisabled .dashNavLink {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: auto;
+  color: #999;
+  background: none;
+}
+
+.dashNavDisabled .dashNavLink:hover {
+  color: #999;
+  background: none;
+}
+
+.lockTooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a2e;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+}
+
+.lockTooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: #1a1a2e;
+}
+
+.dashNavDisabled:hover .lockTooltip {
+  display: block;
 }
 
 /* Pending approval indicator dot — absolute within dashNavItem (position:relative) */

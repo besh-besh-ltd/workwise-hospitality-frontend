@@ -100,6 +100,29 @@ const Header = () => {
     return baseMenu;
   }, [currentUserType, isHospitalityCompany]);
 
+  // ── Subscription guard: redirect from locked pages ──
+  useEffect(() => {
+    if (!userProfile || currentUserType !== "vendor") return;
+    const isHospitalityVendor = userProfile?.is_hospitality == 1;
+    const hasValidSub = !!userProfile?.has_valid_hospitality_subscription;
+    if (!isHospitalityVendor || hasValidSub) return;
+
+    const lockedRoutes = currentRoleMenu
+      ?.filter((item) => item.requiresSubscription)
+      ?.map((item) => item.href) || [];
+
+    const isOnLockedRoute = lockedRoutes.some((route) => pathname?.startsWith(route));
+    // Also block send-quote and inquiries-details (child routes)
+    const isOnChildLockedRoute =
+      pathname?.startsWith("/dashboard/vendor/send-quote") ||
+      pathname?.startsWith("/dashboard/vendor/inquiries-details");
+
+    if (isOnLockedRoute || isOnChildLockedRoute) {
+      toast.warning("Subscription is required to access this page. Please renew your subscription.");
+      router.replace("/dashboard/vendor");
+    }
+  }, [pathname, userProfile, currentUserType, currentRoleMenu]);
+
   const headerStateClass = useMemo(() => {
     if (isDashboardPage) return styles.alwaysWhite;
     if (pathname === "/") {
@@ -374,30 +397,48 @@ const Header = () => {
           )}
 
           {/* ── Dashboard Navigation ── */}
-          {isDashboardPage && (
+          {isDashboardPage && (() => {
+            const isHospitalityVendor = userProfile?.is_hospitality == 1 && currentUserType === "vendor";
+            const hasValidSub = !!userProfile?.has_valid_hospitality_subscription;
+            const isSubLocked = isHospitalityVendor && !hasValidSub;
+
+            return (
             <div className={`${styles.dashNav} ${styles.hideMobile}`}>
               <nav>
                 <ul className={styles.dashNavList}>
                   {currentRoleMenu
                     ?.filter((m) => m.targetMenu === "nav")
                     ?.filter((item) => !hiddenNavItems.some((h) => h.href === item.href))
-                    ?.map((item) => (
+                    ?.map((item) => {
+                      const locked = isSubLocked && item.requiresSubscription;
+                      return (
                       <li
                         key={item.href}
-                        className={`${styles.dashNavItem} ${pathname === item.href ? styles.dashNavItemActive : ""}`}
+                        className={`${styles.dashNavItem} ${pathname === item.href ? styles.dashNavItemActive : ""} ${locked ? styles.dashNavDisabled : ""}`}
                       >
-                        <Link href={item.href} className={styles.dashNavLink}>
-                          {item.label}
-                        </Link>
-                        {hasPendingApproval(item.href) && (
+                        {locked ? (
+                          <>
+                            <span className={styles.dashNavLink}>
+                              {item.label}
+                            </span>
+                            <span className={styles.lockTooltip}>Subscription is required</span>
+                          </>
+                        ) : (
+                          <Link href={item.href} className={styles.dashNavLink}>
+                            {item.label}
+                          </Link>
+                        )}
+                        {!locked && hasPendingApproval(item.href) && (
                           <span className={styles.approvalDot} />
                         )}
                       </li>
-                    ))}
+                      );
+                    })}
                 </ul>
               </nav>
             </div>
-          )}
+            );
+          })()}
 
           {/* ── Dashboard User Menu ── */}
           {isDashboardPage && (

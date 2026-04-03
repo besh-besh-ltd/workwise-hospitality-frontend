@@ -81,3 +81,44 @@ export const hospitalitySubscriptionPayment = (payload) => {
         }
     });
 }
+
+export const getVendorSubscriptionStatus = () => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.get(
+                `/hospitality/vendor/subscription-status`
+            );
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+}
+
+export const renewHospitalitySubscription = (payload) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.post(
+                `/hospitality/renew-subscription`,
+                payload
+            );
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+}
+
+export const verifyHospitalityPayment = (payload) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.post(
+                `/hospitality/verify-payment`,
+                payload
+            );
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+}

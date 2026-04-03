@@ -80,10 +80,10 @@ export const roleMenus = {
   ],
   vendor: [
     { href: "/dashboard/vendor/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
-    { href: "/dashboard/vendor/product-management", label: "Product Management", targetMenu: "nav" },
-    { href: "/dashboard/vendor/inquiries-received", label: "Received Inquiries", targetMenu: "nav" },
+    { href: "/dashboard/vendor/product-management", label: "Product Management", targetMenu: "nav", requiresSubscription: true },
+    { href: "/dashboard/vendor/inquiries-received", label: "Received Inquiries", targetMenu: "nav", requiresSubscription: true },
     { href: "/dashboard/vendor/reviews-ratings", label: "Reviews & Ratings", targetMenu: "nav" },
-    { href: "/dashboard/vendor/order-book", label: "Order Book", targetMenu: "nav" },
+    { href: "/dashboard/vendor/order-book", label: "Order Book", targetMenu: "nav", requiresSubscription: true },
   ],
 };
 

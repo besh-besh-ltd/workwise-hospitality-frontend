@@ -212,7 +212,13 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
           )}
         </div>
         <div className={styles.actionsRow} onClick={(e) => e.stopPropagation()}>
-          <Link href={`/dashboard/vendor/inquiries-details?type=buyer-view&id=${data.id}`}><button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>View Details</button></Link>
+          <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`}>
+            <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>
+              View Details
+            </button>
+          </Link>
+
+          {/* Edit button: hidden if finalized, disabled if no permission */}
           {publishState.canEdit && !isPendingApproval && !data.is_finalized && (
             hasEditPermission
               ? <Link href={publishState.editUrl(data.id)}><button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>Edit</button></Link>
@@ -227,7 +233,11 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
             <button className={`btn btn-sm ${styles.actionBtn} ${styles.reminderBtn}`} onClick={() => onSendReminder?.(data)}>Send Reminder</button>
           )}
           {isPendingApproval && !isBacklog && (
-            <Link href={`/dashboard/vendor/inquiries-details?type=buyer-view&id=${data.id}`}><button className={`btn btn-sm ${styles.actionBtn} ${styles.approveBtn}`}>View Details</button></Link>
+            <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`}>
+              <button className={`btn btn-sm ${styles.actionBtn} ${styles.approveBtn}`}>
+                View Details
+              </button>
+            </Link>
           )}
         </div>
       </div>
