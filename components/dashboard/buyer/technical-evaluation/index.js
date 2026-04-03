@@ -18,8 +18,9 @@ import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
 import useIsMobile from "@/hooks/useIsMobile";
-import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown } from "react-icons/bs";
+import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown, BsLock, BsClock } from "react-icons/bs";
 import styles from "./TechnicalEvaluation.module.scss";
+import { Tooltip } from "react-tooltip";
 
 
 
@@ -30,6 +31,7 @@ const BuyerTechnicalEvaluation = () => {
   const reduxUserProfile = useSelector((state) => state.userProfile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rfq_id, setRfqId] = useState(router.query.rfq_id || null);
+  const targetProdId = router.query.prod_id || null; // rfq_product_id from URL to auto-expand & highlight
   const activeRfqRef = useRef(rfq_id); // Track active rfq_id to prevent stale updates
   const [loading, setLoading] = useState(false); // sidebar RFQ list loading only
   const [contentLoading, setContentLoading] = useState(false); // right section loading
@@ -280,7 +282,20 @@ const BuyerTechnicalEvaluation = () => {
 
       // Only auto-expand on initial load, not on background refresh
       if (!silent && currentRfq?.products?.length > 0) {
-        setExpandedProducts(new Set([currentRfq.products[0].id]));
+        // If prod_id is in URL, expand that product; otherwise expand first product
+        const targetProduct = targetProdId
+          ? currentRfq.products.find(p => String(p.id) === String(targetProdId))
+          : null;
+        const expandId = targetProduct ? targetProduct.id : currentRfq.products[0].id;
+        setExpandedProducts(new Set([expandId]));
+
+        // Scroll to the target product after a brief delay for DOM render
+        if (targetProduct) {
+          setTimeout(() => {
+            const el = document.getElementById(`product-card-${targetProduct.id}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300);
+        }
       }
     } catch (error) {
       if (activeRfqRef.current !== requestId) return; // Stale — ignore
@@ -707,6 +722,30 @@ const BuyerTechnicalEvaluation = () => {
                   </div>
                 )}
 
+                {/* Bid End Date Lock Banner */}
+                {!isContentLoading && !isAccessDenied && currentRfq && !isBidExpired && (
+                  <div className={styles.bidLockBanner}>
+                    <div className={styles.bidLockIconWrapper}>
+                      <BsLock size={20} />
+                    </div>
+                    <div className={styles.bidLockContent}>
+                      <h5 className={styles.bidLockTitle}>Evaluation Locked</h5>
+                      <p className={styles.bidLockMessage}>
+                        Technical evaluation will be available once the submission deadline has passed.
+                        {currentRfq.bid_end_date && (
+                          <>
+                            {' '}Deadline: <strong>{formatDisplayDate(currentRfq.bid_end_date, { includeTime: true })}</strong>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <div className={styles.bidLockTimerBadge}>
+                      <BsClock size={13} />
+                      <span>Awaiting Deadline</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Read-Only Banner */}
                 {hasPermissionContext && !permissionsLoading && !canWrite && canRead && (
                   <div className="mt-3 mb-3">
@@ -760,8 +799,10 @@ const BuyerTechnicalEvaluation = () => {
                           : null;
                         const productSelectedVendors = selectedVendorsMap.get(product.id) || [];
 
+                        const isTargetProduct = targetProdId && String(product.id) === String(targetProdId);
+
                         return (
-                          <div className={styles.productCard} key={`product_${product.id}`}>
+                          <div className={`${styles.productCard} ${isTargetProduct ? styles.productCardHighlight : ''}`} key={`product_${product.id}`} id={`product-card-${product.id}`}>
                             {/* Product Header */}
                             <div className={`${styles.productHeader} ${expandedProducts.has(product.id) ? styles.productHeaderActive : ''}`} onClick={() => toggleProductExpand(product.id)}>
                               <div className={styles.productHeaderLeft}>
@@ -772,6 +813,12 @@ const BuyerTechnicalEvaluation = () => {
                                   <h4 className={styles.productName}>
                                     {product.product_details?.[0]?.name || 'Unnamed Product'}
                                   </h4>
+                                  {(() => {
+                                    const specs = {};
+                                    product.product_specs?.forEach(s => { if (s.value) specs[s.title] = s.value; });
+                                    const qtyText = specs.Quantity ? `${specs.Quantity}${specs.Unit ? ` ${specs.Unit}` : ''}` : (specs.Unit ? specs.Unit : null);
+                                    return qtyText ? <span className={styles.productQtyBadge}>{qtyText}</span> : null;
+                                  })()}
                                 </div>
                                 <div className={styles.productMeta}>
                                   {(() => {
@@ -779,10 +826,24 @@ const BuyerTechnicalEvaluation = () => {
                                     product.product_specs?.forEach(s => { if (s.value) specs[s.title] = s.value; });
                                     return (
                                       <>
-                                        {specs.Spec && <span className={styles.productMetaChip}><strong>Spec:</strong> {specs.Spec}</span>}
-                                        {specs.Size && <span className={styles.productMetaChip}><strong>Size:</strong> {specs.Size}</span>}
-                                        {specs.Quantity && <span className={styles.productMetaChip}><strong>Qty:</strong> {specs.Quantity}{specs.Unit ? ` ${specs.Unit}` : ''}</span>}
-                                        {!specs.Quantity && specs.Unit && <span className={styles.productMetaChip}><strong>Unit:</strong> {specs.Unit}</span>}
+                                        {specs.Size && (
+                                          <span
+                                            className={`${styles.productMetaChip} ${styles.productMetaChipTruncate}`}
+                                            data-tooltip-id="spec-tooltip"
+                                            data-tooltip-content={specs.Size}
+                                          >
+                                            <strong>Size:</strong> {specs.Size}
+                                          </span>
+                                        )}
+                                        {specs.Spec && (
+                                          <span
+                                            className={`${styles.productMetaChip} ${styles.productMetaChipTruncate}`}
+                                            data-tooltip-id="spec-tooltip"
+                                            data-tooltip-content={specs.Spec}
+                                          >
+                                            <strong>Spec:</strong> {specs.Spec}
+                                          </span>
+                                        )}
                                       </>
                                     );
                                   })()}
@@ -882,6 +943,7 @@ const BuyerTechnicalEvaluation = () => {
           </div>
         </div>
       </section>
+      <Tooltip id="spec-tooltip" place="top" style={{ maxWidth: 320, fontSize: 12, borderRadius: 8, zIndex: 9999, wordBreak: 'break-word' }} />
     </>
   );
 };

@@ -92,45 +92,61 @@ const BuyerTechnicalEvaluationSection = ({
     textColor: tone.text,
     label: condition.label
   };
+  const counters = overview.counters || {};
 
   return (
     <div className={styles.conditionCard}>
-      <div className={styles.conditionTopRow}>
-        <div className={styles.conditionMetaRow}>
-          <span className={styles.conditionLabel}>Current RFQ Condition</span>
-          <div className={styles.lifecyclePill} style={{ background: pillConfig.gradient }}>
-            <span className={styles.lifecycleDot} style={{ backgroundColor: pillConfig.dotColor }} />
-            <span className={styles.lifecycleLabel} style={{ color: pillConfig.textColor }}>
-              {pillConfig.label}
-            </span>
-            {lifecycleConfig && (
-              <span className={styles.lifecycleSteps}>
-                {LIFECYCLE_STAGES_ORDERED.map((key, index) => {
-                  if (key === "TECHNICAL_REJECTED") return null;
-                  const isOn = index <= currentStageIndex;
-                  return (
-                    <span
-                      key={key}
-                      className={`${styles.lifecycleStep} ${isOn ? styles.lifecycleStepOn : ""}`}
-                      style={isOn ? { backgroundColor: pillConfig.dotColor } : undefined}
-                    />
-                  );
-                })}
-              </span>
-            )}
+      {/* Dark left accent bar */}
+      <span className={styles.conditionCardAccent} style={{ backgroundColor: tone.accent }} />
+
+      <div className={styles.conditionCardInner}>
+        {/* Header row */}
+        <div className={styles.conditionTopRow}>
+          <div className={styles.conditionMetaRow}>
+            <span className={styles.conditionLabel}>Technical Evaluation Overview</span>
+          </div>
+
+          <div className={styles.conditionMetaRow}>
+            {condition.owner && <span className={styles.conditionMetaChip}>{condition.owner}</span>}
           </div>
         </div>
 
-        <div className={styles.conditionMetaRow}>
-          {condition.owner && <span className={styles.conditionMetaChip}>{condition.owner}</span>}
-        </div>
-      </div>
+        {/* Stats row */}
+        {counters.totalProducts > 0 && (
+          <div className={styles.conditionStatsRow}>
+            <div className={styles.conditionStatItem}>
+              <span className={styles.conditionStatValue}>{counters.totalProducts}</span>
+              <span className={styles.conditionStatLabel}>Total Products</span>
+            </div>
+            <div className={styles.conditionStatItem} style={{ borderColor: "rgba(34,197,94,0.25)" }}>
+              <span className={styles.conditionStatValue} style={{ color: "#166534" }}>{counters.completedProducts}</span>
+              <span className={styles.conditionStatLabel} style={{ color: "#16a34a" }}>Completed</span>
+            </div>
+            <div className={styles.conditionStatItem} style={{ borderColor: "rgba(234,179,8,0.25)" }}>
+              <span className={styles.conditionStatValue} style={{ color: "#854d0e" }}>{counters.pendingProducts}</span>
+              <span className={styles.conditionStatLabel} style={{ color: "#a16207" }}>In Progress</span>
+            </div>
+            {counters.totalCleared > 0 && (
+              <div className={styles.conditionStatItem} style={{ borderColor: "rgba(34,197,94,0.25)", background: "rgba(34,197,94,0.04)" }}>
+                <span className={styles.conditionStatValue} style={{ color: "#166534" }}>{counters.totalCleared}</span>
+                <span className={styles.conditionStatLabel} style={{ color: "#16a34a" }}>Vendors Cleared</span>
+              </div>
+            )}
+            {counters.totalRejected > 0 && (
+              <div className={styles.conditionStatItem} style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.04)" }}>
+                <span className={styles.conditionStatValue} style={{ color: "#991b1b" }}>{counters.totalRejected}</span>
+                <span className={styles.conditionStatLabel} style={{ color: "#dc2626" }}>Vendors Rejected</span>
+              </div>
+            )}
+          </div>
+        )}
 
-      <div className={styles.conditionBody}>
-        <span className={styles.conditionAccent} style={{ backgroundColor: tone.accent }} />
-        <div className={styles.conditionTextWrap}>
-          <p className={styles.conditionTitle}>{condition.label}</p>
-          <p className={styles.conditionDescription}>{condition.blockerText}</p>
+        {/* Blocker / description row */}
+        <div className={styles.conditionBody}>
+          <div className={styles.conditionTextWrap}>
+            <p className={styles.conditionTitle} style={{ color: tone.text }}>{condition.label}</p>
+            <p className={styles.conditionDescription}>{condition.blockerText}</p>
+          </div>
         </div>
       </div>
     </div>

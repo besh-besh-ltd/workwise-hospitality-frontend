@@ -281,6 +281,23 @@ export const buildBuyerTechEvalProductSummary = (product, techEvalData) => {
   const failedCount =
     vendorGroups.TECHNICALLY_REJECTED.length + vendorGroups.REPLACED_IN_LATER_ROUND.length;
 
+  // Build lookup of vendors who have submitted a quote (from backend has_submitted_quote flag)
+  const quotedVendorIds = new Set(
+    (techEvalData?.vendors?.selected || [])
+      .filter((v) => v.has_submitted_quote)
+      .map((v) => v.vendor_id)
+  );
+
+  // Count vendors who have BOTH submitted tech eval AND sent a quote
+  const teAndQuoteVendorCount = Object.values(vendorGroups)
+    .flat()
+    .filter((v) => v.vendor_id && v.vendor_id !== undefined)
+    .filter((v) => quotedVendorIds.has(v.vendor_id))
+    .filter((v) => {
+      // Exclude vendors still in pending vendor response bucket (haven't submitted TE yet)
+      return !vendorGroups.PENDING_VENDOR_RESPONSE.some((pv) => pv.vendor_id === v.vendor_id);
+    }).length;
+
   let stateKey = "TECHNICAL_EVALUATION_PENDING";
   let summaryText = `${passedCount} cleared, ${failedCount} rejected, ${vendorsNeeded} more needed.`;
   let helperText = `Round ${currentRound} is in progress.`;
@@ -339,6 +356,7 @@ export const buildBuyerTechEvalProductSummary = (product, techEvalData) => {
     latestApprovalStatus,
     latestRound,
     selectedVendorCount: selectedVendors.length,
+    teAndQuoteVendorCount,
     passedCount,
     failedCount,
     pendingEvaluationCount,
