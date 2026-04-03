@@ -191,13 +191,13 @@ const SubscriptionStatus = ({ onPaymentSuccess }) => {
             </p>
             {subscription.categories?.length > 0 && (
               <p className="mb-1">
-                <strong>Previous Categories:</strong>{" "}
+                <strong>Categories:</strong>{" "}
                 {subscription.categories.map(c => c.name).join(", ")}
               </p>
             )}
             {subscription.hotels?.length > 0 && (
               <p className="mb-0">
-                <strong>Previous Hotels:</strong>{" "}
+                <strong>Hotels:</strong>{" "}
                 {subscription.hotels.map(h => h.name).join(", ")}
               </p>
             )}
