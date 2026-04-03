@@ -1354,57 +1354,99 @@ const RfqManagementPreview = () => {
                     </>
                   )}
 
-                  {/* Regret Quote Button (conditional rendering example) */}
+                  {/* Regret Quote Button */}
                   {!enableBuyerView &&
                     rfqDetails.quotations.length === 0 &&
-                    productleftforbid && (
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-sm p-2"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setregretModal(true);
-                        }}
-                      disabled={
+                    productleftforbid && (() => {
+                      const isRegretDisabled =
                         (quoteDisabled && statusMessage !== "Reverse Auction is Active") ||
                         rfqDetails.status == 2 ||
                         rfqDetails.products?.every(
                           (item) =>
                             item.finalization_status === "Another vendor is finalized" ||
                             item.finalization_status === "You are finalized"
-                        )
-                      }
+                        );
+                      const regretReason = rfqDetails.status == 2
+                        ? `${getEntityLabel(rfqDetails?.is_tender)} is Closed`
+                        : rfqDetails.products?.every(
+                            (item) =>
+                              item.finalization_status === "Another vendor is finalized" ||
+                              item.finalization_status === "You are finalized"
+                          )
+                          ? "All Products are Finalized"
+                          : statusMessage;
 
-                      >
-                        Regret Quote
-                      </button>
-                    )}
-                  {/* Send Quote Button / Disabled State */}
-                  {!enableBuyerView && rfqDetails.quotations.length === 0 && (
-                    <button
-                      type="button"
-                      className={`btn btn-sm p-2 ${
-                        isReverseAuctionActive ? "btn-success" : "btn-secondary"
-                      }`}
-                      onClick={goToQuoteCreation}
-                      disabled={
-                        hasPendingTechEval ||
-                        rfqDetails.status == 2 ||
-                        rfqDetails.products?.every(
-                          (item) =>
-                            item.finalization_status ===
-                              "Another vendor is finalized" ||
-                            item.finalization_status === "You are finalized"
-                        )
-                      }
-                      title={hasPendingTechEval ? "Technical evaluation is pending - complete all tech eval responses first" : ""}
-                    >
-                      {hasPendingTechEval ? "Tech Eval Pending" : isReverseAuctionActive ? "Send Quote" : (quoteDisabled && statusMessage !== "Reverse Auction is Active") ? "View Inquiry" : statusMessage}
-                    </button>
-                  )}
+                      return (
+                        <span className={isRegretDisabled ? "quote-status-tooltip-wrap" : ""} style={{ position: "relative", display: "inline-block" }}>
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-sm p-2"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setregretModal(true);
+                            }}
+                            disabled={isRegretDisabled}
+                          >
+                            Regret Quote
+                          </button>
+                          {isRegretDisabled && <span className="quote-status-tooltip">{regretReason}</span>}
+                        </span>
+                      );
+                    })()}
+                  {/* Send Quote / View Inquiry Button */}
+                  {!enableBuyerView && rfqDetails.quotations.length === 0 && (() => {
+                    const isQuoteBlocked = hasPendingTechEval ||
+                      (quoteDisabled && statusMessage !== "Reverse Auction is Active") ||
+                      rfqDetails.status == 2 ||
+                      rfqDetails.products?.every(
+                        (item) =>
+                          item.finalization_status === "Another vendor is finalized" ||
+                          item.finalization_status === "You are finalized"
+                      );
+
+                    const tooltipReason = hasPendingTechEval
+                      ? "Technical evaluation is pending"
+                      : statusMessage;
+
+                    const isClarificationBlocked =
+                      statusMessage === "Clarification Window Active" ||
+                      statusMessage === "Clarification in Progress";
+                    const shouldDisableView = isClarificationBlocked || hasPendingTechEval;
+
+                    if (isQuoteBlocked && !hasPendingTechEval) {
+                      return (
+                        <span style={{ position: "relative", display: "inline-block" }} className="quote-status-tooltip-wrap">
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm p-2"
+                            onClick={goToQuoteCreation}
+                            disabled={shouldDisableView}
+                          >
+                            View Inquiry
+                          </button>
+                          <span className="quote-status-tooltip">{tooltipReason}</span>
+                        </span>
+                      );
+                    }
+
+                    return (
+                      <span style={{ position: "relative", display: "inline-block" }} className={hasPendingTechEval ? "quote-status-tooltip-wrap" : ""}>
+                        <button
+                          type="button"
+                          className={`btn btn-sm p-2 ${
+                            isReverseAuctionActive ? "btn-success" : "btn-secondary"
+                          }`}
+                          onClick={goToQuoteCreation}
+                          disabled={hasPendingTechEval}
+                        >
+                          {hasPendingTechEval ? "Tech Eval Pending" : isReverseAuctionActive ? "Send Quote" : statusMessage}
+                        </button>
+                        {hasPendingTechEval && <span className="quote-status-tooltip">{tooltipReason}</span>}
+                      </span>
+                    );
+                  })()}
                   {/* View Quote / Update Your Quote Button */}
-                  {rfqDetails.status == 1 &&
-                  !rfqDetails?.quotations[0]?.is_regret &&
+                  {!rfqDetails?.quotations[0]?.is_regret &&
                   rfqDetails.quotations?.length > 0 ? (
                     (() => {
                       const hasAnyFinalization = rfqDetails.products?.some(
@@ -1412,7 +1454,7 @@ const RfqManagementPreview = () => {
                           item.finalization_status === "Another vendor is finalized" ||
                           item.finalization_status === "You are finalized"
                       );
-                      const isViewOnly = !productleftforbid || hasAnyFinalization || (!isSubmitAble && !hasActiveNegotiationRounds);
+                      const isViewOnly = isRfqClosed || !productleftforbid || hasAnyFinalization || (!isSubmitAble && !hasActiveNegotiationRounds);
 
                       return (
                         <button
@@ -2180,21 +2222,37 @@ const RfqManagementPreview = () => {
                                         })()}
 
                                         {rfqDetails.status === 2 ? (
-                                          <button
-                                            type="button"
-                                            className="btn btn-danger m-0 mx-auto mt-2"
-                                            style={{
-                                              width: "240px",
-                                              opacity: "0.5",
-                                            }}
-                                            disabled
-                                          >
-                                            <FontAwesomeIcon
-                                              icon={faCircleExclamation}
-                                              className="me-2"
-                                            />
-                                            RFQ is Closed
-                                          </button>
+                                          <div className="d-flex flex-column align-items-center gap-2">
+                                            <span className="badge bg-danger px-3 py-2" style={{ fontSize: "0.85rem" }}>
+                                              {getEntityLabel(rfqDetails?.is_tender)} is Closed
+                                            </span>
+                                            {rfqDetails.quotations?.length > 0 && !rfqDetails?.quotations[0]?.is_regret && (
+                                              <Link
+                                                className="mx-auto"
+                                                href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
+                                                  token !== undefined ? `&token=${token}` : ""
+                                                }&showTechEvalRestrictions=false`}
+                                                onClick={(e) => {
+                                                  if (!localId && !id) {
+                                                    e.preventDefault();
+                                                    toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
+                                                  }
+                                                }}
+                                              >
+                                                <button
+                                                  type="button"
+                                                  className="btn btn-secondary m-0"
+                                                  style={{ width: "240px" }}
+                                                >
+                                                  <FontAwesomeIcon
+                                                    icon={faEye}
+                                                    className="me-2"
+                                                  />
+                                                  View Quote
+                                                </button>
+                                              </Link>
+                                            )}
+                                          </div>
                                         ) : (!productleftforbid ||
                                           rfqDetails.products?.every(
                                             (item) =>

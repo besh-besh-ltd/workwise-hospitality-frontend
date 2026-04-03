@@ -10,168 +10,43 @@ import { getVendorDashboardData } from "@/services/cms";
 import {
   getDashboardData
 } from "@/services/Auth";
-import {
-  hospitalitySubscriptionPayment,
-  loadScript,
-  testRazorPayEndpoint
-} from "@/services/subscription";
 import FullLoader from "@/components/shared/FullLoader";
 import InquiriesReceived from "./inquiries-received";
 import StarRating from "@/components/StarRating";
+import SubscriptionStatus from "./SubscriptionStatus";
 import moment from "moment";
-import { toast } from "react-toastify";
 
 const Vendor = () => {
   const canvasRef = useRef();
   const reduxUserProfile = useSelector((state) => state.userProfile);
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setloading] = useState(false);
-  const [hospitalityPaymentTriggered, setHospitalityPaymentTriggered] =
-    useState(false);
-  const [hasValidSubscription, setHasValidSubscription] = useState(true);
 
+  const isHospitalityVendor =
+    reduxUserProfile &&
+    (reduxUserProfile.is_hospitality === 1 || reduxUserProfile.is_hospitality === '1');
 
   useEffect(() => {
     if (!reduxUserProfile) return;
 
-    // Check if hospitality vendor has paid
-    const checkHospitalityPayment = async () => {
-      try {
-        // Check if user is hospitality vendor
-        if (reduxUserProfile.is_hospitality === 1 || reduxUserProfile.is_hospitality === '1') {
-          // Check if user has valid paid subscription
-          const validSub = reduxUserProfile.has_valid_hospitality_subscription === true;
-          setHasValidSubscription(validSub);
-
-          // If no valid subscription, block access and trigger payment (only once)
-          if (!validSub && !hospitalityPaymentTriggered) {
-            await triggerHospitalityPayment(reduxUserProfile);
-            return;
-          }
-
-          // If payment was triggered but still no valid subscription, don't reload
-          if (!validSub) {
-            return;
-          }
-        }
-
-        // Only load dashboard data if vendor has valid subscription or is not hospitality vendor
-        setloading(true);
-        getDashboardData({
-          project_id: -1,
-          rfq_type: "",
-          reverse_auction: "-1",
-          sort: "DESC",
-          page: 1
-        })
-          .then((res) => {
-            setloading(false);
-            setDashboardData(res.data);
-          })
-          .catch((err) => {
-            setloading(false);
-            console.error(err);
-          });
-      } catch (error) {
-        console.error('Error checking hospitality payment status:', error);
+    // Always load dashboard data (even for expired hospitality vendors — read-only)
+    setloading(true);
+    getDashboardData({
+      project_id: -1,
+      rfq_type: "",
+      reverse_auction: "-1",
+      sort: "DESC",
+      page: 1
+    })
+      .then((res) => {
         setloading(false);
-      }
-    };
-
-    checkHospitalityPayment();
+        setDashboardData(res.data);
+      })
+      .catch((err) => {
+        setloading(false);
+        console.error(err);
+      });
   }, [reduxUserProfile]);
-
-  const triggerHospitalityPayment = async (profile) => {
-    try {
-      setHospitalityPaymentTriggered(true);
-      setHasValidSubscription(false);
-      toast.warning(
-        'Payment required for hospitality vendors. Opening payment gateway...'
-      );
-
-      // Get user_key from profile (added by backend)
-      const user_key = profile.user_key;
-      if (!user_key) {
-        throw new Error('User key not found');
-      }
-
-      // Use pending categories/subcategories/hotels from profile, or empty arrays
-      const categories = profile.pending_hospitality_categories || [];
-      const subcategories = profile.pending_hospitality_subcategories || [];
-      const hotels = profile.pending_hospitality_hotels || [];
-
-      const payload = {
-        user_key: user_key,
-        categories: categories,
-        subcategories: subcategories,
-        hotels: hotels
-      };
-
-      const response = await hospitalitySubscriptionPayment(payload);
-      if (response?.status === 1 && response?.data) {
-        await payWithRazorPay(response.data);
-      } else {
-        // Don't reset flag to prevent loop - keep it true so payment isn't triggered again
-        toast.error(response?.message || 'Unable to initiate payment. Please try again.');
-      }
-    } catch (error) {
-      // Don't reset flag to prevent loop - keep it true so payment isn't triggered again
-      console.error('Hospitality payment error:', error);
-      toast.error(error?.response?.data?.message || 'Failed to start payment. Please try again.');
-    }
-  };
-
-  const payWithRazorPay = async (orderId) => {
-    const res = await loadScript(
-      'https://checkout.razorpay.com/v1/checkout.js'
-    );
-
-    if (!res) {
-      toast.error('Razorpay SDK failed to load. Are you online?');
-      setHospitalityPaymentTriggered(false);
-      return;
-    }
-
-    const options = {
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
-      order_id: orderId,
-      currency: 'INR',
-      name: 'Workwise',
-      description: 'Hospitality Vendor Subscription',
-      image: '/assets/images/logo.png',
-      handler: function (response) {
-        const payload = {
-          order_id: orderId,
-          razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_order_id: response.razorpay_order_id,
-          razorpay_signature: response.razorpay_signature
-        };
-        testRazorPayEndpoint(payload)
-          .then(() => {
-            toast.success('Payment successful! Refreshing your dashboard...');
-            window.location.reload();
-          })
-          .catch(() => {
-            toast.success('Payment captured. Refreshing page...');
-            window.location.reload();
-          });
-      },
-      prefill: {
-        name: '',
-        email: '',
-        contact: ''
-      },
-      notes: {
-        address: 'India'
-      },
-      theme: {
-        color: '#158993'
-      }
-    };
-
-    const paymentObject = new window.Razorpay(options);
-    paymentObject.open();
-  };
 
 
   const get_notification_title = (item, type) => {
@@ -194,34 +69,6 @@ const Vendor = () => {
     }
   };
 
-  if (!hasValidSubscription && hospitalityPaymentTriggered) {
-    return (
-      <>
-        <Head>
-          <title>Payment Required | Vendor</title>
-        </Head>
-        <section className="vendor-common-header sc-pt-80">
-          <div className="container-fluid">
-            <h1 className="heading">Payment Required</h1>
-          </div>
-        </section>
-        <section className="vendor-sec-1">
-          <div className="container-fluid">
-            <div className="row">
-              <div className="col-12">
-                <div className="alert alert-warning text-center" role="alert">
-                  <h4>Payment Required</h4>
-                  <p>You need to complete your hospitality subscription payment to access the vendor dashboard.</p>
-                  <p>Please complete the payment in the Razorpay popup window.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </>
-    );
-  }
-
   return (
     <>
       <Head>
@@ -235,6 +82,11 @@ const Vendor = () => {
 
       <section className="vendor-sec-1">
         <div className="container-fluid">
+          {/* Subscription status banner for hospitality vendors */}
+          {isHospitalityVendor && (
+            <SubscriptionStatus onPaymentSuccess={() => window.location.reload()} />
+          )}
+
           <div className="row">
             <div className="col-lg-3 col-md-6 buyer-col hasFullLoader">
               {loading && <FullLoader />}
