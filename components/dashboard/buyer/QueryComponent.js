@@ -12,7 +12,7 @@ import { getEntityLabel } from "@/utils/sharedFunctions";
 
 const QueryComponent = () => {
   const router = useRouter();
-  const { rfq_id, role, token, vendor_id, from_tech_eval, vendor_code } = router.query;
+  const { rfq_id, role, token, vendor_id, from_tech_eval, vendor_code, source } = router.query;
 
   const [vendors, setVendors] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -49,12 +49,14 @@ const handleToggleVendor = (vendorId) => {
       const rawVendors = response.data || [];
 
       // Enrich vendors with a display_name and vendor_code
+      // Mask vendor names when coming from RFQ management (pre-commercial stage) or for tenders
       const isTender = rfqDetails?.is_tender === 1 || rfqDetails?.is_tender === "1";
+      const shouldMaskVendors = isTender || source === 'rfq-management';
       const normalizedVendors = rawVendors.map((v, index) => {
         const vendor_code = `Vendor ${index + 1}`;
 
         let display_name;
-        if (isTender) {
+        if (shouldMaskVendors) {
           display_name = vendor_code;
         } else {
           display_name =
@@ -67,7 +69,7 @@ const handleToggleVendor = (vendorId) => {
         return {
           ...v,
           display_name,
-          vendor_code: isTender ? vendor_code : null,
+          vendor_code: shouldMaskVendors ? vendor_code : null,
         };
       });
 
@@ -162,7 +164,8 @@ const handleSelectVendor = (vendor) => {
     if (!rfqDetails || vendors.length === 0) return;
 
     const isTender = rfqDetails.is_tender === 1 || rfqDetails.is_tender === "1";
-    if (!isTender) return; // For RFQs we already show company names
+    const shouldMask = isTender || source === 'rfq-management';
+    if (!shouldMask) return;
 
     setVendors(prev =>
       prev.map((v, index) => {
@@ -170,7 +173,7 @@ const handleSelectVendor = (vendor) => {
         return { ...v, display_name: vendor_code, vendor_code };
       })
     );
-  }, [rfqDetails?.is_tender]);
+  }, [rfqDetails?.is_tender, source]);
 
   useEffect(() => {
     loadMessages();

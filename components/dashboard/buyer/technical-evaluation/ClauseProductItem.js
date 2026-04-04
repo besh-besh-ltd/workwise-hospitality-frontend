@@ -61,6 +61,7 @@ const ClauseProductItem = ({
     const [buyerRemark, setBuyerRemark] = useState("");
     const [buyerMarks, setBuyerMarks] = useState("");
     const [minimumPassingScore, setMinimumPassingScore] = useState(null);
+    const [savingScore, setSavingScore] = useState(false);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [approvalRefreshKey, setApprovalRefreshKey] = useState(0);
@@ -112,6 +113,9 @@ const ClauseProductItem = ({
 
     // TECHNICAL approval entity is round-based (pending round id), not rfq_product_id
     const approvalEntityId = getRoundEntityId(pendingRound) || getRoundEntityId(latestRound);
+
+    // All round entity IDs for full approval history (across all rounds)
+    const allRoundEntityIds = (rounds || []).map(getRoundEntityId).filter(Boolean);
 
     // Derived: Check if approval is pending (used for parent "Approval Pending" banner)
     const isPendingApproval =
@@ -387,22 +391,46 @@ const ClauseProductItem = ({
             buyer_remark: selectedClauseForRemark.clause_type === 'sampling' ? (buyerRemark || null) : null
         }
 
-        setLoading(true);
+        setSavingScore(true);
         try {
             const res = await updateBuyerMarks(payload);
             toast.success(res.message || "Marks and remark saved successfully");
+
+            // Optimistic local update — update clauseInfo in-place so user sees score instantly
+            const updatedClauseInfo = clauseInfo.map(clause => {
+                if (clause.clause_id === selectedClauseForRemark.clause_id) {
+                    const updatedResponses = (clause.vendor_responses || []).map(resp => {
+                        if (String(resp.vendor_id) === String(selectedVendorForRemark.vendor_id || selectedVendorForRemark.value)) {
+                            return {
+                                ...resp,
+                                buyer_marks: parseInt(buyerMarks),
+                                buyer_remark: selectedClauseForRemark.clause_type === 'sampling' ? (buyerRemark || null) : resp.buyer_remark,
+                                score_timestamp: new Date().toISOString(),
+                                scorer_name: currentUserProfile?.name || resp.scorer_name
+                            };
+                        }
+                        return resp;
+                    });
+                    return { ...clause, vendor_responses: updatedResponses };
+                }
+                return clause;
+            });
+            setBuyerClauses(updatedClauseInfo);
+
             setShowRemarkModal(false);
             setBuyerRemark("");
             setBuyerMarks("");
             setSelectedClauseForRemark(null);
             setSelectedVendorForRemark(null);
+
+            // Background refresh — silently sync without blocking UI or resetting accordions
             if (refetch) {
-                refetch();
+                refetch({ silent: true });
             }
         } catch (error) {
             toast.error(error.message || "Failed to save marks and remark");
         } finally {
-            setLoading(false);
+            setSavingScore(false);
         }
     }
 
@@ -575,10 +603,11 @@ const ClauseProductItem = ({
                 evaluatedVendorCount,
                 totalVendors: allVendors.length,
                 isPendingApproval,
-                workflowComplete
+                workflowComplete,
+                workflowState
             });
         }
-    }, [vendors, clauseInfo, isPendingApproval, workflowComplete]);
+    }, [vendors, clauseInfo, isPendingApproval, workflowComplete, workflowState]);
 
     return (
       <div
@@ -690,7 +719,7 @@ const ClauseProductItem = ({
                                     </div>
                                   ) : (
                                     vendorPartial ? (
-                                      <span className="badge rounded-pill py-1 px-2 text-bg-info" style={{ fontSize: '10px' }}>In Progress</span>
+                                      <span className="badge rounded-pill py-1 px-2" style={{ fontSize: '10px', background: '#2563eb', color: '#fff' }}>In Progress</span>
                                     ) : !vendorEvaluated && vendor.is_cleared === null ? (
                                       <span className="badge rounded-pill py-1 px-2 text-bg-light text-muted" style={{ fontSize: '10px' }}>N/A</span>
                                     ) : isCleared != null ? (
@@ -763,7 +792,8 @@ const ClauseProductItem = ({
                                         {(() => {
                                           const isScored = isResponseScored(response);
                                           const disagrees = clauseItem.clause_type !== 'sampling' && response?.vendor_response == "I Dont Agree";
-                                          const canEdit = canWrite && !permissionsLoading && !isEditLocked && !isBidEndNotPassed;
+                                          const isVendorLocked = vendor.is_verified === true;
+                                          const canEdit = canWrite && !permissionsLoading && !isEditLocked && !isBidEndNotPassed && !isVendorLocked;
                                           const previewKey = `${clauseItem.clause_id}_${String(vendor.vendor_id)}`;
                                           const previewMsgs = deviationPreviews[previewKey];
                                           const hasMessages = previewMsgs?.length > 0;
@@ -791,7 +821,8 @@ const ClauseProductItem = ({
                                                   role={canEdit ? "button" : undefined}
                                                   tabIndex={canEdit ? 0 : undefined}
                                                   title={
-                                                    !canWrite ? "No permission"
+                                                    isVendorLocked ? `Score verified in Round ${vendor.evaluation_round || ''}. Cannot edit.`
+                                                      : !canWrite ? "No permission"
                                                       : isEditLocked ? "Evaluation locked"
                                                       : isBidEndNotPassed ? "Locked until bid submission deadline"
                                                       : isScored ? `${response.buyer_marks ?? '-'}/${clauseItem.weightage || 0} · Click to edit` : (canEdit ? "Click to score" : `-/${clauseItem.weightage || 0} · Not scored`)
@@ -814,6 +845,14 @@ const ClauseProductItem = ({
                                                   </div>
                                                 )}
                                               </div>
+
+                                              {/* Scored by */}
+                                              {isScored && response?.scorer_name && (
+                                                <div className={styles.scorerTag}>
+                                                  <BsPencilSquare size={9} />
+                                                  <span>{response.scorer_name}</span>
+                                                </div>
+                                              )}
 
                                               {/* Sampling remark preview */}
                                               {clauseItem.clause_type === 'sampling' && response?.buyer_remark && (
@@ -1102,6 +1141,7 @@ const ClauseProductItem = ({
                   type="text"
                   placeholder="0"
                   value={buyerMarks}
+                  disabled={savingScore}
                   onChange={(e) => {
                     const value = e.target.value;
                     if (value === '' || /^\d+$/.test(value)) {
@@ -1112,6 +1152,13 @@ const ClauseProductItem = ({
                     ? 'border-danger'
                     : ''}
                   style={{ width: '80px' }}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !savingScore) {
+                      e.preventDefault();
+                      handleSaveBuyerMarks();
+                    }
+                  }}
                 />
                 <span className="fw-semibold text-muted" style={{ fontSize: '16px' }}>/ {selectedClauseForRemark?.weightage || 0}</span>
               </div>
@@ -1129,6 +1176,7 @@ const ClauseProductItem = ({
                   rows={3}
                   placeholder="Enter remark"
                   value={buyerRemark}
+                  disabled={savingScore}
                   onChange={(e) => setBuyerRemark(e.target.value)}
                 />
               </div>
@@ -1152,14 +1200,15 @@ const ClauseProductItem = ({
               type="button"
               className={`${styles.btn} ${(!canWrite || permissionsLoading || isBidEndNotPassed) ? styles.btnDisabled : styles.btnPrimary}`}
               onClick={handleSaveBuyerMarks}
-              disabled={loading || !canWrite || permissionsLoading || isBidEndNotPassed}
+              disabled={savingScore || !canWrite || permissionsLoading || isBidEndNotPassed}
               title={
                 isBidEndNotPassed
                   ? "Technical evaluation edits are locked until the bid submission deadline"
                   : (!canWrite ? "You don't have permission to save marks" : "")
               }
             >
-              {loading ? "Saving..." : "Save"}
+              {savingScore && <span className="spinner-border spinner-border-sm me-1" role="status" />}
+              {savingScore ? "Saving..." : "Save"}
             </button>
           </div>
         </Modal>
@@ -1194,6 +1243,7 @@ const ClauseProductItem = ({
             <ApprovalWorkflowSection
               entityType="TECHNICAL"
               entityId={approvalEntityId}
+              allEntityIds={allRoundEntityIds}
               entityLabel={`Technical Evaluation (Round ${pendingRound?.round || pendingRound?.round_number || latestRound?.round || latestRound?.round_number || currentRound})`}
               onCustomApprove={handleTechEvalApprove}
               onCustomReject={handleTechEvalReject}
