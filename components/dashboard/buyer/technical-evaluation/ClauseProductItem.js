@@ -719,7 +719,7 @@ const ClauseProductItem = ({
                                     </div>
                                   ) : (
                                     vendorPartial ? (
-                                      <span className="badge rounded-pill py-1 px-2 text-bg-info" style={{ fontSize: '10px' }}>In Progress</span>
+                                      <span className="badge rounded-pill py-1 px-2" style={{ fontSize: '10px', background: '#2563eb', color: '#fff' }}>In Progress</span>
                                     ) : !vendorEvaluated && vendor.is_cleared === null ? (
                                       <span className="badge rounded-pill py-1 px-2 text-bg-light text-muted" style={{ fontSize: '10px' }}>N/A</span>
                                     ) : isCleared != null ? (

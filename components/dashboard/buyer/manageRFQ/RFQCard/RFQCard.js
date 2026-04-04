@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Badge } from 'react-bootstrap';
-import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, Users, Folder, FileText, Gavel, AlertTriangle, Zap, Send } from 'lucide-react';
+import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, UserCheck, Users, Folder, FileText, Gavel, AlertTriangle, Zap, Send } from 'lucide-react';
 import Link from 'next/link';
 import moment from 'moment';
 import { getRFQPublishState, formatRFQNumber, textCapitalize } from '@/utils/sharedFunctions';
@@ -112,6 +112,12 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               <div className={styles.lifecyclePill} style={{ background: lifecycleConfig.gradient }}>
                 <span className={styles.lcDot} style={{ backgroundColor: lifecycleConfig.dotColor }} />
                 <span className={styles.lcLabel} style={{ color: lifecycleConfig.textColor }}>{lifecycleConfig.label}</span>
+                {data.action_holders?.users?.length > 0 && (
+                  <span className={styles.lcActors} style={{ color: lifecycleConfig.textColor }}>
+                    <User size={10} />
+                    <span>{data.action_holders.users.length}</span>
+                  </span>
+                )}
                 <div className={styles.lcSteps}>
                   {LIFECYCLE_STAGES_ORDERED.map((key, i) => {
                     if (key === 'TECHNICAL_REJECTED') return null;
@@ -132,6 +138,23 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                       <span className={styles.lcTTCurrentDesc}>{lifecycleConfig.description}</span>
                     </div>
                   </div>
+                  {/* Action holders */}
+                  {data.action_holders?.users?.length > 0 && (
+                    <div className={styles.lcTTActors}>
+                      <div className={styles.lcTTActorsHeader}>
+                        <UserCheck size={12} />
+                        <span>{data.action_holders.label}</span>
+                      </div>
+                      <div className={styles.lcTTActorsList}>
+                        {data.action_holders.users.map(user => (
+                          <div key={user.id} className={styles.lcTTActor}>
+                            <span className={styles.lcTTActorDot} />
+                            <span className={styles.lcTTActorName}>{user.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {/* Compact stage list */}
                   <div className={styles.lcTTList}>
                     {LIFECYCLE_STAGES_ORDERED.map((key) => {
@@ -207,7 +230,10 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
           ) : (
             <>
               <div className={styles.timelineItem}><Calendar size={14} /><span>Published: <strong>{moment(data.timestamp).format('DD-MM-YYYY')}</strong></span></div>
-              <div className={styles.timelineItem}><Clock size={14} /><span>Ends: <strong>{data.bid_end_date ? moment(data.bid_end_date).format('DD-MM-YYYY hh:mm A') : '---'}</strong></span></div>
+              {data.vendor_clarification_date && (
+                <div className={styles.timelineItem}><Clock size={14} /><span>Clarification Ends: <strong>{moment(data.vendor_clarification_date).format('DD-MM-YYYY hh:mm A')}</strong></span></div>
+              )}
+              <div className={styles.timelineItem}><Clock size={14} /><span>Bid Ends: <strong>{data.bid_end_date ? moment(data.bid_end_date).format('DD-MM-YYYY hh:mm A') : '---'}</strong></span></div>
             </>
           )}
         </div>
@@ -225,7 +251,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               : <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`} disabled title="You do not have permission to edit this RFQ" style={{ opacity: 0.5, cursor: 'not-allowed' }}>Edit</button>
           )}
           {!publishState.isPrePublishState && !isPendingApproval && (
-            <Link href={`/dashboard/buyer/query?rfq_id=${data.id}&role=buyer`}>
+            <Link href={`/dashboard/buyer/query?rfq_id=${data.id}&role=buyer&source=rfq-management`}>
               <button className={`btn btn-sm ${styles.actionBtn} ${styles.queryBtn}`}>Queries{data.unseen_query_count > 0 && <Badge bg="danger" className="ms-1" style={{ fontSize: '0.65rem' }}>{data.unseen_query_count}</Badge>}</button>
             </Link>
           )}

@@ -731,7 +731,7 @@ const BuyerTechnicalEvaluation = () => {
                     <div className={styles.bidLockContent}>
                       <h5 className={styles.bidLockTitle}>Evaluation Locked</h5>
                       <p className={styles.bidLockMessage}>
-                        Technical evaluation will be available once the submission deadline has passed.
+                        The technical evaluation will only be enabled after the submission deadline is over.
                         {currentRfq.bid_end_date && (
                           <>
                             {' '}Deadline: <strong>{formatDisplayDate(currentRfq.bid_end_date, { includeTime: true })}</strong>
@@ -741,7 +741,7 @@ const BuyerTechnicalEvaluation = () => {
                     </div>
                     <div className={styles.bidLockTimerBadge}>
                       <BsClock size={13} />
-                      <span>Awaiting Deadline</span>
+                      <span>Wait Please.</span>
                     </div>
                   </div>
                 )}

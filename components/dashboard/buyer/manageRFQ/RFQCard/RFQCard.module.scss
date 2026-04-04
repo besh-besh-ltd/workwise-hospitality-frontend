@@ -483,6 +483,17 @@
   animation: lctt-in 0.15s ease-out;
   overflow: hidden;
 
+  // Invisible bridge to prevent tooltip disappearing when moving mouse from pill to tooltip
+  &::before {
+    content: '';
+    position: absolute;
+    bottom: -12px;
+    left: 0;
+    right: 0;
+    height: 14px;
+    background: transparent;
+  }
+
   // Arrow pointing down
   &::after {
     content: '';
@@ -578,6 +589,77 @@
   font-weight: 500;
   color: #64748b;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// ============================================
+// ACTION HOLDERS (inside lifecycle pill & tooltip)
+// ============================================
+
+.lcActors {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.06);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: inherit;
+
+  svg {
+    opacity: 0.7;
+  }
+}
+
+.lcTTActors {
+  padding: 8px 14px 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.lcTTActorsHeader {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.68rem;
+  font-weight: 650;
+  color: #475569;
+  margin-bottom: 5px;
+
+  svg { color: #64748b; }
+}
+
+.lcTTActorsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.lcTTActor {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0;
+  width: calc(50% - 4px);
+  min-width: 0;
+}
+
+.lcTTActorDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+.lcTTActorName {
+  font-size: 0.68rem;
+  color: #334155;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
