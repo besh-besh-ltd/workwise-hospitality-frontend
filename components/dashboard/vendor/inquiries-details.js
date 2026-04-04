@@ -18,7 +18,8 @@ import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { toast } from "react-toastify";
-import { ApprovalWorkflowSection, ApprovalPendingBanner } from "@/components/dashboard/buyer/approval";
+import { ApprovalPendingBanner } from "@/components/dashboard/buyer/approval";
+import RFQLifecycleJourney from "@/components/dashboard/buyer/manageRFQ/RFQLifecycleJourney/RFQLifecycleJourney";
 import useApprovalWorkflow from "@/hooks/useApprovalWorkflow";
 import {
   ClarificationBlockingBanner,
@@ -32,7 +33,6 @@ import { getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { Badge, Button, Alert } from "react-bootstrap";
 import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill } from "react-icons/bs";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
-import BuyerTechnicalEvaluationSection from "@/components/dashboard/vendor/BuyerTechnicalEvaluationSection";
 import {
   buildBuyerTechEvalProductSummary,
   getBuyerTechEvalStatusConfig
@@ -1981,14 +1981,6 @@ const RfqManagementPreview = () => {
                     </div>
 
                     <div className="details-table">
-                      {type === "buyer-view" && (
-                        <BuyerTechnicalEvaluationSection
-                          rfqDetails={rfqDetails}
-                          products={rfqDetails?.products || []}
-                          techEvalStatusByProduct={buyerTechEvalStatusByProduct}
-                        />
-                      )}
-
                       {rfqDetails?.products?.length > 0 && (
                       <div className="table-responsive">
                         <table className="table table-striped" style={{ tableLayout: "auto", width: "100%" }}>
@@ -2657,24 +2649,15 @@ const RfqManagementPreview = () => {
                           )}
                         </div>
 
-                        {/* Approval Workflow Section - Only visible to buyers */}
+                        {/* RFQ Lifecycle Journey - Comprehensive timeline for buyers */}
                         {enableBuyerView && rfqDetails?.id && (
                           <div className="approval-workflow-section mt-4">
-                            <ApprovalWorkflowSection
-                              entityType={rfqDetails?.is_tender === 1 ? "TENDER" : "RFQ"}
-                              entityId={id}
-                              entityLabel={rfqDetails?.is_tender === 1 ? "Tender" : "RFQ"}
-                              hospitalityCompanyId={rfqDetails?.hospitality_company_id}
-                              hotelId={rfqDetails?.hotel_id}
-                              departmentId={rfqDetails?.department_id}
-                              onCustomApprove={handleRFQApprove}
-                              onCustomReject={handleRFQReject}
+                            <RFQLifecycleJourney
+                              rfqId={id}
+                              isTender={rfqDetails?.is_tender === 1}
                               onActionComplete={() => {
                                 getRFQdetails();
                               }}
-                              hideTopButtons={rfqDetails?.is_published === 0}
-                              isBacklog={rfqDetails?.is_published === 1 && rfqDetails?.status === 1}
-                              isPublished={rfqDetails?.is_published === 1 || rfqDetails?.status === 1}
                             />
                           </div>
                         )}

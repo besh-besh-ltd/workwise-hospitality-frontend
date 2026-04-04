@@ -5,7 +5,7 @@ import Link from 'next/link';
 import moment from 'moment';
 import { getRFQPublishState, formatRFQNumber, textCapitalize } from '@/utils/sharedFunctions';
 import PublishDateTimer from '@/components/shared/PublishDateTimer';
-import { getStatusConfig, STATUS_CONFIG, getLifecycleConfig, LIFECYCLE_CONFIG, LIFECYCLE_STAGES_ORDERED } from './statusConfig';
+import { getStatusConfig, STATUS_CONFIG, getLifecycleConfig, LIFECYCLE_STAGES_ORDERED } from './statusConfig';
 import styles from './RFQCard.module.scss';
 
 const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermission = true }) => {
@@ -144,6 +144,11 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                       <div className={styles.lcTTActorsHeader}>
                         <UserCheck size={12} />
                         <span>{data.action_holders.label}</span>
+                        {data.action_holders.decision_rule && (
+                          <span className={styles.lcTTRuleTag}>
+                            {data.action_holders.decision_rule === "ANY" ? "Any one can approve" : "All must approve"}
+                          </span>
+                        )}
                       </div>
                       <div className={styles.lcTTActorsList}>
                         {data.action_holders.users.map(user => (
@@ -155,21 +160,6 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                       </div>
                     </div>
                   )}
-                  {/* Compact stage list */}
-                  <div className={styles.lcTTList}>
-                    {LIFECYCLE_STAGES_ORDERED.map((key) => {
-                      const sc = LIFECYCLE_CONFIG[key];
-                      if (!sc) return null;
-                      const isCurrent = key === data.lifecycle_stage;
-                      const isPast = LIFECYCLE_STAGES_ORDERED.indexOf(key) < currentStageIndex;
-                      return (
-                        <div key={key} className={`${styles.lcTTRow} ${isCurrent ? styles.lcTTRowActive : ''} ${isPast ? styles.lcTTRowDone : ''}`}>
-                          <span className={styles.lcTTDot} style={{ backgroundColor: isCurrent ? sc.dotColor : isPast ? sc.dotColor : '#d1d5db' }} />
-                          <span className={styles.lcTTLabel} style={isCurrent ? { color: sc.textColor, fontWeight: 700 } : {}}>{sc.shortLabel}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
               )}
             </div>

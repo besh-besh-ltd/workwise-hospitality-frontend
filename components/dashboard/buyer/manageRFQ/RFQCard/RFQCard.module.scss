@@ -557,42 +557,6 @@
   line-height: 1.35;
 }
 
-// Compact stage list
-.lcTTList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0;
-  padding: 10px 14px;
-}
-
-.lcTTRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 8px 3px 0;
-  width: 50%;
-  box-sizing: border-box;
-}
-
-.lcTTRowActive {}
-.lcTTRowDone { opacity: 0.4; }
-
-.lcTTDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.lcTTLabel {
-  font-size: 0.68rem;
-  font-weight: 500;
-  color: #64748b;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 // ============================================
 // ACTION HOLDERS (inside lifecycle pill & tooltip)
@@ -630,6 +594,17 @@
   margin-bottom: 5px;
 
   svg { color: #64748b; }
+}
+
+.lcTTRuleTag {
+  font-size: 0.58rem;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f0f0f0;
+  color: #6c757d;
+  white-space: nowrap;
+  margin-left: auto;
 }
 
 .lcTTActorsList {

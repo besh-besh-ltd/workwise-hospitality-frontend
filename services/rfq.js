@@ -291,6 +291,17 @@ export const getPendingApprovalRFQs = (payload = {}) => {
   });
 };
 
+export const getLifecycleSummary = (rfqId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/lifecycle-summary/${rfqId}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const getRFQById = (id, token, includeVendors = false) => {
   return new Promise(async (resolve, reject) => {
     try {
