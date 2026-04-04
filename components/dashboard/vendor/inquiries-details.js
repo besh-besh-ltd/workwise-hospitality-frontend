@@ -1454,7 +1454,7 @@ const RfqManagementPreview = () => {
                           item.finalization_status === "Another vendor is finalized" ||
                           item.finalization_status === "You are finalized"
                       );
-                      const isViewOnly = isRfqClosed || !productleftforbid || hasAnyFinalization || (!isSubmitAble && !hasActiveNegotiationRounds);
+                      const isViewOnly = rfqDetails?.status == 2 || !productleftforbid || hasAnyFinalization || (!isSubmitAble && !hasActiveNegotiationRounds);
 
                       return (
                         <button

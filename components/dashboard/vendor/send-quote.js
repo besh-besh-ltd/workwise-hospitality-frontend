@@ -2233,7 +2233,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 const isNegotiationSubmittedForProduct = !!negotiationQuoteSubmitted[item.id];
                                 // When bid has expired, disable products that do NOT have an active negotiation round
                                 const isBidExpiredForProduct = isBidExpired && !activeNegotiationProductIds.has(item.id);
-                                const isProductDisabled = isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct || isBidExpiredForProduct;
+                                const isProductFinalized = item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized";
+                                const isProductDisabled = isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct || isBidExpiredForProduct;
 
                                 return (
                                   <tr
@@ -2250,6 +2251,11 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           rfq_id={rfqDetails.id}
                                           rfq_product_id={item.id}
                                         />
+                                      )}
+                                      {isProductFinalized && (
+                                        <span className="badge bg-warning text-dark mt-1 d-block" style={{ fontSize: "0.7rem" }}>
+                                          {item.finalization_status === "You are finalized" ? "You are Finalized" : "Another Vendor is Finalized"} — Quote cannot be edited
+                                        </span>
                                       )}
                                       {isNegotiationSubmittedForProduct && (
                                         <span className="badge bg-success mt-1" style={{ fontSize: "0.7rem" }}>
@@ -2807,8 +2813,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         />
                                       </label>
                                       {alreadyQuoted && (
-                                        <td>
-                                          <div
+                                        <div
                                             style={{
                                               display: "flex",
                                               alignItems: "center",
@@ -2837,7 +2842,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               </span>
                                             )}
                                           </div>
-                                        </td>
                                       )}
                                       {isTechEvalPendingOrRejected && (
                                         <small
