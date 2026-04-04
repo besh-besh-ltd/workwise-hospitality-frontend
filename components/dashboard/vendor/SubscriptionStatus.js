@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { useDispatch } from "react-redux";
+import { setUserProfile } from "@/redux/slice";
 import { toast } from "react-toastify";
 import moment from "moment";
 import {
@@ -7,13 +9,121 @@ import {
   verifyHospitalityPayment,
   loadScript
 } from "@/services/subscription";
+import { getProfile } from "@/services/Auth";
 import FullLoader from "@/components/shared/FullLoader";
 
+const SuccessModal = ({ data, onClose }) => {
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
+          backdropFilter: "blur(4px)", zIndex: 9998,
+          animation: "subFadeIn 0.3s ease"
+        }}
+      />
+      {/* Modal */}
+      <div style={{
+        position: "fixed", top: "50%", left: "50%",
+        transform: "translate(-50%, -50%)",
+        background: "#fff", borderRadius: "16px",
+        padding: "40px 36px 32px", maxWidth: "440px", width: "90%",
+        zIndex: 9999, textAlign: "center",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+        animation: "subSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)"
+      }}>
+        {/* Success icon */}
+        <div style={{
+          width: "64px", height: "64px", borderRadius: "50%",
+          background: "linear-gradient(135deg, #2e5ba8, #1a3d7c)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          margin: "0 auto 20px", boxShadow: "0 4px 16px rgba(46,91,168,0.3)"
+        }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+
+        <h4 style={{ margin: "0 0 6px", fontWeight: 700, color: "#1a1a2e", fontSize: "20px" }}>
+          Subscription Renewed!
+        </h4>
+        <p style={{ margin: "0 0 24px", color: "#666", fontSize: "14px", lineHeight: 1.5 }}>
+          Your subscription has been successfully renewed. All features are now unlocked.
+        </p>
+
+        {/* Details card */}
+        <div style={{
+          background: "#f0f4ff", borderRadius: "10px", padding: "16px 20px",
+          marginBottom: "24px", textAlign: "left", border: "1px solid #dce4f5"
+        }}>
+          {data?.expiry_date && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+              <span style={{ color: "#888", fontSize: "13px" }}>Valid Until</span>
+              <span style={{ fontWeight: 600, color: "#2e5ba8", fontSize: "13px" }}>{data.expiry_date}</span>
+            </div>
+          )}
+          {data?.amount != null && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+              <span style={{ color: "#888", fontSize: "13px" }}>Amount Paid</span>
+              <span style={{ fontWeight: 600, color: "#1a1a2e", fontSize: "13px" }}>
+                ₹{Number(data.amount).toLocaleString("en-IN")}
+              </span>
+            </div>
+          )}
+          {data?.categories?.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+              <span style={{ color: "#888", fontSize: "13px" }}>Categories</span>
+              <span style={{ fontWeight: 500, color: "#1a1a2e", fontSize: "13px", textAlign: "right", maxWidth: "60%" }}>
+                {data.categories.join(", ")}
+              </span>
+            </div>
+          )}
+          {data?.hotels?.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "#888", fontSize: "13px" }}>Hotels</span>
+              <span style={{ fontWeight: 500, color: "#1a1a2e", fontSize: "13px", textAlign: "right", maxWidth: "60%" }}>
+                {data.hotels.join(", ")}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={onClose}
+          style={{
+            width: "100%", padding: "12px",
+            background: "linear-gradient(135deg, #2e5ba8, #1a3d7c)",
+            color: "#fff", border: "none", borderRadius: "10px",
+            fontSize: "14px", fontWeight: 600, cursor: "pointer",
+            transition: "opacity 0.2s"
+          }}
+          onMouseOver={(e) => e.target.style.opacity = "0.9"}
+          onMouseOut={(e) => e.target.style.opacity = "1"}
+        >
+          Continue to Dashboard
+        </button>
+      </div>
+
+      <style jsx>{`
+        @keyframes subFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes subSlideUp {
+          from { opacity: 0; transform: translate(-50%, -45%); }
+          to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+      `}</style>
+    </>
+  );
+};
+
 const SubscriptionStatus = ({ onPaymentSuccess }) => {
+  const dispatch = useDispatch();
   const [loading, setLoading] = useState(true);
   const [subData, setSubData] = useState(null);
   const [paymentInProgress, setPaymentInProgress] = useState(false);
   const [showRetry, setShowRetry] = useState(false);
+  const [successModal, setSuccessModal] = useState(null); // holds verify response data
 
   const fetchSubscriptionStatus = useCallback(async () => {
     try {
@@ -33,12 +143,35 @@ const SubscriptionStatus = ({ onPaymentSuccess }) => {
     fetchSubscriptionStatus();
   }, [fetchSubscriptionStatus]);
 
+  const refreshProfileAndSubscription = async () => {
+    try {
+      // Re-fetch profile to update Redux (unlocks nav)
+      const profileRes = await getProfile();
+      if (profileRes?.data) {
+        dispatch(setUserProfile(profileRes.data));
+      }
+      // Also refresh local subscription data
+      await fetchSubscriptionStatus();
+    } catch (err) {
+      console.error("Error refreshing profile:", err);
+    }
+  };
+
+  const handleSuccessModalClose = async () => {
+    setSuccessModal(null);
+    setPaymentInProgress(false);
+    // Refresh data without full page reload
+    await refreshProfileAndSubscription();
+    if (onPaymentSuccess) {
+      onPaymentSuccess();
+    }
+  };
+
   const handleRenew = async () => {
     try {
       setPaymentInProgress(true);
       setShowRetry(false);
 
-      // Use existing categories/hotels from the expired subscription
       const payload = {
         categories: subData?.subscription?.categories?.map(c => c.id) || [],
         subcategories: subData?.subscription?.subcategories?.map(c => c.id) || [],
@@ -85,19 +218,13 @@ const SubscriptionStatus = ({ onPaymentSuccess }) => {
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature
           };
-          await verifyHospitalityPayment(verifyPayload);
-          toast.success("Payment successful! Refreshing your dashboard...");
-          if (onPaymentSuccess) {
-            onPaymentSuccess();
-          } else {
-            window.location.reload();
-          }
+          const verifyRes = await verifyHospitalityPayment(verifyPayload);
+          // Show success modal instead of reload
+          setSuccessModal(verifyRes?.data || {});
         } catch (verifyError) {
           console.error("Payment verification error:", verifyError);
-          // Payment was captured by Razorpay even if our verify call failed
-          // The webhook will handle it server-side
-          toast.success("Payment captured. Your dashboard will update shortly.");
-          setTimeout(() => window.location.reload(), 2000);
+          // Payment was captured by Razorpay even if verify failed — webhook handles it
+          setSuccessModal({ fallback: true });
         }
       },
       modal: {
@@ -121,6 +248,11 @@ const SubscriptionStatus = ({ onPaymentSuccess }) => {
     });
     paymentObject.open();
   };
+
+  // Success modal overlay
+  if (successModal) {
+    return <SuccessModal data={successModal} onClose={handleSuccessModalClose} />;
+  }
 
   if (loading) {
     return (
