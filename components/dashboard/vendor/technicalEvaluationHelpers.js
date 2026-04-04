@@ -49,6 +49,16 @@ const STATUS_CONFIG = {
       accent: "#22c55e"
     }
   },
+  AWAITING_QUOTATIONS: {
+    label: "Awaiting Quotations & Responses",
+    shortLabel: "Awaiting Quotations",
+    tone: {
+      color: "#475569",
+      background: "#f8fafc",
+      border: "#cbd5e1",
+      accent: "#94a3b8"
+    }
+  },
   NO_TE: {
     label: "Not Applicable",
     shortLabel: "N/A",
@@ -329,6 +339,13 @@ export const buildBuyerTechEvalProductSummary = (product, techEvalData) => {
     compactDetail = `${approvalPendingCount || pendingEvaluationCount} approval pending`;
     followUpNames = currentPendingApprovers;
     followUpLabel = currentPendingApprovers.length > 0 ? "Approval pending by" : null;
+  } else if (pendingEvaluationCount > 0 && teAndQuoteVendorCount === 0 && passedCount === 0 && failedCount === 0) {
+    // Vendors may have submitted TE responses but no one has sent a quote yet
+    stateKey = "AWAITING_QUOTATIONS";
+    summaryText = "No vendors have submitted quotations yet.";
+    helperText = "Awaiting vendor quotations and responses before evaluation can begin.";
+    compactLine = `${selectedVendors.length || 0} vendor${selectedVendors.length === 1 ? "" : "s"} invited`;
+    compactDetail = "Awaiting quotations";
   } else if (pendingEvaluationCount > 0) {
     stateKey = "TECHNICAL_EVALUATION_PENDING";
     summaryText = `${pendingEvaluationCount} vendor${pendingEvaluationCount === 1 ? "" : "s"} ready for technical evaluation.`;
@@ -356,6 +373,7 @@ export const buildBuyerTechEvalProductSummary = (product, techEvalData) => {
     latestApprovalStatus,
     latestRound,
     selectedVendorCount: selectedVendors.length,
+    quotedVendorCount: quotedVendorIds.size,
     teAndQuoteVendorCount,
     passedCount,
     failedCount,
@@ -518,9 +536,24 @@ export const buildRfqConditionSummary = (rfqDetails, overview) => {
     blockerText = "Commercially selected quotes are awaiting approval.";
   }
 
+  const commercialEvaluatorNames = (rfqDetails?.commercial_evaluators || [])
+    .map((user) => user?.name)
+    .filter(Boolean);
+  const poInitiatorNames = (rfqDetails?.po_initiators || [])
+    .map((user) => user?.name)
+    .filter(Boolean);
+
+  // For approval stages, use action_holders from the approval instance
+  const actionHolderNames = (rfqDetails?.action_holders?.users || [])
+    .map((user) => user?.name)
+    .filter(Boolean);
+  const actionHolderLabel = rfqDetails?.action_holders?.label || "Pending Approvers";
+
   const owner = lifecycleStage === "TECHNICAL_APPROVING"
     ? approvalNames.length > 0
       ? `Approver${approvalNames.length === 1 ? "" : "s"}: ${approvalNames.join(", ")}`
+      : actionHolderNames.length > 0
+      ? `Approver${actionHolderNames.length === 1 ? "" : "s"}: ${actionHolderNames.join(", ")}`
       : "Awaiting technical approver action"
     : lifecycleStage === "TECHNICAL_EVALUATING" || lifecycleStage === "TECHNICAL_REJECTED"
     ? evaluatorNames.length > 0
@@ -528,6 +561,18 @@ export const buildRfqConditionSummary = (rfqDetails, overview) => {
       : rfqDetails?.technical_evaluation_by_name
       ? `Evaluator: ${rfqDetails.technical_evaluation_by_name}`
       : "Evaluator not assigned"
+    : lifecycleStage === "COMMERCIAL_EVALUATION"
+    ? commercialEvaluatorNames.length > 0
+      ? `Commercial Evaluator${commercialEvaluatorNames.length === 1 ? "" : "s"}: ${commercialEvaluatorNames.join(", ")}`
+      : null
+    : lifecycleStage === "AWAITING_PO"
+    ? poInitiatorNames.length > 0
+      ? `PO Initiator${poInitiatorNames.length === 1 ? "" : "s"}: ${poInitiatorNames.join(", ")}`
+      : null
+    : (lifecycleStage === "RFQ_APPROVAL" || lifecycleStage === "QUOTATION_APPROVAL" || lifecycleStage === "PO_APPROVAL")
+    ? actionHolderNames.length > 0
+      ? `${actionHolderLabel}: ${actionHolderNames.join(", ")}`
+      : null
     : null;
 
   return {

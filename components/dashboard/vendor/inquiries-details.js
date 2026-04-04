@@ -772,63 +772,119 @@ const RfqManagementPreview = () => {
     const hasFollowUp = summary.followUpNames?.length > 0 && summary.followUpLabel;
     const isComplete = summary.stateKey === "COMPLETED";
     const isRejected = summary.stateKey === "RE_EVALUATION_REQUIRED";
+    const isAwaitingQuotations = summary.stateKey === "AWAITING_QUOTATIONS";
     const tone = statusConfig.tone;
 
     if (!item?.tech_evaluation_status?.has_tech_eval) {
       return <span className="text-muted" style={{ fontSize: '0.78rem' }}>N/A</span>;
     }
 
+    // Awaiting Quotations: rich informative non-clickable cell
+    if (isAwaitingQuotations) {
+      const teSubmitted = summary.pendingEvaluationCount || 0;
+      const quoted = summary.quotedVendorCount || 0;
+      const totalInvited = summary.selectedVendorCount || 0;
+      const pendingResponse = summary.pendingVendorResponseCount || 0;
+      return (
+        <div style={{ display: "block", width: "100%" }}>
+          <div
+            className={statusStyles.teCell}
+            style={{
+              borderColor: '#e0e7ff',
+              background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)',
+              cursor: 'default',
+              pointerEvents: 'none',
+            }}
+          >
+            <span className={statusStyles.teCellAccent} style={{ backgroundColor: '#818cf8' }} />
+            <div className={statusStyles.teCellContent}>
+              <div className={statusStyles.teCellStatusRow}>
+                <span className={statusStyles.teCellBadge} style={{ color: '#3730a3', borderColor: '#c7d2fe', background: '#e0e7ff' }}>
+                  {isLoading ? "Loading..." : "Awaiting Quotations"}
+                </span>
+              </div>
+              <div className={statusStyles.teCellMetrics}>
+                <div className={statusStyles.teCellStat} style={{ borderColor: '#c7d2fe', background: 'rgba(99,102,241,0.06)' }}>
+                  <span className={statusStyles.teCellStatValue} style={{ color: '#3730a3' }}>{totalInvited}</span>
+                  <span className={statusStyles.teCellStatLabel} style={{ color: '#6366f1' }}>Invited</span>
+                </div>
+                <div className={statusStyles.teCellStat} style={{ borderColor: '#c7d2fe', background: 'rgba(99,102,241,0.06)' }}>
+                  <span className={statusStyles.teCellStatValue} style={{ color: '#3730a3' }}>{teSubmitted}</span>
+                  <span className={statusStyles.teCellStatLabel} style={{ color: '#6366f1' }}>TE Submitted</span>
+                </div>
+                <div className={statusStyles.teCellStat} style={{ borderColor: '#fde68a', background: 'rgba(245,158,11,0.06)' }}>
+                  <span className={statusStyles.teCellStatValue} style={{ color: '#92400e' }}>{quoted}</span>
+                  <span className={statusStyles.teCellStatLabel} style={{ color: '#d97706' }}>Quoted</span>
+                </div>
+              </div>
+              {pendingResponse > 0 && (
+                <div className={statusStyles.teCellSection}>
+                  <div className={statusStyles.teCellFollowup} style={{ color: '#6366f1' }}>
+                    {pendingResponse} vendor{pendingResponse === 1 ? '' : 's'} yet to respond
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const cellContent = (
+      <div className={statusStyles.teCell} style={{ borderColor: tone.border, background: tone.background }}>
+        {/* Dark left accent bar */}
+        <span className={statusStyles.teCellAccent} style={{ backgroundColor: tone.accent }} />
+
+        <div className={statusStyles.teCellContent}>
+          {/* Header: status badge + round */}
+          <div className={statusStyles.teCellStatusRow}>
+            <span className={statusStyles.teCellBadge} style={{ color: tone.color, borderColor: tone.border }}>
+              {isLoading ? "Loading..." : statusConfig.shortLabel}
+            </span>
+            {summary.currentRound > 0 && !isLoading && (
+              <span className={statusStyles.teCellStatusMeta}>Round {summary.currentRound}</span>
+            )}
+          </div>
+
+          {/* 3 stats: Eligible / Passed / Failed */}
+          <div className={statusStyles.teCellMetrics}>
+            <div className={statusStyles.teCellStat}>
+              <span className={statusStyles.teCellStatValue}>{validVendors}</span>
+              <span className={statusStyles.teCellStatLabel}>Eligible</span>
+            </div>
+            <div className={statusStyles.teCellStat} style={{ borderColor: 'rgba(34,197,94,0.2)', background: 'rgba(34,197,94,0.06)' }}>
+              <span className={statusStyles.teCellStatValue} style={{ color: '#166534' }}>{summary.passedCount}</span>
+              <span className={statusStyles.teCellStatLabel} style={{ color: '#16a34a' }}>Passed</span>
+            </div>
+            <div className={statusStyles.teCellStat} style={{ borderColor: 'rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)' }}>
+              <span className={statusStyles.teCellStatValue} style={{ color: '#991b1b' }}>{summary.failedCount}</span>
+              <span className={statusStyles.teCellStatLabel} style={{ color: '#dc2626' }}>Failed</span>
+            </div>
+          </div>
+
+          {/* Follow-up / detail section */}
+          {!isLoading && (hasFollowUp || summary.compactDetail) && (
+            <div className={statusStyles.teCellSection}>
+              {hasFollowUp ? (
+                <>
+                  <div className={statusStyles.teCellSectionLabel}>{summary.followUpLabel}</div>
+                  <div className={statusStyles.teCellSummary}>{summary.followUpNames.join(", ")}</div>
+                </>
+              ) : summary.compactDetail ? (
+                <div className={statusStyles.teCellFollowup}>{summary.compactDetail}</div>
+              ) : null}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+
     return (
       <Link
         href={`/dashboard/buyer/technical-evaluation?rfq_id=${id}&prod_id=${item.id}${token !== undefined ? `&token=${token}` : ""}`}
         style={{ textDecoration: "none", display: "block", width: "100%" }}
       >
-        <div className={statusStyles.teCell} style={{ borderColor: tone.border, background: tone.background }}>
-          {/* Dark left accent bar */}
-          <span className={statusStyles.teCellAccent} style={{ backgroundColor: tone.accent }} />
-
-          <div className={statusStyles.teCellContent}>
-            {/* Header: status badge + round */}
-            <div className={statusStyles.teCellStatusRow}>
-              <span className={statusStyles.teCellBadge} style={{ color: tone.color, borderColor: tone.border }}>
-                {isLoading ? "Loading..." : statusConfig.shortLabel}
-              </span>
-              {summary.currentRound > 0 && !isLoading && (
-                <span className={statusStyles.teCellStatusMeta}>Round {summary.currentRound}</span>
-              )}
-            </div>
-
-            {/* 3 stats: Eligible / Passed / Failed */}
-            <div className={statusStyles.teCellMetrics}>
-              <div className={statusStyles.teCellStat}>
-                <span className={statusStyles.teCellStatValue}>{validVendors}</span>
-                <span className={statusStyles.teCellStatLabel}>Eligible</span>
-              </div>
-              <div className={statusStyles.teCellStat} style={{ borderColor: 'rgba(34,197,94,0.2)', background: 'rgba(34,197,94,0.06)' }}>
-                <span className={statusStyles.teCellStatValue} style={{ color: '#166534' }}>{summary.passedCount}</span>
-                <span className={statusStyles.teCellStatLabel} style={{ color: '#16a34a' }}>Passed</span>
-              </div>
-              <div className={statusStyles.teCellStat} style={{ borderColor: 'rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)' }}>
-                <span className={statusStyles.teCellStatValue} style={{ color: '#991b1b' }}>{summary.failedCount}</span>
-                <span className={statusStyles.teCellStatLabel} style={{ color: '#dc2626' }}>Failed</span>
-              </div>
-            </div>
-
-            {/* Follow-up / detail section */}
-            {!isLoading && (hasFollowUp || summary.compactDetail) && (
-              <div className={statusStyles.teCellSection}>
-                {hasFollowUp ? (
-                  <>
-                    <div className={statusStyles.teCellSectionLabel}>{summary.followUpLabel}</div>
-                    <div className={statusStyles.teCellSummary}>{summary.followUpNames.join(", ")}</div>
-                  </>
-                ) : summary.compactDetail ? (
-                  <div className={statusStyles.teCellFollowup}>{summary.compactDetail}</div>
-                ) : null}
-              </div>
-            )}
-          </div>
-        </div>
+        {cellContent}
       </Link>
     );
   };
