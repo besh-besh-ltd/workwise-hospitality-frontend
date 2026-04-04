@@ -84,7 +84,7 @@ const Vendor = () => {
         <div className="container-fluid">
           {/* Subscription status banner for hospitality vendors */}
           {isHospitalityVendor && (
-            <SubscriptionStatus onPaymentSuccess={() => window.location.reload()} />
+            <SubscriptionStatus />
           )}
 
           <div className="row">
