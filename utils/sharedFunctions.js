@@ -697,6 +697,7 @@ export const getRFQPublishState = (data) => {
   const isReadyToPublish = isUnpublished && data?.status === 4;
   const isOpen = data?.status === 1;
   const isClosed = data?.status === 2;
+  const isWithdrawn = data?.status === 5;
   const isPrePublishState = isPendingApproval || isReadyToPublish;
 
   return {
@@ -705,14 +706,15 @@ export const getRFQPublishState = (data) => {
     isReadyToPublish,
     isOpen,
     isClosed,
+    isWithdrawn,
     isPrePublishState,
     // Helper for edit button visibility
-    // NOTE: Editing is only allowed for OPEN tenders/RFQs.
+    // NOTE: Editing is allowed for OPEN and WITHDRAWN tenders/RFQs.
     // Pending approval / ready-to-publish items are read-only.
-    canEdit: isOpen,
+    canEdit: isOpen || isWithdrawn,
     // Helper for edit URL determination (only used when canEdit === true)
     editUrl: (id) => `/dashboard/buyer/rfq-management-edit?id=${id}`,
     // Helper for queries/reminder visibility
-    showVendorActions: !isPrePublishState && !isClosed,
+    showVendorActions: !isPrePublishState && !isClosed && !isWithdrawn,
   };
 };

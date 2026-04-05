@@ -80,6 +80,36 @@ export const STATUS_CONFIG = {
     badgeBackground: '#fd7e14',
     badgeText: '#ffffff',
     pulse: false
+  },
+  WITHDRAWN: {
+    key: 'withdrawn',
+    label: 'Withdrawn',
+    icon: BsXCircleFill,
+    borderColor: '#fd7e14',
+    backgroundColor: '#fff3cd',
+    badgeBackground: '#fd7e14',
+    badgeText: '#ffffff',
+    pulse: false
+  },
+  TERMINATED: {
+    key: 'terminated',
+    label: 'Terminated',
+    icon: BsXCircleFill,
+    borderColor: '#dc3545',
+    backgroundColor: '#fff5f5',
+    badgeBackground: '#dc3545',
+    badgeText: '#ffffff',
+    pulse: false
+  },
+  DRAFT: {
+    key: 'draft',
+    label: 'Draft',
+    icon: BsClockFill,
+    borderColor: '#ffc107',
+    backgroundColor: '#fffbeb',
+    badgeBackground: '#ffc107',
+    badgeText: '#664d03',
+    pulse: false
   }
 };
 
@@ -246,7 +276,10 @@ export const getStatusConfig = (data, publishState) => {
   if (data?.po_partially_completed) return STATUS_CONFIG.PARTIALLY_COMPLETED;
   if (publishState?.isPendingApproval) return STATUS_CONFIG.PENDING_APPROVAL;
   if (publishState?.isReadyToPublish) return STATUS_CONFIG.READY_TO_PUBLISH;
+  if (publishState?.isWithdrawn) return STATUS_CONFIG.WITHDRAWN;
   if (data?.is_finalized) return STATUS_CONFIG.FINALIZED;
+  if (publishState?.isClosed && data?.is_published === 0) return STATUS_CONFIG.TERMINATED;
   if (publishState?.isClosed) return STATUS_CONFIG.CLOSED;
+  if (data?.is_published === 0 && !publishState?.isOpen) return STATUS_CONFIG.DRAFT;
   return STATUS_CONFIG.OPEN;
 };

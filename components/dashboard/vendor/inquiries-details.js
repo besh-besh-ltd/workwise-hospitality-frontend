@@ -4,14 +4,15 @@ import { faEdit, faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import { Router, useRouter } from "next/router";
-import { closeRFQ, getAllClauses, getRFQById, sendQuotation, fetchVendorAgreement, getTechClearedVendorsResult, submitRFQApprovalAction, getTechEvalStatus } from "@/services/rfq";
+import { useSelector } from "react-redux";
+import { closeRFQ, withdrawPublish, terminateRFQ, getAllClauses, getRFQById, sendQuotation, fetchVendorAgreement, getTechClearedVendorsResult, submitRFQApprovalAction, getTechEvalStatus } from "@/services/rfq";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
 import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-icons";
 import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
-import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { checkBidExpired, extractfileName, formatDate, formatDisplayDate, formatPrice, getEntityLabel, getRFQPublishState } from "@/utils/sharedFunctions";
 import PublishDateTimer from "@/components/shared/PublishDateTimer";
 import { renderFileLink } from "@/utils/elementFunctions";
@@ -144,16 +145,22 @@ const AutoApprovedBadge = ({ entityType, entityId }) => {
 
 const RfqManagementPreview = () => {
   const router = useRouter();
+  const userProfile = useSelector((state) => state.userProfile);
   const { id, type, token } = router.query;
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
   const [enableBuyerView, setEnableBuyerView] = useState(false);
   const [closeRFqLoading, setcloseRFqLoading] = useState(false);
+  const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [showWithdrawConfirmModal, setShowWithdrawConfirmModal] = useState(false);
+  const [showWithdrawSuccessModal, setShowWithdrawSuccessModal] = useState(false);
+  const [terminateLoading, setTerminateLoading] = useState(false);
+  const [showTerminateConfirmModal, setShowTerminateConfirmModal] = useState(false);
   const [isSubmitAble, setIsSubmitable] = useState(true);
   const [productleftforbid, setproductleftforbid] = useState(true);
   const [regretModal, setregretModal] = useState(false);
   const [submitLoading, setsubmitLoading] = useState(false);
-  const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
   const [currentLowest, setCurrentLowest] = useState(null);
   const [quoteDisabled, setQuoteDisabled] = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
@@ -393,6 +400,65 @@ const RfqManagementPreview = () => {
       setRaStatusChanged(false);
     }
   }, [raStatusChanged, isReverseAuctionActive, wasEndDatePassed, enableBuyerView, productleftforbid, rfqDetails]);
+
+  const isCreator = rfqDetails && userProfile && String(rfqDetails.created_by) === String(userProfile.id);
+
+  const handleCloseRFQ = async () => {
+    setcloseRFqLoading(true);
+    try {
+      await closeRFQ(id);
+      getRFQdetails();
+      toast.success(`${getEntityLabel(rfqDetails?.is_tender)} closed successfully`);
+    } catch (err) {
+      console.error("Error closing RFQ:", err);
+      toast.error(`Failed to close ${getEntityLabel(rfqDetails?.is_tender)}`);
+    } finally {
+      setcloseRFqLoading(false);
+      setShowCloseConfirmModal(false);
+    }
+  };
+
+  const handleWithdrawPublish = async () => {
+    setWithdrawLoading(true);
+    try {
+      const response = await withdrawPublish(id);
+      if (response && response.status === 1) {
+        getRFQdetails();
+        setShowWithdrawConfirmModal(false);
+        setShowWithdrawSuccessModal(true);
+      } else {
+        toast.error('Failed to withdraw publish request');
+        setShowWithdrawConfirmModal(false);
+      }
+    } catch (error) {
+      console.error("Error withdrawing publish:", error);
+      toast.error('Error withdrawing publish request');
+      setShowWithdrawConfirmModal(false);
+    } finally {
+      setWithdrawLoading(false);
+    }
+  };
+
+  const handleTerminateRFQ = async () => {
+    setTerminateLoading(true);
+    try {
+      const response = await terminateRFQ(id);
+      if (response && response.status === 1) {
+        toast.success(`${getEntityLabel(rfqDetails?.is_tender)} terminated successfully`);
+        setShowTerminateConfirmModal(false);
+        router.push('/dashboard/buyer/rfq-management?tab=closed-rfq');
+      } else {
+        toast.error(`Failed to terminate ${getEntityLabel(rfqDetails?.is_tender)}`);
+        setShowTerminateConfirmModal(false);
+      }
+    } catch (error) {
+      console.error("Error terminating RFQ:", error);
+      toast.error(`Error terminating ${getEntityLabel(rfqDetails?.is_tender)}`);
+      setShowTerminateConfirmModal(false);
+    } finally {
+      setTerminateLoading(false);
+    }
+  };
 
   const getRFQdetails = () => {
     setloading(true);
@@ -887,30 +953,6 @@ const RfqManagementPreview = () => {
         {cellContent}
       </Link>
     );
-  };
-
-  const handleRFqClose = (e) => {
-    e.preventDefault();
-    setShowCloseConfirmModal(true);
-  };
-
-  const handleCloseConfirm = async () => {
-    setcloseRFqLoading(true);
-    try {
-      await closeRFQ(id);
-      getRFQdetails();
-      toast.success(`${getEntityLabel(rfqDetails?.is_tender)} closed successfully`);
-    } catch (err) {
-      console.error("Error closing Tender / RFQ:", err);
-      toast.error(`Failed to close ${getEntityLabel(rfqDetails?.is_tender)}`);
-    } finally {
-      setcloseRFqLoading(false);
-      setShowCloseConfirmModal(false);
-    }
-  };
-
-  const handleCloseCancel = () => {
-    setShowCloseConfirmModal(false);
   };
 
   const checkIfQuotationSendIsPossible = useCallback(() => {
@@ -1735,8 +1777,8 @@ const RfqManagementPreview = () => {
                             Ready to Publish
                           </div>
                           <div className="text-dark opacity-75 small d-flex align-items-center gap-2">
-                            This {getEntityLabel(rfqDetails?.is_tender).toLowerCase()} has been approved and will be published automatically.
-                            <PublishDateTimer publishDate={rfqDetails.tender_publish_date} variant="badge" showLabel={true} />
+                            This {getEntityLabel(rfqDetails?.is_tender).toLowerCase()} will be published automatically in
+                            <PublishDateTimer publishDate={rfqDetails.tender_publish_date} variant="badge" showLabel={false} />
                           </div>
                         </div>
                       </div>
@@ -1914,19 +1956,33 @@ const RfqManagementPreview = () => {
                           rfqDetails.is_published === 0 && (rfqDetails.status === 3 || rfqDetails.status === 4) ? null : (
                             rfqDetails.status === 1
                           ) && (
-                            <Link
-                              href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}
-                            >
+                            rfqDetails.products?.length > 0 && rfqDetails.products.every(p => p.has_approved_po === true) ? (
                               <button
                                 id="edit_rfq-rfq_header-inquiries_details_page"
                                 type="button"
                                 className="btn btn-primary me-2"
-                                style={{ width: "auto" }}
+                                style={{ width: "auto", cursor: 'not-allowed', opacity: 0.65 }}
+                                disabled
+                                title="For this RFQ, all products are finalized and awarded"
                               >
                                 <FontAwesomeIcon icon={faEdit} className="me-2" />
                                 Edit {getEntityLabel(rfqDetails?.is_tender)}
                               </button>
-                            </Link>
+                            ) : (
+                              <Link
+                                href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}
+                              >
+                                <button
+                                  id="edit_rfq-rfq_header-inquiries_details_page"
+                                  type="button"
+                                  className="btn btn-primary me-2"
+                                  style={{ width: "auto" }}
+                                >
+                                  <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                  Edit {getEntityLabel(rfqDetails?.is_tender)}
+                                </button>
+                              </Link>
+                            )
                           )
                         )}
 
@@ -1976,6 +2032,63 @@ const RfqManagementPreview = () => {
                               )}
                             </button>
                           </Link>
+                        )}
+
+                        {/* Close RFQ - Creator Only */}
+                        {enableBuyerView && rfqDetails?.status == 1 && isCreator && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => setShowCloseConfirmModal(true)}
+                            disabled={closeRFqLoading}
+                            style={{ width: "170px" }}
+                          >
+                            {closeRFqLoading
+                              ? "Processing..."
+                              : `Close ${getEntityLabel(rfqDetails?.is_tender)}`}
+                          </button>
+                        )}
+                        {enableBuyerView && rfqDetails?.status == 2 && (
+                          <button type="button" className="btn btn-danger" disabled>
+                            {getEntityLabel(rfqDetails?.is_tender)} is Closed
+                          </button>
+                        )}
+
+                        {/* Withdraw Publish Request - Creator Only */}
+                        {enableBuyerView && (rfqDetails?.status == 3 || rfqDetails?.status == 4) && isCreator && (
+                          <button
+                            type="button"
+                            className="btn btn-warning"
+                            onClick={() => setShowWithdrawConfirmModal(true)}
+                            disabled={withdrawLoading || terminateLoading}
+                          >
+                            {withdrawLoading ? "Processing..." : "Withdraw Publish Request"}
+                          </button>
+                        )}
+                        {/* Terminate RFQ - Creator Only */}
+                        {enableBuyerView && (rfqDetails?.status == 3 || rfqDetails?.status == 4) && isCreator && (
+                          <button
+                            type="button"
+                            className="btn btn-danger"
+                            onClick={() => setShowTerminateConfirmModal(true)}
+                            disabled={terminateLoading || withdrawLoading}
+                          >
+                            {terminateLoading ? "Processing..." : `Terminate ${getEntityLabel(rfqDetails?.is_tender)}`}
+                          </button>
+                        )}
+                        {enableBuyerView && rfqDetails?.status == 5 && (
+                          <>
+                            <Link
+                              href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails?.id}`}
+                              className="btn btn-primary p-2"
+                              style={{ width: "170px" }}
+                            >
+                              Edit {getEntityLabel(rfqDetails?.is_tender)}
+                            </Link>
+                            <button type="button" className="btn btn-secondary" disabled>
+                              Publish Request Withdrawn
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -2621,32 +2734,6 @@ const RfqManagementPreview = () => {
                               </div>
                             </div>
                           </div>
-                          {enableBuyerView && (
-                            <>
-                              {rfqDetails?.status == 1 && (
-                                <button
-                                  type="button"
-                                  className="btn btn-secondary"
-                                  onClick={handleRFqClose}
-                                  disabled={closeRFqLoading}
-                                >
-                                  {closeRFqLoading
-                                    ? "Processing request..."
-                                    : `Mark ${getEntityLabel(rfqDetails?.is_tender)} as Closed`}
-                                </button>
-                              )}
-                              {rfqDetails?.status == 2 && (
-                                <button
-                                  type="button"
-                                  className="btn btn-danger"
-                                  onClick={(e) => e.preventDefault()}
-                                  disabled={true}
-                                >
-                                  {getEntityLabel(rfqDetails?.is_tender)} has been closed
-                                </button>
-                              )}
-                            </>
-                          )}
                         </div>
 
                         {/* RFQ Lifecycle Journey - Comprehensive timeline for buyers */}
@@ -2696,17 +2783,59 @@ const RfqManagementPreview = () => {
         setActiveAuthTab={setActiveAuthTab}
       />
 
-      {/* Close Tender / RFQ Confirmation Modal */}
+      {/* Close RFQ Confirmation Modal */}
       <ConfirmationModal
         isOpen={showCloseConfirmModal}
-        onClose={handleCloseCancel}
-        onConfirm={handleCloseConfirm}
+        onClose={() => setShowCloseConfirmModal(false)}
+        onConfirm={handleCloseRFQ}
         title={`Close ${getEntityLabel(rfqDetails?.is_tender)}`}
         description={`Are you sure you want to close ${getEntityLabel(rfqDetails?.is_tender)} #${
           rfqDetails?.rfq_no || `this ${getEntityLabel(rfqDetails?.is_tender)}`
         }?\nOnce closed, vendors will no longer be able to submit quotes.`}
         confirmButtonColor="warning"
         confirmButtonText={`Close ${getEntityLabel(rfqDetails?.is_tender)}`}
+        cancelButtonText="Cancel"
+      />
+
+      {/* Withdraw Publish Request Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showWithdrawConfirmModal}
+        onClose={() => setShowWithdrawConfirmModal(false)}
+        onConfirm={handleWithdrawPublish}
+        title="Withdraw Publish Request"
+        description={`Are you sure you want to withdraw the publish request for ${getEntityLabel(rfqDetails?.is_tender)} #${rfqDetails?.rfq_no || ''}?\nThis will cancel the scheduled publication and any pending approvals.`}
+        confirmButtonColor="warning"
+        confirmButtonText="Withdraw"
+        cancelButtonText="Cancel"
+      />
+
+      {/* Withdraw Publish Success Modal */}
+      <ConfirmationModal
+        isOpen={showWithdrawSuccessModal}
+        onClose={() => {
+          setShowWithdrawSuccessModal(false);
+          router.push('/dashboard/buyer/rfq-management?tab=manage-rfq');
+        }}
+        onConfirm={() => {
+          setShowWithdrawSuccessModal(false);
+          router.push(`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${rfqDetails?.id}`);
+        }}
+        title="Publish Request Withdrawn"
+        description={`The publish request for ${getEntityLabel(rfqDetails?.is_tender)} #${rfqDetails?.rfq_no || ''} has been withdrawn successfully.\nThe ${getEntityLabel(rfqDetails?.is_tender)} has been moved back to draft. You can edit and re-submit it for publishing.`}
+        confirmButtonColor="primary"
+        confirmButtonText="Edit Draft"
+        cancelButtonText="Go to Management"
+      />
+
+      {/* Terminate RFQ Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showTerminateConfirmModal}
+        onClose={() => setShowTerminateConfirmModal(false)}
+        onConfirm={handleTerminateRFQ}
+        title={`Terminate ${getEntityLabel(rfqDetails?.is_tender)}`}
+        description={`Are you sure you want to terminate ${getEntityLabel(rfqDetails?.is_tender)} #${rfqDetails?.rfq_no || ''}?\nThis will permanently terminate the ${getEntityLabel(rfqDetails?.is_tender)}. This action cannot be undone.`}
+        confirmButtonColor="danger"
+        confirmButtonText={`Terminate ${getEntityLabel(rfqDetails?.is_tender)}`}
         cancelButtonText="Cancel"
       />
 

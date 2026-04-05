@@ -3,7 +3,6 @@ import useModulePermissions from "@/hooks/useModulePermissions";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import {
-  closeRFQ,
   downloadQuotesDetails,
   finalizeQuotation,
   getAllClauses,
@@ -65,9 +64,7 @@ const QuoteCompare = () => {
   const [loading, setloading] = useState(false);
   const [quotesLoading, setquotesLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
-  const [closeRFqLoading, setcloseRFqLoading] = useState(false);
   const [finalizeLoading, setfinalizeLoading] = useState(false);
-  const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(100);
   const [myRFQs, setmyRFQs] = useState([]);
@@ -1416,30 +1413,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     console.error("Update target price error:", error);
   }
 };
-  const handleRFqClose = (e) => {
-    e.preventDefault();
-    setShowCloseConfirmModal(true);
-  };
-
-  const handleCloseConfirm = async () => {
-    setcloseRFqLoading(true);
-    try {
-      await closeRFQ(rfq);
-      getRespectiveQuotes();
-      toast.success(`${getEntityLabel(currentRFQ?.is_tender)} closed successfully`);
-    } catch (err) {
-      console.error("Error closing RFQ:", err);
-      toast.error(`Failed to close ${getEntityLabel(currentRFQ?.is_tender)}`);
-    } finally {
-      setcloseRFqLoading(false);
-      setShowCloseConfirmModal(false);
-    }
-  };
-
-  const handleCloseCancel = () => {
-    setShowCloseConfirmModal(false);
-  };
-
   const handleFinalize = (item, proditem, existingPOId, selectedHierarchy, routeType = 'PO') => {
     setfinalizeLoading(true);
     const specs = proditem.product_details[0].rfq_details;
@@ -1779,20 +1752,9 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                           >
                             {downloadLoading ? "Generating Excel..." : "Download Excel"}
                           </button>
-                          {quotes[0]?.rfq[0]?.status == 1 ? (
-                            <button
-                              type="button"
-                              id="close_rfq_actions-quote_compare_page"
-                              onClick={handleRFqClose}
-                              className={revampStyles.actionBtn}
-                            >
-                              {closeRFqLoading
-                                ? "Processing..."
-                                : `Mark ${getEntityLabel(currentRFQ?.is_tender)} Closed`}
-                            </button>
-                          ) : (
+                          {quotes[0]?.rfq[0]?.status == 2 && (
                             <button type="button" disabled className={revampStyles.actionBtn}>
-                              {getEntityLabel(currentRFQ?.is_tender)} closed
+                              {getEntityLabel(currentRFQ?.is_tender)} Closed
                             </button>
                           )}
                           <button
@@ -1958,17 +1920,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         is_tender={currentRFQ?.is_tender}
       />
 
-      {/* Close Tender / RFQ Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showCloseConfirmModal}
-        onClose={handleCloseCancel}
-        onConfirm={handleCloseConfirm}
-        title={`Close ${getEntityLabel(currentRFQ?.is_tender)}`}
-        description={`Are you sure you want to close ${getEntityLabel(currentRFQ?.is_tender)} #${quotes[0]?.rfq[0]?.rfq_no || ''}?\nOnce closed, vendors will no longer be able to submit quotes.`}
-        confirmButtonColor="warning"
-        confirmButtonText={`Close ${getEntityLabel(currentRFQ?.is_tender)}`}
-        cancelButtonText="Cancel"
-      />
     </>
   );
 };
