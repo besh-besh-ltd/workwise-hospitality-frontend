@@ -1247,6 +1247,156 @@ $status-colors: (
   font-size: 12px;
 }
 
+/* ── Negotiation Column Cell (table cell card) ── */
+
+.negCell {
+  position: relative;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  width: 100%;
+  min-width: 200px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  cursor: pointer;
+}
+
+.negCell:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.07);
+  transform: translateY(-1px);
+}
+
+.negCellAccent {
+  display: block;
+  width: 5px;
+  min-width: 5px;
+  flex-shrink: 0;
+  align-self: stretch;
+  background-color: #94a3b8;
+}
+
+.negCellContent {
+  flex: 1;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 10px 12px 12px;
+  min-width: 0;
+
+  > div {
+    display: flex !important;
+    flex-direction: initial;
+    justify-content: initial;
+    align-items: initial;
+  }
+}
+
+.negCellStatusRow {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.negCellBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid;
+  background: #ffffff;
+  white-space: nowrap;
+}
+
+.negCellMeta {
+  font-size: 0.68rem;
+  color: #64748b;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.negCellMetrics {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-start !important;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.negCellStat {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  min-width: 0;
+}
+
+.negCellStatValue {
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.negCellStatLabel {
+  font-size: 0.63rem;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1;
+}
+
+.negCellSection {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center;
+  padding-top: 8px;
+  margin-top: auto;
+  width: 100%;
+  border-top: 1px dashed rgba(148, 163, 184, 0.3);
+}
+
+.negCellFooter {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+/* Status-specific accent & badge colors */
+@each $status-key, $palette in $status-colors {
+  .negCellBadge_#{$status-key} {
+    @include status-pill(
+      map.get($palette, bg),
+      map.get($palette, border),
+      map.get($palette, text)
+    );
+  }
+  .negCellAccent_#{$status-key} {
+    background-color: map.get($palette, text);
+  }
+}
+
+@media (max-width: 768px) {
+  .negCell {
+    min-width: 170px;
+  }
+}
+
 @media (max-width: 991px) {
   .negotiationBanner {
     flex-direction: column;

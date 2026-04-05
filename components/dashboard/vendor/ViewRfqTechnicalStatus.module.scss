@@ -1,0 +1,357 @@
+/* ───────────────────────────────────────────────────
+   BuyerTechnicalEvaluationSection  – condition card
+   ─────────────────────────────────────────────────── */
+.conditionCard {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+  margin-bottom: 16px;
+  overflow: hidden;
+  min-height: 120px;
+}
+
+.conditionCardAccent {
+  display: block;
+  width: 5px;
+  min-width: 5px;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.conditionCardInner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 16px 20px;
+  gap: 12px;
+}
+
+.conditionTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.conditionLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.conditionMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.conditionMetaChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid #dbe4ee;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+/* Stats row */
+.conditionStatsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.conditionStatItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(248, 250, 252, 0.6);
+}
+
+.conditionStatValue {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.conditionStatLabel {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1;
+}
+
+/* Body */
+.conditionBody {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.conditionAccent {
+  width: 4px;
+  min-width: 4px;
+  align-self: stretch;
+  border-radius: 999px;
+}
+
+.conditionTextWrap {
+  min-width: 0;
+}
+
+.conditionTitle {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.conditionDescription {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #475569;
+  margin: 3px 0 0;
+}
+
+/* ───────────────────────────────────────────────────
+   Lifecycle pill
+   ─────────────────────────────────────────────────── */
+.lifecyclePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 7px 12px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.lifecycleDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.45);
+}
+
+.lifecycleLabel {
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.lifecycleSteps {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 2px;
+}
+
+.lifecycleStep {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.45);
+}
+
+.lifecycleStepOn {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22);
+}
+
+/* ───────────────────────────────────────────────────
+   Per-product tech eval cell (inside table)
+   ─────────────────────────────────────────────────── */
+.teCell {
+  position: relative;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  width: 100%;
+  min-width: 200px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.teCell:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.07);
+  transform: translateY(-1px);
+}
+
+/* Dark left accent bar */
+.teCellAccent {
+  display: block;
+  width: 5px;
+  min-width: 5px;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+/* Content area next to accent */
+.teCellContent {
+  flex: 1;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 10px 12px 12px;
+  min-width: 0;
+
+  // Override global td div flex rule
+  > div {
+    display: flex !important;
+    flex-direction: initial;
+    justify-content: initial;
+    align-items: initial;
+  }
+}
+
+.teCellStatusRow {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.teCellBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid;
+  background: #ffffff;
+  white-space: nowrap;
+}
+
+.teCellStatusText {
+  display: block;
+  min-width: 0;
+  width: 100%;
+}
+
+.teCellStatusLabel {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.teCellStatusMeta {
+  font-size: 0.68rem;
+  color: #64748b;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.teCellMetrics {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-start !important;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.teCellStat {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  min-width: 0;
+}
+
+.teCellStatValue {
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.teCellStatLabel {
+  font-size: 0.63rem;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1;
+}
+
+.teCellSection {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center;
+  padding-top: 8px;
+  margin-top: auto;
+  width: 100%;
+  border-top: 1px dashed rgba(148, 163, 184, 0.3);
+}
+
+.teCellSectionLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-bottom: 3px;
+}
+
+.teCellSummary {
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.teCellFollowup {
+  font-size: 0.71rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+@media (max-width: 768px) {
+  .conditionCard {
+    min-height: auto;
+  }
+
+  .conditionCardInner {
+    padding: 12px 14px;
+  }
+
+  .teCell {
+    min-width: 170px;
+  }
+
+  .conditionStatsRow {
+    gap: 6px;
+  }
+
+  .conditionStatItem {
+    padding: 4px 8px;
+  }
+}

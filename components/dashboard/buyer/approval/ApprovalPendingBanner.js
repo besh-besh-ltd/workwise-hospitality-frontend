@@ -24,6 +24,13 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
     autoApprovedReason,
   } = useApprovalWorkflow({ entityType, entityId, enabled: !!entityId });
 
+  // Derive current step approver details for display
+  const currentPendingStep = steps?.find(s => s.step_order === currentStep && s.status === "PENDING");
+  const pendingApprovers = currentPendingStep?.approvers?.filter(a => a.status === "PENDING") || [];
+  const decisionRule = currentPendingStep?.decision_rule;
+  const decisionRuleText = decisionRule === "ANY" ? "Any one can approve" : decisionRule === "ALL" ? "All must approve" : null;
+  const pendingApproverNames = pendingApprovers.map(a => a.user_name || a.name).filter(Boolean);
+
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState(null);
 
@@ -359,6 +366,19 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
             font-weight: 400;
             margin-top: 1px;
           }
+          .apb-rule-tag {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.62rem;
+            font-weight: 500;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.06);
+            color: #6c757d;
+            margin-left: 6px;
+            vertical-align: middle;
+            white-space: nowrap;
+          }
           .apb-action-btns {
             display: flex;
             gap: 6px;
@@ -384,7 +404,10 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
             </div>
             <div>
               <div className="apb-action-text">Your approval is required</div>
-              <div className="apb-action-sub">Step {currentStep} of {totalSteps}</div>
+              <div className="apb-action-sub">
+                Step {currentStep} of {totalSteps}
+                {decisionRuleText && <span className="apb-rule-tag">{decisionRuleText}</span>}
+              </div>
             </div>
           </div>
           <div className="apb-action-btns">
@@ -582,6 +605,19 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
           padding: 4px 10px;
           border-radius: 6px;
         }
+        .apb-rule-tag {
+          display: inline-flex;
+          align-items: center;
+          font-size: 0.62rem;
+          font-weight: 500;
+          padding: 1px 6px;
+          border-radius: 4px;
+          background: rgba(0, 0, 0, 0.06);
+          color: #6c757d;
+          margin-left: 6px;
+          vertical-align: middle;
+          white-space: nowrap;
+        }
       `}</style>
 
       <div className="apb-info">
@@ -592,7 +628,12 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
           <div className="apb-info-text">
             <strong>Pending approval</strong>
             <span className="ms-1" style={{ color: "#6c757d" }}>
-              — Step {currentStep} of {totalSteps} · Waiting for designated approver
+              — Step {currentStep} of {totalSteps}
+              {decisionRuleText && <span className="apb-rule-tag">{decisionRuleText}</span>}
+              {pendingApproverNames.length > 0
+                ? ` · Waiting for ${pendingApproverNames.join(", ")}`
+                : " · Waiting for designated approver"
+              }
             </span>
           </div>
         </div>

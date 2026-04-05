@@ -71,7 +71,7 @@ const statusConfig = {
 };
 
 // Compact display of previous rejected/cancelled approval attempts
-const PreviousAttemptsSection = ({ instances }) => {
+const PreviousAttemptsSection = ({ instances, entityType }) => {
   const [expandedAttempt, setExpandedAttempt] = useState(null);
 
   if (!instances || instances.length === 0) return null;
@@ -84,7 +84,7 @@ const PreviousAttemptsSection = ({ instances }) => {
   };
 
   return (
-    <div style={{ marginBottom: '16px' }}>
+    <div style={{ marginBottom: '0px' }}>
       <div style={{
         fontSize: '0.72rem',
         fontWeight: 600,
@@ -105,6 +105,17 @@ const PreviousAttemptsSection = ({ instances }) => {
           // Find rejection comment from approvers
           const rejectionComment = instStatus === 'REJECTED'
             ? inst.steps?.flatMap(s => s.approvers || []).find(a => a.status === 'REJECTED')?.comment
+            : null;
+
+          // Find rejector name and step for outside display
+          const rejectorInfo = instStatus === 'REJECTED'
+            ? (() => {
+                for (const s of (inst.steps || [])) {
+                  const rejector = (s.approvers || []).find(a => a.status === 'REJECTED');
+                  if (rejector) return { name: rejector.user_name, step: s.step_order };
+                }
+                return null;
+              })()
             : null;
 
           return (
@@ -161,17 +172,28 @@ const PreviousAttemptsSection = ({ instances }) => {
                     }}>
                       {cfg.label}
                     </span>
+                    {rejectorInfo && (
+                      <span style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        color: '#842029',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        · {rejectorInfo.name} at Step {rejectorInfo.step}
+                      </span>
+                    )}
                     {rejectionComment && !isExpanded && (
                       <span style={{
                         fontSize: '0.7rem',
-                        color: '#999',
+                        color: '#6c757d',
+                        fontStyle: 'italic',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                         flex: 1,
                         minWidth: 0,
                       }}>
-                        — "{rejectionComment}"
+                        — &ldquo;{rejectionComment}&rdquo;
                       </span>
                     )}
                   </div>
@@ -180,14 +202,26 @@ const PreviousAttemptsSection = ({ instances }) => {
                   </span>
                 </div>
 
-                {/* Expanded: show full ApprovalTimeline */}
+                {/* Expanded: show vendor metadata + approval timeline */}
                 {isExpanded && (
                   <div style={{ padding: '12px' }}>
+                    {/* Vendor Evaluation Results for this attempt */}
+                    {entityType === 'TECHNICAL' && (inst.metadata?.vendors?.length > 0 || inst.metadata?.not_evaluated_vendors?.length > 0) && (
+                      <div style={{ marginBottom: '12px' }}>
+                        <TechEvalVendorStatusDisplay
+                          vendors={inst.metadata.vendors || []}
+                          notEvaluatedVendors={inst.metadata.not_evaluated_vendors || []}
+                          roundNumber={inst.metadata.evaluation_round || 1}
+                          showSummary={true}
+                        />
+                      </div>
+                    )}
                     {inst.steps && inst.steps.length > 0 ? (
                       <ApprovalTimeline
                         steps={inst.steps}
                         currentStep={inst.current_step}
                         initiatedBy={inst.initiated_by}
+                        instanceStatus={instStatus}
                       />
                     ) : (
                       <div style={{ fontSize: '0.75rem', color: '#999', textAlign: 'center', padding: '8px 0' }}>
@@ -199,34 +233,49 @@ const PreviousAttemptsSection = ({ instances }) => {
               </div>
 
               {/* Connector to next attempt */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '3px 0',
-              }}>
+              {idx < instances.length - 1 && (() => {
+                const wasApproved = instStatus === 'APPROVED';
+                const connLabel = wasApproved ? 'Next Round Submitted' : 'Resubmitted';
+                const connColor = wasApproved ? '#166534' : '#856404';
+                const connBg = wasApproved ? '#f0fdf4' : '#fff8e1';
+                const connBorder = wasApproved ? '#bbf7d0' : '#ffeeba';
+                const connGradTop = wasApproved ? '#bbf7d0' : '#f5c2c7';
+                const connGradBot = wasApproved ? '#bbf7d0' : '#ffc107';
+                return (
                 <div style={{
                   display: 'flex',
-                  flexDirection: 'column',
                   alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '1px 0',
                 }}>
-                  <div style={{ width: '2px', height: '6px', backgroundColor: '#dee2e6' }} />
                   <div style={{
-                    fontSize: '0.58rem',
-                    color: '#aaa',
-                    fontWeight: 500,
-                    padding: '1px 8px',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '8px',
-                    border: '1px solid #e9ecef',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
                   }}>
-                    resubmitted
+                    <div style={{ width: '2px', height: '8px', background: `linear-gradient(180deg, ${connGradTop}, ${connColor})` }} />
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '0.6rem',
+                      color: connColor,
+                      fontWeight: 600,
+                      padding: '2px 10px',
+                      backgroundColor: connBg,
+                      borderRadius: '10px',
+                      border: `1px solid ${connBorder}`,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                    }}>
+                      <BsArrowRepeat size={9} />
+                      {connLabel}
+                    </div>
+                    <div style={{ width: '2px', height: '8px', background: `linear-gradient(180deg, ${connColor}, #dee2e6)` }} />
                   </div>
-                  <div style={{ width: '2px', height: '6px', backgroundColor: '#dee2e6' }} />
                 </div>
-              </div>
+                );
+              })()}
             </div>
           );
         })}
@@ -238,6 +287,7 @@ const PreviousAttemptsSection = ({ instances }) => {
 const ApprovalWorkflowSection = ({
   entityType,
   entityId,
+  allEntityIds,
   entityLabel = "Item",
   hospitalityCompanyId,
   hotelId,
@@ -268,12 +318,13 @@ const ApprovalWorkflowSection = ({
     autoApprovedReason,
     handleApprovalAction,
     refetch,
-  } = useApprovalWorkflow({ entityType, entityId, enabled: !!entityId, refreshTrigger });
+  } = useApprovalWorkflow({ entityType, entityId, allEntityIds, enabled: !!entityId, refreshTrigger });
 
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [localActionLoading, setLocalActionLoading] = useState(false);
+  const [currentAttemptExpanded, setCurrentAttemptExpanded] = useState(true);
 
   // Existing PO merge flow for final approver of NEGOTIATION_QUOTE
   const [showExistingPOModal, setShowExistingPOModal] = useState(false);
@@ -424,11 +475,11 @@ const ApprovalWorkflowSection = ({
           box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
         .aws-card.aws-action-required {
-          border-color: #ffeeba;
-          box-shadow: 0 2px 12px rgba(255,193,7,0.12);
+          border-color: #fdba74;
+          box-shadow: 0 2px 12px rgba(249,115,22,0.15);
         }
         .aws-card.aws-action-required:hover {
-          box-shadow: 0 4px 24px rgba(255,193,7,0.18);
+          box-shadow: 0 4px 24px rgba(249,115,22,0.22);
         }
         .aws-card.aws-backlog {
           border-color: #f5c6cb;
@@ -460,10 +511,10 @@ const ApprovalWorkflowSection = ({
           background: rgba(0,0,0,0.012);
         }
         .aws-card.aws-action-required .aws-header {
-          background: linear-gradient(135deg, #fffdf5 0%, #fff8e1 100%);
+          background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
         }
         .aws-card.aws-action-required .aws-header:hover {
-          background: linear-gradient(135deg, #fffcf0 0%, #fff5d6 100%);
+          background: linear-gradient(135deg, #fff7ed 0%, #fde8d0 100%);
         }
         .aws-header-left {
           display: flex;
@@ -510,7 +561,7 @@ const ApprovalWorkflowSection = ({
           border-radius: 10px;
         }
         .aws-card.aws-action-required .aws-progress-track {
-          background: rgba(255,193,7,0.12);
+          background: rgba(249,115,22,0.12);
         }
         .aws-progress-pip {
           width: 18px;
@@ -541,7 +592,7 @@ const ApprovalWorkflowSection = ({
           border-top: 1px solid #f0f0f0;
         }
         .aws-card.aws-action-required .aws-body {
-          border-top-color: rgba(255,193,7,0.15);
+          border-top-color: rgba(249,115,22,0.15);
         }
         .aws-body-inner {
           padding-top: 16px;
@@ -569,41 +620,71 @@ const ApprovalWorkflowSection = ({
           color: #6c757d;
         }
         .aws-action-btn {
-          font-size: 0.78rem;
+          font-size: 0.84rem;
           font-weight: 600;
-          padding: 6px 16px;
-          border-radius: 7px;
+          padding: 9px 22px;
+          border-radius: 8px;
           transition: all 0.15s ease;
           letter-spacing: 0.01em;
+          border: none;
+          color: #fff;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
         }
         .aws-action-btn:hover:not(:disabled) {
           transform: translateY(-1px);
-          box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .aws-action-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+        .aws-btn-approve {
+          background: linear-gradient(135deg, #198754 0%, #20c070 100%);
+        }
+        .aws-btn-reject {
+          background: linear-gradient(135deg, #dc3545 0%, #e8606d 100%);
         }
       `}</style>
 
       <div className={`aws-card approval-workflow-section approval-workflow-accordion ${isActionRequired ? 'aws-action-required' : ''} ${effectiveBacklog ? 'aws-backlog' : ''}`}>
         {/* Top gradient accent bar */}
-        <div className="aws-accent" style={{ background: statusInfo.accentGradient }} />
+        <div className="aws-accent" style={{ background: isActionRequired ? 'linear-gradient(90deg, #f97316 0%, #ef4444 100%)' : statusInfo.accentGradient }} />
 
         {/* Header */}
         <div className="aws-header" onClick={() => setExpanded(!expanded)}>
           <div className="aws-header-left">
             <div
               className="aws-icon-wrap"
-              style={{ background: `${statusInfo.color}12` }}
+              style={{ background: isActionRequired ? 'rgba(249,115,22,0.08)' : `${statusInfo.color}12` }}
             >
-              <StatusIcon size={19} style={{ color: statusInfo.color }} />
+              <StatusIcon size={19} style={{ color: isActionRequired ? '#f97316' : statusInfo.color }} />
             </div>
             <div>
               <div className="d-flex align-items-center gap-2">
                 <span className="aws-title">Approval Workflow</span>
-                <Badge
-                  bg={statusInfo.variant}
-                  style={{ fontSize: "0.68rem", fontWeight: 500, padding: "3px 8px" }}
-                >
-                  {statusInfo.label}
-                </Badge>
+                {isActionRequired ? (
+                  <span style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 600,
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    background: 'linear-gradient(90deg, #f97316, #ef4444)',
+                    color: '#fff',
+                    display: 'inline-block',
+                  }}>
+                    Your Action is Required
+                  </span>
+                ) : (
+                  <Badge
+                    bg={statusInfo.variant}
+                    style={{ fontSize: "0.68rem", fontWeight: 500, padding: "3px 8px" }}
+                  >
+                    {statusInfo.label}
+                  </Badge>
+                )}
               </div>
               {totalSteps > 0 && (
                 <div className="d-flex align-items-center gap-2 mt-1">
@@ -616,7 +697,8 @@ const ApprovalWorkflowSection = ({
                         step.status === "APPROVED" ? "#198754" :
                         step.status === "REJECTED" ? "#dc3545" :
                         effectiveBacklog && step.status === "PENDING" ? "#dc3545" :
-                        step.status === "PENDING" && step.step_order === currentStep ? "#ffc107" :
+                        (status === "APPROVED" && step.status === "PENDING") ? "#198754" :
+                        step.status === "PENDING" && step.step_order === currentStep ? (isActionRequired ? "#f97316" : "#ffc107") :
                         "#dee2e6";
                       return (
                         <div key={step.id} className="aws-progress-pip" style={{ backgroundColor: pipColor }} />
@@ -631,26 +713,22 @@ const ApprovalWorkflowSection = ({
           <div className="aws-header-right" onClick={(e) => e.stopPropagation()}>
             {isActionRequired && !hideTopButtons && !effectiveBacklog && (
               <>
-                <Button
-                  variant="success"
-                  size="sm"
-                  className="aws-action-btn p-2 px-4 m-0"
+                <button
+                  className="aws-action-btn aws-btn-approve"
                   onClick={() => openActionModal("APPROVE")}
                   disabled={actionLoading}
                 >
-                  <BsShieldCheck size={13} className="me-2" />
+                  <BsShieldCheck size={14} />
                   Approve
-                </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  className="aws-action-btn p-2 px-4 m-0"
+                </button>
+                <button
+                  className="aws-action-btn aws-btn-reject"
                   onClick={() => openActionModal("REJECT")}
                   disabled={actionLoading}
                 >
-                  <BsShieldX size={13} className="me-2" />
+                  <BsShieldX size={14} />
                   Reject
-                </Button>
+                </button>
               </>
             )}
             <span
@@ -689,44 +767,133 @@ const ApprovalWorkflowSection = ({
 
                 {/* Previous approval attempts (rejected/cancelled history) */}
                 {previousInstances.length > 0 && (
-                  <PreviousAttemptsSection instances={previousInstances} />
+                  <PreviousAttemptsSection instances={previousInstances} entityType={entityType} />
                 )}
 
-                {/* Current attempt label when there's history */}
+                {/* Current attempt - accordion card matching previous attempts when there's history */}
                 {previousInstances.length > 0 && (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    marginBottom: '12px',
-                  }}>
+                  <div style={{ marginBottom: '12px' }}>
+                    {/* Connector from last previous attempt to current */}
+                    {(() => {
+                      const lastPrev = previousInstances[previousInstances.length - 1];
+                      const lastPrevApproved = lastPrev?.status === 'APPROVED';
+                      const cLabel = lastPrevApproved ? 'Next Round Submitted' : 'Resubmitted';
+                      const cColor = lastPrevApproved ? '#166534' : '#856404';
+                      const cBg = lastPrevApproved ? '#f0fdf4' : '#fff8e1';
+                      const cBorder = lastPrevApproved ? '#bbf7d0' : '#ffeeba';
+                      const cGradTop = lastPrevApproved ? '#bbf7d0' : '#f5c2c7';
+                      return (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1px 0' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div style={{ width: '2px', height: '8px', background: `linear-gradient(180deg, ${cGradTop}, ${cColor})` }} />
+                            <div style={{
+                              display: 'flex', alignItems: 'center', gap: '4px',
+                              fontSize: '0.6rem', color: cColor, fontWeight: 600,
+                              padding: '2px 10px', backgroundColor: cBg,
+                              borderRadius: '10px', border: `1px solid ${cBorder}`,
+                              textTransform: 'uppercase', letterSpacing: '0.04em',
+                            }}>
+                              <BsArrowRepeat size={9} />
+                              {cLabel}
+                            </div>
+                            <div style={{ width: '2px', height: '8px', background: `linear-gradient(180deg, ${cColor}, #dee2e6)` }} />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Current attempt card - status-aware styling */}
                     <div style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      color: statusInfo.color,
-                      backgroundColor: `${statusInfo.color}10`,
-                      border: `1px solid ${statusInfo.color}30`,
-                      padding: '4px 12px',
-                      borderRadius: '6px',
+                      border: `1px solid ${status === 'APPROVED' ? '#a5d6a7' : status === 'REJECTED' ? '#ef9a9a' : isActionRequired ? '#fdba74' : '#f59e0b'}`,
+                      borderRadius: '8px',
+                      backgroundColor: '#fff',
+                      overflow: 'hidden',
                     }}>
-                      <span>Attempt {previousInstances.length + 1}</span>
-                      <Badge bg={statusInfo.variant} style={{ fontSize: '0.62rem', fontWeight: 500 }}>
-                        Current
-                      </Badge>
+                      <div
+                        onClick={() => setCurrentAttemptExpanded(!currentAttemptExpanded)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          backgroundColor: status === 'APPROVED' ? '#e8f5e9' : status === 'REJECTED' ? '#fce4ec' : isActionRequired ? '#fff7ed' : '#fef3c7',
+                          cursor: 'pointer',
+                          gap: '8px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '22px',
+                            height: '22px',
+                            borderRadius: '50%',
+                            backgroundColor: '#fff',
+                            border: `2px solid ${status === 'APPROVED' ? '#198754' : status === 'REJECTED' ? '#dc3545' : isActionRequired ? '#f97316' : '#f59e0b'}`,
+                            flexShrink: 0,
+                          }}>
+                            {status === 'APPROVED' ? <BsCheckCircleFill size={10} style={{ color: '#198754' }} />
+                              : status === 'REJECTED' ? <BsXCircleFill size={10} style={{ color: '#dc3545' }} />
+                              : <BsClockFill size={10} style={{ color: isActionRequired ? '#f97316' : '#b45309' }} />}
+                          </span>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: status === 'APPROVED' ? '#166534' : status === 'REJECTED' ? '#991b1b' : '#78350f' }}>
+                            Attempt {previousInstances.length + 1}
+                          </span>
+                          <span style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 600,
+                            color: status === 'APPROVED' ? '#166534' : status === 'REJECTED' ? '#991b1b' : isActionRequired ? '#9a3412' : '#92400e',
+                            backgroundColor: status === 'APPROVED' ? '#f0fdf4' : status === 'REJECTED' ? '#fef2f2' : isActionRequired ? '#fff' : '#fffbeb',
+                            padding: '1px 8px',
+                            borderRadius: '10px',
+                            border: `1px solid ${status === 'APPROVED' ? '#bbf7d0' : status === 'REJECTED' ? '#fecaca' : isActionRequired ? '#fdba74' : '#fbbf24'}`,
+                          }}>
+                            {isActionRequired ? 'Action Required' : statusInfo.label}
+                          </span>
+                          <span style={{
+                            fontSize: '0.6rem',
+                            fontWeight: 700,
+                            color: '#fff',
+                            backgroundColor: status === 'APPROVED' ? '#198754' : status === 'REJECTED' ? '#dc3545' : isActionRequired ? '#f97316' : '#d97706',
+                            padding: '1px 8px',
+                            borderRadius: '10px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.03em',
+                          }}>
+                            {status === 'APPROVED' ? 'Completed' : status === 'REJECTED' ? 'Rejected' : 'Current'}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '0.65rem', color: '#aaa', flexShrink: 0 }}>
+                          {currentAttemptExpanded ? '▲' : '▼'}
+                        </span>
+                      </div>
+
+                      {currentAttemptExpanded && (
+                        <div style={{ padding: '12px' }}>
+                          <ApprovalTimeline
+                            steps={steps}
+                            currentStep={currentStep}
+                            initiatedBy={initiatedBy}
+                            instanceStatus={effectiveBacklog ? 'BACKLOG' : status}
+                            isActionRequired={isActionRequired}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* Timeline */}
-                <ApprovalTimeline
-                  steps={steps}
-                  currentStep={currentStep}
-                  initiatedBy={initiatedBy}
-                  instanceStatus={effectiveBacklog ? 'BACKLOG' : status}
-                />
+                {/* Timeline - shown directly when no previous attempts */}
+                {previousInstances.length === 0 && (
+                  <ApprovalTimeline
+                    steps={steps}
+                    currentStep={currentStep}
+                    initiatedBy={initiatedBy}
+                    instanceStatus={effectiveBacklog ? 'BACKLOG' : status}
+                    isActionRequired={isActionRequired}
+                  />
+                )}
 
                 {/* Action buttons when hidden from top */}
                 {isActionRequired && hideTopButtons && !effectiveBacklog && (
@@ -737,28 +904,24 @@ const ApprovalWorkflowSection = ({
                     paddingTop: '16px',
                     borderTop: '1px solid #f0f0f0'
                   }}>
-                    <Button
-                      variant="success"
-                      size="sm"
-                      className="aws-action-btn"
+                    <button
+                      className="aws-action-btn aws-btn-approve"
                       onClick={() => openActionModal("APPROVE")}
                       disabled={actionLoading}
-                      style={{ flex: 1 }}
+                      style={{ flex: 1, justifyContent: 'center' }}
                     >
-                      <BsShieldCheck size={13} className="me-2" />
+                      <BsShieldCheck size={14} />
                       Approve
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      className="aws-action-btn"
+                    </button>
+                    <button
+                      className="aws-action-btn aws-btn-reject"
                       onClick={() => openActionModal("REJECT")}
                       disabled={actionLoading}
-                      style={{ flex: 1 }}
+                      style={{ flex: 1, justifyContent: 'center' }}
                     >
-                      <BsShieldX size={13} className="me-2" />
+                      <BsShieldX size={14} />
                       Reject
-                    </Button>
+                    </button>
                   </div>
                 )}
 

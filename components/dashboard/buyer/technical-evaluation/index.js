@@ -18,8 +18,9 @@ import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
 import useIsMobile from "@/hooks/useIsMobile";
-import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown } from "react-icons/bs";
+import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown, BsLock, BsClock } from "react-icons/bs";
 import styles from "./TechnicalEvaluation.module.scss";
+import { Tooltip } from "react-tooltip";
 
 
 
@@ -30,6 +31,7 @@ const BuyerTechnicalEvaluation = () => {
   const reduxUserProfile = useSelector((state) => state.userProfile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rfq_id, setRfqId] = useState(router.query.rfq_id || null);
+  const targetProdId = router.query.prod_id || null; // rfq_product_id from URL to auto-expand & highlight
   const activeRfqRef = useRef(rfq_id); // Track active rfq_id to prevent stale updates
   const [loading, setLoading] = useState(false); // sidebar RFQ list loading only
   const [contentLoading, setContentLoading] = useState(false); // right section loading
@@ -246,13 +248,14 @@ const BuyerTechnicalEvaluation = () => {
   };
 
   // Stage 2: Fetch full clause/evaluation data only after permissions verified
-  const fetchEvaluationData = async () => {
+  // silent = true: background refresh — no loading state, no accordion reset
+  const fetchEvaluationData = async ({ silent = false } = {}) => {
     if (!rfq_id || !currentRfq) return;
 
     const requestId = rfq_id; // Capture for stale check
 
     try {
-      setContentLoading(true);
+      if (!silent) setContentLoading(true);
       const res = await getAllClauses(rfq_id, "tech_evaluation");
 
       // Stale check — if user switched RFQ while this was loading, discard
@@ -277,22 +280,33 @@ const BuyerTechnicalEvaluation = () => {
       setVendorMap(vMap);
       setClauseMap(c_map);
 
-      // Auto-expand the first product
-      if (res.data?.length > 0) {
-        const firstProductId = res.data[0].rfq_product_id;
-        const firstProduct = currentRfq?.products?.find(p => p.id == firstProductId);
-        if (firstProduct) {
-          setExpandedProducts(new Set([firstProduct.id]));
+      // Only auto-expand on initial load, not on background refresh
+      if (!silent && currentRfq?.products?.length > 0) {
+        // If prod_id is in URL, expand that product; otherwise expand first product
+        const targetProduct = targetProdId
+          ? currentRfq.products.find(p => String(p.id) === String(targetProdId))
+          : null;
+        const expandId = targetProduct ? targetProduct.id : currentRfq.products[0].id;
+        setExpandedProducts(new Set([expandId]));
+
+        // Scroll to the target product after a brief delay for DOM render
+        if (targetProduct) {
+          setTimeout(() => {
+            const el = document.getElementById(`product-card-${targetProduct.id}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300);
         }
       }
     } catch (error) {
       if (activeRfqRef.current !== requestId) return; // Stale — ignore
-      console.log(error);
-      toast.error(error.message || 'Failed to load evaluation data');
+      if (!silent) {
+        console.log(error);
+        toast.error(error.message || 'Failed to load evaluation data');
+      }
     } finally {
       if (activeRfqRef.current === requestId) {
         setPermissionsVerified(true);
-        setContentLoading(false);
+        if (!silent) setContentLoading(false);
       }
     }
   };
@@ -306,22 +320,70 @@ const BuyerTechnicalEvaluation = () => {
     });
   };
 
+  // Pre-compute evaluation status from clauseInfo for ALL products (even unexpanded ones)
+  // This ensures the Submit All button has accurate counts without requiring accordion expansion
+  useEffect(() => {
+    if (!clauseInfo || clauseInfo.length === 0) return;
+
+    setProductEvaluationStatus(prev => {
+      const newMap = new Map(prev);
+      clauseInfo.forEach(rfqProduct => {
+        // Skip products that already have status from ClauseProductItem (more accurate with workflow state)
+        if (newMap.has(rfqProduct.rfq_product_id) && newMap.get(rfqProduct.rfq_product_id)?.workflowState) return;
+
+        const vendors = rfqProduct?.vendors || [];
+        const clauses = rfqProduct?.clauses || [];
+
+        // A vendor is fully scored if every clause has a scored response (score_timestamp != response_timestamp)
+        const isVendorScored = (vendorId) => {
+          if (!clauses || clauses.length === 0) return false;
+          return clauses.every(clause => {
+            const resp = clause.vendor_responses?.find(r => String(r.vendor_id) === String(vendorId));
+            return resp?.score_timestamp && resp.score_timestamp !== resp.response_timestamp;
+          });
+        };
+
+        // Only count vendors that are scored AND not already verified from previous rounds
+        const unverifiedVendors = vendors.filter(v => v.is_verified !== true);
+        const evaluatedVendorCount = unverifiedVendors.filter(v => isVendorScored(v.vendor_id)).length;
+        const isFullyEvaluated = evaluatedVendorCount > 0 && unverifiedVendors.length > 0 &&
+          unverifiedVendors.every(v => isVendorScored(v.vendor_id));
+
+        newMap.set(rfqProduct.rfq_product_id, {
+          isFullyEvaluated,
+          evaluatedVendorCount,
+          totalVendors: vendors.length,
+          isPendingApproval: false,
+          workflowComplete: false,
+          workflowState: null // Will be overridden by ClauseProductItem when expanded
+        });
+      });
+      return newMap;
+    });
+  }, [clauseInfo]);
+
   // Bid end date must have passed before evaluation/submission is allowed
   const isBidExpired = useMemo(() => {
     return currentRfq?.bid_end_date ? checkBidExpired(currentRfq.bid_end_date) : false;
   }, [currentRfq?.bid_end_date]);
 
-  // Check if all products are fully evaluated
+  // Check if all submittable products are fully evaluated
   const areAllProductsEvaluated = useMemo(() => {
     if (!clauseInfo || clauseInfo.length === 0) return false;
 
-    // Get all product IDs that have clauses
     const productIds = clauseInfo.map(item => item.rfq_product_id);
 
-    // Check if all products are fully evaluated
-    return productIds.every(productId => {
+    // Only consider products that are not already complete or pending
+    const submittableProducts = productIds.filter(productId => {
       const status = productEvaluationStatus.get(productId);
-      return status?.isFullyEvaluated && !status?.isPendingApproval;
+      return !status?.workflowComplete && !status?.isPendingApproval;
+    });
+
+    if (submittableProducts.length === 0) return false;
+
+    return submittableProducts.every(productId => {
+      const status = productEvaluationStatus.get(productId);
+      return status?.isFullyEvaluated;
     });
   }, [clauseInfo, productEvaluationStatus]);
 
@@ -343,16 +405,45 @@ const BuyerTechnicalEvaluation = () => {
     });
   }, [clauseInfo]);
 
-  // Count how many products have at least one vendor fully evaluated (all clauses scored)
-  // Uses productEvaluationStatus from child components which checks score_timestamp on every clause
+  // Count how many products are submittable (evaluated, not complete, not pending)
   const evaluatedProductCount = useMemo(() => {
     if (!clauseInfo || clauseInfo.length === 0) return 0;
     let count = 0;
     for (const [, status] of productEvaluationStatus) {
-      if (status?.evaluatedVendorCount > 0) count++;
+      if (status?.evaluatedVendorCount > 0 && !status?.workflowComplete && !status?.isPendingApproval) count++;
     }
     return count;
   }, [clauseInfo, productEvaluationStatus]);
+
+  // Per-product submit handler
+  const handleProductSubmit = async (productId) => {
+    try {
+      await submitTechEvalForApproval({
+        rfq_id: parseInt(rfq_id),
+        rfq_product_id: productId,
+        is_tender: currentRfq?.is_tender === 1,
+      });
+      toast.success("Product submitted for approval");
+      await fetchEvaluationData();
+    } catch (err) {
+      toast.error(err?.message || "Failed to submit for approval");
+    }
+  };
+
+  // Get per-product submit state
+  const getProductSubmitState = (productId) => {
+    const pStatus = productEvaluationStatus.get(productId);
+    const canSubmit = canWrite && !permissionsLoading && isBidExpired
+      && pStatus?.evaluatedVendorCount > 0
+      && !pStatus?.workflowComplete
+      && !pStatus?.isPendingApproval;
+    return {
+      canSubmit,
+      isComplete: pStatus?.workflowComplete || false,
+      isPending: pStatus?.isPendingApproval || false,
+      hasEvaluated: (pStatus?.evaluatedVendorCount || 0) > 0,
+    };
+  };
 
   // Unified submit handler for all products
   const handleUnifiedSubmitForApproval = async () => {
@@ -361,29 +452,41 @@ const BuyerTechnicalEvaluation = () => {
     try {
       setUnifiedSubmitLoading(true);
 
-      // Only submit products that have at least one vendor fully evaluated (all clauses scored)
-      const evaluatedProducts = clauseInfo.filter(rfqProduct => {
+      // Only submit products that have evaluated vendors AND are not already complete/pending
+      const submittableProducts = clauseInfo.filter(rfqProduct => {
         const status = productEvaluationStatus.get(rfqProduct.rfq_product_id);
-        return status?.evaluatedVendorCount > 0;
+        return status?.evaluatedVendorCount > 0
+          && !status?.workflowComplete
+          && !status?.isPendingApproval;
       });
 
-      if (evaluatedProducts.length === 0) {
-        toast.error("No products have been fully evaluated yet. Score all clauses for at least one vendor per product.");
+      if (submittableProducts.length === 0) {
+        toast.error("No products ready for submission. Products may already be complete or pending approval.");
         return;
       }
 
-      const promises = evaluatedProducts.map(async (rfqProduct) => {
-        const payload = {
-          rfq_id: parseInt(rfq_id),
-          rfq_product_id: rfqProduct.rfq_product_id,
-          is_tender: currentRfq?.is_tender === 1,
-        };
-        return await submitTechEvalForApproval(payload);
-      });
+      // Submit sequentially to avoid race conditions with concurrent approval instance creation
+      let successCount = 0;
+      for (const rfqProduct of submittableProducts) {
+        try {
+          const payload = {
+            rfq_id: parseInt(rfq_id),
+            rfq_product_id: rfqProduct.rfq_product_id,
+            is_tender: currentRfq?.is_tender === 1,
+          };
+          await submitTechEvalForApproval(payload);
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to submit product ${rfqProduct.rfq_product_id}:`, err);
+          // Continue with remaining products even if one fails
+        }
+      }
 
-      await Promise.all(promises);
-
-      toast.success(`${evaluatedProducts.length} product(s) submitted for approval successfully!`);
+      if (successCount > 0) {
+        toast.success(`${successCount} product(s) submitted for approval successfully!`);
+      } else {
+        toast.error("Failed to submit any products for approval.");
+      }
       setShowUnifiedSubmitModal(false);
 
       // Refresh data
@@ -619,6 +722,30 @@ const BuyerTechnicalEvaluation = () => {
                   </div>
                 )}
 
+                {/* Bid End Date Lock Banner */}
+                {!isContentLoading && !isAccessDenied && currentRfq && !isBidExpired && (
+                  <div className={styles.bidLockBanner}>
+                    <div className={styles.bidLockIconWrapper}>
+                      <BsLock size={20} />
+                    </div>
+                    <div className={styles.bidLockContent}>
+                      <h5 className={styles.bidLockTitle}>Evaluation Locked</h5>
+                      <p className={styles.bidLockMessage}>
+                        The technical evaluation will only be enabled after the submission deadline is over.
+                        {currentRfq.bid_end_date && (
+                          <>
+                            {' '}Deadline: <strong>{formatDisplayDate(currentRfq.bid_end_date, { includeTime: true })}</strong>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <div className={styles.bidLockTimerBadge}>
+                      <BsClock size={13} />
+                      <span>Wait Please.</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Read-Only Banner */}
                 {hasPermissionContext && !permissionsLoading && !canWrite && canRead && (
                   <div className="mt-3 mb-3">
@@ -631,7 +758,7 @@ const BuyerTechnicalEvaluation = () => {
 
                 {!isContentLoading && !isAccessDenied && <div className="quote-sec-main">
                   <>
-                    {!contentLoading && currentRfq && clauseInfo && clauseInfo.length > 0 && (
+                    {!contentLoading && currentRfq && currentRfq.products && currentRfq.products.length > 0 && (
                       <h3 className={styles.productsHeading}>{entityLabel} Products</h3>
                     )}
 
@@ -664,36 +791,74 @@ const BuyerTechnicalEvaluation = () => {
                       </div>
                     )}
 
-                    {currentRfq && clauseInfo &&
-                      clauseInfo.map((rfqProduct, productIndex) => {
-                        if (clauseMap.get(rfqProduct.rfq_product_id)) {
-                          const product = currentRfq.products.find(product => product.id == rfqProduct.rfq_product_id)
-                          if(!product) return null;
-                          const productSelectedVendors = selectedVendorsMap.get(product.id) || [];
+                    {currentRfq && clauseInfo !== undefined &&
+                      currentRfq.products?.map((product, productIndex) => {
+                        const hasClauses = clauseMap && clauseMap.get(product.id);
+                        const rfqProduct = hasClauses
+                          ? clauseInfo?.find(ci => ci.rfq_product_id == product.id)
+                          : null;
+                        const productSelectedVendors = selectedVendorsMap.get(product.id) || [];
 
-                          return (
-                            <div className={styles.productCard} key={`product_${product.id}`}>
-                              {/* Product Header */}
-                              <div className={`${styles.productHeader} ${expandedProducts.has(product.id) ? styles.productHeaderActive : ''}`} onClick={() => toggleProductExpand(product.id)}>
-                                <div className={styles.productHeaderLeft}>
+                        const isTargetProduct = targetProdId && String(product.id) === String(targetProdId);
+
+                        return (
+                          <div className={`${styles.productCard} ${isTargetProduct ? styles.productCardHighlight : ''}`} key={`product_${product.id}`} id={`product-card-${product.id}`}>
+                            {/* Product Header */}
+                            <div className={`${styles.productHeader} ${expandedProducts.has(product.id) ? styles.productHeaderActive : ''}`} onClick={() => toggleProductExpand(product.id)}>
+                              <div className={styles.productHeaderLeft}>
+                                <div className={styles.productHeaderTopRow}>
                                   <span className={styles.productBadge}>
-                                    Product {productIndex + 1} of {clauseInfo.length}
+                                    Product {productIndex + 1} of {currentRfq.products.length}
                                   </span>
                                   <h4 className={styles.productName}>
-                                    {product.product_details[0]?.name}
+                                    {product.product_details?.[0]?.name || 'Unnamed Product'}
                                   </h4>
-                                  <p className={styles.productSpec}>
-                                    Spec: {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
-                                  </p>
+                                  {(() => {
+                                    const specs = {};
+                                    product.product_specs?.forEach(s => { if (s.value) specs[s.title] = s.value; });
+                                    const qtyText = specs.Quantity ? `${specs.Quantity}${specs.Unit ? ` ${specs.Unit}` : ''}` : (specs.Unit ? specs.Unit : null);
+                                    return qtyText ? <span className={styles.productQtyBadge}>{qtyText}</span> : null;
+                                  })()}
                                 </div>
-                                <div className={`${styles.expandToggle} ${expandedProducts.has(product.id) ? styles.expanded : ''}`}>
-                                  <BsChevronDown size={18} />
+                                <div className={styles.productMeta}>
+                                  {(() => {
+                                    const specs = {};
+                                    product.product_specs?.forEach(s => { if (s.value) specs[s.title] = s.value; });
+                                    return (
+                                      <>
+                                        {specs.Size && (
+                                          <span
+                                            className={`${styles.productMetaChip} ${styles.productMetaChipTruncate}`}
+                                            data-tooltip-id="spec-tooltip"
+                                            data-tooltip-content={specs.Size}
+                                          >
+                                            <strong>Size:</strong> {specs.Size}
+                                          </span>
+                                        )}
+                                        {specs.Spec && (
+                                          <span
+                                            className={`${styles.productMetaChip} ${styles.productMetaChipTruncate}`}
+                                            data-tooltip-id="spec-tooltip"
+                                            data-tooltip-content={specs.Spec}
+                                          >
+                                            <strong>Spec:</strong> {specs.Spec}
+                                          </span>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               </div>
+                              <div className={`${styles.expandToggle} ${expandedProducts.has(product.id) ? styles.expanded : ''}`}>
+                                <BsChevronDown size={18} />
+                              </div>
+                            </div>
 
-                              {/* Product Body */}
-                              {expandedProducts.has(product.id) && (
-                                <div className={styles.productBody}>
+                            {/* Product Body */}
+                            {expandedProducts.has(product.id) && (
+                              <div className={styles.productBody}>
+                                {hasClauses && rfqProduct ? (
+                                  <>
                                   <ClauseProductItem
                                     type={"buyer"}
                                     rfq_id={rfq_id}
@@ -717,13 +882,41 @@ const BuyerTechnicalEvaluation = () => {
                                     quotedVendorsOnly={quotedVendorsOnly}
                                     showFailedVendors={showFailedVendors}
                                   />
-                                </div>
-                              )}
-                            </div>
-                          )
-                        }
-                      }
-                      )}
+
+                                  {/* Per-product submit button */}
+                                  {(() => {
+                                    const ps = getProductSubmitState(product.id);
+                                    if (ps.isComplete) return <div className={styles.productSubmitRow}><span className={styles.productSubmitDone}>Evaluation Complete</span></div>;
+                                    if (ps.isPending) return <div className={styles.productSubmitRow}><span className={styles.productSubmitPending}>Approval Pending</span></div>;
+                                    return (
+                                      <div className={styles.productSubmitRow}>
+                                        <button
+                                          className={`btn btn-sm ${styles.productSubmitBtn}`}
+                                          disabled={!ps.canSubmit}
+                                          onClick={(e) => { e.stopPropagation(); handleProductSubmit(product.id); }}
+                                          title={!isBidExpired ? "Bid deadline hasn't passed yet" : !ps.hasEvaluated ? "Score at least one vendor first" : "Submit this product for approval"}
+                                        >
+                                          Submit for Approval
+                                        </button>
+                                      </div>
+                                    );
+                                  })()}
+                                  </>
+                                ) : (
+                                  <div className="text-center py-4" style={{ background: '#f8f9fa', borderRadius: 8 }}>
+                                    <p className="text-muted mb-1" style={{ fontSize: '0.88rem', fontWeight: 500 }}>
+                                      No Clauses Available
+                                    </p>
+                                    <p className="text-muted mb-0" style={{ fontSize: '0.8rem' }}>
+                                      No technical evaluation clauses have been configured for this product.
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
 
                     {/* Unified Submit for Approval Button */}
                     {clauseInfo && clauseInfo.length > 0 && (
@@ -750,6 +943,7 @@ const BuyerTechnicalEvaluation = () => {
           </div>
         </div>
       </section>
+      <Tooltip id="spec-tooltip" place="top" style={{ maxWidth: 320, fontSize: 12, borderRadius: 8, zIndex: 9999, wordBreak: 'break-word' }} />
     </>
   );
 };

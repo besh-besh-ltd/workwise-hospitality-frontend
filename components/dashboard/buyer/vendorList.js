@@ -103,7 +103,7 @@ const VendorList = ({
 
               {/* Vendor info */}
               <div style={{ flex: 1 }}>
-                {vendor?.vendor_code && (
+                {vendor?.vendor_code && vendor.vendor_code !== vendor.display_name && (
                   <span className="text-muted fw-semibold d-block" style={{ fontSize: "0.8rem" }}>
                     {vendor.vendor_code}
                   </span>
