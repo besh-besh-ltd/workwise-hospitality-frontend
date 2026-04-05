@@ -1,6 +1,7 @@
 import React from "react";
 import Modal from "react-modal";
-import { BsX, BsCheckCircleFill, BsXCircle, BsCalendar3 } from "react-icons/bs";
+import { BsX, BsCalendar3, BsGrid3X3GapFill, BsBuilding, BsArrowRight } from "react-icons/bs";
+import { MdHeight } from "react-icons/md";
 
 const modalOverlayStyle = {
   backgroundColor: "rgba(0, 0, 0, 0.6)",
@@ -22,20 +23,18 @@ const modalContentStyle = {
   overflow: "visible",
   padding: 0,
   borderRadius: 0,
-  maxWidth: "960px",
+  maxWidth: "700px",
   width: "95%",
   margin: "0 auto",
 };
 
 const getFinancialYearEndDate = () => {
   const now = new Date();
-  // Financial year ends on March 31. If we are in Jan-Mar (month 0-2),
-  // end date is March 31 of the current year. Otherwise next year.
   const year = now.getMonth() < 3 ? now.getFullYear() : now.getFullYear() + 1;
   return `31st March ${year}`;
 };
 
-const MembershipInfoModal = ({ show, onHide, plans = [], allPlansInclude = [], onSelectPlan }) => {
+const MembershipInfoModal = ({ show, onHide, onProceed }) => {
   const expiryDate = getFinancialYearEndDate();
 
   return (
@@ -43,245 +42,380 @@ const MembershipInfoModal = ({ show, onHide, plans = [], allPlansInclude = [], o
       isOpen={show}
       onRequestClose={onHide}
       ariaHideApp={false}
-      contentLabel="Vendor Membership Plans"
+      contentLabel="Vendor Subscription Info"
       shouldCloseOnOverlayClick={true}
       style={{ overlay: modalOverlayStyle, content: modalContentStyle }}
     >
-      <div style={{
-        background: "#fff",
-        borderRadius: "16px",
-        maxHeight: "90vh",
-        overflowY: "auto",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
-      }}>
+      <div className="membership-modal-wrap">
         {/* Header */}
-        <div style={{
-          padding: "24px 28px 16px",
-          borderBottom: "1px solid #eee",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          position: "sticky",
-          top: 0,
-          background: "#fff",
-          borderRadius: "16px 16px 0 0",
-          zIndex: 2,
-        }}>
+        <div className="membership-modal-header">
           <div>
-            <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#0f172a" }}>
-              Vendor Membership Plans
-            </h2>
-            <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#6c757d" }}>
-              Choose the plan that fits your ambition
-            </p>
+            <h2>Vendor Subscription</h2>
+            <p>Transparent pricing — pay only for what you need</p>
           </div>
-          <button
-            type="button"
-            onClick={onHide}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: "4px",
-              borderRadius: "6px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#6c757d",
-            }}
-          >
-            <BsX size={24} />
+          <button type="button" className="membership-modal-close" onClick={onHide}>
+            <BsX size={20} />
           </button>
         </div>
 
-        {/* Validity Banner */}
-        <div style={{
-          margin: "16px 28px 0",
-          padding: "14px 18px",
-          background: "rgba(21, 137, 147, 0.06)",
-          borderLeft: "3px solid #158993",
-          borderRadius: "0 8px 8px 0",
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "12px",
-        }}>
-          <BsCalendar3 size={18} style={{ color: "#158993", marginTop: "2px", flexShrink: 0 }} />
-          <div>
-            <p style={{ margin: 0, fontSize: "15px", fontWeight: 600, color: "#0f172a" }}>
-              Membership Valid Until: {expiryDate}
-            </p>
-            <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#6c757d", lineHeight: 1.5 }}>
-              All vendor subscriptions are valid until 31st March of the ongoing financial year, regardless of when you subscribe.
-            </p>
-          </div>
-        </div>
-
-        {/* Plan Cards */}
-        <div style={{
-          padding: "20px 28px",
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "16px",
-        }} className="membership-plans-grid">
-          {plans.map((plan) => (
-            <div
-              key={plan.name}
-              style={{
-                border: plan.popular ? "2px solid #158993" : "1px solid #e2e8f0",
-                borderRadius: "12px",
-                padding: "20px",
-                display: "flex",
-                flexDirection: "column",
-                position: "relative",
-                background: plan.popular ? "rgba(21, 137, 147, 0.02)" : "#fff",
-              }}
-            >
-              {plan.popular && (
-                <div style={{
-                  position: "absolute",
-                  top: "-11px",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  background: "#158993",
-                  color: "#fff",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  padding: "3px 14px",
-                  borderRadius: "20px",
-                  letterSpacing: "0.3px",
-                  whiteSpace: "nowrap",
-                }}>
-                  RECOMMENDED
-                </div>
-              )}
-
-              <h4 style={{ margin: "0 0 2px", fontSize: "18px", fontWeight: 700, color: "#0f172a" }}>
-                {plan.name}
-              </h4>
-              <p style={{ margin: "0 0 10px", fontSize: "13px", color: "#6c757d" }}>
-                {plan.subtitle}
+        {/* Body */}
+        <div className="membership-modal-body">
+          {/* Validity Banner */}
+          <div className="membership-validity">
+            <BsCalendar3 size={15} className="membership-validity-icon" />
+            <div>
+              <p className="membership-validity-title">Membership Valid Until: {expiryDate}</p>
+              <p className="membership-validity-sub">
+                All subscriptions are valid until 31st March of the ongoing financial year, regardless of when you subscribe.
               </p>
-              <p style={{ margin: "0 0 16px", fontSize: "22px", fontWeight: 700, color: "#158993" }}>
-                {plan.price}
-              </p>
-
-              {/* Features */}
-              <div style={{ flex: 1, marginBottom: "16px" }}>
-                {plan.features.map((feature) => (
-                  <div
-                    key={feature.name}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "8px",
-                      padding: "5px 0",
-                      fontSize: "13px",
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {feature.included ? (
-                      <BsCheckCircleFill size={14} style={{ color: "#22c55e", marginTop: "2px", flexShrink: 0 }} />
-                    ) : (
-                      <BsXCircle size={14} style={{ color: "#cbd5e1", marginTop: "2px", flexShrink: 0 }} />
-                    )}
-                    <span style={{ color: feature.included ? "#334155" : "#94a3b8" }}>
-                      {feature.name}
-                      {feature.included && feature.value && (
-                        <span style={{ fontWeight: 600, marginLeft: "4px" }}>
-                          ({feature.value})
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {/* CTA Button */}
-              <button
-                onClick={() => onSelectPlan(plan)}
-                style={{
-                  width: "100%",
-                  padding: "10px 16px",
-                  border: plan.popular ? "none" : "1px solid #158993",
-                  borderRadius: "8px",
-                  background: plan.popular ? "#158993" : "transparent",
-                  color: plan.popular ? "#fff" : "#158993",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseOver={(e) => {
-                  if (!plan.popular) {
-                    e.target.style.background = "rgba(21, 137, 147, 0.06)";
-                  } else {
-                    e.target.style.opacity = "0.9";
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (!plan.popular) {
-                    e.target.style.background = "transparent";
-                  } else {
-                    e.target.style.opacity = "1";
-                  }
-                }}
-              >
-                {plan.cta.label}
-              </button>
             </div>
-          ))}
-        </div>
-
-        {/* Hospitality Pricing Note */}
-        <div style={{
-          margin: "0 28px",
-          padding: "10px 14px",
-          background: "#fffbeb",
-          borderRadius: "8px",
-          border: "1px solid #fde68a",
-          fontSize: "13px",
-          color: "#92400e",
-          lineHeight: 1.5,
-        }}>
-          For hospitality vendors, pricing is calculated as: <strong>Categories &times; &#8377;500 &times; Business Units (Hotels)</strong>. The exact amount will be shown after you complete your profile.
-        </div>
-
-        {/* All Plans Include */}
-        {allPlansInclude.length > 0 && (
-          <div style={{
-            padding: "16px 28px 24px",
-            display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "16px",
-            justifyContent: "center",
-          }}>
-            <span style={{ fontSize: "13px", fontWeight: 600, color: "#64748b" }}>
-              All plans include:
-            </span>
-            {allPlansInclude.map((item) => (
-              <span
-                key={item}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  fontSize: "13px",
-                  color: "#475569",
-                }}
-              >
-                <BsCheckCircleFill size={12} style={{ color: "#158993" }} />
-                {item}
-              </span>
-            ))}
           </div>
-        )}
+
+          {/* Pricing */}
+          <h5 className="membership-section-title">How Pricing Works</h5>
+
+          <div className="membership-pricing-card">
+            <div className="membership-pricing-row">
+              <div className="membership-pricing-icon" style={{ background: "rgba(46, 91, 168, 0.08)" }}>
+                <BsGrid3X3GapFill size={16} style={{ color: "#2E5BA8" }} />
+              </div>
+              <div>
+                <p className="membership-pricing-label">&#8377;500 per Category</p>
+                <p className="membership-pricing-desc">Each category covers multiple products under it</p>
+              </div>
+            </div>
+
+            <div className="membership-pricing-divider" />
+
+            <div className="membership-pricing-row">
+              <div className="membership-pricing-icon" style={{ background: "rgba(46, 91, 168, 0.08)" }}>
+                <BsBuilding size={16} style={{ color: "#2E5BA8" }} />
+              </div>
+              <div>
+                <p className="membership-pricing-label">Multiplied by Business Units</p>
+                <p className="membership-pricing-desc">The category fee applies per business unit you operate with</p>
+              </div>
+            </div>
+
+            <div className="membership-pricing-divider" />
+
+            <div className="membership-pricing-formula">
+              <span className="membership-formula-label">Pricing Formula</span>
+              <span className="membership-formula-text">Total = Categories &times; &#8377;500 &times; Business Units</span>
+            </div>
+          </div>
+
+          {/* Example */}
+          <h5 className="membership-section-title">Example</h5>
+
+          <div className="membership-example">
+            <p className="membership-example-text">
+              If you select <strong>2 categories</strong> (e.g., Kitchen Equipment, Housekeeping Supplies) and <strong>4 business units</strong>:
+            </p>
+            <div className="membership-example-calc">
+              <span className="membership-pill">2 Categories</span>
+              <span className="membership-operator">&times;</span>
+              <span className="membership-pill membership-pill-highlight">&#8377;500</span>
+              <span className="membership-operator">&times;</span>
+              <span className="membership-pill">4 Business Units</span>
+              <span className="membership-operator">=</span>
+              <span className="membership-pill membership-pill-result">&#8377;4,000</span>
+            </div>
+            <p className="membership-example-note">
+              The exact amount will be calculated based on your selections during registration.
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="membership-modal-footer">
+          <button onClick={onProceed} className="membership-btn-primary">
+            Proceed to Register
+            <BsArrowRight size={16} />
+          </button>
+        </div>
       </div>
 
       <style jsx global>{`
-        @media (max-width: 768px) {
-          .membership-plans-grid {
-            grid-template-columns: 1fr !important;
+        .membership-modal-wrap {
+          background: #fff;
+          border-radius: 16px;
+          display: flex;
+          flex-direction: column;
+          max-height: 90vh;
+          overflow: hidden;
+        }
+
+        .membership-modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 20px 24px 14px;
+          border-bottom: 1px solid #f1f5f9;
+          flex-shrink: 0;
+        }
+
+        .membership-modal-header h2 {
+          font-size: 18px;
+          font-weight: 700;
+          color: #0f172a;
+          margin: 0 0 2px;
+        }
+
+        .membership-modal-header p {
+          font-size: 13px;
+          color: #64748b;
+          margin: 0;
+        }
+
+        .membership-modal-close {
+          width: 34px;
+          height: 34px;
+          border-radius: 8px;
+          border: none;
+          background: #f1f5f9;
+          color: #64748b;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.15s;
+          flex-shrink: 0;
+        }
+
+        .membership-modal-close:hover {
+          background: #e2e8f0;
+          color: #334155;
+        }
+
+        .membership-modal-body {
+          padding: 16px 24px;
+        }
+
+        .membership-modal-footer {
+          padding: 14px 24px 20px;
+          flex-shrink: 0;
+        }
+
+        /* Validity */
+        .membership-validity {
+          padding: 12px 14px;
+          background: #f2f6ff;
+          border: 1px solid #dbeafe;
+          border-left: 3px solid #2E5BA8;
+          border-radius: 0 8px 8px 0;
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          margin-bottom: 16px;
+        }
+
+        .membership-validity-icon {
+          color: #2E5BA8;
+          margin-top: 1px;
+          flex-shrink: 0;
+        }
+
+        .membership-validity-title {
+          margin: 0;
+          font-size: 13px;
+          font-weight: 600;
+          color: #0f172a;
+        }
+
+        .membership-validity-sub {
+          margin: 2px 0 0;
+          font-size: 12px;
+          color: #64748b;
+          line-height: 1.4;
+        }
+
+        /* Section title */
+        .membership-section-title {
+          font-size: 12px;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin: 0 0 10px;
+        }
+
+        /* Pricing card */
+        .membership-pricing-card {
+          border: 1.5px solid #e2e8f0;
+          border-radius: 10px;
+          overflow: hidden;
+          margin-bottom: 16px;
+        }
+
+        .membership-pricing-row {
+          padding: 12px 14px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .membership-pricing-icon {
+          width: 34px;
+          height: 34px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .membership-pricing-label {
+          margin: 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: #1e293b;
+        }
+
+        .membership-pricing-desc {
+          margin: 1px 0 0;
+          font-size: 12px;
+          color: #94a3b8;
+        }
+
+        .membership-pricing-divider {
+          height: 1px;
+          background: #f1f5f9;
+          margin: 0 14px;
+        }
+
+        .membership-pricing-formula {
+          padding: 10px 14px;
+          background: #f8fafc;
+          text-align: center;
+        }
+
+        .membership-formula-label {
+          display: block;
+          font-size: 11px;
+          font-weight: 600;
+          color: #94a3b8;
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+          margin-bottom: 2px;
+        }
+
+        .membership-formula-text {
+          font-size: 15px;
+          font-weight: 700;
+          color: #2E5BA8;
+        }
+
+        /* Example */
+        .membership-example {
+          background: #f2f6ff;
+          border: 1px solid #dbeafe;
+          border-radius: 10px;
+          padding: 14px 16px;
+        }
+
+        .membership-example-text {
+          margin: 0 0 10px;
+          font-size: 13px;
+          color: #334155;
+          line-height: 1.5;
+        }
+
+        .membership-example-text strong {
+          color: #2E5BA8;
+        }
+
+        .membership-example-calc {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          flex-wrap: wrap;
+          margin-bottom: 8px;
+        }
+
+        .membership-pill {
+          background: #fff;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          padding: 5px 10px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #334155;
+          white-space: nowrap;
+        }
+
+        .membership-pill-highlight {
+          color: #2E5BA8;
+          border-color: #bfdbfe;
+        }
+
+        .membership-pill-result {
+          background: #2E5BA8;
+          border-color: #2E5BA8;
+          color: #fff;
+        }
+
+        .membership-operator {
+          font-size: 14px;
+          color: #94a3b8;
+          font-weight: 700;
+        }
+
+        .membership-example-note {
+          margin: 0;
+          font-size: 12px;
+          color: #94a3b8;
+          text-align: center;
+        }
+
+        /* CTA */
+        .membership-btn-primary {
+          width: 100%;
+          padding: 10px 24px;
+          background: #2E5BA8;
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .membership-btn-primary:hover {
+          background: #264FA0;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+          .membership-modal-body {
+            padding: 14px 18px;
+          }
+
+          .membership-modal-header {
+            padding: 16px 18px 12px;
+          }
+
+          .membership-modal-footer {
+            padding: 12px 18px 16px;
+          }
+
+          .membership-pill {
+            padding: 4px 8px;
+            font-size: 12px;
+          }
+
+          .membership-operator {
+            font-size: 12px;
+          }
+
+          .membership-formula-text {
+            font-size: 13px;
           }
         }
       `}</style>

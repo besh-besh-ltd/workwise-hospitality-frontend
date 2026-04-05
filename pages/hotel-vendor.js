@@ -347,8 +347,7 @@ const HotelVendor = () => {
     setShowMembershipInfoModal(true);
   };
 
-  const handlePlanSelected = (plan) => {
-    setSelectedPlan(plan);
+  const handleProceedToRegister = () => {
     setShowMembershipInfoModal(false);
     setShowRegisterModal(true);
   };
@@ -1162,9 +1161,7 @@ const HotelVendor = () => {
       <MembershipInfoModal
         show={showMembershipInfoModal}
         onHide={() => setShowMembershipInfoModal(false)}
-        plans={pricingData.sellers.plans}
-        allPlansInclude={pricingData.sellers.allPlansInclude}
-        onSelectPlan={handlePlanSelected}
+        onProceed={handleProceedToRegister}
       />
 
       <RegisterUserModal
