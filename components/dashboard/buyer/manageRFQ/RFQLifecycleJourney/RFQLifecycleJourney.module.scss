@@ -17,32 +17,37 @@
 
 // Uniform 28×28 nodes
 .node { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #fff; border: 2px solid #e5e7eb; z-index: 1; transition: all .2s; }
-.node_completed { border-color: #94a3b8; background: #f1f5f9; color: #64748b; }
+.node_completed { border-color: #22c55e; background: #f0fdf4; color: #16a34a; }
 .node_current { border-color: #f59e0b; background: #fef3c7; box-shadow: 0 0 0 3px rgba(245,158,11,.1); }
 .node_expired { border-color: #ef4444; background: #fef2f2; color: #ef4444; }
 .node_skipped { border-color: #e2e8f0; background: #f8fafc; color: #d1d5db; }
 .node_upcoming { border-color: #f1f5f9; background: #fafbfc; color: #e5e7eb; }
+.node_cancelled { border-color: #ef4444; background: #fef2f2; box-shadow: 0 0 0 3px rgba(239,68,68,.1); }
 
 .pulse { width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; animation: pu 2s ease-in-out infinite; }
+.pulse_cancelled { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; animation: pu 2s ease-in-out infinite; }
 @keyframes pu { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.35; transform:scale(.6); } }
 
 // Wires — status-based, no per-phase color
 .wire { width: 2px; flex: 1; min-height: 16px; background: #e5e7eb; }
-.wire_completed { background: #cbd5e1; }
-.wire_current { background: linear-gradient(to bottom, #fcd34d 0%, #e5e7eb 100%); }
+.wire_completed { background: #86efac; }
+.wire_current { background: #fcd34d; }
 .wire_expired { background: #fca5a5; }
 .wire_skipped { background: none; border-left: 2px dashed #e2e8f0; width: 0; }
 .wire_upcoming { background: #f1f5f9; }
 
 // Phase icon inside card header — uniform color
 .phaseIcon { color: #94a3b8; flex-shrink: 0; }
+.row_completed .phaseIcon { color: #16a34a; }
 .row_current .phaseIcon { color: #d97706; }
 .row_expired .phaseIcon { color: #ef4444; }
+.row_cancelled .phaseIcon { color: #ef4444; }
 
 // Phase card
 .body { flex: 1; min-width: 0; padding-bottom: 18px; overflow: hidden; }
 .card { border-radius: 10px; padding: 14px 18px; border: 1px solid #e2e8f0; transition: all .2s; }
-.card_completed { background: #fff; &:hover { background: #f8fafc; border-color: #cbd5e1; } }
+.card_completed { background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border-color: #bbf7d0; &:hover { background: linear-gradient(135deg, #ecfdf5, #dcfce7); border-color: #86efac; } }
+.card_cancelled { background: linear-gradient(135deg,#fff5f5,#fee2e2); border-color: #fca5a5; box-shadow: 0 0 0 1px rgba(239,68,68,.12),0 4px 16px rgba(239,68,68,.08); }
 .card_current { background: linear-gradient(135deg,#fffdf5,#fff8e1); border-color: #fde68a; box-shadow: 0 0 0 1px rgba(245,158,11,.12),0 4px 16px rgba(245,158,11,.08); }
 .card_expired { background: linear-gradient(135deg,#fff5f5,#fee2e2); border-color: #fca5a5; }
 .card_skipped { background: #fafbfc; border-style: dashed; opacity: .6; }
@@ -54,12 +59,16 @@
 .tagCur { font-size: .56rem; font-weight: 700; letter-spacing: .05em; padding: 3px 9px; border-radius: 5px; background: linear-gradient(135deg,#ffc107,#f59e0b); color: #fff; text-transform: uppercase; }
 .tagExp { font-size: .56rem; font-weight: 700; padding: 3px 9px; border-radius: 5px; background: linear-gradient(135deg,#ef4444,#dc2626); color: #fff; text-transform: uppercase; }
 .tagSkip { font-size: .58rem; font-weight: 500; padding: 2px 7px; border-radius: 4px; background: #f1f5f9; color: #94a3b8; }
+.tagCancel { font-size: .56rem; font-weight: 700; padding: 3px 9px; border-radius: 5px; background: linear-gradient(135deg,#ef4444,#dc2626); color: #fff; text-transform: uppercase; }
 .tagSub { font-size: .6rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: rgba(0,0,0,.04); color: #6c757d; text-transform: capitalize; }
 .dateTag { font-size: .7rem; color: #64748b; display: flex; align-items: center; gap: 4px; }
 .chev { font-size: .6rem; color: #94a3b8; .card:hover & { color: #475569; } }
 .cardSum { font-size: .76rem; color: #64748b; margin-top: 5px; }
+.row_completed .cardLabel { color: #14532d; }
+.row_completed .cardSum { color: #166534; font-weight: 500; }
 .row_current .cardSum { color: #92400e; font-weight: 500; }
 .row_expired .cardSum { color: #991b1b; font-weight: 500; }
+.row_cancelled .cardSum { color: #991b1b; font-weight: 500; }
 
 // ============================================
 // Detail
@@ -175,6 +184,7 @@
 .inst_rejected { border-left-color: #ef4444; background: #fffafa; }
 .inst_expired { border-left-color: #dc3545; background: #fef2f2; }
 .inst_pending { border-left-color: #f59e0b; background: #fffdf5; }
+.inst_cancelled { border-left-color: #ef4444; background: #fffafa; }
 
 .instHead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .instAttempt { font-size: .78rem; font-weight: 700; color: #0f172a; }
@@ -239,6 +249,13 @@
 .poRow { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f8fafc; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 4px; flex-wrap: wrap; &:last-child { margin-bottom: 0; } }
 .poBold { font-size: .8rem; font-weight: 700; color: #0f172a; }
 .poVendor { font-size: .76rem; color: #64748b; }
+.poGroupHeader {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 14px; margin-bottom: 10px; border-radius: 8px;
+  background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border: 1px solid #bae6fd;
+  font-size: .82rem; font-weight: 700; color: #0369a1;
+}
+.poGroupProducts { font-size: .76rem; font-weight: 500; color: #475569; }
 
 // Action buttons
 .actRow { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e9ecef; }
