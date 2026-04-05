@@ -9,32 +9,48 @@
 @keyframes sp { to { transform: rotate(360deg); } }
 
 // ============================================
-// Outer phase timeline
+// Outer phase timeline — monochrome, minimal
 // ============================================
 .tl { padding: 22px 22px 14px; }
 .row { display: flex; gap: 18px; }
-.rail { display: flex; flex-direction: column; align-items: center; width: 32px; flex-shrink: 0; }
-.node { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #fff; border: 2px solid #e5e7eb; z-index: 1; }
-.node_completed { border: none; background: #f0fdf4; box-shadow: 0 2px 6px rgba(34,197,94,.12); }
-.node_current { border-color: #f59e0b; background: #fef3c7; box-shadow: 0 0 0 4px rgba(245,158,11,.1); }
-.node_expired { border-color: #dc3545; background: #fef2f2; }
-.node_skipped { border-color: #e2e8f0; background: #f8fafc; }
-.node_upcoming { border-color: #f1f5f9; }
-.pulse { border-radius: 50%; animation: pu 2s ease-in-out infinite; }
+.rail { display: flex; flex-direction: column; align-items: center; width: 28px; flex-shrink: 0; }
+
+// Uniform 28×28 nodes
+.node { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #fff; border: 2px solid #e5e7eb; z-index: 1; transition: all .2s; }
+.node_completed { border-color: #94a3b8; background: #f1f5f9; color: #64748b; }
+.node_current { border-color: #f59e0b; background: #fef3c7; box-shadow: 0 0 0 3px rgba(245,158,11,.1); }
+.node_expired { border-color: #ef4444; background: #fef2f2; color: #ef4444; }
+.node_skipped { border-color: #e2e8f0; background: #f8fafc; color: #d1d5db; }
+.node_upcoming { border-color: #f1f5f9; background: #fafbfc; color: #e5e7eb; }
+
+.pulse { width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; animation: pu 2s ease-in-out infinite; }
 @keyframes pu { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.35; transform:scale(.6); } }
+
+// Wires — status-based, no per-phase color
 .wire { width: 2px; flex: 1; min-height: 16px; background: #e5e7eb; }
+.wire_completed { background: #cbd5e1; }
+.wire_current { background: linear-gradient(to bottom, #fcd34d 0%, #e5e7eb 100%); }
+.wire_expired { background: #fca5a5; }
+.wire_skipped { background: none; border-left: 2px dashed #e2e8f0; width: 0; }
+.wire_upcoming { background: #f1f5f9; }
+
+// Phase icon inside card header — uniform color
+.phaseIcon { color: #94a3b8; flex-shrink: 0; }
+.row_current .phaseIcon { color: #d97706; }
+.row_expired .phaseIcon { color: #ef4444; }
 
 // Phase card
 .body { flex: 1; min-width: 0; padding-bottom: 18px; overflow: hidden; }
 .card { border-radius: 10px; padding: 14px 18px; border: 1px solid #e2e8f0; transition: all .2s; }
-.card_completed { background: #fafffe; &:hover { background: #f0fdf4; border-color: #bbf7d0; } }
+.card_completed { background: #fff; &:hover { background: #f8fafc; border-color: #cbd5e1; } }
 .card_current { background: linear-gradient(135deg,#fffdf5,#fff8e1); border-color: #fde68a; box-shadow: 0 0 0 1px rgba(245,158,11,.12),0 4px 16px rgba(245,158,11,.08); }
 .card_expired { background: linear-gradient(135deg,#fff5f5,#fee2e2); border-color: #fca5a5; }
 .card_skipped { background: #fafbfc; border-style: dashed; opacity: .6; }
-.card_upcoming { background: #fafbfc; border-color: #f1f5f9; opacity: .45; }
+.card_upcoming { background: #f8fafc; border-color: #e2e8f0; }
 .cardHead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .cardLabel { font-size: .9rem; font-weight: 700; color: #0f172a; }
-.row_skipped .cardLabel, .row_upcoming .cardLabel { color: #94a3b8; font-weight: 500; }
+.row_skipped .cardLabel { color: #94a3b8; font-weight: 500; }
+.row_upcoming .cardLabel { color: #64748b; font-weight: 600; }
 .tagCur { font-size: .56rem; font-weight: 700; letter-spacing: .05em; padding: 3px 9px; border-radius: 5px; background: linear-gradient(135deg,#ffc107,#f59e0b); color: #fff; text-transform: uppercase; }
 .tagExp { font-size: .56rem; font-weight: 700; padding: 3px 9px; border-radius: 5px; background: linear-gradient(135deg,#ef4444,#dc2626); color: #fff; text-transform: uppercase; }
 .tagSkip { font-size: .58rem; font-weight: 500; padding: 2px 7px; border-radius: 4px; background: #f1f5f9; color: #94a3b8; }
@@ -52,8 +68,21 @@
 .expBanner { display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px; border-radius: 8px; margin-bottom: 10px; background: linear-gradient(135deg,#fef2f2,#fee2e2); border: 1px solid #fca5a5; font-size: .78rem; color: #991b1b; font-weight: 500; line-height: 1.4; svg { flex-shrink: 0; margin-top: 2px; } }
 .awaitingBanner { display: flex; align-items: flex-start; gap: 10px; padding: 14px 18px; border-radius: 8px; background: linear-gradient(135deg,#eff6ff,#dbeafe); border: 1px solid #93c5fd; font-size: .78rem; color: #1e40af; font-weight: 500; line-height: 1.4; svg { flex-shrink: 0; margin-top: 2px; color: #3b82f6; } }
 
+.actorSection {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(147, 197, 253, 0.3);
+  &:first-of-type { border-top: none; padding-top: 4px; }
+}
+.actorLabel {
+  font-size: .72rem; font-weight: 700; color: #1e40af; display: block; margin-bottom: 4px;
+}
+.actorStepLabel {
+  font-size: .68rem; font-weight: 600; color: #3b82f6;
+}
+
 .actionUserList {
-  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
 }
 
 .actionUserChip {
@@ -75,35 +104,34 @@
 .empty { font-size: .76rem; color: #94a3b8; padding: 12px 4px; font-style: italic; }
 
 // ============================================
-// Product Accordion
+// Product Accordion — minimal, clean
 // ============================================
 .prodAcc {
   width: 100%;
 
   :global(.accordion-item) {
-    border: none !important;
-    margin-bottom: 8px;
-    border-radius: 10px !important;
+    border: 1px solid #e2e8f0 !important;
+    margin-bottom: 10px;
+    border-radius: 8px !important;
     overflow: hidden;
-    box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    background: #f8fafc;
   }
   :global(.accordion-button) {
-    padding: 12px 16px;
-    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    padding: 11px 16px !important;
+    margin: 0 !important;
+    background: #fff;
     font-size: .84rem; font-weight: 600; color: #0f172a;
     box-shadow: none !important;
-    border-bottom: 1px solid #e9ecef;
-    &:not(.collapsed) { background: linear-gradient(135deg, #eef2ff, #e0e7ff); color: #3730a3; width: 99% !important; }
-    &::after { width: 14px; height: 14px; background-size: 14px; flex-shrink: 0; margin-left: auto; }
+    border-bottom: 1px solid #f1f5f9;
+    &:not(.collapsed) { background: #fff; border-bottom-color: #e2e8f0; width: 100% !important; }
+    &::after { width: 12px; height: 12px; background-size: 12px; flex-shrink: 0; margin-left: auto; opacity: .4; }
+    &:hover::after { opacity: .7; }
   }
-  :global(.accordion-body) { padding: 16px 18px; background: #fff; }
+  :global(.accordion-body) { padding: 14px 16px; background: #f8fafc; }
 }
 .prodHead { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; flex-wrap: wrap; padding-right: 8px; }
 .prodBadge {
-  font-size: .86rem; font-weight: 800; color: #1e3a5f;
-  padding: 3px 12px; border-radius: 6px;
-  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
-  border: 1px solid #93c5fd;
+  font-size: .84rem; font-weight: 700; color: #0f172a;
 }
 
 // Pills
@@ -215,6 +243,25 @@
 // Action buttons
 .actRow { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e9ecef; }
 .actBtn { font-size: .78rem; font-weight: 600; padding: 6px 16px; border-radius: 8px; &:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,.1); } }
+
+// ============================================
+// Future Actors (upcoming phases)
+// ============================================
+.futureActors {
+  margin-top: 8px; padding: 10px 14px; border-radius: 6px;
+  background: #f1f5f9; border: 1px solid #e2e8f0;
+}
+.futureRow {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: .74rem; color: #334155; margin-bottom: 4px;
+}
+.futureLabel { font-weight: 700; color: #1e293b; }
+.futureNames { font-weight: 500; color: #475569; }
+.futureRule { font-size: .62rem; font-weight: 600; padding: 2px 7px; border-radius: 4px; background: #e2e8f0; color: #64748b; }
+.futureNoPolicy { font-size: .72rem; color: #94a3b8; font-style: italic; }
+.futureDisclaimer {
+  font-size: .66rem; font-style: italic; color: #64748b; margin-top: 6px;
+}
 
 // ============================================
 // Responsive

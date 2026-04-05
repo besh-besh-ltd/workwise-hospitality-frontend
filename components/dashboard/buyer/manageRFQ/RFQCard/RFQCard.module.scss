@@ -398,7 +398,7 @@
 }
 
 // ============================================
-// LIFECYCLE PILL (inside rightSection)
+// LIFECYCLE PILL — monochrome, enterprise
 // ============================================
 
 .lifecycleWrap {
@@ -414,19 +414,22 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
-  border-radius: 8px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   cursor: default;
-  transition: box-shadow 0.2s ease;
+  transition: all 0.15s ease;
 
   &:hover {
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    background: #e9eef5;
+    border-color: #cbd5e1;
   }
 }
 
 .lcDot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
   animation: lc-pulse 2s ease-in-out infinite;
@@ -434,56 +437,46 @@
 
 @keyframes lc-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.45; transform: scale(0.75); }
+  50% { opacity: 0.4; transform: scale(0.7); }
 }
 
 .lcLabel {
-  font-size: 0.75rem;
-  font-weight: 650;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #1e293b;
   white-space: nowrap;
 }
 
-.lcSteps {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  margin-left: 2px;
+.lcSep {
+  width: 1px;
+  height: 14px;
+  background: #cbd5e1;
+  flex-shrink: 0;
 }
 
-.lcDotStep {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #d1d5db;
-  transition: all 0.2s ease;
+.lcProgress {
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
 }
 
-.lcDotStepOn {
-  // bg set inline
-}
-
-.lcDotStepNow {
-  width: 6px;
-  height: 6px;
-}
-
-// -- Tooltip (light, compact, opens above) --
+// -- Tooltip — clean white card --
 
 .lcTooltip {
   position: absolute;
   bottom: calc(100% + 10px);
   right: 0;
   z-index: 1000;
-  width: 260px;
+  width: 280px;
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.10), 0 -2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
   padding: 0;
   animation: lctt-in 0.15s ease-out;
   overflow: hidden;
 
-  // Invisible bridge to prevent tooltip disappearing when moving mouse from pill to tooltip
   &::before {
     content: '';
     position: absolute;
@@ -494,14 +487,13 @@
     background: transparent;
   }
 
-  // Arrow pointing down
   &::after {
     content: '';
     position: absolute;
     bottom: -6px;
     right: 24px;
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     background: #fff;
     border-right: 1px solid #e2e8f0;
     border-bottom: 1px solid #e2e8f0;
@@ -509,7 +501,7 @@
   }
 
   @media (max-width: 767px) {
-    width: 240px;
+    width: 260px;
     left: 0;
     right: auto;
     &::after { left: 20px; right: auto; }
@@ -521,16 +513,15 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-// Current stage card at top of tooltip
-.lcTTCurrent {
+// Stage info at top
+.lcTTTop {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px 14px;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 14px 16px 10px;
 }
 
-.lcTTCurrentDot {
+.lcTTDot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -538,23 +529,61 @@
   margin-top: 3px;
 }
 
-.lcTTCurrentInfo {
+.lcTTInfo {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.lcTTCurrentLabel {
-  font-size: 0.78rem;
+.lcTTLabel {
+  font-size: 0.82rem;
   font-weight: 700;
+  color: #0f172a;
   line-height: 1.2;
 }
 
-.lcTTCurrentDesc {
+.lcTTDesc {
   font-size: 0.68rem;
   color: #64748b;
   line-height: 1.35;
+}
+
+// Progress bar section
+.lcTTProgress {
+  padding: 8px 16px 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.lcTTProgressLabel {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #64748b;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.lcTTBar {
+  display: flex;
+  gap: 3px;
+}
+
+.lcTTBarSeg {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: #e5e7eb;
+  transition: background 0.2s;
+}
+
+.lcTTBarDone {
+  opacity: 0.5;
+}
+
+.lcTTBarCur {
+  opacity: 1;
+  height: 5px;
+  margin-top: -0.5px;
 }
 
 
@@ -566,21 +595,15 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  margin-left: 4px;
-  padding: 1px 5px;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.06);
-  font-size: 0.65rem;
+  font-size: 0.66rem;
   font-weight: 600;
-  color: inherit;
+  color: #64748b;
 
-  svg {
-    opacity: 0.7;
-  }
+  svg { opacity: 0.6; }
 }
 
 .lcTTActors {
-  padding: 8px 14px 10px;
+  padding: 10px 16px 12px;
   border-top: 1px solid #f1f5f9;
 }
 
