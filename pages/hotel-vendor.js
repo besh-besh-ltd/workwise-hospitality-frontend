@@ -6,6 +6,7 @@ import RegisterUserModal from '../components/modal/RegisterUserModal';
 import SubscriptionModal from '../components/modal/SubscriptionModal';
 import AuthModal from '../components/modal/AuthModal';
 import LoginWithOtherDeviceModal from '../components/modal/LoginWithOtherDeviceModal';
+import MembershipInfoModal from '../components/modal/MembershipInfoModal';
 import {
   loadScript,
   testRazorPayEndpoint,
@@ -40,6 +41,7 @@ const HotelVendor = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [showMembershipInfoModal, setShowMembershipInfoModal] = useState(false);
   const [showOtherDeviceModal, setShowOtherDeviceModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [dashboardUrl, setDashboardUrl] = useState('/dashboard/buyer');
@@ -83,7 +85,7 @@ const HotelVendor = () => {
   // Query param auto-open
   useEffect(() => {
     if (register === 'true' || register === '') {
-      setShowRegisterModal(true);
+      setShowMembershipInfoModal(true);
     }
     if (login === 'true' || login === '') {
       setShowLoginModal(true);
@@ -342,8 +344,12 @@ const HotelVendor = () => {
   };
 
   const handleRegisterClick = () => {
-    const silverPlan = pricingData.sellers.plans.find((p) => p.name === 'Silver');
-    setSelectedPlan(silverPlan);
+    setShowMembershipInfoModal(true);
+  };
+
+  const handlePlanSelected = (plan) => {
+    setSelectedPlan(plan);
+    setShowMembershipInfoModal(false);
     setShowRegisterModal(true);
   };
 
@@ -1152,6 +1158,14 @@ const HotelVendor = () => {
           <p className="hp-footer-text">Powered by Workwise</p>
         </div>
       </div>
+
+      <MembershipInfoModal
+        show={showMembershipInfoModal}
+        onHide={() => setShowMembershipInfoModal(false)}
+        plans={pricingData.sellers.plans}
+        allPlansInclude={pricingData.sellers.allPlansInclude}
+        onSelectPlan={handlePlanSelected}
+      />
 
       <RegisterUserModal
         showModal={showRegisterModal}
