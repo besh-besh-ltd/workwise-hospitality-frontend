@@ -102,68 +102,80 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
         {/* Right: Lifecycle + Date + Expand */}
         <div className={styles.rightSection}>
           {/* Lifecycle Pill */}
-          {lifecycleConfig && (
-            <div
-              className={styles.lifecycleWrap}
-              onMouseEnter={() => setShowLifecycleTooltip(true)}
-              onMouseLeave={() => setShowLifecycleTooltip(false)}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className={styles.lifecyclePill} style={{ background: lifecycleConfig.gradient }}>
-                <span className={styles.lcDot} style={{ backgroundColor: lifecycleConfig.dotColor }} />
-                <span className={styles.lcLabel} style={{ color: lifecycleConfig.textColor }}>{lifecycleConfig.label}</span>
-                {data.action_holders?.users?.length > 0 && (
-                  <span className={styles.lcActors} style={{ color: lifecycleConfig.textColor }}>
-                    <User size={10} />
-                    <span>{data.action_holders.users.length}</span>
-                  </span>
-                )}
-                <div className={styles.lcSteps}>
-                  {LIFECYCLE_STAGES_ORDERED.map((key, i) => {
-                    if (key === 'TECHNICAL_REJECTED') return null;
-                    const active = i <= currentStageIndex;
-                    const current = key === data.lifecycle_stage;
-                    return <span key={key} className={`${styles.lcDotStep} ${active ? styles.lcDotStepOn : ''} ${current ? styles.lcDotStepNow : ''}`} style={active ? { backgroundColor: lifecycleConfig.dotColor } : {}} />;
-                  })}
-                </div>
-              </div>
-
-              {showLifecycleTooltip && (
-                <div className={styles.lcTooltip}>
-                  {/* Current stage highlight */}
-                  <div className={styles.lcTTCurrent} style={{ background: lifecycleConfig.gradient }}>
-                    <span className={styles.lcTTCurrentDot} style={{ backgroundColor: lifecycleConfig.dotColor }} />
-                    <div className={styles.lcTTCurrentInfo}>
-                      <span className={styles.lcTTCurrentLabel} style={{ color: lifecycleConfig.textColor }}>{lifecycleConfig.label}</span>
-                      <span className={styles.lcTTCurrentDesc}>{lifecycleConfig.description}</span>
-                    </div>
-                  </div>
-                  {/* Action holders */}
+          {lifecycleConfig && (() => {
+            const stagesFiltered = LIFECYCLE_STAGES_ORDERED.filter(k => k !== 'TECHNICAL_REJECTED');
+            const stepNum = stagesFiltered.indexOf(data.lifecycle_stage) + 1;
+            return (
+              <div
+                className={styles.lifecycleWrap}
+                onMouseEnter={() => setShowLifecycleTooltip(true)}
+                onMouseLeave={() => setShowLifecycleTooltip(false)}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className={styles.lifecyclePill}>
+                  <span className={styles.lcDot} style={{ backgroundColor: lifecycleConfig.dotColor }} />
+                  <span className={styles.lcLabel}>{lifecycleConfig.label}</span>
                   {data.action_holders?.users?.length > 0 && (
-                    <div className={styles.lcTTActors}>
-                      <div className={styles.lcTTActorsHeader}>
-                        <UserCheck size={12} />
-                        <span>{data.action_holders.label}</span>
-                        {data.action_holders.decision_rule && (
-                          <span className={styles.lcTTRuleTag}>
-                            {data.action_holders.decision_rule === "ANY" ? "Any one can approve" : "All must approve"}
-                          </span>
-                        )}
-                      </div>
-                      <div className={styles.lcTTActorsList}>
-                        {data.action_holders.users.map(user => (
-                          <div key={user.id} className={styles.lcTTActor}>
-                            <span className={styles.lcTTActorDot} />
-                            <span className={styles.lcTTActorName}>{user.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <>
+                      <span className={styles.lcSep} />
+                      <span className={styles.lcActors}>
+                        <User size={10} />
+                        <span>{data.action_holders.users.length}</span>
+                      </span>
+                    </>
                   )}
                 </div>
-              )}
-            </div>
-          )}
+
+                {showLifecycleTooltip && (
+                  <div className={styles.lcTooltip}>
+                    {/* Stage info */}
+                    <div className={styles.lcTTTop}>
+                      <span className={styles.lcTTDot} style={{ backgroundColor: lifecycleConfig.dotColor }} />
+                      <div className={styles.lcTTInfo}>
+                        <span className={styles.lcTTLabel}>{lifecycleConfig.label}</span>
+                        <span className={styles.lcTTDesc}>{lifecycleConfig.description}</span>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className={styles.lcTTProgress}>
+                      <span className={styles.lcTTProgressLabel}>Progress</span>
+                      <div className={styles.lcTTBar}>
+                        {stagesFiltered.map((key, i) => {
+                          const done = i < stepNum - 1;
+                          const current = key === data.lifecycle_stage;
+                          return <span key={key} className={`${styles.lcTTBarSeg} ${done ? styles.lcTTBarDone : ''} ${current ? styles.lcTTBarCur : ''}`} style={done || current ? { backgroundColor: lifecycleConfig.dotColor } : {}} />;
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Action holders */}
+                    {data.action_holders?.users?.length > 0 && (
+                      <div className={styles.lcTTActors}>
+                        <div className={styles.lcTTActorsHeader}>
+                          <UserCheck size={12} />
+                          <span>{data.action_holders.label}</span>
+                          {data.action_holders.decision_rule && (
+                            <span className={styles.lcTTRuleTag}>
+                              {data.action_holders.decision_rule === "ANY" ? "Any one" : "All must approve"}
+                            </span>
+                          )}
+                        </div>
+                        <div className={styles.lcTTActorsList}>
+                          {data.action_holders.users.map(user => (
+                            <div key={user.id} className={styles.lcTTActor}>
+                              <span className={styles.lcTTActorDot} />
+                              <span className={styles.lcTTActorName}>{user.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Unread Queries */}
           {data.unseen_query_count > 0 && (
