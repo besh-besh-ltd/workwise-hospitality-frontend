@@ -756,9 +756,15 @@ useEffect(() => {
         currentVendors = product.vendors ?? [];
       }
       
-      // If still no vendors and not yet fetched, don't count as error (user hasn't opened accordion yet)
+      // If vendors not yet fetched into accordion state, check original product data
       if (currentVendors.length === 0 && !vendors.hasOwnProperty(key)) {
-        return; // Skip validation for this product – treat as "not checked yet"
+        // Only skip if product originally had vendors (not yet loaded into accordion state).
+        // If the product has no vendors at all, it's a real error.
+        if (product.vendors && product.vendors.length > 0) {
+          return;
+        }
+        productsWithoutVendors.add(product.id);
+        return;
       }
 
       const currentVendorIds = currentVendors.map(v => v.user_id || v.id || v);
@@ -777,7 +783,7 @@ useEffect(() => {
 
     if (productsWithoutVendors.size > 0) {
       setErrorProducts(productsWithoutVendors);
-      toast.error("At least one vendor is required for each product. Please open the product accordion and add/select vendors.");
+      toast.error("At least one vendor is required for each product.");
       return false;
     }
 
@@ -1521,15 +1527,22 @@ useEffect(() => {
       const response = await refreshVendors(rfqDetails);
       const result = response?.data || response;
 
-      if (result?.message) {
-        toast.success(result.message);
+      const totalAdded = result?.data?.totalAdded || 0;
+      if (totalAdded > 0) {
+        toast.info(`${totalAdded} new vendor${totalAdded > 1 ? 's' : ''} found`);
+      } else {
+        toast.info('No additional vendors found');
       }
 
       if (result?.data?.productsWithNoVendors?.length > 0) {
         const names = result.data.productsWithNoVendors
           .map(p => p.product_name).filter(Boolean).join(', ');
-        toast.warn(`Warning: Products ${names ? `'${names}'` : ''} have no eligible vendors for the selected business units`);
+        toast.warn(`Products without vendors: ${names || 'some products'}`);
       }
+
+      // Clear stale error/vendor states before reloading
+      setErrorProducts(new Set());
+      setVendors({});
 
       await getDraftInitialData();
     } catch (error) {

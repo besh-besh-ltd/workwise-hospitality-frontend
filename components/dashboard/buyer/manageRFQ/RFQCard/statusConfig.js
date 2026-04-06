@@ -91,6 +91,7 @@ export const STATUS_CONFIG = {
 export const LIFECYCLE_STAGES_ORDERED = [
   'RFQ_APPROVAL',
   'AWAITING_QUOTES',
+  'TECHNICAL_AWAITING_QUOTES',
   'TECHNICAL_EVALUATING',
   'TECHNICAL_APPROVING',
   'TECHNICAL_REJECTED',
@@ -124,6 +125,17 @@ export const LIFECYCLE_CONFIG = {
     background: '#eef2ff',
     textColor: '#3730a3',
     dotColor: '#6366f1',
+  },
+  TECHNICAL_AWAITING_QUOTES: {
+    step: 2,
+    label: 'Tech Eval — Awaiting Quotes',
+    shortLabel: 'Tech Eval',
+    description: 'Technical evaluation configured, waiting for vendor quotes',
+    color: '#0ea5e9',
+    gradient: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
+    background: '#f0f9ff',
+    textColor: '#0c4a6e',
+    dotColor: '#0ea5e9',
   },
   TECHNICAL_EVALUATING: {
     step: 2,

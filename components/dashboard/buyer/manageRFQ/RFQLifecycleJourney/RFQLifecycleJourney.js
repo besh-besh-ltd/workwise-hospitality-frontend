@@ -126,7 +126,10 @@ const RFQLifecycleJourney = ({ rfqId, isTender = false, onActionComplete }) => {
     <div className={styles.root}>
       <div className={styles.header}>
         <h6 className={styles.title}>{entityLabel} Lifecycle Journey</h6>
-        {data.current_phase && <Badge bg="warning" text="dark" className={styles.curBadge}><BsLightningChargeFill size={10} className="me-1" />{data.phases.find(p => p.status === 'current')?.label || 'In Progress'}</Badge>}
+        {data.current_stage === 'APPROVED_COMPLETED'
+          ? <Badge bg="success" className={styles.curBadge}><BsCheckCircleFill size={10} className="me-1" />Completed</Badge>
+          : data.current_phase && <Badge bg="warning" text="dark" className={styles.curBadge}><BsLightningChargeFill size={10} className="me-1" />{data.phases.find(p => p.status === 'current')?.label || 'In Progress'}</Badge>
+        }
       </div>
       <div className={styles.tl}>
         {data.phases.map((phase, idx) => {
@@ -134,12 +137,17 @@ const RFQLifecycleJourney = ({ rfqId, isTender = false, onActionComplete }) => {
           const isOpen = !!expandedPhases[phase.key];
           const canOpen = phase.status !== 'upcoming' && phase.status !== 'skipped';
           const Icon = PHASE_ICONS[phase.key] || BsCircle;
+          const isCancelled = phase.is_cancelled && phase.status === 'current';
+          const rowClass = isCancelled ? styles.row_cancelled : styles[`row_${phase.status}`];
+          const nodeClass = isCancelled ? styles.node_cancelled : styles[`node_${phase.status}`];
+          const cardClass = isCancelled ? styles.card_cancelled : styles[`card_${phase.status}`];
           return (
-            <div key={phase.key} className={`${styles.row} ${styles[`row_${phase.status}`]}`}>
+            <div key={phase.key} className={`${styles.row} ${rowClass}`}>
               <div className={styles.rail}>
-                <div className={`${styles.node} ${styles[`node_${phase.status}`]}`}>
+                <div className={`${styles.node} ${nodeClass}`}>
                   {phase.status === 'completed' && <BsCheckCircleFill size={14} />}
-                  {phase.status === 'current' && <div className={styles.pulse} />}
+                  {phase.status === 'current' && !isCancelled && <div className={styles.pulse} />}
+                  {isCancelled && <div className={styles.pulse_cancelled} />}
                   {phase.status === 'expired' && <BsExclamationTriangleFill size={14} />}
                   {phase.status === 'skipped' && <BsSkipForwardFill size={12} />}
                   {phase.status === 'upcoming' && <BsCircle size={14} />}
@@ -147,14 +155,16 @@ const RFQLifecycleJourney = ({ rfqId, isTender = false, onActionComplete }) => {
                 {!isLast && <div className={`${styles.wire} ${styles[`wire_${phase.status}`]}`} />}
               </div>
               <div className={styles.body}>
-                <div className={`${styles.card} ${styles[`card_${phase.status}`]}`} onClick={() => canOpen && togglePhase(phase.key)} style={canOpen ? { cursor: 'pointer' } : undefined}>
+                <div className={`${styles.card} ${cardClass}`} onClick={() => canOpen && togglePhase(phase.key)} style={canOpen ? { cursor: 'pointer' } : undefined}>
                   <div className={styles.cardHead}>
                     <Icon size={15} className={styles.phaseIcon} />
                     <span className={styles.cardLabel}>{phase.label}</span>
-                    {phase.status === 'current' && <span className={styles.tagCur}>Current</span>}
+                    {phase.status === 'current' && !isCancelled && <span className={styles.tagCur}>Current</span>}
+                    {isCancelled && <span className={styles.tagCur}>Current</span>}
+                    {isCancelled && <span className={styles.tagCancel}>Cancelled</span>}
                     {phase.status === 'expired' && <span className={styles.tagExp}>Expired</span>}
                     {phase.status === 'skipped' && <span className={styles.tagSkip}>Skipped</span>}
-                    {phase.sub_status && phase.status === 'current' && <span className={styles.tagSub}>{phase.sub_status.replace(/_/g, ' ')}</span>}
+                    {phase.sub_status && phase.status === 'current' && !isCancelled && <span className={styles.tagSub}>{phase.sub_status.replace(/_/g, ' ')}</span>}
                     <span style={{ flex: 1 }} />
                     {phase.completed_at && <span className={styles.dateTag}><BsCalendar3 size={9} /> {fmt(phase.completed_at)}</span>}
                     {canOpen && <span className={styles.chev}>{isOpen ? '▲' : '▼'}</span>}
@@ -197,19 +207,20 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
     const productGroups = groupByProduct(instances);
     const hasProducts = phase.products?.length > 0;
     const isEvaluating = phase.sub_status === 'evaluating';
+    const isAwaitingQuotes = phase.sub_status === 'awaiting_quotes';
 
-    // If no approval instances yet (evaluating stage), show who needs to act
+    // If no approval instances yet (evaluating/awaiting stage), show who needs to act
     if (!productGroups.length && !hasProducts) {
       const ah = phase.action_holders;
       const actionUsers = ah?.users?.map(u => u.name).filter(Boolean) || [];
       const ua = phase.upcoming_actors;
       return (
         <div>
-          {isEvaluating && (
+          {(isEvaluating || isAwaitingQuotes) && (
             <div className={styles.awaitingBanner}>
               <BsClipboardCheck size={14} />
               <div style={{ flex: 1 }}>
-                <div><strong>Technical evaluation is in progress</strong></div>
+                <div><strong>{isAwaitingQuotes ? 'Waiting for vendor quotes before technical evaluation can begin' : 'Technical evaluation is in progress'}</strong></div>
                 {actionUsers.length > 0 && (
                   <div className={styles.actorSection}>
                     <span className={styles.actorLabel}>{ah?.label || 'Technical Evaluators'}:</span>
@@ -237,7 +248,7 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
               </div>
             </div>
           )}
-          {!isEvaluating && <div className={styles.empty}>No technical evaluation data</div>}
+          {!isEvaluating && !isAwaitingQuotes && <div className={styles.empty}>No technical evaluation data</div>}
         </div>
       );
     }
@@ -416,24 +427,73 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
     );
   }
 
-  // Purchase Order
+  // Purchase Order — group approval instances by PO
   if (phase.key === 'purchase_order') {
+    // Build PO summary rows
+    const poSummary = phase.purchase_orders?.length > 0 ? (
+      <div style={{ marginBottom: 10 }}>
+        <div className={styles.secLabel}>Purchase Orders</div>
+        {phase.purchase_orders.map((po, i) => (
+          <div key={i} className={styles.poRow}>
+            <strong>PO Number #{po.po_number || po.id}</strong>
+            {po.product_names && <span className={styles.poGroupProducts}>{po.product_names}</span>}
+            <span className={styles.poVendor}>{po.vendor_company || po.vendor_name}</span>
+            <Badge bg={['approved','completed','sent'].includes(po.status) ? 'success' : po.status === 'pending_approval' ? 'warning' : 'secondary'} style={{ fontSize: '0.6rem' }}>{po.status?.replace(/_/g, ' ')}</Badge>
+            {po.total_amount != null && <span className={styles.poBold} style={{ marginLeft: 'auto' }}>₹{po.total_amount.toLocaleString('en-IN')}</span>}
+          </div>
+        ))}
+      </div>
+    ) : null;
+
+    // Group approval instances by PO (entity_id)
+    const poGroups = {};
+    (instances || []).forEach(inst => {
+      const poId = inst.entity_id || 'unknown';
+      if (!poGroups[poId]) poGroups[poId] = {
+        po_id: poId,
+        po_number: inst.metadata?.po_number,
+        product_names: inst.metadata?.product_names,
+        instances: [],
+      };
+      poGroups[poId].instances.push(inst);
+    });
+    const groups = Object.values(poGroups);
+
     return (
       <>
-        {phase.purchase_orders?.length > 0 && (
-          <div style={{ marginBottom: 10 }}>
-            <div className={styles.secLabel}>Purchase Orders</div>
-            {phase.purchase_orders.map((po, i) => (
-              <div key={i} className={styles.poRow}>
-                <strong>{po.po_number || `PO #${po.id}`}</strong>
-                <span className={styles.poVendor}>{po.vendor_company || po.vendor_name}</span>
-                <Badge bg={['approved','completed','sent'].includes(po.status) ? 'success' : po.status === 'pending_approval' ? 'warning' : 'secondary'} style={{ fontSize: '0.6rem' }}>{po.status?.replace(/_/g, ' ')}</Badge>
-                {po.total_amount != null && <span className={styles.poBold} style={{ marginLeft: 'auto' }}>₹{po.total_amount.toLocaleString('en-IN')}</span>}
+        {poSummary}
+        {groups.length <= 1 && instances.length > 0 ? (
+          <div>
+            {groups[0]?.po_number && (
+              <div className={styles.poGroupHeader}>
+                <span>PO Number #{groups[0].po_number}</span>
+                {groups[0].product_names && <span className={styles.poGroupProducts}>{groups[0].product_names}</span>}
               </div>
-            ))}
+            )}
+            <InstanceList instances={instances} isExpired={isExpired} onApprove={onApprove} onReject={onReject} />
           </div>
-        )}
-        {instances.length > 0 && <InstanceList instances={instances} isExpired={isExpired} onApprove={onApprove} onReject={onReject} />}
+        ) : groups.length > 1 ? (
+          <Accordion alwaysOpen defaultActiveKey={groups.map((g, i) => g.instances.some(inst => inst.status === 'PENDING') ? String(i) : null).filter(Boolean)} className={styles.prodAcc}>
+            {groups.map((g, gi) => {
+              const latestInst = g.instances[g.instances.length - 1];
+              return (
+                <Accordion.Item key={g.po_id} eventKey={String(gi)} className={styles.prodItem}>
+                  <Accordion.Header>
+                    <div className={styles.prodHead}>
+                      <span className={styles.prodBadge}>PO Number #{g.po_number || g.po_id}</span>
+                      {g.product_names && <span className={styles.poGroupProducts}>{g.product_names}</span>}
+                      {latestInst?.status && <Badge bg={latestInst.status === 'APPROVED' ? 'success' : latestInst.status === 'REJECTED' || latestInst.status === 'CANCELLED' ? 'danger' : 'warning'} style={{ fontSize: '0.6rem' }}>{latestInst.status}</Badge>}
+                      <span className={styles.pillMuted}>{g.instances.length} attempt{g.instances.length > 1 ? 's' : ''}</span>
+                    </div>
+                  </Accordion.Header>
+                  <Accordion.Body>
+                    <InstanceList instances={g.instances} isExpired={isExpired} onApprove={onApprove} onReject={onReject} />
+                  </Accordion.Body>
+                </Accordion.Item>
+              );
+            })}
+          </Accordion>
+        ) : null}
       </>
     );
   }
@@ -452,7 +512,7 @@ const TechInstanceCard = ({ inst, attemptNum, totalAttempts, isExpired, onApprov
   const notEval = meta.not_evaluated_vendors || [];
   const minScore = meta.minimum_passing_score;
   const effStatus = isExpired && inst.status === 'PENDING' ? 'EXPIRED' : inst.status;
-  const statusBg = effStatus === 'APPROVED' ? 'success' : effStatus === 'REJECTED' || effStatus === 'EXPIRED' ? 'danger' : 'warning';
+  const statusBg = effStatus === 'APPROVED' ? 'success' : effStatus === 'REJECTED' || effStatus === 'EXPIRED' || effStatus === 'CANCELLED' ? 'danger' : 'warning';
 
   return (
     <div className={`${styles.instCard} ${styles[`inst_${effStatus.toLowerCase()}`]}`}>
@@ -520,12 +580,11 @@ const InstanceList = ({ instances, isExpired, onApprove, onReject, hideProductNa
       {instances.map((inst, i) => {
         const isLast = i === instances.length - 1;
         const effStatus = isExpired && inst.status === 'PENDING' ? 'EXPIRED' : inst.status;
-        const statusBg = effStatus === 'APPROVED' ? 'success' : effStatus === 'REJECTED' || effStatus === 'EXPIRED' ? 'danger' : 'warning';
+        const statusBg = effStatus === 'APPROVED' ? 'success' : effStatus === 'REJECTED' || effStatus === 'EXPIRED' || effStatus === 'CANCELLED' ? 'danger' : 'warning';
         const ctx = [];
         if (!hideProductName && inst.metadata?.product_name) ctx.push(inst.metadata.product_name);
         if (inst.metadata?.evaluation_round) ctx.push(`Round ${inst.metadata.evaluation_round}`);
         else if (inst.metadata?.round_number) ctx.push(`Round ${inst.metadata.round_number}`);
-        if (inst.metadata?.po_number) ctx.push(inst.metadata.po_number);
 
         return (
           <div key={inst.id || i} className={`${styles.instCard} ${styles[`inst_${effStatus.toLowerCase()}`]}`}>
