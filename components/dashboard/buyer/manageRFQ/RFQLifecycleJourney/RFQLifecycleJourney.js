@@ -229,8 +229,12 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
     // If no approval instances yet (evaluating/awaiting stage), show who needs to act
     if (!productGroups.length && !hasProducts) {
       const ah = phase.action_holders;
-      const actionUsers = ah?.users?.map(u => u.name).filter(Boolean) || [];
       const ua = phase.upcoming_actors;
+      // Prefer action_holders.users (current-stage backend resolution); fall back to
+      // upcoming_actors.evaluators (from resolvePhaseActors). They contain the same
+      // set when both are populated, so this never produces duplicates.
+      const evaluatorList = (ah?.users?.length ? ah.users : ua?.evaluators) || [];
+      const evaluatorLabel = ah?.label || 'Technical Evaluators';
       return (
         <div>
           {(isEvaluating || isAwaitingQuotes) && (
@@ -238,12 +242,12 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
               <BsClipboardCheck size={14} />
               <div style={{ flex: 1 }}>
                 <div><strong>{isAwaitingQuotes ? 'Waiting for vendor quotes before technical evaluation can begin' : 'Technical evaluation is in progress'}</strong></div>
-                {actionUsers.length > 0 && (
+                {evaluatorList.length > 0 && (
                   <div className={styles.actorSection}>
-                    <span className={styles.actorLabel}>{ah?.label || 'Technical Evaluators'}:</span>
+                    <span className={styles.actorLabel}>{evaluatorLabel}:</span>
                     <div className={styles.actionUserList}>
-                      {actionUsers.map((name, i) => (
-                        <span key={i} className={styles.actionUserChip}><BsPersonFill size={10} /> {name}</span>
+                      {evaluatorList.map((u, i) => (
+                        <span key={u.id || i} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
                       ))}
                     </div>
                   </div>
@@ -329,48 +333,43 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
     if (!productGroups.length) {
       // Show who needs to act when no data yet
       const ah = phase.action_holders;
-      const actionUsers = ah?.users?.map(u => u.name).filter(Boolean) || [];
       const ua = phase.upcoming_actors;
       const isEval = phase.sub_status === 'evaluating';
       const isNeg = phase.sub_status === 'negotiating';
       const isApproving = phase.sub_status === 'approving';
 
-      if (actionUsers.length > 0 || ua || isEval || isNeg || isApproving) {
+      // Single source of truth for "currently acting" users.
+      // For evaluating/negotiating: action_holders.users === upcoming_actors.evaluators (RBAC).
+      // For approving: action_holders.users = the pending approvers from the live instance.
+      const currentActors = (ah?.users?.length ? ah.users : ua?.evaluators) || [];
+      const currentLabel = ah?.label || (isApproving ? 'Pending Approvers' : 'Commercial Evaluators');
+
+      if (currentActors.length > 0 || ua || isEval || isNeg || isApproving) {
         const stageText = isEval ? 'Commercial evaluation is in progress' : isNeg ? 'Negotiation is ongoing' : isApproving ? 'Quotation approval is pending' : 'Commercial evaluation is in progress';
         return (
           <div className={styles.awaitingBanner}>
             <BsGraphUpArrow size={14} />
             <div style={{ flex: 1 }}>
               <div><strong>{stageText}</strong></div>
-              {ua?.evaluators?.length > 0 && (
+              {currentActors.length > 0 && (
                 <div className={styles.actorSection}>
-                  <span className={styles.actorLabel}>Commercial Evaluators:</span>
+                  <span className={styles.actorLabel}>{currentLabel}:</span>
                   <div className={styles.actionUserList}>
-                    {ua.evaluators.map((u, i) => (
-                      <span key={i} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {actionUsers.length > 0 && (
-                <div className={styles.actorSection}>
-                  <span className={styles.actorLabel}>{ah?.label || 'Pending Approvers'}:</span>
-                  <div className={styles.actionUserList}>
-                    {actionUsers.map((name, i) => (
-                      <span key={i} className={styles.actionUserChip}><BsPersonFill size={10} /> {name}</span>
+                    {currentActors.map((u, i) => (
+                      <span key={u.id || i} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
                     ))}
                     {ah?.decision_rule && <span className={styles.futureRule}>{ah.decision_rule === 'ANY' ? 'Any one' : 'All'}</span>}
                   </div>
                 </div>
               )}
-              {ua?.approver_steps?.length > 0 && !actionUsers.length && (
+              {ua?.approver_steps?.length > 0 && !isApproving && (
                 <div className={styles.actorSection}>
-                  <span className={styles.actorLabel}>Approvers:</span>
+                  <span className={styles.actorLabel}>Approvers (after evaluation):</span>
                   {ua.approver_steps.map((step, si) => (
                     <div key={si} className={styles.actionUserList}>
                       {ua.approver_steps.length > 1 && <span className={styles.actorStepLabel}>Step {step.step_order}:</span>}
                       {step.approvers.map((u, ui) => (
-                        <span key={ui} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
+                        <span key={u.id || ui} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
                       ))}
                       <span className={styles.futureRule}>{step.decision_rule === 'ANY' ? 'Any one' : 'All'}</span>
                     </div>
