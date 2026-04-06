@@ -16,7 +16,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
   const publishState = getRFQPublishState(data);
   const isTender = data.is_tender === 1 || data.is_tender === true;
   const isBacklog = isPendingApproval && data.is_published === 1 && data.status === 1;
-  const statusConfig = isBacklog ? STATUS_CONFIG.PUBLISHED_WITHOUT_APPROVAL : getStatusConfig(data, publishState);
+  const statusConfig = isBacklog ? STATUS_CONFIG.PUBLISHED_WITHOUT_APPROVAL : isDraft ? STATUS_CONFIG.DRAFT : getStatusConfig(data, publishState);
   const StatusIcon = statusConfig.icon;
 
   const totalVendors = data.vendors?.[0]?.total_vendors || 0;
@@ -72,7 +72,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
           )}
 
           <div className={styles.titleBlock}>
-            <span className={styles.title} title={data.title || formatRFQNumber(data.rfq_no, data.is_tender)}>{data.title || formatRFQNumber(data.rfq_no, data.is_tender)}</span>
+            <span className={styles.title} style={!data.title && isDraft ? { color: '#8c939a', fontStyle: 'italic' } : undefined} title={data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}>{data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}</span>
             <span className={styles.rfqNumber}>{formatRFQNumber(data.rfq_no, data.is_tender)}</span>
           </div>
 

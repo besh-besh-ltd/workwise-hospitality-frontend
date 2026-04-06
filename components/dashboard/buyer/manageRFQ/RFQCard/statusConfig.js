@@ -105,10 +105,10 @@ export const STATUS_CONFIG = {
     key: 'draft',
     label: 'Draft',
     icon: BsClockFill,
-    borderColor: '#ffc107',
-    backgroundColor: '#fffbeb',
-    badgeBackground: '#ffc107',
-    badgeText: '#664d03',
+    borderColor: '#6c757d',
+    backgroundColor: '#f0f1f3',
+    badgeBackground: '#6c757d',
+    badgeText: '#ffffff',
     pulse: false
   }
 };

@@ -53,6 +53,11 @@ const FilterSection = ({ title, setFilterData }) => {
 
     const handleHotelSelectionChange = (hotelIds) => {
         setSelectedHotelIds(hotelIds);
+        setFilterData((prevState) => ({
+            ...prevState,
+            hotel_ids: hotelIds,
+            page: 1,
+        }));
     }
 
     useEffect(() => {
@@ -96,7 +101,7 @@ const FilterSection = ({ title, setFilterData }) => {
                                     : [];
                                 handleHotelSelectionChange(ids);
                             }}
-                            placeholder="Select Business Units..."
+                            placeholder="Select BUs"
                             closeMenuOnSelect={false}
                             classNamePrefix="react-select"
                             isClearable

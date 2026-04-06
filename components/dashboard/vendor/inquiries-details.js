@@ -52,6 +52,18 @@ const TECH_EVAL_STYLES = {
 const DEFAULT_STYLE = { bg: 'transparent', border: 'none', shadow: 'none' };
 const RESPONSE_STYLE = { bg: '#e7f3ff', border: '#0d6efd', shadow: '0 2px 8px rgba(13, 110, 253, 0.15)' };
 
+const actionBtnStyle = {
+  padding: '8px 18px',
+  fontSize: '13px',
+  fontWeight: 600,
+  borderRadius: '8px',
+  whiteSpace: 'nowrap',
+  width: 'auto',
+  minWidth: 'auto',
+  letterSpacing: '0.01em',
+  boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
+};
+
 const buildRowStyle = (styleConfig) => ({
   backgroundColor: styleConfig.bg,
   borderLeft: styleConfig.border !== 'none' ? `5px solid ${styleConfig.border}` : '0',
@@ -1945,12 +1957,25 @@ const RfqManagementPreview = () => {
 
                   <div className="manage-rfq-con">
                     {/* Content for Manage RFQs tab */}
-                    <div className="d-flex justify-content-between align-items-center">
-                      <span className="title mb-0">
-                        {getEntityLabel(rfqDetails?.is_tender)} #{rfqDetails.rfq_no} details
-                      </span>
+                    <div className="d-flex justify-content-between align-items-center" style={{ gap: 16, flexWrap: 'wrap' }}>
+                      <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+                        {rfqDetails?.title ? (
+                          <>
+                            <span className="title mb-0" style={{ display: 'block', lineHeight: 1.25, wordBreak: 'break-word' }}>
+                              {rfqDetails.title}
+                            </span>
+                            <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500, display: 'inline-block', marginTop: 2 }}>
+                              {getEntityLabel(rfqDetails?.is_tender)} #{rfqDetails.rfq_no}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="title mb-0">
+                            {getEntityLabel(rfqDetails?.is_tender)} #{rfqDetails.rfq_no} details
+                          </span>
+                        )}
+                      </div>
 
-                      <div>
+                      <div className="d-flex align-items-center flex-wrap" style={{ gap: 10 }}>
                         {/* Edit button - Hidden for pre-publish approval states (status=3/4) */}
                         {type === "buyer-view" && (
                           rfqDetails.is_published === 0 && (rfqDetails.status === 3 || rfqDetails.status === 4) ? null : (
@@ -1960,8 +1985,8 @@ const RfqManagementPreview = () => {
                               <button
                                 id="edit_rfq-rfq_header-inquiries_details_page"
                                 type="button"
-                                className="btn btn-primary me-2"
-                                style={{ width: "auto", cursor: 'not-allowed', opacity: 0.65 }}
+                                className="btn btn-primary"
+                                style={{ ...actionBtnStyle, cursor: 'not-allowed', opacity: 0.65 }}
                                 disabled
                                 title="For this RFQ, all products are finalized and awarded"
                               >
@@ -1975,8 +2000,8 @@ const RfqManagementPreview = () => {
                                 <button
                                   id="edit_rfq-rfq_header-inquiries_details_page"
                                   type="button"
-                                  className="btn btn-primary me-2"
-                                  style={{ width: "auto" }}
+                                  className="btn btn-primary"
+                                  style={actionBtnStyle}
                                 >
                                   <FontAwesomeIcon icon={faEdit} className="me-2" />
                                   Edit {getEntityLabel(rfqDetails?.is_tender)}
@@ -1995,8 +2020,8 @@ const RfqManagementPreview = () => {
                               <button
                                 id="compare_received_quotes-rfq_header-inquiries_details_page"
                                 type="button"
-                                className="btn btn-secondary "
-                                style={{ width: "270px" }}
+                                className="btn btn-secondary"
+                                style={actionBtnStyle}
                               >
                                 Compare Received Quotes
                               </button>
@@ -2006,7 +2031,7 @@ const RfqManagementPreview = () => {
                               id="no_quotes_received-rfq_header-inquiries_details_page"
                               type="button"
                               className="btn btn-primary"
-                              style={{ width: "230px" }}
+                              style={{ ...actionBtnStyle, opacity: 0.65, cursor: 'not-allowed' }}
                               disabled
                             >
                               No Quotes Received
@@ -2022,7 +2047,7 @@ const RfqManagementPreview = () => {
                               id="clarifications-rfq_header-inquiries_details_page"
                               type="button"
                               className={`btn ${hasOpenClarification ? "btn-danger" : "btn-warning"}`}
-                              style={{ width: hasOpenClarification ? "200px" : "180px" }}
+                              style={actionBtnStyle}
                             >
                               Clarifications
                               {hasOpenClarification && (
@@ -2041,7 +2066,7 @@ const RfqManagementPreview = () => {
                             className="btn btn-secondary"
                             onClick={() => setShowCloseConfirmModal(true)}
                             disabled={closeRFqLoading}
-                            style={{ width: "170px" }}
+                            style={actionBtnStyle}
                           >
                             {closeRFqLoading
                               ? "Processing..."
@@ -2049,7 +2074,7 @@ const RfqManagementPreview = () => {
                           </button>
                         )}
                         {enableBuyerView && rfqDetails?.status == 2 && (
-                          <button type="button" className="btn btn-danger" disabled>
+                          <button type="button" className="btn btn-danger" style={actionBtnStyle} disabled>
                             {getEntityLabel(rfqDetails?.is_tender)} is Closed
                           </button>
                         )}
@@ -2061,6 +2086,7 @@ const RfqManagementPreview = () => {
                             className="btn btn-warning"
                             onClick={() => setShowWithdrawConfirmModal(true)}
                             disabled={withdrawLoading || terminateLoading}
+                            style={actionBtnStyle}
                           >
                             {withdrawLoading ? "Processing..." : "Withdraw Publish Request"}
                           </button>
@@ -2072,6 +2098,7 @@ const RfqManagementPreview = () => {
                             className="btn btn-danger"
                             onClick={() => setShowTerminateConfirmModal(true)}
                             disabled={terminateLoading || withdrawLoading}
+                            style={actionBtnStyle}
                           >
                             {terminateLoading ? "Processing..." : `Terminate ${getEntityLabel(rfqDetails?.is_tender)}`}
                           </button>
@@ -2080,12 +2107,12 @@ const RfqManagementPreview = () => {
                           <>
                             <Link
                               href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails?.id}`}
-                              className="btn btn-primary p-2"
-                              style={{ width: "170px" }}
+                              className="btn btn-primary"
+                              style={actionBtnStyle}
                             >
                               Edit {getEntityLabel(rfqDetails?.is_tender)}
                             </Link>
-                            <button type="button" className="btn btn-secondary" disabled>
+                            <button type="button" className="btn btn-secondary" style={actionBtnStyle} disabled>
                               Publish Request Withdrawn
                             </button>
                           </>

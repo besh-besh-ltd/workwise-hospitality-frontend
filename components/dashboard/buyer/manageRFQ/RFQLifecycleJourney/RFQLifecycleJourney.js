@@ -166,6 +166,23 @@ const RFQLifecycleJourney = ({ rfqId, isTender = false, onActionComplete }) => {
                     {phase.status === 'skipped' && <span className={styles.tagSkip}>Skipped</span>}
                     {phase.sub_status && phase.status === 'current' && !isCancelled && <span className={styles.tagSub}>{phase.sub_status.replace(/_/g, ' ')}</span>}
                     <span style={{ flex: 1 }} />
+                    {phase.key === 'rfq_approval' && phase.status === 'current' && !isCancelled && (() => {
+                      const insts = phase.approval_instances || [];
+                      const latest = insts.length > 0 ? insts[insts.length - 1] : null;
+                      if (latest?.status === 'PENDING' && latest?.can_user_approve) {
+                        return (
+                          <div className={styles.headerActions} onClick={(e) => e.stopPropagation()}>
+                            <Button variant="success" size="sm" className={styles.headerActBtn} onClick={() => openAction('APPROVE', latest)}>
+                              <BsShieldCheck size={13} className="me-1" />Approve
+                            </Button>
+                            <Button variant="danger" size="sm" className={styles.headerActBtn} onClick={() => openAction('REJECT', latest)}>
+                              <BsShieldX size={13} className="me-1" />Reject
+                            </Button>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                     {phase.completed_at && <span className={styles.dateTag}><BsCalendar3 size={9} /> {fmt(phase.completed_at)}</span>}
                     {canOpen && <span className={styles.chev}>{isOpen ? '▲' : '▼'}</span>}
                   </div>

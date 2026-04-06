@@ -261,6 +261,18 @@
 .actRow { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e9ecef; }
 .actBtn { font-size: .78rem; font-weight: 600; padding: 6px 16px; border-radius: 8px; &:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,.1); } }
 
+.headerActions { display: inline-flex; gap: 12px; align-items: center; margin: -6px 4px -6px 4px; }
+.headerActBtn {
+  font-size: .78rem;
+  font-weight: 700;
+  padding: 4px 22px;
+  min-width: 105px;
+  border-radius: 6px;
+  line-height: 1.4;
+  transition: all .15s ease;
+  &:hover { transform: translateY(-1px); }
+}
+
 // ============================================
 // Future Actors (upcoming phases)
 // ============================================
