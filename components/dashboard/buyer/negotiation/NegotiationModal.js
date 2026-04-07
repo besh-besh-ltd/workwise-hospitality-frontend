@@ -1173,7 +1173,7 @@ const NegotiationModal = ({
                           ) : approvalInstance ? (
                             <Badge bg={approvalStatus === 'APPROVED' ? 'success' :
                                      approvalStatus === 'REJECTED' ? 'danger' : 'secondary'}>
-                              {approvalStatus === 'PENDING' ? 'Awaiting Your Turn' : approvalStatus || 'Pending'}
+                              {approvalStatus === 'PENDING' ? 'Awaiting Approval' : approvalStatus || 'Pending'}
                             </Badge>
                           ) : (
                             <Badge bg="secondary">Not an approver</Badge>

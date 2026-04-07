@@ -264,7 +264,7 @@ const SubscriptionStatus = ({ onPaymentSuccess }) => {
 
   if (!subData) return null;
 
-  const { has_active_subscription, subscription, is_expired, can_renew } = subData;
+  const { has_active_subscription, subscription, is_expired, can_renew, has_pending } = subData;
 
   // Active subscription — show info card
   if (has_active_subscription && subscription) {
@@ -352,6 +352,17 @@ const SubscriptionStatus = ({ onPaymentSuccess }) => {
             )}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (has_pending) {
+    return (
+      <div className="alert alert-info mb-4" role="alert">
+        <h5 className="mb-1">Payment Pending</h5>
+        <p className="mb-0">
+          Your hospitality registration is waiting for payment confirmation. Please complete the pending payment to activate your subscription.
+        </p>
       </div>
     );
   }

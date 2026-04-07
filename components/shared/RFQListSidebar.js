@@ -237,26 +237,48 @@ const RFQListSidebar = ({
                 </span>
               </div>
               <div className={`${styles.filterBody} ${filtersOpen ? styles.filterBodyOpen : styles.filterBodyClosed}`}>
-                {userHotelMappings.length > 0 && (
-                  <div className={styles.filterGroup}>
-                    <label className={styles.filterLabel}>Business Units</label>
-                    <Select
-                      isMulti
-                      options={userHotelMappings}
-                      value={userHotelMappings.filter(opt => selectedHotelIds.includes(opt.hospitality_hotel_id))}
-                      onChange={(sel) => onHotelSelectionChange?.(sel ? sel.map(o => o.hospitality_hotel_id) : [])}
-                      placeholder="Select..."
-                      closeMenuOnSelect={false}
-                      classNamePrefix="react-select"
-                      isClearable
-                      formatOptionLabel={(opt) => <span style={{ fontSize: '12px' }}>{opt.hotel_name}</span>}
-                      getOptionValue={(opt) => opt.hospitality_hotel_id}
-                      menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                      styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
-                      id={`select_hotels-rfq_sidebar-${pageId}`}
-                    />
-                  </div>
-                )}
+                {(() => {
+                  // Build a clean, deduped option list (drop company-wide rows with no hotel id)
+                  const seen = new Set();
+                  const validOptions = [];
+                  for (const m of userHotelMappings) {
+                    if (!m || m.hospitality_hotel_id == null || !m.hotel_name) continue;
+                    const key = m.hospitality_hotel_id;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    validOptions.push(m);
+                  }
+                  validOptions.sort((a, b) => (a.hotel_name || '').localeCompare(b.hotel_name || ''));
+
+                  if (validOptions.length === 0) return null;
+
+                  const selectedId = selectedHotelIds && selectedHotelIds.length > 0 ? selectedHotelIds[0] : null;
+                  const currentValue = validOptions.find(opt => opt.hospitality_hotel_id === selectedId) || null;
+
+                  return (
+                    <div className={styles.filterGroup}>
+                      <label className={styles.filterLabel}>Business Unit</label>
+                      <Select
+                        options={validOptions}
+                        value={currentValue}
+                        onChange={(opt) => onHotelSelectionChange?.(opt ? [opt.hospitality_hotel_id] : [])}
+                        placeholder="Select..."
+                        classNamePrefix="react-select"
+                        isClearable
+                        getOptionValue={(opt) => String(opt.hospitality_hotel_id)}
+                        getOptionLabel={(opt) => opt.hotel_name || ''}
+                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                        styles={{
+                          menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                          option: (base) => ({ ...base, fontSize: '12px', paddingTop: 6, paddingBottom: 6 }),
+                          singleValue: (base) => ({ ...base, fontSize: '12px' }),
+                        }}
+                        noOptionsMessage={() => 'No business units found'}
+                        id={`select_hotels-rfq_sidebar-${pageId}`}
+                      />
+                    </div>
+                  );
+                })()}
                 {projects.length > 0 && (
                   <div className={styles.filterGroup}>
                     <label className={styles.filterLabel}>Project</label>

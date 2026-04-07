@@ -25,7 +25,6 @@ import {
   buildProductComparisonModel,
   getPaymentTermsText,
   getQuoteDetails,
-  getQuotePrice,
   getQuoteTotal,
   getVendorDetails,
 } from "@/utils/quoteCompareTableViewModel";
@@ -44,7 +43,6 @@ const metricRows = [
   { key: "freight", label: "Freight" },
   { key: "gst", label: "GST" },
   { key: "total", label: "Total" },
-  { key: "target", label: "Target Price" },
   { key: "delivery", label: "Delivery" },
   { key: "comment", label: "Comment" },
   { key: "documents", label: "Vendor Documents" },
@@ -68,10 +66,29 @@ const getNumericValue = (...values) => {
   return 0;
 };
 
-const getDeltaTone = (delta) => {
-  if (delta < 0) return styles.deltaGood;
-  if (delta > 0) return styles.deltaBad;
-  return styles.deltaNeutral;
+const formatModeValue = (value, mode) => {
+  if (mode === "percentage") return `${value || 0}%`;
+  return formatCurrency(value || 0);
+};
+
+const findPreviousDifferent = (previousQuotes, isDifferent) => {
+  if (!Array.isArray(previousQuotes) || previousQuotes.length === 0) return null;
+  for (const prev of previousQuotes) {
+    if (isDifferent(prev)) return prev;
+  }
+  return null;
+};
+
+const PriceWithPrevious = ({ currentDisplay, previousDisplay, previousExists, hasChanged }) => {
+  if (!previousExists || !hasChanged) {
+    return <span className={styles.value}>{currentDisplay}</span>;
+  }
+  return (
+    <div className={styles.priceCompareStack}>
+      <span className={styles.previousValue}>{previousDisplay}</span>
+      <span className={styles.value}>{currentDisplay}</span>
+    </div>
+  );
 };
 
 const getHeatToneClass = (model, rowKey, vendorId) => {
@@ -320,31 +337,24 @@ const ProductComparisonMatrix = ({
       return <EmptyValue />;
     }
 
-    const previous = column.previous;
-    const previousDetails = previous ? getQuoteDetails(previous) || {} : null;
+    const previousQuotes = column.quote?.previous_quotes;
 
     switch (rowKey) {
       case "quantity":
         return <span className={styles.value}>{quantity || column.quantity || "--"}</span>;
       case "basePrice": {
         const current = getNumericValue(details.unit_price, column.quote?.unit_price, column.price);
-        const previousValue = getNumericValue(
-          previousDetails?.unit_price,
-          previous?.unit_price,
-          getQuotePrice(previous)
+        const prevQuote = findPreviousDifferent(
+          previousQuotes,
+          (prev) => getNumericValue(prev.unit_price) !== current
         );
-        const delta = previousDetails ? current - previousValue : 0;
-
         return (
-          <>
-            <span className={styles.value}>{formatCurrency(current)}</span>
-            {previousDetails && previousValue !== current ? (
-              <span className={`${styles.valueDelta} ${getDeltaTone(delta)}`}>
-                {delta > 0 ? "+" : ""}
-                {formatCurrency(delta)} vs previous
-              </span>
-            ) : null}
-          </>
+          <PriceWithPrevious
+            currentDisplay={formatCurrency(current)}
+            previousDisplay={prevQuote ? formatCurrency(getNumericValue(prevQuote.unit_price)) : ""}
+            previousExists={!!prevQuote}
+            hasChanged={!!prevQuote}
+          />
         );
       }
       case "subtotal": {
@@ -352,22 +362,37 @@ const ProductComparisonMatrix = ({
         const subtotal = getNumericValue(quantity, column.quantity, 0) * unitPrice;
         return <span className={styles.value}>{formatCurrency(subtotal)}</span>;
       }
-      case "packaging":
-        return (
-          <span className={styles.value}>
-            {details.package_mode === "percentage"
-              ? `${details.package_price || 0}%`
-              : formatCurrency(details.package_price || 0)}
-          </span>
+      case "packaging": {
+        const currentMode = details.package_mode;
+        const currentValue = Number(details.package_price || 0);
+        const prevQuote = findPreviousDifferent(
+          previousQuotes,
+          (prev) => Number(prev.package_price || 0) !== currentValue || prev.package_mode !== currentMode
         );
-      case "freight":
+        return (
+          <PriceWithPrevious
+            currentDisplay={formatModeValue(currentValue, currentMode)}
+            previousDisplay={prevQuote ? formatModeValue(prevQuote.package_price || 0, prevQuote.package_mode) : ""}
+            previousExists={!!prevQuote}
+            hasChanged={!!prevQuote}
+          />
+        );
+      }
+      case "freight": {
+        const currentMode = details.freight_mode;
+        const currentValue = Number(details.freight_price || 0);
+        const prevQuote = findPreviousDifferent(
+          previousQuotes,
+          (prev) => Number(prev.freight_price || 0) !== currentValue || prev.freight_mode !== currentMode
+        );
         return (
           <>
-            <span className={styles.value}>
-              {details.freight_mode === "percentage"
-                ? `${details.freight_price || 0}%`
-                : formatCurrency(details.freight_price || 0)}
-            </span>
+            <PriceWithPrevious
+              currentDisplay={formatModeValue(currentValue, currentMode)}
+              previousDisplay={prevQuote ? formatModeValue(prevQuote.freight_price || 0, prevQuote.freight_mode) : ""}
+              previousExists={!!prevQuote}
+              hasChanged={!!prevQuote}
+            />
             {model.freightAdvantageVendorIds.includes(column.vendorId) ? (
               <div className={styles.statusRow}>
                 <span className={`${styles.statusChip} ${styles.statusInfo}`}>Freight Advantage</span>
@@ -375,37 +400,44 @@ const ProductComparisonMatrix = ({
             ) : null}
           </>
         );
-      case "gst":
-        return (
-          <span className={styles.value}>
-            {details.tax_mode === "percentage"
-              ? `${details.tax || 0}%`
-              : formatCurrency(details.tax || 0)}
-          </span>
+      }
+      case "gst": {
+        const currentMode = details.tax_mode;
+        const currentValue = Number(details.tax || 0);
+        const prevQuote = findPreviousDifferent(
+          previousQuotes,
+          (prev) => Number(prev.tax || 0) !== currentValue || prev.tax_mode !== currentMode
         );
+        return (
+          <PriceWithPrevious
+            currentDisplay={formatModeValue(currentValue, currentMode)}
+            previousDisplay={prevQuote ? formatModeValue(prevQuote.tax || 0, prevQuote.tax_mode) : ""}
+            previousExists={!!prevQuote}
+            hasChanged={!!prevQuote}
+          />
+        );
+      }
       case "total": {
-        const previousTotal = previous ? getQuoteTotal(proditem, previous, normalizeFilter) : 0;
-        const delta = previous ? column.total - previousTotal : 0;
-
+        const currentTotal = Math.round(column.total);
+        const prevQuote = findPreviousDifferent(
+          previousQuotes,
+          (prev) => {
+            const prevTotal = Math.round(getNumericValue(prev.total_price));
+            return prevTotal > 0 && prevTotal !== currentTotal;
+          }
+        );
         return (
           <>
-            <span className={styles.value}>{formatCurrency(column.total)}</span>
-            {previous && previousTotal !== column.total ? (
-              <span className={`${styles.valueDelta} ${getDeltaTone(delta)}`}>
-                {delta > 0 ? "+" : ""}
-                {formatCurrency(delta)} vs previous
-              </span>
-            ) : null}
+            <PriceWithPrevious
+              currentDisplay={formatCurrency(currentTotal)}
+              previousDisplay={prevQuote ? formatCurrency(getNumericValue(prevQuote.total_price)) : ""}
+              previousExists={!!prevQuote}
+              hasChanged={!!prevQuote}
+            />
             <MissingCostIndicator parts={column.missingParts} />
           </>
         );
       }
-      case "target":
-        return (
-          <span className={styles.value}>
-            {column.targetPrice ? formatCurrency(column.targetPrice) : "--"}
-          </span>
-        );
       case "delivery":
         return (
           <span className={styles.value}>{column.delivery ? `${column.delivery} day(s)` : "--"}</span>

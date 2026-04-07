@@ -3,16 +3,16 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { toast } from 'react-toastify';
 import RegisterUserModal from '../components/modal/RegisterUserModal';
-import SubscriptionModal from '../components/modal/SubscriptionModal';
 import AuthModal from '../components/modal/AuthModal';
 import LoginWithOtherDeviceModal from '../components/modal/LoginWithOtherDeviceModal';
+import MembershipInfoModal from '../components/modal/MembershipInfoModal';
+import PaymentProcessingModal from '../components/register/PaymentProcessingModal';
 import {
   loadScript,
   testRazorPayEndpoint,
   hospitalitySubscriptionPayment
 } from '../services/subscription';
 import storageInstance from '../utils/storageInstance';
-import { pricingData } from '../components/constants/pricingData';
 import { LoginService, SWSubscribe, handleSocialLogin, getProfile } from '../services/Auth';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useSelector, useDispatch } from 'react-redux';
@@ -20,27 +20,24 @@ import { setUserProfile } from '@/redux/slice';
 
 const HotelVendor = () => {
   const router = useRouter();
-  const { register, login, redirect: redirectParam } = router.query;
+  const { register, login, redirect: redirectParam, payment_loader_preview: paymentLoaderPreview } = router.query;
   const dispatch = useDispatch();
   const swSubscription = useSelector((data) => data.swSubscription);
+  const showPaymentLoaderPreview =
+    paymentLoaderPreview === '' ||
+    paymentLoaderPreview === 'true' ||
+    (Array.isArray(paymentLoaderPreview) && (paymentLoaderPreview[0] === '' || paymentLoaderPreview[0] === 'true'));
 
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState(null);
-  const [selectedSubscription, setSelectedSubscription] = useState({
-    plan: null,
-    billingCycle: null,
-    userData: null,
-  });
-  const [appliedCouponData, setAppliedCouponData] = useState([]);
-  const [couponCode, setCouponCode] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [showMembershipInfoModal, setShowMembershipInfoModal] = useState(false);
   const [showOtherDeviceModal, setShowOtherDeviceModal] = useState(false);
+  const [showPaymentProcessingModal, setShowPaymentProcessingModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [dashboardUrl, setDashboardUrl] = useState('/dashboard/buyer');
   // Use ref instead of state for payment success tracking - refs are synchronous
@@ -83,7 +80,7 @@ const HotelVendor = () => {
   // Query param auto-open
   useEffect(() => {
     if (register === 'true' || register === '') {
-      setShowRegisterModal(true);
+      setShowMembershipInfoModal(true);
     }
     if (login === 'true' || login === '') {
       setShowLoginModal(true);
@@ -118,6 +115,7 @@ const HotelVendor = () => {
       description: 'Hospitality Vendor Registration',
       image: '/assets/images/logo.png',
       handler: function (response) {
+        setShowPaymentProcessingModal(true);
         const payload = {
           order_id: orderId,
           razorpay_payment_id: response.razorpay_payment_id,
@@ -164,12 +162,19 @@ const HotelVendor = () => {
                 }
               });
             } else {
+              setShowPaymentProcessingModal(false);
               toast.error('Payment processed but could not verify status. Please try logging in again.');
             }
           })
           .catch(() => {
+            setShowPaymentProcessingModal(false);
             toast.error('Payment verification failed. Please contact support if your amount was debited.');
           });
+      },
+      modal: {
+        ondismiss: function () {
+          setShowPaymentProcessingModal(false);
+        },
       },
       prefill: { name: '', email: '', contact: '' },
       notes: { address: 'India' },
@@ -177,143 +182,28 @@ const HotelVendor = () => {
     };
 
     const paymentObject = new window.Razorpay(options);
+    paymentObject.on('payment.failed', function () {
+      setShowPaymentProcessingModal(false);
+    });
     paymentObject.open();
   };
 
-  const handleCloseSubscription = () => {
-    setAppliedCouponData([]);
-    setCouponCode('');
-    setShowSubscriptionModal(false);
-    storageInstance.removeStorege('token');
-  };
-
   const handleRegistrationSuccess = (userData) => {
-    setShowRegisterModal(false);
-    const plan = selectedPlan || pricingData.sellers.plans.find((p) => p.name === 'Silver');
-
-    if (!userData || !plan) {
-      toast.error('Registration successful but user data missing. Please try again.');
+    if (!userData?.user_key) {
+      toast.error(
+        userData?.email
+          ? 'Your account was created, but we could not continue to payment automatically. Please log in to complete payment.'
+          : 'Registration successful but user data missing. Please try again.'
+      );
       return;
     }
+
+    setShowRegisterModal(false);
 
     if (userData.token) {
       storageInstance.setStorage('token', userData.token);
     }
 
-    const numCategories = (userData.categories || []).length;
-    const numSubcategories = (userData.subcategories || []).length;
-    const numHotels = (userData.hotels || []).length;
-
-    // Hospitality pricing model:
-    // - Subcategories are free (temporary)
-    // - Hotels do not have an independent hotel cost
-    // - Total price = (price per category) × (number of categories) × (number of hotels selected)
-    const perCategoryFee = 500;
-    const perSubcategoryFee = 0;
-    const perHotelFee = 0;
-
-    const baseCategoryAmount = numCategories * perCategoryFee;
-    const totalAmount =
-      (numHotels > 0 ? baseCategoryAmount * numHotels : baseCategoryAmount) ||
-      parseInt(plan.price.replace(/[^\d]/g, ''), 10) ||
-      0;
-
-    const subscriptionId =
-      plan.name === 'Silver'
-        ? '21'
-        : plan.name === 'Gold'
-        ? '23'
-        : `plan_${plan.name.toLowerCase()}_${Date.now()}`;
-
-    const billingCycle = {
-      id: subscriptionId,
-      duration: 12,
-      label: 'Yearly',
-      price: totalAmount,
-      currency: 'INR',
-      discount_price: totalAmount,
-      plan_type: plan.name === 'Free' ? 'f' : 'p',
-      Offers: [],
-      active: false,
-      start_date: new Date(),
-      end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-    };
-
-    setSelectedSubscription((prev) => ({
-      ...prev,
-      plan: {
-        plan_name: plan.name,
-        plan_type: plan.name === 'Free' ? 'f' : 'p',
-        feature: plan.features.map((f) => ({ feature_name: f.name })),
-      },
-      billingCycle,
-      costBreakdown: {
-        total: totalAmount,
-        numCategories,
-        numSubcategories,
-        numHotels,
-        perCategoryFee,
-        perSubcategoryFee,
-        perHotelFee,
-        categoryNames: userData?.categoryNames || [],
-        subcategoryNames: userData?.subcategoryNames || [],
-        hotelNames: userData?.hotelNames || [],
-      },
-      userData: {
-        ...(userData || prev?.userData || {}),
-        // Ensure email and password are available for auto-login after payment
-        email: userData?.email || prev?.userData?.email,
-        password: userData?.password || prev?.userData?.password,
-      },
-    }));
-
-    setShowSubscriptionModal(true);
-  };
-
-  const handleRegistrationClose = () => {
-    setShowRegisterModal(false);
-    setSelectedPlan(null);
-    storageInstance.removeStorege('token');
-  };
-
-  const handleShowModal = (plan, userData) => {
-    setSelectedPlan(plan);
-    handleRegistrationSuccess(userData);
-  };
-
-  const handleCpuponCode = (e) => setCouponCode(e.target.value);
-
-  const applyCouponToPlan = () => {
-    if (couponCode === '') {
-      toast.error('Enter coupon code');
-      return;
-    }
-    const payload = {
-      sub_id: selectedSubscription.billingCycle?.id,
-      coupon_code: couponCode,
-    };
-    import('../services/subscription').then(({ applyCoupon }) => {
-      applyCoupon(payload)
-        .then((res) => {
-          if (res?.status === 1) {
-            toast.success('Coupon Applied');
-            setAppliedCouponData(res.data);
-          } else if (res.status === 2) {
-            toast.error(res?.errors?.coupon_code);
-          } else {
-            toast.error('Internal server error');
-          }
-        })
-        .catch((error) => {
-          if (error?.message) {
-            toast.error(error.message.response?.data?.message || 'Failed to apply coupon');
-          }
-        });
-    });
-  };
-
-  const proceedToBuy = () => {
-    const userData = selectedSubscription.userData || {};
     const payload = {
       user_key: userData.user_key,
       categories: userData.categories || [],
@@ -324,26 +214,42 @@ const HotelVendor = () => {
     hospitalitySubscriptionPayment(payload)
       .then(async (res) => {
         if (res?.status) {
-          // Pass user credentials for auto-login after payment
-          const userCredentials = userData.email && userData.password 
-            ? { email: userData.email, password: userData.password }
-            : null;
+          const userCredentials =
+            userData.email && userData.password
+              ? { email: userData.email, password: userData.password }
+              : null;
           await payWithRazorPay(res?.data, userCredentials);
-          setShowSubscriptionModal(false);
+          return;
         }
+
+        toast.error(res?.message || 'Your account was created, but we could not start payment. Please log in and complete payment.', {
+          position: 'top-right',
+        });
       })
       .catch((error) => {
         if (error?.message) {
-          toast.error(error.message.response?.data?.message || 'Payment failed', {
+          toast.error(
+            error.message.response?.data?.message ||
+              'Your account was created, but we could not start payment. Please log in and complete payment.',
+            {
             position: 'top-right',
-          });
+            }
+          );
         }
       });
   };
 
+  const handleRegistrationClose = () => {
+    setShowRegisterModal(false);
+    storageInstance.removeStorege('token');
+  };
+
   const handleRegisterClick = () => {
-    const silverPlan = pricingData.sellers.plans.find((p) => p.name === 'Silver');
-    setSelectedPlan(silverPlan);
+    setShowMembershipInfoModal(true);
+  };
+
+  const handleProceedToRegister = () => {
+    setShowMembershipInfoModal(false);
     setShowRegisterModal(true);
   };
 
@@ -1153,6 +1059,12 @@ const HotelVendor = () => {
         </div>
       </div>
 
+      <MembershipInfoModal
+        show={showMembershipInfoModal}
+        onHide={() => setShowMembershipInfoModal(false)}
+        onProceed={handleProceedToRegister}
+      />
+
       <RegisterUserModal
         showModal={showRegisterModal}
         setShowModal={setShowRegisterModal}
@@ -1160,18 +1072,6 @@ const HotelVendor = () => {
         onRegistrationSuccess={handleRegistrationSuccess}
         onClose={handleRegistrationClose}
         isPaidSubscription={true}
-        isHospitality={true}
-      />
-
-      <SubscriptionModal
-        show={showSubscriptionModal}
-        onHide={handleCloseSubscription}
-        proceedToBuy={proceedToBuy}
-        selectedSubscription={selectedSubscription}
-        applyCouponToPlan={applyCouponToPlan}
-        appliedCouponData={appliedCouponData}
-        handleCpuponCode={handleCpuponCode}
-        couponCode={couponCode}
         isHospitality={true}
       />
 
@@ -1202,10 +1102,10 @@ const HotelVendor = () => {
         }}
       />
 
+      <PaymentProcessingModal show={showPaymentProcessingModal || showPaymentLoaderPreview} />
+
     </>
   );
 };
 
 export default HotelVendor;
-
-

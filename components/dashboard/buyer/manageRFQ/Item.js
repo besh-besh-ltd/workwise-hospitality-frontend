@@ -186,7 +186,7 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
                 >
                   View
                 </Link>
-                {publishState.canEdit && (
+                {publishState.canEdit && !data.po_completed && (
                   <Link
                     href={publishState.editUrl(data?.id)}
                     className="page-link"

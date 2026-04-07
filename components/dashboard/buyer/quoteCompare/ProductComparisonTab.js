@@ -142,7 +142,12 @@ const ProductComparisonTab = ({
             <div className={styles.productBadges}>
               <span className={styles.productBadge}>Quotes: {summary.quoteCount || 0}</span>
               <span className={styles.productBadge}>Regrets: {summary.regretCount || 0}</span>
-              <span className={styles.productBadge}>Target: {item.latest_target_price ? formatPrice(item.latest_target_price) : "-"}</span>
+              <span className={styles.productBadge}>Target: {(() => {
+                const negoTarget = negotiationMap[item.id]?.activeRound?.target_price;
+                const productTarget = item.latest_target_price;
+                const effective = negoTarget || productTarget;
+                return effective ? formatPrice(effective) : "-";
+              })()}</span>
             </div>
 
             {summary.topVendors?.length > 0 ? (

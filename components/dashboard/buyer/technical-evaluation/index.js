@@ -18,7 +18,7 @@ import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
 import useIsMobile from "@/hooks/useIsMobile";
-import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown, BsLock, BsClock } from "react-icons/bs";
+import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown, BsLock, BsClock, BsCheckCircleFill, BsCheck2All } from "react-icons/bs";
 import styles from "./TechnicalEvaluation.module.scss";
 import { Tooltip } from "react-tooltip";
 
@@ -71,8 +71,11 @@ const BuyerTechnicalEvaluation = () => {
   const [unifiedSubmitLoading, setUnifiedSubmitLoading] = useState(false);
   const [rfqCompletionMap, setRfqCompletionMap] = useState(new Map());
   const [expandedProducts, setExpandedProducts] = useState(new Set());
+  const [techEvalDashboard, setTechEvalDashboard] = useState(null);
+  const hasUserToggledRef = useRef(false);
 
   const toggleProductExpand = (productId) => {
+    hasUserToggledRef.current = true;
     setExpandedProducts(prev => {
       const next = new Set(prev);
       if (next.has(productId)) next.delete(productId);
@@ -80,6 +83,43 @@ const BuyerTechnicalEvaluation = () => {
       return next;
     });
   };
+
+  // Reset the manual-toggle tracker whenever the RFQ changes
+  useEffect(() => {
+    hasUserToggledRef.current = false;
+    setTechEvalDashboard(null);
+  }, [rfq_id]);
+
+  // Memoized set of completed product ids (string-keyed for safe comparison)
+  const completedProductIdSet = useMemo(() => {
+    if (!Array.isArray(techEvalDashboard?.completed_product_ids)) return new Set();
+    return new Set(techEvalDashboard.completed_product_ids.map(id => String(id)));
+  }, [techEvalDashboard]);
+
+  // True when every product in the current RFQ is marked completed
+  const allProductsCompleted = useMemo(() => {
+    if (!currentRfq?.products?.length) return false;
+    if (completedProductIdSet.size === 0) return false;
+    return currentRfq.products.every(p => completedProductIdSet.has(String(p.id)));
+  }, [currentRfq, completedProductIdSet]);
+
+  // Once the dashboard data arrives, if the user hasn't manually toggled,
+  // auto-expand the first non-completed product instead of a completed one.
+  useEffect(() => {
+    if (hasUserToggledRef.current) return;
+    if (!currentRfq?.products?.length) return;
+    if (!techEvalDashboard) return;
+
+    // If URL has a prod_id target, respect it (handled elsewhere on initial load)
+    if (targetProdId) return;
+
+    const firstNonCompleted = currentRfq.products.find(
+      p => !completedProductIdSet.has(String(p.id))
+    );
+    // If everything is completed, keep the first product expanded as a fallback
+    const expandId = firstNonCompleted ? firstNonCompleted.id : currentRfq.products[0].id;
+    setExpandedProducts(new Set([expandId]));
+  }, [techEvalDashboard, currentRfq, completedProductIdSet, targetProdId]);
 
   // Extract hotel IDs for permission checks - use hotel_id from RFQ data
   const hotelIds = useMemo(() => {
@@ -121,7 +161,10 @@ const BuyerTechnicalEvaluation = () => {
   });
 
   // For technical evaluation, "write" access means either update OR create permission
-  const canWrite = canUpdate || canCreate;
+  // BUT: a closed RFQ (status=2) is fully locked — no scoring, no submit, no approvals
+  const isRfqClosed = String(currentRfq?.status) === '2';
+  const rawCanWrite = canUpdate || canCreate;
+  const canWrite = rawCanWrite && !isRfqClosed;
 
   // Track if we've verified permissions for the current RFQ
   const [permissionsVerified, setPermissionsVerified] = useState(false);
@@ -146,7 +189,7 @@ const BuyerTechnicalEvaluation = () => {
       getTechEvaluationRFQsByUser();
     }, 500);
     return () => clearTimeout(handler);
-  }, [rfqNo, isTenderFilter]);
+  }, [rfqNo, isTenderFilter, selectedHotelIds]);
 
   const getUserDetails = () => {
     // Prefer Redux persisted profile (populated from /users/get-profile API with correct DB id)
@@ -171,7 +214,8 @@ const BuyerTechnicalEvaluation = () => {
         rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
         sort: 'DESC',
         is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null,
-        module_keys: "technical"
+        module_keys: "technical",
+        hotel_id: selectedHotelIds && selectedHotelIds.length > 0 ? selectedHotelIds[0] : null,
       });
       const newData = Array.isArray(res) ? res : [];
       setRfqList(newData);
@@ -593,13 +637,25 @@ const BuyerTechnicalEvaluation = () => {
                   {
                     key: 'action_required',
                     label: 'Action Required',
-                    filter: (item) => item.has_pending_evaluation || item.te_approval_rejected || item.approval_required,
+                    filter: (item) => {
+                      // Closed RFQs are read-only — no action possible
+                      if (String(item.status) === '2') return false;
+                      // Bid submission window must have closed before evaluation/approval is meaningful
+                      const bidEnded = item.bid_end_date && new Date(item.bid_end_date) < new Date();
+                      if (!bidEnded) return false;
+                      // Current user must have something to do: a product to evaluate,
+                      // a rejected evaluation to redo, or a pending approval where they are the approver.
+                      return item.has_pending_evaluation || item.te_approval_rejected || item.approval_required;
+                    },
                   },
                   {
                     key: 'in_progress',
                     label: 'In Progress',
-                    filter: (item) => !item.has_pending_evaluation && !item.te_approval_rejected
-                      && !item.approval_required && item.has_pending_te_approval,
+                    filter: (item) => {
+                      if (String(item.status) === '2') return false;
+                      return !item.has_pending_evaluation && !item.te_approval_rejected
+                        && !item.approval_required && item.has_pending_te_approval;
+                    },
                   },
                   { key: 'all', label: 'All', filter: null },
                 ]}
@@ -613,8 +669,8 @@ const BuyerTechnicalEvaluation = () => {
                 showTypeFilter={true}
                 isTenderFilter={isTenderFilter}
                 onTenderFilterChange={(val) => setIsTenderFilter(val)}
-                getItemTags={(item, isSelected) => {
-                  if (isSelected) return [];
+                getItemTags={(item) => {
+                  if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
                   if (item.te_approval_rejected) return [{ label: 'Evaluation Rejected', variant: 'danger' }];
                   if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
                   if (item.has_pending_te_approval) return [{ label: 'In Approval', variant: 'info' }];
@@ -682,10 +738,10 @@ const BuyerTechnicalEvaluation = () => {
                           <span>{entityLabel}</span>
                           <span className={styles.rfqHeroNum}>#{currentRfq.rfq_no}</span>
                           <Badge
-                            bg={currentRfq.te_approval_rejected ? 'danger' : currentRfq.te_completed === true ? 'success' : currentRfq.approval_required ? 'warning' : 'info'}
+                            bg={isRfqClosed ? 'danger' : currentRfq.te_approval_rejected ? 'danger' : currentRfq.te_completed === true ? 'success' : currentRfq.approval_required ? 'warning' : 'info'}
                             className={styles.rfqStatusBadge}
                           >
-                            {currentRfq.te_approval_rejected ? 'Evaluation Rejected' : currentRfq.te_completed === true ? 'Completed' : currentRfq.approval_required ? 'Pending Approval' : 'In Progress'}
+                            {isRfqClosed ? 'Closed' : currentRfq.te_approval_rejected ? 'Evaluation Rejected' : currentRfq.te_completed === true ? 'Completed' : currentRfq.approval_required ? 'Pending Approval' : 'In Progress'}
                           </Badge>
                         </div>
                         {currentRfq.title && currentRfq.title != "" && (
@@ -722,8 +778,8 @@ const BuyerTechnicalEvaluation = () => {
                   </div>
                 )}
 
-                {/* Bid End Date Lock Banner */}
-                {!isContentLoading && !isAccessDenied && currentRfq && !isBidExpired && (
+                {/* Bid End Date Lock Banner — suppressed when RFQ is closed (the closed-RFQ banner takes over) */}
+                {!isContentLoading && !isAccessDenied && currentRfq && !isBidExpired && !isRfqClosed && (
                   <div className={styles.bidLockBanner}>
                     <div className={styles.bidLockIconWrapper}>
                       <BsLock size={20} />
@@ -746,14 +802,41 @@ const BuyerTechnicalEvaluation = () => {
                   </div>
                 )}
 
-                {/* Read-Only Banner */}
-                {hasPermissionContext && !permissionsLoading && !canWrite && canRead && (
-                  <div className="mt-3 mb-3">
-                    <ReadOnlyBanner
-                      title="View Only Mode"
-                      message="You have read-only access to this technical evaluation. Contact your administrator to request edit permissions."
-                    />
+                {/* Closed-RFQ Lock Banner — supersedes the read-only banner */}
+                {!isContentLoading && !isAccessDenied && isRfqClosed && currentRfq && (
+                  <ReadOnlyBanner
+                    variant="danger"
+                    title="Evaluation Locked"
+                    message={`This ${entityLabel} has been closed. Scoring, evaluation, and approvals are no longer permitted.`}
+                    badgeText={`${entityLabel} Closed`}
+                  />
+                )}
+
+                {/* Evaluation Completed Banner */}
+                {!isContentLoading && !isAccessDenied && currentRfq && allProductsCompleted && !isRfqClosed && (
+                  <div className={styles.evaluationCompletedBanner}>
+                    <div className={styles.evaluationCompletedIconWrapper}>
+                      <BsCheck2All size={22} />
+                    </div>
+                    <div className={styles.evaluationCompletedContent}>
+                      <h5 className={styles.evaluationCompletedTitle}>Evaluation Completed</h5>
+                      <p className={styles.evaluationCompletedMessage}>
+                        The technical evaluation has been completed for all products.
+                      </p>
+                    </div>
+                    <div className={styles.evaluationCompletedBadge}>
+                      <BsCheckCircleFill size={13} />
+                      <span>All Done</span>
+                    </div>
                   </div>
+                )}
+
+                {/* Read-Only Banner — only when the user lacks write perms (not when RFQ is locked) */}
+                {!isContentLoading && !isAccessDenied && hasPermissionContext && !permissionsLoading && !rawCanWrite && canRead && !isRfqClosed && (
+                  <ReadOnlyBanner
+                    title="View Only Mode"
+                    message="You have read-only access to this technical evaluation. Contact your administrator to request edit permissions."
+                  />
                 )}
 
                 {!isContentLoading && !isAccessDenied && <div className="quote-sec-main">
@@ -764,7 +847,7 @@ const BuyerTechnicalEvaluation = () => {
 
                     {/* Evaluation Progress Tracker */}
                     {clauseInfo && clauseInfo.length > 0 && (
-                      <EvaluationProgressTracker rfqId={rfq_id} />
+                      <EvaluationProgressTracker rfqId={rfq_id} onDataLoaded={setTechEvalDashboard} />
                     )}
 
                     {/* Quoted Vendors Filter */}
@@ -800,9 +883,11 @@ const BuyerTechnicalEvaluation = () => {
                         const productSelectedVendors = selectedVendorsMap.get(product.id) || [];
 
                         const isTargetProduct = targetProdId && String(product.id) === String(targetProdId);
+                        const isProductCompleted = Array.isArray(techEvalDashboard?.completed_product_ids) &&
+                          techEvalDashboard.completed_product_ids.some(id => String(id) === String(product.id));
 
                         return (
-                          <div className={`${styles.productCard} ${isTargetProduct ? styles.productCardHighlight : ''}`} key={`product_${product.id}`} id={`product-card-${product.id}`}>
+                          <div className={`${styles.productCard} ${isTargetProduct ? styles.productCardHighlight : ''} ${isProductCompleted ? styles.productCardCompleted : ''}`} key={`product_${product.id}`} id={`product-card-${product.id}`}>
                             {/* Product Header */}
                             <div className={`${styles.productHeader} ${expandedProducts.has(product.id) ? styles.productHeaderActive : ''}`} onClick={() => toggleProductExpand(product.id)}>
                               <div className={styles.productHeaderLeft}>
@@ -819,6 +904,12 @@ const BuyerTechnicalEvaluation = () => {
                                     const qtyText = specs.Quantity ? `${specs.Quantity}${specs.Unit ? ` ${specs.Unit}` : ''}` : (specs.Unit ? specs.Unit : null);
                                     return qtyText ? <span className={styles.productQtyBadge}>{qtyText}</span> : null;
                                   })()}
+                                  {isProductCompleted && (
+                                    <span className={styles.allVendorsEvaluatedBadge}>
+                                      <BsCheckCircleFill size={12} />
+                                      All vendors are evaluated
+                                    </span>
+                                  )}
                                 </div>
                                 <div className={styles.productMeta}>
                                   {(() => {

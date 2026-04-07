@@ -20,6 +20,41 @@ const formatCurrency = (value) => {
   return `Rs. ${addCommasToNumber(Math.round(safe))}`;
 };
 
+const formatRoundStatus = (status) => {
+  if (status === "ACTIVE") return "Active";
+  if (status === "PENDING_APPROVAL") return "Pending Approval";
+  return status || "";
+};
+
+const formatRoundEnd = (endDate) => {
+  if (!endDate) return null;
+  // Backend stores TIMESTAMP WITHOUT TIME ZONE but values are UTC.
+  // pg-promise returns raw string (no Z), so explicitly mark as UTC before parsing.
+  let utcStr = endDate;
+  if (typeof endDate === "string") {
+    utcStr = endDate.replace(" ", "T");
+    if (!/Z$|[+-]\d{2}:?\d{2}$/.test(utcStr)) {
+      utcStr += "Z";
+    }
+  }
+  const end = new Date(utcStr);
+  if (Number.isNaN(end.getTime())) return null;
+  const now = new Date();
+  // Always format in IST regardless of browser timezone
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  }).formatToParts(end);
+  const get = (type) => parts.find((p) => p.type === type)?.value || "";
+  const formatted = `${get("day")}-${get("month")}-${get("year")} ${get("hour")}:${get("minute")} ${get("dayPeriod").toUpperCase()}`;
+  return end < now ? `Ended ${formatted}` : `Ends ${formatted}`;
+};
+
 const getHeatBand = (row, vendorId) => {
   return row?.rowComparativeStats?.total?.bands?.[vendorId] || "";
 };
@@ -158,30 +193,40 @@ const CategoryComparisonMatrix = ({
                             </div>
                           ) : null}
 
-                          <div className={styles.catPriceRow}>
-                            <span className={styles.catPriceItem}>
-                              <span className={styles.catPriceLabel}>Target</span>
-                              <span className={styles.catPriceValue}>
-                                {row.targetPrice > 0 ? formatCurrency(row.targetPrice) : "--"}
-                              </span>
-                            </span>
-                            <span className={styles.catPriceDivider}>/</span>
-                            <span className={styles.catPriceItem}>
-                              <span className={styles.catPriceLabel}>LPR</span>
-                              <span className={styles.catPriceValue}>
-                                {lpr ? formatCurrency(lprTotal) : "--"}
-                              </span>
-                            </span>
-                          </div>
+                          {(() => {
+                            const negoTarget = Number(negotiation?.activeRound?.target_price || 0);
+                            const effectiveTarget = negoTarget > 0 ? negoTarget : row.targetPrice;
+                            return (
+                              <div className={styles.catPriceRow}>
+                                <span className={styles.catPriceItem}>
+                                  <span className={styles.catPriceLabel}>Target</span>
+                                  <span className={styles.catPriceValue}>
+                                    {effectiveTarget > 0 ? formatCurrency(effectiveTarget) : "--"}
+                                  </span>
+                                </span>
+                                <span className={styles.catPriceDivider}>/</span>
+                                <span className={styles.catPriceItem}>
+                                  <span className={styles.catPriceLabel}>LPR</span>
+                                  <span className={styles.catPriceValue}>
+                                    {lpr ? formatCurrency(lprTotal) : "--"}
+                                  </span>
+                                </span>
+                              </div>
+                            );
+                          })()}
 
-                          {negotiation?.activeRound ? (
-                            <div className={styles.catNegoInfo}>
-                              Round {negotiation.activeRound.round_number}
-                              {negotiation.activeRound.target_price
-                                ? ` · Target ${formatCurrency(negotiation.activeRound.target_price)}`
-                                : ""}
-                            </div>
-                          ) : null}
+                          {negotiation?.activeRound ? (() => {
+                            const round = negotiation.activeRound;
+                            const statusLabel = formatRoundStatus(round.status);
+                            const endLabel = formatRoundEnd(round.end_date);
+                            return (
+                              <div className={styles.catNegoInfo}>
+                                Round {round.round_number}
+                                {statusLabel ? ` · ${statusLabel}` : ""}
+                                {endLabel ? ` · ${endLabel}` : ""}
+                              </div>
+                            );
+                          })() : null}
 
                           {lpr ? (
                             <div className={styles.catActionLinks}>

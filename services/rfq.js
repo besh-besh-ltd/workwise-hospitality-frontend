@@ -521,6 +521,28 @@ export const closeRFQ = (id) => {
   });
 };
 
+export const withdrawPublish = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/withdraw-publish/${id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const terminateRFQ = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/terminate/${id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const sendReminder = (id) => {
   return new Promise(async (resolve, reject) => {
     try {

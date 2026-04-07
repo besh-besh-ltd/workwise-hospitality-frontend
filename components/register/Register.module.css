@@ -634,6 +634,373 @@
   position: relative;
 }
 
+/* ── Review Step ──────────────────────────────── */
+.reviewStep {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.reviewIntro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.reviewKicker {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.reviewTitle {
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px;
+}
+
+.reviewText {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.reviewAmountCard {
+  min-width: 150px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.reviewAmountLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.reviewAmountValue {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-top: 6px;
+  color: #0f172a;
+}
+
+.reviewLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reviewMain {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reviewAside {
+  display: flex;
+  align-self: stretch;
+}
+
+.reviewCard {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px 16px;
+}
+
+.reviewCardTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+
+.reviewDetailList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.reviewDetailRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.reviewDetailRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.reviewDetailRow:first-child {
+  padding-top: 0;
+}
+
+.reviewDetailRow span {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.reviewDetailRow strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  text-align: right;
+  word-break: break-word;
+}
+
+.reviewInfoLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 5px;
+}
+
+.reviewInfoValue {
+  font-size: 14px;
+  color: #1e293b;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.reviewSection + .reviewSection {
+  margin-top: 12px;
+}
+
+.summaryChipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.summaryChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.summaryEmpty {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.documentList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.documentRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: #fafbfd;
+}
+
+.documentLabel {
+  font-size: 12px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.documentValue {
+  font-size: 12px;
+  color: #0f172a;
+  font-weight: 500;
+  text-align: right;
+  word-break: break-word;
+}
+
+.reviewPaymentCard {
+  width: 100%;
+  background: #fff;
+  border-color: #e2e8f0;
+}
+
+.paymentSummaryGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.paymentSummaryRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  color: #334155;
+  font-size: 13px;
+}
+
+.paymentSummaryRow strong {
+  color: #0f172a;
+  font-weight: 700;
+  text-align: right;
+}
+
+.paymentSummaryNote {
+  padding-top: 8px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.paymentSummaryTotal {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  margin-top: 4px;
+}
+
+.paymentSummaryTotal strong {
+  color: #0f172a;
+  font-size: 17px;
+}
+
+.reviewPaymentHint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+/* ── Payment Processing Modal ─────────────────── */
+.processingOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(8px);
+}
+
+.processingCard {
+  position: relative;
+  overflow: hidden;
+  width: min(420px, 100%);
+  padding: 32px 30px 28px;
+  border-radius: 22px;
+  background: #ffffff;
+  border: 1px solid #dbe4f0;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24);
+  text-align: center;
+}
+
+.processingCard::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, #2e5ba8 0%, #4f7cc7 100%);
+}
+
+.processingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f8fbff;
+  border: 1px solid #d9e5f7;
+  color: #2e5ba8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.processingBadgeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2e5ba8;
+  box-shadow: 0 0 0 6px rgba(46, 91, 168, 0.12);
+}
+
+.processingSpinner {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 18px auto 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+  border: 1px solid #d9e5f7;
+}
+
+.processingSpinner span {
+  width: 38px;
+  height: 38px;
+  border: 3px solid #c5d5ec;
+  border-top-color: #2e5ba8;
+  border-radius: 50%;
+  animation: paymentSpin 0.9s linear infinite;
+}
+
+.processingTitle {
+  font-size: 28px;
+  line-height: 1.12;
+  color: #0f172a;
+  margin: 0 0 12px;
+  font-weight: 700;
+}
+
+.processingText {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.processingFootnote {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e8eef7;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@keyframes paymentSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ── Responsive ────────────────────────────────── */
 @media (max-width: 576px) {
   .modalBody {
@@ -686,5 +1053,39 @@
 
   .countryCodeSelect {
     max-width: 100%;
+  }
+
+  .reviewIntro {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .reviewAmountCard {
+    align-items: flex-start;
+  }
+
+  .reviewAside {
+    width: 100%;
+  }
+
+  .reviewDetailRow,
+  .documentRow,
+  .paymentSummaryRow {
+    flex-direction: column;
+  }
+
+  .reviewDetailRow strong,
+  .documentValue,
+  .paymentSummaryRow strong {
+    text-align: left;
+  }
+
+  .processingCard {
+    padding: 28px 22px;
+    border-radius: 20px;
+  }
+
+  .processingTitle {
+    font-size: 22px;
   }
 }
