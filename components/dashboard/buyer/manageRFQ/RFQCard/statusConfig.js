@@ -80,6 +80,36 @@ export const STATUS_CONFIG = {
     badgeBackground: '#fd7e14',
     badgeText: '#ffffff',
     pulse: false
+  },
+  WITHDRAWN: {
+    key: 'withdrawn',
+    label: 'Withdrawn',
+    icon: BsXCircleFill,
+    borderColor: '#fd7e14',
+    backgroundColor: '#fff3cd',
+    badgeBackground: '#fd7e14',
+    badgeText: '#ffffff',
+    pulse: false
+  },
+  TERMINATED: {
+    key: 'terminated',
+    label: 'Terminated',
+    icon: BsXCircleFill,
+    borderColor: '#dc3545',
+    backgroundColor: '#fff5f5',
+    badgeBackground: '#dc3545',
+    badgeText: '#ffffff',
+    pulse: false
+  },
+  DRAFT: {
+    key: 'draft',
+    label: 'Draft',
+    icon: BsClockFill,
+    borderColor: '#6c757d',
+    backgroundColor: '#f0f1f3',
+    badgeBackground: '#6c757d',
+    badgeText: '#ffffff',
+    pulse: false
   }
 };
 
@@ -92,9 +122,11 @@ export const LIFECYCLE_STAGES_ORDERED = [
   'RFQ_APPROVAL',
   'AWAITING_QUOTES',
   'TECHNICAL_AWAITING_QUOTES',
+  'RFQ_STUCK_TECHNICAL',
   'TECHNICAL_EVALUATING',
   'TECHNICAL_APPROVING',
   'TECHNICAL_REJECTED',
+  'RFQ_STUCK_COMMERCIAL',
   'COMMERCIAL_EVALUATION',
   'NEGOTIATION_ONGOING',
   'QUOTATION_APPROVAL',
@@ -128,14 +160,25 @@ export const LIFECYCLE_CONFIG = {
   },
   TECHNICAL_AWAITING_QUOTES: {
     step: 2,
-    label: 'Tech Eval — Awaiting Quotes',
-    shortLabel: 'Tech Eval',
-    description: 'Technical evaluation configured, waiting for vendor quotes',
-    color: '#0ea5e9',
-    gradient: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
-    background: '#f0f9ff',
-    textColor: '#0c4a6e',
-    dotColor: '#0ea5e9',
+    label: 'Awaiting Quotes',
+    shortLabel: 'Awaiting Quotes',
+    description: 'Technical evaluation configured. Waiting for vendor quotes before evaluation can begin.',
+    color: '#6366f1',
+    gradient: 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)',
+    background: '#eef2ff',
+    textColor: '#3730a3',
+    dotColor: '#6366f1',
+  },
+  RFQ_STUCK_TECHNICAL: {
+    step: 2,
+    label: 'Stuck at Technical',
+    shortLabel: 'Stuck',
+    description: 'Submission deadline has passed but no vendors have submitted eligible quotes. Technical evaluation cannot begin until at least one vendor responds.',
+    color: '#ef4444',
+    gradient: 'linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)',
+    background: '#fef2f2',
+    textColor: '#991b1b',
+    dotColor: '#ef4444',
   },
   TECHNICAL_EVALUATING: {
     step: 2,
@@ -164,6 +207,17 @@ export const LIFECYCLE_CONFIG = {
     label: 'Re-evaluation Required',
     shortLabel: 'Rejected',
     description: 'Technical evaluation was rejected and needs re-scoring',
+    color: '#ef4444',
+    gradient: 'linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)',
+    background: '#fef2f2',
+    textColor: '#991b1b',
+    dotColor: '#ef4444',
+  },
+  RFQ_STUCK_COMMERCIAL: {
+    step: 4,
+    label: 'Stuck at Commercial',
+    shortLabel: 'Stuck',
+    description: 'Submission deadline has passed but no vendors have submitted eligible quotes. Commercial evaluation cannot begin until at least one vendor responds.',
     color: '#ef4444',
     gradient: 'linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)',
     background: '#fef2f2',
@@ -258,7 +312,10 @@ export const getStatusConfig = (data, publishState) => {
   if (data?.po_partially_completed) return STATUS_CONFIG.PARTIALLY_COMPLETED;
   if (publishState?.isPendingApproval) return STATUS_CONFIG.PENDING_APPROVAL;
   if (publishState?.isReadyToPublish) return STATUS_CONFIG.READY_TO_PUBLISH;
+  if (publishState?.isWithdrawn) return STATUS_CONFIG.WITHDRAWN;
   if (data?.is_finalized) return STATUS_CONFIG.FINALIZED;
+  if (publishState?.isClosed && data?.is_published === 0) return STATUS_CONFIG.TERMINATED;
   if (publishState?.isClosed) return STATUS_CONFIG.CLOSED;
+  if (data?.is_published === 0 && !publishState?.isOpen) return STATUS_CONFIG.DRAFT;
   return STATUS_CONFIG.OPEN;
 };

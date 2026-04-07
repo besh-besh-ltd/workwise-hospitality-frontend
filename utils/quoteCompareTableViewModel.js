@@ -137,7 +137,7 @@ export const getPaymentTermsText = (quote) => {
 
 export const getPreviousQuote = (quote) => {
   const previous = Array.isArray(quote?.previous_quotes) ? quote.previous_quotes : [];
-  return previous.length > 0 ? previous[previous.length - 1] : null;
+  return previous.length > 0 ? previous[0] : null;
 };
 
 export const sortProductQuotes = (product, quotations = [], normalizeFilter = false) => {
@@ -197,7 +197,6 @@ const metricValueResolvers = {
   freight: (column) => getChargeEffectiveValue(column.details, "freight", column.quantity),
   gst: (column) => getChargeEffectiveValue(column.details, "gst", column.quantity),
   total: (column) => toNumber(column.total),
-  target: (column) => toNumber(column.targetPrice),
   delivery: (column) => toNumber(column.delivery),
 };
 
@@ -399,7 +398,6 @@ export const buildProductComparisonModel = ({
     "freight",
     "gst",
     "total",
-    "target",
     "delivery",
   ];
 

@@ -8,7 +8,7 @@ import PublishDateTimer from '@/components/shared/PublishDateTimer';
 import { getStatusConfig, STATUS_CONFIG, getLifecycleConfig, LIFECYCLE_STAGES_ORDERED } from './statusConfig';
 import styles from './RFQCard.module.scss';
 
-const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermission = true }) => {
+const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermission = true, isDraft = false, onDelete }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAutoPublished, setIsAutoPublished] = useState(false);
   const [showLifecycleTooltip, setShowLifecycleTooltip] = useState(false);
@@ -16,7 +16,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
   const publishState = getRFQPublishState(data);
   const isTender = data.is_tender === 1 || data.is_tender === true;
   const isBacklog = isPendingApproval && data.is_published === 1 && data.status === 1;
-  const statusConfig = isBacklog ? STATUS_CONFIG.PUBLISHED_WITHOUT_APPROVAL : getStatusConfig(data, publishState);
+  const statusConfig = isBacklog ? STATUS_CONFIG.PUBLISHED_WITHOUT_APPROVAL : isDraft ? STATUS_CONFIG.DRAFT : getStatusConfig(data, publishState);
   const StatusIcon = statusConfig.icon;
 
   const totalVendors = data.vendors?.[0]?.total_vendors || 0;
@@ -72,7 +72,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
           )}
 
           <div className={styles.titleBlock}>
-            <span className={styles.title} title={data.title || formatRFQNumber(data.rfq_no, data.is_tender)}>{data.title || formatRFQNumber(data.rfq_no, data.is_tender)}</span>
+            <span className={styles.title} style={!data.title && isDraft ? { color: '#8c939a', fontStyle: 'italic' } : undefined} title={data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}>{data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}</span>
             <span className={styles.rfqNumber}>{formatRFQNumber(data.rfq_no, data.is_tender)}</span>
           </div>
 
@@ -82,27 +82,39 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
             </div>
           )}
 
-          {/* Divider */}
-          <span className={styles.sectionDivider} />
+          {!isDraft && (
+            <>
+              {/* Divider */}
+              <span className={styles.sectionDivider} />
 
-          {/* Vendor Stats */}
-          <div className={styles.vendorChip}>
-            <Users size={13} className={styles.vendorIconBlue} />
-            <span className={styles.vendorNum}>{totalVendors}</span>
-            <span className={styles.vendorLabel}>Invited</span>
+              {/* Vendor Stats */}
+              <div className={styles.vendorChip}>
+                <Users size={13} className={styles.vendorIconBlue} />
+                <span className={styles.vendorNum}>{totalVendors}</span>
+                <span className={styles.vendorLabel}>Invited</span>
 
-            <span className={styles.vendorSep} />
+                <span className={styles.vendorSep} />
 
-            <Send size={13} className={allQuotesReceived ? styles.vendorIconGreen : styles.vendorIconOrange} />
-            <span className={styles.vendorNum}>{quotesReceived}</span>
-            <span className={styles.vendorLabel}>Participated</span>
-          </div>
+                <Send size={13} className={allQuotesReceived ? styles.vendorIconGreen : styles.vendorIconOrange} />
+                <span className={styles.vendorNum}>{quotesReceived}</span>
+                <span className={styles.vendorLabel}>Participated</span>
+              </div>
+            </>
+          )}
+          {isDraft && data.status === 5 && (
+            <>
+              <span className={styles.sectionDivider} />
+              <span className={styles.statusBadge} style={{ backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffc107', fontSize: '0.7rem' }}>
+                Previously submitted for publishing
+              </span>
+            </>
+          )}
         </div>
 
         {/* Right: Lifecycle + Date + Expand */}
         <div className={styles.rightSection}>
-          {/* Lifecycle Pill */}
-          {lifecycleConfig && (() => {
+          {/* Lifecycle Pill - hidden for drafts and terminated RFQs */}
+          {lifecycleConfig && !isDraft && statusConfig.key !== 'terminated' && (() => {
             const stagesFiltered = LIFECYCLE_STAGES_ORDERED.filter(k => k !== 'TECHNICAL_REJECTED');
             const stepNum = stagesFiltered.indexOf(data.lifecycle_stage) + 1;
             return (
@@ -227,7 +239,12 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
           <div className={styles.metaItem}><span>Reverse Auction: <strong>{data.reverse_auction === 1 ? 'Enabled' : 'Disabled'}</strong></span></div>
         </div>
         <div className={styles.timelineRow}>
-          {publishState.isPrePublishState && data.tender_publish_date ? (
+          {isDraft ? (
+            <>
+              <div className={styles.timelineItem}><Calendar size={14} /><span>Created: <strong>{moment(data.timestamp).format('DD-MM-YYYY')}</strong></span></div>
+              <div className={styles.timelineItem}><Clock size={14} /><span>Bid Ends: <strong>{data.bid_end_date ? moment(data.bid_end_date).format('DD-MM-YYYY hh:mm A') : '---'}</strong></span></div>
+            </>
+          ) : publishState.isPrePublishState && data.tender_publish_date ? (
             <div className={styles.timelineItem}><Calendar size={14} /><span>Scheduled:</span><PublishDateTimer publishDate={data.tender_publish_date} variant="full" /></div>
           ) : (
             <>
@@ -240,32 +257,47 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
           )}
         </div>
         <div className={styles.actionsRow} onClick={(e) => e.stopPropagation()}>
-          <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`}>
-            <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>
-              View Details
-            </button>
-          </Link>
+          {isDraft ? (
+            <>
+              <Link href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.id}`}>
+                <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>Edit Draft</button>
+              </Link>
+              {onDelete && (
+                <button className={`btn btn-sm ${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => onDelete(data)}>Delete</button>
+              )}
+            </>
+          ) : (
+            <>
+              <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`}>
+                <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>
+                  View Details
+                </button>
+              </Link>
 
-          {/* Edit button: hidden if finalized, disabled if no permission */}
-          {publishState.canEdit && !isPendingApproval && !data.is_finalized && (
-            hasEditPermission
-              ? <Link href={publishState.editUrl(data.id)}><button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>Edit</button></Link>
-              : <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`} disabled title="You do not have permission to edit this RFQ" style={{ opacity: 0.5, cursor: 'not-allowed' }}>Edit</button>
-          )}
-          {!publishState.isPrePublishState && !isPendingApproval && (
-            <Link href={`/dashboard/buyer/query?rfq_id=${data.id}&role=buyer&source=rfq-management`}>
-              <button className={`btn btn-sm ${styles.actionBtn} ${styles.queryBtn}`}>Queries{data.unseen_query_count > 0 && <Badge bg="danger" className="ms-1" style={{ fontSize: '0.65rem' }}>{data.unseen_query_count}</Badge>}</button>
-            </Link>
-          )}
-          {!publishState.isPrePublishState && !allQuotesReceived && !data.is_finalized && publishState.isOpen && !isPendingApproval && (
-            <button className={`btn btn-sm ${styles.actionBtn} ${styles.reminderBtn}`} onClick={() => onSendReminder?.(data)}>Send Reminder</button>
-          )}
-          {isPendingApproval && !isBacklog && (
-            <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`}>
-              <button className={`btn btn-sm ${styles.actionBtn} ${styles.approveBtn}`}>
-                View Details
-              </button>
-            </Link>
+              {/* Edit button: hidden if finalized, disabled if no permission or all POs approved */}
+              {publishState.canEdit && !isPendingApproval && !data.is_finalized && (
+                data.po_completed
+                  ? <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`} disabled title="For this RFQ, all products are finalized and awarded" style={{ opacity: 0.5, cursor: 'not-allowed' }}>Edit</button>
+                  : hasEditPermission
+                    ? <Link href={publishState.editUrl(data.id)}><button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>Edit</button></Link>
+                    : <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`} disabled title="You do not have permission to edit this RFQ" style={{ opacity: 0.5, cursor: 'not-allowed' }}>Edit</button>
+              )}
+              {!publishState.isPrePublishState && !isPendingApproval && statusConfig.key !== 'terminated' && (
+                <Link href={`/dashboard/buyer/query?rfq_id=${data.id}&role=buyer&source=rfq-management`}>
+                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.queryBtn}`}>Queries{data.unseen_query_count > 0 && <Badge bg="danger" className="ms-1" style={{ fontSize: '0.65rem' }}>{data.unseen_query_count}</Badge>}</button>
+                </Link>
+              )}
+              {!publishState.isPrePublishState && !allQuotesReceived && !data.is_finalized && publishState.isOpen && !isPendingApproval && (
+                <button className={`btn btn-sm ${styles.actionBtn} ${styles.reminderBtn}`} onClick={() => onSendReminder?.(data)}>Send Reminder</button>
+              )}
+              {isPendingApproval && !isBacklog && (
+                <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`}>
+                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.approveBtn}`}>
+                    View Details
+                  </button>
+                </Link>
+              )}
+            </>
           )}
         </div>
       </div>
