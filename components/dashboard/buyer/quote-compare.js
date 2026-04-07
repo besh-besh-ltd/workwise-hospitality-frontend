@@ -137,7 +137,10 @@ const QuoteCompare = () => {
     hotelIds: hotelIds,
     enabled: !!currentRFQ,
   });
-  const canWriteNegotiation = canUpdateNegotiation || canCreateNegotiation;
+  // A closed RFQ (status=2) is fully locked — no negotiation rounds, no finalization, no approvals
+  const isRfqClosed = String(currentRFQ?.status) === '2';
+  const rawCanWriteNegotiation = canUpdateNegotiation || canCreateNegotiation;
+  const canWriteNegotiation = rawCanWriteNegotiation && !isRfqClosed;
 
   // Quote-Compare permissions
   const {
@@ -150,7 +153,8 @@ const QuoteCompare = () => {
     hotelIds: hotelIds,
     enabled: !!currentRFQ,
   });
-  const canWriteQuoteCompare = canUpdateQuoteCompare || canCreateQuoteCompare;
+  const rawCanWriteQuoteCompare = canUpdateQuoteCompare || canCreateQuoteCompare;
+  const canWriteQuoteCompare = rawCanWriteQuoteCompare && !isRfqClosed;
 
   // Combined loading state
   const permissionsLoading = negotiationPermissionsLoading || quoteComparePermissionsLoading;
@@ -396,7 +400,7 @@ const QuoteCompare = () => {
         getAllRFQs(true);
     }, 500);
     return () => clearTimeout(handler);
-  }, [rfqNo, isTenderFilter]);
+  }, [rfqNo, isTenderFilter, selectedHotelIds]);
 
 
   const closeModalForVariant = (variantId) => {
@@ -495,7 +499,7 @@ const handleCloseNormalizeModal = () => {
  
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
-    getRfqs({ tech_eval: false, page, limit, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote" })
+    getRfqs({ tech_eval: false, page, limit, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote", hotel_id: selectedHotelIds && selectedHotelIds.length > 0 ? selectedHotelIds[0] : null })
       .then((res) => {
         setloading(false);
         const newData = Array.isArray(res) ? res : [];
@@ -1414,6 +1418,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
   }
 };
   const handleFinalize = (item, proditem, existingPOId, selectedHierarchy, routeType = 'PO') => {
+    if (isRfqClosed) {
+      toast.error(`This ${getEntityLabel(currentRFQ?.is_tender)} is closed. Finalization is not permitted.`);
+      return;
+    }
     setfinalizeLoading(true);
     const specs = proditem.product_details[0].rfq_details;
 
@@ -1636,6 +1644,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     key: 'action_required',
                     label: 'Action Required',
                     filter: (item) => {
+                      // Closed RFQs are read-only — only show in All tab
+                      if (String(item.status) === '2') return false;
                       // User is current approver
                       if (item.approval_required) return true;
                       // Already fully done or all finalized (in approval) or partially approved
@@ -1650,6 +1660,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     key: 'in_progress',
                     label: 'In Progress',
                     filter: (item) => {
+                      if (String(item.status) === '2') return false;
                       if (item.approval_required || item.finalization_approval_completed) return false;
                       return (item.is_finalized && !item.finalization_approval_completed)
                         || item.finalization_partially_approved;
@@ -1670,8 +1681,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   setIsTenderFilter(val);
                   setpage(1);
                 }}
-                getItemTags={(item, isSelected) => {
-                  if (isSelected) return [];
+                getItemTags={(item) => {
+                  if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
                   if (item.finalization_approval_completed) return [{ label: 'Finalized', variant: 'success' }];
                   if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
                   if (item.is_finalized || item.finalization_partially_approved) return [{ label: 'Awaiting Approval', variant: 'info' }];
@@ -1738,6 +1749,16 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   <AccessDeniedPage showBackButton={false} />
                 ) : !isContentLoading ? (
                 <>
+                {/* Closed-RFQ Lock Banner — supersedes individual workspace read-only banners */}
+                {isRfqClosed && currentRFQ && (
+                  <ReadOnlyBanner
+                    variant="danger"
+                    title="Quote Compare Locked"
+                    message={`This ${getEntityLabel(currentRFQ?.is_tender)} has been closed. Negotiation rounds, vendor finalization, and approvals are no longer permitted.`}
+                    badgeText={`${getEntityLabel(currentRFQ?.is_tender)} Closed`}
+                    noMarginTop
+                  />
+                )}
                 {!quotesLoading && currentRFQ && (
                   <QuoteCompareHeaderCard
                     currentRFQ={currentRFQ}
@@ -1778,7 +1799,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       <p className={revampStyles.zoneTitle}>Negotiation Workspace</p>
                       <p className={revampStyles.zoneSub}>Round creation, approvals, and negotiation history</p>
                     </div>
-                    {currentRFQ && canReadNegotiation && !canWriteNegotiation && !permissionsLoading && (
+                    {currentRFQ && canReadNegotiation && !rawCanWriteNegotiation && !permissionsLoading && !isRfqClosed && (
                       <ReadOnlyBanner
                         title="Negotiation View Only"
                         message="You don't have edit permissions for negotiation rounds."
@@ -1811,7 +1832,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       <p className={revampStyles.zoneSub}>Compare vendor responses and finalize decisions</p>
                     </div>
                     {/* Quote-Compare read-only banner - only show if user CAN read quote-compare but CANNOT write */}
-                    {currentRFQ && !canWriteQuoteCompare && !permissionsLoading && (
+                    {currentRFQ && !rawCanWriteQuoteCompare && !permissionsLoading && !isRfqClosed && (
                       <ReadOnlyBanner
                         title="Quote Compare View Only"
                         message="You don't have edit permissions for quote comparison and finalization."

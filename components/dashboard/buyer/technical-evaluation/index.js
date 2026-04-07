@@ -121,7 +121,10 @@ const BuyerTechnicalEvaluation = () => {
   });
 
   // For technical evaluation, "write" access means either update OR create permission
-  const canWrite = canUpdate || canCreate;
+  // BUT: a closed RFQ (status=2) is fully locked — no scoring, no submit, no approvals
+  const isRfqClosed = String(currentRfq?.status) === '2';
+  const rawCanWrite = canUpdate || canCreate;
+  const canWrite = rawCanWrite && !isRfqClosed;
 
   // Track if we've verified permissions for the current RFQ
   const [permissionsVerified, setPermissionsVerified] = useState(false);
@@ -146,7 +149,7 @@ const BuyerTechnicalEvaluation = () => {
       getTechEvaluationRFQsByUser();
     }, 500);
     return () => clearTimeout(handler);
-  }, [rfqNo, isTenderFilter]);
+  }, [rfqNo, isTenderFilter, selectedHotelIds]);
 
   const getUserDetails = () => {
     // Prefer Redux persisted profile (populated from /users/get-profile API with correct DB id)
@@ -171,7 +174,8 @@ const BuyerTechnicalEvaluation = () => {
         rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
         sort: 'DESC',
         is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null,
-        module_keys: "technical"
+        module_keys: "technical",
+        hotel_id: selectedHotelIds && selectedHotelIds.length > 0 ? selectedHotelIds[0] : null,
       });
       const newData = Array.isArray(res) ? res : [];
       setRfqList(newData);
@@ -593,13 +597,25 @@ const BuyerTechnicalEvaluation = () => {
                   {
                     key: 'action_required',
                     label: 'Action Required',
-                    filter: (item) => item.has_pending_evaluation || item.te_approval_rejected || item.approval_required,
+                    filter: (item) => {
+                      // Closed RFQs are read-only — no action possible
+                      if (String(item.status) === '2') return false;
+                      // Bid submission window must have closed before evaluation/approval is meaningful
+                      const bidEnded = item.bid_end_date && new Date(item.bid_end_date) < new Date();
+                      if (!bidEnded) return false;
+                      // Current user must have something to do: a product to evaluate,
+                      // a rejected evaluation to redo, or a pending approval where they are the approver.
+                      return item.has_pending_evaluation || item.te_approval_rejected || item.approval_required;
+                    },
                   },
                   {
                     key: 'in_progress',
                     label: 'In Progress',
-                    filter: (item) => !item.has_pending_evaluation && !item.te_approval_rejected
-                      && !item.approval_required && item.has_pending_te_approval,
+                    filter: (item) => {
+                      if (String(item.status) === '2') return false;
+                      return !item.has_pending_evaluation && !item.te_approval_rejected
+                        && !item.approval_required && item.has_pending_te_approval;
+                    },
                   },
                   { key: 'all', label: 'All', filter: null },
                 ]}
@@ -613,8 +629,8 @@ const BuyerTechnicalEvaluation = () => {
                 showTypeFilter={true}
                 isTenderFilter={isTenderFilter}
                 onTenderFilterChange={(val) => setIsTenderFilter(val)}
-                getItemTags={(item, isSelected) => {
-                  if (isSelected) return [];
+                getItemTags={(item) => {
+                  if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
                   if (item.te_approval_rejected) return [{ label: 'Evaluation Rejected', variant: 'danger' }];
                   if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
                   if (item.has_pending_te_approval) return [{ label: 'In Approval', variant: 'info' }];
@@ -682,10 +698,10 @@ const BuyerTechnicalEvaluation = () => {
                           <span>{entityLabel}</span>
                           <span className={styles.rfqHeroNum}>#{currentRfq.rfq_no}</span>
                           <Badge
-                            bg={currentRfq.te_approval_rejected ? 'danger' : currentRfq.te_completed === true ? 'success' : currentRfq.approval_required ? 'warning' : 'info'}
+                            bg={isRfqClosed ? 'danger' : currentRfq.te_approval_rejected ? 'danger' : currentRfq.te_completed === true ? 'success' : currentRfq.approval_required ? 'warning' : 'info'}
                             className={styles.rfqStatusBadge}
                           >
-                            {currentRfq.te_approval_rejected ? 'Evaluation Rejected' : currentRfq.te_completed === true ? 'Completed' : currentRfq.approval_required ? 'Pending Approval' : 'In Progress'}
+                            {isRfqClosed ? 'Closed' : currentRfq.te_approval_rejected ? 'Evaluation Rejected' : currentRfq.te_completed === true ? 'Completed' : currentRfq.approval_required ? 'Pending Approval' : 'In Progress'}
                           </Badge>
                         </div>
                         {currentRfq.title && currentRfq.title != "" && (
@@ -722,8 +738,8 @@ const BuyerTechnicalEvaluation = () => {
                   </div>
                 )}
 
-                {/* Bid End Date Lock Banner */}
-                {!isContentLoading && !isAccessDenied && currentRfq && !isBidExpired && (
+                {/* Bid End Date Lock Banner — suppressed when RFQ is closed (the closed-RFQ banner takes over) */}
+                {!isContentLoading && !isAccessDenied && currentRfq && !isBidExpired && !isRfqClosed && (
                   <div className={styles.bidLockBanner}>
                     <div className={styles.bidLockIconWrapper}>
                       <BsLock size={20} />
@@ -746,14 +762,22 @@ const BuyerTechnicalEvaluation = () => {
                   </div>
                 )}
 
-                {/* Read-Only Banner */}
-                {hasPermissionContext && !permissionsLoading && !canWrite && canRead && (
-                  <div className="mt-3 mb-3">
-                    <ReadOnlyBanner
-                      title="View Only Mode"
-                      message="You have read-only access to this technical evaluation. Contact your administrator to request edit permissions."
-                    />
-                  </div>
+                {/* Closed-RFQ Lock Banner — supersedes the read-only banner */}
+                {!isContentLoading && !isAccessDenied && isRfqClosed && currentRfq && (
+                  <ReadOnlyBanner
+                    variant="danger"
+                    title="Evaluation Locked"
+                    message={`This ${entityLabel} has been closed. Scoring, evaluation, and approvals are no longer permitted.`}
+                    badgeText={`${entityLabel} Closed`}
+                  />
+                )}
+
+                {/* Read-Only Banner — only when the user lacks write perms (not when RFQ is locked) */}
+                {!isContentLoading && !isAccessDenied && hasPermissionContext && !permissionsLoading && !rawCanWrite && canRead && !isRfqClosed && (
+                  <ReadOnlyBanner
+                    title="View Only Mode"
+                    message="You have read-only access to this technical evaluation. Contact your administrator to request edit permissions."
+                  />
                 )}
 
                 {!isContentLoading && !isAccessDenied && <div className="quote-sec-main">

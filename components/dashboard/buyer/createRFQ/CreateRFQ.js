@@ -742,56 +742,6 @@ useEffect(() => {
     setTermFilesChanged(true);
   };
 
-  const validateVendors = () => {
-    const productsWithoutVendors = new Set();
-
-    rfqProducts.forEach((product) => {
-      if (updatableData.products.deletable.includes(product.id)) return;
-
-      const key = `${product.id}`;
-      
-      // Improved fallback: Use fetched vendors → original product.vendors → assume at least 1 if not loaded (prevents false errors)
-      let currentVendors = vendors?.[key];
-      if (!currentVendors || currentVendors.length === 0) {
-        currentVendors = product.vendors ?? [];
-      }
-      
-      // If vendors not yet fetched into accordion state, check original product data
-      if (currentVendors.length === 0 && !vendors.hasOwnProperty(key)) {
-        // Only skip if product originally had vendors (not yet loaded into accordion state).
-        // If the product has no vendors at all, it's a real error.
-        if (product.vendors && product.vendors.length > 0) {
-          return;
-        }
-        productsWithoutVendors.add(product.id);
-        return;
-      }
-
-      const currentVendorIds = currentVendors.map(v => v.user_id || v.id || v);
-
-      const addableVendors = updatableData.vendors?.[product.id]?.addable ?? [];
-      const deletableVendors = (updatableData.vendors?.[product.id]?.deletable ?? []).filter(
-        id => currentVendorIds.includes(id)
-      );
-
-      const totalVendors = currentVendors.length + addableVendors.length - deletableVendors.length;
-
-      if (totalVendors <= 0) {
-        productsWithoutVendors.add(product.id);
-      }
-    });
-
-    if (productsWithoutVendors.size > 0) {
-      setErrorProducts(productsWithoutVendors);
-      toast.error("At least one vendor is required for each product.");
-      return false;
-    }
-
-    // Always clear errors when all good
-    setErrorProducts(new Set());
-    return true;
-  };
-
   const validateRFQFields = (values) => {
     // Deep clone the form data to avoid direct mutation
     const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
@@ -831,19 +781,10 @@ useEffect(() => {
       return false;
     }
 
-    if (!validateVendors()) {
-      setMainLoading(false);
-      return false;
-    }
-
     return true
   }
 
   const handleCreateRFQ = (values) => {
-    if (!validateVendors()) {
-      setMainLoading(false);
-      return;
-    }
     setErrorProducts(new Set());
     setMainLoading(true);
     setHasUnsavedChanges(false);

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Select from 'react-select';
 import { useSelector } from 'react-redux';
 
@@ -9,6 +9,22 @@ const FilterSection = ({ title, setFilterData }) => {
     const [userHotelMappings, setUserHotelMappings] = useState([]);
     const [selectedHotelIds, setSelectedHotelIds] = useState([]);
     const isInitialRfqNo = useRef(true);
+
+    // Flat option list: drop company-wide mappings (no hotel id) and dedupe by hotel id.
+    const validHotelOptions = useMemo(() => {
+        const seen = new Set();
+        const out = [];
+        for (const m of userHotelMappings) {
+            if (!m || m.hospitality_hotel_id == null || !m.hotel_name) continue;
+            const key = m.hospitality_hotel_id;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(m);
+        }
+        return out.sort((a, b) =>
+            (a.hotel_name || '').localeCompare(b.hotel_name || '')
+        );
+    }, [userHotelMappings]);
 
     useEffect(() => {
         if (isInitialRfqNo.current) {
@@ -85,19 +101,21 @@ const FilterSection = ({ title, setFilterData }) => {
                     />
                 </div>
 
-                {userHotelMappings.length > 0 && (
+                {validHotelOptions.length > 0 && (
                     <div className="col-md-2 col-lg-2">
                         <label>Select Business Units</label>
                         <Select
                             id="select_hotels_filter-filter_section-manage_rfq_page"
                             isMulti
-                            options={userHotelMappings}
-                            value={userHotelMappings.filter(opt => 
+                            options={validHotelOptions}
+                            value={validHotelOptions.filter(opt =>
                                 selectedHotelIds.includes(opt.hospitality_hotel_id)
                             )}
                             onChange={(selectedOptions) => {
-                                const ids = selectedOptions 
-                                    ? selectedOptions.map(opt => opt.hospitality_hotel_id)
+                                const ids = selectedOptions
+                                    ? selectedOptions
+                                        .map(opt => opt.hospitality_hotel_id)
+                                        .filter(id => id != null)
                                     : [];
                                 handleHotelSelectionChange(ids);
                             }}
@@ -105,12 +123,21 @@ const FilterSection = ({ title, setFilterData }) => {
                             closeMenuOnSelect={false}
                             classNamePrefix="react-select"
                             isClearable
-                            formatOptionLabel={(option) => (
-                                <div>
-                                    <span>{option.hotel_name}</span>
-                                </div>
-                            )}
-                            getOptionValue={(option) => option.hospitality_hotel_id}
+                            getOptionValue={(option) => String(option.hospitality_hotel_id)}
+                            getOptionLabel={(option) => option.hotel_name || ''}
+                            styles={{
+                                option: (base) => ({
+                                    ...base,
+                                    fontSize: '12px',
+                                    paddingTop: 6,
+                                    paddingBottom: 6,
+                                }),
+                                multiValueLabel: (base) => ({
+                                    ...base,
+                                    fontSize: '11px',
+                                }),
+                            }}
+                            noOptionsMessage={() => 'No business units found'}
                         />
                     </div>
                 )}

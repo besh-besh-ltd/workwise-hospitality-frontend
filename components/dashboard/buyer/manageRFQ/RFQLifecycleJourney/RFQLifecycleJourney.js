@@ -152,7 +152,7 @@ const RFQLifecycleJourney = ({ rfqId, isTender = false, onActionComplete }) => {
                   {phase.status === 'skipped' && <BsSkipForwardFill size={12} />}
                   {phase.status === 'upcoming' && <BsCircle size={14} />}
                 </div>
-                {!isLast && <div className={`${styles.wire} ${styles[`wire_${phase.status}`]}`} />}
+                {!isLast && <div className={`${styles.wire} ${isCancelled ? styles.wire_cancelled : styles[`wire_${phase.status}`]}`} />}
               </div>
               <div className={styles.body}>
                 <div className={`${styles.card} ${cardClass}`} onClick={() => canOpen && togglePhase(phase.key)} style={canOpen ? { cursor: 'pointer' } : undefined}>
@@ -160,7 +160,7 @@ const RFQLifecycleJourney = ({ rfqId, isTender = false, onActionComplete }) => {
                     <Icon size={15} className={styles.phaseIcon} />
                     <span className={styles.cardLabel}>{phase.label}</span>
                     {phase.status === 'current' && !isCancelled && <span className={styles.tagCur}>Current</span>}
-                    {isCancelled && <span className={styles.tagCur}>Current</span>}
+                    {isCancelled && <span className={styles.tagCurCancelled}>Current</span>}
                     {isCancelled && <span className={styles.tagCancel}>Cancelled</span>}
                     {phase.status === 'expired' && <span className={styles.tagExp}>Expired</span>}
                     {phase.status === 'skipped' && <span className={styles.tagSkip}>Skipped</span>}
@@ -286,7 +286,7 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
                 <Accordion.Header>
                   <div className={styles.prodHead}>
                     <span className={styles.prodBadge}>{pg.product_name}</span>
-                    <Badge bg={latestStatus === 'APPROVED' ? 'success' : latestStatus === 'REJECTED' ? 'danger' : 'warning'} style={{ fontSize: '0.6rem' }}>{latestStatus}</Badge>
+                    <Badge bg={latestStatus === 'APPROVED' ? 'success' : latestStatus === 'REJECTED' || latestStatus === 'CANCELLED' ? 'danger' : 'warning'} style={{ fontSize: '0.6rem' }}>{latestStatus}</Badge>
                     <span className={styles.pillMuted}>{pg.instances.length} attempt{pg.instances.length > 1 ? 's' : ''} · {rounds.length} round{rounds.length > 1 ? 's' : ''}</span>
                   </div>
                 </Accordion.Header>
@@ -395,7 +395,7 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
               <Accordion.Header>
                 <div className={styles.prodHead}>
                   <span className={styles.prodBadge}>{pg.product_name}</span>
-                  {latestStatus && <Badge bg={latestStatus === 'APPROVED' ? 'success' : latestStatus === 'REJECTED' ? 'danger' : 'warning'} style={{ fontSize: '0.6rem' }}>{latestStatus}</Badge>}
+                  {latestStatus && <Badge bg={latestStatus === 'APPROVED' ? 'success' : latestStatus === 'REJECTED' || latestStatus === 'CANCELLED' ? 'danger' : 'warning'} style={{ fontSize: '0.6rem' }}>{latestStatus}</Badge>}
                   {vendorName && <span className={styles.pillG}><BsArrowRight size={9} /> {vendorName}</span>}
                   {totalValue && <span className={styles.pillDark}>₹{Number(totalValue).toLocaleString('en-IN')}</span>}
                   {pg.instances.length > 0 && <span className={styles.pillMuted}>{pg.instances.length} attempt{pg.instances.length > 1 ? 's' : ''}</span>}
