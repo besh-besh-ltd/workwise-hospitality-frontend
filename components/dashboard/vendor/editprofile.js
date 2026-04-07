@@ -25,7 +25,7 @@ import LocationModal from "@/components/modal/LocationModal";
 import { Field, Form, Formik } from "formik";
 import Image from "next/image";
 import React, { use, useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { setUserProfile } from "@/redux/slice";
 import { toast } from "react-toastify";
 import { EditCompanyDetails } from "@/utils/schema";
@@ -42,10 +42,15 @@ import Select from "react-select";
 import SmartButton from "@/components/shared/SmartButton";
 import { FaSave } from "react-icons/fa";
 import MapSpocModal from "@/components/modal/MapSpocModal";
+import SubscriptionStatus from "./SubscriptionStatus";
 
 
 const EditProfile = () => {
   const dispatch = useDispatch();
+  const reduxUserProfile = useSelector((state) => state.userProfile);
+  const isHospitalityVendor =
+    reduxUserProfile &&
+    (reduxUserProfile.is_hospitality === 1 || reduxUserProfile.is_hospitality === '1');
   // handling state for spoc
   const [vendorSpoc, setVendorSpoc] = useState([]);
   const [selectedSpocOption, setSelectedSpocOption] = useState({
@@ -928,6 +933,16 @@ const fetchProfileDocuments = async () => {
           </div>
         </div>
       </section>
+
+      {/* Subscription info for hospitality vendors */}
+      {isHospitalityVendor && (
+        <section className="vendor-edit-sec-1" style={{ paddingBottom: 0 }}>
+          <div className="container-fluid">
+            <SubscriptionStatus />
+          </div>
+        </section>
+      )}
+
       <section className="vendor-edit-sec-1">
         {mainLoading && <Loader />}
         <div className="container-fluid">
