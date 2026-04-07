@@ -1,4 +1,4 @@
-import { RegisterService, LoginService, sendRegistrationOTP, verifyRegistrationOTP, uploadRegistrationFile } from "@/services/Auth";
+import { LoginService, sendRegistrationOTP, verifyRegistrationOTP, uploadRegistrationFile } from "@/services/Auth";
 import axiosInstance from "@/lib/axios";
 import { Form, Formik, useFormikContext } from "formik";
 import { useEffect, useState, useRef, useCallback } from "react";
@@ -16,6 +16,7 @@ import PersonalInfoStep from "./steps/PersonalInfoStep";
 import BusinessDetailsStep from "./steps/BusinessDetailsStep";
 import BusinessUnitsStep from "./steps/BusinessUnitsStep";
 import BankDetailsStep from "./steps/BankDetailsStep";
+import ReviewPayStep from "./steps/ReviewPayStep";
 import styles from "./Register.module.css";
 
 // ── AutoSave (renders inside Formik tree) ──────────
@@ -38,6 +39,7 @@ const HOSPITALITY_STEPS = [
   { key: 2, label: "Business" },
   { key: 3, label: "Business Units" },
   { key: 4, label: "Banking" },
+  { key: 5, label: "Review & Pay" },
 ];
 
 const STANDARD_STEPS = [
@@ -457,6 +459,10 @@ const Register = ({
     } else if (step === 4) {
       stepErrors = stepFourFields.filter((f) => errors[f]);
       fieldsToTouch = stepFourFields;
+      if (isHospitality && !documentFiles.cancelled_cheque) {
+        toast.error("Cancelled cheque upload is required");
+        return;
+      }
     }
 
     const updatedTouched = { ...touched };
@@ -594,7 +600,9 @@ const Register = ({
         setLoading(false);
         resetForm();
         clearDraft(); // Clear draft on success
-        toast.success(response.message, { position: "top-center" });
+        if (!(isHospitality && onRegistrationSuccess)) {
+          toast.success(response.message, { position: "top-center" });
+        }
 
         if (onRegistrationSuccess && typeof onRegistrationSuccess === "function") {
           const loginData = { email: updatedValues.email, password: updatedValues.password };
@@ -677,6 +685,37 @@ const Register = ({
       >
         {({ errors, touched, setFieldValue, values, validateForm, setTouched, resetForm }) => (
           <Form>
+            {(() => {
+              const selectedCategoryNames = categoryOptions
+                .filter((opt) => values.categories?.includes(opt.value))
+                .map((opt) => opt.label);
+              const selectedSubcategoryNames = Object.values(subcategoryOptions)
+                .flat()
+                .filter((sub) => values.subcategories?.includes(sub.value))
+                .map((sub) => sub.label);
+              const selectedHotelNames = hotelOptions
+                .filter((opt) => values.hotels?.includes(opt.value))
+                .map((opt) => opt.label);
+              const selectedHotelCount = selectedHotelNames.length;
+              const perCategoryFee = 500;
+              const baseCategoryAmount = selectedCategoryNames.length * perCategoryFee;
+              const totalAmount =
+                (selectedHotelCount > 0
+                  ? baseCategoryAmount * selectedHotelCount
+                  : baseCategoryAmount) || 0;
+              const countryLabel =
+                locationOptions.countries.find((item) => String(item.id) === String(values.country))
+                  ?.country_name || "";
+              const stateLabel =
+                locationOptions.states.find((item) => String(item.id) === String(values.state))
+                  ?.state_name || "";
+              const cityLabel =
+                locationOptions.cities.find((item) => String(item.id) === String(values.city))
+                  ?.city_name || "";
+              const locationLabel = [cityLabel, stateLabel, countryLabel].filter(Boolean).join(", ");
+
+              return (
+                <>
             <AutoSave
               saveDraft={saveDraft}
               currentStep={currentStep}
@@ -728,6 +767,19 @@ const Register = ({
               />
             )}
 
+            {currentStep === 5 && isHospitality && (
+              <ReviewPayStep
+                values={values}
+                categoryNames={selectedCategoryNames}
+                subcategoryNames={selectedSubcategoryNames}
+                hotelNames={selectedHotelNames}
+                locationLabel={locationLabel}
+                documentFiles={documentFiles}
+                totalAmount={totalAmount}
+                perCategoryFee={perCategoryFee}
+              />
+            )}
+
             {/* Navigation footer */}
             <div className={styles.modalFooter} style={{ padding: 0, border: "none", background: "transparent", marginTop: 24 }}>
               {currentStep > 1 ? (
@@ -775,7 +827,7 @@ const Register = ({
                     }
                   }}
                 >
-                  {loading ? "Registering..." : "Register"}
+                  {loading ? "Registering..." : isHospitality ? "Register & Pay" : "Register"}
                 </button>
               ) : (
                 <button
@@ -788,6 +840,9 @@ const Register = ({
                 </button>
               )}
             </div>
+                </>
+              );
+            })()}
           </Form>
         )}
       </Formik>
