@@ -18,7 +18,7 @@ import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
 import useIsMobile from "@/hooks/useIsMobile";
-import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown, BsLock, BsClock } from "react-icons/bs";
+import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown, BsLock, BsClock, BsCheckCircleFill, BsCheck2All } from "react-icons/bs";
 import styles from "./TechnicalEvaluation.module.scss";
 import { Tooltip } from "react-tooltip";
 
@@ -71,8 +71,11 @@ const BuyerTechnicalEvaluation = () => {
   const [unifiedSubmitLoading, setUnifiedSubmitLoading] = useState(false);
   const [rfqCompletionMap, setRfqCompletionMap] = useState(new Map());
   const [expandedProducts, setExpandedProducts] = useState(new Set());
+  const [techEvalDashboard, setTechEvalDashboard] = useState(null);
+  const hasUserToggledRef = useRef(false);
 
   const toggleProductExpand = (productId) => {
+    hasUserToggledRef.current = true;
     setExpandedProducts(prev => {
       const next = new Set(prev);
       if (next.has(productId)) next.delete(productId);
@@ -80,6 +83,43 @@ const BuyerTechnicalEvaluation = () => {
       return next;
     });
   };
+
+  // Reset the manual-toggle tracker whenever the RFQ changes
+  useEffect(() => {
+    hasUserToggledRef.current = false;
+    setTechEvalDashboard(null);
+  }, [rfq_id]);
+
+  // Memoized set of completed product ids (string-keyed for safe comparison)
+  const completedProductIdSet = useMemo(() => {
+    if (!Array.isArray(techEvalDashboard?.completed_product_ids)) return new Set();
+    return new Set(techEvalDashboard.completed_product_ids.map(id => String(id)));
+  }, [techEvalDashboard]);
+
+  // True when every product in the current RFQ is marked completed
+  const allProductsCompleted = useMemo(() => {
+    if (!currentRfq?.products?.length) return false;
+    if (completedProductIdSet.size === 0) return false;
+    return currentRfq.products.every(p => completedProductIdSet.has(String(p.id)));
+  }, [currentRfq, completedProductIdSet]);
+
+  // Once the dashboard data arrives, if the user hasn't manually toggled,
+  // auto-expand the first non-completed product instead of a completed one.
+  useEffect(() => {
+    if (hasUserToggledRef.current) return;
+    if (!currentRfq?.products?.length) return;
+    if (!techEvalDashboard) return;
+
+    // If URL has a prod_id target, respect it (handled elsewhere on initial load)
+    if (targetProdId) return;
+
+    const firstNonCompleted = currentRfq.products.find(
+      p => !completedProductIdSet.has(String(p.id))
+    );
+    // If everything is completed, keep the first product expanded as a fallback
+    const expandId = firstNonCompleted ? firstNonCompleted.id : currentRfq.products[0].id;
+    setExpandedProducts(new Set([expandId]));
+  }, [techEvalDashboard, currentRfq, completedProductIdSet, targetProdId]);
 
   // Extract hotel IDs for permission checks - use hotel_id from RFQ data
   const hotelIds = useMemo(() => {
@@ -746,6 +786,25 @@ const BuyerTechnicalEvaluation = () => {
                   </div>
                 )}
 
+                {/* Evaluation Completed Banner */}
+                {!isContentLoading && !isAccessDenied && currentRfq && allProductsCompleted && (
+                  <div className={styles.evaluationCompletedBanner}>
+                    <div className={styles.evaluationCompletedIconWrapper}>
+                      <BsCheck2All size={22} />
+                    </div>
+                    <div className={styles.evaluationCompletedContent}>
+                      <h5 className={styles.evaluationCompletedTitle}>Evaluation Completed</h5>
+                      <p className={styles.evaluationCompletedMessage}>
+                        The technical evaluation has been completed for all products.
+                      </p>
+                    </div>
+                    <div className={styles.evaluationCompletedBadge}>
+                      <BsCheckCircleFill size={13} />
+                      <span>All Done</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Read-Only Banner */}
                 {hasPermissionContext && !permissionsLoading && !canWrite && canRead && (
                   <div className="mt-3 mb-3">
@@ -764,7 +823,7 @@ const BuyerTechnicalEvaluation = () => {
 
                     {/* Evaluation Progress Tracker */}
                     {clauseInfo && clauseInfo.length > 0 && (
-                      <EvaluationProgressTracker rfqId={rfq_id} />
+                      <EvaluationProgressTracker rfqId={rfq_id} onDataLoaded={setTechEvalDashboard} />
                     )}
 
                     {/* Quoted Vendors Filter */}
@@ -800,9 +859,11 @@ const BuyerTechnicalEvaluation = () => {
                         const productSelectedVendors = selectedVendorsMap.get(product.id) || [];
 
                         const isTargetProduct = targetProdId && String(product.id) === String(targetProdId);
+                        const isProductCompleted = Array.isArray(techEvalDashboard?.completed_product_ids) &&
+                          techEvalDashboard.completed_product_ids.some(id => String(id) === String(product.id));
 
                         return (
-                          <div className={`${styles.productCard} ${isTargetProduct ? styles.productCardHighlight : ''}`} key={`product_${product.id}`} id={`product-card-${product.id}`}>
+                          <div className={`${styles.productCard} ${isTargetProduct ? styles.productCardHighlight : ''} ${isProductCompleted ? styles.productCardCompleted : ''}`} key={`product_${product.id}`} id={`product-card-${product.id}`}>
                             {/* Product Header */}
                             <div className={`${styles.productHeader} ${expandedProducts.has(product.id) ? styles.productHeaderActive : ''}`} onClick={() => toggleProductExpand(product.id)}>
                               <div className={styles.productHeaderLeft}>
@@ -819,6 +880,12 @@ const BuyerTechnicalEvaluation = () => {
                                     const qtyText = specs.Quantity ? `${specs.Quantity}${specs.Unit ? ` ${specs.Unit}` : ''}` : (specs.Unit ? specs.Unit : null);
                                     return qtyText ? <span className={styles.productQtyBadge}>{qtyText}</span> : null;
                                   })()}
+                                  {isProductCompleted && (
+                                    <span className={styles.allVendorsEvaluatedBadge}>
+                                      <BsCheckCircleFill size={12} />
+                                      All vendors are evaluated
+                                    </span>
+                                  )}
                                 </div>
                                 <div className={styles.productMeta}>
                                   {(() => {
