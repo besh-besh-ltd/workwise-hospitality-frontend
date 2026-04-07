@@ -3,7 +3,7 @@ import { getTechEvalDashboard } from '@/services/rfq';
 import { BsCheckCircleFill, BsArrowRepeat, BsPersonCheckFill, BsPersonXFill } from 'react-icons/bs';
 import styles from './TechnicalEvaluation.module.scss';
 
-const EvaluationProgressTracker = ({ rfqId, onDataLoaded }) => {
+const EvaluationProgressTracker = ({ rfqId }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -11,21 +11,17 @@ const EvaluationProgressTracker = ({ rfqId, onDataLoaded }) => {
     if (!rfqId) {
       setData(null);
       setLoading(false);
-      onDataLoaded?.(null);
       return;
     }
 
     setLoading(true);
     getTechEvalDashboard(rfqId)
       .then((res) => {
-        const payload = res?.data?.data || res?.data || null;
-        setData(payload);
-        onDataLoaded?.(payload);
+        setData(res?.data?.data || res?.data || null);
       })
       .catch((err) => {
         console.error('Failed to fetch tech eval dashboard:', err);
         setData(null);
-        onDataLoaded?.(null);
       })
       .finally(() => setLoading(false));
   }, [rfqId]);
