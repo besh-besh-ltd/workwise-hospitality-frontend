@@ -37,6 +37,8 @@ const ProcurementHeader = ({
   const draftLabel =
     queryMeta.rfq_id != null ? "View Current Draft" : "View My Drafts";
 
+  const isRfq = orderType === "rfq";
+
   return (
     <>
       {/* Step Indicator */}
@@ -126,7 +128,7 @@ const ProcurementHeader = ({
         <div className={styles.hotelSelectGroup}>
           <label className={styles.hotelSelectLabel}>
             <BsBuilding size={14} />
-            Business Units
+            {isRfq ? "Business Unit" : "Business Units"}
             {disableHotelSelect && selectedHotelIds.length > 0 && (
               <span className={styles.hotelLocked}>Locked</span>
             )}
@@ -147,28 +149,48 @@ const ProcurementHeader = ({
             ) : (
               <>
                 <Select
-                  isMulti
+                  isMulti={!isRfq}
                   options={userHotelMappings.filter((opt) => opt.hotel_name)}
-                  value={userHotelMappings.filter(
-                    (opt) =>
-                      opt.hotel_name &&
-                      selectedHotelIds.includes(opt.hospitality_hotel_id)
-                  )}
-                  onChange={(selectedOptions) => {
-                    const ids = selectedOptions
-                      ? selectedOptions.map((opt) => opt.hospitality_hotel_id)
-                      : [];
-                    onHotelChange(ids);
+                  value={
+                    isRfq
+                      ? userHotelMappings.find(
+                          (opt) =>
+                            opt.hotel_name &&
+                            selectedHotelIds[0] === opt.hospitality_hotel_id
+                        ) || null
+                      : userHotelMappings.filter(
+                          (opt) =>
+                            opt.hotel_name &&
+                            selectedHotelIds.includes(opt.hospitality_hotel_id)
+                        )
+                  }
+                  onChange={(selected) => {
+                    if (isRfq) {
+                      const ids = selected ? [selected.hospitality_hotel_id] : [];
+                      onHotelChange(ids);
+                    } else {
+                      const ids = selected
+                        ? selected.map((opt) => opt.hospitality_hotel_id)
+                        : [];
+                      onHotelChange(ids);
+                    }
                   }}
-                  placeholder="Select the business units for this procurement..."
-                  closeMenuOnSelect={false}
+                  placeholder={
+                    isRfq
+                      ? "Select the business unit for this RFQ..."
+                      : "Select the business units for this procurement..."
+                  }
+                  closeMenuOnSelect={!isRfq ? false : true}
+                  isClearable={isRfq}
                   classNamePrefix="rs"
                   getOptionValue={(option) => option.hospitality_hotel_id}
                   getOptionLabel={(option) => option.hotel_name}
                 />
                 {selectedHotelIds.length === 0 && (
                   <div className={styles.hotelWarning}>
-                    Select at least one business unit to start adding products
+                    {isRfq
+                      ? "Select a business unit to start adding products"
+                      : "Select at least one business unit to start adding products"}
                   </div>
                 )}
               </>
