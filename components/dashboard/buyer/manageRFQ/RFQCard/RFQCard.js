@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Card, Badge } from 'react-bootstrap';
+import { Card, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, UserCheck, Users, Folder, FileText, Gavel, AlertTriangle, Zap, Send } from 'lucide-react';
 import Link from 'next/link';
+import { useSelector } from 'react-redux';
 import moment from 'moment';
-import { getRFQPublishState, formatRFQNumber, textCapitalize } from '@/utils/sharedFunctions';
+import { getRFQPublishState, formatRFQNumber, textCapitalize, canEditRfq } from '@/utils/sharedFunctions';
 import PublishDateTimer from '@/components/shared/PublishDateTimer';
 import { getStatusConfig, STATUS_CONFIG, getLifecycleConfig, LIFECYCLE_STAGES_ORDERED } from './statusConfig';
 import styles from './RFQCard.module.scss';
@@ -12,6 +13,10 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAutoPublished, setIsAutoPublished] = useState(false);
   const [showLifecycleTooltip, setShowLifecycleTooltip] = useState(false);
+
+  // WH-69: edit permission helper — see canEditRfq() in sharedFunctions.js
+  const currentUser = useSelector((state) => state.userProfile);
+  const editPermission = canEditRfq(data, currentUser);
 
   const publishState = getRFQPublishState(data);
   const isTender = data.is_tender === 1 || data.is_tender === true;
@@ -274,13 +279,37 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                 </button>
               </Link>
 
-              {/* Edit button: hidden if finalized, disabled if no permission or all POs approved */}
-              {publishState.canEdit && !isPendingApproval && !data.is_finalized && (
-                data.po_completed
-                  ? <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`} disabled title="For this RFQ, all products are finalized and awarded" style={{ opacity: 0.5, cursor: 'not-allowed' }}>Edit</button>
-                  : hasEditPermission
-                    ? <Link href={publishState.editUrl(data.id)}><button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>Edit</button></Link>
-                    : <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`} disabled title="You do not have permission to edit this RFQ" style={{ opacity: 0.5, cursor: 'not-allowed' }}>Edit</button>
+              {/* WH-69: Edit button is always rendered, but disabled with a
+                  hover tooltip when canEditRfq() says no. The user sees the
+                  exact reason (not the creator, bid window passed, all POs
+                  finalized, RFQ closed, etc). */}
+              {!data.is_finalized && (
+                editPermission.allowed && hasEditPermission ? (
+                  <Link href={publishState.editUrl(data.id)}>
+                    <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>Edit</button>
+                  </Link>
+                ) : (
+                  <OverlayTrigger
+                    placement="top"
+                    overlay={
+                      <Tooltip id={`edit-disabled-${data.id}`}>
+                        {!hasEditPermission
+                          ? 'You do not have permission to edit this RFQ.'
+                          : editPermission.reason}
+                      </Tooltip>
+                    }
+                  >
+                    <span className="d-inline-block">
+                      <button
+                        className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}
+                        disabled
+                        style={{ opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none' }}
+                      >
+                        Edit
+                      </button>
+                    </span>
+                  </OverlayTrigger>
+                )
               )}
               {!publishState.isPrePublishState && !isPendingApproval && statusConfig.key !== 'terminated' && (
                 <Link href={`/dashboard/buyer/query?rfq_id=${data.id}&role=buyer&source=rfq-management`}>

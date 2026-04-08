@@ -2,12 +2,60 @@ import { faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import Link from "next/link";
-import React from "react";
-import { getEntityLabel } from "@/utils/sharedFunctions";
+import React, { useState } from "react";
+import { useSelector } from "react-redux";
+import { OverlayTrigger, Tooltip } from "react-bootstrap";
+import { FaHistory } from "react-icons/fa";
+import { getEntityLabel, canEditRfq } from "@/utils/sharedFunctions";
 import ReadMore from "@/components/shared/ReadMore";
+import RFQEditHistory from "./RFQEditHistory/RFQEditHistory";
+
+// WH-69: Edit button that uses canEditRfq() to decide whether to render
+// enabled (a Link) or disabled (a button with a hover tooltip explaining
+// the reason). Used everywhere the details page offers an Edit action.
+const EditRfqButton = ({ data, currentUser, label, idAttr }) => {
+  const { allowed, reason } = canEditRfq(data, currentUser);
+  if (allowed) {
+    return (
+      <Link
+        href={`/dashboard/buyer/rfq-management-edit?id=${data.id}`}
+        className="btn btn-primary"
+        id={idAttr}
+      >
+        {label}
+      </Link>
+    );
+  }
+  return (
+    <OverlayTrigger
+      placement="top"
+      overlay={<Tooltip id={`edit-disabled-${data?.id || 'x'}`}>{reason}</Tooltip>}
+    >
+      <span className="d-inline-block">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled
+          style={{ cursor: 'not-allowed', opacity: 0.65, pointerEvents: 'none' }}
+          id={idAttr}
+        >
+          {label}
+        </button>
+      </span>
+    </OverlayTrigger>
+  );
+};
 
 const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish, withdrawLoading, onTerminate }) => {
   console.log("RFQ Data in ViewRFQ:", data);
+
+  // WH-69: Edit history modal open/close state
+  const [showEditHistoryModal, setShowEditHistoryModal] = useState(false);
+
+  // WH-69: shared edit-permission helper. Pulls the current user from Redux
+  // since this component already has many other props and we don't want to
+  // thread it through.
+  const currentUser = useSelector((state) => state.userProfile);
 
   // Convert status to number for consistent comparison
   const rfqStatus = data?.status ? Number(data.status) : 0;
@@ -531,26 +579,17 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
                     </div>
 
                     <div className="d-flex gap-3">
+                      {/* WH-69: Edit button gated by canEditRfq() — disabled
+                          with an explanatory tooltip whenever the current user
+                          is not the creator, the RFQ is closed, the bid window
+                          has passed, or every product has been finalized. */}
                       {rfqStatus === 1 && (
-                        data?.po_completed ? (
-                          <button
-                            className="btn btn-primary"
-                            disabled
-                            title="For this RFQ, all products are finalized and awarded"
-                            style={{ cursor: 'not-allowed', opacity: 0.65 }}
-                            id="edit_rfq-rfq_actions-view_rfq_page"
-                          >
-                            Edit {getEntityLabel(data?.is_tender)}
-                          </button>
-                        ) : (
-                          <Link
-                            href={`/dashboard/buyer/rfq-management-edit?id=${data.id}`}
-                            className="btn btn-primary"
-                            id="edit_rfq-rfq_actions-view_rfq_page"
-                          >
-                            Edit {getEntityLabel(data?.is_tender)}
-                          </Link>
-                        )
+                        <EditRfqButton
+                          data={data}
+                          currentUser={currentUser}
+                          label={`Edit ${getEntityLabel(data?.is_tender)}`}
+                          idAttr="edit_rfq-rfq_actions-view_rfq_page"
+                        />
                       )}
                       {rfqStatus === 1 && isCreator && (
                         <button
@@ -568,37 +607,49 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
                           {getEntityLabel(data?.is_tender)} is Closed
                         </button>
                       )}
-                      {(rfqStatus === 3 || rfqStatus === 4) && isCreator && (
+                      {(rfqStatus === 3 || rfqStatus === 4) && (
                         <>
-                          <button
-                            type="button"
-                            className="btn btn-warning"
-                            id="withdraw_publish-rfq_actions-view_rfq_page"
-                            onClick={onWithdrawPublish}
-                            disabled={withdrawLoading}
-                          >
-                            {withdrawLoading ? "Processing..." : "Withdraw Publish Request"}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-danger"
-                            id="terminate_rfq-rfq_actions-view_rfq_page"
-                            onClick={onTerminate}
-                            disabled={false}
-                          >
-                            Terminate {getEntityLabel(data?.is_tender)}
-                          </button>
+                          {/* WH-69: creators can now edit during the
+                              pending-approval / ready-to-publish window */}
+                          <EditRfqButton
+                            data={data}
+                            currentUser={currentUser}
+                            label={`Edit ${getEntityLabel(data?.is_tender)}`}
+                            idAttr="edit_rfq-rfq_actions-view_rfq_page"
+                          />
+                          {/* Withdraw and Terminate are creator-only actions */}
+                          {isCreator && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn btn-warning"
+                                id="withdraw_publish-rfq_actions-view_rfq_page"
+                                onClick={onWithdrawPublish}
+                                disabled={withdrawLoading}
+                              >
+                                {withdrawLoading ? "Processing..." : "Withdraw Publish Request"}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-danger"
+                                id="terminate_rfq-rfq_actions-view_rfq_page"
+                                onClick={onTerminate}
+                                disabled={false}
+                              >
+                                Terminate {getEntityLabel(data?.is_tender)}
+                              </button>
+                            </>
+                          )}
                         </>
                       )}
                       {rfqStatus === 5 && (
                         <>
-                          <Link
-                            href={`/dashboard/buyer/rfq-management-edit?id=${data.id}`}
-                            className="btn btn-primary"
-                            id="edit_rfq-rfq_actions-view_rfq_page"
-                          >
-                            Edit {getEntityLabel(data?.is_tender)}
-                          </Link>
+                          <EditRfqButton
+                            data={data}
+                            currentUser={currentUser}
+                            label={`Edit ${getEntityLabel(data?.is_tender)}`}
+                            idAttr="edit_rfq-rfq_actions-view_rfq_page"
+                          />
                           <button type="button" className="btn btn-secondary" disabled id="rfq_withdrawn-rfq_status-view_rfq_page">
                             Publish Request Withdrawn
                           </button>
@@ -608,6 +659,28 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
                   </div>
                 </form>
               </div>
+
+              {/* WH-69: Edit history modal — opened from the floating
+                  "Edit History" button below. */}
+              {data?.id && (
+                <>
+                  <div className="container-fluid mt-3 d-flex justify-content-end">
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary"
+                      onClick={() => setShowEditHistoryModal(true)}
+                    >
+                      <FaHistory style={{ marginRight: 8 }} />
+                      Edit History
+                    </button>
+                  </div>
+                  <RFQEditHistory
+                    rfqId={data.id}
+                    isOpen={showEditHistoryModal}
+                    onClose={() => setShowEditHistoryModal(false)}
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>
