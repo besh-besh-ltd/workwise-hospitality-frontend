@@ -102,10 +102,21 @@ const DraftRFQItem = ({ data , refetch }) => {
           </span>
           <span>
             <b className="fw-semibold ">Status: </b>
-            <span className="badge rounded-pill text-bg-warning ms-5">
-              Draft
-            </span>
+            {data.status === 5 ? (
+              <span className="badge rounded-pill ms-5" style={{ backgroundColor: '#fd7e14', color: '#fff' }}>
+                Withdrawn
+              </span>
+            ) : (
+              <span className="badge rounded-pill text-bg-warning ms-5">
+                Draft
+              </span>
+            )}
           </span>
+          {data.status === 5 && (
+            <small className="d-block text-muted mt-1" style={{ fontSize: '0.75rem' }}>
+              Previously submitted for publishing
+            </small>
+          )}
         </td>
 
         <td>

@@ -1609,6 +1609,11 @@ const EditRFQ = () => {
                   }
                   return (
                     <React.Fragment key={`product-wrapper-${product.id}`}>
+                    {product.has_approved_po && (
+                      <div className="alert alert-warning mb-1 mt-2 py-1 px-2" style={{ fontSize: '0.85rem' }}>
+                        <strong>PO has been approved — editing is restricted for this product</strong>
+                      </div>
+                    )}
                     {productsWithNoVendors.has(product.id) && (
                       <small className="text-danger fw-bold d-block mb-1">
                         No eligible vendors for selected business units
@@ -1796,7 +1801,7 @@ const EditRFQ = () => {
                         }));
                       }}
                       type="edit"
-                      readOnly={hotelIds.length > 0 && !canUpdate}
+                      readOnly={(hotelIds.length > 0 && !canUpdate) || product.has_approved_po === true}
                     />
                     </React.Fragment>
                   );

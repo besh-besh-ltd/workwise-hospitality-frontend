@@ -6,7 +6,7 @@ import React from "react";
 import { getEntityLabel } from "@/utils/sharedFunctions";
 import ReadMore from "@/components/shared/ReadMore";
 
-const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
+const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish, withdrawLoading, onTerminate }) => {
   console.log("RFQ Data in ViewRFQ:", data);
 
   // Convert status to number for consistent comparison
@@ -532,29 +532,77 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
 
                     <div className="d-flex gap-3">
                       {rfqStatus === 1 && (
-                        <Link 
-                          href={`/dashboard/buyer/edit-rfq/${data.rfq_no}`} 
-                          className="btn btn-primary"
-                          id="edit_rfq-rfq_actions-view_rfq_page"
-                        >
-                          Edit {getEntityLabel(data?.is_tender)}
-                        </Link>
+                        data?.po_completed ? (
+                          <button
+                            className="btn btn-primary"
+                            disabled
+                            title="For this RFQ, all products are finalized and awarded"
+                            style={{ cursor: 'not-allowed', opacity: 0.65 }}
+                            id="edit_rfq-rfq_actions-view_rfq_page"
+                          >
+                            Edit {getEntityLabel(data?.is_tender)}
+                          </button>
+                        ) : (
+                          <Link
+                            href={`/dashboard/buyer/rfq-management-edit?id=${data.id}`}
+                            className="btn btn-primary"
+                            id="edit_rfq-rfq_actions-view_rfq_page"
+                          >
+                            Edit {getEntityLabel(data?.is_tender)}
+                          </Link>
+                        )
                       )}
-                      {rfqStatus === 1 && (
-                        <button 
-                          type="button" 
-                          className="btn btn-secondary" 
+                      {rfqStatus === 1 && isCreator && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
                           id="close_rfq-rfq_actions-view_rfq_page"
                           onClick={onCloseRFQ}
                           disabled={closeLoading}
                         >
-                          {closeLoading ? "Processing..." : `Mark ${getEntityLabel(data?.is_tender)} as Closed`}
+                          {closeLoading ? "Processing..." : `Close ${getEntityLabel(data?.is_tender)}`}
                         </button>
                       )}
                       {rfqStatus === 2 && (
                         <button type="button" className="btn btn-danger" disabled id="rfq_closed-rfq_status-view_rfq_page">
                           {getEntityLabel(data?.is_tender)} is Closed
                         </button>
+                      )}
+                      {(rfqStatus === 3 || rfqStatus === 4) && isCreator && (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-warning"
+                            id="withdraw_publish-rfq_actions-view_rfq_page"
+                            onClick={onWithdrawPublish}
+                            disabled={withdrawLoading}
+                          >
+                            {withdrawLoading ? "Processing..." : "Withdraw Publish Request"}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-danger"
+                            id="terminate_rfq-rfq_actions-view_rfq_page"
+                            onClick={onTerminate}
+                            disabled={false}
+                          >
+                            Terminate {getEntityLabel(data?.is_tender)}
+                          </button>
+                        </>
+                      )}
+                      {rfqStatus === 5 && (
+                        <>
+                          <Link
+                            href={`/dashboard/buyer/rfq-management-edit?id=${data.id}`}
+                            className="btn btn-primary"
+                            id="edit_rfq-rfq_actions-view_rfq_page"
+                          >
+                            Edit {getEntityLabel(data?.is_tender)}
+                          </Link>
+                          <button type="button" className="btn btn-secondary" disabled id="rfq_withdrawn-rfq_status-view_rfq_page">
+                            Publish Request Withdrawn
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

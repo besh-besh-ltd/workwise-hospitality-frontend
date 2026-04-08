@@ -88,7 +88,10 @@ const PurchaseOrders = () => {
     enabled: !!currentRfqData,
   });
 
-  const canWrite = canUpdate || canCreate;
+  // A closed RFQ (status=2) is fully locked — no PO edits, no approval actions
+  const isRfqClosed = String(currentRfqData?.status) === '2';
+  const rawCanWrite = canUpdate || canCreate;
+  const canWrite = rawCanWrite && !isRfqClosed;
 
   // Fetch RFQ metadata when rfq changes (for permission context)
   useEffect(() => {
@@ -122,6 +125,7 @@ const PurchaseOrders = () => {
       rfq_no: rfqNo ? parseInt(rfqNo.replace("#", "")) : null,
       sort: "DESC",
       module_keys: "po",
+      hotel_id: selectedHotelIds && selectedHotelIds.length > 0 ? selectedHotelIds[0] : null,
     })
       .then((res) => {
         setRFQLoading(false);
@@ -348,7 +352,7 @@ const PurchaseOrders = () => {
     return () => {
       clearTimeout(handler);
     };
-  }, [rfqNo]);
+  }, [rfqNo, selectedHotelIds]);
 
   useEffect(() => {
       fetchUserHotelMappings();
@@ -388,6 +392,8 @@ const PurchaseOrders = () => {
                     key: 'action_required',
                     label: 'Action Required',
                     filter: (item) => {
+                      // Closed RFQs are read-only — only show in All tab
+                      if (String(item.status) === '2') return false;
                       if (item.po_completed === true) return false;
                       return item.has_draft_po === true || item.approval_required === true;
                     },
@@ -396,6 +402,7 @@ const PurchaseOrders = () => {
                     key: 'in_progress',
                     label: 'In Progress',
                     filter: (item) => {
+                      if (String(item.status) === '2') return false;
                       if (item.po_completed === true) return false;
                       if (item.has_draft_po === true || item.approval_required === true) return false;
                       return item.has_pending_po_approval === true;
@@ -411,8 +418,8 @@ const PurchaseOrders = () => {
                 selectedHotelIds={selectedHotelIds}
                 onHotelSelectionChange={(ids) => setSelectedHotelIds(ids)}
                 showTypeFilter={false}
-                getItemTags={(item, isSelected) => {
-                  if (isSelected) return [];
+                getItemTags={(item) => {
+                  if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
                   if (item.po_completed) return [{ label: 'Completed', variant: 'success' }];
                   if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
                   if (item.has_draft_po) return [{ label: 'Draft', variant: 'neutral' }];
@@ -465,10 +472,20 @@ const PurchaseOrders = () => {
               {rfq && !permissionsLoading && canRead && (
                 <>
 
+                  {/* Closed-RFQ Lock Banner — supersedes the read-only banner. Wait for content to load. */}
+                  {isRfqClosed && currentRfqData && (poData || poDetails) && (
+                    <ReadOnlyBanner
+                      variant="danger"
+                      title="Purchase Orders Locked"
+                      message={`This ${currentRfqData?.is_tender === 1 ? 'tender' : 'RFQ'} has been closed. Editing purchase orders, approvals, and other actions are no longer permitted.`}
+                      badgeText={`${currentRfqData?.is_tender === 1 ? 'Tender' : 'RFQ'} Closed`}
+                    />
+                  )}
+
                   {/* PO Listing */}
                   {!po && poData && (
                     <>
-                    {!canWrite && (
+                    {!rawCanWrite && !isRfqClosed && (
                       <ReadOnlyBanner
                         title="View Only Mode"
                         message="You have read-only access to purchase orders. Contact your administrator to request edit permissions."
@@ -515,7 +532,7 @@ const PurchaseOrders = () => {
                   {/* PO Details */}
                   {po && poDetails && (
                     <>
-                    {!canWrite && (
+                    {!rawCanWrite && !isRfqClosed && (
                       <ReadOnlyBanner
                         title="View Only Mode"
                         message="You have read-only access to purchase orders. Contact your administrator to request edit permissions."
