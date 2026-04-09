@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import axiosInstance from "@/lib/axios";
-import { handleUploadFile, persistMagicSearchJob } from "@/services/rfq";
 
 /**
  * Executes an asynchronous data-fetching function while managing a loading state.
@@ -85,19 +83,23 @@ export const formatPrice = (price) => {
     return formattedPrice;
 }
 
+const parseIstLikeDateToEpoch = (raw) => {
+    if (raw == null || raw === '') return null;
+    if (raw instanceof Date) return raw.getTime();
+    let s = String(raw).trim();
+    if (!s) return null;
+    s = s.replace(/([+-]\d{2}:?\d{2}|Z)$/i, '');
+    s = s.replace(' ', 'T');
+    if (!/T/.test(s)) s += 'T00:00:00';
+    else if (/T\d{2}:\d{2}$/.test(s)) s += ':00';
+    const d = new Date(`${s}+05:30`);
+    return Number.isNaN(d.getTime()) ? null : d.getTime();
+};
+
 export const checkBidExpired = (bid_end_date) => {
-    if (!bid_end_date) {
-        return false;
-    }
-    const CURRENT_DATE = new Date();
-    let dateStr = bid_end_date;
-    if (typeof dateStr === 'string') {
-        dateStr = dateStr.replace(/\s+/, 'T');
-        // Normalize short timezone offsets: +00 → +00:00, -05 → -05:00
-        dateStr = dateStr.replace(/([+-]\d{2})$/, '$1:00');
-    }
-    const END_DATE = new Date(dateStr);
-    return CURRENT_DATE > END_DATE;
+    const endMs = parseIstLikeDateToEpoch(bid_end_date);
+    if (endMs == null) return false;
+    return Date.now() > endMs;
 };
 
 export const extractfileName = (file_url) => {
@@ -113,6 +115,7 @@ export const handleFileUpload = async (e, token) => {
   
     if (allowedExtensions.includes(fileExtension)) {
       try {
+        const { handleUploadFile } = await import("@/services/rfq");
         const res = await handleUploadFile(file, token);
         const filePath = res.data[0]?.file_path;
   
@@ -273,21 +276,21 @@ export const formatDisplayDate = (dateStr, options = {}) => {
  * Returns null when the input can't be parsed.
  */
 export const parseIstWallTimeToEpoch = (raw) => {
-    if (raw == null || raw === '') return null;
-    if (raw instanceof Date) return raw.getTime();
-    let s = String(raw).trim();
-    if (!s) return null;
-    // Strip any timezone suffix the caller might have already attached so
-    // we don't end up with double offsets.
-    s = s.replace(/([+-]\d{2}:?\d{2}|Z)$/i, '');
-    // Normalise the date/time separator.
-    s = s.replace(' ', 'T');
-    // Bare YYYY-MM-DD → midnight.
-    if (!/T/.test(s)) s += 'T00:00:00';
-    // YYYY-MM-DDTHH:mm → add :00 seconds for valid ISO.
-    else if (/T\d{2}:\d{2}$/.test(s)) s += ':00';
-    const d = new Date(`${s}+05:30`);
-    return Number.isNaN(d.getTime()) ? null : d.getTime();
+    return parseIstLikeDateToEpoch(raw);
+};
+
+export const formatRemainingDuration = (remainingMs) => {
+    const ms = Number(remainingMs);
+    if (!Number.isFinite(ms) || ms <= 0) return "0m";
+
+    const totalSeconds = Math.ceil(ms / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${Math.max(minutes, 1)}m`;
 };
 
 /**
