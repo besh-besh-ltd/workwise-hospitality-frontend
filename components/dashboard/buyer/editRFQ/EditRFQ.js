@@ -37,6 +37,7 @@ import { BsArrowRepeat, BsPeopleFill, BsCheckCircleFill } from "react-icons/bs";
 import useModulePermissions from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
+import FormikField from "@/components/shared/FormikField";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -2335,22 +2336,24 @@ const EditRFQ = () => {
                     {/* Additional Terms - Editable */}
                     <div>
                       <h6 className="mb-3 fw-medium">Additional Terms</h6>
-                      <textarea
+                      <FormikField
+                        nolabel={true}
                         name="comment"
-                        className="form-control border rounded p-3"
-                        rows={4}
+                        type="editor"
+                        className="text-editor-area"
                         placeholder="Enter additional terms and conditions (optional)"
+                        touched={touched}
+                        errors={errors}
                         value={values.comment ?? ""}
-                        onChange={(e) => {
-                          setFieldValue("comment", e.target.value);
+                        enableHandleChange={true}
+                        handleChange={(html) => {
                           dispatch(
                             setOtherFormFields({
-                              comment: e.target.value,
+                              comment: html,
                             })
                           );
                           setHasUnsavedChanges(true);
                         }}
-                        onBlur={handleBlur}
                       />
                     </div>
                     
