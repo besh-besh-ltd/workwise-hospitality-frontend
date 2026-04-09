@@ -261,6 +261,64 @@ export const formatDisplayDate = (dateStr, options = {}) => {
 };
 
 /**
+ * Parse a wall-clock-IST datetime string ("2026-04-09 11:11", "2026-04-09T11:11",
+ * "2026-04-09T11:11:00", or even "2026-04-09") into an absolute epoch-ms.
+ *
+ * Use this any time you need to compare an RFQ form date (which the user
+ * picks in IST and the backend stores as wall-clock IST) against a
+ * universal anchor like Date.now() — appending the +05:30 offset before
+ * calling Date() makes the result correct regardless of the server or
+ * browser timezone, so the resulting math is always frame-consistent.
+ *
+ * Returns null when the input can't be parsed.
+ */
+export const parseIstWallTimeToEpoch = (raw) => {
+    if (raw == null || raw === '') return null;
+    if (raw instanceof Date) return raw.getTime();
+    let s = String(raw).trim();
+    if (!s) return null;
+    // Strip any timezone suffix the caller might have already attached so
+    // we don't end up with double offsets.
+    s = s.replace(/([+-]\d{2}:?\d{2}|Z)$/i, '');
+    // Normalise the date/time separator.
+    s = s.replace(' ', 'T');
+    // Bare YYYY-MM-DD → midnight.
+    if (!/T/.test(s)) s += 'T00:00:00';
+    // YYYY-MM-DDTHH:mm → add :00 seconds for valid ISO.
+    else if (/T\d{2}:\d{2}$/.test(s)) s += ':00';
+    const d = new Date(`${s}+05:30`);
+    return Number.isNaN(d.getTime()) ? null : d.getTime();
+};
+
+/**
+ * Format a stored datetime value (the kind we get back from the RFQ
+ * snapshot or change history — wall-clock IST or with explicit Z) into a
+ * compact human-friendly form for the "Previously: …" hint chips on the
+ * edit form. Falls back to the raw value if it doesn't parse.
+ */
+export const formatPrevDateValue = (raw) => {
+    if (raw == null || raw === '') return '—';
+    // Try the IST wall-clock parser first since most form dates flow
+    // through that path. Fall back to the universal parseHistoryDate so
+    // values that already carry an explicit timezone still render.
+    let ms = parseIstWallTimeToEpoch(raw);
+    if (ms == null) {
+        const d = parseHistoryDate(raw);
+        ms = d && !Number.isNaN(d.getTime()) ? d.getTime() : null;
+    }
+    if (ms == null) return String(raw);
+    return new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    }).format(new Date(ms));
+};
+
+/**
  * WH-69: Edit-history timestamps come from a `TIMESTAMP without time zone`
  * column written by `NOW()` on a UTC database server, but pg-promise serialises
  * them as bare `YYYY-MM-DD HH:mm:ss` strings (no `Z` suffix). `new Date(...)`

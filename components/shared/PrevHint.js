@@ -23,13 +23,21 @@
 //   inputs that already live inside an `mb-3` wrapper should leave it off
 //   so the chip gets natural spacing.
 //
+// `type` prop:
+//   Pass `type="datetime"` for date / datetime fields (bid_end_date,
+//   tender_publish_date, …) so the chip renders the value as a
+//   human-readable IST date instead of the raw ISO blob the form sends
+//   to the backend ("2026-04-09T11:11"). The same comparison still uses
+//   the formatted form so the chip correctly hides itself once the user
+//   reverts to the prior value.
+//
 // The hint is hidden when there is no recorded change OR when the recorded
 // previous value already matches the current value (so the chip doesn't
 // linger after the user reverts an in-progress edit).
 
 import React from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { formatHistoryDateIST } from '@/utils/sharedFunctions';
+import { formatHistoryDateIST, formatPrevDateValue } from '@/utils/sharedFunctions';
 
 const PrevHint = ({
   keyName,
@@ -37,15 +45,24 @@ const PrevHint = ({
   meta: directMeta,
   currentValue,
   compact = false,
+  type,
 }) => {
   const meta = directMeta || (keyName ? previousValues?.[keyName] : null);
   if (!meta) return null;
 
-  const oldStr =
-    meta.old_value === null || meta.old_value === undefined || meta.old_value === ''
-      ? 'N/A'
-      : String(meta.old_value);
-  const curStr = currentValue === null || currentValue === undefined ? '' : String(currentValue);
+  const isDate = type === 'datetime' || type === 'date';
+  const formatVal = (v) => {
+    if (v === null || v === undefined || v === '') return 'N/A';
+    if (isDate) return formatPrevDateValue(v);
+    return String(v);
+  };
+
+  const oldStr = formatVal(meta.old_value);
+  // Compare in the rendered form so a date chip correctly disappears
+  // when the user reverts an in-progress edit (the raw datetime-local
+  // value the input emits won't match the stored snapshot value
+  // character-for-character, but the formatted form will).
+  const curStr = formatVal(currentValue);
   if (oldStr === curStr) return null;
 
   const className = compact

@@ -24,6 +24,7 @@ import { getRfqEditHistory } from '@/services/rfq';
 import {
   formatHistoryDateIST,
   formatHistoryRelative,
+  formatPrevDateValue,
 } from '@/utils/sharedFunctions';
 import styles from './RFQEditHistory.module.scss';
 
@@ -62,6 +63,17 @@ const ENTITY_LABELS = {
   PRODUCT_TECH_EVAL: 'Tech evaluation',
   TERMS: 'Terms',
 };
+
+// Field names whose values are wall-clock IST datetimes — render them via
+// formatPrevDateValue so the user sees "09 Apr 2026, 11:11 am" instead of
+// the raw "2026-04-09T11:11:00" blob the form posts to the backend.
+const DATE_FIELDS = new Set([
+  'bid_end_date',
+  'tender_publish_date',
+  'vendor_clarification_date',
+  'ra_start_date',
+  'ra_end_date',
+]);
 
 const humanise = (s) =>
   String(s)
@@ -255,6 +267,16 @@ const ChangeRow = ({ change }) => {
     rawLabel = rawLabel.split(' · ').slice(1).join(' · ') || rawLabel;
   }
 
+  // Date-typed fields render via formatPrevDateValue so the user sees a
+  // human-friendly IST datetime instead of the raw "2026-04-09T11:11:00"
+  // blob. Falls back to renderValue for everything else.
+  const isDateField = DATE_FIELDS.has(change.field_name);
+  const display = (v) => {
+    if (v === null || v === undefined || v === '') return 'N/A';
+    if (isDateField) return formatPrevDateValue(v);
+    return renderValue(v);
+  };
+
   return (
     <div className={styles.changeRow}>
       <div className={styles.changeLabel}>{rawLabel}</div>
@@ -262,20 +284,20 @@ const ChangeRow = ({ change }) => {
         {isCreate && (
           <>
             <span className={styles.tagAdded}>Added</span>
-            <span className={styles.newValue}>{renderValue(change.new_value)}</span>
+            <span className={styles.newValue}>{display(change.new_value)}</span>
           </>
         )}
         {isDelete && (
           <>
             <span className={styles.tagRemoved}>Removed</span>
-            <span className={styles.oldValue}>{renderValue(change.old_value)}</span>
+            <span className={styles.oldValue}>{display(change.old_value)}</span>
           </>
         )}
         {!isCreate && !isDelete && (
           <>
-            <span className={styles.oldValue}>{renderValue(change.old_value)}</span>
+            <span className={styles.oldValue}>{display(change.old_value)}</span>
             <FaArrowRight className={styles.arrow} />
-            <span className={styles.newValue}>{renderValue(change.new_value)}</span>
+            <span className={styles.newValue}>{display(change.new_value)}</span>
           </>
         )}
       </div>

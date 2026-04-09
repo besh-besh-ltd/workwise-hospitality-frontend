@@ -21,7 +21,7 @@ import { getDepartments } from "@/services/rbac";
 import { getCountryCodes } from "@/services/cms";
 import { getRFQHotels } from "@/services/hospitality";
 import * as Yup from "yup";
-import { formatISOToDateTimeLocal, getEntityLabel, formatDisplayDate } from "@/utils/sharedFunctions";
+import { formatISOToDateTimeLocal, getEntityLabel, formatDisplayDate, parseIstWallTimeToEpoch } from "@/utils/sharedFunctions";
 import ViewVendorModal from "./ViewVendorModal";
 import AddVendorModal from "./AddVendorModal";
 import AddProductModal from "./AddProductModal";
@@ -880,6 +880,53 @@ const EditRFQ = () => {
       if (invalidProduct) {
         toast.error('Some products are missing a valid Quantity or Unit. Please fix them and try again.');
         return;
+      }
+
+      // ── Date window constraints (computed in IST) ────────────────────
+      // Mirror of assertEditDateConstraints on the backend. Frontend hard
+      // gate so the user gets the same error without a roundtrip.
+      const effBidEnd =
+        formValues.bid_end_date ?? rfqFormDataFromStore.bid_end_date ?? rfqData.bid_end_date;
+      const effClar =
+        rfqFormDataFromStore.vendor_clarification_date ?? rfqData.vendor_clarification_date;
+      const effPub =
+        rfqFormDataFromStore.tender_publish_date ?? rfqData.tender_publish_date;
+
+      if (effBidEnd) {
+        const bidMs = parseIstWallTimeToEpoch(effBidEnd);
+        if (bidMs == null) {
+          toast.error('Invalid Quote Submission Deadline.');
+          return;
+        }
+        const minMs = Date.now() + 2 * 60 * 60 * 1000;
+        if (bidMs < minMs) {
+          toast.error('Quote Submission Deadline must be at least 2 hours from now (IST).');
+          return;
+        }
+      }
+
+      if (effClar) {
+        const clarMs = parseIstWallTimeToEpoch(effClar);
+        if (clarMs == null) {
+          toast.error('Invalid Vendor Clarification Deadline.');
+          return;
+        }
+        if (effBidEnd) {
+          const bidMs = parseIstWallTimeToEpoch(effBidEnd);
+          if (bidMs != null && bidMs - clarMs < 60 * 60 * 1000) {
+            toast.error(
+              'Vendor Clarification Deadline must be at least 1 hour before the Quote Submission Deadline.'
+            );
+            return;
+          }
+        }
+        if (effPub) {
+          const pubMs = parseIstWallTimeToEpoch(effPub);
+          if (pubMs != null && clarMs <= pubMs) {
+            toast.error('Vendor Clarification Deadline must be after the Tender Publish Date.');
+            return;
+          }
+        }
       }
 
       // WH-69: Vendor-presence checks removed.
@@ -2014,13 +2061,45 @@ const EditRFQ = () => {
                             type="datetime-local"
                             name="bid_end_date"
                             className="form-control"
+                            // datetime-local `min` is interpreted in the
+                            // browser's local time. We compute it from
+                            // "now in IST" so the picker is constrained
+                            // even before the user submits. The hard
+                            // gate in handleUpdateRFQ does the IST math
+                            // properly regardless of browser tz.
+                            min={(() => {
+                              const minMs = Date.now() + 2 * 60 * 60 * 1000;
+                              const d = new Date(minMs);
+                              const pad = (n) => String(n).padStart(2, '0');
+                              return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                            })()}
                             value={values.bid_end_date ? formatISOToDateTimeLocal(values.bid_end_date) : ""}
                             onChange={(e) => {
                               const val = e.target.value;
                               const formatted = val.includes('T') ? val.replace('T', ' ') : val;
+                              // 2-hour minimum on bid_end_date (IST). Block
+                              // here so the user can't even commit a value
+                              // that the backend would reject.
+                              if (formatted) {
+                                const bidMs = parseIstWallTimeToEpoch(formatted);
+                                if (bidMs != null && bidMs < Date.now() + 2 * 60 * 60 * 1000) {
+                                  toast.error(
+                                    'Quote Submission Deadline must be at least 2 hours from now (IST).'
+                                  );
+                                  return;
+                                }
+                              }
+                              // 1-hour buffer against vendor clarification.
                               if (formatted && rfqFormDataFromStore.vendor_clarification_date) {
-                                if (new Date(formatted) <= new Date(rfqFormDataFromStore.vendor_clarification_date)) {
-                                  toast.warning("Quote Submission End Date is now on or before the Clarification End Date. Please update it.");
+                                const bidMs = parseIstWallTimeToEpoch(formatted);
+                                const clarMs = parseIstWallTimeToEpoch(
+                                  rfqFormDataFromStore.vendor_clarification_date
+                                );
+                                if (bidMs != null && clarMs != null && bidMs - clarMs < 60 * 60 * 1000) {
+                                  toast.error(
+                                    'Quote Submission Deadline must be at least 1 hour after the Vendor Clarification Deadline.'
+                                  );
+                                  return;
                                 }
                               }
                               setFieldValue('bid_end_date', formatted);
@@ -2033,7 +2112,7 @@ const EditRFQ = () => {
                               {errors.bid_end_date}
                             </div>
                           )}
-                          <PrevHint keyName="rfq:bid_end_date" currentValue={values.bid_end_date} previousValues={previousValues} />
+                          <PrevHint keyName="rfq:bid_end_date" currentValue={values.bid_end_date} previousValues={previousValues} type="datetime" />
                         </div>
                       </div>
 
@@ -2231,9 +2310,27 @@ const EditRFQ = () => {
                           onChange={(e) => {
                             const val = e.target.value;
                             const formatted = val ? `${val.replace("T", " ")}:00` : "";
+                            // 1-hour buffer rule (IST): clarification must be
+                            // at least 1 hour BEFORE bid_end_date.
                             if (formatted && rfqFormDataFromStore.bid_end_date) {
-                              if (new Date(formatted) >= new Date(rfqFormDataFromStore.bid_end_date)) {
-                                toast.error("Clarification End Date must be before the Quote Submission End Date.");
+                              const clarMs = parseIstWallTimeToEpoch(formatted);
+                              const bidMs = parseIstWallTimeToEpoch(rfqFormDataFromStore.bid_end_date);
+                              if (clarMs != null && bidMs != null && bidMs - clarMs < 60 * 60 * 1000) {
+                                toast.error(
+                                  'Vendor Clarification Deadline must be at least 1 hour before the Quote Submission Deadline.'
+                                );
+                                return;
+                              }
+                            }
+                            // Must also be after the publish date when both
+                            // are set (IST).
+                            if (formatted && rfqFormDataFromStore.tender_publish_date) {
+                              const clarMs = parseIstWallTimeToEpoch(formatted);
+                              const pubMs = parseIstWallTimeToEpoch(rfqFormDataFromStore.tender_publish_date);
+                              if (clarMs != null && pubMs != null && clarMs <= pubMs) {
+                                toast.error(
+                                  'Vendor Clarification Deadline must be after the Tender Publish Date.'
+                                );
                                 return;
                               }
                             }
