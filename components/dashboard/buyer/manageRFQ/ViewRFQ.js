@@ -671,7 +671,7 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
                       onClick={() => setShowEditHistoryModal(true)}
                     >
                       <FaHistory style={{ marginRight: 8 }} />
-                      Edit History
+                      Show Edit History
                     </button>
                   </div>
                   <RFQEditHistory

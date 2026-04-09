@@ -2010,7 +2010,7 @@ const RfqManagementPreview = () => {
                             onClick={() => setShowEditHistoryModal(true)}
                           >
                             <FaHistory style={{ marginRight: 8 }} />
-                            Edit History
+                            Show Edit History
                           </button>
                         )}
 
