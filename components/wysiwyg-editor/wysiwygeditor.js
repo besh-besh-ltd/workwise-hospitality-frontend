@@ -106,6 +106,8 @@ const WysiwygEditor = ({
   onBlur,
   placeholder = "",
   readOnly = false,
+  showToolbar = true,
+  minHeight = "220px",
   className = "",
 }) => {
   const editorRef = useRef(null);
@@ -129,7 +131,7 @@ const WysiwygEditor = ({
     const quill = new Quill(editorRef.current, {
       theme: "snow",
       placeholder,
-      modules,
+      modules: showToolbar ? modules : { toolbar: false },
       readOnly,
     });
 
@@ -179,6 +181,22 @@ const WysiwygEditor = ({
       quillRef.current.clipboard.dangerouslyPasteHTML(normalizedValue);
     }
   }, [value]);
+
+  useEffect(() => {
+    if (!quillRef.current) {
+      return;
+    }
+
+    quillRef.current.root.style.minHeight = minHeight;
+  }, [minHeight]);
+
+  useEffect(() => {
+    if (!quillRef.current || showToolbar) {
+      return;
+    }
+
+    quillRef.current.root.style.paddingTop = "12px";
+  }, [showToolbar]);
 
   return (
     <div className={className} style={editorShellStyle}>
