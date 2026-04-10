@@ -67,7 +67,7 @@ const FormikField = ({
             onChange={(html) => {
               helpers.setValue(html);
               if (enableHandleChange) {
-                handleChange({ target: { name, value: html } });
+                handleChange(html);
               }
             }}
             onBlur={() => helpers.setTouched(true)}

@@ -2590,7 +2590,10 @@ useEffect(() => {
                                 touched={touched}
                                 errors={errors}
                                 enableHandleChange={true}
-                                handleChange={handleFormFieldChange}
+                                handleChange={(html) => {
+                                  dispatch(setOtherFormFields({ field_name: "comment", value: html }));
+                                  setHasUnsavedChanges(true);
+                                }}
                                 showOptionalLabel={false}
                               />
                               <div className="row mt-2">
