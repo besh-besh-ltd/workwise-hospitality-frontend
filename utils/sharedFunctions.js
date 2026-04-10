@@ -898,8 +898,9 @@ export const canEditRfq = (rfq, currentUser) => {
       reason: 'Every product on this RFQ has been finalized and awarded.'
     };
   }
-  // Bid window passed
-  if (isBidEnded(rfq)) {
+  // Bid window passed — but allow edit if no vendors submitted quotes,
+  // so the creator can extend the deadline.
+  if (isBidEnded(rfq) && rfq.is_quotes_present) {
     return {
       allowed: false,
       reason: 'The submission deadline has passed; this RFQ can no longer be edited.'

@@ -1883,8 +1883,15 @@ const RfqManagementPreview = () => {
                         </div>
                       )}
 
+                      {rfqDetails?.department_name && (
+                        <div className="  col-md-2 col-sm-6">
+                          <strong>Department:</strong>
+                          <div>{rfqDetails.department_name}</div>
+                        </div>
+                      )}
+
                       {rfqDetails?.contact_name && (
-                        <div className="  col-md-2 col-sm-6"> 
+                        <div className="  col-md-2 col-sm-6">
                           <strong>Contact Persone:</strong>
                           <div>{rfqDetails.contact_name}</div>
                         </div>
@@ -2811,13 +2818,14 @@ const RfqManagementPreview = () => {
                               </div>
                             )}
 
+                          {rfqDetails?.comment && rfqDetails.comment.trim() !== '' && rfqDetails.comment.replace(/<[^>]*>/g, '').trim() !== '' && (
                           <div className="col-md-12">
                             <div className="row">
                               <div className="col-md-6">
                                 <h4>Additional Terms & Conditions</h4>
                                 <div className="form-group">
                                   <WysiwygEditor
-                                    value={rfqDetails?.comment || ""}
+                                    value={rfqDetails.comment}
                                     readOnly={true}
                                     showToolbar={false}
                                     minHeight="140px"
@@ -2827,6 +2835,7 @@ const RfqManagementPreview = () => {
                               </div>
                             </div>
                           </div>
+                          )}
                         </div>
 
                         {/* RFQ Lifecycle Journey - Comprehensive timeline for buyers */}
