@@ -43,11 +43,11 @@ const HeroStatusCard = ({ data, onEdit, onRenew, onExtend, disabled }) => {
 
   const endDate = subscription?.end_date;
   const startDate = subscription?.start_date;
-  let totalDays = 365;
   let remainingDays = subscription?.days_remaining || 0;
+  let totalDays = remainingDays;
 
   if (startDate && endDate) {
-    totalDays = moment(endDate).diff(moment(startDate), "days") || 365;
+    totalDays = moment(endDate).diff(moment(startDate), "days") || remainingDays;
   }
 
   const progressPercent = isExpired
@@ -95,7 +95,7 @@ const HeroStatusCard = ({ data, onEdit, onRenew, onExtend, disabled }) => {
               <p className={styles.planProgressLabel}>
                 {isExpired
                   ? `Expired on ${formattedEnd}`
-                  : `${remainingDays} of ${totalDays} days remaining`}
+                  : `${remainingDays} days remaining until renewal`}
               </p>
               <div className={styles.planProgressBar}>
                 <div

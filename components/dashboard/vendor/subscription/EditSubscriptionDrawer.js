@@ -5,6 +5,7 @@ import { nestedCategoryData } from "@/services/products";
 import { getAllHotels } from "@/services/hospitality";
 import useSubscriptionPreview from "./hooks/useSubscriptionPreview";
 import styles from "./Subscription.module.css";
+import { toast } from "react-toastify";
 
 const selectStyles = {
   control: (base, state) => ({
@@ -201,7 +202,10 @@ const EditSubscriptionDrawer = ({ open, onClose, currentData, onSubmit }) => {
               isMulti
               options={allCategories}
               value={selectedCats}
-              onChange={setSelectedCats}
+              onChange={(newVal, meta) => {
+                if(selectedCats.length == 1 && meta.action == 'remove-value') toast.error("At least one category must stay selected.");
+                else setSelectedCats(newVal);
+              }}
               styles={selectStyles}
               placeholder="Select categories..."
               isLoading={loadingOptions}
@@ -246,7 +250,10 @@ const EditSubscriptionDrawer = ({ open, onClose, currentData, onSubmit }) => {
               isMulti
               options={allHotels}
               value={selectedHotels}
-              onChange={setSelectedHotels}
+              onChange={(newVal, meta) => {
+                if(selectedCats.length == 1 && meta.action == 'remove-value') toast.error("At least one business unit must stay selected.");
+                else setSelectedHotels(newVal);
+              }}
               styles={selectStyles}
               placeholder="Select business units..."
               isLoading={loadingOptions}
@@ -316,7 +323,7 @@ const EditSubscriptionDrawer = ({ open, onClose, currentData, onSubmit }) => {
 
                   {preview.warnings?.map((w, i) => (
                     <div key={i} className={styles.previewWarning}>
-                      <FiAlertTriangle size={14} />
+                      <FiAlertTriangle size={36} />
                       {w}
                     </div>
                   ))}
