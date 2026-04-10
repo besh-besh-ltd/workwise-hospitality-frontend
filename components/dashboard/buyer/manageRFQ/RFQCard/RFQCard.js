@@ -9,6 +9,17 @@ import PublishDateTimer from '@/components/shared/PublishDateTimer';
 import { getStatusConfig, STATUS_CONFIG, getLifecycleConfig, LIFECYCLE_STAGES_ORDERED } from './statusConfig';
 import styles from './RFQCard.module.scss';
 
+const RFQ_TIMEZONE_OFFSET = '+05:30';
+const HAS_EXPLICIT_TIMEZONE = /([zZ]|[+-]\d{2}:?\d{2})$/;
+
+const parseBidEndDate = (value) => {
+  if (!value) return null;
+  const parsed = HAS_EXPLICIT_TIMEZONE.test(value)
+    ? moment.parseZone(value).utcOffset(RFQ_TIMEZONE_OFFSET)
+    : moment(value).utcOffset(RFQ_TIMEZONE_OFFSET, true);
+  return parsed.isValid() ? parsed : null;
+};
+
 const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermission = true, isDraft = false, onDelete }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAutoPublished, setIsAutoPublished] = useState(false);
@@ -30,19 +41,20 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
 
   const lifecycleConfig = data.lifecycle_stage ? getLifecycleConfig(data.lifecycle_stage) : null;
   const currentStageIndex = data.lifecycle_stage ? LIFECYCLE_STAGES_ORDERED.indexOf(data.lifecycle_stage) : -1;
+  const bidEndAt = parseBidEndDate(data.bid_end_date);
+  const formattedBidEndDate = bidEndAt ? bidEndAt.format('DD-MM-YYYY hh:mm A') : '---';
 
   const handleToggleExpand = () => setIsExpanded(!isExpanded);
 
   const getDaysRemaining = () => {
-    if (!data.bid_end_date) return null;
-    const endIST = moment.utc(data.bid_end_date).utcOffset('+05:30');
-    const nowIST = moment().utcOffset('+05:30');
-    if (endIST.isBefore(nowIST)) return { text: 'Ended', urgent: true };
-    const endDay = endIST.clone().startOf('day');
+    if (!bidEndAt) return null;
+    const nowIST = moment().utcOffset(RFQ_TIMEZONE_OFFSET);
+    if (bidEndAt.isSameOrBefore(nowIST)) return { text: 'Ended', urgent: true };
+    const endDay = bidEndAt.clone().startOf('day');
     const todayDay = nowIST.clone().startOf('day');
     const days = endDay.diff(todayDay, 'days');
-    if (days === 0) return { text: 'Ends today', urgent: true };
-    if (days === 1) return { text: 'Ends tomorrow', urgent: true };
+    if (days === 0) return { text: 'Ends Today', urgent: true };
+    if (days === 1) return { text: 'Ends Tomorrow', urgent: true };
     if (days <= 3) return { text: `${days}d left`, urgent: true };
     return { text: `${days}d left`, urgent: false };
   };
@@ -209,7 +221,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               <>
                 <div className={styles.dateItem}>
                   <Calendar size={12} />
-                  <span>{data.bid_end_date ? moment(data.bid_end_date).format('DD-MM-YYYY hh:mm A') : '---'}</span>
+                  <span>{formattedBidEndDate}</span>
                 </div>
                 {daysRemaining && (
                   <Badge className={styles.daysLeftBadge} style={{ backgroundColor: daysRemaining.urgent ? '#dc3545' : '#6c757d', color: '#fff' }}>
@@ -247,7 +259,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
           {isDraft ? (
             <>
               <div className={styles.timelineItem}><Calendar size={14} /><span>Created: <strong>{moment(data.timestamp).format('DD-MM-YYYY')}</strong></span></div>
-              <div className={styles.timelineItem}><Clock size={14} /><span>Bid Ends: <strong>{data.bid_end_date ? moment(data.bid_end_date).format('DD-MM-YYYY hh:mm A') : '---'}</strong></span></div>
+              <div className={styles.timelineItem}><Clock size={14} /><span>Bid Ends: <strong>{formattedBidEndDate}</strong></span></div>
             </>
           ) : publishState.isPrePublishState && data.tender_publish_date ? (
             <div className={styles.timelineItem}><Calendar size={14} /><span>Scheduled:</span><PublishDateTimer publishDate={data.tender_publish_date} variant="full" /></div>
@@ -257,7 +269,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               {data.vendor_clarification_date && (
                 <div className={styles.timelineItem}><Clock size={14} /><span>Clarification Ends: <strong>{moment(data.vendor_clarification_date).format('DD-MM-YYYY hh:mm A')}</strong></span></div>
               )}
-              <div className={styles.timelineItem}><Clock size={14} /><span>Bid Ends: <strong>{data.bid_end_date ? moment(data.bid_end_date).format('DD-MM-YYYY hh:mm A') : '---'}</strong></span></div>
+              <div className={styles.timelineItem}><Clock size={14} /><span>Bid Ends: <strong>{formattedBidEndDate}</strong></span></div>
             </>
           )}
         </div>

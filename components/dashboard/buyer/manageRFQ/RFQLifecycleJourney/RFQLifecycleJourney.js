@@ -24,6 +24,19 @@ const PHASE_ICONS = {
 
 const fmt = (d) => d ? moment.utc(d).utcOffset('+05:30').format('DD MMM YYYY') : null;
 const fmtTime = (d) => d ? moment.utc(d).utcOffset('+05:30').format('DD MMM, hh:mm a') : null;
+const BID_TIMEZONE_OFFSET = '+05:30';
+const HAS_EXPLICIT_TIMEZONE = /([zZ]|[+-]\d{2}:?\d{2})$/;
+const parseBidDeadline = (value) => {
+  if (!value) return null;
+  const parsed = HAS_EXPLICIT_TIMEZONE.test(value)
+    ? moment.parseZone(value).utcOffset(BID_TIMEZONE_OFFSET)
+    : moment(value).utcOffset(BID_TIMEZONE_OFFSET, true);
+  return parsed.isValid() ? parsed : null;
+};
+const fmtBidDeadline = (d) => {
+  const parsed = parseBidDeadline(d);
+  return parsed ? parsed.format('DD MMM, hh:mm a') : null;
+};
 
 // ---- Helpers ----
 // Extract product name from an instance's metadata (multiple fallback paths)
@@ -133,11 +146,13 @@ const RFQLifecycleJourney = ({ rfqId, isTender = false, onActionComplete }) => {
       </div>
       <div className={styles.tl}>
         {data.phases.map((phase, idx) => {
+          console.log('phase', phase);
           const isLast = idx === data.phases.length - 1;
           const isOpen = !!expandedPhases[phase.key];
           const canOpen = phase.status !== 'upcoming' && phase.status !== 'skipped';
           const Icon = PHASE_ICONS[phase.key] || BsCircle;
-          const isCancelled = phase.is_cancelled && phase.status === 'current';
+          const isBlocked = phase.sub_status === 'no_vendors_participated';
+          const isCancelled = (phase.is_cancelled || isBlocked) && phase.status === 'current';
           const rowClass = isCancelled ? styles.row_cancelled : styles[`row_${phase.status}`];
           const nodeClass = isCancelled ? styles.node_cancelled : styles[`node_${phase.status}`];
           const cardClass = isCancelled ? styles.card_cancelled : styles[`card_${phase.status}`];
@@ -161,7 +176,8 @@ const RFQLifecycleJourney = ({ rfqId, isTender = false, onActionComplete }) => {
                     <span className={styles.cardLabel}>{phase.label}</span>
                     {phase.status === 'current' && !isCancelled && <span className={styles.tagCur}>Current</span>}
                     {isCancelled && <span className={styles.tagCurCancelled}>Current</span>}
-                    {isCancelled && <span className={styles.tagCancel}>Cancelled</span>}
+                    {isBlocked && <span className={styles.tagCurCancelled}>Blocked</span>}
+                    {isCancelled && !isBlocked && <span className={styles.tagCurCancelled}>Cancelled</span>}
                     {phase.status === 'expired' && <span className={styles.tagExp}>Expired</span>}
                     {phase.status === 'skipped' && <span className={styles.tagSkip}>Skipped</span>}
                     {phase.sub_status && phase.status === 'current' && !isCancelled && <span className={styles.tagSub}>{phase.sub_status.replace(/_/g, ' ')}</span>}
@@ -221,6 +237,19 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
 
   // Technical: group by product → by round
   if (phase.key === 'technical') {
+    if (phase.awaiting_quotes) {
+      return (
+        <AwaitingQuotesPanel
+          phase={phase}
+          title={
+            phase.sub_status === 'no_vendors_participated'
+              ? 'Quote submission window closed without any eligible vendor participation'
+              : 'Waiting for vendor quotes before technical evaluation can begin'
+          }
+        />
+      );
+    }
+
     const productGroups = groupByProduct(instances);
     const hasProducts = phase.products?.length > 0;
     const isEvaluating = phase.sub_status === 'evaluating';
@@ -250,6 +279,7 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
                         <span key={u.id || i} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
                       ))}
                     </div>
+                    <span className={styles.futureRule}>Any one can evaluate</span>
                   </div>
                 )}
                 {ua?.approver_steps?.length > 0 && (
@@ -315,6 +345,19 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
 
   // Commercial: group by product
   if (phase.key === 'commercial') {
+    if (phase.awaiting_quotes) {
+      return (
+        <AwaitingQuotesPanel
+          phase={phase}
+          title={
+            phase.sub_status === 'no_vendors_participated'
+              ? 'Quote submission window closed without any eligible vendor participation'
+              : 'Waiting for vendor quotes before commercial evaluation can begin'
+          }
+        />
+      );
+    }
+
     const productGroups = groupByProduct(instances);
     // Also merge in finalization/negotiation data from phase.products if available
     const phaseProducts = phase.products || [];
@@ -515,6 +558,71 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
   }
 
   return null;
+};
+
+const AwaitingQuotesPanel = ({ phase, title }) => {
+  const stats = phase.awaiting_quotes || {};
+  const ah = phase.action_holders;
+  const ua = phase.upcoming_actors;
+  const currentActors = (ah?.users?.length ? ah.users : ua?.evaluators) || [];
+  const currentLabel = ah?.label || (phase.key === 'technical' ? 'Technical Evaluators' : 'Commercial Evaluators');
+  const statCards = [
+    { key: 'participated', label: 'Participated', value: stats.participated || 0 },
+    { key: 'quotes', label: 'Sent Quotes', value: stats.sent_quotes || 0 },
+    { key: 'technical', label: 'Only Sent Technical', value: stats.technical_only || 0 },
+    { key: 'remaining', label: 'Remaining', value: stats.remaining || 0 },
+  ];
+
+  return (
+    <div className={styles.awaitingWrap}>
+      <div className={`${styles.awaitingBanner} ${phase.sub_status === 'no_vendors_participated' ? styles.awaitingBannerClosed : ''}`}>
+        <BsClipboardCheck size={14} />
+        <div style={{ flex: 1 }}>
+          <div><strong>{title}</strong></div>
+          <div className={styles.awaitingMeta}>
+            <span>{stats.total_invited || 0} vendor{stats.total_invited === 1 ? '' : 's'} invited</span>
+            {stats.bid_end_date && <span>Deadline: {fmtBidDeadline(stats.bid_end_date)}</span>}
+            {stats.regrets > 0 && <span>{stats.regrets} regret{stats.regrets === 1 ? '' : 's'}</span>}
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.awaitingStats}>
+        {statCards.map((card) => (
+          <div key={card.key} className={styles.awaitingStatCard}>
+            <div className={styles.awaitingStatValue}>{card.value}</div>
+            <div className={styles.awaitingStatLabel}>{card.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {currentActors.length > 0 && (
+        <div className={styles.actorSection}>
+          <span className={styles.actorLabel}>{currentLabel}:</span>
+          <div className={styles.actionUserList}>
+            {currentActors.map((u, i) => (
+              <span key={u.id || i} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {ua?.approver_steps?.length > 0 && (
+        <div className={styles.actorSection}>
+          <span className={styles.actorLabel}>Approvers (after evaluation):</span>
+          {ua.approver_steps.map((step, si) => (
+            <div key={si} className={styles.actionUserList}>
+              {ua.approver_steps.length > 1 && <span className={styles.actorStepLabel}>Step {step.step_order}:</span>}
+              {step.approvers.map((u, ui) => (
+                <span key={u.id || ui} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
+              ))}
+              <span className={styles.futureRule}>{step.decision_rule === 'ANY' ? 'Any one' : 'All'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 // ============================================
