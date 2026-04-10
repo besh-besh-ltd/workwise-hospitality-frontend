@@ -306,10 +306,24 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
   let FP = (item.freight_mode ?? "percentage") == 'percentage' ? (total_without_fpt * freight_price) / 100 : freight_price;
   let PP = (item.package_mode ?? "percentage") == 'percentage' ? (total_without_fpt * package_price) / 100 : package_price;
 
+  // Freight & Package taxes
+  let freight_tax = item.freight_tax !== null && item.freight_tax !== undefined ? parseFloat(item.freight_tax) : 0;
+  let package_tax = item.package_tax !== null && item.package_tax !== undefined ? parseFloat(item.package_tax) : 0;
+  let FT = (item.freight_tax_mode ?? "percentage") == 'percentage' ? (FP * freight_tax) / 100 : freight_tax;
+  let PT = (item.package_tax_mode ?? "percentage") == 'percentage' ? (PP * package_tax) / 100 : package_tax;
+
   let total_with_fpt = total_without_fpt + FP + PP;
   let T = (item.tax_mode ?? "percentage") == 'percentage' ? (total_with_fpt * tax) / 100 : tax;
 
-  let TotalPrice = total_with_fpt + T;
+  // Other charges
+  let otherChargesTotal = 0;
+  (item.other_charges || []).forEach(c => {
+    let cAmt = (c.amount_mode ?? "percentage") == 'percentage' ? (total_without_fpt * (parseFloat(c.amount) || 0)) / 100 : (parseFloat(c.amount) || 0);
+    let cTax = (c.tax_mode ?? "percentage") == 'percentage' ? (cAmt * (parseFloat(c.tax) || 0)) / 100 : (parseFloat(c.tax) || 0);
+    otherChargesTotal += cAmt + cTax;
+  });
+
+  let TotalPrice = total_with_fpt + T + FT + PT + otherChargesTotal;
 
 const DELIVERY_DAYS = parseInt(item.delivery_period || 0);
 
