@@ -575,6 +575,64 @@ $brand-primary-faint: #dbe5f3; // borders / dividers in primary tone
   border-radius: 999px;
 }
 
+// ── Tech eval clause diff ─────────────────────────────────────────────
+.clauseDiffList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.clauseDiffRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.clauseIconAdded {
+  color: #166534;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.clauseIconRemoved {
+  color: #991b1b;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.clauseIconUpdated {
+  color: #92400e;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.clauseText {
+  font-weight: 600;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.clauseTextRemoved {
+  font-weight: 500;
+  color: #991b1b;
+  text-decoration: line-through;
+  text-decoration-color: rgba(153, 27, 27, 0.5);
+  word-break: break-word;
+}
+
+.clauseWeightage {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: $brand-primary-dark;
+  background: $brand-primary-soft;
+  border: 1px solid $brand-primary-faint;
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+
 // ── Responsive ────────────────────────────────────────────────────────────
 @media (max-width: 600px) {
   .modalHeader {

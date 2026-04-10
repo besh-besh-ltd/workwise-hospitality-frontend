@@ -72,6 +72,16 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
       return TECH_EVAL_WORKFLOW_STATES.EVALUATING;
     }
 
+    // If all eligible vendors have been evaluated (passed + failed = selected,
+    // none pending), treat as complete even if the passed count is below
+    // the configured threshold.
+    const passedCount = data.vendors?.passed_verified?.length || 0;
+    const failedCount = data.vendors?.failed_verified?.length || 0;
+    const selectedCount = data.vendors?.selected?.length || 0;
+    if (selectedCount > 0 && passedCount + failedCount >= selectedCount) {
+      return TECH_EVAL_WORKFLOW_STATES.COMPLETED;
+    }
+
     // Otherwise, awaiting next round (need to fetch replacement vendors)
     return TECH_EVAL_WORKFLOW_STATES.AWAITING_NEXT_ROUND;
   }, [data]);
