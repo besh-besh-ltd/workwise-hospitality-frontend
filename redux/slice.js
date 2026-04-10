@@ -298,9 +298,10 @@ export const rfqProductsSlice = createSlice({
       // If action.payload is an object with field_name and value, use those
       if (action.payload.field_name && 'value' in action.payload) {
         state.rfqFormData[action.payload.field_name] = action.payload.value;
-      } 
+      }
       // If action.payload is a simple key-value object, merge it with rfqFormData
-      else {
+      // Skip if it looks like a malformed field_name/value dispatch (missing field_name)
+      else if (!('field_name' in action.payload)) {
         state.rfqFormData = {
           ...state.rfqFormData,
           ...action.payload
