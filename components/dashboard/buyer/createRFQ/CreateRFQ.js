@@ -2578,7 +2578,7 @@ useEffect(() => {
                               <FormikField
                                 label="Add your own terms"
                                 placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
-                                type="textarea"
+                                type="editor"
                                 rows="5"
                                 name="comment"
                                 touched={touched}
