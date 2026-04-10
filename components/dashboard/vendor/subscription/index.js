@@ -262,6 +262,16 @@ const SubscriptionPage = () => {
           onClose={handleSuccessClose}
         />
       )}
+
+      {paymentInProgress && (
+        <div className={styles.paymentOverlay}>
+          <div className={styles.paymentOverlayCard}>
+            <div className={styles.paymentSpinner} />
+            <h3 className={styles.paymentOverlayTitle}>Processing your subscription</h3>
+            <p className={styles.paymentOverlayText}>Please do not refresh or go back while we complete your payment.</p>
+          </div>
+        </div>
+      )}
     </>
   );
 };
