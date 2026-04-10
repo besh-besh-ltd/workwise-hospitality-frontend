@@ -2101,7 +2101,7 @@ const RfqManagementPreview = () => {
                               <button
                                 id="compare_received_quotes-rfq_header-inquiries_details_page"
                                 type="button"
-                                className="btn btn-secondary"
+                                className="btn btn-primary"
                                 style={actionBtnStyle}
                               >
                                 Compare Received Quotes
@@ -2127,7 +2127,7 @@ const RfqManagementPreview = () => {
                             <button
                               id="clarifications-rfq_header-inquiries_details_page"
                               type="button"
-                              className={`btn ${hasOpenClarification ? "btn-danger" : "btn-warning"}`}
+                              className={`btn ${hasOpenClarification ? "btn-danger" : "btn-primary"}`}
                               style={actionBtnStyle}
                             >
                               Clarifications
@@ -2144,7 +2144,7 @@ const RfqManagementPreview = () => {
                         {enableBuyerView && rfqDetails?.status == 1 && isCreator && (
                           <button
                             type="button"
-                            className="btn btn-secondary"
+                            className="btn btn-danger"
                             onClick={() => setShowCloseConfirmModal(true)}
                             disabled={closeRFqLoading}
                             style={actionBtnStyle}

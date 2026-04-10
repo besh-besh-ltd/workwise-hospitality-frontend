@@ -298,7 +298,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               {!data.is_finalized && (
                 editPermission.allowed && hasEditPermission ? (
                   <Link href={publishState.editUrl(data.id)}>
-                    <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>Edit</button>
+                    <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>Edit</button>
                   </Link>
                 ) : (
                   <OverlayTrigger
@@ -313,7 +313,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                   >
                     <span className="d-inline-block">
                       <button
-                        className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}
+                        className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}
                         disabled
                         style={{ opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none' }}
                       >
@@ -325,15 +325,15 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               )}
               {!publishState.isPrePublishState && !isPendingApproval && statusConfig.key !== 'terminated' && (
                 <Link href={`/dashboard/buyer/query?rfq_id=${data.id}&role=buyer&source=rfq-management`}>
-                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.queryBtn}`}>Queries{data.unseen_query_count > 0 && <Badge bg="danger" className="ms-1" style={{ fontSize: '0.65rem' }}>{data.unseen_query_count}</Badge>}</button>
+                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>Queries{data.unseen_query_count > 0 && <Badge bg="danger" className="ms-1" style={{ fontSize: '0.65rem' }}>{data.unseen_query_count}</Badge>}</button>
                 </Link>
               )}
               {!publishState.isPrePublishState && !allQuotesReceived && !data.is_finalized && publishState.isOpen && !isPendingApproval && (
-                <button className={`btn btn-sm ${styles.actionBtn} ${styles.reminderBtn}`} onClick={() => onSendReminder?.(data)}>Send Reminder</button>
+                <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`} onClick={() => onSendReminder?.(data)}>Send Reminder</button>
               )}
               {isPendingApproval && !isBacklog && (
                 <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`}>
-                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.approveBtn}`}>
+                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>
                     View Details
                   </button>
                 </Link>

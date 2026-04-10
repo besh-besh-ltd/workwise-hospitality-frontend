@@ -271,7 +271,7 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
     const ua = phase.upcoming_actors;
     const evaluatorList = (ah?.users?.length ? ah.users : ua?.evaluators) || [];
     const evaluatorLabel = ah?.label || 'Technical Evaluators';
-    const showActors = phase.status !== 'completed' && (evaluatorList.length > 0 || ua?.approver_steps?.length > 0);
+    const showActors = phase.status !== 'completed' && evaluatorList.length > 0;
 
     // If no approval instances yet (evaluating/awaiting stage), show who needs to act
     if (!productGroups.length && !hasProducts) {
@@ -290,21 +290,6 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
                         <span key={u.id || i} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
                       ))}
                     </div>
-                    <span className={styles.futureRule}>Any one can evaluate</span>
-                  </div>
-                )}
-                {ua?.approver_steps?.length > 0 && (
-                  <div className={styles.actorSection}>
-                    <span className={styles.actorLabel}>Approvers (after evaluation):</span>
-                    {ua.approver_steps.map((step, si) => (
-                      <div key={si} className={styles.actionUserList}>
-                        {ua.approver_steps.length > 1 && <span className={styles.actorStepLabel}>Step {step.step_order}:</span>}
-                        {step.approvers.map((u, ui) => (
-                          <span key={ui} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
-                        ))}
-                        <span className={styles.futureRule}>{step.decision_rule === 'ANY' ? 'Any one' : 'All'}</span>
-                      </div>
-                    ))}
                   </div>
                 )}
               </div>
@@ -330,21 +315,6 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
                       <span key={u.id || i} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
                     ))}
                   </div>
-                  <span className={styles.futureRule}>Any one can evaluate</span>
-                </div>
-              )}
-              {ua?.approver_steps?.length > 0 && (
-                <div className={styles.actorSection}>
-                  <span className={styles.actorLabel}>Approvers (after evaluation):</span>
-                  {ua.approver_steps.map((step, si) => (
-                    <div key={si} className={styles.actionUserList}>
-                      {ua.approver_steps.length > 1 && <span className={styles.actorStepLabel}>Step {step.step_order}:</span>}
-                      {step.approvers.map((u, ui) => (
-                        <span key={u.id || ui} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
-                      ))}
-                      <span className={styles.futureRule}>{step.decision_rule === 'ANY' ? 'Any one' : 'All'}</span>
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
@@ -425,7 +395,7 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
     const isApproving = phase.sub_status === 'approving';
     const currentActors = (cAh?.users?.length ? cAh.users : cUa?.evaluators) || [];
     const currentLabel = cAh?.label || (isApproving ? 'Pending Approvers' : 'Commercial Evaluators');
-    const showCommercialActors = phase.status !== 'completed' && (currentActors.length > 0 || cUa?.approver_steps?.length > 0);
+    const showCommercialActors = phase.status !== 'completed' && currentActors.length > 0;
 
     // Actors banner — reusable for both empty and data states
     const actorsBanner = showCommercialActors ? (
@@ -442,20 +412,6 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
                 ))}
                 {cAh?.decision_rule && <span className={styles.futureRule}>{cAh.decision_rule === 'ANY' ? 'Any one' : 'All'}</span>}
               </div>
-            </div>
-          )}
-          {cUa?.approver_steps?.length > 0 && !isApproving && (
-            <div className={styles.actorSection}>
-              <span className={styles.actorLabel}>Approvers (after evaluation):</span>
-              {cUa.approver_steps.map((step, si) => (
-                <div key={si} className={styles.actionUserList}>
-                  {cUa.approver_steps.length > 1 && <span className={styles.actorStepLabel}>Step {step.step_order}:</span>}
-                  {step.approvers.map((u, ui) => (
-                    <span key={u.id || ui} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
-                  ))}
-                  <span className={styles.futureRule}>{step.decision_rule === 'ANY' ? 'Any one' : 'All'}</span>
-                </div>
-              ))}
             </div>
           )}
         </div>
@@ -612,7 +568,6 @@ const AwaitingQuotesPanel = ({ phase, title }) => {
   const statCards = [
     { key: 'participated', label: 'Participated', value: stats.participated || 0 },
     { key: 'quotes', label: 'Sent Quotes', value: stats.sent_quotes || 0 },
-    { key: 'technical', label: 'Only Sent Technical', value: stats.technical_only || 0 },
     { key: 'remaining', label: 'Remaining', value: stats.remaining || 0 },
   ];
 
@@ -650,20 +605,6 @@ const AwaitingQuotesPanel = ({ phase, title }) => {
         </div>
       )}
 
-      {ua?.approver_steps?.length > 0 && (
-        <div className={styles.actorSection}>
-          <span className={styles.actorLabel}>Approvers (after evaluation):</span>
-          {ua.approver_steps.map((step, si) => (
-            <div key={si} className={styles.actionUserList}>
-              {ua.approver_steps.length > 1 && <span className={styles.actorStepLabel}>Step {step.step_order}:</span>}
-              {step.approvers.map((u, ui) => (
-                <span key={u.id || ui} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
-              ))}
-              <span className={styles.futureRule}>{step.decision_rule === 'ANY' ? 'Any one' : 'All'}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 };

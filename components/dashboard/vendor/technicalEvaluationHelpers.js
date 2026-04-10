@@ -325,7 +325,13 @@ export const buildBuyerTechEvalProductSummary = (product, techEvalData) => {
     compactDetail = "Sent back for re-evaluation";
     followUpNames = evaluatorNames;
     followUpLabel = evaluatorNames.length > 0 ? "Evaluation pending by" : null;
-  } else if (isComplete || (vendorsNeeded === 0 && passedCount > 0)) {
+  } else if (
+    isComplete ||
+    (vendorsNeeded === 0 && passedCount > 0) ||
+    // All eligible vendors evaluated (passed + failed covers everyone, nothing pending)
+    (passedCount + failedCount > 0 && pendingEvaluationCount === 0 &&
+      pendingVendorResponseCount === 0 && approvalPendingCount === 0)
+  ) {
     stateKey = "COMPLETED";
     summaryText = `${passedCount} vendor${passedCount === 1 ? "" : "s"} technically cleared.`;
     helperText = "Technical evaluation and approval are complete.";

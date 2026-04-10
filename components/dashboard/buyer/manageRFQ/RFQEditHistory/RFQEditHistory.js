@@ -19,6 +19,9 @@ import {
   FaHistory,
   FaTimes,
   FaArrowRight,
+  FaPlus,
+  FaMinus,
+  FaPen,
 } from 'react-icons/fa';
 import { getRfqEditHistory } from '@/services/rfq';
 import {
@@ -101,6 +104,70 @@ const renderValue = (v) => {
     }
   }
   return String(v);
+};
+
+// ── Tech eval clause diff helper ───────────────────────────────────────
+// Computes per-clause added / removed / updated from old → new arrays.
+const diffTechEvalClauses = (oldArr, newArr) => {
+  const olds = Array.isArray(oldArr) ? oldArr : [];
+  const news = Array.isArray(newArr) ? newArr : [];
+  const oldById = new Map(olds.map((c) => [c.id, c]));
+  const newById = new Map(news.map((c) => [c.id, c]));
+
+  const added = news.filter((c) => !oldById.has(c.id));
+  const removed = olds.filter((c) => !newById.has(c.id));
+  const updated = news.filter((c) => {
+    const prev = oldById.get(c.id);
+    if (!prev) return false;
+    return (
+      prev.clause_text !== c.clause_text ||
+      Number(prev.weightage) !== Number(c.weightage)
+    );
+  });
+
+  return { added, removed, updated: updated.map((c) => ({ prev: oldById.get(c.id), next: c })) };
+};
+
+// Renders a human-readable clause diff instead of raw JSON.
+const TechEvalClauseDiff = ({ oldValue, newValue }) => {
+  const { added, removed, updated } = diffTechEvalClauses(oldValue, newValue);
+  if (added.length === 0 && removed.length === 0 && updated.length === 0) {
+    return <span className={styles.newValue}>No visible changes</span>;
+  }
+  return (
+    <div className={styles.clauseDiffList}>
+      {added.map((c) => (
+        <div key={`add-${c.id}`} className={styles.clauseDiffRow}>
+          <FaPlus className={styles.clauseIconAdded} />
+          <span className={styles.clauseText}>{c.clause_text}</span>
+          {c.weightage != null && (
+            <span className={styles.clauseWeightage}>{c.weightage} marks</span>
+          )}
+        </div>
+      ))}
+      {removed.map((c) => (
+        <div key={`rm-${c.id}`} className={styles.clauseDiffRow}>
+          <FaMinus className={styles.clauseIconRemoved} />
+          <span className={styles.clauseTextRemoved}>{c.clause_text}</span>
+        </div>
+      ))}
+      {updated.map(({ prev, next }) => (
+        <div key={`upd-${next.id}`} className={styles.clauseDiffRow}>
+          <FaPen className={styles.clauseIconUpdated} />
+          <span className={styles.clauseText}>
+            {prev.clause_text !== next.clause_text
+              ? <>{prev.clause_text} <FaArrowRight style={{ fontSize: 9, margin: '0 4px', color: '#94a3b8' }} /> {next.clause_text}</>
+              : next.clause_text}
+          </span>
+          {Number(prev.weightage) !== Number(next.weightage) && (
+            <span className={styles.clauseWeightage}>
+              {prev.weightage} <FaArrowRight style={{ fontSize: 8, margin: '0 3px', color: '#94a3b8' }} /> {next.weightage} marks
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 };
 
 // Group changes within a single session by their parent entity (the
@@ -259,12 +326,26 @@ const ProductLifecycleCard = ({ row }) => {
 const ChangeRow = ({ change }) => {
   const isCreate = change.change_type === 'CREATE';
   const isDelete = change.change_type === 'DELETE';
+  const isTechEval =
+    change.entity_type === 'PRODUCT_TECH_EVAL' && change.field_name === 'clauses';
 
   // For PRODUCT_SPEC the entity-group already shows the product label, so
   // strip the prefix from the per-row label to keep things tight.
   let rawLabel = labelFor(change);
   if (rawLabel && rawLabel.includes(' · ')) {
     rawLabel = rawLabel.split(' · ').slice(1).join(' · ') || rawLabel;
+  }
+
+  // Tech eval clause changes get a dedicated human-readable renderer.
+  if (isTechEval) {
+    return (
+      <div className={styles.changeRow}>
+        <div className={styles.changeLabel}>{rawLabel}</div>
+        <div className={styles.changeValues} style={{ display: 'block' }}>
+          <TechEvalClauseDiff oldValue={change.old_value} newValue={change.new_value} />
+        </div>
+      </div>
+    );
   }
 
   // Date-typed fields render via formatPrevDateValue so the user sees a
