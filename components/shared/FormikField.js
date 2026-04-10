@@ -1,5 +1,11 @@
-import { Field } from "formik";
+import dynamic from "next/dynamic";
+import { Field, useField } from "formik";
 import React from "react";
+
+const WysiwygEditor = dynamic(
+  () => import("../wysiwyg-editor/wysiwygeditor"),
+  { ssr: false }
+);
 
 const FormikField = ({
   label,
@@ -22,17 +28,35 @@ const FormikField = ({
   },
   showOptionalLabel = true,
 }) => {
+  const [field, meta, helpers] = useField(name);
+  const hasError = Boolean((touched?.[name] || meta.touched) && (errors?.[name] || meta.error));
+  const errorMessage = errors?.[name] || meta.error;
+
   return (
     <>
       <div className="form-group">
         {!nolabel && (
-          <label htmlFor="username">
-            {label} {isRequired ? <sup>*</sup> : (showOptionalLabel ? <>(Optional)</> : null)}
+          <label htmlFor={name}>
+            {label} {isRequired ? <sup>*</sup> : showOptionalLabel ? <>(Optional)</> : null}
           </label>
         )}
 
         {/* Handle select input */}
-        {type === "select" ? (
+        {type === "editor" ? (
+          <WysiwygEditor
+            value={field.value || ""}
+            onChange={(html) => {
+              helpers.setValue(html);
+              if (enableHandleChange) {
+                handleChange(html);
+              }
+            }}
+            onBlur={() => helpers.setTouched(true)}
+            placeholder={placeholder || `Enter ${label}`}
+            readOnly={isDisabled}
+            className={className}
+          />
+        ) : type === "select" ? (
           enableHandleChange ? (
             <Field
               value={value}
@@ -123,9 +147,7 @@ const FormikField = ({
         )}
 
         {/* Display validation errors */}
-        {touched[name] && errors[name] && (
-         <div className="form-error">{errors[name]}</div>
-          )}
+        {hasError && <div className="form-error">{errorMessage}</div>}
 
       </div>
     </>
