@@ -2281,7 +2281,7 @@ const EditRFQ = () => {
                     <div className="mb-4">
                       <h6 className="mb-3 fw-medium">Selected Terms  </h6>
                       <div className="terms-list border rounded p-3">
-                        {selectedTerms && selectedTerms.length > 0 ? (
+                        {selectedTerms ? (
                           <ol style={{
                             listStyle: 'none',
                             paddingLeft: 8,

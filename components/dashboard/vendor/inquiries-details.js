@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { faEdit, faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -39,6 +40,11 @@ import {
   getBuyerTechEvalStatusConfig
 } from "@/components/dashboard/vendor/technicalEvaluationHelpers";
 import statusStyles from "@/components/dashboard/vendor/ViewRfqTechnicalStatus.module.scss";
+
+const WysiwygEditor = dynamic(
+  () => import("@/components/wysiwyg-editor/wysiwygeditor"),
+  { ssr: false }
+);
 
 const TECH_EVAL_STYLES = {
   accepted: { bg: '#d1e7dd', border: '#198754', shadow: '0 2px 8px rgba(25, 135, 84, 0.2)' },
@@ -2748,14 +2754,12 @@ const RfqManagementPreview = () => {
                               <div className="col-md-6">
                                 <h4>Additional Terms & Conditions</h4>
                                 <div className="form-group">
-                                  <textarea
-                                    id="comment"
-                                    className="form-control text-sm fw-normal"
-                                    name="comment"
-                                    placeholder="comment here"
-                                    rows={5}
-                                    disabled
-                                    value={rfqDetails?.comment}
+                                  <WysiwygEditor
+                                    value={rfqDetails?.comment || ""}
+                                    readOnly={true}
+                                    showToolbar={false}
+                                    minHeight="140px"
+                                    className="text-editor-area"
                                   />
                                 </div>
                               </div>
