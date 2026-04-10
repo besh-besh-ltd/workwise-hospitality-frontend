@@ -128,77 +128,55 @@ export const contactFormSchema = yup.object().shape({
   comment: yup.string().required("Comment is required"),
 });
 
+// WH-69: snapshot-based update validation. Frontend now sends a complete
+// `snapshot` of the RFQ; backend computes the diff. The previous deltas-shape
+// validation is gone — all we enforce here is that the snapshot is well-formed
+// and every product has at least Quantity + Unit specs (the existing rule).
 export const editRfqSchema = yup.object().shape({
-  updatableData: yup.object().shape({
-    products: yup.object().shape({
-      addable: yup.array().of(yup.number()).required('Addable is required'),
-      deletable: yup.array().of(yup.number()).required('Deletable is required'),
-      updatable: yup
-        .object()
-        .required('Updatable is required')
-        .test(
-          'updatable-specs-validation',
-          'Invalid specification data',
-          function (value) {
-            if (!value || typeof value !== 'object') {
-              return this.createError({
-                message: `Updatable must be a valid object`,
-              });
-            }
-
-            const specs = value.specs;
-
-            if (!specs || typeof specs !== 'object') {
-              return false; // Allow if specs is missing — change this to `false` if you want to force specs
-            }
-
-            if (Object.keys(specs).length === 0) {
-              return false; // Allow empty specs — change to `false` to disallow
-            }
-
-            for (const [specKey, spec] of Object.entries(specs)) {
-              if (!spec || typeof spec !== 'object') {
-                return this.createError({
-                  message: `Specification "${specKey}" must be a valid object`,
-                });
-              }
-
-              const { Size, Spec: SpecValue, Quantity, Unit } = spec;
-
-              if (Size !== undefined && (typeof Size !== 'string' || Size.trim() === '')) {
-                return this.createError({
-                  message: `Size must be a non-empty string for specification"`,
-                });
-              }
-
-              if (SpecValue !== undefined && (typeof SpecValue !== 'string' || SpecValue.trim() === '')) {
-                return this.createError({
-                  message: `Specification description must be a non-empty string"`,
-                });
-              }
-
-              if (Quantity !== undefined) {
-                const num = typeof Quantity === 'string' ? parseFloat(Quantity) : Quantity;
-                if (isNaN(num) || num <= 0) {
-                  return this.createError({
-                    message: `Quantity must be a non-negative number greater than 0"`,
-                  });
+  rfq_id: yup.number().required('rfq_id is required'),
+  snapshot: yup
+    .object()
+    .shape({
+      title: yup.string().required('Title is required'),
+      contact_name: yup.string().required('Contact name is required'),
+      contact_number: yup.string().required('Contact number is required'),
+      response_email: yup
+        .string()
+        .email('Invalid email')
+        .required('Response email is required'),
+      bid_end_date: yup.string().required('Bid end date is required'),
+      products: yup
+        .array()
+        .of(
+          yup.object().shape({
+            product_variant_id: yup
+              .number()
+              .required('product_variant_id is required'),
+            specs: yup
+              .object()
+              .test(
+                'has-quantity-and-unit',
+                'Each product must have Quantity and Unit',
+                (specs) => {
+                  if (!specs || typeof specs !== 'object') return false;
+                  const qty =
+                    typeof specs.Quantity === 'string'
+                      ? parseFloat(specs.Quantity)
+                      : specs.Quantity;
+                  const unit =
+                    typeof specs.Unit === 'string' ? specs.Unit.trim() : '';
+                  if (qty == null || isNaN(qty) || qty <= 0) return false;
+                  if (!unit) return false;
+                  return true;
                 }
-              }
-
-              if (Unit !== undefined && (typeof Unit !== 'string' || Unit.trim() === '')) {
-                return this.createError({
-                  message: `Unit must be a non-empty string"`,
-                });
-              }
-            }
-
-            return true;
-          }
+              ),
+            vendors: yup.array().of(yup.number()).default([])
+          })
         )
-    }).required(),
-    vendors: yup.object().optional(),
-  }).required()
+        .min(1, 'At least one product is required')
+        .required('Products are required')
+    })
+    .required('snapshot is required')
 });
 // ==========================================
 // Admin Account Management Schemas

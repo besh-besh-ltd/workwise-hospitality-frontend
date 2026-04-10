@@ -18,6 +18,10 @@ import Loader from "@/components/shared/Loader";
 import {
   addCommasToNumber,
   calculateTotal,
+  checkBidExpired,
+  formatDisplayDate,
+  formatRemainingDuration,
+  parseIstWallTimeToEpoch,
   handleNormalize,
   normalizeFlatQuotationData,
   formatRFQNumber,
@@ -96,6 +100,8 @@ const QuoteCompare = () => {
 
   const [showNormalizeModal, setShowNormalizeModal] = useState(false);
   const [productNegotiationData, setProductNegotiationData] = useState({}); // { productId: { activeRound, roundQuotes } }
+  const [quoteVisibilityMeta, setQuoteVisibilityMeta] = useState(null);
+  const [quoteVisibilityClock, setQuoteVisibilityClock] = useState(Date.now());
 
   // Sync rfq from URL on initial load / browser back-forward
   useEffect(() => {
@@ -118,6 +124,50 @@ const QuoteCompare = () => {
   // Ref to track the latest rfq for stale response detection in async calls
   const latestRfqRef = useRef(rfq ? String(rfq) : null);
   latestRfqRef.current = rfq ? String(rfq) : null;
+
+  const localBidEndEpoch = useMemo(() => {
+    const sourceDeadline = quoteVisibilityMeta?.deadline || currentRFQ?.bid_end_date;
+    return sourceDeadline ? parseIstWallTimeToEpoch(sourceDeadline) : null;
+  }, [quoteVisibilityMeta?.deadline, currentRFQ?.bid_end_date]);
+
+  const quoteVisibilityLocked = useMemo(() => {
+    if (localBidEndEpoch != null) {
+      return quoteVisibilityClock <= localBidEndEpoch;
+    }
+    return !!quoteVisibilityMeta?.locked;
+  }, [localBidEndEpoch, quoteVisibilityMeta?.locked, quoteVisibilityClock]);
+
+  const effectiveQuoteVisibility = useMemo(() => {
+    const deadline = quoteVisibilityMeta?.deadline || currentRFQ?.bid_end_date || null;
+    const remainingMs =
+      quoteVisibilityLocked && localBidEndEpoch != null
+        ? Math.max(localBidEndEpoch - quoteVisibilityClock, 0)
+        : 0;
+
+    return {
+      locked: quoteVisibilityLocked,
+      deadline,
+      remainingMs,
+      message:
+        quoteVisibilityMeta?.message ||
+        "Quotes will appear after the quote submission deadline passes.",
+    };
+  }, [
+    quoteVisibilityLocked,
+    localBidEndEpoch,
+    quoteVisibilityClock,
+    quoteVisibilityMeta?.deadline,
+    quoteVisibilityMeta?.message,
+    currentRFQ?.bid_end_date,
+  ]);
+
+  useEffect(() => {
+    if (!quoteVisibilityLocked) return undefined;
+    const timer = setInterval(() => {
+      setQuoteVisibilityClock(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [quoteVisibilityLocked]);
 
   // Permission-based authorization for Negotiation and Quote-Compare sections
   // Memoize hotelIds to prevent infinite re-renders in useModulePermissions
@@ -253,10 +303,10 @@ const QuoteCompare = () => {
     initializingRef.current = true;
     setquotesLoading(true);
     setquotes([]);
+    setOriginalQuotes([]);
+    setVendorCodeMap({});
     setTEavailable(false);
-
-    // Fire negotiation data load independently (non-blocking)
-    loadNegotiationData();
+    setProductNegotiationData({});
 
     try {
       // Step 1: Check if tech evaluation exists
@@ -274,6 +324,9 @@ const QuoteCompare = () => {
       const quotesRes = await getQuotes(rfq, hasTechEval, freightFilter, rfq_product_id, source, 'quote_compare');
       if (latestRfqRef.current !== fetchRfq) return;
 
+      const visibility = quotesRes?.meta?.quoteVisibility || null;
+      setQuoteVisibilityMeta(visibility);
+      setQuoteVisibilityClock(Date.now());
       setOriginalQuotes(quotesRes.data);
       const data = normalizeFilter ? normalizeFlatQuotationData(quotesRes.data) : quotesRes.data;
       setquotes(data);
@@ -292,6 +345,10 @@ const QuoteCompare = () => {
         });
       });
       setVendorCodeMap(codeMap);
+
+      if (!visibility?.locked) {
+        loadNegotiationData();
+      }
     } catch (error) {
       if (latestRfqRef.current !== fetchRfq) return;
       console.error("Error initializing RFQ data:", error);
@@ -305,6 +362,10 @@ const QuoteCompare = () => {
 
   const loadNegotiationData = async () => {
     if (!rfq) return;
+    if (effectiveQuoteVisibility.locked) {
+      setProductNegotiationData({});
+      return;
+    }
     const fetchRfq = String(rfq); // capture for stale detection
 
     try {
@@ -537,13 +598,20 @@ const handleCloseNormalizeModal = () => {
     const fetchRfq = String(rfq); // capture current rfq for stale detection
     setquotesLoading(true);
     setquotes([]);
+    setOriginalQuotes([]);
+    setVendorCodeMap({});
     setTEavailable(false);
+    setProductNegotiationData({});
 
     let loadedData = [];
     getQuotes(rfq, TA_Filter, freightFilter, rfq_product_id, source , 'quote_compare')
       .then((res) => {
         // Ignore stale response if user has already switched to a different RFQ
         if (latestRfqRef.current !== fetchRfq) return;
+
+        const visibility = res?.meta?.quoteVisibility || null;
+        setQuoteVisibilityMeta(visibility);
+        setQuoteVisibilityClock(Date.now());
 
         // Store original data before normalization for highlighting logic
         setOriginalQuotes(res.data);
@@ -573,6 +641,10 @@ const handleCloseNormalizeModal = () => {
           });
         });
         setVendorCodeMap(codeMap);
+
+        if (!visibility?.locked) {
+          loadNegotiationData();
+        }
       })
       .catch((err) => {
         // Ignore errors from stale requests
@@ -584,6 +656,30 @@ const handleCloseNormalizeModal = () => {
         setquotesLoading(false);
       })
   };
+
+  const previousQuoteLockRef = useRef(false);
+  useEffect(() => {
+    const wasLocked = previousQuoteLockRef.current;
+    previousQuoteLockRef.current = effectiveQuoteVisibility.locked;
+
+    if (
+      wasLocked &&
+      !effectiveQuoteVisibility.locked &&
+      rfq &&
+      rfqMetadataReady &&
+      !permissionsLoading &&
+      (canReadNegotiation || canReadQuoteCompare)
+    ) {
+      getRespectiveQuotes();
+    }
+  }, [
+    effectiveQuoteVisibility.locked,
+    rfq,
+    rfqMetadataReady,
+    permissionsLoading,
+    canReadNegotiation,
+    canReadQuoteCompare,
+  ]);
 
   const getRFQClauses = async (quotesData = []) => {
     const fetchRfq = rfq; // capture for stale detection
@@ -1500,6 +1596,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       setTA_Filter(false);
       setFreightFilter(false);
       setNormalizeFilter(false);
+      setQuoteVisibilityMeta(null);
+      setQuoteVisibilityClock(Date.now());
       setProductNegotiationData({}); // Clear negotiation data to prevent stale state
       setAvailableBudget(null); // Clear budget to prevent showing wrong budget
       setquotes([]); // Clear stale quotes immediately
@@ -1554,6 +1652,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         productNegotiationData,
       },
       metrics,
+      quoteVisibility: effectiveQuoteVisibility,
       tables: comparisonTables,
     }),
     [
@@ -1569,6 +1668,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       vendorCodeMap,
       productNegotiationData,
       metrics,
+      effectiveQuoteVisibility,
       comparisonTables,
     ]
   );
@@ -1590,7 +1690,12 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
   };
 
   const hasRfqSelected = !!rfq;
-  const showNegotiationZone = hasRfqSelected && quotes && quotes.length > 0 && canReadNegotiation;
+  const showNegotiationZone =
+    hasRfqSelected &&
+    !effectiveQuoteVisibility.locked &&
+    quotes &&
+    quotes.length > 0 &&
+    canReadNegotiation;
   const showComparisonZone = hasRfqSelected && canReadQuoteCompare;
 
   // Note: currentRFQ is now set exclusively by Stage 1 (fetchRFQMetadata).
@@ -1646,6 +1751,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     filter: (item) => {
                       // Closed RFQs are read-only — only show in All tab
                       if (String(item.status) === '2') return false;
+                      // Pre-deadline RFQs should not appear as action-required yet.
+                      if (item.bid_end_date && !checkBidExpired(item.bid_end_date)) return false;
                       // User is current approver
                       if (item.approval_required) return true;
                       // Already fully done or all finalized (in approval) or partially approved
@@ -1763,7 +1870,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   <QuoteCompareHeaderCard
                     currentRFQ={currentRFQ}
                     actions={
-                      rfq && quotes && quotes.length > 0 ? (
+                      rfq && quotes && quotes.length > 0 && !effectiveQuoteVisibility.locked ? (
                         <>
                           <button
                             type="button"
@@ -1792,6 +1899,20 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   />
                 )}
                 <div className={revampStyles.workspaceStack}>
+
+                {!isRfqClosed && currentRFQ && effectiveQuoteVisibility.locked && (
+                  <ReadOnlyBanner
+                    title="Quote Comparison Locked Until Deadline"
+                    message={`Quotes will appear after the quote submission deadline passes. Deadline: ${formatDisplayDate(
+                      effectiveQuoteVisibility.deadline,
+                      { includeTime: true }
+                    )}. Time remaining: ${formatRemainingDuration(
+                      effectiveQuoteVisibility.remainingMs
+                    )}.`}
+                    badgeText="View Only"
+                    className="mt-0"
+                  />
+                )}
 
                 {showNegotiationZone && (
                   <section className={revampStyles.zoneBlock}>
@@ -1832,7 +1953,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       <p className={revampStyles.zoneSub}>Compare vendor responses and finalize decisions</p>
                     </div>
                     {/* Quote-Compare read-only banner - only show if user CAN read quote-compare but CANNOT write */}
-                    {currentRFQ && !rawCanWriteQuoteCompare && !permissionsLoading && !isRfqClosed && (
+                    {currentRFQ && !rawCanWriteQuoteCompare && !permissionsLoading && !isRfqClosed && !effectiveQuoteVisibility.locked && (
                       <ReadOnlyBanner
                         title="Quote Compare View Only"
                         message="You don't have edit permissions for quote comparison and finalization."
@@ -1840,9 +1961,11 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       />
                     )}
                     <div className={revampStyles.compareControls}>
-                      <QuoteCompareKpiStrip metrics={metrics} />
+                      {!effectiveQuoteVisibility.locked && (
+                        <QuoteCompareKpiStrip metrics={metrics} />
+                      )}
                       <ComparisonTabs activeTab={activeTab} onChange={handleTabChange} />
-                      {!normalizeFilter && (
+                      {!normalizeFilter && !effectiveQuoteVisibility.locked && (
                         <div className={revampStyles.filterRail}>
                           <div className="form-check form-switch d-flex align-items-center gap-2 m-0">
                             <input
@@ -1889,6 +2012,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                               currentRFQ={currentRFQ}
                               vendorCodeMap={vendorCodeMap}
                               productSummaryMap={productSummaryMap}
+                              quoteVisibility={effectiveQuoteVisibility}
                             />
                           )}
                           {activeTab === "category" && (
@@ -1904,6 +2028,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                               currentRFQ={currentRFQ}
                               productNegotiationData={productNegotiationData}
                               categoryGroups={categoryGroups}
+                              quoteVisibility={effectiveQuoteVisibility}
                             />
                           )}
                           {activeTab === "cost" && (
@@ -1918,6 +2043,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                               freightFilter={freightFilter}
                               currentRFQ={currentRFQ}
                               metrics={metrics}
+                              quoteVisibility={effectiveQuoteVisibility}
                             />
                           )}
                         </div>
