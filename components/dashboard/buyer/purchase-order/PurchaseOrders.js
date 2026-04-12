@@ -233,26 +233,35 @@ const PurchaseOrders = () => {
     try {
       setloading(true);
       if(data.type == 'approval') {
-        if(data.decision == 'rejected') {
-          openRejectRemarksModal(po_id, data, selectedPO);
-          return;
-        } else if (data.remarks !== undefined) {
-          // Remarks already provided (from merged approve modal) — call API directly
+        if (data.remarks !== undefined) {
           const res = await handlePOApproval(po_id, { ...data, remarks: data.remarks });
-          if (res) { toast.success(res.message); } else { throw new Error("Something went wrong while making a decision, please try again!"); }
+          const message = res?.data?.message || res?.message || "Purchase order updated successfully!";
+          if (!data.silent) {
+            toast.success(message);
+          }
           await getPOData();
           if (po) await getPODetails();
-          return;
+          return { success: true, message };
+        }
+
+        if(data.decision == 'rejected') {
+          openRejectRemarksModal(po_id, data, selectedPO);
+          return { success: true, deferred: true };
         } else {
           openApproveRemarksModal(po_id, data);
-          return;
+          return { success: true, deferred: true };
         }
       } else {
         openGRNUpdateModal(po_id, data, selectedPO);
+        return { success: true, deferred: true };
       }
     } catch (error) {
       console.error(error);
-      toast.error(error.message ?? 'Something went wrong while making a decision, please try again!')
+      const message = error?.response?.data?.message || error.message || 'Something went wrong while making a decision, please try again!';
+      if (!data?.silent) {
+        toast.error(message);
+      }
+      return { success: false, error: message };
     } finally {
       setloading(false);
     }

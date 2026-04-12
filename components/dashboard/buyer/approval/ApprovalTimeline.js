@@ -13,6 +13,7 @@ import {
   BsExclamationTriangleFill,
 } from "react-icons/bs";
 import moment from "moment";
+import useIsMobile from "@/hooks/useIsMobile";
 
 const statusConfig = {
   APPROVED: {
@@ -69,6 +70,7 @@ const statusConfig = {
 
 const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus, isActionRequired = false }) => {
   const [expandedSteps, setExpandedSteps] = useState({});
+  const isMobile = useIsMobile();
 
   const isExpired = instanceStatus === 'BACKLOG' || instanceStatus === 'CANCELLED';
   const isInstanceApproved = instanceStatus === 'APPROVED';
@@ -147,8 +149,19 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
           border-radius: 8px;
           border: 1px solid #e9ecef;
         }
+        .at-initiator-content {
+          min-width: 0;
+          flex: 1;
+          line-height: 1.45;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
         .at-initiator strong {
           color: #495057;
+        }
+        .at-initiator-meta {
+          overflow-wrap: anywhere;
+          word-break: break-word;
         }
 
         /* Timeline */
@@ -238,6 +251,21 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
           gap: 10px;
           min-width: 0;
           flex: 1;
+          flex-wrap: wrap;
+        }
+        .at-step-title-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+          flex-wrap: wrap;
+        }
+        .at-step-badges {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+          flex-wrap: wrap;
         }
         .at-step-title {
           font-size: 0.84rem;
@@ -363,6 +391,13 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
         .at-step-card.is-action-required .at-approver:hover {
           background: rgba(249,115,22,0.12);
         }
+        .at-approver-content {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          min-width: 0;
+          flex: 1;
+        }
         .at-approver-icon-wrap {
           width: 26px;
           height: 26px;
@@ -396,13 +431,33 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
           min-width: 0;
           display: flex;
           align-items: center;
+          gap: 4px;
+        }
+        .at-approver-primary {
+          display: flex;
+          align-items: center;
           gap: 6px;
+          min-width: 0;
           flex-wrap: wrap;
+        }
+        .at-approver-meta-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+          flex-wrap: wrap;
+        }
+        .at-approver-side {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
         }
         .at-approver-name {
           font-size: 0.85rem;
           font-weight: 600;
           color: #2d3436;
+          word-break: break-word;
         }
         .at-approver-meta {
           font-size: 0.75rem;
@@ -417,14 +472,51 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
         }
 
         @media (max-width: 768px) {
-          .at-approver {
-            flex-wrap: wrap;
-            gap: 6px;
-          }
-          .at-approver-info {
-            flex-direction: column;
+          .at-initiator {
             align-items: flex-start;
-            gap: 2px;
+          }
+          .at-step-header {
+            align-items: stretch;
+            flex-direction: column;
+            padding: 12px;
+          }
+          .at-step-header-left {
+            align-items: flex-start;
+            gap: 8px;
+          }
+          .at-step-title-row {
+            width: 100%;
+          }
+          .at-step-badges {
+            width: 100%;
+            gap: 5px;
+          }
+          .at-step-header-right {
+            width: 100%;
+            justify-content: space-between;
+            padding-top: 8px;
+            margin-top: 2px;
+            border-top: 1px solid rgba(0,0,0,0.06);
+          }
+          .at-approver-dots {
+            flex-wrap: wrap;
+            gap: 4px;
+          }
+          .at-step-body {
+            padding: 0 12px 12px;
+          }
+          .at-approver {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            padding: 10px;
+          }
+          .at-approver-content {
+            width: 100%;
+          }
+          .at-approver-side {
+            width: 100%;
+            justify-content: space-between;
           }
           .at-approver-name {
             font-size: 0.88rem;
@@ -434,9 +526,23 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
           }
           .at-step-title {
             font-size: 0.88rem;
+            white-space: normal;
+            line-height: 1.3;
           }
           .at-rule-tag {
             font-size: 0.65rem;
+            white-space: normal;
+            line-height: 1.2;
+          }
+          .at-current-tag,
+          .at-action-tag {
+            max-width: 100%;
+            white-space: normal;
+            line-height: 1.2;
+          }
+          .at-approver-status-tag {
+            font-size: 0.7rem;
+            padding: 4px 9px;
           }
           .at-timeline {
             padding-left: 0;
@@ -469,6 +575,19 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
         .at-comment-btn:hover {
           opacity: 1;
           transform: scale(1.1);
+        }
+        .at-comment-inline {
+          width: 100%;
+          padding: 8px 10px;
+          border-radius: 8px;
+          background: rgba(15,23,42,0.04);
+          color: #475569;
+          font-size: 0.76rem;
+          line-height: 1.45;
+        }
+        .at-comment-inline strong {
+          color: #1e293b;
+          font-weight: 700;
         }
 
         /* Current step label */
@@ -508,7 +627,7 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
       {initiatedBy && (
         <div className="at-initiator">
           <BsPersonFill size={13} style={{ color: "#0d6efd", flexShrink: 0 }} />
-          <span>
+          <span className="at-initiator-content">
             Initiated by <strong>{initiatedBy.name}</strong>
             {initiatedBy.email && (
               <span className="ms-1 at-initiator-meta">({initiatedBy.email})</span>
@@ -553,18 +672,22 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
               {/* Header row - always visible */}
               <div className="at-step-header" onClick={() => toggleStep(step.id)}>
                 <div className="at-step-header-left">
-                  <span className="at-step-title">Step {step.step_order}</span>
-                  {isCurrentPending && !isStepActionRequired && <span className="at-current-tag">Current</span>}
-                  {isStepActionRequired && <span className="at-action-tag">Action Required</span>}
-                  <Badge
-                    bg={config.badgeVariant}
-                    style={{ fontSize: "0.62rem", fontWeight: 500, padding: "2px 7px" }}
-                  >
-                    {config.label}
-                  </Badge>
-                  <span className="at-rule-tag">
-                    {step.decision_rule === "ANY" ? "Any one can approve" : "All must approve"}
-                  </span>
+                  <div className="at-step-title-row">
+                    <span className="at-step-title">Step {step.step_order}</span>
+                    {isCurrentPending && !isStepActionRequired && <span className="at-current-tag">Current</span>}
+                    {isStepActionRequired && <span className="at-action-tag">Action Required</span>}
+                  </div>
+                  <div className="at-step-badges">
+                    <Badge
+                      bg={config.badgeVariant}
+                      style={{ fontSize: "0.62rem", fontWeight: 600, padding: "3px 8px" }}
+                    >
+                      {config.label}
+                    </Badge>
+                    <span className="at-rule-tag">
+                      {step.decision_rule === "ANY" ? "Any one can approve" : "All must approve"}
+                    </span>
+                  </div>
                 </div>
                 <div className="at-step-header-right">
                   {/* Approver dots - quick visual summary */}
@@ -625,41 +748,54 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
 
                             return (
                               <div className="at-approver" key={approver.user_id} style={isSkipped ? { opacity: 0.55 } : undefined}>
-                                <div className={`at-approver-icon-wrap ${iconClass}`}>
-                                  <AIcon size={12} style={{ color: aStatus.color }} />
+                                <div className="at-approver-content">
+                                  <div className={`at-approver-icon-wrap ${iconClass}`}>
+                                    <AIcon size={12} style={{ color: aStatus.color }} />
+                                  </div>
+                                  <div className="at-approver-info">
+                                    <div className="at-approver-primary">
+                                      <span className="at-approver-name">{approver.user_name}</span>
+                                    </div>
+                                    <div className="at-approver-meta-row">
+                                      {approver.employee_code && (
+                                        <span className="at-approver-meta">{approver.employee_code}</span>
+                                      )}
+                                      {approver.user_designation && (
+                                        <span className="at-approver-meta">{approver.user_designation}</span>
+                                      )}
+                                      {approver.acted_at && (
+                                        <span className="at-approver-meta">· {formatDate(approver.acted_at)}</span>
+                                      )}
+                                    </div>
+                                    {isMobile && approver.comment && (
+                                      <div className="at-comment-inline">
+                                        <strong>Comment:</strong> {approver.comment}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="at-approver-info">
-                                  <span className="at-approver-name">{approver.user_name}</span>
-                                  {approver.employee_code && (
-                                    <span className="at-approver-meta">{approver.employee_code}</span>
-                                  )}
-                                  {approver.user_designation && (
-                                    <span className="at-approver-meta">{approver.user_designation}</span>
-                                  )}
-                                  {approver.acted_at && (
-                                    <span className="at-approver-meta">· {formatDate(approver.acted_at)}</span>
+                                <div className="at-approver-side">
+                                  <span className={`at-approver-status-tag ${tagClass}`}>
+                                    {aStatus.text}
+                                  </span>
+                                  {approver.comment && !isMobile && (
+                                    <OverlayTrigger
+                                      placement="top"
+                                      overlay={
+                                        <Tooltip>
+                                          <div style={{ textAlign: "left", maxWidth: 280 }}>
+                                            <strong>{approver.user_name}:</strong><br />
+                                            &ldquo;{approver.comment}&rdquo;
+                                          </div>
+                                        </Tooltip>
+                                      }
+                                    >
+                                      <span className="at-comment-btn">
+                                        <BsChatLeftTextFill size={13} style={{ color: aStatus.color }} />
+                                      </span>
+                                    </OverlayTrigger>
                                   )}
                                 </div>
-                                <span className={`at-approver-status-tag ${tagClass}`}>
-                                  {aStatus.text}
-                                </span>
-                                {approver.comment && (
-                                  <OverlayTrigger
-                                    placement="top"
-                                    overlay={
-                                      <Tooltip>
-                                        <div style={{ textAlign: "left", maxWidth: 280 }}>
-                                          <strong>{approver.user_name}:</strong><br />
-                                          &ldquo;{approver.comment}&rdquo;
-                                        </div>
-                                      </Tooltip>
-                                    }
-                                  >
-                                    <span className="at-comment-btn">
-                                      <BsChatLeftTextFill size={13} style={{ color: aStatus.color }} />
-                                    </span>
-                                  </OverlayTrigger>
-                                )}
                               </div>
                             );
                           })}

@@ -1,0 +1,656 @@
+// WH-69 — Edit history MODAL.
+//
+// Centred sheet with a brand-blue header (#2E5BA8 → #1e4a8a), a stat strip,
+// and a vertical timeline of edit sessions. Each session card groups changes
+// by entity (PRODUCT / RFQ / TERMS) and lays each change out in a clean
+// label-on-left, diff-on-right grid. Designed to feel as polished as the
+// lifecycle journey card.
+
+// ── Brand colours (kept local so this file is self-contained) ─────────────
+$brand-primary: #2E5BA8;
+$brand-primary-dark: #1e4a8a;
+$brand-primary-soft: #eef2fa; // very pale blue background
+$brand-primary-faint: #dbe5f3; // borders / dividers in primary tone
+
+// ── Modal shell ───────────────────────────────────────────────────────────
+.modal {
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.25),
+              0 4px 16px -4px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 80px);
+}
+
+// ── Header ────────────────────────────────────────────────────────────────
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 26px 18px;
+  background: linear-gradient(135deg, $brand-primary 0%, $brand-primary-dark 100%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.headerIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+.modalSubtitle {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.78);
+  margin-top: 4px;
+}
+
+.closeBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.28);
+  }
+}
+
+// ── Stats strip ───────────────────────────────────────────────────────────
+.statsStrip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 14px 26px;
+  background: $brand-primary-soft;
+  border-bottom: 1px solid $brand-primary-faint;
+  flex-shrink: 0;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.statValue {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: $brand-primary-dark;
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 0.66rem;
+  color: #5a6f8f;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.statDivider {
+  width: 1px;
+  height: 24px;
+  background: $brand-primary-faint;
+}
+
+// ── Body ──────────────────────────────────────────────────────────────────
+.modalBody {
+  padding: 22px 26px 26px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: #ffffff;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 16px;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e2e8f0;
+  border-top-color: $brand-primary;
+  border-radius: 50%;
+  animation: editHistorySpin 0.65s linear infinite;
+}
+
+@keyframes editHistorySpin {
+  to { transform: rotate(360deg); }
+}
+
+.errorState {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  color: #991b1b;
+  font-size: 0.82rem;
+
+  svg { flex-shrink: 0; }
+}
+
+.emptyState {
+  text-align: center;
+  padding: 56px 16px;
+  color: #64748b;
+
+  h4 {
+    margin: 14px 0 6px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #334155;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.82rem;
+  }
+}
+
+.emptyIcon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: $brand-primary-soft;
+  color: $brand-primary;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+// ── Timeline ──────────────────────────────────────────────────────────────
+.timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+.timelineItem {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  padding-bottom: 18px;
+
+  &:last-child {
+    padding-bottom: 0;
+  }
+}
+
+.timelineRail {
+  position: relative;
+  flex-shrink: 0;
+  width: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 18px;
+}
+
+.timelineDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: $brand-primary;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px $brand-primary, 0 0 0 4px rgba(46, 91, 168, 0.18);
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.timelineDotMaterial {
+  background: #f59e0b;
+  box-shadow: 0 0 0 1px #f59e0b, 0 0 0 4px rgba(245, 158, 11, 0.2);
+}
+
+.timelineLine {
+  position: absolute;
+  top: 32px;
+  bottom: -18px;
+  left: 50%;
+  width: 2px;
+  background: $brand-primary-faint;
+  transform: translateX(-50%);
+}
+
+// ── Session card ──────────────────────────────────────────────────────────
+.sessionCard {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    border-color: $brand-primary-faint;
+    box-shadow: 0 4px 12px rgba(46, 91, 168, 0.08);
+  }
+}
+
+.sessionCardHeader {
+  padding: 14px 16px;
+  background: linear-gradient(180deg, $brand-primary-soft 0%, #ffffff 100%);
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.author {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, $brand-primary, $brand-primary-dark);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 6px rgba(46, 91, 168, 0.25);
+}
+
+.authorInfo {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.authorName {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.authorEmail {
+  font-size: 0.72rem;
+  color: #475569;
+  margin-top: 2px;
+  word-break: break-all;
+}
+
+.authorMeta {
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.pill {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  line-height: 1.5;
+}
+
+.pillMaterial {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.pillCosmetic {
+  background: $brand-primary-soft;
+  color: $brand-primary-dark;
+}
+
+// ── Session card body (entity groups) ─────────────────────────────────────
+.sessionCardBody {
+  padding: 8px 16px 14px;
+}
+
+.entityGroup {
+  margin-top: 12px;
+
+  &:first-child {
+    margin-top: 4px;
+  }
+}
+
+.entityGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $brand-primary;
+  padding: 4px 0 6px;
+  border-bottom: 1px dashed $brand-primary-faint;
+}
+
+.entityGroupCount {
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #94a3b8;
+}
+
+.entityGroupBody {
+  padding: 4px 0 0;
+}
+
+// ── Product lifecycle card (added / removed) ─────────────────────────────
+// Replaces the generic JSON-leaking ChangeRow for PRODUCT/CREATE and
+// PRODUCT/DELETE history rows. Renders a labelled add/remove pill, the
+// product name, a vendor count badge, and a clean key/value spec grid.
+.lifecycleCard {
+  background: $brand-primary-soft;
+  border: 1px solid $brand-primary-faint;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 6px 0;
+}
+
+.lifecycleHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.lifecyclePillAdded {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: #dcfce7;
+  color: #166534;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid #bbf7d0;
+}
+
+.lifecyclePillRemoved {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid #fecaca;
+}
+
+.lifecycleProductName {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+  word-break: break-word;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lifecycleVendorBadge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: $brand-primary-dark;
+  background: #ffffff;
+  border: 1px solid $brand-primary-faint;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.lifecycleSpecGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 14px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed $brand-primary-faint;
+}
+
+.lifecycleSpecItem {
+  min-width: 0;
+}
+
+.lifecycleSpecTitle {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.lifecycleSpecValue {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0f172a;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+// ── Change row ────────────────────────────────────────────────────────────
+// Two-column grid: label on the left, diff on the right. No icons.
+.changeRow {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.9fr) 1.6fr;
+  gap: 14px;
+  padding: 10px 0;
+  align-items: baseline;
+  border-bottom: 1px solid #f1f5f9;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.changeLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.changeValues {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #334155;
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.oldValue {
+  display: inline-block;
+  padding: 3px 9px;
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  font-weight: 500;
+  text-decoration: line-through;
+  text-decoration-color: rgba(153, 27, 27, 0.5);
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.newValue {
+  display: inline-block;
+  padding: 3px 9px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  border-radius: 6px;
+  font-weight: 600;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.arrow {
+  color: #94a3b8;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.tagAdded {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #dcfce7;
+  color: #166534;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.tagRemoved {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+// ── Tech eval clause diff ─────────────────────────────────────────────
+.clauseDiffList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.clauseDiffRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.clauseIconAdded {
+  color: #166534;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.clauseIconRemoved {
+  color: #991b1b;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.clauseIconUpdated {
+  color: #92400e;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.clauseText {
+  font-weight: 600;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.clauseTextRemoved {
+  font-weight: 500;
+  color: #991b1b;
+  text-decoration: line-through;
+  text-decoration-color: rgba(153, 27, 27, 0.5);
+  word-break: break-word;
+}
+
+.clauseWeightage {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: $brand-primary-dark;
+  background: $brand-primary-soft;
+  border: 1px solid $brand-primary-faint;
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+
+// ── Responsive ────────────────────────────────────────────────────────────
+@media (max-width: 600px) {
+  .modalHeader {
+    padding: 18px 20px 14px;
+  }
+  .modalBody {
+    padding: 16px 18px 22px;
+  }
+  .timelineItem {
+    gap: 12px;
+  }
+  .statsStrip {
+    gap: 16px;
+    padding: 12px 18px;
+  }
+  .changeRow {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 12px 0;
+  }
+}

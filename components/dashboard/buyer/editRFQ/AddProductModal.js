@@ -165,44 +165,101 @@ const AddProductModal = ({
                             <th style={{ maxWidth: "300px" }}>Variant Name</th>
                             <th style={{ maxWidth: "300px" }}>Product Name</th>
                             <th>Category</th>
+                            <th>Eligible Vendors</th>
                             <th>Action</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredProducts.map((item) => (
-                            <tr key={`product-${item.variant_id}`}>
-                              <td style={{ maxWidth: "250px" }}>
-                                {item.variant_id}
-                              </td>
-                              <td
-                                className="text-truncate"
-                                style={{ maxWidth: "300px" }}
-                              >
-                                {item.variant_name}
-                              </td>
-                              <td
-                                className="text-truncate"
-                                style={{ maxWidth: "300px" }}
-                              >
-                                {item.product_name}
-                              </td>
-                              <td>{item.category_name}</td>
-                              <td className="d-flex flex-column justify-content-center gap-2 h-100">
-                                <button
-                                  className="page-linkd remove-icon d-flex gap-2 align-items-center"
-                                  style={{
-                                    border: "none",
-                                    background: "transparent",
-                                    color: "green",
-                                  }}
-                                  onClick={() => onAdd(item)}
+                          {filteredProducts.map((item) => {
+                            // Backend (rfqModel.searchProduct) already returns
+                            // vendor_count keyed to the RFQ's hotel scope. A
+                            // zero count means no vendor in any selected
+                            // hotel can quote on this variant — adding it
+                            // would create a dead product, so we block it
+                            // here instead of letting the user discover the
+                            // problem after Update RFQ.
+                            const vendorCount = Number(item.vendor_count) || 0;
+                            const noVendors = vendorCount === 0;
+                            return (
+                              <tr key={`product-${item.variant_id}`}>
+                                <td style={{ maxWidth: "250px" }}>
+                                  {item.variant_id}
+                                </td>
+                                <td
+                                  className="text-truncate"
+                                  style={{ maxWidth: "300px" }}
                                 >
-                                  <FontAwesomeIcon icon={faAdd} />
-                                  Select
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                                  {item.variant_name}
+                                </td>
+                                <td
+                                  className="text-truncate"
+                                  style={{ maxWidth: "300px" }}
+                                >
+                                  {item.product_name}
+                                </td>
+                                <td>{item.category_name}</td>
+                                <td>
+                                  {noVendors ? (
+                                    <span
+                                      className="badge"
+                                      style={{
+                                        background: '#fee2e2',
+                                        color: '#991b1b',
+                                        border: '1px solid #fecaca',
+                                        fontWeight: 600,
+                                        padding: '4px 9px',
+                                      }}
+                                      title="No eligible vendors in this RFQ's business units. Map vendors to a relevant hotel or try a different product."
+                                    >
+                                      0 vendors
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="badge"
+                                      style={{
+                                        background: '#dcfce7',
+                                        color: '#166534',
+                                        border: '1px solid #bbf7d0',
+                                        fontWeight: 600,
+                                        padding: '4px 9px',
+                                      }}
+                                    >
+                                      {vendorCount} {vendorCount === 1 ? 'vendor' : 'vendors'}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="d-flex flex-column justify-content-center gap-2 h-100">
+                                  <button
+                                    className="page-linkd remove-icon d-flex gap-2 align-items-center"
+                                    style={{
+                                      border: "none",
+                                      background: "transparent",
+                                      color: noVendors ? '#94a3b8' : 'green',
+                                      cursor: noVendors ? 'not-allowed' : 'pointer',
+                                    }}
+                                    disabled={noVendors}
+                                    onClick={() => {
+                                      if (noVendors) {
+                                        toast.warn(
+                                          `"${item.variant_name || item.product_name}" has no eligible vendors in this RFQ's business units and cannot be added.`
+                                        );
+                                        return;
+                                      }
+                                      onAdd(item);
+                                    }}
+                                    title={
+                                      noVendors
+                                        ? 'No eligible vendors — cannot add this product'
+                                        : 'Add this product to the RFQ'
+                                    }
+                                  >
+                                    <FontAwesomeIcon icon={faAdd} />
+                                    Select
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     );

@@ -1206,10 +1206,13 @@ export const searchVendorByName = (vendor_name) => {
 };
 
 
+// WH-69: PUT /rfq/update — payload shape is now { rfq_id, snapshot } where
+// `snapshot` is the complete intended state of the RFQ. Backend computes the
+// diff and writes one tbl_rfq_change_history row per changed field.
 export const updateRfq = (data) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.put("/rfq/update", data); // no need for spread
+      const response = await axiosInstance.put("/rfq/update", data);
 
       resolve({
         success: true,
@@ -1231,6 +1234,22 @@ export const updateRfq = (data) => {
         status: error.response?.status || 500,
         message: error.response?.data?.message || "Failed to update RFQ",
         error: error
+      });
+    }
+  });
+};
+
+// WH-69: edit history feed for the new "Edit History" panel on the RFQ
+// details page. Returns { sessions: [...] } grouped newest first.
+export const getRfqEditHistory = (rfqId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/rfq/${rfqId}/edit-history`);
+      resolve(response);
+    } catch (error) {
+      reject({
+        message: error?.response?.data?.message || 'Failed to load edit history',
+        status: error?.response?.data?.status || 3
       });
     }
   });

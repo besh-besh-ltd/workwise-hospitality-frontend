@@ -24,6 +24,19 @@ const PHASE_ICONS = {
 
 const fmt = (d) => d ? moment.utc(d).utcOffset('+05:30').format('DD MMM YYYY') : null;
 const fmtTime = (d) => d ? moment.utc(d).utcOffset('+05:30').format('DD MMM, hh:mm a') : null;
+const BID_TIMEZONE_OFFSET = '+05:30';
+const HAS_EXPLICIT_TIMEZONE = /([zZ]|[+-]\d{2}:?\d{2})$/;
+const parseBidDeadline = (value) => {
+  if (!value) return null;
+  const parsed = HAS_EXPLICIT_TIMEZONE.test(value)
+    ? moment.parseZone(value).utcOffset(BID_TIMEZONE_OFFSET)
+    : moment(value).utcOffset(BID_TIMEZONE_OFFSET, true);
+  return parsed.isValid() ? parsed : null;
+};
+const fmtBidDeadline = (d) => {
+  const parsed = parseBidDeadline(d);
+  return parsed ? parsed.format('DD MMM, hh:mm a') : null;
+};
 
 // ---- Helpers ----
 // Extract product name from an instance's metadata (multiple fallback paths)
@@ -126,63 +139,77 @@ const RFQLifecycleJourney = ({ rfqId, isTender = false, onActionComplete }) => {
     <div className={styles.root}>
       <div className={styles.header}>
         <h6 className={styles.title}>{entityLabel} Lifecycle Journey</h6>
-        {data.current_stage === 'APPROVED_COMPLETED'
-          ? <Badge bg="success" className={styles.curBadge}><BsCheckCircleFill size={10} className="me-1" />Completed</Badge>
-          : data.current_phase && <Badge bg="warning" text="dark" className={styles.curBadge}><BsLightningChargeFill size={10} className="me-1" />{data.phases.find(p => p.status === 'current')?.label || 'In Progress'}</Badge>
-        }
+        <div className='d-flex gap-1 ms-3'>
+          {data.current_stage === 'APPROVED_COMPLETED'
+            ? <Badge bg="success" className={styles.curBadge}><BsCheckCircleFill size={10} className="me-1" />Completed</Badge>
+            : data.current_phase && <Badge bg="warning" text="dark" className={styles.curBadge}><BsLightningChargeFill size={10} className="me-1" />{data.phases.find(p => p.status === 'current')?.label || 'In Progress'}</Badge>
+          }
+          {data.user_action_required && (
+            <Badge bg="danger" className={styles.curBadge} style={{ marginLeft: 6 }}>
+              <BsExclamationTriangleFill size={10} className="me-1" />{data.user_action_label || 'Action Required'}
+            </Badge>
+          )}
+        </div>
+        {data.user_can_approve && (() => {
+          const inst = data.phases
+            .flatMap(p => p.approval_instances || [])
+            .find(i => i.id === data.user_approval_instance_id);
+          if (!inst) return null;
+          return (
+            <div className={styles.headerActions} style={{ marginLeft: 'auto' }}>
+              <Button variant="success" size="sm" className={styles.headerActBtn} onClick={() => openAction('APPROVE', inst)}>
+                <BsShieldCheck size={13} className="me-1" />Approve
+              </Button>
+              <Button variant="danger" size="sm" className={styles.headerActBtn} onClick={() => openAction('REJECT', inst)}>
+                <BsShieldX size={13} className="me-1" />Reject
+              </Button>
+            </div>
+          );
+        })()}
       </div>
       <div className={styles.tl}>
         {data.phases.map((phase, idx) => {
+          console.log('phase', phase);
           const isLast = idx === data.phases.length - 1;
           const isOpen = !!expandedPhases[phase.key];
           const canOpen = phase.status !== 'upcoming' && phase.status !== 'skipped';
           const Icon = PHASE_ICONS[phase.key] || BsCircle;
-          const isCancelled = phase.is_cancelled && phase.status === 'current';
-          const rowClass = isCancelled ? styles.row_cancelled : styles[`row_${phase.status}`];
-          const nodeClass = isCancelled ? styles.node_cancelled : styles[`node_${phase.status}`];
-          const cardClass = isCancelled ? styles.card_cancelled : styles[`card_${phase.status}`];
+          const isBlocked = phase.sub_status === 'no_vendors_participated';
+          const isCancelled = (phase.is_cancelled || isBlocked) && phase.status === 'current';
+          const isActionRequired = !isCancelled && phase.status === 'current' && data.user_action_required && data.user_action_phase === phase.key;
+          const statusKey = isCancelled ? 'cancelled' : isActionRequired ? 'action_required' : phase.status;
+          const rowClass = styles[`row_${statusKey}`] || styles[`row_${phase.status}`];
+          const nodeClass = styles[`node_${statusKey}`] || styles[`node_${phase.status}`];
+          const cardClass = styles[`card_${statusKey}`] || styles[`card_${phase.status}`];
           return (
             <div key={phase.key} className={`${styles.row} ${rowClass}`}>
               <div className={styles.rail}>
                 <div className={`${styles.node} ${nodeClass}`}>
                   {phase.status === 'completed' && <BsCheckCircleFill size={14} />}
-                  {phase.status === 'current' && !isCancelled && <div className={styles.pulse} />}
+                  {phase.status === 'current' && !isCancelled && !isActionRequired && <div className={styles.pulse} />}
+                  {phase.status === 'current' && isActionRequired && <div className={styles.pulse_action_required} />}
                   {isCancelled && <div className={styles.pulse_cancelled} />}
                   {phase.status === 'expired' && <BsExclamationTriangleFill size={14} />}
                   {phase.status === 'skipped' && <BsSkipForwardFill size={12} />}
                   {phase.status === 'upcoming' && <BsCircle size={14} />}
                 </div>
-                {!isLast && <div className={`${styles.wire} ${isCancelled ? styles.wire_cancelled : styles[`wire_${phase.status}`]}`} />}
+                {!isLast && <div className={`${styles.wire} ${styles[`wire_${statusKey}`] || styles[`wire_${phase.status}`]}`} />}
               </div>
               <div className={styles.body}>
                 <div className={`${styles.card} ${cardClass}`} onClick={() => canOpen && togglePhase(phase.key)} style={canOpen ? { cursor: 'pointer' } : undefined}>
                   <div className={styles.cardHead}>
                     <Icon size={15} className={styles.phaseIcon} />
                     <span className={styles.cardLabel}>{phase.label}</span>
-                    {phase.status === 'current' && !isCancelled && <span className={styles.tagCur}>Current</span>}
+                    {phase.status === 'current' && !isCancelled && !isActionRequired && <span className={styles.tagCur}>Current</span>}
+                    {isActionRequired && <span className={styles.tagActionRequired}>Action Required</span>}
                     {isCancelled && <span className={styles.tagCurCancelled}>Current</span>}
-                    {isCancelled && <span className={styles.tagCancel}>Cancelled</span>}
+                    {isBlocked && <span className={styles.tagCurCancelled}>Blocked</span>}
+                    {isCancelled && !isBlocked && <span className={styles.tagCurCancelled}>Cancelled</span>}
                     {phase.status === 'expired' && <span className={styles.tagExp}>Expired</span>}
                     {phase.status === 'skipped' && <span className={styles.tagSkip}>Skipped</span>}
                     {phase.sub_status && phase.status === 'current' && !isCancelled && <span className={styles.tagSub}>{phase.sub_status.replace(/_/g, ' ')}</span>}
                     <span style={{ flex: 1 }} />
-                    {phase.key === 'rfq_approval' && phase.status === 'current' && !isCancelled && (() => {
-                      const insts = phase.approval_instances || [];
-                      const latest = insts.length > 0 ? insts[insts.length - 1] : null;
-                      if (latest?.status === 'PENDING' && latest?.can_user_approve) {
-                        return (
-                          <div className={styles.headerActions} onClick={(e) => e.stopPropagation()}>
-                            <Button variant="success" size="sm" className={styles.headerActBtn} onClick={() => openAction('APPROVE', latest)}>
-                              <BsShieldCheck size={13} className="me-1" />Approve
-                            </Button>
-                            <Button variant="danger" size="sm" className={styles.headerActBtn} onClick={() => openAction('REJECT', latest)}>
-                              <BsShieldX size={13} className="me-1" />Reject
-                            </Button>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
+                    {/* Approve/Reject buttons are now in the top-level header for all stages */}
                     {phase.completed_at && <span className={styles.dateTag}><BsCalendar3 size={9} /> {fmt(phase.completed_at)}</span>}
                     {canOpen && <span className={styles.chev}>{isOpen ? '▲' : '▼'}</span>}
                   </div>
@@ -221,20 +248,33 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
 
   // Technical: group by product → by round
   if (phase.key === 'technical') {
+    if (phase.awaiting_quotes) {
+      return (
+        <AwaitingQuotesPanel
+          phase={phase}
+          title={
+            phase.sub_status === 'no_vendors_participated'
+              ? 'Quote submission window closed without any eligible vendor participation'
+              : 'Waiting for vendor quotes before technical evaluation can begin'
+          }
+        />
+      );
+    }
+
     const productGroups = groupByProduct(instances);
     const hasProducts = phase.products?.length > 0;
     const isEvaluating = phase.sub_status === 'evaluating';
     const isAwaitingQuotes = phase.sub_status === 'awaiting_quotes';
 
+    // Resolve evaluators & approvers — always shown until the phase is completed
+    const ah = phase.action_holders;
+    const ua = phase.upcoming_actors;
+    const evaluatorList = (ah?.users?.length ? ah.users : ua?.evaluators) || [];
+    const evaluatorLabel = ah?.label || 'Technical Evaluators';
+    const showActors = phase.status !== 'completed' && evaluatorList.length > 0;
+
     // If no approval instances yet (evaluating/awaiting stage), show who needs to act
     if (!productGroups.length && !hasProducts) {
-      const ah = phase.action_holders;
-      const ua = phase.upcoming_actors;
-      // Prefer action_holders.users (current-stage backend resolution); fall back to
-      // upcoming_actors.evaluators (from resolvePhaseActors). They contain the same
-      // set when both are populated, so this never produces duplicates.
-      const evaluatorList = (ah?.users?.length ? ah.users : ua?.evaluators) || [];
-      const evaluatorLabel = ah?.label || 'Technical Evaluators';
       return (
         <div>
           {(isEvaluating || isAwaitingQuotes) && (
@@ -252,20 +292,6 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
                     </div>
                   </div>
                 )}
-                {ua?.approver_steps?.length > 0 && (
-                  <div className={styles.actorSection}>
-                    <span className={styles.actorLabel}>Approvers (after evaluation):</span>
-                    {ua.approver_steps.map((step, si) => (
-                      <div key={si} className={styles.actionUserList}>
-                        {ua.approver_steps.length > 1 && <span className={styles.actorStepLabel}>Step {step.step_order}:</span>}
-                        {step.approvers.map((u, ui) => (
-                          <span key={ui} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
-                        ))}
-                        <span className={styles.futureRule}>{step.decision_rule === 'ANY' ? 'Any one' : 'All'}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -276,6 +302,24 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
 
     return (
       <div>
+        {/* Always show evaluators/approvers until stage is completed */}
+        {showActors && (
+          <div className={styles.awaitingBanner} style={{ marginBottom: 12 }}>
+            <BsClipboardCheck size={14} />
+            <div style={{ flex: 1 }}>
+              {evaluatorList.length > 0 && (
+                <div className={styles.actorSection}>
+                  <span className={styles.actorLabel}>{evaluatorLabel}:</span>
+                  <div className={styles.actionUserList}>
+                    {evaluatorList.map((u, i) => (
+                      <span key={u.id || i} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         {phase.evaluators?.length > 0 && <div className={styles.evalBar}><BsPersonFill size={12} /> Evaluator{phase.evaluators.length > 1 ? 's' : ''}: <strong>{phase.evaluators.map(e => e.name).join(', ')}</strong></div>}
         <Accordion alwaysOpen defaultActiveKey={productGroups.map((pg, pi) => pg.instances.some(inst => inst.status === 'PENDING') ? String(pi) : null).filter(Boolean)} className={styles.prodAcc}>
           {productGroups.map((pg, pi) => {
@@ -315,6 +359,19 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
 
   // Commercial: group by product
   if (phase.key === 'commercial') {
+    if (phase.awaiting_quotes) {
+      return (
+        <AwaitingQuotesPanel
+          phase={phase}
+          title={
+            phase.sub_status === 'no_vendors_participated'
+              ? 'Quote submission window closed without any eligible vendor participation'
+              : 'Waiting for vendor quotes before commercial evaluation can begin'
+          }
+        />
+      );
+    }
+
     const productGroups = groupByProduct(instances);
     // Also merge in finalization/negotiation data from phase.products if available
     const phaseProducts = phase.products || [];
@@ -330,59 +387,43 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
       }
     });
 
-    if (!productGroups.length) {
-      // Show who needs to act when no data yet
-      const ah = phase.action_holders;
-      const ua = phase.upcoming_actors;
-      const isEval = phase.sub_status === 'evaluating';
-      const isNeg = phase.sub_status === 'negotiating';
-      const isApproving = phase.sub_status === 'approving';
+    // Resolve actors — always shown until stage is completed
+    const cAh = phase.action_holders;
+    const cUa = phase.upcoming_actors;
+    const isEval = phase.sub_status === 'evaluating';
+    const isNeg = phase.sub_status === 'negotiating';
+    const isApproving = phase.sub_status === 'approving';
+    const currentActors = (cAh?.users?.length ? cAh.users : cUa?.evaluators) || [];
+    const currentLabel = cAh?.label || (isApproving ? 'Pending Approvers' : 'Commercial Evaluators');
+    const showCommercialActors = phase.status !== 'completed' && currentActors.length > 0;
 
-      // Single source of truth for "currently acting" users.
-      // For evaluating/negotiating: action_holders.users === upcoming_actors.evaluators (RBAC).
-      // For approving: action_holders.users = the pending approvers from the live instance.
-      const currentActors = (ah?.users?.length ? ah.users : ua?.evaluators) || [];
-      const currentLabel = ah?.label || (isApproving ? 'Pending Approvers' : 'Commercial Evaluators');
-
-      if (currentActors.length > 0 || ua || isEval || isNeg || isApproving) {
-        const stageText = isEval ? 'Commercial evaluation is in progress' : isNeg ? 'Negotiation is ongoing' : isApproving ? 'Quotation approval is pending' : 'Commercial evaluation is in progress';
-        return (
-          <div className={styles.awaitingBanner}>
-            <BsGraphUpArrow size={14} />
-            <div style={{ flex: 1 }}>
-              <div><strong>{stageText}</strong></div>
-              {currentActors.length > 0 && (
-                <div className={styles.actorSection}>
-                  <span className={styles.actorLabel}>{currentLabel}:</span>
-                  <div className={styles.actionUserList}>
-                    {currentActors.map((u, i) => (
-                      <span key={u.id || i} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
-                    ))}
-                    {ah?.decision_rule && <span className={styles.futureRule}>{ah.decision_rule === 'ANY' ? 'Any one' : 'All'}</span>}
-                  </div>
-                </div>
-              )}
-              {ua?.approver_steps?.length > 0 && !isApproving && (
-                <div className={styles.actorSection}>
-                  <span className={styles.actorLabel}>Approvers (after evaluation):</span>
-                  {ua.approver_steps.map((step, si) => (
-                    <div key={si} className={styles.actionUserList}>
-                      {ua.approver_steps.length > 1 && <span className={styles.actorStepLabel}>Step {step.step_order}:</span>}
-                      {step.approvers.map((u, ui) => (
-                        <span key={u.id || ui} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
-                      ))}
-                      <span className={styles.futureRule}>{step.decision_rule === 'ANY' ? 'Any one' : 'All'}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+    // Actors banner — reusable for both empty and data states
+    const actorsBanner = showCommercialActors ? (
+      <div className={styles.awaitingBanner} style={productGroups.length > 0 ? { marginBottom: 12 } : undefined}>
+        <BsGraphUpArrow size={14} />
+        <div style={{ flex: 1 }}>
+          {!productGroups.length && <div><strong>{isEval ? 'Commercial evaluation is in progress' : isNeg ? 'Negotiation is ongoing' : isApproving ? 'Quotation approval is pending' : 'Commercial evaluation is in progress'}</strong></div>}
+          {currentActors.length > 0 && (
+            <div className={styles.actorSection}>
+              <span className={styles.actorLabel}>{currentLabel}:</span>
+              <div className={styles.actionUserList}>
+                {currentActors.map((u, i) => (
+                  <span key={u.id || i} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
+                ))}
+                {cAh?.decision_rule && <span className={styles.futureRule}>{cAh.decision_rule === 'ANY' ? 'Any one' : 'All'}</span>}
+              </div>
             </div>
-          </div>
-        );
-      }
-      return <div className={styles.empty}>No commercial evaluation data</div>;
+          )}
+        </div>
+      </div>
+    ) : null;
+
+    if (!productGroups.length) {
+      return actorsBanner || <div className={styles.empty}>No commercial evaluation data</div>;
     }
     return (
+      <div>
+        {actorsBanner}
       <Accordion alwaysOpen defaultActiveKey={productGroups.map((pg, pi) => pg.instances.some(inst => inst.status === 'PENDING') ? String(pi) : null).filter(Boolean)} className={styles.prodAcc}>
         {productGroups.map((pg, pi) => {
           const latestInst = pg.instances[pg.instances.length - 1];
@@ -440,6 +481,7 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
           );
         })}
       </Accordion>
+      </div>
     );
   }
 
@@ -515,6 +557,56 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
   }
 
   return null;
+};
+
+const AwaitingQuotesPanel = ({ phase, title }) => {
+  const stats = phase.awaiting_quotes || {};
+  const ah = phase.action_holders;
+  const ua = phase.upcoming_actors;
+  const currentActors = (ah?.users?.length ? ah.users : ua?.evaluators) || [];
+  const currentLabel = ah?.label || (phase.key === 'technical' ? 'Technical Evaluators' : 'Commercial Evaluators');
+  const statCards = [
+    { key: 'participated', label: 'Participated', value: stats.participated || 0 },
+    { key: 'quotes', label: 'Sent Quotes', value: stats.sent_quotes || 0 },
+    { key: 'remaining', label: 'Remaining', value: stats.remaining || 0 },
+  ];
+
+  return (
+    <div className={styles.awaitingWrap}>
+      <div className={`${styles.awaitingBanner} ${phase.sub_status === 'no_vendors_participated' ? styles.awaitingBannerClosed : ''}`}>
+        <BsClipboardCheck size={14} />
+        <div style={{ flex: 1 }}>
+          <div><strong>{title}</strong></div>
+          <div className={styles.awaitingMeta}>
+            <span>{stats.total_invited || 0} vendor{stats.total_invited === 1 ? '' : 's'} invited</span>
+            {stats.bid_end_date && <span>Deadline: {fmtBidDeadline(stats.bid_end_date)}</span>}
+            {stats.regrets > 0 && <span>{stats.regrets} regret{stats.regrets === 1 ? '' : 's'}</span>}
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.awaitingStats}>
+        {statCards.map((card) => (
+          <div key={card.key} className={styles.awaitingStatCard}>
+            <div className={styles.awaitingStatValue}>{card.value}</div>
+            <div className={styles.awaitingStatLabel}>{card.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {currentActors.length > 0 && (
+        <div className={styles.actorSection}>
+          <span className={styles.actorLabel}>{currentLabel}:</span>
+          <div className={styles.actionUserList}>
+            {currentActors.map((u, i) => (
+              <span key={u.id || i} className={styles.actionUserChip}><BsPersonFill size={10} /> {u.name}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
 };
 
 // ============================================

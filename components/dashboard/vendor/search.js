@@ -245,7 +245,11 @@ const Search = ({ title, type }) => {
       !queryMeta.rfq_id &&
       selectedHotelIds.length === 0
     ) {
-      toast.info("Please select business unit(s) before choosing products.");
+      toast.info(
+        queryMeta.orderType === "rfq"
+          ? "Please select a business unit before choosing products."
+          : "Please select business unit(s) before choosing products."
+      );
       return;
     }
 
