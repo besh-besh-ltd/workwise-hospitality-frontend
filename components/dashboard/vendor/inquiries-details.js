@@ -40,6 +40,7 @@ import { getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { Badge, Button, Alert, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill } from "react-icons/bs";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
+import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import {
   buildBuyerTechEvalProductSummary,
   getBuyerTechEvalStatusConfig
@@ -1977,7 +1978,7 @@ const RfqManagementPreview = () => {
 
                   <div className="manage-rfq-con">
                     {/* Content for Manage RFQs tab */}
-                    <div className="d-flex justify-content-between align-items-center" style={{ gap: 16, flexWrap: 'wrap' }}>
+                    <div className="d-flex justify-content-between align-items-center mb-3" style={{ gap: 16, flexWrap: 'wrap' }}>
                       <div style={{ minWidth: 0, flex: '1 1 auto' }}>
                         {rfqDetails?.title ? (
                           <>
@@ -2194,6 +2195,10 @@ const RfqManagementPreview = () => {
                         )}
                       </div>
                     </div>
+
+                    {type == "buyer-view" && rfqDetails?.products?.length > 0 && !rfqDetails.products.some(p => p.tech_evaluation_status?.has_tech_eval) && (
+                      <NoTechClausesBanner entityLabel={getEntityLabel(rfqDetails?.is_tender)} />
+                    )}
 
                     <div className="details-table">
                       {rfqDetails?.products?.length > 0 && (
