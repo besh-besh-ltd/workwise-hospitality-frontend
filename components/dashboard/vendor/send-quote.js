@@ -16,6 +16,7 @@ import SmartButton from "@/components/shared/SmartButton";
 import { calculateTotal as sharedCalculateTotal } from "@/utils/sharedFunctions";
 import { QuotesOverrideModal } from "@/components/modal/ExtractedQuotesModal";
 import { IoMdInformationCircleOutline } from "react-icons/io";
+import { FiTrash2, FiChevronDown, FiChevronUp } from "react-icons/fi";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal";
@@ -25,39 +26,39 @@ import { checkOpenClarification } from "@/services/clarification";
 import { getAllVendorNegotiationStatus, getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { checkBidExpired } from "@/utils/sharedFunctions";
 import { Alert } from "react-bootstrap";
+import { Tooltip } from "react-tooltip";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
+  const baseStyle = {
+    padding: "0 0.5rem",
+    height: "31px",
+    lineHeight: "1",
+    fontSize: "0.8rem",
+    border: "none",
+    cursor: "pointer",
+    transition: "background-color 0.3s ease",
+  };
   return (
-    <div className="mt-2 d-flex " role="group" style={{marginBottom : "16px"}} >
-      <SmartButton
+    <div className="d-flex" role="group" style={{ flexShrink: 0 }}>
+      <button type="button"
         onClick={() => onToggle('percentage')}
-        theme={currentMode === 'percentage' ? 'primary' : 'light'}
-        style={{ 
-          paddingLeft: "0.6rem", 
-          paddingRight: "0.6rem",
-          borderTopRightRadius: 0,
-          borderBottomRightRadius: 0,
-          minHeight : "40px",
-          marginBottom: "10px"
+        style={{
+          ...baseStyle,
+          borderRadius: "4px 0 0 4px",
+          backgroundColor: currentMode === 'percentage' ? 'var(--primary-color)' : 'var(--dark-grey-color)',
+          color: currentMode === 'percentage' ? '#fff' : '#000',
         }}
-        label="%"
-        id="percentage_toggle-percentage_absolute_toggle-send_quote_page"
-      />
-      <SmartButton
+      >%</button>
+      <button type="button"
         onClick={() => onToggle('absolute')}
-        theme={currentMode === 'absolute' ? 'primary' : 'light'}
-        style={{ 
-          paddingLeft: "0.6rem", 
-          paddingRight: "0.6rem",
-          borderTopLeftRadius: 0,
-          borderBottomLeftRadius: 0,
-          minHeight : "40px",
-          marginBottom: "10px"
+        style={{
+          ...baseStyle,
+          borderRadius: "0 4px 4px 0",
+          backgroundColor: currentMode === 'absolute' ? 'var(--primary-color)' : 'var(--dark-grey-color)',
+          color: currentMode === 'absolute' ? '#fff' : '#000',
         }}
-        label="₹"
-        id="absolute_toggle-percentage_absolute_toggle-send_quote_page"
-      />
+      >₹</button>
     </div>
   );
 };
@@ -81,6 +82,7 @@ const SendQuotePageComp = () => {
     tax: { global: "percentage" },
     freight_tax: { global: "percentage" },
     package_tax: { global: "percentage" },
+    tax_tax: { global: "percentage" },
   })
 
   const [globalFreight, setglobalFreight] = useState(0);
@@ -88,6 +90,7 @@ const SendQuotePageComp = () => {
   const [globalTax, setglobalTax] = useState(0);
   const [globalOtherCharges, setGlobalOtherCharges] = useState([]);
   const [chargesModalOpen, setChargesModalOpen] = useState(null);
+  const [chargesSummaryOpen, setChargesSummaryOpen] = useState(true);
   const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
   const [globalComment, setglobalComment] = useState("");
   const [vendorGSTIN, setVendorGSTIN] = useState(null);
@@ -236,6 +239,7 @@ const originalPaymentTermsListRef = useRef(null);
       const taxMode = chargesMode?.tax?.[item.id] || "percentage";
       const freightTaxMode = chargesMode?.freight_tax?.[item.id] || "percentage";
       const packageTaxMode = chargesMode?.package_tax?.[item.id] || "percentage";
+      const taxTaxMode = chargesMode?.tax_tax?.[item.id] || "percentage";
       const freight = freightMode === "percentage"
         ? (base * (parseFloat(item.freight_price) || 0)) / 100
         : parseFloat(item.freight_price) || 0;
@@ -248,6 +252,7 @@ const originalPaymentTermsListRef = useRef(null);
       const tax = taxMode === "percentage"
         ? (subtotal * (parseFloat(item.tax) || 0)) / 100
         : parseFloat(item.tax) || 0;
+      const taxTax = resolveChargeValue(item.tax_tax, taxTaxMode, tax);
 
       // Other charges
       let itemOtherCharges = 0;
@@ -260,7 +265,7 @@ const originalPaymentTermsListRef = useRef(null);
       totalBase += base;
       totalFreight += freight;
       totalPackaging += packaging;
-      totalTax += tax + freightTax + packageTax;
+      totalTax += tax + freightTax + packageTax + taxTax;
       totalOtherCharges += itemOtherCharges;
     });
     return { totalBase, totalFreight, totalPackaging, totalTax, totalOtherCharges };
@@ -357,6 +362,7 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
           product.tax > 0 ||
           product.freight_tax > 0 ||
           product.package_tax > 0 ||
+          product.tax_tax > 0 ||
           (product.other_charges && product.other_charges.some(c => (c.name && c.name.trim() !== "") || c.amount > 0)) ||
           product.comment.trim() !== "" ||
           (product.delivery_period.toString().trim() !== "" && !isNaN(parseInt(product.delivery_period)) && parseInt(product.delivery_period) > 0) ||
@@ -660,6 +666,8 @@ const loadRazorpayScript = () => {
               freight_tax_mode: quoteItem?.freight_tax_mode || "percentage",
               package_tax: quoteItem?.package_tax || 0,
               package_tax_mode: quoteItem?.package_tax_mode || "percentage",
+              tax_tax: quoteItem?.tax_tax || 0,
+              tax_tax_mode: quoteItem?.tax_tax_mode || "percentage",
               other_charges: (quoteItem?.other_charges || []).map(c => ({ ...c, _id: generateChargeId() })),
             });
           });
@@ -680,7 +688,10 @@ const loadRazorpayScript = () => {
           const packageTaxProductObj = { global: "percentage" };
           bidProducts.forEach(product => { packageTaxProductObj[product.id] = product.package_tax_mode})
 
-          setChargesMode({ freight: freightProductObj, package: packageProductObj, tax: taxProductObj, freight_tax: freightTaxProductObj, package_tax: packageTaxProductObj });
+          const taxTaxProductObj = { global: "percentage" };
+          bidProducts.forEach(product => { taxTaxProductObj[product.id] = product.tax_tax_mode})
+
+          setChargesMode({ freight: freightProductObj, package: packageProductObj, tax: taxProductObj, freight_tax: freightTaxProductObj, package_tax: packageTaxProductObj, tax_tax: taxTaxProductObj });
           if (res.data.quotations.length > 0)
             setalreadyQuoted(res.data.quotations)
         }
@@ -703,6 +714,7 @@ const loadRazorpayScript = () => {
     const taxMode = modes?.tax || chargesMode.tax[item.id] || "percentage";
     const freightTaxMode = modes?.freight_tax || chargesMode.freight_tax?.[item.id] || "percentage";
     const packageTaxMode = modes?.package_tax || chargesMode.package_tax?.[item.id] || "percentage";
+    const taxTaxMode = modes?.tax_tax || chargesMode.tax_tax?.[item.id] || "percentage";
 
     const freightAmt = resolveChargeValue(item.freight_price, freightMode, totalWithoutFPT);
     const freightTaxAmt = resolveChargeValue(item.freight_tax, freightTaxMode, freightAmt);
@@ -712,6 +724,7 @@ const loadRazorpayScript = () => {
 
     const subtotal = totalWithoutFPT + freightAmt + packageAmt;
     const mainTax = resolveChargeValue(item.tax, taxMode, subtotal);
+    const taxTaxAmt = resolveChargeValue(item.tax_tax, taxTaxMode, mainTax);
 
     let otherChargesTotal = 0;
     (item.other_charges || []).forEach(charge => {
@@ -720,7 +733,7 @@ const loadRazorpayScript = () => {
       otherChargesTotal += cAmt + cTax;
     });
 
-    return Math.round(subtotal + mainTax + freightTaxAmt + packageTaxAmt + otherChargesTotal) || 0;
+    return Math.round(subtotal + mainTax + freightTaxAmt + packageTaxAmt + taxTaxAmt + otherChargesTotal) || 0;
   };
 
   const getChargesSummary = (product) => {
@@ -813,23 +826,19 @@ const loadRazorpayScript = () => {
     setquoteProducts(updated);
   };
 
-  const applyGlobalOtherCharges = () => {
+  // Auto-apply global other charges to all products whenever they change
+  useEffect(() => {
+    if (!rfqDetails?.products || quoteProducts.length === 0) return;
     const chargesWithNames = globalOtherCharges.filter(c => c.name && c.name.trim() !== "");
-    if (chargesWithNames.length === 0) {
-      toast.info("Please add at least one named charge before applying.");
-      return;
-    }
-    const updated = quoteProducts.map(item => {
+    setquoteProducts(prev => prev.map(item => {
       const newCharges = chargesWithNames.map(c => ({ ...c, _id: generateChargeId() }));
       const updatedItem = { ...item, other_charges: newCharges };
       const prod = rfqDetails?.products?.find((pi) => pi.id == item.id);
       const qty = parseFloat(getProductSpecValueByTitle(prod?.product_specs, "Quantity")) || 0;
       updatedItem.total_price = computeItemTotal(updatedItem, qty);
       return updatedItem;
-    });
-    setquoteProducts(updated);
-    toast.success("Other charges applied to all items.");
-  };
+    }));
+  }, [globalOtherCharges]);
 
   const handleUpdateData = (
     item_id,
@@ -1265,6 +1274,7 @@ return { deletedTerms, createdTerms, updatedTerms };
             product.total_price = 0;
             product.freight_tax = 0;
             product.package_tax = 0;
+            product.tax_tax = 0;
             product.other_charges = [];
           }
 
@@ -1274,12 +1284,14 @@ return { deletedTerms, createdTerms, updatedTerms };
           product.total_price = parseFloat(product.total_price) || 0;
           product.freight_tax = parseFloat(product.freight_tax) || 0;
           product.package_tax = parseFloat(product.package_tax) || 0;
+          product.tax_tax = parseFloat(product.tax_tax) || 0;
 
           product.freight_mode = chargesMode.freight[product.id] || product.freight_mode;
           product.package_mode = chargesMode.package[product.id] || product.package_mode;
           product.tax_mode = chargesMode.tax[product.id] || product.tax_mode;
           product.freight_tax_mode = chargesMode.freight_tax?.[product.id] || product.freight_tax_mode;
           product.package_tax_mode = chargesMode.package_tax?.[product.id] || product.package_tax_mode;
+          product.tax_tax_mode = chargesMode.tax_tax?.[product.id] || product.tax_tax_mode;
           product.other_charges = (product.other_charges || [])
             .filter(c => c.name && c.name.trim() !== "")
             .map(({ _id, ...rest }) => rest);
@@ -1330,6 +1342,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           product.total_price = 0;
           product.freight_tax = 0;
           product.package_tax = 0;
+          product.tax_tax = 0;
           product.other_charges = [];
         } else {
           product.freight_price = parseFloat(product.freight_price) || 0;
@@ -1338,6 +1351,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           product.total_price = parseFloat(product.total_price) || 0;
           product.freight_tax = parseFloat(product.freight_tax) || 0;
           product.package_tax = parseFloat(product.package_tax) || 0;
+          product.tax_tax = parseFloat(product.tax_tax) || 0;
         }
 
         product.freight_mode = chargesMode.freight[product.id] || chargesMode.freight.global;
@@ -1345,6 +1359,7 @@ return { deletedTerms, createdTerms, updatedTerms };
         product.tax_mode = chargesMode.tax[product.id] || chargesMode.tax.global;
         product.freight_tax_mode = chargesMode.freight_tax?.[product.id] || chargesMode.freight_tax?.global || "percentage";
         product.package_tax_mode = chargesMode.package_tax?.[product.id] || chargesMode.package_tax?.global || "percentage";
+        product.tax_tax_mode = chargesMode.tax_tax?.[product.id] || chargesMode.tax_tax?.global || "percentage";
         product.other_charges = (product.other_charges || [])
           .filter(c => c.name && c.name.trim() !== "")
           .map(({ _id, ...rest }) => rest);
@@ -2203,16 +2218,17 @@ return { deletedTerms, createdTerms, updatedTerms };
                                     ...prev,
                                     { _id: generateChargeId(), name: "", amount: 0, amount_mode: "percentage", tax: 0, tax_mode: "percentage" }
                                   ])}
-                                  theme="light"
-                                  style={{ fontSize: "0.75rem", paddingLeft: "0.5rem", paddingRight: "0.5rem" }}
+                                  theme="primary"
+                                  style={{ fontSize: "0.78rem", padding: "4px 10px" }}
                                   label="+ Add"
                                   id="add_global_other_charge-global_costing-send_quote_page"
                                 />
                               </div>
                               {globalOtherCharges.map((charge, idx) => (
                                 <div key={charge._id} className="border rounded p-2 mb-2" style={{ fontSize: "0.85rem" }}>
-                                  <div className="d-flex align-items-center mb-1 gap-1">
-                                    <input type="text" className="form-control form-control-sm" placeholder="Charge Name"
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <input type="text" className="form-control form-control-sm" placeholder="Charge Name (e.g. Installation)"
+                                      style={{ maxWidth: "250px" }}
                                       value={charge.name}
                                       onChange={(e) => {
                                         const updated = [...globalOtherCharges];
@@ -2220,64 +2236,58 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         setGlobalOtherCharges(updated);
                                       }}
                                     />
-                                    <button className="btn btn-sm btn-outline-danger"
-                                      onClick={() => setGlobalOtherCharges(prev => prev.filter(c => c._id !== charge._id))}>
-                                      <FontAwesomeIcon icon={faRemove} />
-                                    </button>
+                                    <FiTrash2 size={14} color="#dc3545" style={{ cursor: "pointer", flexShrink: 0, marginLeft: "8px" }}
+                                      onClick={() => setGlobalOtherCharges(prev => prev.filter(c => c._id !== charge._id))}
+                                    />
                                   </div>
-                                  <div className="row g-1">
-                                    <div className="col-6">
-                                      <small className="text-muted">Amount</small>
-                                      <input type="number" min={0} className="form-control form-control-sm"
-                                        placeholder={charge.amount_mode === "percentage" ? "%" : "₹"}
-                                        value={charge.amount || ""}
-                                        onChange={(e) => {
-                                          const updated = [...globalOtherCharges];
-                                          updated[idx] = { ...updated[idx], amount: parseFloat(e.target.value) || 0 };
-                                          setGlobalOtherCharges(updated);
-                                        }}
-                                        onWheel={(e) => e.currentTarget.blur()}
-                                      />
-                                      <PercentageAbsoluteToggle currentMode={charge.amount_mode}
-                                        onToggle={(value) => {
-                                          const updated = [...globalOtherCharges];
-                                          updated[idx] = { ...updated[idx], amount_mode: value };
-                                          setGlobalOtherCharges(updated);
-                                        }}
-                                      />
+                                  <div className="row g-4 align-items-start">
+                                    <div className="col-sm-6">
+                                      <small className="text-muted d-block mb-1">Amount</small>
+                                      <div className="d-flex align-items-center gap-1">
+                                        <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                          placeholder={charge.amount_mode === "percentage" ? "%" : "₹"}
+                                          value={charge.amount || ""}
+                                          onChange={(e) => {
+                                            const updated = [...globalOtherCharges];
+                                            updated[idx] = { ...updated[idx], amount: parseFloat(e.target.value) || 0 };
+                                            setGlobalOtherCharges(updated);
+                                          }}
+                                          onWheel={(e) => e.currentTarget.blur()}
+                                        />
+                                        <PercentageAbsoluteToggle currentMode={charge.amount_mode}
+                                          onToggle={(value) => {
+                                            const updated = [...globalOtherCharges];
+                                            updated[idx] = { ...updated[idx], amount_mode: value };
+                                            setGlobalOtherCharges(updated);
+                                          }}
+                                        />
+                                      </div>
                                     </div>
-                                    <div className="col-6">
-                                      <small className="text-muted">Tax</small>
-                                      <input type="number" min={0} className="form-control form-control-sm"
-                                        placeholder={charge.tax_mode === "percentage" ? "%" : "₹"}
-                                        value={charge.tax || ""}
-                                        onChange={(e) => {
-                                          const updated = [...globalOtherCharges];
-                                          updated[idx] = { ...updated[idx], tax: parseFloat(e.target.value) || 0 };
-                                          setGlobalOtherCharges(updated);
-                                        }}
-                                        onWheel={(e) => e.currentTarget.blur()}
-                                      />
-                                      <PercentageAbsoluteToggle currentMode={charge.tax_mode}
-                                        onToggle={(value) => {
-                                          const updated = [...globalOtherCharges];
-                                          updated[idx] = { ...updated[idx], tax_mode: value };
-                                          setGlobalOtherCharges(updated);
-                                        }}
-                                      />
+                                    <div className="col-sm-6">
+                                      <small className="text-muted d-block mb-1">Tax</small>
+                                      <div className="d-flex align-items-center gap-1">
+                                        <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                          placeholder={charge.tax_mode === "percentage" ? "%" : "₹"}
+                                          value={charge.tax || ""}
+                                          onChange={(e) => {
+                                            const updated = [...globalOtherCharges];
+                                            updated[idx] = { ...updated[idx], tax: parseFloat(e.target.value) || 0 };
+                                            setGlobalOtherCharges(updated);
+                                          }}
+                                          onWheel={(e) => e.currentTarget.blur()}
+                                        />
+                                        <PercentageAbsoluteToggle currentMode={charge.tax_mode}
+                                          onToggle={(value) => {
+                                            const updated = [...globalOtherCharges];
+                                            updated[idx] = { ...updated[idx], tax_mode: value };
+                                            setGlobalOtherCharges(updated);
+                                          }}
+                                        />
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               ))}
-                              {globalOtherCharges.length > 0 && (
-                                <SmartButton
-                                  onClick={applyGlobalOtherCharges}
-                                  theme="primary"
-                                  style={{ width: "100%", fontSize: "0.8rem" }}
-                                  label="Apply to All Items"
-                                  id="apply_global_other_charges-global_costing-send_quote_page"
-                                />
-                              )}
                             </div>
 
                             {/* Upload Quotation Document */}
@@ -2492,19 +2502,21 @@ return { deletedTerms, createdTerms, updatedTerms };
                     const taxMode = chargesMode.tax[modalProduct.id] || "percentage";
                     const ftMode = chargesMode.freight_tax?.[modalProduct.id] || "percentage";
                     const ptMode = chargesMode.package_tax?.[modalProduct.id] || "percentage";
+                    const ttMode = chargesMode.tax_tax?.[modalProduct.id] || "percentage";
                     const freightAmt = resolveChargeValue(modalProduct.freight_price, freightMode, base);
                     const freightTaxAmt = resolveChargeValue(modalProduct.freight_tax, ftMode, freightAmt);
                     const packageAmt = resolveChargeValue(modalProduct.package_price, packageMode, base);
                     const packageTaxAmt = resolveChargeValue(modalProduct.package_tax, ptMode, packageAmt);
                     const subtotal = base + freightAmt + packageAmt;
                     const mainTaxAmt = resolveChargeValue(modalProduct.tax, taxMode, subtotal);
+                    const taxTaxAmt = resolveChargeValue(modalProduct.tax_tax, ttMode, mainTaxAmt);
                     let otherTotal = 0;
                     (modalProduct.other_charges || []).forEach(c => {
                       const cAmt = resolveChargeValue(c.amount, c.amount_mode, base);
                       const cTax = resolveChargeValue(c.tax, c.tax_mode, cAmt);
                       otherTotal += cAmt + cTax;
                     });
-                    const allChargesTotal = freightAmt + freightTaxAmt + packageAmt + packageTaxAmt + mainTaxAmt + otherTotal;
+                    const allChargesTotal = freightAmt + freightTaxAmt + packageAmt + packageTaxAmt + mainTaxAmt + taxTaxAmt + otherTotal;
 
                     const isProductFinalized = rfqProduct.finalization_status === "Another vendor is finalized" || rfqProduct.finalization_status === "You are finalized";
                     const techStatus = techEvalStatuses[rfqProduct.id];
@@ -2527,251 +2539,286 @@ return { deletedTerms, createdTerms, updatedTerms };
                             top: "50%",
                             left: "50%",
                             transform: "translate(-50%, -50%)",
-                            maxWidth: "700px",
+                            maxWidth: "780px",
                             width: "95%",
                             border: "none",
                             background: "transparent",
-                            overflow: "auto",
+                            overflow: "hidden",
                             padding: "20px",
-                            maxHeight: "90vh",
-                            height: "auto",
+                            maxHeight: "85vh",
+                            height: "85vh",
                           },
                         }}
                       >
-                        <div className="modal-header border-0 pb-0 d-flex justify-content-between align-items-center">
-                          <h5 className="fw-bold mb-0">Charges — {productName} <small className="text-muted">(Qty: {qty} {unit})</small></h5>
-                          <button onClick={() => setChargesModalOpen(null)} className="btn-close" aria-label="Close"></button>
-                        </div>
-                        <div className="modal-body p-3">
-                          {/* Default Charges */}
-                          <h6 className="fw-semibold mb-3 text-muted" style={{ fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>Default Charges</h6>
-
-                          {/* Freight */}
-                          <div className="border rounded p-3 mb-3">
-                            <div className="fw-semibold mb-2">Freight</div>
-                            <div className="row g-2 align-items-start">
-                              <div className="col-sm-6">
-                                <small className="text-muted d-block mb-1">Amount</small>
-                                <div className="d-flex align-items-center gap-2">
-                                  <input type="number" min={0} className="form-control form-control-sm" style={{ width: "100px" }}
-                                    placeholder={freightMode === "percentage" ? "%" : "₹"}
-                                    value={modalProduct.freight_price || ""}
-                                    onChange={(e) => handleChargeFieldUpdate(modalIndex, "freight_price", parseFloat(e.target.value) || 0)}
-                                    onWheel={(e) => e.target.blur()} disabled={isDisabled}
-                                  />
-                                  <PercentageAbsoluteToggle currentMode={freightMode}
-                                    onToggle={(value) => {
-                                      setChargesMode(prev => ({ ...prev, freight: { ...prev.freight, [modalProduct.id]: value } }));
-                                      handleChargeFieldUpdate(modalIndex, "freight_price", modalProduct.freight_price || 0);
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                              <div className="col-sm-6">
-                                <small className="text-muted d-block mb-1">Tax on Freight</small>
-                                <div className="d-flex align-items-center gap-2">
-                                  <input type="number" min={0} className="form-control form-control-sm" style={{ width: "100px" }}
-                                    placeholder={ftMode === "percentage" ? "%" : "₹"}
-                                    value={modalProduct.freight_tax || ""}
-                                    onChange={(e) => handleChargeFieldUpdate(modalIndex, "freight_tax", parseFloat(e.target.value) || 0)}
-                                    onWheel={(e) => e.target.blur()} disabled={isDisabled}
-                                  />
-                                  <PercentageAbsoluteToggle currentMode={ftMode}
-                                    onToggle={(value) => {
-                                      setChargesMode(prev => ({ ...prev, freight_tax: { ...prev.freight_tax, [modalProduct.id]: value } }));
-                                      handleChargeFieldUpdate(modalIndex, "freight_tax", modalProduct.freight_tax || 0);
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
+                        <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#fff", borderRadius: "8px", overflow: "hidden" }}>
+                          {/* Fixed Header */}
+                          <div className="d-flex justify-content-between align-items-center" style={{ padding: "16px 20px", borderBottom: "1px solid #dee2e6", flexShrink: 0 }}>
+                            <h5 className="fw-bold mb-0" style={{ fontSize: "1rem" }}>Charges — {productName} <small className="text-muted">(Qty: {qty} {unit})</small></h5>
+                            <button onClick={() => setChargesModalOpen(null)} className="btn-close" aria-label="Close" style={{ fontSize: "0.7rem" }}></button>
                           </div>
 
-                          {/* Packaging */}
-                          <div className="border rounded p-3 mb-3">
-                            <div className="fw-semibold mb-2">Packaging</div>
-                            <div className="row g-2 align-items-start">
-                              <div className="col-sm-6">
-                                <small className="text-muted d-block mb-1">Amount</small>
-                                <div className="d-flex align-items-center gap-2">
-                                  <input type="number" min={0} className="form-control form-control-sm" style={{ width: "100px" }}
-                                    placeholder={packageMode === "percentage" ? "%" : "₹"}
-                                    value={modalProduct.package_price || ""}
-                                    onChange={(e) => handleChargeFieldUpdate(modalIndex, "package_price", parseFloat(e.target.value) || 0)}
-                                    onWheel={(e) => e.target.blur()} disabled={isDisabled}
-                                  />
-                                  <PercentageAbsoluteToggle currentMode={packageMode}
-                                    onToggle={(value) => {
-                                      setChargesMode(prev => ({ ...prev, package: { ...prev.package, [modalProduct.id]: value } }));
-                                      handleChargeFieldUpdate(modalIndex, "package_price", modalProduct.package_price || 0);
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                              <div className="col-sm-6">
-                                <small className="text-muted d-block mb-1">Tax on Packaging</small>
-                                <div className="d-flex align-items-center gap-2">
-                                  <input type="number" min={0} className="form-control form-control-sm" style={{ width: "100px" }}
-                                    placeholder={ptMode === "percentage" ? "%" : "₹"}
-                                    value={modalProduct.package_tax || ""}
-                                    onChange={(e) => handleChargeFieldUpdate(modalIndex, "package_tax", parseFloat(e.target.value) || 0)}
-                                    onWheel={(e) => e.target.blur()} disabled={isDisabled}
-                                  />
-                                  <PercentageAbsoluteToggle currentMode={ptMode}
-                                    onToggle={(value) => {
-                                      setChargesMode(prev => ({ ...prev, package_tax: { ...prev.package_tax, [modalProduct.id]: value } }));
-                                      handleChargeFieldUpdate(modalIndex, "package_tax", modalProduct.package_tax || 0);
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                          {/* Scrollable Body */}
+                          <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+                            {/* Default Charges - 3 columns on one row */}
+                            <h6 className="fw-semibold mb-3 text-muted" style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>Default Charges</h6>
 
-                          {/* Tax/VAT */}
-                          <div className="border rounded p-3 mb-4">
-                            <div className="fw-semibold mb-2">Tax / VAT <small className="text-muted">(on subtotal)</small></div>
-                            <div className="row g-2 align-items-start">
-                              <div className="col-sm-6">
-                                <small className="text-muted d-block mb-1">Amount</small>
-                                <div className="d-flex align-items-center gap-2">
-                                  <input type="number" min={0} className="form-control form-control-sm" style={{ width: "100px" }}
-                                    placeholder={taxMode === "percentage" ? "%" : "₹"}
-                                    value={modalProduct.tax || ""}
-                                    onChange={(e) => handleChargeFieldUpdate(modalIndex, "tax", parseFloat(e.target.value) || 0)}
-                                    onWheel={(e) => e.target.blur()} disabled={isDisabled}
-                                  />
-                                  <PercentageAbsoluteToggle currentMode={taxMode}
-                                    onToggle={(value) => {
-                                      setChargesMode(prev => ({ ...prev, tax: { ...prev.tax, [modalProduct.id]: value } }));
-                                      handleChargeFieldUpdate(modalIndex, "tax", modalProduct.tax || 0);
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Additional Charges */}
-                          <div className="d-flex justify-content-between align-items-center mb-3">
-                            <h6 className="fw-semibold mb-0 text-muted" style={{ fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>Additional Charges</h6>
-                            <SmartButton onClick={() => handleAddOtherCharge(modalIndex)} theme="primary"
-                              style={{ fontSize: "0.8rem", paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
-                              label="+ Add" disabled={isDisabled}
-                              id="add_other_charge-charges_modal-send_quote_page"
-                            />
-                          </div>
-
-                          {(modalProduct.other_charges || []).length === 0 && (
-                            <p className="text-muted text-center py-3" style={{ fontSize: "0.85rem" }}>No additional charges added yet.</p>
-                          )}
-
-                          {(modalProduct.other_charges || []).map((charge) => (
-                            <div key={charge._id} className="border rounded p-3 mb-2">
-                              <div className="d-flex justify-content-between align-items-center mb-2">
-                                <input type="text" className="form-control form-control-sm" placeholder="Charge Name (e.g. Installation)"
-                                  style={{ maxWidth: "250px" }} value={charge.name}
-                                  onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "name", e.target.value)}
-                                  disabled={isDisabled}
-                                />
-                                <button className="btn btn-sm btn-outline-danger ms-2"
-                                  onClick={() => handleRemoveOtherCharge(modalIndex, charge._id)} disabled={isDisabled}>
-                                  <FontAwesomeIcon icon={faRemove} />
-                                </button>
-                              </div>
-                              <div className="row g-2 align-items-start">
-                                <div className="col-sm-6">
-                                  <small className="text-muted d-block mb-1">Amount</small>
-                                  <div className="d-flex align-items-center gap-2">
-                                    <input type="number" min={0} className="form-control form-control-sm" style={{ width: "100px" }}
-                                      placeholder={charge.amount_mode === "percentage" ? "%" : "₹"}
-                                      value={charge.amount || ""}
-                                      onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "amount", parseFloat(e.target.value) || 0)}
-                                      onWheel={(e) => e.target.blur()} disabled={isDisabled}
-                                    />
-                                    <PercentageAbsoluteToggle currentMode={charge.amount_mode}
-                                      onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "amount_mode", value)}
-                                    />
+                            <div className="row g-3 mb-4">
+                              {/* Freight Column */}
+                              <div className="col-md-4">
+                                <div className="border rounded p-2 h-100">
+                                  <div className="fw-semibold mb-2" style={{ fontSize: "0.85rem" }}>Freight</div>
+                                  <div className="mb-2">
+                                    <small className="text-muted d-block mb-1">Amount</small>
+                                    <div className="d-flex align-items-center gap-1">
+                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                        placeholder={freightMode === "percentage" ? "%" : "₹"}
+                                        value={modalProduct.freight_price || ""}
+                                        onChange={(e) => handleChargeFieldUpdate(modalIndex, "freight_price", parseFloat(e.target.value) || 0)}
+                                        onWheel={(e) => e.target.blur()} disabled={isDisabled}
+                                      />
+                                      <PercentageAbsoluteToggle currentMode={freightMode}
+                                        onToggle={(value) => {
+                                          setChargesMode(prev => ({ ...prev, freight: { ...prev.freight, [modalProduct.id]: value } }));
+                                          handleChargeFieldUpdate(modalIndex, "freight_price", modalProduct.freight_price || 0);
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <small className="text-muted d-block mb-1">Tax</small>
+                                    <div className="d-flex align-items-center gap-1">
+                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                        placeholder={ftMode === "percentage" ? "%" : "₹"}
+                                        value={modalProduct.freight_tax || ""}
+                                        onChange={(e) => handleChargeFieldUpdate(modalIndex, "freight_tax", parseFloat(e.target.value) || 0)}
+                                        onWheel={(e) => e.target.blur()} disabled={isDisabled}
+                                      />
+                                      <PercentageAbsoluteToggle currentMode={ftMode}
+                                        onToggle={(value) => {
+                                          setChargesMode(prev => ({ ...prev, freight_tax: { ...prev.freight_tax, [modalProduct.id]: value } }));
+                                          handleChargeFieldUpdate(modalIndex, "freight_tax", modalProduct.freight_tax || 0);
+                                        }}
+                                      />
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="col-sm-6">
-                                  <small className="text-muted d-block mb-1">Tax</small>
-                                  <div className="d-flex align-items-center gap-2">
-                                    <input type="number" min={0} className="form-control form-control-sm" style={{ width: "100px" }}
-                                      placeholder={charge.tax_mode === "percentage" ? "%" : "₹"}
-                                      value={charge.tax || ""}
-                                      onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "tax", parseFloat(e.target.value) || 0)}
-                                      onWheel={(e) => e.target.blur()} disabled={isDisabled}
-                                    />
-                                    <PercentageAbsoluteToggle currentMode={charge.tax_mode}
-                                      onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "tax_mode", value)}
-                                    />
+                              </div>
+
+                              {/* Packaging Column */}
+                              <div className="col-md-4">
+                                <div className="border rounded p-2 h-100">
+                                  <div className="fw-semibold mb-2" style={{ fontSize: "0.85rem" }}>Packaging</div>
+                                  <div className="mb-2">
+                                    <small className="text-muted d-block mb-1">Amount</small>
+                                    <div className="d-flex align-items-center gap-1">
+                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                        placeholder={packageMode === "percentage" ? "%" : "₹"}
+                                        value={modalProduct.package_price || ""}
+                                        onChange={(e) => handleChargeFieldUpdate(modalIndex, "package_price", parseFloat(e.target.value) || 0)}
+                                        onWheel={(e) => e.target.blur()} disabled={isDisabled}
+                                      />
+                                      <PercentageAbsoluteToggle currentMode={packageMode}
+                                        onToggle={(value) => {
+                                          setChargesMode(prev => ({ ...prev, package: { ...prev.package, [modalProduct.id]: value } }));
+                                          handleChargeFieldUpdate(modalIndex, "package_price", modalProduct.package_price || 0);
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <small className="text-muted d-block mb-1">Tax</small>
+                                    <div className="d-flex align-items-center gap-1">
+                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                        placeholder={ptMode === "percentage" ? "%" : "₹"}
+                                        value={modalProduct.package_tax || ""}
+                                        onChange={(e) => handleChargeFieldUpdate(modalIndex, "package_tax", parseFloat(e.target.value) || 0)}
+                                        onWheel={(e) => e.target.blur()} disabled={isDisabled}
+                                      />
+                                      <PercentageAbsoluteToggle currentMode={ptMode}
+                                        onToggle={(value) => {
+                                          setChargesMode(prev => ({ ...prev, package_tax: { ...prev.package_tax, [modalProduct.id]: value } }));
+                                          handleChargeFieldUpdate(modalIndex, "package_tax", modalProduct.package_tax || 0);
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Tax/VAT Column */}
+                              <div className="col-md-4">
+                                <div className="border rounded p-2 h-100">
+                                  <div className="fw-semibold mb-2" style={{ fontSize: "0.85rem" }}>Tax / VAT <small className="text-muted">(on subtotal)</small></div>
+                                  <div className="mb-2">
+                                    <small className="text-muted d-block mb-1">Amount</small>
+                                    <div className="d-flex align-items-center gap-1">
+                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                        placeholder={taxMode === "percentage" ? "%" : "₹"}
+                                        value={modalProduct.tax || ""}
+                                        onChange={(e) => handleChargeFieldUpdate(modalIndex, "tax", parseFloat(e.target.value) || 0)}
+                                        onWheel={(e) => e.target.blur()} disabled={isDisabled}
+                                      />
+                                      <PercentageAbsoluteToggle currentMode={taxMode}
+                                        onToggle={(value) => {
+                                          setChargesMode(prev => ({ ...prev, tax: { ...prev.tax, [modalProduct.id]: value } }));
+                                          handleChargeFieldUpdate(modalIndex, "tax", modalProduct.tax || 0);
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <small className="text-muted d-block mb-1">Tax</small>
+                                    <div className="d-flex align-items-center gap-1">
+                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                        placeholder={ttMode === "percentage" ? "%" : "₹"}
+                                        value={modalProduct.tax_tax || ""}
+                                        onChange={(e) => handleChargeFieldUpdate(modalIndex, "tax_tax", parseFloat(e.target.value) || 0)}
+                                        onWheel={(e) => e.target.blur()} disabled={isDisabled}
+                                      />
+                                      <PercentageAbsoluteToggle currentMode={ttMode}
+                                        onToggle={(value) => {
+                                          setChargesMode(prev => ({ ...prev, tax_tax: { ...prev.tax_tax, [modalProduct.id]: value } }));
+                                          handleChargeFieldUpdate(modalIndex, "tax_tax", modalProduct.tax_tax || 0);
+                                        }}
+                                      />
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                             </div>
-                          ))}
 
-                          {/* Charges Summary */}
-                          <div className="mt-4 p-3 rounded" style={{ background: "#f8f9fa" }}>
-                            <h6 className="fw-semibold mb-2" style={{ fontSize: "0.85rem" }}>Charges Summary</h6>
-                            <div style={{ fontSize: "0.85rem" }}>
-                              {freightAmt > 0 && (
-                                <div className="d-flex justify-content-between">
-                                  <span>Freight:</span>
-                                  <span>₹{freightAmt.toFixed(2)} {freightTaxAmt > 0 ? `(Tax: ₹${freightTaxAmt.toFixed(2)})` : ""}</span>
+                            {/* Additional Charges */}
+                            <div className="d-flex justify-content-between align-items-center mb-3">
+                              <h6 className="fw-semibold mb-0 text-muted" style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>Additional Charges</h6>
+                              <SmartButton onClick={() => handleAddOtherCharge(modalIndex)} theme="primary"
+                                style={{ fontSize: "0.78rem", padding: "4px 10px" }}
+                                label="+ Add" disabled={isDisabled}
+                                id="add_other_charge-charges_modal-send_quote_page"
+                              />
+                            </div>
+
+                            {(modalProduct.other_charges || []).length === 0 && (
+                              <p className="text-muted text-center py-3" style={{ fontSize: "0.85rem" }}>No additional charges added yet.</p>
+                            )}
+
+                            {(modalProduct.other_charges || []).map((charge) => (
+                              <div key={charge._id} className="border rounded p-2 mb-2">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                  <input type="text" className="form-control form-control-sm" placeholder="Charge Name (e.g. Installation)"
+                                    style={{ maxWidth: "250px" }} value={charge.name}
+                                    onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "name", e.target.value)}
+                                    disabled={isDisabled}
+                                  />
+                                  <FiTrash2 size={14} color="#dc3545" style={{ cursor: isDisabled ? "not-allowed" : "pointer", flexShrink: 0 }}
+                                    onClick={() => { if (!isDisabled) handleRemoveOtherCharge(modalIndex, charge._id); }}
+                                  />
                                 </div>
-                              )}
-                              {packageAmt > 0 && (
-                                <div className="d-flex justify-content-between">
-                                  <span>Packaging:</span>
-                                  <span>₹{packageAmt.toFixed(2)} {packageTaxAmt > 0 ? `(Tax: ₹${packageTaxAmt.toFixed(2)})` : ""}</span>
-                                </div>
-                              )}
-                              {mainTaxAmt > 0 && (
-                                <div className="d-flex justify-content-between">
-                                  <span>Tax/VAT:</span>
-                                  <span>₹{mainTaxAmt.toFixed(2)}</span>
-                                </div>
-                              )}
-                              {(modalProduct.other_charges || []).map((charge) => {
-                                const cAmt = resolveChargeValue(charge.amount, charge.amount_mode, base);
-                                const cTax = resolveChargeValue(charge.tax, charge.tax_mode, cAmt);
-                                if (cAmt <= 0 && cTax <= 0) return null;
-                                return (
-                                  <div key={charge._id} className="d-flex justify-content-between">
-                                    <span>{charge.name || "Unnamed"}:</span>
-                                    <span>₹{cAmt.toFixed(2)} {cTax > 0 ? `(Tax: ₹${cTax.toFixed(2)})` : ""}</span>
+                                <div className="row g-4 align-items-start">
+                                  <div className="col-sm-6">
+                                    <small className="text-muted d-block mb-1">Amount</small>
+                                    <div className="d-flex align-items-center gap-1">
+                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                        placeholder={charge.amount_mode === "percentage" ? "%" : "₹"}
+                                        value={charge.amount || ""}
+                                        onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "amount", parseFloat(e.target.value) || 0)}
+                                        onWheel={(e) => e.target.blur()} disabled={isDisabled}
+                                      />
+                                      <PercentageAbsoluteToggle currentMode={charge.amount_mode}
+                                        onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "amount_mode", value)}
+                                      />
+                                    </div>
                                   </div>
-                                );
-                              })}
-                              <hr className="my-2" />
-                              <div className="d-flex justify-content-between fw-bold">
-                                <span>All Charges Total:</span>
-                                <span>₹{allChargesTotal.toFixed(2)}</span>
+                                  <div className="col-sm-6">
+                                    <small className="text-muted d-block mb-1">Tax</small>
+                                    <div className="d-flex align-items-center gap-1">
+                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                        placeholder={charge.tax_mode === "percentage" ? "%" : "₹"}
+                                        value={charge.tax || ""}
+                                        onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "tax", parseFloat(e.target.value) || 0)}
+                                        onWheel={(e) => e.target.blur()} disabled={isDisabled}
+                                      />
+                                      <PercentageAbsoluteToggle currentMode={charge.tax_mode}
+                                        onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "tax_mode", value)}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
+                            ))}
+                          </div>
+
+                          {/* Sticky Footer: Summary + Save Button */}
+                          <div style={{ flexShrink: 0, borderTop: "1px solid #dee2e6" }}>
+                            <div className="p-3" style={{ background: "#f8f9fa" }}>
+                              <div
+                                className="d-flex justify-content-between align-items-center"
+                                style={{ cursor: "pointer", padding: "4px 0", borderRadius: "4px", transition: "background-color 0.2s ease" }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#eaeaea"}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                onClick={() => setChargesSummaryOpen(prev => !prev)}
+                              >
+                                <h6 className="fw-semibold mb-0" style={{ fontSize: "0.8rem" }}>Charges Summary</h6>
+                                {chargesSummaryOpen ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
+                              </div>
+                              {chargesSummaryOpen && (
+                                <div style={{ fontSize: "0.82rem", marginTop: "8px" }}>
+                                  {freightAmt > 0 && (
+                                    <div className="d-flex justify-content-between">
+                                      <span>Freight:</span>
+                                      <span>₹{freightAmt.toFixed(2)} {freightTaxAmt > 0 ? `(Tax: ₹${freightTaxAmt.toFixed(2)})` : ""}</span>
+                                    </div>
+                                  )}
+                                  {packageAmt > 0 && (
+                                    <div className="d-flex justify-content-between">
+                                      <span>Packaging:</span>
+                                      <span>₹{packageAmt.toFixed(2)} {packageTaxAmt > 0 ? `(Tax: ₹${packageTaxAmt.toFixed(2)})` : ""}</span>
+                                    </div>
+                                  )}
+                                  {mainTaxAmt > 0 && (
+                                    <div className="d-flex justify-content-between">
+                                      <span>Tax/VAT:</span>
+                                      <span>₹{mainTaxAmt.toFixed(2)} {taxTaxAmt > 0 ? `(Tax: ₹${taxTaxAmt.toFixed(2)})` : ""}</span>
+                                    </div>
+                                  )}
+                                  {(modalProduct.other_charges || []).map((charge) => {
+                                    const cAmt = resolveChargeValue(charge.amount, charge.amount_mode, base);
+                                    const cTax = resolveChargeValue(charge.tax, charge.tax_mode, cAmt);
+                                    if (cAmt <= 0 && cTax <= 0) return null;
+                                    return (
+                                      <div key={charge._id} className="d-flex justify-content-between">
+                                        <span>{charge.name || "Unnamed"}:</span>
+                                        <span>₹{cAmt.toFixed(2)} {cTax > 0 ? `(Tax: ₹${cTax.toFixed(2)})` : ""}</span>
+                                      </div>
+                                    );
+                                  })}
+                                  <hr className="my-2" />
+                                  <div className="d-flex justify-content-between fw-bold">
+                                    <span>All Charges Total:</span>
+                                    <span>₹{allChargesTotal.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className="d-flex justify-content-end" style={{ padding: "10px 20px", background: "#fff" }}>
+                              <button className="btn btn-secondary btn-sm" onClick={() => setChargesModalOpen(null)}>
+                                Save & Close
+                              </button>
                             </div>
                           </div>
-                        </div>
-
-                        <div className="modal-footer border-0 pt-0">
-                          <button className="btn btn-secondary" onClick={() => setChargesModalOpen(null)}>
-                            Save & Close
-                          </button>
                         </div>
                       </Modal>
                     );
                   })()}
 
-                  <div className="table-responsive">
+                  <div  className="table-responsive" style={{ width: "100%", overflowX: "hidden" }}>
                     <div className="table-container">
-                      <table className="table">
+                      <table className="table" style={{ width: "100%", tableLayout: "auto" }}>
                         <thead>
                           <tr>
                             <th
                               rowSpan="2"
-                              className="align-middle"
-                              style={{ maxWidth: "40px" }}
+                              className="align-middle text-center"
+                              style={{ width: "45px", maxWidth: "45px" }}
                             >
                               Sl No.
                             </th>
@@ -2779,23 +2826,23 @@ return { deletedTerms, createdTerms, updatedTerms };
                               Item Details
                             </th>
                             <th
-                              className="text-center"
-                              style={{ minWidth: "180px" }}
+                              className="text-center align-middle"
+                              style={{ width: "120px" }}
                             >
-                              Pricing
+                              Base Price<br/>+<br/>Other Charges
                             </th>
 
-                            <th className="text-center">Total</th>
+                            <th className="text-center align-middle" style={{ minWidth: "150px" }}>Total</th>
                             {currentLowest ? (
-                              <th rowSpan="2" className="align-middle">
+                              <th rowSpan="2" className="align-middle text-center">
                                 Current Lowest
                               </th>
                             ) : null}
-                            <th className="text-center">Specific Comments</th>
-                            <th className="text-center">
+                            <th className="text-center align-middle" style={{ width: "130px" }}>Comment(s)</th>
+                            <th className="text-center align-middle" style={{ width: "110px" }}>
                               Delivery Period <small>(In Days)</small>
                             </th>
-                            <th className="text-center">Add Documents</th>
+                            <th className="text-center align-middle">Documents</th>
                             {/* {alreadyQuoted ? (
                               <th className="text-center">
                                 Previous Documents
@@ -2829,7 +2876,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                   <tr
                                     key={`q_${item.id}_${item.product_id}_${item.variant}`}
                                   >
-                                    <td>{index + 1}</td>
+                                    <td style={{ textAlign: "center", backgroundColor: "#f8f9fa", verticalAlign: "middle" }}>{index + 1}</td>
                                     <td>
                                       <p className="fw-semibold text-nowrap mb-1">
                                         {item?.product_details[0]?.name}
@@ -2851,22 +2898,21 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           Negotiation Quote Submitted
                                         </span>
                                       )}
-                                      <p className="text-sm mb-1">
-                                        {getProductSpecValueByTitle(
-                                          item?.product_specs,
-                                          "Size"
-                                        )}
-                                      </p>
+                                      {getProductSpecValueByTitle(item?.product_specs, "Size") && (
+                                        <p className="text-sm mb-1">
+                                          {getProductSpecValueByTitle(item?.product_specs, "Size")}
+                                        </p>
+                                      )}
                                       <p className="text-sm mb-1 text-success fw-bold">
                                         {`${getProductSpecValueByTitle(
                                           item?.product_specs,
                                           "Quantity"
-                                        )} - ${getProductSpecValueByTitle(
+                                        )} ${getProductSpecValueByTitle(
                                           item?.product_specs,
                                           "Unit"
                                         )}`}
                                       </p>
-                                      {item?.product_specs[1]?.value && (
+                                      {getProductSpecValueByTitle(item?.product_specs, "Spec") && (
                                         <ReadMore
                                           content={`- ${getProductSpecValueByTitle(
                                             item?.product_specs,
@@ -2876,19 +2922,33 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           additionalClasses="text-sm"
                                         />
                                       )}
-                                      <button
-                                        className="minimal-btn "
-                                        style={{ marginTop: "auto" }}
-                                        // style={{"maxWidth":"120px"}}
-                                        onClick={() =>
-                                          openQuoteHistoryModal(
-                                            item.product_id,
-                                            index
-                                          )
-                                        } // Replace with your actual handler function
-                                      >
-                                        Prev Quotes
-                                      </button>
+                                      {quoteProducts[index]?.unit_price > 0 && (
+                                        <button
+                                          className="prev-quotes-btn"
+                                          style={{
+                                            marginTop: "auto",
+                                            fontSize: "0.7rem",
+                                            padding: "2px 8px",
+                                            backgroundColor: "#dbdbec",
+                                            color: "#000080",
+                                            border: "none",
+                                            borderRadius: "3px",
+                                            fontWeight: 500,
+                                            cursor: "pointer",
+                                            transition: "opacity 0.2s ease",
+                                          }}
+                                          onMouseEnter={(e) => e.target.style.opacity = "0.75"}
+                                          onMouseLeave={(e) => e.target.style.opacity = "1"}
+                                          onClick={() =>
+                                            openQuoteHistoryModal(
+                                              item.product_id,
+                                              index
+                                            )
+                                          }
+                                        >
+                                          Prev Quotes
+                                        </button>
+                                      )}
                                       {isTechEvalPendingOrRejected && (
                                         <small
                                           className="d-block text-danger mt-1"
@@ -2898,21 +2958,14 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         </small>
                                       )}
                                     </td>
-                                    <td style={{ minWidth: "180px" }}>
-                                      {/* Base Price */}
-                                      <div className="mb-2">
-                                        <small
-                                          className="d-block fw-bold"
-                                          style={{ fontSize: "0.9rem" , marginBottom : "10px" }}
-                                        >
-                                          Base Price
-                                        </small>
+                                    <td style={{ width: "120px" }}>
+                                      <div style={{ position: "relative" }}>
                                         <input
                                           type="number"
                                           name=""
                                           id=""
                                           placeholder="₹"
-                                          style={{ minWidth: "140px" }}
+                                          style={{ width: "100%" }}
                                           value={
                                             quoteProducts[index].unit_price
                                           }
@@ -2943,42 +2996,42 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             Not accepted
                                           </small>
                                         )}
+
+                                        {(parseFloat(quoteProducts[index]?.unit_price) > 0) && (
+                                          <span
+                                            className="text-primary"
+                                            style={{ fontSize: "0.72rem", cursor: isProductDisabled ? "default" : "pointer", position: "absolute", right: 0, bottom: "-19px", whiteSpace: "nowrap", marginTop: "3px" }}
+                                            onClick={() => { if (!isProductDisabled) setChargesModalOpen(index); }}
+                                          >
+                                            {getChargesSummary(quoteProducts[index]).length > 0 ? "Edit Charges" : "+ Add Charges"}
+                                          </span>
+                                        )}
                                       </div>
-
-                                      {/* Add Charges Button */}
-                                      <button
-                                        className="btn btn-sm btn-outline-primary w-100 mt-1"
-                                        onClick={() => setChargesModalOpen(index)}
-                                        disabled={isProductDisabled}
-                                        style={{ fontSize: "0.8rem" }}
-                                      >
-                                        <FontAwesomeIcon icon={faPlus} className="me-1" />
-                                        {getChargesSummary(quoteProducts[index]).length > 0 ? "Edit Charges" : "Add Charges"}
-                                      </button>
-
-                                      {/* Charges Summary */}
-                                      {getChargesSummary(quoteProducts[index]).length > 0 && (
-                                        <div className="mt-2" style={{ fontSize: "0.75rem", color: "#6c757d" }}>
-                                          {getChargesSummary(quoteProducts[index]).map((line, li) => (
-                                            <div key={li}>{line}</div>
-                                          ))}
-                                        </div>
-                                      )}
                                     </td>
 
-                                    <td>
-                                      <input
-                                        type="number"
-                                        name=""
-                                        id=""
-                                        placeholder="₹"
-                                        value={quoteProducts[index].total_price}
-                                        disabled
-                                        style={{
-                                          maxWidth: "120px",
-                                          marginTop: "22px",
-                                        }}
-                                      />
+                                    <td style={{ minWidth: "150px", textAlign: "center", verticalAlign: "middle" }}>
+                                      {(() => {
+                                        const totalVal = quoteProducts[index].total_price;
+                                        const formattedTotal = totalVal > 0 ? formatPrice(totalVal) : "₹0.00";
+                                        const chargeLines = getChargesSummary(quoteProducts[index]);
+                                        const hasCharges = chargeLines.length > 0;
+                                        const isTruncated = formattedTotal.length > 14;
+                                        const showTooltip = isTruncated || hasCharges;
+                                        return (
+                                          <span
+                                            className="fw-bold"
+                                            style={{ fontSize: "0.9rem", display: "inline-block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "140px" }}
+                                            {...(showTooltip ? {
+                                              "data-tooltip-id": "charges-tooltip",
+                                              "data-tooltip-html":
+                                                `<strong>${formattedTotal}</strong>` +
+                                                (hasCharges ? `<hr style="margin:4px 0;border-color:#ccc"/>` + chargeLines.join("<br/>") : "")
+                                            } : {})}
+                                          >
+                                            {formattedTotal}
+                                          </span>
+                                        );
+                                      })()}
                                     </td>
                                     {currentLowest ? (
                                       rfqDetails?.products[index]
@@ -3040,11 +3093,12 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             name="comment"
                                             id="comment"
                                             cols="30"
-                                            rows="3"
+                                            rows="2"
                                             value={quoteProducts[index].comment}
                                             style={{
-                                              maxWidth: "180px",
-                                              minHeight: "120px",
+                                              maxWidth: "200px",
+                                              minHeight: "38px",
+                                              resize: "vertical",
                                             }}
                                             onChange={(e) =>
                                               handleUpdateData(
@@ -3075,9 +3129,9 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         )}
                                       </div>
                                     </td>
-                                    <td style={{ width: 250 }}>
+                                    <td style={{ width: "110px", textAlign: "center" }}>
                                       <input
-                                        style={{ maxWidth: "80px" }}
+                                        style={{ maxWidth: "70px", textAlign: "center" }}
                                         name="delivery_period"
                                         id="delivery_period"
                                         type="number"
@@ -3112,17 +3166,21 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         </small>
                                       )}
                                     </td>
-                                    <td style={{ maxWidth: 250 }}>
+                                    <td style={{ maxWidth: 200 }}>
                                       <label
                                         className={`upload uploadInlineFile d-flex align-items-center justify-content-center ${
                                           isTechEvalPendingOrRejected
                                             ? "disabled"
                                             : ""
                                         }`}
+                                        style={{ padding: "5px 8px", fontSize: "0.78rem", transition: "opacity 0.2s ease" }}
+                                        onMouseEnter={(e) => e.currentTarget.style.opacity = "0.75"}
+                                        onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
                                       >
                                         <FontAwesomeIcon
                                           icon={faFile}
-                                          className="me-2"
+                                          className="me-1"
+                                          style={{ fontSize: "0.75rem" }}
                                         />{" "}
                                         Upload
                                         <input
@@ -3239,6 +3297,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                       </table>
                     </div>
                   </div>
+
+                  <Tooltip id="charges-tooltip" place="top" style={{ maxWidth: 250, fontSize: 12, borderRadius: 6, zIndex: 9999, lineHeight: "1.6" }} />
 
                   <div className="quote-sec-btm">
                     <div className="row">

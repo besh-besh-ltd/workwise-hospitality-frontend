@@ -315,6 +315,10 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
   let total_with_fpt = total_without_fpt + FP + PP;
   let T = (item.tax_mode ?? "percentage") == 'percentage' ? (total_with_fpt * tax) / 100 : tax;
 
+  // Tax on Tax
+  let tax_tax = item.tax_tax !== null && item.tax_tax !== undefined ? parseFloat(item.tax_tax) : 0;
+  let TT = (item.tax_tax_mode ?? "percentage") == 'percentage' ? (T * tax_tax) / 100 : tax_tax;
+
   // Other charges
   let otherChargesTotal = 0;
   (item.other_charges || []).forEach(c => {
@@ -323,7 +327,7 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
     otherChargesTotal += cAmt + cTax;
   });
 
-  let TotalPrice = total_with_fpt + T + FT + PT + otherChargesTotal;
+  let TotalPrice = total_with_fpt + T + FT + PT + TT + otherChargesTotal;
 
 const DELIVERY_DAYS = parseInt(item.delivery_period || 0);
 
