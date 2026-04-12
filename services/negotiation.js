@@ -267,3 +267,16 @@ export const rejectNegotiationQuotes = (rfq_product_id, remarks, department_id =
   });
 };
 
+export const getNegotiationApprovalBundle = (rfq_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/negotiation/rounds/${rfq_id}/approval-bundle`
+      );
+      resolve(response);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+

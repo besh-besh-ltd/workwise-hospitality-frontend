@@ -35,7 +35,8 @@ import { BsFileEarmarkText } from "react-icons/bs";
 import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import NegotiationCompactBanner from "./negotiation/NegotiationCompactBanner";
-import { getAllActiveNegotiationRounds, getRoundQuotes } from "@/services/negotiation";
+import { getNegotiationApprovalBundle } from "@/services/negotiation";
+import { getAvailableHierarchies } from "@/services/general";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
 import useIsMobile from "@/hooks/useIsMobile";
 import { BsList } from "react-icons/bs";
@@ -99,7 +100,12 @@ const QuoteCompare = () => {
   }, [safeTab, activeTab]);
 
   const [showNormalizeModal, setShowNormalizeModal] = useState(false);
-  const [productNegotiationData, setProductNegotiationData] = useState({}); // { productId: { activeRound, roundQuotes } }
+  const [negotiationApprovalBundle, setNegotiationApprovalBundle] = useState({
+    negotiation_instances: {},
+    negotiation_quote_instances: {},
+    rounds_history: []
+  });
+  const [availableHierarchies, setAvailableHierarchies] = useState({ hierarchies: [], useLegacy: false });
   const [quoteVisibilityMeta, setQuoteVisibilityMeta] = useState(null);
   const [quoteVisibilityClock, setQuoteVisibilityClock] = useState(Date.now());
 
@@ -169,6 +175,42 @@ const QuoteCompare = () => {
     return () => clearInterval(timer);
   }, [quoteVisibilityLocked]);
 
+  // Derive negotiation data from embedded quote fields (populated when include_negotiation=true)
+  const productNegotiationData = useMemo(() => {
+    const map = {};
+    (quotes || []).forEach((p) => {
+      if (p.active_round) {
+        map[p.id] = {
+          activeRound: p.active_round,
+          roundQuotes: p.active_round_quotes || []
+        };
+      }
+    });
+    return map;
+  }, [quotes]);
+
+  const preloadedActiveRounds = useMemo(
+    () => (quotes || []).filter(p => p.active_round).map(p => p.active_round),
+    [quotes]
+  );
+
+  // Lift hierarchies fetch to parent (was previously duplicated N times in ProductComparisonMatrix)
+  useEffect(() => {
+    const projectId = quotes?.[0]?.rfq?.[0]?.project_id;
+    if (!projectId || projectId === -1) return;
+    const fetchRfq = String(rfq);
+    getAvailableHierarchies('po', projectId).then(res => {
+      if (latestRfqRef.current !== fetchRfq) return;
+      setAvailableHierarchies({
+        hierarchies: res.data || [],
+        useLegacy: res.use_legacy_hierarchy !== false
+      });
+    }).catch(() => {
+      if (latestRfqRef.current !== fetchRfq) return;
+      setAvailableHierarchies({ hierarchies: [], useLegacy: true });
+    });
+  }, [quotes, rfq]);
+
   // Permission-based authorization for Negotiation and Quote-Compare sections
   // Memoize hotelIds to prevent infinite re-renders in useModulePermissions
   const hotelIdsKey = currentRFQ?.hotel_ids?.join(',') || currentRFQ?.hotel_id || '';
@@ -213,52 +255,64 @@ const QuoteCompare = () => {
   const [metadataLoadedForRfq, setMetadataLoadedForRfq] = useState(null);
   const rfqMetadataReady = rfq && String(metadataLoadedForRfq) === String(rfq);
 
-  // Stage 1: Fetch RFQ metadata first to get hotel context for permission check
-  // This is a lightweight call that doesn't expose sensitive quote data
+  // Shared helper to set RFQ metadata from any source (sidebar list or dedicated fetch)
+  const applyRfqMetadata = (rfqData) => {
+    if (!rfqData) return;
+    setcurrentRFQ({
+      id: rfqData.id,
+      hotel_id: rfqData.hotel_id,
+      hotel_ids: rfqData.hotel_ids,
+      is_tender: rfqData.is_tender,
+      hospitality_company_id: rfqData.hospitality_company_id,
+      department_id: rfqData.department_id,
+      department_name: rfqData.department_name,
+      rfq_no: rfqData.rfq_no,
+      project_name: rfqData.project_name,
+      company_name: rfqData.company_name,
+      hotel_name: rfqData.hotel_name,
+      contact_name: rfqData.contact_name,
+      response_email: rfqData.response_email,
+      contact_number: rfqData.contact_number,
+      location: rfqData.location,
+      reverse_auction: rfqData.reverse_auction,
+      bid_end_date: rfqData.bid_end_date,
+      comment: rfqData.comment,
+      title: rfqData.title,
+      rfq_type: rfqData.rfq_type,
+      reverse_auction_date: rfqData.reverse_auction_date,
+      status: rfqData.status,
+    });
+    setMetadataLoadedForRfq(rfq);
+    setquotesLoading(true);
+  };
+
+  // Stage 1: RFQ metadata for hotel context + permission check
+  // First tries to extract from the sidebar list (already fetched). Falls back to a dedicated call
+  // only if the RFQ is not in the sidebar (e.g., deep-linked or filtered out).
   useEffect(() => {
     let cancelled = false;
     setMetadataLoadedForRfq(null);
 
-    const fetchRFQMetadata = async () => {
-      if (!rfq || rfq === 'undefined' || rfq === 'null') {
-        setcurrentRFQ(null);
-        return;
-      }
+    if (!rfq || rfq === 'undefined' || rfq === 'null') {
+      setcurrentRFQ(null);
+      return;
+    }
 
+    // Check if the sidebar list already has this RFQ
+    const fromSidebar = myRFQs.find(r => String(r.id) === String(rfq));
+    if (fromSidebar) {
+      applyRfqMetadata(fromSidebar);
+      return;
+    }
+
+    // Sidebar hasn't loaded yet or RFQ not in it — fetch individually
+    const fetchRFQMetadata = async () => {
       try {
-        // Get RFQ metadata for permission context
         const response = await getRfqs({ rfq_id: String(rfq), page: 1, limit: 1, tech_eval: false });
-        // Guard against stale response when user switched RFQs quickly
         if (cancelled) return;
         const rfqData = Array.isArray(response) ? response[0] : response?.data?.[0];
         if (rfqData) {
-          // IMPORTANT: Don't spread prev to avoid stale state when switching between tender/RFQ
-          setcurrentRFQ({
-            id: rfqData.id,
-            hotel_id: rfqData.hotel_id,
-            hotel_ids: rfqData.hotel_ids,
-            is_tender: rfqData.is_tender,
-            hospitality_company_id: rfqData.hospitality_company_id,
-            department_id: rfqData.department_id,
-            department_name: rfqData.department_name,
-            rfq_no: rfqData.rfq_no,
-            project_name: rfqData.project_name,
-            company_name: rfqData.company_name,
-            hotel_name: rfqData.hotel_name,
-            contact_name: rfqData.contact_name,
-            response_email: rfqData.response_email,
-            contact_number: rfqData.contact_number,
-            location: rfqData.location,
-            reverse_auction: rfqData.reverse_auction,
-            bid_end_date: rfqData.bid_end_date,
-            comment: rfqData.comment,
-            title: rfqData.title,
-            rfq_type: rfqData.rfq_type,
-            reverse_auction_date: rfqData.reverse_auction_date,
-            status: rfqData.status,
-          });
-          setMetadataLoadedForRfq(rfq);
-          setquotesLoading(true); // Pre-set so there's no gap between permissions check and quotes fetch
+          applyRfqMetadata(rfqData);
         }
       } catch (error) {
         if (!cancelled) {
@@ -269,7 +323,7 @@ const QuoteCompare = () => {
 
     fetchRFQMetadata();
     return () => { cancelled = true; };
-  }, [rfq]);
+  }, [rfq, myRFQs]);
 
   // Stage 2: Once permissions are verified, check TE first, then fetch quotes with correct filter
   const dataInitializedForRfq = useRef(null);
@@ -306,7 +360,7 @@ const QuoteCompare = () => {
     setOriginalQuotes([]);
     setVendorCodeMap({});
     setTEavailable(false);
-    setProductNegotiationData({});
+    setNegotiationApprovalBundle({ negotiation_instances: {}, negotiation_quote_instances: {}, rounds_history: [] });
 
     try {
       // Step 1: Check if tech evaluation exists
@@ -320,8 +374,8 @@ const QuoteCompare = () => {
         setTA_Filter(true);
       }
 
-      // Step 2: Fetch quotes with the correct TA filter (no double call)
-      const quotesRes = await getQuotes(rfq, hasTechEval, freightFilter, rfq_product_id, source, 'quote_compare');
+      // Step 2: Fetch quotes with embedded negotiation data (include_negotiation=true)
+      const quotesRes = await getQuotes(rfq, hasTechEval, freightFilter, rfq_product_id, source, 'quote_compare', true);
       if (latestRfqRef.current !== fetchRfq) return;
 
       const visibility = quotesRes?.meta?.quoteVisibility || null;
@@ -363,65 +417,19 @@ const QuoteCompare = () => {
   const loadNegotiationData = async () => {
     if (!rfq) return;
     if (effectiveQuoteVisibility.locked) {
-      setProductNegotiationData({});
+      setNegotiationApprovalBundle({ negotiation_instances: {}, negotiation_quote_instances: {}, rounds_history: [] });
       return;
     }
-    const fetchRfq = String(rfq); // capture for stale detection
+    const fetchRfq = String(rfq);
 
     try {
-      // Load all active rounds for this RFQ
-      const response = await getAllActiveNegotiationRounds(rfq);
-      if (latestRfqRef.current !== fetchRfq) return; // stale
-      let activeRounds = [];
-
-      if (response) {
-        if (response.status === 1 && response.data) {
-          activeRounds = Array.isArray(response.data) ? response.data : [];
-        } else if (Array.isArray(response)) {
-          activeRounds = response;
-        }
-      }
-
-      // For each active round, load quotes and organize by product
-      // Rounds are ordered by rfq_product_id, round_number DESC so the first
-      // round we encounter per product is the most recent one — skip older rounds.
-      const negotiationData = {};
-
-      for (const round of activeRounds) {
-        if (latestRfqRef.current !== fetchRfq) return; // stale
-        if (round.rfq_product_id) {
-          // Only keep the most recent round per product (first encountered due to DESC order)
-          if (negotiationData[round.rfq_product_id]) continue;
-
-          try {
-            const quotesResponse = await getRoundQuotes(round.id);
-            if (latestRfqRef.current !== fetchRfq) return; // stale
-            let roundQuotes = [];
-
-            if (quotesResponse) {
-              if (quotesResponse.status === 1 && quotesResponse.data) {
-                roundQuotes = Array.isArray(quotesResponse.data) ? quotesResponse.data : [];
-              } else if (Array.isArray(quotesResponse)) {
-                roundQuotes = quotesResponse;
-              }
-            }
-
-            negotiationData[round.rfq_product_id] = {
-              activeRound: round,
-              roundQuotes: roundQuotes
-            };
-          } catch (error) {
-            console.error(`Error loading quotes for round ${round.id}:`, error);
-          }
-        }
-      }
-
-      if (latestRfqRef.current !== fetchRfq) return; // stale
-      setProductNegotiationData(negotiationData);
-    } catch (error) {
-      if (latestRfqRef.current !== fetchRfq) return; // stale
-      console.error('Error loading negotiation data:', error);
-      setProductNegotiationData({});
+      const res = await getNegotiationApprovalBundle(rfq);
+      if (latestRfqRef.current !== fetchRfq) return;
+      setNegotiationApprovalBundle(res?.data || { negotiation_instances: {}, negotiation_quote_instances: {}, rounds_history: [] });
+    } catch (err) {
+      if (latestRfqRef.current !== fetchRfq) return;
+      console.error('Error loading approval bundle:', err);
+      setNegotiationApprovalBundle({ negotiation_instances: {}, negotiation_quote_instances: {}, rounds_history: [] });
     }
   };
 
@@ -463,6 +471,11 @@ const QuoteCompare = () => {
     return () => clearTimeout(handler);
   }, [rfqNo, isTenderFilter, selectedHotelIds]);
 
+
+  // Unified refresh after user actions (create/approve/reject round, approve/reject quote)
+  const refreshNegotiationAndQuotes = async () => {
+    await Promise.all([getRespectiveQuotes(), loadNegotiationData()]);
+  };
 
   const closeModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: false }));
@@ -569,7 +582,7 @@ const handleCloseNormalizeModal = () => {
           setpage(1);
           setlimit(100);
           setmyRFQs(newData);
-          sethasMoreQuotes(true);  
+          sethasMoreQuotes(true);
         }else{
           setmyRFQs((prevRFQs) => {
             const all = [...prevRFQs, ...newData];
@@ -583,6 +596,14 @@ const handleCloseNormalizeModal = () => {
             }
             return unique;
           });
+        }
+
+        // Extract current RFQ metadata from sidebar response to avoid a separate API call
+        if (rfq && !metadataLoadedForRfq) {
+          const match = newData.find(r => String(r.id) === String(rfq));
+          if (match) {
+            applyRfqMetadata(match);
+          }
         }
 
       })
@@ -601,10 +622,9 @@ const handleCloseNormalizeModal = () => {
     setOriginalQuotes([]);
     setVendorCodeMap({});
     setTEavailable(false);
-    setProductNegotiationData({});
 
     let loadedData = [];
-    getQuotes(rfq, TA_Filter, freightFilter, rfq_product_id, source , 'quote_compare')
+    getQuotes(rfq, TA_Filter, freightFilter, rfq_product_id, source, 'quote_compare', true)
       .then((res) => {
         // Ignore stale response if user has already switched to a different RFQ
         if (latestRfqRef.current !== fetchRfq) return;
@@ -1598,7 +1618,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       setNormalizeFilter(false);
       setQuoteVisibilityMeta(null);
       setQuoteVisibilityClock(Date.now());
-      setProductNegotiationData({}); // Clear negotiation data to prevent stale state
+      setNegotiationApprovalBundle({ negotiation_instances: {}, negotiation_quote_instances: {}, rounds_history: [] });
       setAvailableBudget(null); // Clear budget to prevent showing wrong budget
       setquotes([]); // Clear stale quotes immediately
       setOriginalQuotes([]); // Clear original quotes
@@ -1934,7 +1954,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       hospitalityCompanyId={currentRFQ?.hospitality_company_id}
                       hotelId={currentRFQ?.hotel_id}
                       departmentId={currentRFQ?.department_id}
-                      onRoundChange={loadNegotiationData}
+                      onRoundChange={refreshNegotiationAndQuotes}
+                      preloadedActiveRounds={preloadedActiveRounds}
+                      preloadedRoundsHistory={negotiationApprovalBundle.rounds_history}
+                      preloadedApprovalBundle={negotiationApprovalBundle}
                     />
                   </section>
                 )}
@@ -2006,13 +2029,15 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                               normalizeFilter={normalizeFilter}
                               freightFilter={freightFilter}
                               productNegotiationData={productNegotiationData}
-                              loadNegotiationData={loadNegotiationData}
+                              loadNegotiationData={refreshNegotiationAndQuotes}
                               canWriteQuoteCompare={canWriteQuoteCompare}
                               quoteComparePermissionsLoading={quoteComparePermissionsLoading}
                               currentRFQ={currentRFQ}
                               vendorCodeMap={vendorCodeMap}
                               productSummaryMap={productSummaryMap}
                               quoteVisibility={effectiveQuoteVisibility}
+                              availableHierarchies={availableHierarchies}
+                              quoteApprovalDetails={negotiationApprovalBundle.negotiation_quote_instances}
                             />
                           )}
                           {activeTab === "category" && (

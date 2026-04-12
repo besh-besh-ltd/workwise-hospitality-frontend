@@ -1,7 +1,6 @@
 import React from "react";
 import ReadMore from "@/components/shared/ReadMore";
 import LPRModal from "@/components/shared/LPRModal";
-import ProductNegotiationBadge from "@/components/dashboard/vendor/ProductNegotiationBadge";
 import ProductComparisonMatrix from "@/components/dashboard/buyer/quoteCompare/tables/ProductComparisonMatrix";
 import QuoteVisibilityLockPanel from "@/components/dashboard/buyer/quoteCompare/QuoteVisibilityLockPanel";
 import {
@@ -74,6 +73,8 @@ const ProductComparisonTab = ({
   currentRFQ,
   productSummaryMap,
   quoteVisibility,
+  availableHierarchies = null,
+  quoteApprovalDetails = {},
 }) => {
   const comparisonContext = context || {};
   const currentRfqId = rfq || comparisonContext?.rfq;
@@ -110,9 +111,7 @@ const ProductComparisonTab = ({
               <div>
                 <div className="d-flex align-items-center gap-2 flex-wrap">
                   <h4 className={styles.productTitle}>{item?.product_details?.[0]?.product_name}</h4>
-                  {!visibility?.locked && (
-                    <ProductNegotiationBadge rfq_id={currentRfqId} rfq_product_id={item.id} />
-                  )}
+                  {/* ProductNegotiationBadge hidden on buyer quote-compare — vendor-oriented badge that fires N per-product API calls */}
                 </div>
                 <p className={styles.productMeta}>
                   Quantity: {quantity} {unit}
@@ -213,6 +212,9 @@ const ProductComparisonTab = ({
                 hospitalityCompanyId={contextRFQ?.hospitality_company_id}
                 hotelId={contextRFQ?.hotel_id}
                 departmentId={contextRFQ?.department_id}
+                preloadedHierarchies={availableHierarchies}
+                preloadedQuoteApprovalStatus={item.quote_approval_status || null}
+                preloadedInstances={quoteApprovalDetails?.[item.id] || null}
               />
             )}
           </div>

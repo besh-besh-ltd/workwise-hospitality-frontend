@@ -304,6 +304,7 @@ const ApprovalWorkflowSection = ({
   isBacklog = false,
   isPublished = false,
   showMobileStickyActions = false,
+  preloadedInstances = null,
 }) => {
   const {
     instance,
@@ -321,7 +322,7 @@ const ApprovalWorkflowSection = ({
     autoApprovedReason,
     handleApprovalAction,
     refetch,
-  } = useApprovalWorkflow({ entityType, entityId, allEntityIds, enabled: !!entityId, refreshTrigger });
+  } = useApprovalWorkflow({ entityType, entityId, allEntityIds, enabled: !!entityId, refreshTrigger, preloadedInstances });
 
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState(null);

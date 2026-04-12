@@ -16,7 +16,10 @@ const NegotiationCompactBanner = ({
   hotelId,
   departmentId,
   onRoundChange,
-  arcApprovalData = null
+  arcApprovalData = null,
+  preloadedActiveRounds = null,
+  preloadedRoundsHistory = null,
+  preloadedApprovalBundle = null,
 }) => {
   const [activeRounds, setActiveRounds] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -36,26 +39,50 @@ const NegotiationCompactBanner = ({
   const loadActiveRounds = async () => {
     try {
       setLoading(true);
+
+      // Use preloaded data if available (avoids N per-round API calls)
+      if (preloadedActiveRounds != null) {
+        let rounds = [...preloadedActiveRounds];
+
+        // Enrich PENDING_APPROVAL rounds from preloaded approval bundle
+        if (preloadedApprovalBundle) {
+          for (let i = 0; i < rounds.length; i++) {
+            const round = rounds[i];
+            if (round.status === 'PENDING_APPROVAL' && round.rfq_product_id) {
+              const instances = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+              const pendingInstance = instances.find(inst => inst.status === 'PENDING');
+              if (pendingInstance) {
+                const currentStep = (pendingInstance.steps || []).find(s => s.step_order === pendingInstance.current_step);
+                if (currentStep?.approvers) {
+                  round.approvals = currentStep.approvers.map(a => ({
+                    approver_user_id: a.approver_user_id || a.user_id,
+                    approver_name: a.user_name,
+                    approver_email: a.user_email,
+                    status: a.status
+                  }));
+                }
+              }
+            }
+          }
+        }
+
+        setActiveRounds(rounds);
+        return;
+      }
+
+      // Fallback: fetch from API
       const response = await getAllActiveNegotiationRounds(rfq_id);
-      console.log('Active rounds raw response:', response);
 
-      // Axios interceptor already returns response.data, so response is the backend response
       let rounds = [];
-
       if (response) {
         if (response.status === 1 && response.data) {
-          // Standard format: { status: 1, data: [...] }
           rounds = Array.isArray(response.data) ? response.data : [];
         } else if (Array.isArray(response)) {
-          // Response is array directly
           rounds = response;
         } else if (Array.isArray(response.data)) {
-          // Fallback: check if data exists
           rounds = response.data;
         }
       }
-
-      console.log('Parsed rounds:', rounds, 'Count:', rounds.length);
 
       // Enrich PENDING_APPROVAL rounds with approval data from the approval engine
       for (let i = 0; i < rounds.length; i++) {
@@ -94,12 +121,17 @@ const NegotiationCompactBanner = ({
   };
 
   const loadRoundsHistory = async () => {
+    // Use preloaded data if available
+    if (preloadedRoundsHistory != null && preloadedRoundsHistory.length > 0) {
+      setRoundsHistory(preloadedRoundsHistory);
+      return;
+    }
+
+    // Fallback: fetch from API
     try {
       const response = await getNegotiationRounds(rfq_id);
-      console.log('Rounds history raw response:', response);
 
       let rounds = [];
-
       if (response) {
         if (response.status === 1 && response.data) {
           rounds = Array.isArray(response.data) ? response.data : [];
@@ -110,7 +142,6 @@ const NegotiationCompactBanner = ({
         }
       }
 
-      console.log('Parsed history rounds:', rounds, 'Count:', rounds.length);
       setRoundsHistory(rounds);
     } catch (error) {
       console.error('Error loading rounds history:', error);
@@ -349,6 +380,7 @@ const NegotiationCompactBanner = ({
         hospitalityCompanyId={hospitalityCompanyId}
         hotelId={hotelId}
         departmentId={departmentId}
+        preloadedApprovalBundle={preloadedApprovalBundle}
       />
     </>
   );
