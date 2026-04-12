@@ -43,7 +43,7 @@ const getStatusBadge = (effectiveStatus) => {
   return <Badge bg={config.bg} text={config.textDark ? 'dark' : undefined} style={{ fontSize: '0.7rem' }}>{config.label}</Badge>;
 };
 
-const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLoaded }) => {
+const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLoaded, token, vendorView = false }) => {
   const [rounds, setRounds] = useState([]);
   const [latestRound, setLatestRound] = useState(null);
   const [totalRounds, setTotalRounds] = useState(0);
@@ -72,7 +72,7 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
   const loadNegotiationData = async () => {
     try {
       setLoading(true);
-      const response = await getNegotiationRounds(rfq_id, rfq_product_id);
+      const response = await getNegotiationRounds(rfq_id, rfq_product_id, token);
       let roundsList = [];
       if (response) {
         if (response.status === 1 && Array.isArray(response.data)) {
@@ -83,6 +83,16 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
           roundsList = response.data;
         }
       }
+
+      // Vendors only see active (non-expired) rounds
+      if (vendorView) {
+        roundsList = roundsList.filter(r => {
+          if (r.status !== 'ACTIVE') return false;
+          if (r.end_date && moment.utc(r.end_date).isBefore(moment())) return false;
+          return true;
+        });
+      }
+
       setRounds(roundsList);
       setTotalRounds(roundsList.length);
       // Get latest round: prioritize ACTIVE, then highest round_number
@@ -130,7 +140,7 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
   };
 
   const handleCellClick = () => {
-    if (!latestRound) return;
+    if (!latestRound || vendorView) return;
     setShowModal(true);
   };
 
@@ -172,7 +182,7 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
   return (
     <>
       <td
-        style={{ minWidth: '140px', verticalAlign: 'middle', cursor: 'pointer' }}
+        style={{ minWidth: '140px', verticalAlign: 'middle', cursor: vendorView ? 'default' : 'pointer' }}
         onClick={handleCellClick}
       >
         <div className={styles.negCell}>
@@ -214,17 +224,19 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
             </div>
 
             {/* Bottom: Initiator or click hint */}
-            <div className={styles.negCellSection}>
-              <div className={styles.negCellFooter}>
-                {latestRound.created_by_name ? `By ${latestRound.created_by_name}` : 'Click to view details'}
+            {!vendorView && (
+              <div className={styles.negCellSection}>
+                <div className={styles.negCellFooter}>
+                  {latestRound.created_by_name ? `By ${latestRound.created_by_name}` : 'Click to view details'}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </td>
 
-      {/* History Modal */}
-      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
+      {/* History Modal (buyer only) */}
+      {!vendorView && <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
         <Modal.Header closeButton className="py-2 px-3">
           <Modal.Title style={{ fontSize: '1.1rem' }}>
             Negotiation Rounds {productName ? `- ${productName}` : ''}
@@ -314,7 +326,7 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
             Close
           </button>
         </Modal.Footer>
-      </Modal>
+      </Modal>}
     </>
   );
 };

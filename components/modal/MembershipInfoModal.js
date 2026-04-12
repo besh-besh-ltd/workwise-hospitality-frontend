@@ -143,7 +143,7 @@ const MembershipInfoModal = ({ show, onHide, onProceed }) => {
           display: flex;
           flex-direction: column;
           max-height: 90vh;
-          overflow: hidden;
+          overflow: scroll;
         }
 
         .membership-modal-header {

@@ -3,7 +3,7 @@ import { Badge } from 'react-bootstrap';
 import { getVendorNegotiationStatus } from '@/services/negotiation';
 import moment from 'moment';
 
-const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
+const ProductNegotiationBadge = ({ rfq_id, rfq_product_id, token }) => {
   const [negotiationStatus, setNegotiationStatus] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -27,7 +27,7 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id }) => {
   const loadNegotiationStatus = async () => {
     try {
       setLoading(true);
-      const response = await getVendorNegotiationStatus(rfq_id, rfq_product_id);
+      const response = await getVendorNegotiationStatus(rfq_id, rfq_product_id, token);
 
       let statusData = null;
       if (response) {
