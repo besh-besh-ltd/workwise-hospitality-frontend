@@ -8,6 +8,8 @@ import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import { FaHistory } from "react-icons/fa";
 import { getEntityLabel, canEditRfq } from "@/utils/sharedFunctions";
 import ReadMore from "@/components/shared/ReadMore";
+import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
+import useHasTechClauses from "@/hooks/useHasTechClauses";
 import RFQEditHistory from "./RFQEditHistory/RFQEditHistory";
 
 // WH-69: Edit button that uses canEditRfq() to decide whether to render
@@ -56,6 +58,9 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
   // since this component already has many other props and we don't want to
   // thread it through.
   const currentUser = useSelector((state) => state.userProfile);
+
+  // Check if RFQ has any technical clauses
+  const { hasClauses, loading: clauseLoading } = useHasTechClauses({ rfq_id: data?.id });
 
   // Convert status to number for consistent comparison
   const rfqStatus = data?.status ? Number(data.status) : 0;
@@ -112,6 +117,10 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
                     </Link>
                   </div>
                 </div>
+
+                {!clauseLoading && hasClauses === false && data?.id && (
+                  <NoTechClausesBanner entityLabel={getEntityLabel(data?.is_tender)} />
+                )}
 
                 <div className="details-table">
                   <div className="table-responsive">

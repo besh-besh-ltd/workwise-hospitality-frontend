@@ -43,6 +43,7 @@ import { BsList } from "react-icons/bs";
 import useQuoteCompareViewModel from "@/hooks/useQuoteCompareViewModel";
 import { buildComparisonContextTables } from "@/utils/quoteCompareTableViewModel";
 import QuoteCompareHeaderCard from "@/components/dashboard/buyer/quoteCompare/QuoteCompareHeaderCard";
+import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import QuoteCompareKpiStrip from "@/components/dashboard/buyer/quoteCompare/QuoteCompareKpiStrip";
 import ComparisonTabs from "@/components/dashboard/buyer/quoteCompare/ComparisonTabs";
 import ProductComparisonTab from "@/components/dashboard/buyer/quoteCompare/ProductComparisonTab";
@@ -1880,6 +1881,9 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     badgeText={`${getEntityLabel(currentRFQ?.is_tender)} Closed`}
                     noMarginTop
                   />
+                )}
+                {!quotesLoading && currentRFQ && !TEavailable && (
+                  <NoTechClausesBanner entityLabel={getEntityLabel(currentRFQ?.is_tender)} />
                 )}
                 {!quotesLoading && currentRFQ && (
                   <QuoteCompareHeaderCard

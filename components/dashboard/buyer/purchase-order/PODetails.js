@@ -30,6 +30,8 @@ import PurchaseOrderEditView from './PurchaseOrderEditView';
 import RegeneratePOModal from './RegeneratePOModal';
 import AddSiteRepModal from './AddSiteRepModal';
 import ApproveModal from './ApproveModal';
+import NoTechClausesBanner from '@/components/shared/NoTechClausesBanner';
+import useHasTechClauses from '@/hooks/useHasTechClauses';
 
 const statusColors = {
   draft: 'secondary',
@@ -190,6 +192,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
 
   const router = useRouter();
   const isMobile = useIsMobile();
+  const { hasClauses, loading: clauseLoading } = useHasTechClauses({ rfq_id });
 
   const handleMilestoneDeletion = async (id) => {
     try {
@@ -544,6 +547,10 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             )}
           </div>
         </div>
+
+        {!clauseLoading && hasClauses === false && rfq_id && (
+          <NoTechClausesBanner entityLabel="RFQ" />
+        )}
 
         {/* ── PO PDF ── */}
         {poPdfUrl && (
