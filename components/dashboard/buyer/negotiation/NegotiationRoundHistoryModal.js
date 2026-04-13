@@ -24,6 +24,8 @@ const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id }) => {
         return <Badge bg="primary">Active</Badge>;
       case 'PENDING_APPROVAL':
         return <Badge bg="warning">Pending Approval</Badge>;
+      case 'EXPIRED':
+        return <Badge bg="danger">Expired</Badge>;
       default:
         return <Badge bg="secondary">{status}</Badge>;
     }

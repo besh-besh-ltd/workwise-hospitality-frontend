@@ -285,10 +285,20 @@ const NegotiationModal = ({
     const roundId = round.id;
     setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: true, instances: [] } }));
 
+    // Filter instances to only those belonging to this specific round (by metadata.round_id)
+    const filterByRound = (instances) => {
+      return instances.filter(inst => {
+        const meta = inst.metadata || {};
+        // Match by round_id in metadata; if no round_id in metadata, include it (legacy)
+        return meta.round_id == null || String(meta.round_id) === String(roundId);
+      });
+    };
+
     // Use preloaded bundle if available
     if (preloadedApprovalBundle) {
       const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
-      const sorted = [...bundled].sort((a, b) => (a.id || 0) - (b.id || 0));
+      const filtered = filterByRound(bundled);
+      const sorted = [...filtered].sort((a, b) => (a.id || 0) - (b.id || 0));
       setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: sorted } }));
       return;
     }
@@ -310,8 +320,9 @@ const NegotiationModal = ({
         }
       }
 
-      detailedInstances.sort((a, b) => (a.id || 0) - (b.id || 0));
-      setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: detailedInstances } }));
+      const filtered = filterByRound(detailedInstances);
+      filtered.sort((a, b) => (a.id || 0) - (b.id || 0));
+      setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: filtered } }));
     } catch (error) {
       console.error('Error loading approval journey for round:', roundId, error);
       setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: [] } }));
@@ -547,8 +558,7 @@ const NegotiationModal = ({
     }
   };
 
-  // Helper to get effective round status (considering end_date and approvals)
-  // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
+  // Helper to get effective round status (considering approvals)
   const getEffectiveRoundStatus = (round) => {
     const status = (round?.status || '').toUpperCase();
 
@@ -556,11 +566,6 @@ const NegotiationModal = ({
     const hasRejectedApproval = round?.approvals?.some(a => a.status === 'REJECTED');
     if (hasRejectedApproval) {
       return 'REJECTED';
-    }
-
-    // If status is ACTIVE but end_date has passed, treat as ENDED
-    if (status === 'ACTIVE' && round?.end_date && moment.utc(round.end_date).isBefore(moment())) {
-      return 'ENDED';
     }
 
     return status;
@@ -578,9 +583,10 @@ const NegotiationModal = ({
     const counts = {
       active: 0,
       pending_approval: 0,
+      ended: 0,
+      expired: 0,
       completed: 0,
       closed: 0,
-      ended: 0,
       rejected: 0
     };
 
@@ -589,6 +595,7 @@ const NegotiationModal = ({
       if (effectiveStatus === 'REJECTED') counts.rejected++;
       else if (effectiveStatus === 'ACTIVE') counts.active++;
       else if (effectiveStatus === 'PENDING_APPROVAL') counts.pending_approval++;
+      else if (effectiveStatus === 'EXPIRED') counts.expired++;
       else if (effectiveStatus === 'COMPLETED') counts.completed++;
       else if (effectiveStatus === 'CLOSED') counts.closed++;
       else if (effectiveStatus === 'ENDED') counts.ended++;
@@ -600,7 +607,7 @@ const NegotiationModal = ({
   // Round status summary component
   const renderRoundStatusSummary = () => {
     const counts = getRoundStatusCounts();
-    const total = counts.active + counts.pending_approval + counts.completed + counts.closed + counts.ended + counts.rejected;
+    const total = counts.active + counts.pending_approval + counts.ended + counts.expired + counts.completed + counts.closed + counts.rejected;
 
     if (total === 0) return null;
 
@@ -608,9 +615,10 @@ const NegotiationModal = ({
       { key: 'active', label: 'Active', tone: 'active' },
       { key: 'pending_approval', label: 'Pending Approval', tone: 'pending' },
       { key: 'ended', label: 'Ended', tone: 'ended' },
-      { key: 'rejected', label: 'Rejected', tone: 'rejected' },
+      { key: 'expired', label: 'Expired', tone: 'expired' },
       { key: 'completed', label: 'Completed', tone: 'completed' },
       { key: 'closed', label: 'Closed', tone: 'closed' },
+      { key: 'rejected', label: 'Rejected', tone: 'rejected' },
     ];
 
     return (
@@ -636,7 +644,7 @@ const NegotiationModal = ({
   };
 
   const getProductName = (product) => {
-    return product?.product_details?.[0]?.name || `Product ${product.id}`;
+    return product?.product_details?.[0]?.name || product?.product_details?.[0]?.product_name || product?.product_name || product?.name || `Product ${product.id}`;
   };
 
   const getVendorDisplayName = (v) =>
@@ -1159,6 +1167,7 @@ const NegotiationModal = ({
     COMPLETED: { bg: '#e3f2fd', color: '#1565c0', border: '#90caf9', label: 'Completed', icon: '✓' },
     CLOSED: { bg: '#f3e5f5', color: '#6a1b9a', border: '#ce93d8', label: 'Closed', icon: '✓' },
     REJECTED: { bg: '#fce4ec', color: '#c62828', border: '#ef9a9a', label: 'Rejected', icon: '✗' },
+    EXPIRED: { bg: '#fce4ec', color: '#c62828', border: '#ef9a9a', label: 'Expired', icon: '⊘' },
   };
 
   const getStatusStyle = (status) => statusConfig[status] || statusConfig.CLOSED;
@@ -1168,6 +1177,7 @@ const NegotiationModal = ({
     if (status === 'ACTIVE') return 'active';
     if (status === 'ENDED') return 'ended';
     if (status === 'REJECTED') return 'rejected';
+    if (status === 'EXPIRED') return 'expired';
     if (status === 'COMPLETED') return 'completed';
     return 'closed';
   };
@@ -1206,7 +1216,7 @@ const NegotiationModal = ({
     uniqueRounds.forEach(round => {
       const productId = round.rfq_product_id;
       if (!grouped[productId]) {
-        const product = products.find(p => p.id === productId);
+        const product = products.find(p => String(p.id) === String(productId));
         grouped[productId] = {
           productName: round.product_name || (product ? getProductName(product) : `Product ${productId}`),
           productDetails: product ? getProductDetails(product) : null,
@@ -1321,8 +1331,8 @@ const NegotiationModal = ({
                             )}
                           </div>
 
-                          {/* Approval Workflow Journey */}
-                          {(effectiveStatus === 'PENDING_APPROVAL' || effectiveStatus === 'REJECTED' || effectiveStatus === 'APPROVED') && (
+                          {/* Approval Workflow Journey — show for all rounds that went through approval */}
+                          {(effectiveStatus !== 'DRAFT') && (
                             <div>
                               <div
                                 onClick={() => toggleApprovalJourney(round)}
@@ -1332,9 +1342,19 @@ const NegotiationModal = ({
                                   {expandedApprovalJourney === round.id ? '▼' : '▶'}
                                 </span>
                                 Approval Workflow
-                                {approvals.length > 0 && (
+                                {approvals.length > 0 && effectiveStatus === 'PENDING_APPROVAL' && (
                                   <span className={styles.workflowMeta}>
                                     ({approvals.filter(a => a.status === 'PENDING').length} pending)
+                                  </span>
+                                )}
+                                {(effectiveStatus === 'ACTIVE' || effectiveStatus === 'ENDED' || effectiveStatus === 'COMPLETED') && (
+                                  <span className={styles.workflowMeta} style={{ color: '#198754' }}>
+                                    (approved)
+                                  </span>
+                                )}
+                                {(effectiveStatus === 'EXPIRED') && (
+                                  <span className={styles.workflowMeta} style={{ color: '#dc3545' }}>
+                                    (cancelled)
                                   </span>
                                 )}
                               </div>
@@ -1390,6 +1410,7 @@ const NegotiationModal = ({
                                                     steps={instance.steps}
                                                     currentStep={instance.current_step}
                                                     initiatedBy={instance.initiated_by}
+                                                    instanceStatus={instance.status}
                                                   />
                                                 ) : (
                                                   <div className={styles.journeyEmpty}>
@@ -1436,22 +1457,14 @@ const NegotiationModal = ({
 
     // Helper to check if a round has ended based on end_date
     // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
-    const isRoundEnded = (round) => {
-      const status = (round?.status || '').toUpperCase();
-      if (status === 'ACTIVE' && round?.end_date && moment.utc(round.end_date).isBefore(moment())) {
-        return true;
-      }
-      return false;
-    };
-
     // Exclude rejected rounds from pending
     const pendingRounds = activeRounds.filter(r =>
       (r.status === 'PENDING_APPROVAL' || r.status === 'pending_approval') && !isRoundRejected(r)
     );
-    // Active rounds: status is ACTIVE, end_date has NOT passed, and not rejected
+    // Active rounds: status is ACTIVE and not rejected
     const activeRoundsList = activeRounds.filter(r => {
       const status = (r?.status || '').toUpperCase();
-      return status === 'ACTIVE' && !isRoundEnded(r) && !isRoundRejected(r);
+      return status === 'ACTIVE' && !isRoundRejected(r);
     });
 
     return (
@@ -1467,7 +1480,7 @@ const NegotiationModal = ({
               <div className="mb-4">
                 <h6 className={styles.pendingSectionTitle}>Pending Approval</h6>
                 {pendingRounds.map((round) => {
-                  const product = products.find(p => p.id === round.rfq_product_id);
+                  const product = products.find(p => String(p.id) === String(round.rfq_product_id));
                   const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
                   const approvals = round.approvals || [];
 
@@ -1606,7 +1619,7 @@ const NegotiationModal = ({
               <div>
                 <h6 className={styles.pendingSectionTitle}>Active Rounds</h6>
                 {activeRoundsList.map((round) => {
-                  const product = products.find(p => p.id === round.rfq_product_id);
+                  const product = products.find(p => String(p.id) === String(round.rfq_product_id));
                   const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
                   return (
                     <div key={round.id} className={styles.pendingCard}>

@@ -39,6 +39,11 @@ $status-colors: (
     border: #d8dfe9,
     text: #4f6077,
   ),
+  expired: (
+    bg: #fef2f2,
+    border: #f5c2c7,
+    text: #842029,
+  ),
 );
 
 @mixin subtle-card($bg: $surface, $border-color: $border) {
@@ -187,42 +192,66 @@ $status-colors: (
 }
 
 .actionBtn {
-  border-radius: 9px;
-  font-size: 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
   font-weight: 600;
-  padding: 6px 12px;
+  padding: 7px 16px;
   border: 1px solid transparent;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.15px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  outline: none;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.actionBtn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.3);
 }
 
 .actionBtnPrimary {
   background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
   border-color: transparent;
   color: #fff;
+  box-shadow: 0 1px 3px rgba(46, 91, 168, 0.25);
 }
 
-.actionBtnPrimary:hover {
-  filter: brightness(0.96);
+.actionBtnPrimary:hover:not(:disabled) {
+  box-shadow: 0 2px 6px rgba(46, 91, 168, 0.35);
+  filter: brightness(1.05);
 }
 
 .actionBtnSecondary {
   background: #fff;
-  border-color: #c8d7eb;
-  color: #274a73;
+  border-color: #d0dae8;
+  color: #2e5078;
 }
 
-.actionBtnSecondary:hover {
-  background: #f4f8ff;
+.actionBtnSecondary:hover:not(:disabled) {
+  background: #f0f5ff;
+  border-color: #b8c8de;
 }
 
 .actionBtnAttention {
-  background: #fdf3e7;
-  border-color: #ebd4b3;
-  color: #7b5426;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.25);
 }
 
-.actionBtnAttention:hover {
-  background: #f9ecdc;
+.actionBtnAttention:hover:not(:disabled) {
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.35);
+  filter: brightness(1.05);
 }
 
 .negotiationModalDialog {
@@ -775,6 +804,10 @@ $status-colors: (
   border-left-color: #9a4d51;
 }
 
+.roundCard_expired {
+  border-left-color: #9a4d51;
+}
+
 .roundCard_closed,
 .roundCard_completed {
   border-left-color: #5d7592;
@@ -835,6 +868,12 @@ $status-colors: (
 }
 
 .historyStatus_rejected {
+  background: #fbf2f2;
+  border-color: #ecd4d4;
+  color: #7c4548;
+}
+
+.historyStatus_expired {
   background: #fbf2f2;
   border-color: #ecd4d4;
   color: #7c4548;

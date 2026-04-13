@@ -3,6 +3,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import Dropdown from "react-bootstrap/Dropdown";
+import OverlayTrigger from "react-bootstrap/OverlayTrigger";
+import Tooltip from "react-bootstrap/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheckCircle, faEnvelope, faUser } from "@fortawesome/free-regular-svg-icons";
 import { faComments, faHistory, faPhone } from "@fortawesome/free-solid-svg-icons";
@@ -613,17 +615,38 @@ const ProductComparisonMatrix = ({
                                   column.quote?.finalization?.winning_vendor?.id != column.vendorId) &&
                                 canWrite &&
                                 !permissionsLoading ? (
-                                  <Dropdown.Item
-                                    href="#"
-                                    onClick={() => {
-                                      setCurrentItem(column.quote);
-                                      setActiveModal("finalize");
-                                    }}
-                                    id={`finalize_vendor_${column.vendorId}-vendor_actions-quote_compare_table`}
-                                  >
-                                    <FontAwesomeIcon icon={faCheckCircle} className="me-2" />
-                                    Finalize
-                                  </Dropdown.Item>
+                                  activeRound && activeRound.status === 'ACTIVE' ? (
+                                    <OverlayTrigger
+                                      placement="left"
+                                      overlay={<Tooltip>An active negotiation round is ongoing, vendor finalization is restricted</Tooltip>}
+                                    >
+                                      <div
+                                        style={{ cursor: 'not-allowed' }}
+                                        id={`finalize_vendor_${column.vendorId}-vendor_actions-quote_compare_table`}
+                                      >
+                                        <Dropdown.Item
+                                          href="#"
+                                          disabled
+                                          style={{ opacity: 0.5, pointerEvents: 'none' }}
+                                        >
+                                          <FontAwesomeIcon icon={faCheckCircle} className="me-2" />
+                                          Finalize
+                                        </Dropdown.Item>
+                                      </div>
+                                    </OverlayTrigger>
+                                  ) : (
+                                    <Dropdown.Item
+                                      href="#"
+                                      onClick={() => {
+                                        setCurrentItem(column.quote);
+                                        setActiveModal("finalize");
+                                      }}
+                                      id={`finalize_vendor_${column.vendorId}-vendor_actions-quote_compare_table`}
+                                    >
+                                      <FontAwesomeIcon icon={faCheckCircle} className="me-2" />
+                                      Finalize
+                                    </Dropdown.Item>
+                                  )
                                 ) : null}
                               {Array.isArray(column.quote.previous_quotes) && column.quote.previous_quotes.length > 0 ? (
                                 <Dropdown.Item
@@ -801,32 +824,51 @@ const ProductComparisonMatrix = ({
               ) : (
                 <>
                   <p className={styles.footerValueMuted}>
-                    Lock in the selected vendor with this quote and proceed to create a Purchase Order.
+                    {activeRound && activeRound.status === 'ACTIVE'
+                      ? 'Vendor finalization is restricted while a negotiation round is active for this product.'
+                      : 'Select and confirm the winning vendor for this product to proceed with Purchase Order creation.'}
                   </p>
-                  <button
-                    type="button"
-                    className={`${styles.footerBtn} ${styles.footerBtnPrimary}`}
-                    onClick={() => {
-                      setCurrentItem(lowestQuote);
-                      setActiveModal("finalize");
-                    }}
-                    title={
-                      !canWrite || permissionsLoading
-                        ? "You don't have permission to finalize vendors"
-                        : useLegacyHierarchy && availableHierarchies.length <= 0
-                        ? "You cannot finalize as you are not in the hierarchy"
-                        : "Finalize vendor for this product"
-                    }
-                    disabled={
-                      (useLegacyHierarchy && availableHierarchies.length <= 0) ||
-                      !canWrite ||
-                      permissionsLoading ||
-                      !lowestQuote
-                    }
-                    id="finalize_vendor-quote_actions-quote_compare_table"
-                  >
-                    Finalize Vendor
-                  </button>
+                  {(() => {
+                    const isActiveRoundBlocking = activeRound && activeRound.status === 'ACTIVE';
+                    const noPermission = !canWrite || permissionsLoading;
+                    const notInHierarchy = useLegacyHierarchy && availableHierarchies.length <= 0;
+                    const isDisabled = isActiveRoundBlocking || noPermission || notInHierarchy || !lowestQuote;
+
+                    const tooltipText = isActiveRoundBlocking
+                      ? 'An active negotiation round is ongoing, vendor finalization is restricted'
+                      : noPermission
+                      ? 'Required permission is missing'
+                      : notInHierarchy
+                      ? 'You are not part of the approval hierarchy'
+                      : null;
+
+                    const btn = (
+                      <button
+                        type="button"
+                        className={`${styles.footerBtn} ${styles.footerBtnPrimary}`}
+                        onClick={() => {
+                          setCurrentItem(lowestQuote);
+                          setActiveModal("finalize");
+                        }}
+                        disabled={isDisabled}
+                        style={isDisabled ? { pointerEvents: 'none' } : undefined}
+                        id="finalize_vendor-quote_actions-quote_compare_table"
+                      >
+                        Finalize Vendor
+                      </button>
+                    );
+
+                    return tooltipText ? (
+                      <OverlayTrigger
+                        placement="top"
+                        overlay={<Tooltip>{tooltipText}</Tooltip>}
+                      >
+                        <span style={{ display: 'block', width: '100%', cursor: 'not-allowed' }}>
+                          {btn}
+                        </span>
+                      </OverlayTrigger>
+                    ) : btn;
+                  })()}
                 </>
               )
             ) : (

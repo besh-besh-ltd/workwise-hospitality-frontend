@@ -41,12 +41,11 @@ const RoundEndActions = ({
   // Check if round has been rejected via approvals
   const isRoundRejected = activeRound?.approvals?.some(a => a.status === 'REJECTED');
 
-  // Check if round has ended
-  // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
+  // Check if round has ended — cron sets status to ENDED/CLOSED automatically
   const isRoundEnded = activeRound && !isRoundRejected && (
     activeRound.status === 'CLOSED' ||
     activeRound.status === 'ENDED' ||
-    (activeRound.status === 'ACTIVE' && moment.utc(activeRound.end_date).isBefore(moment()))
+    activeRound.status === 'COMPLETED'
   );
 
   // Don't show banner for rejected rounds or if no round/quotes
