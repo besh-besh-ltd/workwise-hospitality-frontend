@@ -1086,11 +1086,7 @@ const EditRFQ = () => {
           console.error("Error updating RFQ:", error);
           setLoading(false);
           
-          if (error.response && error.response.data && error.response.data.message) {
-            toast.error(error.response.data.message);
-          } else {
-            toast.error(`Failed to update ${getEntityLabel(rfqData?.is_tender)}. Please check form fields and try again.`);
-          }
+          toast.error(error?.message || `Failed to update ${getEntityLabel(rfqData?.is_tender)}. Please check form fields and try again.`);
         }).finally(() => 
           setTimeout(() => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
