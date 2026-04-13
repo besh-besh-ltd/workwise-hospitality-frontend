@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
-import Select from "react-select";
-import Link from "next/link";
 import { getRfqs } from "@/services/rfq";
-import { getPoData, getPoDetails, handleMarkDispatched, handlePOApproval, handlePOInitialization, handleRaiseInvoice, updatePODetails } from "@/services/po";
+import { getPoData, getPoDetails, handleMarkDispatched, handlePOApproval, handlePOInitialization, handleRaiseInvoice, updatePODetails, handleAcceptPO, handleRejectPO } from "@/services/po";
 import { useRouter } from "next/router";
 import POListing from "./POListing";
 import PurchaseOrderDetails from "./PODetails";
@@ -10,7 +8,9 @@ import { toast } from "react-toastify";
 import { getCompanyUsers } from "@/services/Auth";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import RaiseInvoiceModal from "./RaiseInvoiceModal";
-import { Badge } from "react-bootstrap";
+import RFQListSidebar from "@/components/shared/RFQListSidebar";
+import { BsFileEarmarkText } from "react-icons/bs";
+import styles from "@/components/dashboard/buyer/purchase-order/PurchaseOrder.module.scss";
 
 const OrderBook = () => {
   const router = useRouter();
@@ -45,6 +45,11 @@ const OrderBook = () => {
     page: 1,
     limit: 10,
   })
+
+  // Accept/Reject PO state
+  const [acceptModal, setAcceptModal] = useState({ show: false, po: null });
+  const [rejectModal, setRejectModal] = useState({ show: false, po: null });
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const fetchCompanyUsers = async () => {
     try {
@@ -182,6 +187,53 @@ const OrderBook = () => {
     }
   }
 
+  const onAcceptPO = (po) => {
+    setAcceptModal({ show: true, po });
+  };
+
+  const onRejectPO = (po) => {
+    setRejectionReason('');
+    setRejectionError('');
+    setRejectModal({ show: true, po });
+  };
+
+  const confirmAcceptPO = async () => {
+    try {
+      setloading(true);
+      await handleAcceptPO(acceptModal.po.id);
+      toast.success(`PO #${acceptModal.po.po_number} accepted successfully!`);
+      setAcceptModal({ show: false, po: null });
+      getPOData();
+    } catch (error) {
+      const msg = error?.response?.data?.message || error.message || 'Failed to accept PO';
+      toast.error(msg);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const [rejectionError, setRejectionError] = useState('');
+
+  const confirmRejectPO = async () => {
+    if (!rejectionReason.trim()) {
+      setRejectionError('Please provide a reason for rejection.');
+      return;
+    }
+    setRejectionError('');
+    try {
+      setloading(true);
+      await handleRejectPO(rejectModal.po.id, rejectionReason);
+      toast.success(`PO #${rejectModal.po.po_number} rejected. The buyer has been notified.`);
+      setRejectModal({ show: false, po: null });
+      getPOData();
+    } catch (error) {
+      const msg = error?.response?.data?.message || error.message || 'Failed to reject PO';
+      toast.error(msg);
+    } finally {
+      setloading(false);
+    }
+  };
+
   const getPODetails = () => {
     if(!po) return;
 
@@ -235,7 +287,7 @@ const OrderBook = () => {
         <div className="container-fluid">
           <div className="row">
             <div className="col-md-6">
-              <h3 className="heading">Purchase Order Management</h3>
+              <h3 className="heading">Order Book</h3>
             </div>
           </div>
         </div>
@@ -243,149 +295,102 @@ const OrderBook = () => {
 
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
-          <div className="row">
-            <div className="col-md-2">
-              <div className="hasFullLoader">
-                <p className="px-1 pt-3 fs-6 mb-1 fw-medium">
-                  Please select a RFQ
-                </p>
-                <div className="py-1">
-                  <label>Search RFQ No.</label>
-                  <input
-                    className="form-control react-select"
-                    style={{
-                      borderRadius: "0.25rem",
-                      borderColor: "#ced4da",
-                      boxShadow: "none",
-                    }}
-                    value={rfqNo}
-                    onChange={(e) => setRfqNo(e.target.value)}
-                    name="rfq_type"
-                    placeholder="Ex. 123456"
-                    isClearable
-                    id="search_rfq_no-rfq_selection-purchase_order_page"
-                  />
-                </div>
-                {!rfqLoading && myRFQs && myRFQs.length === 0 ? (
-                  <p style={{ textAlign: "center" }}>No RFQs yet!</p>
-                ) : !rfqLoading && myRFQs && myRFQs.length > 0 ? (
-                  <ul
-                    className="overflow-y-auto mt-1"
-                    style={{ maxHeight: "70vh" }}
-                  >
-                    {myRFQs.map((item) => {
-                      const isSelected = item.id == rfq;
-                      return (
-                        <li
-                          key={item.id}
-                          className={`${
-                            isSelected ? "active rounded" : ""
-                          }`}
-                          style={!isSelected && item.approval_required ? { backgroundColor: '#fff3f3', borderLeft: '3px solid #dc3545' } : {}}
-                        >
-                          <Link
-                            href={`/dashboard/vendor/order-book/?rfq=${item?.id}`}
-                            className={`${
-                              isSelected ? "text-white" : "text-dark"
-                            }`}
-                            id={`rfq_item_${item.rfq_no}-rfq_selection-purchase_order_page`}
-                          >
-                            <span className="d-flex align-items-center gap-1 flex-wrap">
-                              RFQ #{item?.rfq_no}
-                              {!isSelected && item.approval_required && (
-                                <Badge bg="danger" style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Your Approval Required</Badge>
-                              )}
-                            </span>
-                            {item.project_name && item.project_name != "" && (
-                              <b
-                                className="d-block fw-semibold"
-                                style={{ fontSize: "14px" }}
-                              >
-                                {item.project_name}
-                              </b>
-                            )}
-                          </Link>
-                        </li>
-                      );
-                    })}
-
-                    {rfqLoading && (
-                      <div className="d-flex justify-content-center align-items-center">
-                        Loading ...
-                        <div
-                          className="spinner-border spinner-border-sm text-primary ms-2"
-                          role="status"
-                        >
-                          <span className="visually-hidden">Loading...</span>
-                        </div>
-                      </div>
-                    )}
-                  </ul>
-                ) : null}
-              </div>
-            </div>
-            <div className="col-md-10">
+          <div className={styles.layoutRow}>
+            <RFQListSidebar
+              title="Order Book"
+              rfqList={myRFQs}
+              loading={rfqLoading}
+              selectedRfqId={rfq ? parseInt(rfq) : null}
+              linkPrefix="/dashboard/vendor/order-book"
+              linkQueryKey="rfq"
+              rfqNo={rfqNo}
+              onRfqNoChange={setRfqNo}
+              searchPlaceholder="Search RFQ No."
+              showTypeFilter={false}
+              tabs={[
+                {
+                  key: 'action_required',
+                  label: 'Action Required',
+                  filter: (item) => item.has_acceptance_pending
+                },
+                {
+                  key: 'all',
+                  label: 'All',
+                }
+              ]}
+              defaultTab="action_required"
+              getItemTags={(item) => {
+                const tags = [];
+                if (item.has_acceptance_pending) {
+                  tags.push({ label: 'Action Required', variant: 'warning' });
+                }
+                if (item.approval_required) {
+                  tags.push({ label: 'Approval Required', variant: 'danger' });
+                }
+                return tags;
+              }}
+              pageId="vendor-order-book"
+            />
+            <div className={styles.contentColumn}>
               {!rfq && (
-                <div className="quote-sec-table quote-sec-tab mb-0">
-                  <div className="quote-sec-table-sub">
-                    <h4 className="text-center">
-                      Please select a RFQ to view its purchase orders!
-                    </h4>
+                <div className={styles.emptyState}>
+                  <div className={styles.emptyStateIcon}>
+                    <BsFileEarmarkText size={24} />
                   </div>
+                  <h4 className={styles.emptyStateTitle}>Select an RFQ to View Purchase Orders</h4>
+                  <p className={styles.emptyStateDesc}>
+                    Choose an RFQ from the sidebar to view and manage its purchase orders.
+                  </p>
                 </div>
               )}
               {rfq && !po && poData && (
-                <div className="quote-sec-table quote-sec-tab mb-0">
-                  <div>
-                    <POListing
-                      poList={poData}
-                      totalData={totalData}
-                      handleProgressStatus={handlePODecision}
-                      rfq_id={rfq}
-                      refetchPOList={getPOData}
-                      handleInitiatePO={handleInitiatePO}
-                      onSelect={(po_id) =>
-                        router.push(
-                          `/dashboard/vendor/order-book/?rfq=${rfq}&po=${po_id}`
-                        )
-                      }
-                      onEdit={(po_id) =>
-                        router.push(
-                          `/dashboard/vendor/order-book/?rfq=${rfq}&po=${po_id}&edit=true`
-                        )
-                      }
-                      companyUsers={companyUsers}
-                      approvalLevel={approvalLevel}
-                    />
-                  </div>
-                </div>
+                <POListing
+                  poList={poData}
+                  totalData={totalData}
+                  handleProgressStatus={handlePODecision}
+                  rfq_id={rfq}
+                  refetchPOList={getPOData}
+                  handleInitiatePO={handleInitiatePO}
+                  onSelect={(po_id) =>
+                    router.push(
+                      `/dashboard/vendor/order-book/?rfq=${rfq}&po=${po_id}`
+                    )
+                  }
+                  onEdit={(po_id) =>
+                    router.push(
+                      `/dashboard/vendor/order-book/?rfq=${rfq}&po=${po_id}&edit=true`
+                    )
+                  }
+                  companyUsers={companyUsers}
+                  approvalLevel={approvalLevel}
+                  onAcceptPO={onAcceptPO}
+                  onRejectPO={onRejectPO}
+                />
               )}
               {po && poDetails && (
-                <div className="quote-sec-table quote-sec-tab mb-0">
-                  <div>
-                    <PurchaseOrderDetails
-                      data={poDetails}
-                      handlePODecision={handlePODecision}
-                      refetchPODetails={getPODetails}
-                      handleInitiatePO={handleInitiatePO}
-                      handleBack={() => {
-                        setPODetails(null);
-                        router.push(
-                          `/dashboard/vendor/order-book/?rfq=${rfq}`,
-                          null,
-                          { shallow: true }
-                        );
-                      }}
-                      companyUsers={companyUsers}
-                      isEditing={isEditing}
-                      setIsEditing={setIsEditing}
-                      handleUpdatePO={async (payload) => {
-                        console.log("PO EDIT PAYLOAD:", payload)
-                        await handlePOEdit(payload);
-                      }}
-                    />
-                  </div>
-                </div>
+                <PurchaseOrderDetails
+                  data={poDetails}
+                  handlePODecision={handlePODecision}
+                  refetchPODetails={getPODetails}
+                  handleInitiatePO={handleInitiatePO}
+                  handleBack={() => {
+                    setPODetails(null);
+                    router.push(
+                      `/dashboard/vendor/order-book/?rfq=${rfq}`,
+                      null,
+                      { shallow: true }
+                    );
+                  }}
+                  companyUsers={companyUsers}
+                  isEditing={isEditing}
+                  setIsEditing={setIsEditing}
+                  handleUpdatePO={async (payload) => {
+                    console.log("PO EDIT PAYLOAD:", payload)
+                    await handlePOEdit(payload);
+                  }}
+                  onAcceptPO={onAcceptPO}
+                  onRejectPO={onRejectPO}
+                />
               )}
             </div>
           </div>
@@ -410,6 +415,61 @@ const OrderBook = () => {
         confirmButtonColor="warning"
         confirmButtonText="Initiate PO"
         cancelButtonText="Cancel"
+      />
+
+      {/* Accept PO Confirmation */}
+      <ConfirmationModal
+        isOpen={acceptModal.show}
+        onClose={() => setAcceptModal({ show: false, po: null })}
+        onConfirm={confirmAcceptPO}
+        title="Accept Purchase Order"
+        description={`Are you sure you want to accept PO #${acceptModal.po?.po_number || ''}? This confirms your commitment to fulfill this order as per the specified terms.`}
+        confirmButtonColor="success"
+        confirmButtonText="Yes, Accept PO"
+        cancelButtonText="Cancel"
+      />
+
+      {/* Reject PO with Reason */}
+      <ConfirmationModal
+        isOpen={rejectModal.show}
+        onClose={() => setRejectModal({ show: false, po: null })}
+        onConfirm={confirmRejectPO}
+        title="Reject Purchase Order"
+        description={`Are you sure you want to reject PO #${rejectModal.po?.po_number || ''}? The buyer will be notified and will need to finalize another vendor.`}
+        confirmButtonColor="danger"
+        confirmButtonText="Reject PO"
+        cancelButtonText="Cancel"
+        customFooter={
+          <div style={{ marginTop: 4 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#334155', marginBottom: 6 }}>
+              Reason for rejection <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <textarea
+              rows={3}
+              value={rejectionReason}
+              onChange={(e) => { setRejectionReason(e.target.value); if (rejectionError) setRejectionError(''); }}
+              placeholder="Please provide a reason for rejecting this PO..."
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                fontSize: 13.5,
+                color: '#1e293b',
+                border: `1px solid ${rejectionError ? '#ef4444' : '#e2e8f0'}`,
+                borderRadius: 8,
+                outline: 'none',
+                resize: 'vertical',
+                fontFamily: 'inherit',
+                lineHeight: 1.6,
+                transition: 'border-color 0.2s',
+              }}
+              onFocus={(e) => { e.target.style.borderColor = '#ef4444'; e.target.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.08)'; }}
+              onBlur={(e) => { e.target.style.borderColor = rejectionError ? '#ef4444' : '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
+            />
+            {rejectionError && (
+              <p style={{ margin: '6px 0 0', fontSize: 12.5, color: '#ef4444', fontWeight: 500 }}>{rejectionError}</p>
+            )}
+          </div>
+        }
       />
     </>
   );

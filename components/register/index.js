@@ -17,6 +17,7 @@ import BusinessDetailsStep from "./steps/BusinessDetailsStep";
 import BusinessUnitsStep from "./steps/BusinessUnitsStep";
 import BankDetailsStep from "./steps/BankDetailsStep";
 import ReviewPayStep from "./steps/ReviewPayStep";
+import RegistrationProgressBanner from "./RegistrationProgressBanner";
 import styles from "./Register.module.css";
 
 // ── AutoSave (renders inside Formik tree) ──────────
@@ -74,6 +75,7 @@ const Register = ({
 
   // ── Form state ─────────────────────────────────
   const [loading, setLoading] = useState(false);
+  const [registrationStep, setRegistrationStep] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showCPassword, setShowCPassword] = useState(false);
@@ -519,6 +521,7 @@ const Register = ({
   // ── Submit handler ─────────────────────────────
   const registerSubmitHandler = async (values, resetForm) => {
     setLoading(true);
+    if (isHospitality) setRegistrationStep("uploading");
     persistLocationDraft(values);
 
     const selectedCategories = values.categories || [];
@@ -549,11 +552,12 @@ const Register = ({
 
     // Document checks
     if (isHospitality) {
-      if (!documentFiles.pan) { setLoading(false); return toast.error("PAN upload is required"); }
-      if (updatedValues.gstin && !documentFiles.gst) { setLoading(false); return toast.error("GST certificate upload is required when GST number is provided"); }
-      if (updatedValues.msme && !documentFiles.msme) { setLoading(false); return toast.error("MSME certificate upload is required when MSME number is provided"); }
-      if (needsFssai && (!updatedValues.fssai || !documentFiles.fssai)) { setLoading(false); return toast.error("FSSAI number and document are required for selected categories"); }
-      if (!documentFiles.cancelled_cheque) { setLoading(false); return toast.error("Cancelled cheque upload is required"); }
+      const resetOnError = () => { setLoading(false); setRegistrationStep(null); };
+      if (!documentFiles.pan) { resetOnError(); return toast.error("PAN upload is required"); }
+      if (updatedValues.gstin && !documentFiles.gst) { resetOnError(); return toast.error("GST certificate upload is required when GST number is provided"); }
+      if (updatedValues.msme && !documentFiles.msme) { resetOnError(); return toast.error("MSME certificate upload is required when MSME number is provided"); }
+      if (needsFssai && (!updatedValues.fssai || !documentFiles.fssai)) { resetOnError(); return toast.error("FSSAI number and document are required for selected categories"); }
+      if (!documentFiles.cancelled_cheque) { resetOnError(); return toast.error("Cancelled cheque upload is required"); }
     }
 
     // Upload documents to S3 first, then send JSON
@@ -577,6 +581,7 @@ const Register = ({
         });
       } catch (error) {
         setLoading(false);
+        setRegistrationStep(null);
         toast.error("Failed to upload documents. Please try again.", { position: "top-center" });
         return;
       }
@@ -594,10 +599,11 @@ const Register = ({
       if (updatedValues.subcategories) payload.subcategories = values.subcategories || [];
     }
 
+    if (isHospitality) setRegistrationStep("registering");
+
     axiosInstance
       .post("/users/company-registration", payload)
       .then((response) => {
-        setLoading(false);
         resetForm();
         clearDraft(); // Clear draft on success
         if (!(isHospitality && onRegistrationSuccess)) {
@@ -605,6 +611,7 @@ const Register = ({
         }
 
         if (onRegistrationSuccess && typeof onRegistrationSuccess === "function") {
+          if (isHospitality) setRegistrationStep("authenticating");
           const loginData = { email: updatedValues.email, password: updatedValues.password };
           LoginService(loginData, false)
             .then(async (loginResponse) => {
@@ -612,6 +619,7 @@ const Register = ({
               if (!userKey && loginResponse.status === 5 && loginResponse.hospitality_user) {
                 userKey = loginResponse.hospitality_user.user_key;
               }
+              if (isHospitality) setRegistrationStep("payment");
               onRegistrationSuccess({
                 ...updatedValues,
                 categories: selectedCategories, subcategories: selectedSubcategories,
@@ -621,6 +629,7 @@ const Register = ({
               });
             })
             .catch(() => {
+              if (isHospitality) setRegistrationStep("payment");
               onRegistrationSuccess({
                 ...updatedValues,
                 categories: selectedCategories, subcategories: selectedSubcategories,
@@ -629,11 +638,14 @@ const Register = ({
               });
             });
         } else {
+          setLoading(false);
+          setRegistrationStep(null);
           setTimeout(() => { router.push({ pathname: "/", query: { user_registered: 1 } }); }, 1000);
         }
       })
       .catch((error) => {
         setLoading(false);
+        setRegistrationStep(null);
         if (error?.response?.data?.message) {
           toast.error(error.response.data.message, { position: "top-center" });
         } else if (error?.response?.data?.errors) {
@@ -658,10 +670,14 @@ const Register = ({
   // ── Render ─────────────────────────────────────
   return (
     <div className={styles.registerContainer}>
-      {loading && (
+      {loading && !registrationStep && (
         <div className={styles.loadingOverlay}>
           <div className={styles.loadingSpinner} />
         </div>
+      )}
+
+      {registrationStep && (
+        <RegistrationProgressBanner currentStep={registrationStep} />
       )}
 
       {showDraftBanner && (
@@ -685,6 +701,7 @@ const Register = ({
       >
         {({ errors, touched, setFieldValue, values, validateForm, setTouched, resetForm }) => (
           <Form>
+            <fieldset disabled={!!registrationStep} style={{ border: "none", padding: 0, margin: 0, opacity: registrationStep ? 0.5 : 1, transition: "opacity 0.3s", pointerEvents: registrationStep ? "none" : "auto" }}>
             {(() => {
               const selectedCategoryNames = categoryOptions
                 .filter((opt) => values.categories?.includes(opt.value))
@@ -827,7 +844,7 @@ const Register = ({
                     }
                   }}
                 >
-                  {loading ? "Registering..." : isHospitality ? "Register & Pay" : "Register"}
+                  {registrationStep ? "Processing..." : loading ? "Registering..." : isHospitality ? "Register & Pay" : "Register"}
                 </button>
               ) : (
                 <button
@@ -843,6 +860,7 @@ const Register = ({
                 </>
               );
             })()}
+            </fieldset>
           </Form>
         )}
       </Formik>

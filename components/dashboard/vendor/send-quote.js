@@ -332,7 +332,7 @@ const originalPaymentTermsListRef = useRef(null);
 
 const openQuoteHistoryModal = async (product_variant_id, index) => {
   try {
-    const response = await fetchQuoteHistory(product_variant_id);
+    const response = await fetchQuoteHistory(product_variant_id, token);
     setQuoteHistory(response); // load data
     setShowQuoteHistoryModal(true); // open modal
   } catch (error) {
@@ -409,7 +409,7 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
     const checkNegotiationStatus = async () => {
       if (!id || !rfqDetails?.id) return;
       try {
-        const response = await getAllVendorNegotiationStatus(id);
+        const response = await getAllVendorNegotiationStatus(id, token);
         if (response?.status === 1 && response?.data) {
           const statusMap = {};
           response.data.forEach((round) => {
@@ -451,7 +451,7 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
     if (expired && id) {
       const fetchActiveRounds = async () => {
         try {
-          const response = await getAllActiveNegotiationRounds(id);
+          const response = await getAllActiveNegotiationRounds(id, token);
           const now = new Date();
           const activeRounds = (response?.data || []).filter(
             r => {
@@ -2886,6 +2886,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         <ProductNegotiationBadge
                                           rfq_id={rfqDetails.id}
                                           rfq_product_id={item.id}
+                                          token={token}
                                         />
                                       )}
                                       {isProductFinalized && (

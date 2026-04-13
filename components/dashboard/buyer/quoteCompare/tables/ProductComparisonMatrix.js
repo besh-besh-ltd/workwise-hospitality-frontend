@@ -16,10 +16,8 @@ import RoundEndActions from "@/components/dashboard/buyer/negotiation/RoundEndAc
 import ApprovalWorkflowSection from "@/components/dashboard/buyer/approval/ApprovalWorkflowSection";
 import {
   approveNegotiationQuotes,
-  getQuoteApprovalStatus,
   rejectNegotiationQuotes,
 } from "@/services/negotiation";
-import { getAvailableHierarchies } from "@/services/general";
 import { addCommasToNumber, calculateTotal } from "@/utils/sharedFunctions";
 import {
   buildProductComparisonModel,
@@ -203,6 +201,10 @@ const ProductComparisonMatrix = ({
   hospitalityCompanyId = null,
   hotelId = null,
   departmentId = null,
+  preloadedHierarchies = null,
+  preloadedQuoteApprovalStatus = null,
+  preloadedInstances = null,
+  vendorRejections = [],
 }) => {
   const router = useRouter();
   const activeRfqId = rfqId || router.query?.rfq;
@@ -215,10 +217,14 @@ const ProductComparisonMatrix = ({
   });
   const [existingPOId, setExistingPOId] = useState(null);
   const [selectedRouteType, setSelectedRouteType] = useState(null);
-  const [availableHierarchies, setAvailableHierarchies] = useState([]);
-  const [useLegacyHierarchy, setUseLegacyHierarchy] = useState(false);
-  const [quoteApprovalStatus, setQuoteApprovalStatus] = useState(null);
-  const [approvalRefreshKey, setApprovalRefreshKey] = useState(0);
+  const [quoteApprovalStatus, setQuoteApprovalStatus] = useState(preloadedQuoteApprovalStatus);
+
+  // Sync quoteApprovalStatus when parent refetches quotes (preloaded prop updates)
+  useEffect(() => { setQuoteApprovalStatus(preloadedQuoteApprovalStatus); }, [preloadedQuoteApprovalStatus]);
+
+  // Read hierarchies from parent prop (lifted to quote-compare.js to avoid N duplicate calls)
+  const availableHierarchies = preloadedHierarchies?.hierarchies || [];
+  const useLegacyHierarchy = preloadedHierarchies?.useLegacy ?? false;
 
   const model = useMemo(
     () =>
@@ -246,33 +252,7 @@ const ProductComparisonMatrix = ({
     ]
   );
 
-  useEffect(() => {
-    getAvailableHierarchies("po", projectId)
-      .then((result) => {
-        setAvailableHierarchies(result.data || []);
-        setUseLegacyHierarchy(result.use_legacy_hierarchy !== false);
-      })
-      .catch(() => {
-        setAvailableHierarchies([]);
-      });
-  }, [projectId]);
-
-  useEffect(() => {
-    if (!proditem?.id) return;
-
-    getQuoteApprovalStatus(proditem.id)
-      .then((response) => {
-        if (response?.status === 1 && response?.data) {
-          setQuoteApprovalStatus(response.data);
-        } else {
-          setQuoteApprovalStatus(null);
-        }
-      })
-      .catch(() => setQuoteApprovalStatus(null));
-  }, [proditem?.id, approvalRefreshKey]);
-
   const handleApprovalActionComplete = () => {
-    setApprovalRefreshKey((prev) => prev + 1);
     if (onRoundEnded) onRoundEnded();
   };
 
@@ -530,6 +510,7 @@ const ProductComparisonMatrix = ({
             onCustomApprove={handleCustomQuoteApprove}
             onCustomReject={handleCustomQuoteReject}
             onActionComplete={handleApprovalActionComplete}
+            preloadedInstances={preloadedInstances}
           />
         </div>
       ) : null}
@@ -588,6 +569,9 @@ const ProductComparisonMatrix = ({
                     statuses.push({ label: "Missing", tone: "warning" });
                   }
                   if (column.isRegret) statuses.push({ label: "Regret", tone: "danger" });
+                  if (vendorRejections.some(r => String(r.vendor_id) === String(column.vendorId))) {
+                    statuses.push({ label: "PO Rejected", tone: "danger" });
+                  }
 
                   return (
                     <th
@@ -698,6 +682,81 @@ const ProductComparisonMatrix = ({
           ))}
         </div>
       </ComparisonMatrixShell>
+
+      {/* Vendor PO Rejection Alert — shown above the Lowest Bid section */}
+      {vendorRejections.length > 0 && alreadyFinalized?.length == 0 && (() => {
+        const eligible = model.columns.filter(c => !c.isRegret && c.total > 0);
+        const rejectedVendorIds = new Set(vendorRejections.map(r => String(r.vendor_id)));
+        const otherVendors = eligible.filter(c => !rejectedVendorIds.has(String(c.vendorId)));
+        const lastRejection = vendorRejections[vendorRejections.length - 1];
+        const rejectedVendorName = lastRejection.vendor_organization || lastRejection.vendor_name;
+
+        // Was the rejected vendor L1?
+        const rejectedColumn = eligible.find(c => String(c.vendorId) === String(lastRejection.vendor_id));
+        const wasL1 = rejectedColumn?.rank === 'L1';
+
+        // No other vendors available
+        if (otherVendors.length === 0) {
+          return (
+            <div style={{
+              background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10,
+              padding: '14px 18px', marginBottom: 12, marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 10,
+            }}>
+              <span style={{ fontSize: 18, lineHeight: 1 }}>🚫</span>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#991B1B' }}>
+                  {rejectedVendorName} rejected the PO for this product
+                </div>
+                {lastRejection.vendor_rejection_reason && (
+                  <div style={{ fontSize: 12.5, color: '#991B1B', marginTop: 2, opacity: 0.85 }}>
+                    Reason: {lastRejection.vendor_rejection_reason}
+                  </div>
+                )}
+                <div style={{ fontSize: 12.5, color: '#7F1D1D', marginTop: 6, lineHeight: 1.5 }}>
+                  No other vendor has quoted for this product. You may <strong>wait for additional quotes</strong> or <strong>finalize this vendor again</strong> below.
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Other vendors available — suggest L2 if rejected was L1, else suggest L1
+        const suggested = wasL1 ? otherVendors[0] : eligible[0];
+        const suggestLabel = wasL1
+          ? `Recommended: L2 — ${suggested?.vendorName}`
+          : `Recommended: L1 — ${suggested?.vendorName}`;
+
+        return (
+          <div style={{
+            background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10,
+            padding: '14px 18px', marginBottom: 12, marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 10,
+          }}>
+            <span style={{ fontSize: 18, lineHeight: 1 }}>💡</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1E40AF' }}>
+                {rejectedVendorName} rejected the PO for this product
+              </div>
+              {lastRejection.vendor_rejection_reason && (
+                <div style={{ fontSize: 12.5, color: '#1E40AF', marginTop: 2, opacity: 0.85 }}>
+                  Reason: {lastRejection.vendor_rejection_reason}
+                </div>
+              )}
+              <div style={{
+                marginTop: 8, padding: '8px 12px', background: '#DBEAFE', borderRadius: 8,
+                fontSize: 13, fontWeight: 600, color: '#1E3A8A', display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                <span style={{ fontSize: 15 }}>→</span>
+                {suggestLabel}
+                {suggested && (
+                  <span style={{ fontWeight: 400, marginLeft: 4, color: '#3B82F6' }}>
+                    (Rs. {addCommasToNumber(suggested.total)})
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {alreadyFinalized?.length == 0 ? (
         <div className={styles.footerCards}>

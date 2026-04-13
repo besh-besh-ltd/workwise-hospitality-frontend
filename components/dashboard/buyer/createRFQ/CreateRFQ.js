@@ -32,7 +32,7 @@ import { Accordion } from "react-bootstrap";
 import { getCountryCodes } from "@/services/cms";
 import axiosInstance from "@/lib/axios";
 import ViewVendorModal from "../editRFQ/ViewVendorModal";
-import { subscriptionTypes, vendorConditions } from "../../vendor/search";
+import { subscriptionTypes, vendorConditions } from "../../vendor/searchConfig";
 import { getProductMakeList } from "@/services/products";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import AddVendorModal from "../editRFQ/AddVendorModal";

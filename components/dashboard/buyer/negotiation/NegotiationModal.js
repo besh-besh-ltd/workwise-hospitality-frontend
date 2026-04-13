@@ -32,7 +32,8 @@ const NegotiationModal = ({
   permissionsLoading = false,
   hospitalityCompanyId,
   hotelId,
-  departmentId
+  departmentId,
+  preloadedApprovalBundle = null,
 }) => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [formData, setFormData] = useState({ target_price: '', end_date: '' });
@@ -92,13 +93,19 @@ const NegotiationModal = ({
 
   const loadHistoryData = async () => {
     if (!rfq_id) return;
+
+    // Use prop data if available
+    if (initialRoundsHistory.length > 0) {
+      setRoundsHistory(initialRoundsHistory);
+      return;
+    }
+
+    // Fallback: fetch from API
     try {
       setLoading(true);
       const response = await getNegotiationRounds(rfq_id);
-      console.log('Modal history raw response:', response);
-      
+
       let rounds = [];
-      
       if (response) {
         if (response.status === 1 && response.data) {
           rounds = Array.isArray(response.data) ? response.data : [];
@@ -108,8 +115,7 @@ const NegotiationModal = ({
           rounds = response.data;
         }
       }
-      
-      console.log('Modal parsed history rounds:', rounds, 'Count:', rounds.length);
+
       setRoundsHistory(rounds);
     } catch (error) {
       console.error('Error loading history in modal:', error);
@@ -124,6 +130,20 @@ const NegotiationModal = ({
     const pendingRounds = rounds.filter(r => r.status === 'PENDING_APPROVAL' || r.status === 'pending_approval');
     if (pendingRounds.length === 0) return;
 
+    // Use preloaded bundle if available
+    if (preloadedApprovalBundle) {
+      const instances = {};
+      for (const round of pendingRounds) {
+        const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)];
+        if (bundled && bundled.length > 0) {
+          instances[round.rfq_product_id] = bundled[0]; // Latest instance
+        }
+      }
+      setApprovalInstances(instances);
+      return;
+    }
+
+    // Fallback: fetch from API
     setLoadingApprovals(true);
     const instances = {};
 
@@ -133,7 +153,6 @@ const NegotiationModal = ({
         const instanceList = response?.data?.data || response?.data || [];
 
         if (instanceList && instanceList.length > 0) {
-          // Get detailed instance with can_user_approve
           const detailResponse = await getApprovalInstanceDetails(instanceList[0].id);
           const detailedInstance = detailResponse?.data?.data || detailResponse?.data;
           instances[round.rfq_product_id] = detailedInstance;
@@ -151,6 +170,20 @@ const NegotiationModal = ({
   const loadQuoteApprovalStatuses = async () => {
     if (!products || products.length === 0) return;
 
+    // Use preloaded bundle if available
+    if (preloadedApprovalBundle) {
+      const statuses = {};
+      for (const product of products) {
+        const bundled = preloadedApprovalBundle.negotiation_quote_instances?.[String(product.id)];
+        if (bundled && bundled.length > 0) {
+          statuses[product.id] = bundled[0]; // Latest instance
+        }
+      }
+      setQuoteApprovalStatuses(statuses);
+      return;
+    }
+
+    // Fallback: fetch from API
     setLoadingQuoteApprovals(true);
     const statuses = {};
 
@@ -180,12 +213,20 @@ const NegotiationModal = ({
     const roundId = round.id;
     setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: true, instances: [] } }));
 
+    // Use preloaded bundle if available
+    if (preloadedApprovalBundle) {
+      const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+      const sorted = [...bundled].sort((a, b) => (a.id || 0) - (b.id || 0));
+      setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: sorted } }));
+      return;
+    }
+
+    // Fallback: fetch from API
     try {
       const response = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
       const instanceList = response?.data?.data || response?.data || [];
       const allInstances = Array.isArray(instanceList) ? instanceList : [];
 
-      // Fetch details for each instance
       const detailedInstances = [];
       for (const inst of allInstances) {
         try {
@@ -193,14 +234,11 @@ const NegotiationModal = ({
           const detail = detailRes?.data?.data || detailRes?.data || detailRes;
           detailedInstances.push(detail);
         } catch (err) {
-          // If detail fetch fails, use basic instance data
           detailedInstances.push(inst);
         }
       }
 
-      // Sort by id ascending (oldest first to show the journey chronologically)
       detailedInstances.sort((a, b) => (a.id || 0) - (b.id || 0));
-
       setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: detailedInstances } }));
     } catch (error) {
       console.error('Error loading approval journey for round:', roundId, error);

@@ -13,7 +13,7 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import Select from 'react-select';
 import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import ProductSearchModal from "../../../modal/ProductSearchModal";
-import { vendorConditions } from "../../vendor/search";
+import { vendorConditions } from "../../vendor/searchConfig";
 import axiosInstance from "@/lib/axios";
 import { useRouter } from "next/router";
 import ProcessingRFQ from "./processingRFQ/ProcessingRFQ";

@@ -1,67 +1,52 @@
-import { getCompanyUsers } from "@/services/Auth";
-import { handlePOApproval } from "@/services/po";
 import useDebounce, { addCommasToNumber, formatDisplayDate } from "@/utils/sharedFunctions";
-import Link from "next/link";
 import React, { useEffect, useState } from "react";
-import { IoMdEye } from "react-icons/io";
-import { FaTruckRampBox } from "react-icons/fa6";
-import { BsFilePdf } from "react-icons/bs";
-import { FiExternalLink, FiSend } from "react-icons/fi";
-import { toast } from "react-toastify";
 import Pagination from "@/components/shared/Pagination";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
-import POCard from "./POCard";
+import { Badge, OverlayTrigger, Tooltip } from "react-bootstrap";
+import { IoMdEye } from "react-icons/io";
+import { FiSend } from "react-icons/fi";
+import { FaTruckRampBox } from "react-icons/fa6";
+import { BsFilePdf, BsCheck } from "react-icons/bs";
+import { MdClose } from "react-icons/md";
+import { toast } from "react-toastify";
+import cardStyles from "@/components/dashboard/buyer/purchase-order/POCard.module.scss";
+import styles from "@/components/dashboard/buyer/purchase-order/PurchaseOrder.module.scss";
 
 const statusVariants = {
+  acceptance_pending: "warning",
   approved: "success",
   sent: "primary",
   invoice_raised: "success",
   dispatched: "success",
-  GRN: "success"
+  GRN: "success",
+  rejected_by_vendor: "danger"
 };
 
-const baseStyle = {
-  border: "1px solid",
-  borderRadius: "8px",
-  padding: "7px 14px",
-  marginRight: "10px",
-  cursor: "pointer",
-  fontSize: "1.05rem",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  transition: "background-color 0.2s",
+const statusLabels = {
+  acceptance_pending: "Awaiting",
+  approved: "Accepted",
+  sent: "Sent",
+  invoice_raised: "Invoice",
+  dispatched: "Dispatched",
+  GRN: "GRN",
+  rejected_by_vendor: "Rejected",
 };
 
-const styles = {
-  approve: {
-    ...baseStyle,
-    backgroundColor: "#e8f9ed",
-    borderColor: "#b2e2c7",
-    color: "#28a745",
-  },
-  reject: {
-    ...baseStyle,
-    backgroundColor: "#fdeceb",
-    borderColor: "#f5b5b5",
-    color: "#dc3545",
-  },
-  primary: {
-    ...baseStyle,
-    backgroundColor: "#f0f4ff",
-    borderColor: "#d6e0f5",
-    color: "#0d6efd",
-  },
-  warning: {
-    ...baseStyle,
-    backgroundColor: "rgba(252, 255, 240, 1)",
-    borderColor: "#efeb95ff",
-    color: "#a79f28ff",
-  },
-};
+const filterInputStyle = { padding: '7px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', color: '#1a2730', outline: 'none', width: '100%' };
+const filterLabelStyle = { fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' };
 
-const formatISTDate = (utcString) => {
-  return formatDisplayDate(utcString, { includeTime: true });
+const formatISTDate = (utcString) => formatDisplayDate(utcString, { includeTime: true });
+
+const getRelativeTime = (dateString) => {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return '1d ago';
+  if (diffDays < 30) return `${diffDays}d ago`;
+  const diffMonths = Math.floor(diffDays / 30);
+  return `${diffMonths}mo ago`;
 };
 
 const POListing = ({
@@ -75,6 +60,8 @@ const POListing = ({
   onEdit,
   companyUsers,
   approvalLevel,
+  onAcceptPO,
+  onRejectPO,
 }) => {
   const [showRaiseInvoiceModal, setShowRaiseInvoiceModal] = useState(false);
   const [showMarkDispatchedModal, setShowMarkDispatchedModal] = useState(false);
@@ -82,7 +69,6 @@ const POListing = ({
 
   const [filters, setFilters] = useState({
     poNumber: "",
-    initiatedBy: "",
     status: "",
     dateFrom: "",
     dateTo: "",
@@ -90,7 +76,7 @@ const POListing = ({
     limit: 10,
   });
 
-  const debouncedPONumber = useDebounce(filters.poNumber, 700); // 👈 Debounced PO Number
+  const debouncedPONumber = useDebounce(filters.poNumber, 700);
 
   const handleRaiseInvoiceClick = (po) => {
     setPendingPO(po);
@@ -101,12 +87,10 @@ const POListing = ({
     setPendingPO(po);
     setShowMarkDispatchedModal(true);
   };
-  
+
   const handleApproveConfirm = async () => {
     if (pendingPO) {
-      await handleProgressStatus(pendingPO.id, {
-        type: "invoice",
-      }, pendingPO);
+      await handleProgressStatus(pendingPO.id, { type: "invoice" }, pendingPO);
       setShowRaiseInvoiceModal(false);
       setPendingPO(null);
       resetFilters();
@@ -115,288 +99,173 @@ const POListing = ({
 
   const handleMarkDispatchedConfirm = async () => {
     if (pendingPO) {
-      await handleProgressStatus(pendingPO.id, {
-        type: "dispatch",
-      }, pendingPO);
+      await handleProgressStatus(pendingPO.id, { type: "dispatch" }, pendingPO);
       setShowMarkDispatchedModal(false);
       setPendingPO(null);
       resetFilters();
     }
   };
 
-  const handleApproveCancel = () => {
-    setShowRaiseInvoiceModal(false);
-    setPendingPO(null);
-  };
-
-  const handleMarkDispatchedCancel = () => {
-    setShowMarkDispatchedModal(false);
-    setPendingPO(null);
-  };
-
-  const POReviewCompact = (poData) => {
-    if(!poData) return null;
-    
-    const pdfUrl = poData.poPdfUrl;
-    const fileName = `PO_${poData.po_number}.pdf`;
-
-    return (
-      <div className="card border-0">
-        <div className="card-body">
-          <div className="flex align-items-center gap-2">
-            <div>
-              <BsFilePdf size={32} className="text-danger" />
-            </div>
-            <div className="mt-1">
-              <div className="fw-semibold">{fileName}</div>
-              <small className="text-muted">Purchase Order Document</small>
-            </div>
-            <div className="mt-2">
-              <a 
-                className="btn p-2 btn-outline-secondary"
-                href={pdfUrl}
-                target="__blank"
-              >
-                View
-                <FiExternalLink className="ms-1" size={12} />
-              </a>
-            </div>
-          </div>
-          <div className="mt-2">
-            <small className="text-muted">
-              Click to preview the formal PO document.
-            </small>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const resetFilters = () =>
-    setFilters({
-      poNumber: "",
-      initiatedBy: "",
-      status: "",
-      dateFrom: "",
-      dateTo: "",
-      page: 1,
-      limit: 10,
-    });
+    setFilters({ poNumber: "", status: "", dateFrom: "", dateTo: "", page: 1, limit: 10 });
 
   useEffect(() => {
-    refetchPOList({
-      ...filters,
-      poNumber: debouncedPONumber,
-    });
-  }, [
-    debouncedPONumber,
-    filters.initiatedBy,
-    filters.status,
-    filters.dateFrom,
-    filters.dateTo,
-    filters.page,
-    filters.limit,
-  ]);
+    refetchPOList({ ...filters, poNumber: debouncedPONumber });
+  }, [debouncedPONumber, filters.status, filters.dateFrom, filters.dateTo, filters.page, filters.limit]);
 
   return (
-    <div className="details-table">
-      <h4 className="mb-4">Order Book for this RFQ</h4>
+    <div>
+      <div className={styles.listingHeader}>
+        <h4 className={styles.listingTitle}>
+          Order Book
+          <span className={styles.listingCount}>({totalData})</span>
+        </h4>
+      </div>
 
-      {/* Filters */}
-      <div className="mb-4 d-flex gap-1 justify-content-between">
-        <div>
-          <label>PO Number</label>
-          <input
-            type="text"
-            className="form-control w-100"
-            value={filters.poNumber}
-            placeholder="Enter a PO Number"
-            onChange={(e) =>
-              setFilters({ ...filters, poNumber: e.target.value })
-            }
-          />
+      {/* Filter Bar */}
+      <div className={styles.filterBar}>
+        <div className={styles.filterGroup} style={{ flex: 1, minWidth: 0 }}>
+          <span style={filterLabelStyle}>PO Number</span>
+          <input type="text" value={filters.poNumber} placeholder="Search..." style={filterInputStyle}
+            onChange={(e) => setFilters({ ...filters, poNumber: e.target.value })} />
         </div>
-        <div>
-          <label>Status</label>
-          <select
-            className="form-select"
-            value={filters.status}
-            onChange={(e) =>
-              setFilters({ ...filters, status: e.target.value })
-            }
-          >
+        <div className={styles.filterGroup} style={{ flex: 1, minWidth: 0 }}>
+          <span style={filterLabelStyle}>Status</span>
+          <select value={filters.status} style={filterInputStyle}
+            onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
             <option value="">All</option>
-            {Object.keys(statusVariants).map((status) => (
-              <option key={status} value={status}>
-                {status.charAt(0).toUpperCase() +
-                  status.slice(1).replace("_", " ")}
-              </option>
+            {Object.keys(statusVariants).map((s) => (
+              <option key={s} value={s}>{statusLabels[s] || s.replace(/_/g, " ")}</option>
             ))}
           </select>
         </div>
-        <div>
-          <label>From</label>
-          <input
-            type="date"
-            className="form-control"
-            style={{ minWidth: 200 }}
-            value={filters.dateFrom}
-            onChange={(e) =>
-              setFilters({ ...filters, dateFrom: e.target.value })
-            }
-          />
+        <div className={styles.filterGroup} style={{ flex: 1, minWidth: 0 }}>
+          <span style={filterLabelStyle}>From</span>
+          <input type="date" value={filters.dateFrom} style={filterInputStyle}
+            onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })} />
         </div>
-        <div>
-          <label>To</label>
-          <input
-            disabled={!filters.dateFrom}
-            type="date"
-            className="form-control"
-            style={{ minWidth: 200 }}
-            min={filters.dateFrom}
-            value={filters.dateTo}
-            onChange={(e) =>
-              setFilters({ ...filters, dateTo: e.target.value })
-            }
-          />
+        <div className={styles.filterGroup} style={{ flex: 1, minWidth: 0 }}>
+          <span style={filterLabelStyle}>To</span>
+          <input type="date" value={filters.dateTo} style={filterInputStyle}
+            min={filters.dateFrom} disabled={!filters.dateFrom}
+            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })} />
         </div>
-        <div className="mt-auto" style={{ marginBottom: 2 }}>
-          <button
-            onClick={resetFilters}
-            className="btn btn-outline-primary p-1"
-            style={{ maxWidth: 90 }}
-            id="clear_filters-po_listing-purchase_order_page"
-          >
-            Clear
-          </button>
+        <div style={{ alignSelf: 'flex-end' }}>
+          <button onClick={resetFilters} className={styles.filterClearBtn}>Clear</button>
         </div>
       </div>
 
-      <div className="table-responsive">
-        {approvalLevel == -1 ? (
-          <div className="d-flex flex-column">
-            {poList.length === 0 ? (
-              <p className="text-center text-muted">
-                No purchase orders found.
-              </p>
-            ) : (
-              poList.map((po) => {
-                return (
-                  <POCard
-                    po={po}
-                    onClick={() => onSelect(po.id)}
-                    initiatePO={() => handleInitiatePO(po.id)}
-                  />
-                );
-              })
-            )}
-          </div>
-        ) : (
-          <table className="table table-stripped table-hover align-middle">
-            <thead className="table-light">
-              <tr className="text-center">
-                <th>PO Number</th>
-                <th>Status</th>
-                <th>Product</th>
-                <th>Quantity</th>
-                <th>Total Value</th>
-                <th>Initiated By</th>
-                <th>Created At</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {poList.length === 0 ? (
-                <tr>
-                  <td colSpan="11" className="text-center text-muted">
-                    No purchase orders found.
-                  </td>
-                </tr>
-              ) : (
-                poList.map((po) => {
-                  const showRaiseInvoice = po.status === "approved";
-                  const showDispatch = po.status === "invoice_raised";
+      {/* Table-Row Layout (matches buyer POCard.module.scss) */}
+      <div className={cardStyles.rowContainer}>
+        {/* Header */}
+        <div className={cardStyles.headerRow}>
+          <div className={cardStyles.colStatus}>Status</div>
+          <div className={cardStyles.colPoNumber}>PO #</div>
+          <div className={cardStyles.colVendor}>Buyer</div>
+          <div className={cardStyles.colProducts}>Items</div>
+          <div className={cardStyles.colQuantity}>Qty</div>
+          <div className={cardStyles.colValue}>Value</div>
+          <div className={cardStyles.colDate}>Created</div>
+          <div className={cardStyles.colActions}>Actions</div>
+        </div>
 
-                  return (
-                    <tr
-                      key={po.id}
-                      className="text-center"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => onSelect(po.id)}
-                    >
-                      <td className="fs-6">
-                        # <strong>{po.po_number}</strong>
-                      </td>
-                      <td>
-                        <span
-                          className={`badge bg-${
-                            statusVariants[po.status] || "secondary"
-                          } text-capitalize`}
-                        >
-                          {po.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="d-flex flex-column">
-                          {po.product_details.map(p => (
-                            <span>{p.name}</span>
-                          ))}
-                        </div>
-                      </td>
-                      <td>{po.quantity}</td>
-                      <td>₹ {addCommasToNumber(po.total_value)}</td>
-                      <td>{po.initiated_by ?? "-"}</td>
-                      <td>{formatISTDate(po.created_at)}</td>
-                      <td>
-                        {showRaiseInvoice ? (
-                          <div className="d-flex align-items-center justify-content-center">
-                            <button
-                              style={styles.warning}
-                              title="Raise Invoice"
-                              id={`raise_invoice_${po.id}-po_actions-po_listing_vendor`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRaiseInvoiceClick(po);
-                              }}
-                            >
-                              <FiSend />
-                              <small className="ms-1 fw-medium">Raise Invoice</small>
-                            </button>
-                          </div>
-                        ) : showDispatch ? (
-                          <div className="d-flex align-items-center justify-content-center">
-                            <button
-                              style={styles.approve}
-                              title="Mark as Dispatched"
-                              id={`view_po_${po.id}-po_actions-po_listing`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMarkDispatchClick(po);
-                              }}
-                            >
-                              <FaTruckRampBox />
-                              <small className="ms-1 fw-medium">Mark Dispatched</small>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="d-flex align-items-center justify-content-center">
-                            <button
-                              style={styles.primary}
-                              title="View This PO"
-                              id={`view_po_${po.id}-po_actions-po_listing`}
-                            >
-                              <IoMdEye />
-                              <small className="ms-1 fw-medium">View</small>
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+        {/* Rows */}
+        {poList.length === 0 ? (
+          <div className={cardStyles.emptyRow}>No purchase orders found.</div>
+        ) : (
+          poList.map((po) => {
+            const isAcceptancePending = po.status === 'acceptance_pending';
+            const isRejectedByVendor = po.status === 'rejected_by_vendor';
+            const showRaiseInvoice = po.status === 'approved';
+            const showDispatch = po.status === 'invoice_raised';
+
+            const rowClass = [
+              cardStyles.poRow,
+              isAcceptancePending ? cardStyles.userAction : '',
+              isRejectedByVendor ? cardStyles.isRejected : '',
+              po.status === 'approved' ? cardStyles.isApproved : '',
+            ].filter(Boolean).join(' ');
+
+            return (
+              <div
+                key={po.id}
+                className={rowClass}
+                onClick={() => onSelect(po.id)}
+              >
+                <div className={cardStyles.colStatus}>
+                  <Badge bg={statusVariants[po.status] || 'secondary'} className={cardStyles.statusBadge}>
+                    {statusLabels[po.status] || po.status.replace(/_/g, ' ')}
+                  </Badge>
+                </div>
+                <div className={cardStyles.colPoNumber}>
+                  <span className={cardStyles.poNum}>{po.po_number}</span>
+                </div>
+                <div className={cardStyles.colVendor}>
+                  {po.initiated_by || '-'}
+                </div>
+                <div className={cardStyles.colProducts}>
+                  <OverlayTrigger
+                    placement="top"
+                    overlay={
+                      <Tooltip>
+                        {po.product_details?.map(p => p.name).join(', ') || 'N/A'}
+                      </Tooltip>
+                    }
+                  >
+                    <span>{po.product_details?.length || 0} item{(po.product_details?.length || 0) !== 1 ? 's' : ''}</span>
+                  </OverlayTrigger>
+                </div>
+                <div className={cardStyles.colQuantity}>
+                  <span className={cardStyles.qtyNumber}>{po.quantity}</span>
+                  <span className={cardStyles.qtyUnit}>{po.unit || 'nos'}</span>
+                </div>
+                <div className={cardStyles.colValue}>
+                  ₹{addCommasToNumber(po.total_value)}
+                </div>
+                <div className={cardStyles.colDate}>
+                  <OverlayTrigger placement="top" overlay={<Tooltip>{formatISTDate(po.created_at)}</Tooltip>}>
+                    <span>{getRelativeTime(po.created_at)}</span>
+                  </OverlayTrigger>
+                </div>
+                <div className={cardStyles.colActions}>
+                  {isAcceptancePending ? (
+                    <>
+                      <button className={cardStyles.approveBtn} title="Accept PO"
+                        onClick={(e) => { e.stopPropagation(); onAcceptPO(po); }}>
+                        <BsCheck size={16} /> <span>Accept</span>
+                      </button>
+                      <button className={cardStyles.rejectBtn} title="Reject PO"
+                        onClick={(e) => { e.stopPropagation(); onRejectPO(po); }}>
+                        <MdClose size={14} /> <span>Reject</span>
+                      </button>
+                    </>
+                  ) : showRaiseInvoice ? (
+                    <button className={cardStyles.approveBtn} title="Raise Invoice"
+                      onClick={(e) => { e.stopPropagation(); handleRaiseInvoiceClick(po); }}>
+                      <FiSend size={13} /> <span>Invoice</span>
+                    </button>
+                  ) : showDispatch ? (
+                    <button className={cardStyles.approveBtn} title="Mark Dispatched"
+                      onClick={(e) => { e.stopPropagation(); handleMarkDispatchClick(po); }}>
+                      <FaTruckRampBox size={13} /> <span>Dispatch</span>
+                    </button>
+                  ) : (
+                    <button className={cardStyles.viewBtn} title="View PO"
+                      onClick={(e) => { e.stopPropagation(); onSelect(po.id); }}>
+                      <IoMdEye size={14} /> <span>View PO</span>
+                    </button>
+                  )}
+                  {po.poPdfUrl && (
+                    <a href={po.poPdfUrl} target="_blank" rel="noopener noreferrer"
+                      className={cardStyles.pdfBtn}
+                      onClick={(e) => e.stopPropagation()}>
+                      <BsFilePdf size={13} /> <span>View PDF</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
 
@@ -410,32 +279,28 @@ const POListing = ({
         />
       )}
 
-      {/* PO Approve Confirmation Modal */}
+      {/* Raise Invoice Confirmation */}
       <ConfirmationModal
         isOpen={showRaiseInvoiceModal}
-        onClose={handleApproveCancel}
+        onClose={() => { setShowRaiseInvoiceModal(false); setPendingPO(null); }}
         onConfirm={handleApproveConfirm}
-        title="Raise Invoice for this PO"
-        description={`Are you sure you want to raise invoice for PO #${
-          pendingPO?.po_number || "this purchase order"
-        }?\nThis action will upload and send the invoice to the relevant parties.`}
+        title="Raise Invoice"
+        description={`Are you sure you want to raise invoice for PO #${pendingPO?.po_number || ''}?`}
         confirmButtonColor="success"
-        confirmButtonText="Yes, Go Ahead"
-        cancelButtonText="No, Cancel It"
-        customFooter={POReviewCompact(pendingPO)}
+        confirmButtonText="Yes, Raise Invoice"
+        cancelButtonText="Cancel"
       />
 
+      {/* Mark Dispatched Confirmation */}
       <ConfirmationModal
         isOpen={showMarkDispatchedModal}
-        onClose={handleMarkDispatchedCancel}
+        onClose={() => { setShowMarkDispatchedModal(false); setPendingPO(null); }}
         onConfirm={handleMarkDispatchedConfirm}
-        title="Mark Dispatched for this PO"
-        description={`Are you sure you want to mark Dispatched for PO #${
-          pendingPO?.po_number || "this purchase order"
-        }?\nThis action will notify the relevant parties.`}
+        title="Mark as Dispatched"
+        description={`Are you sure you want to mark PO #${pendingPO?.po_number || ''} as dispatched?`}
         confirmButtonColor="success"
-        confirmButtonText="Yes, Go Ahead"
-        cancelButtonText="No, Cancel It"
+        confirmButtonText="Yes, Mark Dispatched"
+        cancelButtonText="Cancel"
       />
     </div>
   );
