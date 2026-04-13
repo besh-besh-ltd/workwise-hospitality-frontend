@@ -229,7 +229,7 @@ $status-colors: (
   :global(.modal-content) {
     border: 1px solid #d4e0f1;
     border-radius: 14px;
-    overflow: hidden;
+    overflow: visible;
     box-shadow: 0 20px 44px rgba(23, 44, 73, 0.22);
   }
 }
