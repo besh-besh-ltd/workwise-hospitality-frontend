@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Button, Accordion, Badge } from "react-bootstrap";
+import { Accordion, Badge } from "react-bootstrap";
 
 import {
   MdEventNote,
   MdOutlineBusinessCenter,
-  MdOutlinePersonOutline,
   MdTimeline
 } from 'react-icons/md';
 import { BsBoxSeam, BsPerson, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill, BsArrowLeft, BsPencilSquare, BsPersonPlus, BsCalendar3, BsCurrencyRupee, BsBuilding, BsTruck, BsFileEarmarkText, BsShieldCheck, BsArrowRepeat } from 'react-icons/bs';
@@ -15,7 +14,6 @@ import { FiExternalLink } from "react-icons/fi";
 import { TbFileInvoice, TbTruckDelivery } from "react-icons/tb";
 import styles from "./PurchaseOrder.module.scss";
 import CreateMilestoneModal from './CreateMilestoneModal';
-import ApprovalProgressCard from './ApprovalProgressCard';
 import { toast } from 'react-toastify';
 import { handleDeleteMilestone, handleDeleteTask, handleGetTasks, handleUpdateGST, handleUpdateHSN, handleRegeneratePO, handleUploadPODocument } from '@/services/po';
 import CreateTaskModal from './CreateTaskModal';
@@ -24,6 +22,7 @@ import { getProjectAvailableBudget } from '@/services/project';
 import { addCommasToNumber, formatDisplayDate, formatToINRShort } from '@/utils/sharedFunctions';
 import useIsMobile from '@/hooks/useIsMobile';
 import Link from 'next/link';
+import ApprovalWorkflowSection from '@/components/dashboard/buyer/approval/ApprovalWorkflowSection';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
 import CommonFormInput from '@/components/shared/CommonFormInput';
 import { useRouter } from 'next/navigation';
@@ -131,7 +130,6 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     project_details,
     product_details,
     is_approver,
-    logged_in_user,
     approval_status,
     approval_history = [],
     documents = [],
@@ -173,7 +171,6 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   const [showTaskModal, setShowTaskModal] = useState(false);
 
   const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
-  const [showRejectConfirmModal, setShowRejectConfirmModal] = useState(false);
   const [showDeleteMilestoneConfirmModal, setShowDeleteMilestoneConfirmModal] = useState(false);
   const [showDeleteTaskConfirmModal, setShowDeleteTaskConfirmModal] = useState(false);
   const [deleteMilestoneId, setDeleteMilestoneId] = useState(null);
@@ -360,11 +357,30 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   }, [data]);
 
   // === NON-EDIT VIEW ===
+  const isNewApprovalWorkflow = approval_status?.type === 'new';
   const showMobileApprovalBar = isMobile && canApprove && is_approver && status === 'pending_approval';
+  const showLegacyApprovalActions = canApprove && is_approver && status === 'pending_approval' && !isNewApprovalWorkflow;
+
+  const handleWorkflowDecision = async (decision, remarks = '') => {
+    if (!handlePODecision) {
+      return { success: false, error: 'Approval action is not available.' };
+    }
+
+    const result = await handlePODecision(
+      id,
+      { decision, type: "approval", remarks, silent: true },
+      data
+    );
+
+    return result?.success === false ? result : { success: true };
+  };
+
+  const handleWorkflowApprove = async (comment) => handleWorkflowDecision("approved", comment);
+  const handleWorkflowReject = async (comment) => handleWorkflowDecision("rejected", comment);
 
   if(!isEditing) {
     return (
-      <div style={showMobileApprovalBar ? { paddingBottom: 70 } : undefined}>
+      <div style={showMobileApprovalBar ? { paddingBottom: 120 } : undefined}>
         {/* ── Hero Header Card ── */}
         <div className={styles.detailsHeader}>
           <div className={styles.detailsHero}>
@@ -409,7 +425,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                   <BsTruck size={14} /> Update to GRN
                 </button>
               )}
-              {canApprove && is_approver && (
+              {showLegacyApprovalActions && (
                 <>
                   <button className={`${styles.heroBtn} ${styles.heroBtnApprove}`} onClick={() => setShowApproveConfirmModal(true)} id="approve_po-po_approval-po_details">
                     Approve
@@ -755,7 +771,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           </div>
         </div>
 
-        <div className={`mb-3 ${styles.hsnGstRow}`}>
+        <div className={`mb-0 ${styles.hsnGstRow}`}>
           <div className={`${styles.sectionCard} w-100`}>
             <div className={styles.sectionHeader}>
               <h5 className={styles.sectionTitle}>HSN Codes</h5>
@@ -858,92 +874,95 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           </div>
         </div>
   
-        {/* New Multi-Step Approval Progress Card */}
-        {approval_status?.type === 'new' && (
-          <ApprovalProgressCard approvalStatus={approval_status} />
-        )}
-
-        {/* Approval Timeline */}
-        <div className={`${styles.sectionCard} mb-3`}>
-          <div className={styles.sectionHeader}>
-            <h5 className={styles.sectionTitle}><MdEventNote size={16} /> Approval Timeline</h5>
-          </div>
-          <div className={`${styles.sectionBody} d-flex flex-column gap-3`}>
-            <TimelineItem
-              title={status == "draft" ? "Drafted" : "Initiated"}
-              name={initiated_by_name}
-              icon={
-                <BsCheckCircleFill
-                  className={
-                    status == "draft" ? "text-secondary" : "text-primary"
-                  }
-                  size={25}
-                />
-              }
-              time={formatIST(created_at)}
+        {isNewApprovalWorkflow ? (
+          <div className="mb-3">
+            <ApprovalWorkflowSection
+              entityType="PO"
+              entityId={id}
+              entityLabel={`Purchase Order #${po_number}`}
+              onCustomApprove={handleWorkflowApprove}
+              onCustomReject={handleWorkflowReject}
+              hideTopButtons={showMobileApprovalBar}
+              showMobileStickyActions={showMobileApprovalBar}
             />
-            {approval_history.map((entry, index) => {
-              // Normalize action to lowercase for comparison (handles both old and new format)
-              const actionLower = entry.action?.toLowerCase();
-              const isApproved = actionLower === "approved" || actionLower === "approve";
-              const isRejected = actionLower === "rejected" || actionLower === "reject";
-              const isCancelled = actionLower === "cancelled" || actionLower === "cancel";
-              const isEdited = actionLower === "edited" || actionLower === "edit";
-              const isInvoice = actionLower === "invoice";
-              const isGrn = actionLower === "grn";
-
-              // Build title with step number for new format
-              const getTitle = () => {
-                let title = isApproved ? "Approved"
-                  : isRejected ? "Rejected"
-                  : isCancelled ? "Cancelled"
-                  : isEdited ? "PO Edited"
-                  : isInvoice ? "Invoice Raised"
-                  : isGrn ? "GRN Marked"
-                  : "Action Taken";
-
-                // Add step info for new format
-                if (entry.step_number) {
-                  title += ` (Step ${entry.step_number})`;
-                }
-                return title;
-              };
-
-              // Get appropriate icon
-              const getIcon = () => {
-                if (isApproved) return <BsCheckCircleFill className="text-success" size={25} />;
-                if (isRejected) return <BsXCircleFill className="text-danger" size={25} />;
-                if (isEdited) return <MdHistory className="text-dark" size={25} />;
-                if (isInvoice) return <TbFileInvoice className="text-dark" size={25} />;
-                if (isGrn) return <TbTruckDelivery className="text-dark" size={25} />;
-                if (isCancelled) return <BsXCircleFill className="text-secondary" size={25} />;
-                return <BsCheckCircleFill className="text-primary" size={25} />;
-              };
-
-              return (
-                <TimelineItem
-                  key={index}
-                  title={getTitle()}
-                  name={entry.approved_by_name}
-                  icon={getIcon()}
-                  time={formatIST(entry.created_at)}
-                  remarks={entry.remarks}
-                />
-              );
-            })}
-            {/* Legacy format pending status (only show if not using new format) */}
-            {approval_status?.status == "pending" && approval_status?.type !== "new" && (
-              <TimelineItem
-                title={"Action Pending"}
-                name={approval_status.current_approver_name}
-                icon={
-                  <BsExclamationCircleFill className="text-warning" size={25} />
-                }
-                time={formatIST(approval_status.created_at)}
-              />
-            )}
           </div>
-        </div>
+        ) : (approval_history.length > 0 || approval_status?.status == "pending") && (
+          <div className={`${styles.sectionCard} mb-3`}>
+            <div className={styles.sectionHeader}>
+              <h5 className={styles.sectionTitle}><MdEventNote size={16} /> Approval Timeline</h5>
+            </div>
+            <div className={`${styles.sectionBody} d-flex flex-column gap-3`}>
+              <TimelineItem
+                title={status == "draft" ? "Drafted" : "Initiated"}
+                name={initiated_by_name}
+                icon={
+                  <BsCheckCircleFill
+                    className={
+                      status == "draft" ? "text-secondary" : "text-primary"
+                    }
+                    size={25}
+                  />
+                }
+                time={formatIST(created_at)}
+              />
+              {approval_history.map((entry, index) => {
+                const actionLower = entry.action?.toLowerCase();
+                const isApproved = actionLower === "approved" || actionLower === "approve";
+                const isRejected = actionLower === "rejected" || actionLower === "reject";
+                const isCancelled = actionLower === "cancelled" || actionLower === "cancel";
+                const isEdited = actionLower === "edited" || actionLower === "edit";
+                const isInvoice = actionLower === "invoice";
+                const isGrn = actionLower === "grn";
+
+                const getTitle = () => {
+                  let title = isApproved ? "Approved"
+                    : isRejected ? "Rejected"
+                    : isCancelled ? "Cancelled"
+                    : isEdited ? "PO Edited"
+                    : isInvoice ? "Invoice Raised"
+                    : isGrn ? "GRN Marked"
+                    : "Action Taken";
+
+                  if (entry.step_number) {
+                    title += ` (Step ${entry.step_number})`;
+                  }
+                  return title;
+                };
+
+                const getIcon = () => {
+                  if (isApproved) return <BsCheckCircleFill className="text-success" size={25} />;
+                  if (isRejected) return <BsXCircleFill className="text-danger" size={25} />;
+                  if (isEdited) return <MdHistory className="text-dark" size={25} />;
+                  if (isInvoice) return <TbFileInvoice className="text-dark" size={25} />;
+                  if (isGrn) return <TbTruckDelivery className="text-dark" size={25} />;
+                  if (isCancelled) return <BsXCircleFill className="text-secondary" size={25} />;
+                  return <BsCheckCircleFill className="text-primary" size={25} />;
+                };
+
+                return (
+                  <TimelineItem
+                    key={index}
+                    title={getTitle()}
+                    name={entry.approved_by_name}
+                    icon={getIcon()}
+                    time={formatIST(entry.created_at)}
+                    remarks={entry.remarks}
+                  />
+                );
+              })}
+              {approval_status?.status == "pending" && (
+                <TimelineItem
+                  title={"Action Pending"}
+                  name={approval_status.current_approver_name}
+                  icon={
+                    <BsExclamationCircleFill className="text-warning" size={25} />
+                  }
+                  time={formatIST(approval_status.created_at)}
+                />
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Payment Milestones */}
         <div className={`${styles.sectionCard} mb-3`}>
@@ -1366,7 +1385,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
         />
 
         {/* Sticky mobile approval bar */}
-        {isMobile && canApprove && is_approver && status === 'pending_approval' && (
+        {showMobileApprovalBar && !isNewApprovalWorkflow && (
           <div className={styles.mobileApprovalBar}>
             <button className={styles.mobileApproveBtn} onClick={() => setShowApproveConfirmModal(true)}>
               Approve

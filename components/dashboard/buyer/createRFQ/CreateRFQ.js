@@ -795,7 +795,10 @@ useEffect(() => {
     
     // Deep clone the form data to avoid direct mutation
     const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
-    
+
+    // Remove spurious 'value' key that is not expected by the backend
+    delete formDataCopy.value;
+
     // Ensure company_name is included from either form values, Redux store, or user profile
     formDataCopy.company_name = values.company_name || formDataCopy.company_name || userProfile?.company_name || "";
 
@@ -1034,14 +1037,17 @@ useEffect(() => {
 
     // Deep clone the form data to avoid direct mutation
     const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
-    
+
+    // Remove spurious 'value' key that is not expected by the backend
+    delete formDataCopy.value;
+
     // IMPORTANT: Filter terms to only include id and name to prevent validation errors
     if (formDataCopy.terms && Array.isArray(formDataCopy.terms)) {
       formDataCopy.terms = formDataCopy.terms.map(term => ({
         id: Number(term.id || term.term_id), // Convert to number for backend
         name: term.name || term.term_content || `Term ${term.id}`
       }));
-      
+
     }
     // Make sure we maintain the rfq_added_from flag if this is a magic search RFQ
     if (isMagicRfq && !formDataCopy.rfq_added_from) {
@@ -2584,7 +2590,10 @@ useEffect(() => {
                                 touched={touched}
                                 errors={errors}
                                 enableHandleChange={true}
-                                handleChange={handleFormFieldChange}
+                                handleChange={(html) => {
+                                  dispatch(setOtherFormFields({ field_name: "comment", value: html }));
+                                  setHasUnsavedChanges(true);
+                                }}
                                 showOptionalLabel={false}
                               />
                               <div className="row mt-2">

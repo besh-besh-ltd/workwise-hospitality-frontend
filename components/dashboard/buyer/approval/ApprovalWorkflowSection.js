@@ -18,6 +18,7 @@ import SelectedQuotesDisplay from "../negotiation/SelectedQuotesDisplay";
 import TechEvalVendorStatusDisplay from "../technical-evaluation/TechEvalVendorStatusDisplay";
 import ExistingPOModal from "../ExistingPOModal";
 import { getExistingPOByVendor } from "@/services/rfq";
+import useIsMobile from "@/hooks/useIsMobile";
 
 const statusConfig = {
   PENDING: {
@@ -71,7 +72,7 @@ const statusConfig = {
 };
 
 // Compact display of previous rejected/cancelled approval attempts
-const PreviousAttemptsSection = ({ instances, entityType }) => {
+const PreviousAttemptsSection = ({ instances, entityType, isMobile = false }) => {
   const [expandedAttempt, setExpandedAttempt] = useState(null);
 
   if (!instances || instances.length === 0) return null;
@@ -141,7 +142,7 @@ const PreviousAttemptsSection = ({ instances, entityType }) => {
                     gap: '8px',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                     <span style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -177,12 +178,13 @@ const PreviousAttemptsSection = ({ instances, entityType }) => {
                         fontSize: '0.72rem',
                         fontWeight: 600,
                         color: '#842029',
-                        whiteSpace: 'nowrap',
+                        whiteSpace: isMobile ? 'normal' : 'nowrap',
+                        width: isMobile ? '100%' : 'auto',
                       }}>
                         · {rejectorInfo.name} at Step {rejectorInfo.step}
                       </span>
                     )}
-                    {rejectionComment && !isExpanded && (
+                    {rejectionComment && !isExpanded && !isMobile && (
                       <span style={{
                         fontSize: '0.7rem',
                         color: '#6c757d',
@@ -204,7 +206,7 @@ const PreviousAttemptsSection = ({ instances, entityType }) => {
 
                 {/* Expanded: show vendor metadata + approval timeline */}
                 {isExpanded && (
-                  <div style={{ padding: '12px' }}>
+                  <div style={{ padding: isMobile ? '10px' : '12px' }}>
                     {/* Vendor Evaluation Results for this attempt */}
                     {entityType === 'TECHNICAL' && (inst.metadata?.vendors?.length > 0 || inst.metadata?.not_evaluated_vendors?.length > 0) && (
                       <div style={{ marginBottom: '12px' }}>
@@ -300,7 +302,8 @@ const ApprovalWorkflowSection = ({
   refreshTrigger = 0,
   hideTopButtons = false,
   isBacklog = false,
-  isPublished = false
+  isPublished = false,
+  showMobileStickyActions = false,
 }) => {
   const {
     instance,
@@ -331,6 +334,7 @@ const ApprovalWorkflowSection = ({
   const [existingPos, setExistingPos] = useState([]);
   const [selectedPo, setSelectedPo] = useState(null);
   const [pendingApproveComment, setPendingApproveComment] = useState(null);
+  const isMobile = useIsMobile();
 
   const isFinalApprover = canUserApprove && currentStep === totalSteps && status === "PENDING";
   const isNegotiationQuote = entityType === "NEGOTIATION_QUOTE";
@@ -458,6 +462,7 @@ const ApprovalWorkflowSection = ({
   const statusInfo = isAutoApproved ? statusConfig.AUTO_PUBLISHED : effectiveBacklog ? statusConfig.BACKLOG : (statusConfig[status] || statusConfig.PENDING);
   const StatusIcon = statusInfo.icon;
   const isActionRequired = canUserApprove && status === "PENDING" && !effectiveBacklog && !isAutoApproved && !isPublished;
+  const shouldUseMobileStickyActions = showMobileStickyActions && isMobile && isActionRequired && !effectiveBacklog;
 
   return (
     <>
@@ -521,6 +526,24 @@ const ApprovalWorkflowSection = ({
           align-items: center;
           gap: 14px;
           min-width: 0;
+          flex: 1;
+        }
+        .aws-header-main {
+          min-width: 0;
+          flex: 1;
+        }
+        .aws-title-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .aws-step-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 4px;
+          flex-wrap: wrap;
         }
         .aws-header-right {
           display: flex;
@@ -647,6 +670,122 @@ const ApprovalWorkflowSection = ({
         .aws-btn-reject {
           background: linear-gradient(135deg, #dc3545 0%, #e8606d 100%);
         }
+        .aws-mobile-sticky {
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 1050;
+          padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 10px);
+          background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(248,250,252,0.88) 16%, #f8fafc 100%);
+          backdrop-filter: blur(8px);
+        }
+        .aws-mobile-sticky-inner {
+          max-width: 100%;
+          background: rgba(15, 23, 42, 0.96);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 16px;
+          box-shadow: 0 16px 40px rgba(15, 23, 42, 0.28);
+          padding: 10px;
+        }
+        .aws-mobile-sticky-copy {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 8px;
+        }
+        .aws-mobile-sticky-kicker {
+          font-size: 0.64rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.62);
+        }
+        .aws-mobile-sticky-label {
+          font-size: 0.76rem;
+          font-weight: 600;
+          color: #ffffff;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .aws-mobile-sticky-actions {
+          display: flex;
+          gap: 8px;
+        }
+        .aws-mobile-sticky-actions .aws-action-btn {
+          flex: 1;
+          justify-content: center;
+          padding: 10px 12px;
+          border-radius: 10px;
+          font-size: 0.8rem;
+          box-shadow: none;
+        }
+        @media (max-width: 768px) {
+          .aws-card {
+            border-radius: 10px;
+          }
+          .aws-header {
+            padding: 12px 14px;
+            align-items: flex-start;
+          }
+          .aws-header-left {
+            width: 100%;
+            align-items: flex-start;
+            gap: 12px;
+          }
+          .aws-header-right {
+            width: 100%;
+            justify-content: space-between;
+          }
+          .aws-icon-wrap {
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+          }
+          .aws-title {
+            font-size: 0.92rem;
+            white-space: normal;
+            line-height: 1.25;
+          }
+          .aws-step-info {
+            font-size: 0.76rem;
+          }
+          .aws-step-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+          }
+          .aws-progress-track {
+            width: 100%;
+            overflow: hidden;
+          }
+          .aws-progress-pip {
+            flex: 1 1 0;
+            min-width: 10px;
+          }
+          .aws-body {
+            padding: 0 14px 14px;
+          }
+          .aws-body-inner {
+            padding-top: 14px;
+          }
+          .aws-status-line {
+            flex-wrap: wrap;
+            align-items: flex-start;
+            font-size: 0.78rem;
+            padding: 10px 12px;
+          }
+          .aws-action-btn {
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.82rem;
+          }
+          .aws-chevron {
+            display: none;
+          }
+        }
       `}</style>
 
       <div className={`aws-card approval-workflow-section approval-workflow-accordion ${isActionRequired ? 'aws-action-required' : ''} ${effectiveBacklog ? 'aws-backlog' : ''}`}>
@@ -662,8 +801,8 @@ const ApprovalWorkflowSection = ({
             >
               <StatusIcon size={19} style={{ color: isActionRequired ? '#f97316' : statusInfo.color }} />
             </div>
-            <div>
-              <div className="d-flex align-items-center gap-2">
+            <div className="aws-header-main">
+              <div className="aws-title-row">
                 <span className="aws-title">Approval Workflow</span>
                 {isActionRequired ? (
                   <span style={{
@@ -687,7 +826,7 @@ const ApprovalWorkflowSection = ({
                 )}
               </div>
               {totalSteps > 0 && (
-                <div className="d-flex align-items-center gap-2 mt-1">
+                <div className="aws-step-row">
                   <span className="aws-step-info" style={effectiveBacklog ? { color: '#dc3545' } : undefined}>
                     {effectiveBacklog ? `Expired at step ${currentStep} of ${totalSteps}` : `Step ${currentStep} of ${totalSteps}`}
                   </span>
@@ -711,7 +850,7 @@ const ApprovalWorkflowSection = ({
           </div>
 
           <div className="aws-header-right" onClick={(e) => e.stopPropagation()}>
-            {isActionRequired && !hideTopButtons && !effectiveBacklog && (
+            {isActionRequired && !hideTopButtons && !effectiveBacklog && !shouldUseMobileStickyActions && (
               <>
                 <button
                   className="aws-action-btn aws-btn-approve"
@@ -767,7 +906,7 @@ const ApprovalWorkflowSection = ({
 
                 {/* Previous approval attempts (rejected/cancelled history) */}
                 {previousInstances.length > 0 && (
-                  <PreviousAttemptsSection instances={previousInstances} entityType={entityType} />
+                  <PreviousAttemptsSection instances={previousInstances} entityType={entityType} isMobile={isMobile} />
                 )}
 
                 {/* Current attempt - accordion card matching previous attempts when there's history */}
@@ -821,7 +960,7 @@ const ApprovalWorkflowSection = ({
                           gap: '8px',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                           <span style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -860,6 +999,8 @@ const ApprovalWorkflowSection = ({
                             borderRadius: '10px',
                             textTransform: 'uppercase',
                             letterSpacing: '0.03em',
+                            width: isMobile ? '100%' : 'auto',
+                            textAlign: isMobile ? 'center' : 'left',
                           }}>
                             {status === 'APPROVED' ? 'Completed' : status === 'REJECTED' ? 'Rejected' : 'Current'}
                           </span>
@@ -896,7 +1037,7 @@ const ApprovalWorkflowSection = ({
                 )}
 
                 {/* Action buttons when hidden from top */}
-                {isActionRequired && hideTopButtons && !effectiveBacklog && (
+                {isActionRequired && hideTopButtons && !effectiveBacklog && !shouldUseMobileStickyActions && (
                   <div style={{
                     display: 'flex',
                     gap: '12px',
@@ -1013,6 +1154,40 @@ const ApprovalWorkflowSection = ({
           </div>
         </Collapse>
       </div>
+
+      {shouldUseMobileStickyActions && (
+        <div className="aws-mobile-sticky">
+          <div className="aws-mobile-sticky-inner">
+            <div className="aws-mobile-sticky-copy">
+              <div style={{ minWidth: 0 }}>
+                <div className="aws-mobile-sticky-kicker">Approval Workflow</div>
+                <div className="aws-mobile-sticky-label">{entityLabel}</div>
+              </div>
+              <Badge bg="warning" style={{ fontSize: "0.68rem", fontWeight: 700, padding: "6px 8px", color: "#111827", border: "1px solid rgba(17,24,39,0.08)" }}>
+                Step {currentStep}/{totalSteps || currentStep}
+              </Badge>
+            </div>
+            <div className="aws-mobile-sticky-actions">
+              <button
+                className="aws-action-btn aws-btn-approve"
+                onClick={() => openActionModal("APPROVE")}
+                disabled={actionLoading || localActionLoading}
+              >
+                <BsShieldCheck size={14} />
+                Approve
+              </button>
+              <button
+                className="aws-action-btn aws-btn-reject"
+                onClick={() => openActionModal("REJECT")}
+                disabled={actionLoading || localActionLoading}
+              >
+                <BsShieldX size={14} />
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Action Modal */}
       <ApprovalActionModal

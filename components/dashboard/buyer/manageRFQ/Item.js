@@ -1,10 +1,11 @@
 import { getVendorsForReminder, sendSelectiveReminder } from "@/services/rfq";
-import { textCapitalize, formatRFQNumber, getRFQPublishState } from "@/utils/sharedFunctions";
+import { textCapitalize, formatRFQNumber, getRFQPublishState, canEditRfq } from "@/utils/sharedFunctions";
 import moment from "moment";
 import Link from "next/link";
 import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { Badge } from "react-bootstrap";
+import { Badge, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { BsExclamationCircleFill, BsClockFill, BsCheckCircleFill } from "react-icons/bs";
 import VendorSelectionModal from "@/components/modal/VendorSelectionModal";
 import PublishDateTimer from "@/components/shared/PublishDateTimer";
@@ -14,6 +15,10 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [vendors, setVendors] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
+
+  // WH-69: edit permission helper
+  const currentUser = useSelector((state) => state.userProfile);
+  const editPermission = canEditRfq(data, currentUser);
 
 
   const list_products = () => {
@@ -186,7 +191,9 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
                 >
                   View
                 </Link>
-                {publishState.canEdit && !data.po_completed && (
+                {/* WH-69: Edit link gated by canEditRfq() — disabled with
+                    a hover tooltip when the user can't edit. */}
+                {editPermission.allowed ? (
                   <Link
                     href={publishState.editUrl(data?.id)}
                     className="page-link"
@@ -194,6 +201,29 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
                   >
                     Edit
                   </Link>
+                ) : (
+                  <OverlayTrigger
+                    placement="top"
+                    overlay={
+                      <Tooltip id={`edit-disabled-${data?.id}`}>
+                        {editPermission.reason}
+                      </Tooltip>
+                    }
+                  >
+                    <span className="d-inline-block">
+                      <span
+                        className="page-link"
+                        style={{
+                          opacity: 0.5,
+                          cursor: 'not-allowed',
+                          pointerEvents: 'none'
+                        }}
+                        id={`edit_rfq_${data?.id}-rfq_actions-manage_rfq_page`}
+                      >
+                        Edit
+                      </span>
+                    </span>
+                  </OverlayTrigger>
                 )}
               </>
             )}

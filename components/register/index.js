@@ -536,7 +536,7 @@ const Register = ({
     const cleanMobile = values.mobile.trim().replace(/^0+/, "").replace(/^\+\d+\-/, "");
     const fullMobile = `${values.countryCode}-${cleanMobile}`.substring(0, 15);
 
-    const { countryCode: _cc, confirm_password, country: _country, state: _state, city: _city, categories: _categories, subcategories: _subcategories, ...updatedValues } = {
+    const { countryCode: _cc, confirm_password, categories: _categories, subcategories: _subcategories, ...updatedValues } = {
       ...values,
       mobile: fullMobile,
       ...(isPaidSubscription && !isHospitality && { status: 1 }),

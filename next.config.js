@@ -29,6 +29,15 @@ const nextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/dashboard/vendor/reviews-ratings',
+        destination: '/dashboard/vendor/subscription',
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       { source: '/sitemap.xml', destination: '/api/sitemap.xml' },

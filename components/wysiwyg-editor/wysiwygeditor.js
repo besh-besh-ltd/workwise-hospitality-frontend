@@ -106,14 +106,13 @@ const WysiwygEditor = ({
   onBlur,
   placeholder = "",
   readOnly = false,
-  showToolbar = true,
-  minHeight = "220px",
   className = "",
 }) => {
   const editorRef = useRef(null);
   const quillRef = useRef(null);
   const onChangeRef = useRef(onChange);
   const onBlurRef = useRef(onBlur);
+  const lastEmittedValue = useRef(value || "");
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -131,7 +130,7 @@ const WysiwygEditor = ({
     const quill = new Quill(editorRef.current, {
       theme: "snow",
       placeholder,
-      modules: showToolbar ? modules : { toolbar: false },
+      modules,
       readOnly,
     });
 
@@ -141,6 +140,7 @@ const WysiwygEditor = ({
 
     quill.on("text-change", () => {
       const html = quill.root.innerHTML === "<p><br></p>" ? "" : quill.root.innerHTML;
+      lastEmittedValue.current = html;
       onChangeRef.current?.(html);
     });
 
@@ -172,31 +172,28 @@ const WysiwygEditor = ({
     }
 
     const normalizedValue = value || "";
+
+    // Skip if the incoming value matches what the editor last emitted
+    // (the change round-tripped through Formik/Redux back to us)
+    if (normalizedValue === lastEmittedValue.current) {
+      return;
+    }
+
     const currentValue =
       quillRef.current.root.innerHTML === "<p><br></p>"
         ? ""
         : quillRef.current.root.innerHTML;
 
     if (currentValue !== normalizedValue) {
-      quillRef.current.clipboard.dangerouslyPasteHTML(normalizedValue);
+      try {
+        quillRef.current.clipboard.dangerouslyPasteHTML(normalizedValue);
+      } catch {
+        // Quill can throw when selection state is null; fall back to direct update
+        quillRef.current.root.innerHTML = normalizedValue || "<p><br></p>";
+      }
+      lastEmittedValue.current = normalizedValue;
     }
   }, [value]);
-
-  useEffect(() => {
-    if (!quillRef.current) {
-      return;
-    }
-
-    quillRef.current.root.style.minHeight = minHeight;
-  }, [minHeight]);
-
-  useEffect(() => {
-    if (!quillRef.current || showToolbar) {
-      return;
-    }
-
-    quillRef.current.root.style.paddingTop = "12px";
-  }, [showToolbar]);
 
   return (
     <div className={className} style={editorShellStyle}>

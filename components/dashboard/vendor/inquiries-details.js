@@ -14,7 +14,7 @@ import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-ico
 import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
-import { checkBidExpired, extractfileName, formatDate, formatDisplayDate, formatPrice, getEntityLabel, getRFQPublishState } from "@/utils/sharedFunctions";
+import { checkBidExpired, extractfileName, formatDate, formatDisplayDate, formatPrice, getEntityLabel, getRFQPublishState, canEditRfq } from "@/utils/sharedFunctions";
 import PublishDateTimer from "@/components/shared/PublishDateTimer";
 import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
@@ -22,6 +22,11 @@ import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { toast } from "react-toastify";
 import { ApprovalPendingBanner } from "@/components/dashboard/buyer/approval";
 import RFQLifecycleJourney from "@/components/dashboard/buyer/manageRFQ/RFQLifecycleJourney/RFQLifecycleJourney";
+// WH-69: Edit History modal — opened by the "Edit History" button in the
+// top-right action area. Originally rendered as an inline panel below the
+// lifecycle journey but the page is so tall that nobody scrolled to it.
+import RFQEditHistory from "@/components/dashboard/buyer/manageRFQ/RFQEditHistory/RFQEditHistory";
+import { FaHistory } from "react-icons/fa";
 import useApprovalWorkflow from "@/hooks/useApprovalWorkflow";
 import {
   ClarificationBlockingBanner,
@@ -32,7 +37,7 @@ import {
 import { getClarifications } from "@/services/clarification";
 import NegotiationColumnCell from "@/components/dashboard/buyer/negotiation/NegotiationColumnCell";
 import { getAllActiveNegotiationRounds } from "@/services/negotiation";
-import { Badge, Button, Alert } from "react-bootstrap";
+import { Badge, Button, Alert, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill } from "react-icons/bs";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
 import {
@@ -168,6 +173,8 @@ const RfqManagementPreview = () => {
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
   const [enableBuyerView, setEnableBuyerView] = useState(false);
+  // WH-69: Edit history modal open/close state
+  const [showEditHistoryModal, setShowEditHistoryModal] = useState(false);
   const [closeRFqLoading, setcloseRFqLoading] = useState(false);
   const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
@@ -1876,8 +1883,15 @@ const RfqManagementPreview = () => {
                         </div>
                       )}
 
+                      {rfqDetails?.department_name && (
+                        <div className="  col-md-2 col-sm-6">
+                          <strong>Department:</strong>
+                          <div>{rfqDetails.department_name}</div>
+                        </div>
+                      )}
+
                       {rfqDetails?.contact_name && (
-                        <div className="  col-md-2 col-sm-6"> 
+                        <div className="  col-md-2 col-sm-6">
                           <strong>Contact Persone:</strong>
                           <div>{rfqDetails.contact_name}</div>
                         </div>
@@ -1982,24 +1996,56 @@ const RfqManagementPreview = () => {
                       </div>
 
                       <div className="d-flex align-items-center flex-wrap" style={{ gap: 10 }}>
-                        {/* Edit button - Hidden for pre-publish approval states (status=3/4) */}
-                        {type === "buyer-view" && (
-                          rfqDetails.is_published === 0 && (rfqDetails.status === 3 || rfqDetails.status === 4) ? null : (
-                            rfqDetails.status === 1
-                          ) && (
-                            rfqDetails.products?.length > 0 && rfqDetails.products.every(p => p.has_approved_po === true) ? (
-                              <button
-                                id="edit_rfq-rfq_header-inquiries_details_page"
-                                type="button"
-                                className="btn btn-primary"
-                                style={{ ...actionBtnStyle, cursor: 'not-allowed', opacity: 0.65 }}
-                                disabled
-                                title="For this RFQ, all products are finalized and awarded"
-                              >
-                                <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                Edit {getEntityLabel(rfqDetails?.is_tender)}
-                              </button>
-                            ) : (
+                        {/* WH-69: Edit History button — opens the timeline
+                            modal. Visible for buyers regardless of edit
+                            permission so anyone can audit who changed what.
+                            Styled in the brand blue (#2E5BA8) so it sits
+                            naturally next to the other action buttons. */}
+                        {type === "buyer-view" && rfqDetails?.id && (
+                          <button
+                            id="edit_history-rfq_header-inquiries_details_page"
+                            type="button"
+                            className="btn"
+                            style={{
+                              ...actionBtnStyle,
+                              background: '#ffffff',
+                              color: '#2E5BA8',
+                              border: '1.5px solid #2E5BA8',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#2E5BA8';
+                              e.currentTarget.style.color = '#ffffff';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = '#ffffff';
+                              e.currentTarget.style.color = '#2E5BA8';
+                            }}
+                            onClick={() => setShowEditHistoryModal(true)}
+                          >
+                            <FaHistory style={{ marginRight: 8 }} />
+                            Show Edit History
+                          </button>
+                        )}
+
+                        {/* WH-69: Edit button visible for any editable state
+                            (1 published, 3 pending approval, 4 ready to
+                            publish, 5 withdrawn). canEditRfq() decides
+                            enabled vs disabled-with-tooltip. The tooltip
+                            tells the user *why* if they can't edit. */}
+                        {type === "buyer-view" && [1, 3, 4, 5].includes(Number(rfqDetails.status)) && (() => {
+                          const editPermission = canEditRfq(
+                            {
+                              ...rfqDetails,
+                              po_completed:
+                                rfqDetails.po_completed ??
+                                (rfqDetails.products?.length > 0 &&
+                                  rfqDetails.products.every((p) => p.has_approved_po === true))
+                            },
+                            userProfile
+                          );
+
+                          if (editPermission.allowed) {
+                            return (
                               <Link
                                 href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}
                               >
@@ -2013,9 +2059,38 @@ const RfqManagementPreview = () => {
                                   Edit {getEntityLabel(rfqDetails?.is_tender)}
                                 </button>
                               </Link>
-                            )
-                          )
-                        )}
+                            );
+                          }
+
+                          return (
+                            <OverlayTrigger
+                              placement="top"
+                              overlay={
+                                <Tooltip id={`edit-disabled-${rfqDetails.id}`}>
+                                  {editPermission.reason}
+                                </Tooltip>
+                              }
+                            >
+                              <span className="d-inline-block">
+                                <button
+                                  id="edit_rfq-rfq_header-inquiries_details_page"
+                                  type="button"
+                                  className="btn btn-primary"
+                                  style={{
+                                    ...actionBtnStyle,
+                                    cursor: 'not-allowed',
+                                    opacity: 0.65,
+                                    pointerEvents: 'none'
+                                  }}
+                                  disabled
+                                >
+                                  <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                  Edit {getEntityLabel(rfqDetails?.is_tender)}
+                                </button>
+                              </span>
+                            </OverlayTrigger>
+                          );
+                        })()}
 
                         {/* Compare Quotes - Hidden for pre-publish states */}
                         {type == "buyer-view" && !(rfqDetails.is_published === 0 && (rfqDetails.status === 3 || rfqDetails.status === 4)) &&
@@ -2026,7 +2101,7 @@ const RfqManagementPreview = () => {
                               <button
                                 id="compare_received_quotes-rfq_header-inquiries_details_page"
                                 type="button"
-                                className="btn btn-secondary"
+                                className="btn btn-primary"
                                 style={actionBtnStyle}
                               >
                                 Compare Received Quotes
@@ -2052,7 +2127,7 @@ const RfqManagementPreview = () => {
                             <button
                               id="clarifications-rfq_header-inquiries_details_page"
                               type="button"
-                              className={`btn ${hasOpenClarification ? "btn-danger" : "btn-warning"}`}
+                              className={`btn ${hasOpenClarification ? "btn-danger" : "btn-primary"}`}
                               style={actionBtnStyle}
                             >
                               Clarifications
@@ -2069,7 +2144,7 @@ const RfqManagementPreview = () => {
                         {enableBuyerView && rfqDetails?.status == 1 && isCreator && (
                           <button
                             type="button"
-                            className="btn btn-secondary"
+                            className="btn btn-danger"
                             onClick={() => setShowCloseConfirmModal(true)}
                             disabled={closeRFqLoading}
                             style={actionBtnStyle}
@@ -2110,18 +2185,12 @@ const RfqManagementPreview = () => {
                           </button>
                         )}
                         {enableBuyerView && rfqDetails?.status == 5 && (
-                          <>
-                            <Link
-                              href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails?.id}`}
-                              className="btn btn-primary"
-                              style={actionBtnStyle}
-                            >
-                              Edit {getEntityLabel(rfqDetails?.is_tender)}
-                            </Link>
-                            <button type="button" className="btn btn-secondary" style={actionBtnStyle} disabled>
-                              Publish Request Withdrawn
-                            </button>
-                          </>
+                          // WH-69: the Edit button for status 5 is now
+                          // rendered by the unified block above; only the
+                          // "Publish Request Withdrawn" badge stays here.
+                          <button type="button" className="btn btn-secondary" style={actionBtnStyle} disabled>
+                            Publish Request Withdrawn
+                          </button>
                         )}
                       </div>
                     </div>
@@ -2749,13 +2818,14 @@ const RfqManagementPreview = () => {
                               </div>
                             )}
 
+                          {rfqDetails?.comment && rfqDetails.comment.trim() !== '' && rfqDetails.comment.replace(/<[^>]*>/g, '').trim() !== '' && (
                           <div className="col-md-12">
                             <div className="row">
                               <div className="col-md-6">
                                 <h4>Additional Terms & Conditions</h4>
                                 <div className="form-group">
                                   <WysiwygEditor
-                                    value={rfqDetails?.comment || ""}
+                                    value={rfqDetails.comment}
                                     readOnly={true}
                                     showToolbar={false}
                                     minHeight="140px"
@@ -2765,6 +2835,7 @@ const RfqManagementPreview = () => {
                               </div>
                             </div>
                           </div>
+                          )}
                         </div>
 
                         {/* RFQ Lifecycle Journey - Comprehensive timeline for buyers */}
@@ -2779,6 +2850,7 @@ const RfqManagementPreview = () => {
                             />
                           </div>
                         )}
+
                       </form>
                     </div>
                   </div>
@@ -2803,6 +2875,15 @@ const RfqManagementPreview = () => {
           setregretModal(false);
         }}
       />
+
+      {/* WH-69: Edit history timeline modal */}
+      {rfqDetails?.id && (
+        <RFQEditHistory
+          rfqId={rfqDetails.id}
+          isOpen={showEditHistoryModal}
+          onClose={() => setShowEditHistoryModal(false)}
+        />
+      )}
 
       {/* ------------- Auth Modal ------------- */}
       <LoginContainer

@@ -99,7 +99,7 @@ const TechEvalWorkflowStatus = ({
           {workflowState === TECH_EVAL_WORKFLOW_STATES.COMPLETED && (
             <small className="text-success fw-medium">
               <BsCheckCircleFill className="me-1" />
-              Evaluation complete! {requiredPassedVendors} vendors have been cleared and verified.
+              Evaluation complete! {totalPassedVerified} vendor{totalPassedVerified !== 1 ? 's' : ''} cleared and verified.
             </small>
           )}
           {workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL && (

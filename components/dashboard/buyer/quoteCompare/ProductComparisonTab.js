@@ -1,9 +1,9 @@
 import React from "react";
-import { Button } from "react-bootstrap";
 import ReadMore from "@/components/shared/ReadMore";
 import LPRModal from "@/components/shared/LPRModal";
 import ProductNegotiationBadge from "@/components/dashboard/vendor/ProductNegotiationBadge";
 import ProductComparisonMatrix from "@/components/dashboard/buyer/quoteCompare/tables/ProductComparisonMatrix";
+import QuoteVisibilityLockPanel from "@/components/dashboard/buyer/quoteCompare/QuoteVisibilityLockPanel";
 import {
   addCommasToNumber,
   calculateTotal,
@@ -73,11 +73,13 @@ const ProductComparisonTab = ({
   quoteComparePermissionsLoading,
   currentRFQ,
   productSummaryMap,
+  quoteVisibility,
 }) => {
   const comparisonContext = context || {};
   const currentRfqId = rfq || comparisonContext?.rfq;
   const contextRFQ = currentRFQ || comparisonContext?.currentRFQ;
   const negotiationMap = productNegotiationData || comparisonContext?.maps?.productNegotiationData || {};
+  const visibility = quoteVisibility || comparisonContext?.quoteVisibility || null;
 
   if (quotesLoading) {
     return null; // Handled by the parent's informative loader
@@ -108,7 +110,9 @@ const ProductComparisonTab = ({
               <div>
                 <div className="d-flex align-items-center gap-2 flex-wrap">
                   <h4 className={styles.productTitle}>{item?.product_details?.[0]?.product_name}</h4>
-                  <ProductNegotiationBadge rfq_id={currentRfqId} rfq_product_id={item.id} />
+                  {!visibility?.locked && (
+                    <ProductNegotiationBadge rfq_id={currentRfqId} rfq_product_id={item.id} />
+                  )}
                 </div>
                 <p className={styles.productMeta}>
                   Quantity: {quantity} {unit}
@@ -116,20 +120,22 @@ const ProductComparisonTab = ({
                 {sellingPrice ? (
                   <p className={styles.productMeta}>Selling Price: {formatPrice(sellingPrice)}</p>
                 ) : null}
-                {historicalTotal ? (
+                {!visibility?.locked && historicalTotal ? (
                   <p className={styles.productMeta}>
                     {historicalTotal.type}: Rs. {addCommasToNumber(historicalTotal.value)}
                   </p>
                 ) : null}
               </div>
               <div>
-                <button
-                  id="view_lpr_button-quote_actions-quote_compare_page"
-                  className={styles.actionBtnDark}
-                  onClick={() => openModalForVariant(key)}
-                >
-                  View LPR History
-                </button>
+                {!visibility?.locked && (
+                  <button
+                    id="view_lpr_button-quote_actions-quote_compare_page"
+                    className={styles.actionBtnDark}
+                    onClick={() => openModalForVariant(key)}
+                  >
+                    View LPR History
+                  </button>
+                )}
               </div>
             </div>
 
@@ -139,18 +145,20 @@ const ProductComparisonTab = ({
               </div>
             ) : null}
 
-            <div className={styles.productBadges}>
-              <span className={styles.productBadge}>Quotes: {summary.quoteCount || 0}</span>
-              <span className={styles.productBadge}>Regrets: {summary.regretCount || 0}</span>
-              <span className={styles.productBadge}>Target: {(() => {
-                const negoTarget = negotiationMap[item.id]?.activeRound?.target_price;
-                const productTarget = item.latest_target_price;
-                const effective = negoTarget || productTarget;
-                return effective ? formatPrice(effective) : "-";
-              })()}</span>
-            </div>
+            {!visibility?.locked && (
+              <div className={styles.productBadges}>
+                <span className={styles.productBadge}>Quotes: {summary.quoteCount || 0}</span>
+                <span className={styles.productBadge}>Regrets: {summary.regretCount || 0}</span>
+                <span className={styles.productBadge}>Target: {(() => {
+                  const negoTarget = negotiationMap[item.id]?.activeRound?.target_price;
+                  const productTarget = item.latest_target_price;
+                  const effective = negoTarget || productTarget;
+                  return effective ? formatPrice(effective) : "-";
+                })()}</span>
+              </div>
+            )}
 
-            {summary.topVendors?.length > 0 ? (
+            {!visibility?.locked && summary.topVendors?.length > 0 ? (
               <div className={styles.productTopVendors}>
                 {summary.topVendors.map((vendor) => (
                   <div className={styles.vendorCard} key={`${item.id}_${vendor.rank}_${vendor.vendorName}`}>
@@ -162,13 +170,23 @@ const ProductComparisonTab = ({
               </div>
             ) : null}
 
-            <LPRModal
-              show={openModals[key] || false}
-              onHide={() => closeModalForVariant(key)}
-              variantId={item.product_variant_id}
-            />
+            {!visibility?.locked && (
+              <LPRModal
+                show={openModals[key] || false}
+                onHide={() => closeModalForVariant(key)}
+                variantId={item.product_variant_id}
+              />
+            )}
 
-            {item?.quotations?.length === 0 ? (
+            {visibility?.locked ? (
+              <QuoteVisibilityLockPanel
+                compact
+                title="Quotes Unlock After Submission Deadline"
+                message="This product stays read only until the quote submission deadline passes. Vendor quotations and rates will appear automatically after that."
+                deadline={visibility.deadline}
+                remainingMs={visibility.remainingMs}
+              />
+            ) : item?.quotations?.length === 0 ? (
               <h4 className="mt-4 text-center">No Quotations yet!</h4>
             ) : (
               <ProductComparisonMatrix

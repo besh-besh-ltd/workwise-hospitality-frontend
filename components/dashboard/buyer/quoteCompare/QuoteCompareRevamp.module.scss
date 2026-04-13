@@ -533,6 +533,105 @@ $badge-tones: (
   color: #24466d;
 }
 
+.quoteLockPanel {
+  @include panel(#f3d18b, $radius-md, linear-gradient(135deg, #fff9e8 0%, #fff3cd 100%));
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px;
+}
+
+.quoteLockPanelCompact {
+  margin-top: 12px;
+}
+
+.quoteLockInline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff8e1;
+  border: 1px solid #f3d18b;
+}
+
+.quoteLockInlineBadge {
+  @extend %badge-base;
+  padding: 6px 10px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 0.24px;
+}
+
+.quoteLockInlineText {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #7c4a08;
+  font-weight: 500;
+}
+
+.quoteLockIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 8px 20px rgba(217, 119, 6, 0.18);
+}
+
+.quoteLockBody {
+  min-width: 0;
+  flex: 1;
+}
+
+.quoteLockEyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.32px;
+  font-weight: 700;
+  color: #a16207;
+}
+
+.quoteLockTitle {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #78350f;
+}
+
+.quoteLockMessage {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #8a5614;
+}
+
+.quoteLockMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.quoteLockMetaChip {
+  @extend %badge-base;
+  gap: 6px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.72);
+  color: #7c4a08;
+  border: 1px solid rgba(217, 119, 6, 0.2);
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
 @media (max-width: 1199px) {
   .kpiGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -597,6 +696,10 @@ $badge-tones: (
 
   .zoneSub {
     text-align: left;
+  }
+
+  .quoteLockPanel {
+    flex-direction: column;
   }
 }
 

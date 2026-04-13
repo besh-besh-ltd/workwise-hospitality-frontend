@@ -1,4 +1,5 @@
 import Accordion from "react-bootstrap/Accordion";
+import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
@@ -19,6 +20,9 @@ import AddClause from "./AddClause";
 import { addProductToDraft, addProductToExistingRfq, getClausesByRfqProductId } from "@/services/rfq";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+// WH-69: PrevHint chip — only renders something when this product field
+// has a recorded prior value in /rfq/:id/edit-history.
+import PrevHint from "@/components/shared/PrevHint";
 
 const Item = ({
   is_tender,
@@ -41,6 +45,9 @@ const Item = ({
   fetchVendors,
   updatableData,
   pageRoute = "create_rfq_page", // Default fallback
+  // WH-69: Composite-key map of "value just before the most recent save"
+  // built in EditRFQ.js. Optional — only present in the edit flow.
+  previousValues,
 
   // Behavioural Html injection props
   header,
@@ -257,10 +264,25 @@ const Item = ({
     }
   };
 
+  // WH-69: Newly-added products in the edit flow have `data.id == null`
+  // until the user clicks "Update RFQ" and the snapshot apply assigns them
+  // a real `tbl_rfq_products.id`. Tech-eval clauses are keyed by that id,
+  // so any tech-eval action on an unsaved product would either send a null
+  // (backend rejects with "rfq_product_id must be a number") or silently
+  // fall back to product_variant_id and write to the wrong product. Treat
+  // unsaved products as a hard block until the next Update RFQ save.
+  const isUnsavedNewProduct = data?.id == null;
+
   const getProductClauses = useCallback(async () => {
-    const productId = data.id || data.product_id || (data.variant_id ? data.variant_id : null);    
+    // Skip the fetch entirely for unsaved new products — there are no
+    // clauses yet and we don't have a valid id to query against.
+    if (isUnsavedNewProduct) {
+      setBuyerClauses([]);
+      setMinimumPassingScore(null);
+      return;
+    }
     const payload = {
-      rfq_product_id: productId,
+      rfq_product_id: data.id,
       vendor_id: null,
     };
     try {
@@ -283,7 +305,7 @@ const Item = ({
       setBuyerClauses([]);
       setMinimumPassingScore(null);
     }
-  }, [data.id]);
+  }, [data?.id, isUnsavedNewProduct]);
 
   const handleOpenModal = () => {
     setOpenToMinimumScore(false);
@@ -589,6 +611,14 @@ const Item = ({
                 style={{ height: "40px" }}
                 disabled={readOnly}
               />
+              {/* WH-69: Previously hint for Size spec — compact mode pulls
+                  the chip up against CommonFormInput's built-in mb-3. */}
+              <PrevHint
+                keyName={`spec:${data?.id}:Size`}
+                previousValues={previousValues}
+                currentValue={specs?.size}
+                compact
+              />
             </div>
             {/*end: prodiuct spec */}
 
@@ -797,6 +827,13 @@ const Item = ({
                 style={{ height: "100px" }}
                 disabled={readOnly}
               />
+              {/* WH-69: Previously hint for Spec field — compact mode */}
+              <PrevHint
+                keyName={`spec:${data?.id}:Spec`}
+                previousValues={previousValues}
+                currentValue={specs.spec}
+                compact
+              />
             </div>
             {/*end: product spec */}
 
@@ -815,6 +852,13 @@ const Item = ({
                   validation="float_number"
                   disabled={readOnly}
                 />
+                {/* WH-69: Previously hint for Quantity — compact mode */}
+                <PrevHint
+                  keyName={`spec:${data?.id}:Quantity`}
+                  previousValues={previousValues}
+                  currentValue={specs.quantity}
+                  compact
+                />
               </div>
 
               <div style={{ width: "210px" }}>
@@ -829,6 +873,13 @@ const Item = ({
                   className=" form-control"
                   disabled={readOnly}
                 />
+                {/* WH-69: Previously hint for Unit — compact mode */}
+                <PrevHint
+                  keyName={`spec:${data?.id}:Unit`}
+                  previousValues={previousValues}
+                  currentValue={specs.unit}
+                  compact
+                />
               </div>
             </div>
             {/* end: qty and unit ocntainer */}
@@ -838,45 +889,87 @@ const Item = ({
           {/* Tech Evaluation & Comments */}
           <div className="mt-3">
             <h6 className="text-dark fw-semibold mb-2">Tech Evaluation</h6>
+            {/* WH-69: Tech eval buttons are disabled for newly-added products
+                until they're persisted via Update RFQ. Without a real
+                rfq_product_id the backend would reject the clause request.
+                The tooltip explains why so the user knows what to do. */}
             <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
-              <button
-                id={buyerClauses?.length > 0 ? `view_clauses_${rfqProduct?.id}-tech_evaluation-${pageRoute}` : `add_clauses_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
-                className="btn btn-outline-warning btn-sm d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap text-dark w-auto"
-                style={{ minWidth: "180px" }}
-                onClick={handleOpenModal}
-                disabled={readOnly}
-                title={readOnly ? "You don't have permission to add clauses" : ""}
+              <OverlayTrigger
+                placement="top"
+                overlay={
+                  isUnsavedNewProduct ? (
+                    <Tooltip id={`tech-eval-disabled-${rfqProduct?.clientId || rfqProduct?.id}`}>
+                      Click "Update RFQ" to save this product first, then you can add tech evaluation clauses.
+                    </Tooltip>
+                  ) : (<span />)
+                }
               >
-                <FontAwesomeIcon icon={faEye} />
-                {buyerClauses?.length > 0 ? `View and Edit (${buyerClauses.length} clauses)` : "View and Edit"}
-              </button>
+                <span className="d-inline-block">
+                  <button
+                    id={buyerClauses?.length > 0 ? `view_clauses_${rfqProduct?.id}-tech_evaluation-${pageRoute}` : `add_clauses_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
+                    className="btn btn-outline-warning btn-sm d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap text-dark w-auto"
+                    style={{
+                      minWidth: "180px",
+                      pointerEvents: isUnsavedNewProduct ? 'none' : 'auto',
+                      opacity: isUnsavedNewProduct ? 0.55 : 1,
+                    }}
+                    onClick={handleOpenModal}
+                    disabled={readOnly || isUnsavedNewProduct}
+                    title={readOnly ? "You don't have permission to add clauses" : ""}
+                  >
+                    <FontAwesomeIcon icon={faEye} />
+                    {buyerClauses?.length > 0 ? `View and Edit (${buyerClauses.length} clauses)` : "View and Edit"}
+                  </button>
+                </span>
+              </OverlayTrigger>
 
-              {minimumPassingScore !== null && minimumPassingScore !== undefined ? (
-                <button
-                  type="button"
-                  className="btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap w-auto"
-                  style={{ minWidth: "180px" }}
-                  onClick={handleOpenModalToMinimumScore}
-                  disabled={readOnly}
-                  id={`edit_min_score_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
-                >
-                  <FontAwesomeIcon icon={faEdit} className="opacity-75" />
-                  <span>Minimum score</span>
-                  <span className="badge bg-primary rounded-pill px-2">{minimumPassingScore}%</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap w-auto"
-                  style={{ minWidth: "180px" }}
-                  onClick={handleOpenModalToMinimumScore}
-                  disabled={readOnly}
-                  id={`set_min_score_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
-                >
-                  <FontAwesomeIcon icon={faEdit} className="opacity-75" />
-                  Set minimum score
-                </button>
-              )}
+              <OverlayTrigger
+                placement="top"
+                overlay={
+                  isUnsavedNewProduct ? (
+                    <Tooltip id={`min-score-disabled-${rfqProduct?.clientId || rfqProduct?.id}`}>
+                      Click "Update RFQ" to save this product first, then you can set a minimum passing score.
+                    </Tooltip>
+                  ) : (<span />)
+                }
+              >
+                <span className="d-inline-block">
+                  {minimumPassingScore !== null && minimumPassingScore !== undefined ? (
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap w-auto"
+                      style={{
+                        minWidth: "180px",
+                        pointerEvents: isUnsavedNewProduct ? 'none' : 'auto',
+                        opacity: isUnsavedNewProduct ? 0.55 : 1,
+                      }}
+                      onClick={handleOpenModalToMinimumScore}
+                      disabled={readOnly || isUnsavedNewProduct}
+                      id={`edit_min_score_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
+                    >
+                      <FontAwesomeIcon icon={faEdit} className="opacity-75" />
+                      <span>Minimum score</span>
+                      <span className="badge bg-primary rounded-pill px-2">{minimumPassingScore}%</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap w-auto"
+                      style={{
+                        minWidth: "180px",
+                        pointerEvents: isUnsavedNewProduct ? 'none' : 'auto',
+                        opacity: isUnsavedNewProduct ? 0.55 : 1,
+                      }}
+                      onClick={handleOpenModalToMinimumScore}
+                      disabled={readOnly || isUnsavedNewProduct}
+                      id={`set_min_score_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
+                    >
+                      <FontAwesomeIcon icon={faEdit} className="opacity-75" />
+                      Set minimum score
+                    </button>
+                  )}
+                </span>
+              </OverlayTrigger>
             </div>
 
             <div>

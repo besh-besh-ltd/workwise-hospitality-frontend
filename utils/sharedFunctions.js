@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import axiosInstance from "@/lib/axios";
-import { handleUploadFile, persistMagicSearchJob } from "@/services/rfq";
 
 /**
  * Executes an asynchronous data-fetching function while managing a loading state.
@@ -85,19 +83,23 @@ export const formatPrice = (price) => {
     return formattedPrice;
 }
 
+const parseIstLikeDateToEpoch = (raw) => {
+    if (raw == null || raw === '') return null;
+    if (raw instanceof Date) return raw.getTime();
+    let s = String(raw).trim();
+    if (!s) return null;
+    s = s.replace(/([+-]\d{2}:?\d{2}|Z)$/i, '');
+    s = s.replace(' ', 'T');
+    if (!/T/.test(s)) s += 'T00:00:00';
+    else if (/T\d{2}:\d{2}$/.test(s)) s += ':00';
+    const d = new Date(`${s}+05:30`);
+    return Number.isNaN(d.getTime()) ? null : d.getTime();
+};
+
 export const checkBidExpired = (bid_end_date) => {
-    if (!bid_end_date) {
-        return false;
-    }
-    const CURRENT_DATE = new Date();
-    let dateStr = bid_end_date;
-    if (typeof dateStr === 'string') {
-        dateStr = dateStr.replace(/\s+/, 'T');
-        // Normalize short timezone offsets: +00 → +00:00, -05 → -05:00
-        dateStr = dateStr.replace(/([+-]\d{2})$/, '$1:00');
-    }
-    const END_DATE = new Date(dateStr);
-    return CURRENT_DATE > END_DATE;
+    const endMs = parseIstLikeDateToEpoch(bid_end_date);
+    if (endMs == null) return false;
+    return Date.now() > endMs;
 };
 
 export const extractfileName = (file_url) => {
@@ -113,6 +115,7 @@ export const handleFileUpload = async (e, token) => {
   
     if (allowedExtensions.includes(fileExtension)) {
       try {
+        const { handleUploadFile } = await import("@/services/rfq");
         const res = await handleUploadFile(file, token);
         const filePath = res.data[0]?.file_path;
   
@@ -258,6 +261,134 @@ export const formatDisplayDate = (dateStr, options = {}) => {
     }
 
     return result;
+};
+
+/**
+ * Parse a wall-clock-IST datetime string ("2026-04-09 11:11", "2026-04-09T11:11",
+ * "2026-04-09T11:11:00", or even "2026-04-09") into an absolute epoch-ms.
+ *
+ * Use this any time you need to compare an RFQ form date (which the user
+ * picks in IST and the backend stores as wall-clock IST) against a
+ * universal anchor like Date.now() — appending the +05:30 offset before
+ * calling Date() makes the result correct regardless of the server or
+ * browser timezone, so the resulting math is always frame-consistent.
+ *
+ * Returns null when the input can't be parsed.
+ */
+export const parseIstWallTimeToEpoch = (raw) => {
+    return parseIstLikeDateToEpoch(raw);
+};
+
+export const formatRemainingDuration = (remainingMs) => {
+    const ms = Number(remainingMs);
+    if (!Number.isFinite(ms) || ms <= 0) return "0m";
+
+    const totalSeconds = Math.ceil(ms / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${Math.max(minutes, 1)}m`;
+};
+
+/**
+ * Format a stored datetime value (the kind we get back from the RFQ
+ * snapshot or change history — wall-clock IST or with explicit Z) into a
+ * compact human-friendly form for the "Previously: …" hint chips on the
+ * edit form. Falls back to the raw value if it doesn't parse.
+ */
+export const formatPrevDateValue = (raw) => {
+    if (raw == null || raw === '') return '—';
+    // Try the IST wall-clock parser first since most form dates flow
+    // through that path. Fall back to the universal parseHistoryDate so
+    // values that already carry an explicit timezone still render.
+    let ms = parseIstWallTimeToEpoch(raw);
+    if (ms == null) {
+        const d = parseHistoryDate(raw);
+        ms = d && !Number.isNaN(d.getTime()) ? d.getTime() : null;
+    }
+    if (ms == null) return String(raw);
+    return new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    }).format(new Date(ms));
+};
+
+/**
+ * WH-69: Edit-history timestamps come from a `TIMESTAMP without time zone`
+ * column written by `NOW()` on a UTC database server, but pg-promise serialises
+ * them as bare `YYYY-MM-DD HH:mm:ss` strings (no `Z` suffix). `new Date(...)`
+ * on those strings would interpret them as the *browser's* local time, which
+ * shifts the displayed value by the IST offset (5h30m → "6 hours ago" for an
+ * edit that just happened).
+ *
+ * `parseHistoryDate` always treats history strings as UTC and returns a real
+ * `Date` so the rest of the app can format/compare them correctly.
+ */
+export const parseHistoryDate = (raw) => {
+    if (!raw) return null;
+    if (raw instanceof Date) return raw;
+    if (typeof raw !== 'string') return new Date(raw);
+
+    let s = raw.trim();
+    // Already has explicit timezone info (Z or ±HH:MM) — trust it.
+    if (/[zZ]$/.test(s) || /[+-]\d{2}:?\d{2}$/.test(s)) {
+        return new Date(s);
+    }
+    // "2026-04-08 13:00:00.123" → "2026-04-08T13:00:00.123Z"
+    s = s.replace(' ', 'T');
+    if (!/[zZ]$/.test(s)) s += 'Z';
+    return new Date(s);
+};
+
+/**
+ * WH-69: Format an edit-history timestamp in IST regardless of the browser's
+ * own time zone. Always parses via `parseHistoryDate` so UTC-stored values
+ * line up with the user's wall clock in India.
+ */
+export const formatHistoryDateIST = (raw, { includeTime = true, includeSeconds = false } = {}) => {
+    const date = parseHistoryDate(raw);
+    if (!date || isNaN(date.getTime())) return '';
+    const opts = {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    };
+    if (includeTime) {
+        opts.hour = '2-digit';
+        opts.minute = '2-digit';
+        if (includeSeconds) opts.second = '2-digit';
+        opts.hour12 = true;
+    }
+    return new Intl.DateTimeFormat('en-IN', opts).format(date);
+};
+
+/**
+ * WH-69: "X minutes ago" relative-time string anchored against real wall-clock
+ * time. Works for any timestamp returned by `parseHistoryDate`.
+ */
+export const formatHistoryRelative = (raw) => {
+    const date = parseHistoryDate(raw);
+    if (!date || isNaN(date.getTime())) return '';
+    const ms = Date.now() - date.getTime();
+    if (ms < 0) return 'just now'; // clock skew — don't say "in the future"
+    const sec = Math.round(ms / 1000);
+    if (sec < 45) return 'just now';
+    const min = Math.round(sec / 60);
+    if (min < 60) return `${min} minute${min === 1 ? '' : 's'} ago`;
+    const hr = Math.round(min / 60);
+    if (hr < 24) return `${hr} hour${hr === 1 ? '' : 's'} ago`;
+    const days = Math.round(hr / 24);
+    if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
+    return formatHistoryDateIST(raw, { includeTime: false });
 };
 
 const useDebounce = (value, delay = 500) => {
@@ -726,13 +857,79 @@ export const getRFQPublishState = (data) => {
     isClosed,
     isWithdrawn,
     isPrePublishState,
-    // Helper for edit button visibility
-    // NOTE: Editing is allowed for OPEN and WITHDRAWN tenders/RFQs.
-    // Pending approval / ready-to-publish items are read-only.
-    canEdit: isOpen || isWithdrawn,
+    // WH-69: Edit window opened up. The RFQ Creator can now edit:
+    //   - drafts (status 0)
+    //   - pending approval (status 3)
+    //   - approved-but-unpublished (status 4)
+    //   - open/published (status 1) until bid_end_date passes
+    //   - withdrawn (status 5)
+    // Permission/owner checks live in canEditRfq() — this flag only encodes
+    // the *status-based* slice that the existing UI was already gating on.
+    canEdit: !isClosed && !!data && !isBidEnded(data),
     // Helper for edit URL determination (only used when canEdit === true)
     editUrl: (id) => `/dashboard/buyer/rfq-management-edit?id=${id}`,
     // Helper for queries/reminder visibility
     showVendorActions: !isPrePublishState && !isClosed && !isWithdrawn,
   };
+};
+
+/**
+ * WH-69: Has the RFQ's bid_end_date already passed?
+ * Returns true if there is a bid_end_date and it is in the past.
+ */
+export const isBidEnded = (rfq) => {
+  if (!rfq?.bid_end_date) return false;
+  const end = new Date(rfq.bid_end_date);
+  if (isNaN(end.getTime())) return false;
+  return end <= new Date();
+};
+
+/**
+ * WH-69: Single-source-of-truth permission helper for the new edit flow.
+ *
+ * Returns { allowed: boolean, reason?: string }.
+ *
+ *   allowed === true  → render the Edit button as enabled
+ *   allowed === false → render the Edit button as disabled and show `reason`
+ *                       in a tooltip
+ *
+ * Checks (in order — first failure wins so the user sees the most specific
+ * blocker first). Must stay in sync with assertEditAllowed in backend
+ * rfqUpdateHelpers.js plus the post-edit guards in rfqController.update.
+ *
+ * @param {Object} rfq          RFQ object with at least { created_by, status,
+ *                              bid_end_date, po_completed }
+ * @param {Object} currentUser  user profile with at least { id }
+ */
+export const canEditRfq = (rfq, currentUser) => {
+  if (!rfq || !currentUser) {
+    return { allowed: false, reason: 'Loading…' };
+  }
+  // Closed or terminated
+  if (rfq.status === 2) {
+    return { allowed: false, reason: 'This RFQ is closed.' };
+  }
+  // All products finalized — nothing left to edit
+  if (rfq.po_completed) {
+    return {
+      allowed: false,
+      reason: 'Every product on this RFQ has been finalized and awarded.'
+    };
+  }
+  // Bid window passed — but allow edit if no vendors submitted quotes,
+  // so the creator can extend the deadline.
+  if (isBidEnded(rfq) && rfq.is_quotes_present) {
+    return {
+      allowed: false,
+      reason: 'The submission deadline has passed; this RFQ can no longer be edited.'
+    };
+  }
+  // Creator-only — backend enforces this too
+  if (Number(rfq.created_by) !== Number(currentUser.id)) {
+    return {
+      allowed: false,
+      reason: 'Only the user who created this RFQ can edit it.'
+    };
+  }
+  return { allowed: true };
 };
