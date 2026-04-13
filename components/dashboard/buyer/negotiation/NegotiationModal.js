@@ -13,10 +13,69 @@ import { getUserDetails } from '@/services/Auth';
 import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
 import { toast } from 'react-toastify';
 import moment from 'moment';
+import { Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  BarController,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip as ChartTooltip,
+} from 'chart.js';
+import { calculateTotal } from '@/utils/sharedFunctions';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
 import ApprovalActionModal from '../approval/ApprovalActionModal';
 import ApprovalTimeline from '../approval/ApprovalTimeline';
 import styles from './NegotiationUI.module.scss';
+
+ChartJS.register(BarController, BarElement, CategoryScale, LinearScale, ChartTooltip);
+
+// Custom Chart.js plugin: draws price labels on top of each bar
+const barLabelsPlugin = {
+  id: 'barLabels',
+  afterDatasetsDraw: (chart) => {
+    const { ctx } = chart;
+    chart.data.datasets.forEach((dataset, di) => {
+      const meta = chart.getDatasetMeta(di);
+      meta.data.forEach((bar, index) => {
+        const value = dataset.data[index];
+        if (value == null) return;
+        ctx.save();
+        ctx.fillStyle = '#1f3d63';
+        ctx.font = '700 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`₹${Number(value).toLocaleString('en-IN')}`, bar.x, bar.y - 6);
+        ctx.restore();
+      });
+    });
+  }
+};
+
+// Custom Chart.js plugin: draws a dashed target price line
+const targetLinePlugin = {
+  id: 'targetLine',
+  afterDraw: (chart, args, pluginOptions) => {
+    const { targetPrice } = pluginOptions || {};
+    if (!targetPrice || targetPrice <= 0) return;
+    const { ctx, chartArea, scales: { y } } = chart;
+    if (!chartArea || !y) return;
+    const yPos = y.getPixelForValue(targetPrice);
+    if (yPos < chartArea.top || yPos > chartArea.bottom) return;
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = '#c0392b';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(chartArea.left, yPos);
+    ctx.lineTo(chartArea.right, yPos);
+    ctx.stroke();
+    ctx.fillStyle = '#c0392b';
+    ctx.font = '600 10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`Target: ₹${Number(targetPrice).toLocaleString('en-IN')}`, chartArea.right, yPos - 4);
+    ctx.restore();
+  }
+};
 
 const NegotiationModal = ({
   show,
@@ -60,6 +119,13 @@ const NegotiationModal = ({
   // Approval journey: all instances (including rejected) per round entity
   const [approvalJourneys, setApprovalJourneys] = useState({}); // Map of roundId -> { loading, instances[] }
   const [expandedApprovalJourney, setExpandedApprovalJourney] = useState(null); // roundId of expanded journey
+  // Chart flip state for create mode product rows
+  const [flippedCards, setFlippedCards] = useState({});
+
+  const toggleCardFlip = (productId, e) => {
+    e.stopPropagation();
+    setFlippedCards(prev => ({ ...prev, [productId]: !prev[productId] }));
+  };
 
   useEffect(() => {
     if (userProfile?.id) {
@@ -71,6 +137,7 @@ const NegotiationModal = ({
     if (show && mode === 'create') {
       setSelectedProducts([]);
       setFormData({ target_price: '', end_date: '' });
+      setFlippedCards({});
       loadQuoteApprovalStatuses();
     }
     if (show && mode === 'view-approve' && activeRounds.length > 0) {
@@ -664,6 +731,155 @@ const NegotiationModal = ({
     };
   };
 
+  // Get vendor price data for chart and L1 display
+  // Data shape: pricing fields (unit_price, total_price, freight_price, etc.) are FLAT on quotation object.
+  // quote_details is an object { vendor_details, is_regret, ... } — NOT pricing data.
+  const getVendorPriceData = (product) => {
+    const quotations = product?.quotations || [];
+    const validQuotations = quotations.filter(q => {
+      const hasId = q.id != null || q.quote_id != null || q.quote_item_id != null;
+      return hasId && !isQuoteRegretted(q);
+    });
+
+    if (validQuotations.length === 0) return { vendors: [], l1: null };
+
+    const vendors = validQuotations.map(q => {
+      const vendorDetails = getVendorDetailsFromQuote(q);
+      const vendorName = vendorDetails ? getVendorDisplayName(vendorDetails) : 'Unknown';
+
+      // Pricing fields are flat on the quotation object (q.unit_price, q.total_price, etc.)
+      // Use pre-computed total_price first (most reliable), then try calculateTotal on flat fields
+      let totalPrice = parseFloat(q.total_price || 0);
+      if (totalPrice === 0) {
+        const quantity = q.quantity || product?.quantity || 0;
+        totalPrice = parseFloat(calculateTotal(q, quantity, false)) || 0;
+      }
+      // Alternate data shape: quote_details is an array with pricing nested inside
+      if (totalPrice === 0 && Array.isArray(q.quote_details) && q.quote_details[0]) {
+        const qd = q.quote_details[0];
+        totalPrice = parseFloat(qd.total_price || 0);
+        if (totalPrice === 0) {
+          const qty = qd?.rfq_details?.find(s => s.title === 'Quantity')?.value || qd?.quantity || 0;
+          totalPrice = parseFloat(calculateTotal(qd, qty, false)) || 0;
+        }
+      }
+
+      // Extract flat pricing fields for tooltip breakdown
+      const src = (Array.isArray(q.quote_details) && q.quote_details[0]) || q;
+      const unitPrice = parseFloat(src.unit_price || 0);
+      const freightPrice = parseFloat(src.freight_price || 0);
+      const freightMode = src.freight_mode || 'percentage';
+      const packagePrice = parseFloat(src.package_price || 0);
+      const packageMode = src.package_mode || 'percentage';
+      const tax = parseFloat(src.tax || 0);
+      const taxMode = src.tax_mode || 'percentage';
+      const quantity = parseFloat(src.quantity || q.quantity || product?.quantity || 0);
+
+      return {
+        vendorName, totalPrice, unitPrice, quantity,
+        freightPrice, freightMode, packagePrice, packageMode, tax, taxMode,
+      };
+    }).filter(v => v.totalPrice > 0);
+
+    vendors.sort((a, b) => a.totalPrice - b.totalPrice);
+    const l1 = vendors.length > 0 ? vendors[0].totalPrice : null;
+    vendors.forEach(v => { v.isL1 = v.totalPrice === l1; });
+
+    return { vendors, l1 };
+  };
+
+  // Build Chart.js config for vendor price bar chart
+  const CHART_COLORS = ['#2e5ba8', '#428B41', '#e67e22', '#8e44ad', '#16a085', '#c0392b', '#2c3e50', '#f39c12'];
+
+  const buildChartConfig = (vendorPriceData, targetPrice) => {
+    const { vendors } = vendorPriceData;
+
+    const data = {
+      labels: vendors.map(v => v.vendorName),
+      datasets: [{
+        label: 'Total Price (₹)',
+        data: vendors.map(v => v.totalPrice),
+        backgroundColor: vendors.map((v, i) => v.isL1 ? '#2e7d32CC' : (CHART_COLORS[i % CHART_COLORS.length] + 'CC')),
+        borderColor: vendors.map((v, i) => v.isL1 ? '#1b5e20' : CHART_COLORS[i % CHART_COLORS.length]),
+        borderWidth: vendors.map(v => v.isL1 ? 2 : 1),
+        borderRadius: 6,
+        barPercentage: 0.7,
+        categoryPercentage: 0.8,
+      }]
+    };
+
+    const maxPrice = Math.max(...vendors.map(v => v.totalPrice), targetPrice || 0);
+    const minPrice = Math.min(...vendors.map(v => v.totalPrice), targetPrice || Infinity);
+    // Smart y-axis min: start from 0 if values are close to 0, otherwise floor to ~70% of min for bar differentiation
+    const yMin = minPrice > 0 ? Math.floor(minPrice * 0.7) : 0;
+
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        title: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2730',
+          titleFont: { size: 12, weight: '700' },
+          bodyFont: { size: 11 },
+          padding: 12,
+          cornerRadius: 8,
+          callbacks: {
+            label: (ctx) => {
+              const v = vendors[ctx.dataIndex];
+              const fmt = (val) => `₹${Number(val).toLocaleString('en-IN')}`;
+              const fmtCharge = (val, mode) => mode === 'percentage' ? `${val}%` : fmt(val);
+              const lines = [
+                `Unit Price: ${fmt(v.unitPrice)}`,
+                `Qty: ${v.quantity || '-'}`,
+              ];
+              if (v.packagePrice) lines.push(`Packaging: ${fmtCharge(v.packagePrice, v.packageMode)}`);
+              if (v.freightPrice) lines.push(`Freight: ${fmtCharge(v.freightPrice, v.freightMode)}`);
+              if (v.tax) lines.push(`GST: ${fmtCharge(v.tax, v.taxMode)}`);
+              lines.push(`Total: ${fmt(v.totalPrice)}`);
+              if (v.isL1) lines.push('★ L1 (Lowest)');
+              return lines;
+            }
+          }
+        },
+        targetLine: { targetPrice: targetPrice || null },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            font: { size: 10, weight: '600' },
+            color: '#4d6582',
+            maxRotation: 25,
+            minRotation: 0,
+            callback: function(value) {
+              const label = this.getLabelForValue(value);
+              return label.length > 18 ? label.slice(0, 18) + '…' : label;
+            }
+          }
+        },
+        y: {
+          beginAtZero: false,
+          suggestedMin: yMin,
+          suggestedMax: maxPrice * 1.12,
+          grid: { color: '#e8eef5', drawBorder: false },
+          ticks: {
+            font: { size: 10 },
+            color: '#6d829a',
+            callback: (value) => '₹' + Number(value).toLocaleString('en-IN'),
+            maxTicksLimit: 6
+          },
+          title: {
+            display: false
+          }
+        }
+      }
+    };
+
+    return { data, options };
+  };
+
   const renderCreateForm = () => {
     // Products that can have negotiation: have quotes, no active round, quotes not approved
     const availableProducts = products.filter(p => hasQuotes(p) && !hasActiveRound(p.id) && !isQuoteApproved(p.id));
@@ -711,59 +927,119 @@ const NegotiationModal = ({
                   statusClass = styles.createStatusNoQuotes;
                 }
 
+                const priceData = getVendorPriceData(product);
+                const isFlipped = flippedCards[product.id];
+
                 return (
-                  <button
+                  <div
                     key={product.id}
-                    type="button"
-                    onClick={() => !isDisabled && handleProductToggle(product.id)}
-                    disabled={isDisabled}
-                    aria-pressed={isSelected}
-                    className={`${styles.createProductRow} ${
-                      isSelected ? styles.createProductRowSelected : ''
-                    } ${isDisabled ? styles.createProductRowDisabled : ''}`}
+                    className={`${styles.flipContainer} ${isFlipped ? styles.flipContainerFlipped : ''}`}
                   >
-                    <div className={styles.createProductMain}>
-                      <input
-                        type="radio"
-                        name="selectedProduct"
-                        checked={isSelected}
+                    <div className={styles.flipInner}>
+                      {/* FRONT FACE - Product Info */}
+                      <button
+                        type="button"
+                        onClick={() => !isDisabled && handleProductToggle(product.id)}
                         disabled={isDisabled}
-                        readOnly
-                        className={styles.createRadio}
-                      />
-                      <div className={styles.createTitleBlock}>
-                        <p className={styles.createProductName}>{details.name}</p>
-                        <div className={styles.createStatusRow}>
-                          <span className={`${styles.createStatusBadge} ${statusClass}`}>
-                            {statusLabel}
+                        aria-pressed={isSelected}
+                        className={`${styles.flipFace} ${styles.flipFront} ${styles.createProductRow} ${
+                          isSelected ? styles.createProductRowSelected : ''
+                        } ${isDisabled ? styles.createProductRowDisabled : ''}`}
+                      >
+                        <div className={styles.createProductMain}>
+                          <input
+                            type="radio"
+                            name="selectedProduct"
+                            checked={isSelected}
+                            disabled={isDisabled}
+                            readOnly
+                            className={styles.createRadio}
+                          />
+                          <div className={styles.createTitleBlock}>
+                            <p className={styles.createProductName}>{details.name}</p>
+                            {isDisabled && (
+                              <div className={styles.createStatusRow}>
+                                <span className={`${styles.createStatusBadge} ${statusClass}`}>
+                                  {statusLabel}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className={styles.createMetaGrid}>
+                          <div className={styles.createMetaItem}>
+                            <p className={styles.createMetaLabel}>Spec</p>
+                            <p className={`${styles.createMetaValue} ${styles.createMetaValueClamp}`} title={details.spec || ''}>{details.spec || '-'}</p>
+                          </div>
+                          <div className={styles.createMetaItem}>
+                            <p className={styles.createMetaLabel}>Size</p>
+                            <p className={`${styles.createMetaValue} ${styles.createMetaValueClamp}`} title={details.size || ''}>{details.size || '-'}</p>
+                          </div>
+                          <div className={styles.createMetaItem}>
+                            <p className={styles.createMetaLabel}>Qty & Unit</p>
+                            <p className={styles.createMetaValue}>
+                              {details.quantity || '-'}{details.unit ? ` ${details.unit}` : ''}
+                            </p>
+                          </div>
+                          <div className={`${styles.createMetaItem} ${styles.createMetaItemL1}`}>
+                            <p className={styles.createMetaLabel}>L1</p>
+                            <p className={`${styles.createMetaValue} ${styles.createMetaValueL1}`}>
+                              {priceData.l1 ? `₹${priceData.l1.toLocaleString('en-IN')}` : '-'}
+                            </p>
+                          </div>
+                          <div className={styles.createMetaItem}>
+                            <p className={styles.createMetaLabel}>Vendors</p>
+                            <p className={`${styles.createMetaValue} ${styles.createMetaValueClampVendor}`} title={getVendorNames(product)}>{getVendorNames(product)}</p>
+                          </div>
+                        </div>
+
+                        <div className={styles.chartToggleRow}>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            className={`${styles.chartToggleBtn} ${noQuotes ? styles.chartToggleBtnDisabled : ''}`}
+                            onClick={(e) => { if (!noQuotes) toggleCardFlip(product.id, e); }}
+                            onKeyDown={(e) => { if (!noQuotes && (e.key === 'Enter' || e.key === ' ')) toggleCardFlip(product.id, e); }}
+                          >
+                            View Chart →
                           </span>
+                        </div>
+                      </button>
+
+                      {/* BACK FACE - Vendor Price Chart */}
+                      <div className={`${styles.flipFace} ${styles.flipBack} ${styles.createProductRow}`}>
+                        <div className={styles.chartFaceHeader}>
+                          <p className={styles.chartFaceTitle}>{details.name}</p>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            className={styles.chartBackBtn}
+                            onClick={(e) => toggleCardFlip(product.id, e)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleCardFlip(product.id, e); }}
+                          >
+                            ← Back to product
+                          </span>
+                        </div>
+                        <div className={styles.chartContainer}>
+                          {isFlipped && (() => {
+                            if (priceData.vendors.length === 0) {
+                              return <p className={styles.chartEmpty}>No price data available</p>;
+                            }
+                            const targetPrice = formData.target_price ? parseFloat(formData.target_price) : null;
+                            const { data, options } = buildChartConfig(priceData, targetPrice);
+                            return <Bar data={data} options={options} plugins={[targetLinePlugin, barLabelsPlugin]} />;
+                          })()}
+                        </div>
+                        <div className={styles.chartLegend}>
+                          {priceData.l1 && (
+                            <span className={styles.chartLegendL1}>L1: ₹{priceData.l1.toLocaleString('en-IN')}</span>
+                          )}
+                          <span className={styles.chartLegendCount}>{priceData.vendors.length} vendor(s)</span>
                         </div>
                       </div>
                     </div>
-
-                    <div className={styles.createMetaGrid}>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Spec</p>
-                        <p className={styles.createMetaValue}>{details.spec || '-'}</p>
-                      </div>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Size</p>
-                        <p className={styles.createMetaValue}>{details.size || '-'}</p>
-                      </div>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Qty</p>
-                        <p className={styles.createMetaValue}>{details.quantity || '-'}</p>
-                      </div>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Unit</p>
-                        <p className={styles.createMetaValue}>{details.unit || '-'}</p>
-                      </div>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Vendors</p>
-                        <p className={styles.createMetaValue}>{getVendorNames(product)}</p>
-                      </div>
-                    </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -776,7 +1052,7 @@ const NegotiationModal = ({
           )}
         </section>
 
-        <div className={styles.formGrid}>
+        <div className={`${styles.formGrid} ${selectedProducts.length === 0 ? styles.formGridDisabled : ''}`}>
           <div className={styles.formCard}>
             <label htmlFor="neg-target-price" className={styles.formLabel}>
               Target Price (₹) <span className={styles.requiredMark}>*</span>
@@ -790,6 +1066,7 @@ const NegotiationModal = ({
               onChange={(e) => setFormData({ ...formData, target_price: e.target.value })}
               placeholder="Enter target price"
               required
+              disabled={selectedProducts.length === 0}
               className={styles.fieldInput}
             />
           </div>
@@ -805,6 +1082,7 @@ const NegotiationModal = ({
               onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
               min={new Date().toISOString().slice(0, 16)}
               required
+              disabled={selectedProducts.length === 0}
               className={styles.fieldInput}
             />
             <p className={styles.formHint}>
@@ -1376,11 +1654,19 @@ const NegotiationModal = ({
   return (
     <>
     <Modal show={show} onHide={onHide} size="lg" centered dialogClassName={styles.negotiationModalDialog}>
-      <Modal.Header closeButton className={styles.modalHeader}>
+      <Modal.Header className={styles.modalHeader}>
         <div className={styles.modalTitleWrap}>
           <Modal.Title className={styles.modalTitle}>{getModalTitle()}</Modal.Title>
           <p className={styles.modalSubtitle}>{getModalSubtitle()}</p>
         </div>
+        <button
+          type="button"
+          className={styles.modalCloseBtn}
+          onClick={onHide}
+          aria-label="Close"
+        >
+          ✕
+        </button>
       </Modal.Header>
       <Modal.Body className={styles.modalBody}>
         {loading ? (

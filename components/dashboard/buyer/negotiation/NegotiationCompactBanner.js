@@ -169,9 +169,6 @@ const NegotiationCompactBanner = ({
   const handleModalClose = () => {
     setShowModal(false);
     setModalMode(null);
-    loadActiveRounds();
-    // Sync parent's negotiation data with this banner
-    onRoundChange?.();
   };
 
   // Helper to check if a round has been rejected via approvals
@@ -374,7 +371,7 @@ const NegotiationCompactBanner = ({
         roundsHistory={roundsHistory}
         selectedProduct={null}
         onProductSelect={() => {}}
-        onRefresh={loadActiveRounds}
+        onRefresh={() => { loadActiveRounds(); onRoundChange?.(); }}
         canWrite={canWrite}
         permissionsLoading={permissionsLoading}
         hospitalityCompanyId={hospitalityCompanyId}
