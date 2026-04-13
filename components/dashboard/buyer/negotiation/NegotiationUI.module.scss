@@ -1563,6 +1563,14 @@ $status-colors: (
   padding-bottom: 8px;
   border-bottom: 1px solid #e5edf7;
   margin-bottom: 8px;
+  gap: 10px;
+}
+
+.chartFaceHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .chartFaceTitle {
@@ -1570,6 +1578,37 @@ $status-colors: (
   font-size: 13px;
   font-weight: 700;
   color: #1a3b63;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chartTypeSwitch {
+  display: flex;
+  border: 1px solid #d3e1f2;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.chartTypeSwitchBtn {
+  border: none;
+  background: #fff;
+  color: #6d829a;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:not(:last-child) {
+    border-right: 1px solid #d3e1f2;
+  }
+}
+
+.chartTypeSwitchBtnActive {
+  background: $primary;
+  color: #fff;
 }
 
 .chartBackBtn {

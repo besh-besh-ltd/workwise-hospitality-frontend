@@ -13,13 +13,17 @@ import { getUserDetails } from '@/services/Auth';
 import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
 import { toast } from 'react-toastify';
 import moment from 'moment';
-import { Bar } from 'react-chartjs-2';
+import { Bar, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   BarController,
   BarElement,
+  LineController,
+  LineElement,
+  PointElement,
   CategoryScale,
   LinearScale,
+  Filler,
   Tooltip as ChartTooltip,
 } from 'chart.js';
 import { calculateTotal } from '@/utils/sharedFunctions';
@@ -28,7 +32,7 @@ import ApprovalActionModal from '../approval/ApprovalActionModal';
 import ApprovalTimeline from '../approval/ApprovalTimeline';
 import styles from './NegotiationUI.module.scss';
 
-ChartJS.register(BarController, BarElement, CategoryScale, LinearScale, ChartTooltip);
+ChartJS.register(BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Filler, ChartTooltip);
 
 // Custom Chart.js plugin: draws price labels on top of each bar
 const barLabelsPlugin = {
@@ -121,6 +125,7 @@ const NegotiationModal = ({
   const [expandedApprovalJourney, setExpandedApprovalJourney] = useState(null); // roundId of expanded journey
   // Chart flip state for create mode product rows
   const [flippedCards, setFlippedCards] = useState({});
+  const [chartTypes, setChartTypes] = useState({}); // { [productId]: 'bar' | 'line' }
 
   const toggleCardFlip = (productId, e) => {
     e.stopPropagation();
@@ -788,24 +793,43 @@ const NegotiationModal = ({
     return { vendors, l1 };
   };
 
-  // Build Chart.js config for vendor price bar chart
+  // Build Chart.js config for vendor price chart (bar or line)
   const CHART_COLORS = ['#2e5ba8', '#428B41', '#e67e22', '#8e44ad', '#16a085', '#c0392b', '#2c3e50', '#f39c12'];
 
-  const buildChartConfig = (vendorPriceData, targetPrice) => {
+  const buildChartConfig = (vendorPriceData, targetPrice, chartType = 'bar') => {
     const { vendors } = vendorPriceData;
+
+    const isLine = chartType === 'line';
+
+    const dataset = isLine
+      ? {
+          label: 'Total Price (₹)',
+          data: vendors.map(v => v.totalPrice),
+          borderColor: '#2e5ba8',
+          backgroundColor: 'rgba(46, 91, 168, 0.08)',
+          pointBackgroundColor: vendors.map((v, i) => v.isL1 ? '#2e7d32' : CHART_COLORS[i % CHART_COLORS.length]),
+          pointBorderColor: vendors.map((v, i) => v.isL1 ? '#1b5e20' : CHART_COLORS[i % CHART_COLORS.length]),
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          pointBorderWidth: 2,
+          borderWidth: 2.5,
+          tension: 0.3,
+          fill: true,
+        }
+      : {
+          label: 'Total Price (₹)',
+          data: vendors.map(v => v.totalPrice),
+          backgroundColor: vendors.map((v, i) => v.isL1 ? '#2e7d32CC' : (CHART_COLORS[i % CHART_COLORS.length] + 'CC')),
+          borderColor: vendors.map((v, i) => v.isL1 ? '#1b5e20' : CHART_COLORS[i % CHART_COLORS.length]),
+          borderWidth: vendors.map(v => v.isL1 ? 2 : 1),
+          borderRadius: 6,
+          barPercentage: 0.7,
+          categoryPercentage: 0.8,
+        };
 
     const data = {
       labels: vendors.map(v => v.vendorName),
-      datasets: [{
-        label: 'Total Price (₹)',
-        data: vendors.map(v => v.totalPrice),
-        backgroundColor: vendors.map((v, i) => v.isL1 ? '#2e7d32CC' : (CHART_COLORS[i % CHART_COLORS.length] + 'CC')),
-        borderColor: vendors.map((v, i) => v.isL1 ? '#1b5e20' : CHART_COLORS[i % CHART_COLORS.length]),
-        borderWidth: vendors.map(v => v.isL1 ? 2 : 1),
-        borderRadius: 6,
-        barPercentage: 0.7,
-        categoryPercentage: 0.8,
-      }]
+      datasets: [dataset]
     };
 
     const maxPrice = Math.max(...vendors.map(v => v.totalPrice), targetPrice || 0);
@@ -1010,7 +1034,25 @@ const NegotiationModal = ({
                       {/* BACK FACE - Vendor Price Chart */}
                       <div className={`${styles.flipFace} ${styles.flipBack} ${styles.createProductRow}`}>
                         <div className={styles.chartFaceHeader}>
-                          <p className={styles.chartFaceTitle}>{details.name}</p>
+                          <div className={styles.chartFaceHeaderLeft}>
+                            <p className={styles.chartFaceTitle}>{details.name}</p>
+                            <div className={styles.chartTypeSwitch}>
+                              <button
+                                type="button"
+                                className={`${styles.chartTypeSwitchBtn} ${(chartTypes[product.id] || 'bar') === 'bar' ? styles.chartTypeSwitchBtnActive : ''}`}
+                                onClick={() => setChartTypes(prev => ({ ...prev, [product.id]: 'bar' }))}
+                              >
+                                Bar
+                              </button>
+                              <button
+                                type="button"
+                                className={`${styles.chartTypeSwitchBtn} ${chartTypes[product.id] === 'line' ? styles.chartTypeSwitchBtnActive : ''}`}
+                                onClick={() => setChartTypes(prev => ({ ...prev, [product.id]: 'line' }))}
+                              >
+                                Line
+                              </button>
+                            </div>
+                          </div>
                           <span
                             role="button"
                             tabIndex={0}
@@ -1026,9 +1068,11 @@ const NegotiationModal = ({
                             if (priceData.vendors.length === 0) {
                               return <p className={styles.chartEmpty}>No price data available</p>;
                             }
+                            const activeChartType = chartTypes[product.id] || 'bar';
                             const targetPrice = formData.target_price ? parseFloat(formData.target_price) : null;
-                            const { data, options } = buildChartConfig(priceData, targetPrice);
-                            return <Bar data={data} options={options} plugins={[targetLinePlugin, barLabelsPlugin]} />;
+                            const { data, options } = buildChartConfig(priceData, targetPrice, activeChartType);
+                            const ChartComp = activeChartType === 'line' ? Line : Bar;
+                            return <ChartComp data={data} options={options} plugins={[targetLinePlugin, barLabelsPlugin]} />;
                           })()}
                         </div>
                         <div className={styles.chartLegend}>
