@@ -319,10 +319,11 @@ export const getRFQById = (id, token, includeVendors = false) => {
   });
 };
 
-export const fetchQuoteHistory = (rfq_product_id) =>{
+export const fetchQuoteHistory = (rfq_product_id, token = null) =>{
   return new Promise(async (resolve , reject) =>{
     try {
-      let response = await axiosInstance.get(`/rfq/get-quote-history?variant_id=${rfq_product_id}`)
+      const tokenParam = token ? `&token=${token}` : '';
+      let response = await axiosInstance.get(`/rfq/get-quote-history?variant_id=${rfq_product_id}${tokenParam}`)
       resolve(response.data);
     } catch (error) {
       reject({message : error})

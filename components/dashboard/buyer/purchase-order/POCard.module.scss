@@ -105,6 +105,12 @@ $urgency-critical: #dc3545;
     background: #f0fff4;
     &:hover { background: #e8f9ed; }
   }
+
+  &.isRejected {
+    border-left: 3px solid #dc3545;
+    background: #fff5f5;
+    &:hover { background: #fee2e2; }
+  }
 }
 
 // ========================================

@@ -205,3 +205,32 @@ export const getVendorPaymentHistory = (limit = 50, offset = 0) => {
         }
     });
 }
+
+// WH-67: Auto-add vendors to open RFQs after registration payment
+
+export const getMatchingOpenRfqs = () => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.get(
+                `/hospitality/vendor/matching-open-rfqs`
+            );
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+}
+
+export const joinOpenRfqs = (payload) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.post(
+                `/hospitality/vendor/join-open-rfqs`,
+                payload
+            );
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+}

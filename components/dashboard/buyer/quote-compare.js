@@ -7,6 +7,7 @@ import {
   finalizeQuotation,
   getAllClauses,
   getQuotes,
+  getRFQById,
   getRfqs,
   handleUploadFileInFormData,
   saveExcelInDB,
@@ -43,6 +44,7 @@ import { BsList } from "react-icons/bs";
 import useQuoteCompareViewModel from "@/hooks/useQuoteCompareViewModel";
 import { buildComparisonContextTables } from "@/utils/quoteCompareTableViewModel";
 import QuoteCompareHeaderCard from "@/components/dashboard/buyer/quoteCompare/QuoteCompareHeaderCard";
+import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import QuoteCompareKpiStrip from "@/components/dashboard/buyer/quoteCompare/QuoteCompareKpiStrip";
 import ComparisonTabs from "@/components/dashboard/buyer/quoteCompare/ComparisonTabs";
 import ProductComparisonTab from "@/components/dashboard/buyer/quoteCompare/ProductComparisonTab";
@@ -77,6 +79,7 @@ const QuoteCompare = () => {
   const [quotes, setquotes] = useState([]);
   const [originalQuotes, setOriginalQuotes] = useState([]); // Store original data before normalization
   const [vendorCodeMap, setVendorCodeMap] = useState({});
+  const [vendorRejections, setVendorRejections] = useState([]);
   const [l1total, setl1total] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
   const [TA_Filter, setTA_Filter] = useState(false);
@@ -359,6 +362,7 @@ const QuoteCompare = () => {
     setquotes([]);
     setOriginalQuotes([]);
     setVendorCodeMap({});
+    setVendorRejections([]);
     setTEavailable(false);
     setNegotiationApprovalBundle({ negotiation_instances: {}, negotiation_quote_instances: {}, rounds_history: [] });
 
@@ -402,6 +406,18 @@ const QuoteCompare = () => {
 
       if (!visibility?.locked) {
         loadNegotiationData();
+      }
+
+      // Fetch vendor rejections from RFQ detail endpoint
+      try {
+        const rfqDetailRes = await getRFQById(fetchRfq);
+        const rfqDetail = rfqDetailRes?.data || rfqDetailRes;
+        if (latestRfqRef.current === fetchRfq && rfqDetail?.vendor_rejections) {
+          setVendorRejections(rfqDetail.vendor_rejections);
+        }
+      } catch (e) {
+        console.error("Error fetching vendor rejections:", e);
+        setVendorRejections([]);
       }
     } catch (error) {
       if (latestRfqRef.current !== fetchRfq) return;
@@ -1886,6 +1902,9 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     noMarginTop
                   />
                 )}
+                {!quotesLoading && currentRFQ && !TEavailable && (
+                  <NoTechClausesBanner entityLabel={getEntityLabel(currentRFQ?.is_tender)} />
+                )}
                 {!quotesLoading && currentRFQ && (
                   <QuoteCompareHeaderCard
                     currentRFQ={currentRFQ}
@@ -2038,6 +2057,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                               quoteVisibility={effectiveQuoteVisibility}
                               availableHierarchies={availableHierarchies}
                               quoteApprovalDetails={negotiationApprovalBundle.negotiation_quote_instances}
+                              vendorRejections={vendorRejections}
                             />
                           )}
                           {activeTab === "category" && (

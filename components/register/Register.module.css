@@ -96,6 +96,147 @@
   to { transform: rotate(360deg); }
 }
 
+/* ── Registration Progress Banner ────────────── */
+.regProgressBanner {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 0 0 16px;
+}
+
+.regProgressInner {
+  background: linear-gradient(135deg, #f8fbff 0%, #eef4fb 100%);
+  border: 1px solid #d9e5f7;
+  border-radius: 14px;
+  padding: 20px 24px 16px;
+  box-shadow: 0 4px 16px rgba(46, 91, 168, 0.08);
+}
+
+.regProgressHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #2e5ba8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 16px;
+}
+
+.regProgressDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2e5ba8;
+  box-shadow: 0 0 0 4px rgba(46, 91, 168, 0.15);
+  animation: regPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes regPulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(46, 91, 168, 0.15); }
+  50% { box-shadow: 0 0 0 8px rgba(46, 91, 168, 0.08); }
+}
+
+.regProgressSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.regProgressStep {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.regProgressStepActive {
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(46, 91, 168, 0.1);
+  border: 1px solid #c5d5ec;
+}
+
+.regProgressStepDone {
+  opacity: 0.65;
+}
+
+.regProgressStepPending {
+  opacity: 0.35;
+}
+
+.regProgressStepIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+
+.regProgressStepDone .regProgressStepIcon {
+  background: #10b981;
+  color: #fff;
+}
+
+.regProgressStepActive .regProgressStepIcon {
+  background: linear-gradient(135deg, #2e5ba8, #3d6fbe);
+  color: #fff;
+}
+
+.regProgressStepPending .regProgressStepIcon {
+  background: #e2e8f0;
+  color: #94a3b8;
+}
+
+.regProgressStepLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.regProgressStepDone .regProgressStepLabel {
+  color: #64748b;
+}
+
+.regProgressStepPending .regProgressStepLabel {
+  color: #94a3b8;
+}
+
+.regProgressStepActive .regProgressStepLabel {
+  color: #2e5ba8;
+}
+
+.regProgressSpinner {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.regProgressStepNum {
+  font-size: 11px;
+}
+
+.regProgressNote {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid #d9e5f7;
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+  line-height: 1.4;
+}
+
 /* ── Step Indicator ────────────────────────────── */
 .stepper {
   display: flex;
@@ -999,6 +1140,293 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ── Post-Payment Flow ───────────────────────── */
+.ppfOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(8px);
+  animation: ppfFadeIn 0.3s ease;
+}
+
+@keyframes ppfFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ppfCard {
+  position: relative;
+  overflow: hidden;
+  width: min(460px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 32px 28px 28px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.2);
+  animation: ppfSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ppfSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ppfBar {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, #2e5ba8 0%, #4f7cc7 50%, #10b981 100%);
+}
+
+.ppfCenter {
+  text-align: center;
+}
+
+.ppfSpinnerWrap {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+  border: 1px solid #d9e5f7;
+}
+
+.ppfSpinner {
+  display: block;
+  width: 32px;
+  height: 32px;
+  border: 3px solid #c5d5ec;
+  border-top-color: #2e5ba8;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.ppfIconDone {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.25);
+}
+
+.ppfIconRfq {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2e5ba8, #3d6fbe);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(46, 91, 168, 0.25);
+}
+
+.ppfIconError {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.25);
+}
+
+.ppfTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.ppfSubtext {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.ppfNote {
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.ppfHint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0 0 20px;
+  line-height: 1.4;
+}
+
+.ppfSummary {
+  background: linear-gradient(135deg, #f8fbff, #eef4fb);
+  border: 1px solid #dce4f5;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.ppfRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 13px;
+  padding: 5px 0;
+  gap: 12px;
+}
+
+.ppfRow span {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.ppfRow strong {
+  color: #0f172a;
+  text-align: right;
+  word-break: break-word;
+}
+
+.ppfRfqList {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  text-align: left;
+  padding-right: 4px;
+}
+
+.ppfRfqList::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ppfRfqList::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.ppfRfqItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fff;
+}
+
+.ppfRfqItem:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.ppfRfqItemChecked {
+  border-color: #2e5ba8;
+  background: #f2f6ff;
+}
+
+.ppfRfqCheck {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: #2e5ba8;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ppfRfqBadge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #2e5ba8, #3d6fbe);
+  color: #fff;
+}
+
+.ppfActions {
+  display: flex;
+  gap: 10px;
+}
+
+.ppfBtnPrimary {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #2e5ba8, #3d6fbe);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(46, 91, 168, 0.2);
+}
+
+.ppfBtnPrimary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(46, 91, 168, 0.3);
+}
+
+.ppfBtnPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.ppfBtnSecondary {
+  flex: 1;
+  padding: 12px 20px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ppfBtnSecondary:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.ppfBtnSecondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ── Responsive ────────────────────────────────── */

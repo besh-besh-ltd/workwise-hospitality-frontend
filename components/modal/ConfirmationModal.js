@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import Modal from "react-modal";
+import { CircleAlert, TriangleAlert, CheckCircle, Info, HelpCircle, X } from 'lucide-react';
+import styles from "./ConfirmationModal.module.scss";
+
+const VARIANTS = {
+    danger:    { icon: CircleAlert,   iconCls: styles.iconDanger,    btnCls: styles.btnDanger,    accentCls: styles.accentDanger },
+    warning:   { icon: TriangleAlert, iconCls: styles.iconWarning,   btnCls: styles.btnWarning,   accentCls: styles.accentWarning },
+    success:   { icon: CheckCircle,   iconCls: styles.iconSuccess,   btnCls: styles.btnSuccess,   accentCls: styles.accentSuccess },
+    info:      { icon: Info,          iconCls: styles.iconInfo,      btnCls: styles.btnInfo,      accentCls: styles.accentInfo },
+    primary:   { icon: HelpCircle,    iconCls: styles.iconPrimary,   btnCls: styles.btnPrimary,   accentCls: styles.accentPrimary },
+    secondary: { icon: HelpCircle,    iconCls: styles.iconSecondary, btnCls: styles.btnSecondary, accentCls: styles.accentSecondary },
+};
 
 const ConfirmationModal = ({
     isOpen,
@@ -13,31 +24,12 @@ const ConfirmationModal = ({
     showCloseButton = false,
     customFooter = null,
 }) => {
-    const getButtonClass = (color) => {
-        switch (color) {
-            case 'danger':
-                return 'btn-danger';
-            case 'warning':
-                return 'btn-warning';
-            case 'success':
-                return 'btn-success';
-            case 'info':
-                return 'btn-info';
-            case 'primary':
-                return 'btn-primary';
-            case 'secondary':
-                return 'btn-secondary';
-            default:
-                return 'btn-danger';
-        }
-    };
-
     const [isProcessing, setIsProcessing] = useState(false);
+    const v = VARIANTS[confirmButtonColor] || VARIANTS.danger;
+    const Icon = v.icon;
 
     useEffect(() => {
-        if (!isOpen) {
-            setIsProcessing(false);
-        }
+        if (!isOpen) setIsProcessing(false);
     }, [isOpen]);
 
     const handleConfirmClick = async () => {
@@ -51,92 +43,70 @@ const ConfirmationModal = ({
     };
 
     return (
-        <div className=''>
+        <div>
             <Modal
                 isOpen={isOpen}
                 onRequestClose={onClose}
                 ariaHideApp={false}
                 contentLabel="Confirmation Modal"
-                className="contact-modal contact-modal-new"
                 shouldCloseOnOverlayClick={!isProcessing}
                 shouldCloseOnEsc={!isProcessing}
-                style={{
-                    overlay: {
-                        backgroundColor: "rgba(0, 0, 0, 0.75)",
-                        zIndex: 9999
-                    },
-                    content: {
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        maxWidth: "500px",
-                        width: "90%",
-                        border: "none",
-                        background: "transparent",
-                        overflow: "hidden",
-                        padding: "20px",
-                        maxHeight: "100vh",
-                        height: "auto",
-                        alignContent: 'center'
-                    },
-                }}
+                overlayClassName={styles.overlay}
+                className={styles.content}
             >
+                <div className={`${styles.accentBar} ${v.accentCls}`} />
 
                 {showCloseButton && (
-                    <div className="modal-header border-0 pb-0">
-                        <button
-                            onClick={onClose}
-                            className="btn-close"
-                            aria-label="Close"
-                            id="close_confirmation_modal-modal_header-confirmation_modal"
-                            disabled={isProcessing}
-                    ></button>
-                    </div>
+                    <button
+                        onClick={onClose}
+                        className={styles.closeBtn}
+                        aria-label="Close"
+                        id="close_confirmation_modal-modal_header-confirmation_modal"
+                        disabled={isProcessing}
+                    >
+                        <X size={14} />
+                    </button>
                 )}
 
-                <div className="modal-body text-center p-2">
-                    <div className='p-2 d-flex flex-column' style={{ minHeight: '200px' }}>
-                        {/* Title */}
-                        <div className="mb-4">
-                            <h4 className='fw-bold'>{title}</h4>
+                <div className={styles.inner}>
+                    <div className={styles.header}>
+                        <div className={`${styles.iconWrap} ${v.iconCls}`}>
+                            <Icon size={18} strokeWidth={1.8} />
                         </div>
-                        
-                        {/* Description */}
-                        <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-                            <p 
-                                className='text-muted' 
-                                style={{ fontSize: '16px', lineHeight: '1.5' }}
-                                dangerouslySetInnerHTML={{ 
-                                    __html: description.replace(/\\n/g, '<br />') 
-                                }}
-                            />
-                        </div>
+                        <h4 className={styles.title}>{title}</h4>
+                    </div>
 
-                        {customFooter}
+                    {description && (
+                        <p
+                            className={styles.desc}
+                            dangerouslySetInnerHTML={{
+                                __html: description.replace(/\\n/g, '<br />')
+                            }}
+                        />
+                    )}
 
-                        {/* Buttons */}
-                        <div className='d-flex flex-wrap justify-content-center gap-3 mt-4'>
-                            <button 
-                                onClick={onClose} 
-                                className="btn btn-outline-secondary p-2"
-                                id="cancel_confirmation_modal-modal_body-confirmation_modal"
-                                disabled={isProcessing}
-                            >
-                                {cancelButtonText}
-                            </button>
-                            <button 
-                                onClick={handleConfirmClick} 
-                                className={`btn ${getButtonClass(confirmButtonColor)} p-2`}
-                                id="confirm_confirmation_modal-modal_body-confirmation_modal"
-                                disabled={isProcessing}
-                            >
-                                {isProcessing && (
-                                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                )}
-                                {confirmButtonText}
-                            </button>
-                        </div>
+                    {customFooter && (
+                        <div className={styles.footer}>{customFooter}</div>
+                    )}
+
+                    <div className={styles.actions}>
+                        <button
+                            onClick={onClose}
+                            className={`${styles.btn} ${styles.btnCancel}`}
+                            id="cancel_confirmation_modal-modal_body-confirmation_modal"
+                            disabled={isProcessing}
+                        >
+                            {cancelButtonText}
+                        </button>
+                        <button
+                            onClick={handleConfirmClick}
+                            className={`${styles.btn} ${v.btnCls}`}
+                            id="confirm_confirmation_modal-modal_body-confirmation_modal"
+                            disabled={isProcessing}
+                        >
+                            {isProcessing && <span className={styles.spinner} role="status" aria-hidden="true" />}
+                            {confirmButtonText}
+                        </button>
                     </div>
                 </div>
             </Modal>
@@ -144,4 +114,4 @@ const ConfirmationModal = ({
     );
 };
 
-export default ConfirmationModal; 
+export default ConfirmationModal;

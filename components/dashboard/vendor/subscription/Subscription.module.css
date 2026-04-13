@@ -1131,6 +1131,79 @@
 .successLabel { color: #94a3b8; }
 .successValue { font-weight: 600; color: #0f172a; text-align: right; max-width: 60%; }
 
+/* ── WH-67: Open RFQs Modal ─────────────────── */
+.rfqListContainer {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding-right: 4px;
+}
+
+.rfqListContainer::-webkit-scrollbar {
+  width: 4px;
+}
+
+.rfqListContainer::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.rfqCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fff;
+}
+
+.rfqCard:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.rfqCardChecked {
+  border-color: #2E5BA8;
+  background: #f2f6ff;
+}
+
+.rfqCardChecked:hover {
+  background: #e8eeff;
+}
+
+.rfqCheckbox {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: #2E5BA8;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.rfqBadge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #2E5BA8, #3d6fbe);
+  color: #fff;
+}
+
+.rfqMeta {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+
 /* ── Empty State ──────────────────────────────── */
 .emptyState {
   background: linear-gradient(135deg, #f8fafc, #f1f5f9);
