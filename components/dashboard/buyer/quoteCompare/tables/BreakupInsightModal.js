@@ -84,7 +84,7 @@ const BreakupInsightModal = ({
 
   return (
     <Modal show={show} onHide={onHide} centered className={styles.breakupModal} size="lg">
-      <Modal.Header closeButton>
+      <Modal.Header className={styles.breakupModalHeader}>
         <Modal.Title className={styles.breakupModalTitleWrap}>
           <span className={styles.breakupModalBadge}>Cost Intelligence</span>
           <div className={styles.breakupModalTitle}>{title}</div>
@@ -92,6 +92,14 @@ const BreakupInsightModal = ({
             {vendorName || "Vendor Quote"}
           </div>
         </Modal.Title>
+        <button
+          type="button"
+          className={styles.breakupModalCloseBtn}
+          onClick={onHide}
+          aria-label="Close"
+        >
+          ✕
+        </button>
       </Modal.Header>
       <Modal.Body>
         <div className={styles.breakupInsightStrip}>
