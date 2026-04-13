@@ -265,7 +265,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
             <div className={styles.timelineItem}><Calendar size={14} /><span>Scheduled:</span><PublishDateTimer publishDate={data.tender_publish_date} variant="full" /></div>
           ) : (
             <>
-              <div className={styles.timelineItem}><Calendar size={14} /><span>Published: <strong>{moment(data.timestamp).format('DD-MM-YYYY')}</strong></span></div>
+              <div className={styles.timelineItem}><Calendar size={14} /><span>Published: <strong>{moment(data.tender_publish_date || data.timestamp).format('DD-MM-YYYY')}</strong></span></div>
               {data.vendor_clarification_date && (
                 <div className={styles.timelineItem}><Clock size={14} /><span>Clarification Ends: <strong>{moment(data.vendor_clarification_date).format('DD-MM-YYYY hh:mm A')}</strong></span></div>
               )}
@@ -294,34 +294,32 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               {/* WH-69: Edit button is always rendered, but disabled with a
                   hover tooltip when canEditRfq() says no. The user sees the
                   exact reason (not the creator, bid window passed, all POs
-                  finalized, RFQ closed, etc). */}
-              {!data.is_finalized && (
-                editPermission.allowed && hasEditPermission ? (
-                  <Link href={publishState.editUrl(data.id)}>
-                    <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>Edit</button>
-                  </Link>
-                ) : (
-                  <OverlayTrigger
-                    placement="top"
-                    overlay={
-                      <Tooltip id={`edit-disabled-${data.id}`}>
-                        {!hasEditPermission
-                          ? 'You do not have permission to edit this RFQ.'
-                          : editPermission.reason}
-                      </Tooltip>
-                    }
-                  >
-                    <span className="d-inline-block">
-                      <button
-                        className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}
-                        disabled
-                        style={{ opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none' }}
-                      >
-                        Edit
-                      </button>
-                    </span>
-                  </OverlayTrigger>
-                )
+                  finalized, RFQ closed, etc). Same logic as the details page. */}
+              {editPermission.allowed && hasEditPermission ? (
+                <Link href={publishState.editUrl(data.id)}>
+                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>Edit</button>
+                </Link>
+              ) : (
+                <OverlayTrigger
+                  placement="top"
+                  overlay={
+                    <Tooltip id={`edit-disabled-${data.id}`}>
+                      {!hasEditPermission
+                        ? 'You do not have permission to edit this RFQ.'
+                        : editPermission.reason}
+                    </Tooltip>
+                  }
+                >
+                  <span className="d-inline-block">
+                    <button
+                      className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}
+                      disabled
+                      style={{ opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none' }}
+                    >
+                      Edit
+                    </button>
+                  </span>
+                </OverlayTrigger>
               )}
               {!publishState.isPrePublishState && !isPendingApproval && statusConfig.key !== 'terminated' && (
                 <Link href={`/dashboard/buyer/query?rfq_id=${data.id}&role=buyer&source=rfq-management`}>

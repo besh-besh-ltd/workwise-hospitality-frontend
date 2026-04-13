@@ -6,7 +6,9 @@ import React, { useState } from "react";
 import { useSelector } from "react-redux";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import { FaHistory } from "react-icons/fa";
-import { getEntityLabel, canEditRfq } from "@/utils/sharedFunctions";
+import moment from "moment";
+import { getEntityLabel, canEditRfq, getRFQPublishState } from "@/utils/sharedFunctions";
+import PublishDateTimer from "@/components/shared/PublishDateTimer";
 import ReadMore from "@/components/shared/ReadMore";
 import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import useHasTechClauses from "@/hooks/useHasTechClauses";
@@ -64,6 +66,7 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
 
   // Convert status to number for consistent comparison
   const rfqStatus = data?.status ? Number(data.status) : 0;
+  const publishState = getRFQPublishState(data);
 
   return (
     <>
@@ -120,6 +123,39 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
 
                 {!clauseLoading && hasClauses === false && data?.id && (
                   <NoTechClausesBanner entityLabel={getEntityLabel(data?.is_tender)} />
+                )}
+
+                {/* Key dates info bar */}
+                {data?.id && (
+                  <div className="d-flex flex-wrap gap-4 mb-3 p-3 bg-light rounded border">
+                    {publishState.isPrePublishState && data.tender_publish_date ? (
+                      <div>
+                        <small className="text-muted d-block">Scheduled Publish</small>
+                        <PublishDateTimer publishDate={data.tender_publish_date} variant="full" />
+                      </div>
+                    ) : data.is_published === 1 && (
+                      <div>
+                        <small className="text-muted d-block">Published On</small>
+                        <strong>{moment(data.tender_publish_date || data.timestamp).format('DD MMM YYYY, hh:mm A')}</strong>
+                      </div>
+                    )}
+                    {data.bid_end_date && (
+                      <div>
+                        <small className="text-muted d-block">Bid Submission Deadline</small>
+                        <strong>{moment(data.bid_end_date).format('DD MMM YYYY, hh:mm A')}</strong>
+                      </div>
+                    )}
+                    {data.vendor_clarification_date && (
+                      <div>
+                        <small className="text-muted d-block">Clarification Deadline</small>
+                        <strong>{moment(data.vendor_clarification_date).format('DD MMM YYYY, hh:mm A')}</strong>
+                      </div>
+                    )}
+                    <div>
+                      <small className="text-muted d-block">Created On</small>
+                      <strong>{moment(data.timestamp).format('DD MMM YYYY')}</strong>
+                    </div>
+                  </div>
                 )}
 
                 <div className="details-table">
