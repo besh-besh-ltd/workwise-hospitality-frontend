@@ -4,13 +4,15 @@ import { Calendar, User, Package, Building, Eye, CheckCircle, Upload, AlertTrian
 import { addCommasToNumber } from '@/utils/sharedFunctions';
 import Link from 'next/link';
 
-const POCard = ({ po, onClick, initiatePO }) => {
+const POCard = ({ po, onClick, initiatePO, onAccept, onReject }) => {
   // Status text mapping
   const getStatusText = (status) => {
     const statusTextMap = {
       'approved': 'Approved',
+      'acceptance_pending': 'Acceptance Pending',
+      'rejected_by_vendor': 'Rejected by You',
       'invoice_raised': 'Invoice Raised',
-      'dispatched': 'Dispatched', 
+      'dispatched': 'Dispatched',
       'grn': 'Goods Received Note',
       'overdue': 'Overdue',
       'draft': 'Draft'
@@ -32,7 +34,21 @@ const POCard = ({ po, onClick, initiatePO }) => {
   const getMilestoneInfo = () => {
     const status = po.status.toLowerCase();
     
-    if (status === 'approved') {
+    if (status === 'acceptance_pending') {
+      return {
+        text: 'Your Action Required',
+        progress: 20,
+        color: 'warning',
+        badge: 'Accept or Reject'
+      };
+    } else if (status === 'rejected_by_vendor') {
+      return {
+        text: 'Rejected',
+        progress: 0,
+        color: 'danger',
+        badge: 'Rejected'
+      };
+    } else if (status === 'approved') {
       return {
         text: 'Vendor Confirmation',
         progress: 35,
@@ -67,7 +83,22 @@ const POCard = ({ po, onClick, initiatePO }) => {
   const getActionButton = () => {
     const status = po.status.toLowerCase();
     
-    if (status === 'dispatched') {
+    if (status === 'acceptance_pending') {
+      return (
+        <div className="d-flex flex-column gap-2">
+          <button onClick={onAccept} className="btn btn-success btn-sm p-2 px-4" style={{width: "250px"}}>
+            <CheckCircle size={16} className="me-1" />
+            Accept PO
+          </button>
+          <button onClick={onReject} className="btn btn-outline-danger btn-sm p-2 px-4" style={{width: "250px"}}>
+            <AlertTriangle size={16} className="me-1" />
+            Reject PO
+          </button>
+        </div>
+      );
+    } else if (status === 'rejected_by_vendor') {
+      return null;
+    } else if (status === 'dispatched') {
       return (
         <button className="btn btn-success btn-sm p-2 px-4 mb-2" style={{width: "250px"}}>
           <Upload size={16} className="me-1" />

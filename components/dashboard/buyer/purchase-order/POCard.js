@@ -17,9 +17,11 @@ const POCard = ({
 }) => {
   const statusConfig = {
     pending_approval: { label: 'Pending', variant: 'warning', requiresAction: true },
-    approved: { label: 'Approved', variant: 'success', requiresAction: false },
+    acceptance_pending: { label: 'Awaiting', variant: 'warning', requiresAction: false },
+    approved: { label: 'Accepted', variant: 'success', requiresAction: false },
     cancelled: { label: 'Cancelled', variant: 'danger', requiresAction: false },
     rejected: { label: 'Rejected', variant: 'danger', requiresAction: false },
+    rejected_by_vendor: { label: 'Rejected', variant: 'danger', requiresAction: false, isVendorRejected: true },
     invoice_raised: { label: 'Invoice', variant: 'info', requiresAction: false },
     dispatched: { label: 'Dispatched', variant: 'success', requiresAction: false },
     GRN: { label: 'GRN', variant: 'info', requiresAction: false },
@@ -146,7 +148,7 @@ const POCard = ({
 
   return (
     <div
-      className={`${styles.poRow} ${currentStatus.requiresAction ? styles.requiresAction : ''} ${isDraft ? styles.isDraft : ''} ${isApproved ? styles.isApproved : ''} ${showApprovalActions ? styles.userAction : ''}`}
+      className={`${styles.poRow} ${currentStatus.requiresAction ? styles.requiresAction : ''} ${isDraft ? styles.isDraft : ''} ${isApproved ? styles.isApproved : ''} ${showApprovalActions ? styles.userAction : ''} ${currentStatus.isVendorRejected ? styles.isRejected : ''}`}
       onClick={handleRowClick}
     >
       <div className={styles.colStatus}>

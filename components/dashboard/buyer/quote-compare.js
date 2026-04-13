@@ -7,6 +7,7 @@ import {
   finalizeQuotation,
   getAllClauses,
   getQuotes,
+  getRFQById,
   getRfqs,
   handleUploadFileInFormData,
   saveExcelInDB,
@@ -76,6 +77,7 @@ const QuoteCompare = () => {
   const [quotes, setquotes] = useState([]);
   const [originalQuotes, setOriginalQuotes] = useState([]); // Store original data before normalization
   const [vendorCodeMap, setVendorCodeMap] = useState({});
+  const [vendorRejections, setVendorRejections] = useState([]);
   const [l1total, setl1total] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
   const [TA_Filter, setTA_Filter] = useState(false);
@@ -305,6 +307,7 @@ const QuoteCompare = () => {
     setquotes([]);
     setOriginalQuotes([]);
     setVendorCodeMap({});
+    setVendorRejections([]);
     setTEavailable(false);
     setProductNegotiationData({});
 
@@ -348,6 +351,18 @@ const QuoteCompare = () => {
 
       if (!visibility?.locked) {
         loadNegotiationData();
+      }
+
+      // Fetch vendor rejections from RFQ detail endpoint
+      try {
+        const rfqDetailRes = await getRFQById(fetchRfq);
+        const rfqDetail = rfqDetailRes?.data || rfqDetailRes;
+        if (latestRfqRef.current === fetchRfq && rfqDetail?.vendor_rejections) {
+          setVendorRejections(rfqDetail.vendor_rejections);
+        }
+      } catch (e) {
+        console.error("Error fetching vendor rejections:", e);
+        setVendorRejections([]);
       }
     } catch (error) {
       if (latestRfqRef.current !== fetchRfq) return;
@@ -2013,6 +2028,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                               vendorCodeMap={vendorCodeMap}
                               productSummaryMap={productSummaryMap}
                               quoteVisibility={effectiveQuoteVisibility}
+                              vendorRejections={vendorRejections}
                             />
                           )}
                           {activeTab === "category" && (

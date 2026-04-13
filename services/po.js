@@ -102,3 +102,13 @@ export const handleUploadPODocument = async (po_id, file) => {
   const res = await axiosFormData.post(`/po/upload-pdf/${po_id}`, formData);
   return res.data;
 };
+
+export const handleAcceptPO = async (po_id) => {
+  const res = await axiosInstance.post(`/po/accept/${po_id}`);
+  return res;
+};
+
+export const handleRejectPO = async (po_id, reason) => {
+  const res = await axiosInstance.post(`/po/reject/${po_id}`, { reason });
+  return res;
+};

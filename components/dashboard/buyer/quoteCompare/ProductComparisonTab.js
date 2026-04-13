@@ -74,6 +74,7 @@ const ProductComparisonTab = ({
   currentRFQ,
   productSummaryMap,
   quoteVisibility,
+  vendorRejections = [],
 }) => {
   const comparisonContext = context || {};
   const currentRfqId = rfq || comparisonContext?.rfq;
@@ -170,6 +171,28 @@ const ProductComparisonTab = ({
               </div>
             ) : null}
 
+            {/* Vendor Rejection Badge — brief indicator at product level */}
+            {(() => {
+              const rejections = vendorRejections.filter(
+                r => String(r.product_variant_id) === String(item.product_variant_id) && String(r.variant) === String(item.variant)
+              );
+              if (rejections.length === 0) return null;
+              return (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '14px 0 10px' }}>
+                  {rejections.map((rej, i) => (
+                    <span key={i} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      fontSize: 11.5, fontWeight: 600, color: '#991B1B',
+                      background: '#FEE2E2', border: '1px solid #FECACA',
+                      padding: '3px 10px', borderRadius: 6,
+                    }}>
+                      PO Rejected by {rej.vendor_organization || rej.vendor_name}
+                    </span>
+                  ))}
+                </div>
+              );
+            })()}
+
             {!visibility?.locked && (
               <LPRModal
                 show={openModals[key] || false}
@@ -213,6 +236,9 @@ const ProductComparisonTab = ({
                 hospitalityCompanyId={contextRFQ?.hospitality_company_id}
                 hotelId={contextRFQ?.hotel_id}
                 departmentId={contextRFQ?.department_id}
+                vendorRejections={vendorRejections.filter(
+                  r => String(r.product_variant_id) === String(item.product_variant_id) && String(r.variant) === String(item.variant)
+                )}
               />
             )}
           </div>

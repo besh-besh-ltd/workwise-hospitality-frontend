@@ -34,6 +34,7 @@ import ApproveModal from './ApproveModal';
 const statusColors = {
   draft: 'secondary',
   pending_approval: 'warning',
+  acceptance_pending: 'warning',
   approved: 'success',
   sent: 'primary',
   invoice_raised: 'success',
@@ -42,6 +43,7 @@ const statusColors = {
   completed: 'dark',
   cancelled: 'danger',
   rejected: 'danger',
+  rejected_by_vendor: 'danger',
 };
 
 const milestoneBadges = {
@@ -51,11 +53,18 @@ const milestoneBadges = {
   deleted: 'danger'
 }
 
-const POStatusBadge = ({ status }) => (
-  <Badge bg={statusColors[status] || 'secondary'} className="fs-6 px-3 py-2 float-end text-uppercase">
-    {status.replace('_', ' ')}
-  </Badge>
-);
+const POStatusBadge = ({ status }) => {
+  const labels = {
+    acceptance_pending: 'Awaiting Vendor Acceptance',
+    approved: 'Accepted',
+    rejected_by_vendor: 'Rejected by Vendor',
+  };
+  return (
+    <Badge bg={statusColors[status] || 'secondary'} className="fs-6 px-3 py-2 float-end text-uppercase">
+      {labels[status] || status.replace(/_/g, ' ')}
+    </Badge>
+  );
+};
 
 const PODetailItem = ({ label, value }) => (
   <div className="mb-2">
@@ -391,7 +400,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               <span>Purchase Order</span>
               <span className={styles.detailsHeroPONum}>#{po_number}</span>
               <Badge bg={statusColors[status] || 'secondary'} className={styles.heroStatusBadge}>
-                {status.replace('_', ' ')}
+                {status === 'acceptance_pending' ? 'Awaiting' : status === 'rejected_by_vendor' ? 'Rejected' : status === 'approved' ? 'Accepted' : status.replace(/_/g, ' ')}
               </Badge>
             </div>
             <p className={styles.detailsHeroSub}>
@@ -399,6 +408,28 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               {initiated_by_name || '-'} &middot; {formatIST(created_at)}
               {rfq_no && <> &middot; RFQ #{rfq_no}{rfq_title ? ` — ${rfq_title}` : ''}</>}
             </p>
+            {status === 'approved' && data?.vendor_action_at && (
+              <div style={{ backgroundColor: 'rgba(71, 195, 154, 0.26)', borderLeft: '4px solid #10B981', padding: '8px 12px', borderRadius: '4px', marginTop: 8, fontSize: '0.85rem' }}>
+                <strong style={{ color: '#6affd5' }}>Vendor accepted this PO{data.vendor_action_at ? ` on ${formatIST(data.vendor_action_at)}` : ''}.</strong>
+              </div>
+            )}
+            {status === 'acceptance_pending' && (
+              <div style={{ backgroundColor: '#FEF3C7', borderLeft: '4px solid #F59E0B', padding: '8px 12px', borderRadius: '4px', marginTop: 8, fontSize: '0.85rem' }}>
+                <strong style={{ color: '#92400E' }}>Vendor has not yet responded.</strong>
+                <span style={{ color: '#92400E', marginLeft: 4 }}>The vendor has been notified and must accept or reject this PO.</span>
+              </div>
+            )}
+            {status === 'rejected_by_vendor' && (
+              <div style={{ backgroundColor: '#FEE2E2', borderLeft: '4px solid #EF4444', padding: '8px 12px', borderRadius: '4px', marginTop: 8, fontSize: '0.85rem' }}>
+                <strong style={{ color: '#991B1B' }}>Vendor rejected this PO{data?.vendor_action_at ? ` on ${formatIST(data.vendor_action_at)}` : ''}.</strong>
+                {data?.vendor_rejection_reason && (
+                  <span style={{ color: '#991B1B', display: 'block', marginTop: 4 }}>Reason: {data.vendor_rejection_reason}</span>
+                )}
+                <a href={`/dashboard/buyer/quote-compare?rfq=${data?.rfq_id}`} style={{ color: 'white', display: 'inline-block', marginTop: 6, fontWeight: 600 }}>
+                  Go to Quote Compare to finalize another vendor
+                </a>
+              </div>
+            )}
             <div className={styles.detailsHeroActions}>
               {canWrite && !restrictModifyPO(status) && (
                 <button className={`${styles.heroBtn} ${styles.heroBtnSolid}`} onClick={() => setShowEditConfirmModal(true)} id="edit_button-po_details-purchase_order_page">
@@ -483,7 +514,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               <div className={styles.detailsMetaIcon}><BsShieldCheck size={15} /></div>
               <div>
                 <div className={styles.detailsMetaLabel}>Status</div>
-                <div className={styles.detailsMetaValue} style={{ textTransform: 'capitalize' }}>{status.replace('_', ' ')}</div>
+                <div className={styles.detailsMetaValue} style={{ textTransform: 'capitalize' }}>{status === 'approved' ? 'Accepted' : status === 'acceptance_pending' ? 'Awaiting Vendor' : status === 'rejected_by_vendor' ? 'Vendor Rejected' : status.replace(/_/g, ' ')}</div>
               </div>
             </div>
             {budgetInfo && (
