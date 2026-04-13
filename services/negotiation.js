@@ -22,15 +22,16 @@ export const createNegotiationRound = ({ rfq_id, rfq_product_id, target_price, e
 /**
  * Get all rounds for an RFQ (optionally filtered by product)
  */
-export const getNegotiationRounds = (rfq_id, rfq_product_id = null) => {
+export const getNegotiationRounds = (rfq_id, rfq_product_id = null, token = null) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const url = rfq_product_id 
-        ? `/negotiation/rounds/${rfq_id}?rfq_product_id=${rfq_product_id}`
-        : `/negotiation/rounds/${rfq_id}`;
-      // axiosInstance interceptor already returns response.data, so response is { status: 1, data: [...] }
+      const params = new URLSearchParams();
+      if (rfq_product_id) params.set('rfq_product_id', rfq_product_id);
+      if (token) params.set('token', token);
+      const qs = params.toString();
+      const url = `/negotiation/rounds/${rfq_id}${qs ? `?${qs}` : ''}`;
       const response = await axiosInstance.get(url);
-      resolve(response); // Return the full response object { status: 1, data: [...] }
+      resolve(response);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }
@@ -55,12 +56,12 @@ export const getActiveNegotiationRound = (rfq_id, rfq_product_id) => {
 /**
  * Get all active rounds for an RFQ (all products)
  */
-export const getAllActiveNegotiationRounds = (rfq_id) => {
+export const getAllActiveNegotiationRounds = (rfq_id, token = null) => {
   return new Promise(async (resolve, reject) => {
     try {
-      // axiosInstance interceptor already returns response.data, so response is { status: 1, data: [...] }
-      const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/active-all`);
-      resolve(response); // Return the full response object { status: 1, data: [...] }
+      const tokenParam = token ? `?token=${token}` : '';
+      const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/active-all${tokenParam}`);
+      resolve(response);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }
@@ -152,11 +153,12 @@ export const submitVendorRoundQuote = ({ round_id, quoted_price, previous_price 
 /**
  * Get vendor's negotiation status for a specific product
  */
-export const getVendorNegotiationStatus = (rfq_id, rfq_product_id) => {
+export const getVendorNegotiationStatus = (rfq_id, rfq_product_id, token = null) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/product/${rfq_product_id}/vendor-status`);
-      resolve(response); // Return the full response object { status: 1, data: {...} }
+      const tokenParam = token ? `?token=${token}` : '';
+      const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/product/${rfq_product_id}/vendor-status${tokenParam}`);
+      resolve(response);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }
@@ -166,11 +168,12 @@ export const getVendorNegotiationStatus = (rfq_id, rfq_product_id) => {
 /**
  * Get all vendor's negotiation statuses for an RFQ
  */
-export const getAllVendorNegotiationStatus = (rfq_id) => {
+export const getAllVendorNegotiationStatus = (rfq_id, token = null) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/vendor-status`);
-      resolve(response); // Return the full response object { status: 1, data: [...] }
+      const tokenParam = token ? `?token=${token}` : '';
+      const response = await axiosInstance.get(`/negotiation/rounds/${rfq_id}/vendor-status${tokenParam}`);
+      resolve(response);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
     }

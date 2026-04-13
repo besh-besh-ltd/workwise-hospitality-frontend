@@ -1100,7 +1100,7 @@ const RfqManagementPreview = () => {
     const checkActiveNegotiationRounds = async () => {
       if (!id) return;
       try {
-        const response = await getAllActiveNegotiationRounds(id);
+        const response = await getAllActiveNegotiationRounds(id, token);
         // Backend returns rounds with status IN ('PENDING_APPROVAL', 'ACTIVE')
         // but does NOT filter by end_date > NOW(). We must filter on frontend
         // to match the backend createQuote/updateQuoteItems check:
@@ -2502,6 +2502,8 @@ const RfqManagementPreview = () => {
                                       rfq_product_id={item.id}
                                       productName={item?.product_details[0]?.name || ''}
                                       onStatusLoaded={(hasData) => handleNegotiationLoaded(item.id, hasData)}
+                                      token={token}
+                                      vendorView={type !== "buyer-view"}
                                     />
                                   )}
                                 </tr>
@@ -2900,11 +2902,11 @@ const RfqManagementPreview = () => {
         isOpen={showCloseConfirmModal}
         onClose={() => setShowCloseConfirmModal(false)}
         onConfirm={handleCloseRFQ}
-        title={`Close ${getEntityLabel(rfqDetails?.is_tender)}`}
+        title={`Close this ${getEntityLabel(rfqDetails?.is_tender)}`}
         description={`Are you sure you want to close ${getEntityLabel(rfqDetails?.is_tender)} #${
           rfqDetails?.rfq_no || `this ${getEntityLabel(rfqDetails?.is_tender)}`
-        }?\nOnce closed, vendors will no longer be able to submit quotes.`}
-        confirmButtonColor="warning"
+        }?\nOnce closed, every actions will be restricted & vendors will no longer be able to submit quotes.`}
+        confirmButtonColor="danger"
         confirmButtonText={`Close ${getEntityLabel(rfqDetails?.is_tender)}`}
         cancelButtonText="Cancel"
       />
