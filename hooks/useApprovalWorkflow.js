@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   getEntityApprovalInstances,
   getApprovalInstanceDetails,
@@ -16,21 +16,33 @@ import {
  * @param {boolean} options.enabled - Whether to fetch (default: true)
  * @returns {Object} Approval state and action handlers
  */
-export const useApprovalWorkflow = ({ entityType, entityId, allEntityIds, enabled = true, refreshTrigger = 0 }) => {
+export const useApprovalWorkflow = ({ entityType, entityId, allEntityIds, enabled = true, refreshTrigger = 0, preloadedInstances = null }) => {
   const [instance, setInstance] = useState(null);
   const [allInstances, setAllInstances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const preloadConsumedRef = useRef(false);
 
   // Fetch approval instance for the entity
-  const fetchApprovalInstance = useCallback(async () => {
+  const fetchApprovalInstance = useCallback(async (forceNetwork = false) => {
     if (!enabled || !entityType || !entityId) {
       setLoading(false);
       setInstance(null);
       setAllInstances([]);
       return;
     }
+
+    // Use preloaded data on first mount if available (skip network)
+    if (!forceNetwork && !preloadConsumedRef.current && Array.isArray(preloadedInstances)) {
+      preloadConsumedRef.current = true;
+      const sorted = [...preloadedInstances].sort((a, b) => (a.id || 0) - (b.id || 0));
+      setAllInstances(sorted);
+      setInstance(sorted.length > 0 ? sorted[sorted.length - 1] : null);
+      setLoading(false);
+      return;
+    }
+    preloadConsumedRef.current = true;
 
     setLoading(true);
     setError(null);
@@ -204,7 +216,7 @@ export const useApprovalWorkflow = ({ entityType, entityId, allEntityIds, enable
     autoApprovedReason,
     handleApprovalAction,
     handleCancelApproval,
-    refetch: fetchApprovalInstance,
+    refetch: () => fetchApprovalInstance(true),
   };
 };
 

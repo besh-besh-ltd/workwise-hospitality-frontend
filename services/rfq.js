@@ -426,16 +426,17 @@ export const updateQuotation = (quote_id, payload, token) => {
   });
 };
 
-export const getQuotes = (id, TA_Filter, freightFilter, rfq_product_id, source, pageSource) => {
+export const getQuotes = (id, TA_Filter, freightFilter, rfq_product_id, source, pageSource, include_negotiation) => {
   return new Promise(async (resolve, reject) => {
     try {
       const queryParams = new URLSearchParams();
 
       if (TA_Filter) queryParams.append("TA_Vendors", "TA");
       if (freightFilter) queryParams.append("no_freight", "true");
-      if (pageSource) queryParams.append("pageSource", pageSource);  // 👈 added here
+      if (pageSource) queryParams.append("pageSource", pageSource);
       if (rfq_product_id) queryParams.append("rfq_product_id", rfq_product_id);
       if (source) queryParams.append("source", source);
+      if (include_negotiation) queryParams.append("include_negotiation", "true");
 
       let response = await axiosInstance.get(
         `/rfq/get-quotes/${id}${queryParams.toString() ? "?" + queryParams.toString() : ""}`

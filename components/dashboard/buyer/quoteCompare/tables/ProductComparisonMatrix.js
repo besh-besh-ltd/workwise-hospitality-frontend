@@ -16,10 +16,8 @@ import RoundEndActions from "@/components/dashboard/buyer/negotiation/RoundEndAc
 import ApprovalWorkflowSection from "@/components/dashboard/buyer/approval/ApprovalWorkflowSection";
 import {
   approveNegotiationQuotes,
-  getQuoteApprovalStatus,
   rejectNegotiationQuotes,
 } from "@/services/negotiation";
-import { getAvailableHierarchies } from "@/services/general";
 import { addCommasToNumber, calculateTotal } from "@/utils/sharedFunctions";
 import {
   buildProductComparisonModel,
@@ -203,6 +201,9 @@ const ProductComparisonMatrix = ({
   hospitalityCompanyId = null,
   hotelId = null,
   departmentId = null,
+  preloadedHierarchies = null,
+  preloadedQuoteApprovalStatus = null,
+  preloadedInstances = null,
   vendorRejections = [],
 }) => {
   const router = useRouter();
@@ -216,10 +217,14 @@ const ProductComparisonMatrix = ({
   });
   const [existingPOId, setExistingPOId] = useState(null);
   const [selectedRouteType, setSelectedRouteType] = useState(null);
-  const [availableHierarchies, setAvailableHierarchies] = useState([]);
-  const [useLegacyHierarchy, setUseLegacyHierarchy] = useState(false);
-  const [quoteApprovalStatus, setQuoteApprovalStatus] = useState(null);
-  const [approvalRefreshKey, setApprovalRefreshKey] = useState(0);
+  const [quoteApprovalStatus, setQuoteApprovalStatus] = useState(preloadedQuoteApprovalStatus);
+
+  // Sync quoteApprovalStatus when parent refetches quotes (preloaded prop updates)
+  useEffect(() => { setQuoteApprovalStatus(preloadedQuoteApprovalStatus); }, [preloadedQuoteApprovalStatus]);
+
+  // Read hierarchies from parent prop (lifted to quote-compare.js to avoid N duplicate calls)
+  const availableHierarchies = preloadedHierarchies?.hierarchies || [];
+  const useLegacyHierarchy = preloadedHierarchies?.useLegacy ?? false;
 
   const model = useMemo(
     () =>
@@ -247,33 +252,7 @@ const ProductComparisonMatrix = ({
     ]
   );
 
-  useEffect(() => {
-    getAvailableHierarchies("po", projectId)
-      .then((result) => {
-        setAvailableHierarchies(result.data || []);
-        setUseLegacyHierarchy(result.use_legacy_hierarchy !== false);
-      })
-      .catch(() => {
-        setAvailableHierarchies([]);
-      });
-  }, [projectId]);
-
-  useEffect(() => {
-    if (!proditem?.id) return;
-
-    getQuoteApprovalStatus(proditem.id)
-      .then((response) => {
-        if (response?.status === 1 && response?.data) {
-          setQuoteApprovalStatus(response.data);
-        } else {
-          setQuoteApprovalStatus(null);
-        }
-      })
-      .catch(() => setQuoteApprovalStatus(null));
-  }, [proditem?.id, approvalRefreshKey]);
-
   const handleApprovalActionComplete = () => {
-    setApprovalRefreshKey((prev) => prev + 1);
     if (onRoundEnded) onRoundEnded();
   };
 
@@ -531,6 +510,7 @@ const ProductComparisonMatrix = ({
             onCustomApprove={handleCustomQuoteApprove}
             onCustomReject={handleCustomQuoteReject}
             onActionComplete={handleApprovalActionComplete}
+            preloadedInstances={preloadedInstances}
           />
         </div>
       ) : null}
