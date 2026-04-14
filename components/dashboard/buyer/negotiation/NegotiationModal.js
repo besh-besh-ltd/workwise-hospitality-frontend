@@ -97,6 +97,7 @@ const NegotiationModal = ({
   hotelId,
   departmentId,
   preloadedApprovalBundle = null,
+  preSelectedProductId = null,
 }) => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [formData, setFormData] = useState({ target_price: '', end_date: '' });
@@ -140,7 +141,7 @@ const NegotiationModal = ({
 
   useEffect(() => {
     if (show && mode === 'create') {
-      setSelectedProducts([]);
+      setSelectedProducts(preSelectedProductId ? [preSelectedProductId] : []);
       setFormData({ target_price: '', end_date: '' });
       setFlippedCards({});
       loadQuoteApprovalStatuses();
@@ -408,9 +409,9 @@ const NegotiationModal = ({
     const quotations = product?.quotations || [];
     if (quotations.length === 0) return false;
 
-    // Check for valid quotations (must have an id or quote_id and not be regretted)
+    // Check for valid quotations (must have an id, quote_id, or quote_item_id and not be regretted)
     const validQuotations = quotations.filter(q => {
-      const hasId = q.id != null || q.quote_id != null;
+      const hasId = q.id != null || q.quote_id != null || q.quote_item_id != null;
       if (!hasId) return false;
       if (isQuoteRegretted(q)) return false;
       return true;
@@ -677,7 +678,7 @@ const NegotiationModal = ({
     }
 
     const validQuotations = quotations.filter(q => {
-      const hasId = q.id != null || q.quote_id != null;
+      const hasId = q.id != null || q.quote_id != null || q.quote_item_id != null;
       return hasId && !isQuoteRegretted(q);
     });
 

@@ -21,6 +21,7 @@ const getEffectiveStatus = (round) => {
   if (round.approvals?.some(a => a.status === 'REJECTED')) return 'rejected';
   if (status === 'ACTIVE' && isExpired) return 'ended';
   if (status === 'PENDING_APPROVAL' && isExpired) return 'ended';
+  if (status === 'ENDED') return 'ended';
   if (status === 'ACTIVE') return 'active';
   if (status === 'PENDING_APPROVAL') return 'pending';
   if (status === 'COMPLETED') return 'completed';

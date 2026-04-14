@@ -105,7 +105,7 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id, token }) => {
             </Badge>
           )}
         </>
-      ) : (isExpired && round?.status === 'ACTIVE') ? (
+      ) : (round?.status === 'ENDED' || (isExpired && round?.status === 'ACTIVE')) ? (
         <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>
           Negotiation R{round.round_number} Ended
         </Badge>

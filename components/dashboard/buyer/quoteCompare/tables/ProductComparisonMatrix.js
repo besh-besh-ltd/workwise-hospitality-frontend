@@ -485,18 +485,7 @@ const ProductComparisonMatrix = ({
         <RoundEndActions
           activeRound={activeRound}
           roundQuotes={effectiveRoundQuotes.quotes}
-          roundQuotesSource={effectiveRoundQuotes.source}
-          rfq_id={activeRfqId}
-          rfq_product_id={proditem.id}
-          productName={proditem?.product_details?.[0]?.product_name || "Product"}
-          onRoundCreated={onRoundEnded}
-          onQuotesApproved={handleApprovalActionComplete}
-          canWrite={canWrite}
-          permissionsLoading={permissionsLoading}
-          is_tender={is_tender}
-          fullProduct={proditem}
           quoteApprovalStatus={quoteApprovalStatus}
-          department_id={departmentId}
         />
       ) : null}
 
