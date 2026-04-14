@@ -18,6 +18,7 @@ import PaymentHistorySection from "./PaymentHistorySection";
 import EditSubscriptionDrawer from "./EditSubscriptionDrawer";
 import ModificationConfirmModal from "./ModificationConfirmModal";
 import ModificationSuccessModal from "./ModificationSuccessModal";
+import SubscriptionErrorModal from "./SubscriptionErrorModal";
 import EmptyState from "./EmptyState";
 import styles from "./Subscription.module.css";
 
@@ -34,6 +35,7 @@ const SubscriptionPage = () => {
   const [confirmData, setConfirmData] = useState(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [successModal, setSuccessModal] = useState(null);
+  const [errorModal, setErrorModal] = useState(false);
 
   const refreshAll = useCallback(async () => {
     try {
@@ -50,7 +52,11 @@ const SubscriptionPage = () => {
       setConfirmLoading(false);
       setConfirmData(null);
       setDrawerOpen(false);
-      setSuccessModal(verifyData);
+      if (verifyData?.fallback) {
+        setErrorModal(true);
+      } else {
+        setSuccessModal(verifyData);
+      }
     },
     []
   );
@@ -107,14 +113,24 @@ const SubscriptionPage = () => {
           });
         }
       } else {
-        toast.error(res?.message || "Modification failed. Please try again.");
         setConfirmLoading(false);
+        if (res?.show_error_modal) {
+          setConfirmData(null);
+          setErrorModal(true);
+        } else {
+          toast.error(res?.message || "Modification failed. Please try again.");
+        }
       }
     } catch (err) {
-      toast.error(
-        err?.response?.data?.message || err?.message || "Modification failed. Please try again."
-      );
       setConfirmLoading(false);
+      setConfirmData(null);
+      if (err?.response?.data?.show_error_modal) {
+        setErrorModal(true);
+      } else {
+        toast.error(
+          err?.response?.data?.message || err?.message || "Modification failed. Please try again."
+        );
+      }
     }
   };
 
@@ -260,6 +276,15 @@ const SubscriptionPage = () => {
         <ModificationSuccessModal
           data={successModal}
           onClose={handleSuccessClose}
+        />
+      )}
+
+      {errorModal && (
+        <SubscriptionErrorModal
+          onClose={() => {
+            setErrorModal(false);
+            refreshAll();
+          }}
         />
       )}
 
