@@ -26,7 +26,7 @@ const ModificationConfirmModal = ({ preview, onConfirm, onCancel, loading }) => 
             {diff.added_categories.map((c) => (
               <div key={`ac-${c.id}`} className={`${styles.confirmItem} ${styles.confirmItemAdd}`}>
                 + Add {c.name}
-                {c.fee_amount > 0 && ` (₹${Number(c.fee_amount).toLocaleString("en-IN")})`}
+                {c.fee_amount > 0 && ` (₹${Number(c.fee_amount).toLocaleString("en-IN")} × ${pricing?.new_total_hotels_count || 1}${(pricing?.fy_periods_remaining || 1) > 1 ? ` × ${pricing.fy_periods_remaining} yrs` : ""})`}
               </div>
             ))}
             {diff.added_subcategories?.map((c) => (
@@ -83,6 +83,11 @@ const ModificationConfirmModal = ({ preview, onConfirm, onCancel, loading }) => 
             {isFree ? "Free" : `₹${Number(pricing.net_cost).toLocaleString("en-IN")}`}
           </span>
         </div>
+        {(pricing?.fy_periods_remaining || 1) > 1 && (
+          <p style={{ fontSize: "12px", color: "#64748b", textAlign: "right", margin: "4px 0 0" }}>
+            Price covers {pricing.fy_periods_remaining} financial year{pricing.fy_periods_remaining > 1 ? "s" : ""}
+          </p>
+        )}
 
         {shared_end_date && (
           <p className={styles.confirmEndDate}>
