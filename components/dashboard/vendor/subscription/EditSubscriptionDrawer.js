@@ -287,7 +287,7 @@ const EditSubscriptionDrawer = ({ open, onClose, currentData, onSubmit }) => {
                 <>
                   {preview.diff?.added_categories?.map((c) => (
                     <div key={`ac-${c.id}`} className={`${styles.previewItem} ${styles.previewAdd}`}>
-                      + {c.name} (₹{c.fee_amount} × {preview.pricing?.new_total_hotels_count || 1})
+                      + {c.name} (₹{c.fee_amount} × {preview.pricing?.new_total_hotels_count || 1}{(preview.pricing?.fy_periods_remaining || 1) > 1 ? ` × ${preview.pricing.fy_periods_remaining} yrs` : ""})
                     </div>
                   ))}
                   {preview.diff?.added_subcategories?.map((c) => (
@@ -338,6 +338,11 @@ const EditSubscriptionDrawer = ({ open, onClose, currentData, onSubmit }) => {
                       <span className={styles.previewFree}>Free</span>
                     )}
                   </div>
+                  {(preview.pricing?.fy_periods_remaining || 1) > 1 && (
+                    <p style={{ fontSize: "12px", color: "#64748b", textAlign: "right", margin: "4px 0 0" }}>
+                      Covers {preview.pricing.fy_periods_remaining} financial years
+                    </p>
+                  )}
                   {preview.shared_end_date && (
                     <p className={styles.previewEndDate}>
                       Valid till {new Date(preview.shared_end_date).toLocaleDateString("en-IN", {
