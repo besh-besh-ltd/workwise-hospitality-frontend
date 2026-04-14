@@ -16,7 +16,7 @@ const ENTITY_TYPE_TO_HREF = {
   ARC: "/dashboard/buyer/arc-committee",
 };
 
-const POLL_INTERVAL_MS = 60000;
+const POLL_INTERVAL_MS = 5000;
 
 export const usePendingApprovalIndicators = ({ enabled = true } = {}) => {
   const [pendingHrefs, setPendingHrefs] = useState(new Set());
