@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Badge, Modal, Table, Spinner } from 'react-bootstrap';
+import { Modal, Spinner } from 'react-bootstrap';
 import { getNegotiationRounds } from '@/services/negotiation';
 import moment from 'moment';
 import styles from './NegotiationUI.module.scss';
@@ -7,7 +7,7 @@ import styles from './NegotiationUI.module.scss';
 const STATUS_LABELS = {
   active: 'Active',
   pending: 'Pending Approval',
-  ended: 'Expired',
+  ended: 'Ended',
   rejected: 'Rejected',
   completed: 'Completed',
   closed: 'Closed',
@@ -31,17 +31,9 @@ const getEffectiveStatus = (round) => {
   return 'closed';
 };
 
-const getStatusBadge = (effectiveStatus) => {
-  const map = {
-    'active': { bg: 'success', label: 'Active' },
-    'ended': { bg: 'secondary', label: 'Expired' },
-    'pending': { bg: 'warning', label: 'Pending Approval', textDark: true },
-    'completed': { bg: 'info', label: 'Completed' },
-    'closed': { bg: 'secondary', label: 'Closed' },
-    'rejected': { bg: 'danger', label: 'Rejected' },
-  };
-  const config = map[effectiveStatus] || { bg: 'secondary', label: effectiveStatus };
-  return <Badge bg={config.bg} text={config.textDark ? 'dark' : undefined} style={{ fontSize: '0.7rem' }}>{config.label}</Badge>;
+const formatEndDate = (endDate) => {
+  if (!endDate) return '-';
+  return moment.utc(endDate).local().format('DD/MM/YYYY, hh:mm A');
 };
 
 const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLoaded, token, vendorView = false }) => {
@@ -169,17 +161,7 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
   const effectiveStatus = getEffectiveStatus(latestRound);
   const isActive = effectiveStatus === 'active';
 
-  // Get status-specific colors for the modal summary card
-  const statusColorMap = {
-    active: { bg: '#eef7f1', border: '#c9dfd0' },
-    pending: { bg: '#fdf7ea', border: '#ebdcc0' },
-    ended: { bg: '#f8f4f0', border: '#e4d6c7' },
-    rejected: { bg: '#fbf2f2', border: '#ecd4d4' },
-    completed: { bg: '#edf4fb', border: '#cfdff2' },
-    closed: { bg: '#f2f4f8', border: '#d8dfe9' },
-  };
-  const modalColors = statusColorMap[effectiveStatus] || statusColorMap.closed;
-
+  /* ── Render: table cell ── */
   return (
     <>
       <td
@@ -236,98 +218,139 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
         </div>
       </td>
 
-      {/* History Modal (buyer only) */}
-      {!vendorView && <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
-        <Modal.Header closeButton className="py-2 px-3">
-          <Modal.Title style={{ fontSize: '1.1rem' }}>
-            Negotiation Rounds {productName ? `- ${productName}` : ''}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {/* Latest Round Summary */}
-          {latestRound && (
-            <div
-              className="p-3 mb-3 rounded"
-              style={{
-                backgroundColor: modalColors.bg,
-                border: `1px solid ${modalColors.border}`,
-              }}
-            >
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <div className="fw-bold" style={{ fontSize: '0.95rem' }}>
-                  Latest Round {latestRound.round_number}
-                </div>
-                {getStatusBadge(effectiveStatus)}
-              </div>
-              <div className="row g-2" style={{ fontSize: '0.85rem' }}>
-                <div className="col-md-3">
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>Target Price</div>
-                  <div className="fw-semibold">₹{parseFloat(latestRound.target_price).toLocaleString()}</div>
-                </div>
-                <div className="col-md-3">
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>End Date</div>
-                  <div>{moment.utc(latestRound.end_date).local().format('DD-MM-YYYY hh:mm A')}</div>
-                </div>
-                <div className="col-md-3">
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>Time Remaining</div>
-                  <div>
-                    {isActive ? (
-                      <Badge bg="success" style={{ fontSize: '0.8rem' }}>
-                        {timeRemaining || 'Calculating...'}
-                      </Badge>
-                    ) : (
-                      <Badge bg={effectiveStatus === 'ended' ? 'danger' : 'secondary'} style={{ fontSize: '0.8rem' }}>
-                        {STATUS_LABELS[effectiveStatus] || latestRound.status}
-                      </Badge>
-                    )}
+      {/* ── Details Modal (buyer only) ── */}
+      {!vendorView && (
+        <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered dialogClassName={styles.negotiationModalDialog}>
+          <Modal.Header className={styles.modalHeader}>
+            <div className={styles.modalTitleWrap}>
+              <Modal.Title className={styles.modalTitle}>
+                Negotiation Rounds{productName ? ` — ${productName}` : ''}
+              </Modal.Title>
+              <p className={styles.modalSubtitle}>
+                {totalRounds} round{totalRounds !== 1 ? 's' : ''} for this product
+              </p>
+            </div>
+            <button type="button" className={styles.modalCloseBtn} onClick={() => setShowModal(false)} aria-label="Close">
+              ✕
+            </button>
+          </Modal.Header>
+
+          <Modal.Body className={styles.modalBody}>
+            {/* Latest Round Hero Card */}
+            {latestRound && (() => {
+              const latestStatus = getEffectiveStatus(latestRound);
+              return (
+                <div className={`${styles.roundCard} ${styles[`roundCard_${latestStatus}`] || ''}`} style={{ padding: '14px', marginBottom: 14 }}>
+                  <div className={styles.roundTopRow}>
+                    <div className={styles.roundIdentity}>
+                      <span className={styles.roundNumberDot}>{latestRound.round_number}</span>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#1e3656' }}>
+                          Latest Round
+                        </p>
+                        {latestRound.created_by_name && (
+                          <p style={{ margin: 0, fontSize: 11, color: '#60748f' }}>
+                            By {latestRound.created_by_name}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {isActive && timeRemaining && timeRemaining !== 'Expired' && (
+                        <span className={styles.roundTimeRemaining}>{timeRemaining} left</span>
+                      )}
+                      <span className={`${styles.roundStatusBadge} ${styles[`historyStatus_${latestStatus}`] || ''}`}>
+                        {STATUS_LABELS[latestStatus] || latestRound.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={styles.roundMeta}>
+                    <div className={styles.roundMetaItem}>
+                      <p className={styles.roundMetaLabel}>Target Price</p>
+                      <p className={styles.roundMetaValue}>
+                        ₹{parseFloat(latestRound.target_price).toLocaleString('en-IN')}
+                      </p>
+                    </div>
+                    <div className={styles.roundMetaItem}>
+                      <p className={styles.roundMetaLabel}>End Date</p>
+                      <p className={styles.roundMetaValue}>{formatEndDate(latestRound.end_date)}</p>
+                    </div>
+                    <div className={styles.roundMetaItem}>
+                      <p className={styles.roundMetaLabel}>Created</p>
+                      <p className={styles.roundMetaValue}>{formatEndDate(latestRound.created_at)}</p>
+                    </div>
                   </div>
                 </div>
-                <div className="col-md-3">
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>Created By</div>
-                  <div className="fw-semibold">{latestRound.created_by_name || '-'}</div>
-                </div>
-              </div>
-            </div>
-          )}
+              );
+            })()}
 
-          {/* Round History Table */}
-          <div className="fw-bold mb-2" style={{ fontSize: '0.95rem' }}>All Rounds</div>
-          {rounds.length === 0 ? (
-            <div className="text-center py-3 text-muted">No round history available</div>
-          ) : (
-            <Table bordered hover size="sm" style={{ fontSize: '0.85rem' }}>
-              <thead className="table-light">
-                <tr>
-                  <th>Round</th>
-                  <th>Target Price</th>
-                  <th>End Date</th>
-                  <th>Status</th>
-                  <th>Created By</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rounds.map((histRound) => {
-                  const histStatus = getEffectiveStatus(histRound);
-                  return (
-                    <tr key={histRound.id}>
-                      <td className="fw-semibold">#{histRound.round_number}</td>
-                      <td>₹{parseFloat(histRound.target_price).toLocaleString()}</td>
-                      <td>{moment.utc(histRound.end_date).local().format('DD-MM-YYYY hh:mm A')}</td>
-                      <td>{getStatusBadge(histStatus)}</td>
-                      <td>{histRound.created_by_name || '-'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </Table>
-          )}
-        </Modal.Body>
-        <Modal.Footer className="py-2">
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowModal(false)}>
-            Close
-          </button>
-        </Modal.Footer>
-      </Modal>}
+            {/* Past Rounds */}
+            {rounds.length > 1 && (
+              <>
+                <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.3px', color: '#4d6582', marginBottom: 8, marginTop: 4 }}>
+                  Round History
+                </p>
+                {rounds
+                  .filter(r => r.id !== latestRound?.id)
+                  .sort((a, b) => b.round_number - a.round_number)
+                  .map(histRound => {
+                    const histStatus = getEffectiveStatus(histRound);
+                    return (
+                      <div key={histRound.id} className={`${styles.roundCard} ${styles[`roundCard_${histStatus}`] || ''}`}>
+                        <div className={styles.roundTopRow}>
+                          <div className={styles.roundIdentity}>
+                            <span className={styles.roundNumberDot}>{histRound.round_number}</span>
+                            <div>
+                              <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: '#1e3656' }}>
+                                Round {histRound.round_number}
+                              </p>
+                              {histRound.created_by_name && (
+                                <p style={{ margin: 0, fontSize: 10.5, color: '#60748f' }}>
+                                  By {histRound.created_by_name}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <span className={`${styles.roundStatusBadge} ${styles[`historyStatus_${histStatus}`] || ''}`}>
+                            {STATUS_LABELS[histStatus] || histRound.status}
+                          </span>
+                        </div>
+
+                        <div className={styles.roundMeta}>
+                          <div className={styles.roundMetaItem}>
+                            <p className={styles.roundMetaLabel}>Target</p>
+                            <p className={styles.roundMetaValue}>₹{parseFloat(histRound.target_price).toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className={styles.roundMetaItem}>
+                            <p className={styles.roundMetaLabel}>End Date</p>
+                            <p className={styles.roundMetaValue}>{formatEndDate(histRound.end_date)}</p>
+                          </div>
+                          <div className={styles.roundMetaItem}>
+                            <p className={styles.roundMetaLabel}>Created</p>
+                            <p className={styles.roundMetaValue}>{formatEndDate(histRound.created_at)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </>
+            )}
+
+            {rounds.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '20px 0', color: '#60748f', fontSize: 13 }}>
+                No round history available
+              </div>
+            )}
+          </Modal.Body>
+
+          <Modal.Footer className={styles.modalFooter}>
+            <button className={`${styles.actionBtn} ${styles.actionBtnSecondary}`} onClick={() => setShowModal(false)}>
+              Close
+            </button>
+          </Modal.Footer>
+        </Modal>
+      )}
     </>
   );
 };
