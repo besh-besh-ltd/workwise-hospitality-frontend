@@ -428,7 +428,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                 {data?.vendor_rejection_reason && (
                   <span style={{ color: '#991B1B', display: 'block', marginTop: 4 }}>Reason: {data.vendor_rejection_reason}</span>
                 )}
-                <a href={`/dashboard/buyer/quote-compare?rfq=${data?.rfq_id}`} style={{ color: 'white', display: 'inline-block', marginTop: 6, fontWeight: 600 }}>
+                <a href={`/dashboard/buyer/quote-compare?rfq=${data?.rfq_id}`} style={{ color: 'black', display: 'inline-block', marginTop: 6, fontWeight: 600 }}>
                   Go to Quote Compare to finalize another vendor
                 </a>
               </div>
