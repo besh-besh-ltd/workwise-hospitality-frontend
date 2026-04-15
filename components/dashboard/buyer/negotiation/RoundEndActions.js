@@ -6,6 +6,8 @@ const RoundEndActions = ({
   activeRound,
   roundQuotes = [],
   quoteApprovalStatus = null,
+  department_id = null,
+  activeRounds = [],
 }) => {
   // Check if round has been rejected via approvals
   const isRoundRejected = activeRound?.approvals?.some(a => a.status === 'REJECTED');
