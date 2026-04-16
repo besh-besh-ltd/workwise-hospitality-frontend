@@ -265,6 +265,11 @@
 // Negotiation
 .negWrap { margin-top: 8px; margin-bottom: 8px; }
 .negCard { border: 1px solid #e9ecef; border-radius: 6px; padding: 8px 10px; margin-bottom: 4px; font-size: .78rem; &:last-child { margin-bottom: 0; } }
+.negHead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.negMeta { display: flex; gap: 10px; margin-top: 4px; font-size: .72rem; color: #64748b; }
+.negMetaItem { display: flex; align-items: center; gap: 3px; }
+.negMetaLabel { font-weight: 600; color: #94a3b8; }
+.negMetaValue { font-weight: 700; color: #334155; }
 .negVRow { display: flex; align-items: center; gap: 10px; padding: 3px 6px; font-size: .74rem; }
 .qPrice { font-weight: 700; color: #0f172a; }
 .noQ { color: #94a3b8; }

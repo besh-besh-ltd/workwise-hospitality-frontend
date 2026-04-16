@@ -13,10 +13,73 @@ import { getUserDetails } from '@/services/Auth';
 import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
 import { toast } from 'react-toastify';
 import moment from 'moment';
+import { Bar, Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  BarController,
+  BarElement,
+  LineController,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+  Filler,
+  Tooltip as ChartTooltip,
+} from 'chart.js';
+import { calculateTotal } from '@/utils/sharedFunctions';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
 import ApprovalActionModal from '../approval/ApprovalActionModal';
 import ApprovalTimeline from '../approval/ApprovalTimeline';
 import styles from './NegotiationUI.module.scss';
+
+ChartJS.register(BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Filler, ChartTooltip);
+
+// Custom Chart.js plugin: draws price labels on top of each bar
+const barLabelsPlugin = {
+  id: 'barLabels',
+  afterDatasetsDraw: (chart) => {
+    const { ctx } = chart;
+    chart.data.datasets.forEach((dataset, di) => {
+      const meta = chart.getDatasetMeta(di);
+      meta.data.forEach((bar, index) => {
+        const value = dataset.data[index];
+        if (value == null) return;
+        ctx.save();
+        ctx.fillStyle = '#1f3d63';
+        ctx.font = '700 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`₹${Number(value).toLocaleString('en-IN')}`, bar.x, bar.y - 6);
+        ctx.restore();
+      });
+    });
+  }
+};
+
+// Custom Chart.js plugin: draws a dashed target price line
+const targetLinePlugin = {
+  id: 'targetLine',
+  afterDraw: (chart, args, pluginOptions) => {
+    const { targetPrice } = pluginOptions || {};
+    if (!targetPrice || targetPrice <= 0) return;
+    const { ctx, chartArea, scales: { y } } = chart;
+    if (!chartArea || !y) return;
+    const yPos = y.getPixelForValue(targetPrice);
+    if (yPos < chartArea.top || yPos > chartArea.bottom) return;
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = '#c0392b';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(chartArea.left, yPos);
+    ctx.lineTo(chartArea.right, yPos);
+    ctx.stroke();
+    ctx.fillStyle = '#c0392b';
+    ctx.font = '600 10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`Target: ₹${Number(targetPrice).toLocaleString('en-IN')}`, chartArea.right, yPos - 4);
+    ctx.restore();
+  }
+};
 
 const NegotiationModal = ({
   show,
@@ -32,7 +95,9 @@ const NegotiationModal = ({
   permissionsLoading = false,
   hospitalityCompanyId,
   hotelId,
-  departmentId
+  departmentId,
+  preloadedApprovalBundle = null,
+  preSelectedProductId = null,
 }) => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [formData, setFormData] = useState({ target_price: '', end_date: '' });
@@ -59,6 +124,14 @@ const NegotiationModal = ({
   // Approval journey: all instances (including rejected) per round entity
   const [approvalJourneys, setApprovalJourneys] = useState({}); // Map of roundId -> { loading, instances[] }
   const [expandedApprovalJourney, setExpandedApprovalJourney] = useState(null); // roundId of expanded journey
+  // Chart flip state for create mode product rows
+  const [flippedCards, setFlippedCards] = useState({});
+  const [chartTypes, setChartTypes] = useState({}); // { [productId]: 'bar' | 'line' }
+
+  const toggleCardFlip = (productId, e) => {
+    e.stopPropagation();
+    setFlippedCards(prev => ({ ...prev, [productId]: !prev[productId] }));
+  };
 
   useEffect(() => {
     if (userProfile?.id) {
@@ -68,8 +141,9 @@ const NegotiationModal = ({
 
   useEffect(() => {
     if (show && mode === 'create') {
-      setSelectedProducts([]);
+      setSelectedProducts(preSelectedProductId ? [preSelectedProductId] : []);
       setFormData({ target_price: '', end_date: '' });
+      setFlippedCards({});
       loadQuoteApprovalStatuses();
     }
     if (show && mode === 'view-approve' && activeRounds.length > 0) {
@@ -92,13 +166,19 @@ const NegotiationModal = ({
 
   const loadHistoryData = async () => {
     if (!rfq_id) return;
+
+    // Use prop data if available
+    if (initialRoundsHistory.length > 0) {
+      setRoundsHistory(initialRoundsHistory);
+      return;
+    }
+
+    // Fallback: fetch from API
     try {
       setLoading(true);
       const response = await getNegotiationRounds(rfq_id);
-      console.log('Modal history raw response:', response);
-      
+
       let rounds = [];
-      
       if (response) {
         if (response.status === 1 && response.data) {
           rounds = Array.isArray(response.data) ? response.data : [];
@@ -108,8 +188,7 @@ const NegotiationModal = ({
           rounds = response.data;
         }
       }
-      
-      console.log('Modal parsed history rounds:', rounds, 'Count:', rounds.length);
+
       setRoundsHistory(rounds);
     } catch (error) {
       console.error('Error loading history in modal:', error);
@@ -124,6 +203,20 @@ const NegotiationModal = ({
     const pendingRounds = rounds.filter(r => r.status === 'PENDING_APPROVAL' || r.status === 'pending_approval');
     if (pendingRounds.length === 0) return;
 
+    // Use preloaded bundle if available
+    if (preloadedApprovalBundle) {
+      const instances = {};
+      for (const round of pendingRounds) {
+        const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)];
+        if (bundled && bundled.length > 0) {
+          instances[round.rfq_product_id] = bundled[0]; // Latest instance
+        }
+      }
+      setApprovalInstances(instances);
+      return;
+    }
+
+    // Fallback: fetch from API
     setLoadingApprovals(true);
     const instances = {};
 
@@ -133,7 +226,6 @@ const NegotiationModal = ({
         const instanceList = response?.data?.data || response?.data || [];
 
         if (instanceList && instanceList.length > 0) {
-          // Get detailed instance with can_user_approve
           const detailResponse = await getApprovalInstanceDetails(instanceList[0].id);
           const detailedInstance = detailResponse?.data?.data || detailResponse?.data;
           instances[round.rfq_product_id] = detailedInstance;
@@ -151,6 +243,20 @@ const NegotiationModal = ({
   const loadQuoteApprovalStatuses = async () => {
     if (!products || products.length === 0) return;
 
+    // Use preloaded bundle if available
+    if (preloadedApprovalBundle) {
+      const statuses = {};
+      for (const product of products) {
+        const bundled = preloadedApprovalBundle.negotiation_quote_instances?.[String(product.id)];
+        if (bundled && bundled.length > 0) {
+          statuses[product.id] = bundled[0]; // Latest instance
+        }
+      }
+      setQuoteApprovalStatuses(statuses);
+      return;
+    }
+
+    // Fallback: fetch from API
     setLoadingQuoteApprovals(true);
     const statuses = {};
 
@@ -180,12 +286,30 @@ const NegotiationModal = ({
     const roundId = round.id;
     setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: true, instances: [] } }));
 
+    // Filter instances to only those belonging to this specific round (by metadata.round_id)
+    const filterByRound = (instances) => {
+      return instances.filter(inst => {
+        const meta = inst.metadata || {};
+        // Match by round_id in metadata; if no round_id in metadata, include it (legacy)
+        return meta.round_id == null || String(meta.round_id) === String(roundId);
+      });
+    };
+
+    // Use preloaded bundle if available
+    if (preloadedApprovalBundle) {
+      const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+      const filtered = filterByRound(bundled);
+      const sorted = [...filtered].sort((a, b) => (a.id || 0) - (b.id || 0));
+      setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: sorted } }));
+      return;
+    }
+
+    // Fallback: fetch from API
     try {
       const response = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
       const instanceList = response?.data?.data || response?.data || [];
       const allInstances = Array.isArray(instanceList) ? instanceList : [];
 
-      // Fetch details for each instance
       const detailedInstances = [];
       for (const inst of allInstances) {
         try {
@@ -193,15 +317,13 @@ const NegotiationModal = ({
           const detail = detailRes?.data?.data || detailRes?.data || detailRes;
           detailedInstances.push(detail);
         } catch (err) {
-          // If detail fetch fails, use basic instance data
           detailedInstances.push(inst);
         }
       }
 
-      // Sort by id ascending (oldest first to show the journey chronologically)
-      detailedInstances.sort((a, b) => (a.id || 0) - (b.id || 0));
-
-      setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: detailedInstances } }));
+      const filtered = filterByRound(detailedInstances);
+      filtered.sort((a, b) => (a.id || 0) - (b.id || 0));
+      setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: filtered } }));
     } catch (error) {
       console.error('Error loading approval journey for round:', roundId, error);
       setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: [] } }));
@@ -287,9 +409,9 @@ const NegotiationModal = ({
     const quotations = product?.quotations || [];
     if (quotations.length === 0) return false;
 
-    // Check for valid quotations (must have an id or quote_id and not be regretted)
+    // Check for valid quotations (must have an id, quote_id, or quote_item_id and not be regretted)
     const validQuotations = quotations.filter(q => {
-      const hasId = q.id != null || q.quote_id != null;
+      const hasId = q.id != null || q.quote_id != null || q.quote_item_id != null;
       if (!hasId) return false;
       if (isQuoteRegretted(q)) return false;
       return true;
@@ -437,8 +559,7 @@ const NegotiationModal = ({
     }
   };
 
-  // Helper to get effective round status (considering end_date and approvals)
-  // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
+  // Helper to get effective round status (considering approvals)
   const getEffectiveRoundStatus = (round) => {
     const status = (round?.status || '').toUpperCase();
 
@@ -446,11 +567,6 @@ const NegotiationModal = ({
     const hasRejectedApproval = round?.approvals?.some(a => a.status === 'REJECTED');
     if (hasRejectedApproval) {
       return 'REJECTED';
-    }
-
-    // If status is ACTIVE but end_date has passed, treat as ENDED
-    if (status === 'ACTIVE' && round?.end_date && moment.utc(round.end_date).isBefore(moment())) {
-      return 'ENDED';
     }
 
     return status;
@@ -468,9 +584,10 @@ const NegotiationModal = ({
     const counts = {
       active: 0,
       pending_approval: 0,
+      ended: 0,
+      expired: 0,
       completed: 0,
       closed: 0,
-      ended: 0,
       rejected: 0
     };
 
@@ -479,6 +596,7 @@ const NegotiationModal = ({
       if (effectiveStatus === 'REJECTED') counts.rejected++;
       else if (effectiveStatus === 'ACTIVE') counts.active++;
       else if (effectiveStatus === 'PENDING_APPROVAL') counts.pending_approval++;
+      else if (effectiveStatus === 'EXPIRED') counts.expired++;
       else if (effectiveStatus === 'COMPLETED') counts.completed++;
       else if (effectiveStatus === 'CLOSED') counts.closed++;
       else if (effectiveStatus === 'ENDED') counts.ended++;
@@ -490,7 +608,7 @@ const NegotiationModal = ({
   // Round status summary component
   const renderRoundStatusSummary = () => {
     const counts = getRoundStatusCounts();
-    const total = counts.active + counts.pending_approval + counts.completed + counts.closed + counts.ended + counts.rejected;
+    const total = counts.active + counts.pending_approval + counts.ended + counts.expired + counts.completed + counts.closed + counts.rejected;
 
     if (total === 0) return null;
 
@@ -498,9 +616,10 @@ const NegotiationModal = ({
       { key: 'active', label: 'Active', tone: 'active' },
       { key: 'pending_approval', label: 'Pending Approval', tone: 'pending' },
       { key: 'ended', label: 'Ended', tone: 'ended' },
-      { key: 'rejected', label: 'Rejected', tone: 'rejected' },
+      { key: 'expired', label: 'Expired', tone: 'expired' },
       { key: 'completed', label: 'Completed', tone: 'completed' },
       { key: 'closed', label: 'Closed', tone: 'closed' },
+      { key: 'rejected', label: 'Rejected', tone: 'rejected' },
     ];
 
     return (
@@ -526,7 +645,7 @@ const NegotiationModal = ({
   };
 
   const getProductName = (product) => {
-    return product?.product_details?.[0]?.name || `Product ${product.id}`;
+    return product?.product_details?.[0]?.name || product?.product_details?.[0]?.product_name || product?.product_name || product?.name || `Product ${product.id}`;
   };
 
   const getVendorDisplayName = (v) =>
@@ -559,7 +678,7 @@ const NegotiationModal = ({
     }
 
     const validQuotations = quotations.filter(q => {
-      const hasId = q.id != null || q.quote_id != null;
+      const hasId = q.id != null || q.quote_id != null || q.quote_item_id != null;
       return hasId && !isQuoteRegretted(q);
     });
 
@@ -626,6 +745,174 @@ const NegotiationModal = ({
     };
   };
 
+  // Get vendor price data for chart and L1 display
+  // Data shape: pricing fields (unit_price, total_price, freight_price, etc.) are FLAT on quotation object.
+  // quote_details is an object { vendor_details, is_regret, ... } — NOT pricing data.
+  const getVendorPriceData = (product) => {
+    const quotations = product?.quotations || [];
+    const validQuotations = quotations.filter(q => {
+      const hasId = q.id != null || q.quote_id != null || q.quote_item_id != null;
+      return hasId && !isQuoteRegretted(q);
+    });
+
+    if (validQuotations.length === 0) return { vendors: [], l1: null };
+
+    const vendors = validQuotations.map(q => {
+      const vendorDetails = getVendorDetailsFromQuote(q);
+      const vendorName = vendorDetails ? getVendorDisplayName(vendorDetails) : 'Unknown';
+
+      // Pricing fields are flat on the quotation object (q.unit_price, q.total_price, etc.)
+      // Use pre-computed total_price first (most reliable), then try calculateTotal on flat fields
+      let totalPrice = parseFloat(q.total_price || 0);
+      if (totalPrice === 0) {
+        const quantity = q.quantity || product?.quantity || 0;
+        totalPrice = parseFloat(calculateTotal(q, quantity, false)) || 0;
+      }
+      // Alternate data shape: quote_details is an array with pricing nested inside
+      if (totalPrice === 0 && Array.isArray(q.quote_details) && q.quote_details[0]) {
+        const qd = q.quote_details[0];
+        totalPrice = parseFloat(qd.total_price || 0);
+        if (totalPrice === 0) {
+          const qty = qd?.rfq_details?.find(s => s.title === 'Quantity')?.value || qd?.quantity || 0;
+          totalPrice = parseFloat(calculateTotal(qd, qty, false)) || 0;
+        }
+      }
+
+      // Extract flat pricing fields for tooltip breakdown
+      const src = (Array.isArray(q.quote_details) && q.quote_details[0]) || q;
+      const unitPrice = parseFloat(src.unit_price || 0);
+      const freightPrice = parseFloat(src.freight_price || 0);
+      const freightMode = src.freight_mode || 'percentage';
+      const packagePrice = parseFloat(src.package_price || 0);
+      const packageMode = src.package_mode || 'percentage';
+      const tax = parseFloat(src.tax || 0);
+      const taxMode = src.tax_mode || 'percentage';
+      const quantity = parseFloat(src.quantity || q.quantity || product?.quantity || 0);
+
+      return {
+        vendorName, totalPrice, unitPrice, quantity,
+        freightPrice, freightMode, packagePrice, packageMode, tax, taxMode,
+      };
+    }).filter(v => v.totalPrice > 0);
+
+    vendors.sort((a, b) => a.totalPrice - b.totalPrice);
+    const l1 = vendors.length > 0 ? vendors[0].totalPrice : null;
+    vendors.forEach(v => { v.isL1 = v.totalPrice === l1; });
+
+    return { vendors, l1 };
+  };
+
+  // Build Chart.js config for vendor price chart (bar or line)
+  const CHART_COLORS = ['#2e5ba8', '#428B41', '#e67e22', '#8e44ad', '#16a085', '#c0392b', '#2c3e50', '#f39c12'];
+
+  const buildChartConfig = (vendorPriceData, targetPrice, chartType = 'bar') => {
+    const { vendors } = vendorPriceData;
+
+    const isLine = chartType === 'line';
+
+    const dataset = isLine
+      ? {
+          label: 'Total Price (₹)',
+          data: vendors.map(v => v.totalPrice),
+          borderColor: '#2e5ba8',
+          backgroundColor: 'rgba(46, 91, 168, 0.08)',
+          pointBackgroundColor: vendors.map((v, i) => v.isL1 ? '#2e7d32' : CHART_COLORS[i % CHART_COLORS.length]),
+          pointBorderColor: vendors.map((v, i) => v.isL1 ? '#1b5e20' : CHART_COLORS[i % CHART_COLORS.length]),
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          pointBorderWidth: 2,
+          borderWidth: 2.5,
+          tension: 0.3,
+          fill: true,
+        }
+      : {
+          label: 'Total Price (₹)',
+          data: vendors.map(v => v.totalPrice),
+          backgroundColor: vendors.map((v, i) => v.isL1 ? '#2e7d32CC' : (CHART_COLORS[i % CHART_COLORS.length] + 'CC')),
+          borderColor: vendors.map((v, i) => v.isL1 ? '#1b5e20' : CHART_COLORS[i % CHART_COLORS.length]),
+          borderWidth: vendors.map(v => v.isL1 ? 2 : 1),
+          borderRadius: 6,
+          barPercentage: 0.7,
+          categoryPercentage: 0.8,
+        };
+
+    const data = {
+      labels: vendors.map(v => v.vendorName),
+      datasets: [dataset]
+    };
+
+    const maxPrice = Math.max(...vendors.map(v => v.totalPrice), targetPrice || 0);
+    const minPrice = Math.min(...vendors.map(v => v.totalPrice), targetPrice || Infinity);
+    // Smart y-axis min: start from 0 if values are close to 0, otherwise floor to ~70% of min for bar differentiation
+    const yMin = minPrice > 0 ? Math.floor(minPrice * 0.7) : 0;
+
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        title: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2730',
+          titleFont: { size: 12, weight: '700' },
+          bodyFont: { size: 11 },
+          padding: 12,
+          cornerRadius: 8,
+          callbacks: {
+            label: (ctx) => {
+              const v = vendors[ctx.dataIndex];
+              const fmt = (val) => `₹${Number(val).toLocaleString('en-IN')}`;
+              const fmtCharge = (val, mode) => mode === 'percentage' ? `${val}%` : fmt(val);
+              const lines = [
+                `Unit Price: ${fmt(v.unitPrice)}`,
+                `Qty: ${v.quantity || '-'}`,
+              ];
+              if (v.packagePrice) lines.push(`Packaging: ${fmtCharge(v.packagePrice, v.packageMode)}`);
+              if (v.freightPrice) lines.push(`Freight: ${fmtCharge(v.freightPrice, v.freightMode)}`);
+              if (v.tax) lines.push(`GST: ${fmtCharge(v.tax, v.taxMode)}`);
+              lines.push(`Total: ${fmt(v.totalPrice)}`);
+              if (v.isL1) lines.push('★ L1 (Lowest)');
+              return lines;
+            }
+          }
+        },
+        targetLine: { targetPrice: targetPrice || null },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            font: { size: 10, weight: '600' },
+            color: '#4d6582',
+            maxRotation: 25,
+            minRotation: 0,
+            callback: function(value) {
+              const label = this.getLabelForValue(value);
+              return label.length > 18 ? label.slice(0, 18) + '…' : label;
+            }
+          }
+        },
+        y: {
+          beginAtZero: false,
+          suggestedMin: yMin,
+          suggestedMax: maxPrice * 1.12,
+          grid: { color: '#e8eef5', drawBorder: false },
+          ticks: {
+            font: { size: 10 },
+            color: '#6d829a',
+            callback: (value) => '₹' + Number(value).toLocaleString('en-IN'),
+            maxTicksLimit: 6
+          },
+          title: {
+            display: false
+          }
+        }
+      }
+    };
+
+    return { data, options };
+  };
+
   const renderCreateForm = () => {
     // Products that can have negotiation: have quotes, no active round, quotes not approved
     const availableProducts = products.filter(p => hasQuotes(p) && !hasActiveRound(p.id) && !isQuoteApproved(p.id));
@@ -673,59 +960,139 @@ const NegotiationModal = ({
                   statusClass = styles.createStatusNoQuotes;
                 }
 
+                const priceData = getVendorPriceData(product);
+                const isFlipped = flippedCards[product.id];
+
                 return (
-                  <button
+                  <div
                     key={product.id}
-                    type="button"
-                    onClick={() => !isDisabled && handleProductToggle(product.id)}
-                    disabled={isDisabled}
-                    aria-pressed={isSelected}
-                    className={`${styles.createProductRow} ${
-                      isSelected ? styles.createProductRowSelected : ''
-                    } ${isDisabled ? styles.createProductRowDisabled : ''}`}
+                    className={`${styles.flipContainer} ${isFlipped ? styles.flipContainerFlipped : ''}`}
                   >
-                    <div className={styles.createProductMain}>
-                      <input
-                        type="radio"
-                        name="selectedProduct"
-                        checked={isSelected}
+                    <div className={styles.flipInner}>
+                      {/* FRONT FACE - Product Info */}
+                      <button
+                        type="button"
+                        onClick={() => !isDisabled && handleProductToggle(product.id)}
                         disabled={isDisabled}
-                        readOnly
-                        className={styles.createRadio}
-                      />
-                      <div className={styles.createTitleBlock}>
-                        <p className={styles.createProductName}>{details.name}</p>
-                        <div className={styles.createStatusRow}>
-                          <span className={`${styles.createStatusBadge} ${statusClass}`}>
-                            {statusLabel}
+                        aria-pressed={isSelected}
+                        className={`${styles.flipFace} ${styles.flipFront} ${styles.createProductRow} ${
+                          isSelected ? styles.createProductRowSelected : ''
+                        } ${isDisabled ? styles.createProductRowDisabled : ''}`}
+                      >
+                        <div className={styles.createProductMain}>
+                          <input
+                            type="radio"
+                            name="selectedProduct"
+                            checked={isSelected}
+                            disabled={isDisabled}
+                            readOnly
+                            className={styles.createRadio}
+                          />
+                          <div className={styles.createTitleBlock}>
+                            <p className={styles.createProductName}>{details.name}</p>
+                            {isDisabled && (
+                              <div className={styles.createStatusRow}>
+                                <span className={`${styles.createStatusBadge} ${statusClass}`}>
+                                  {statusLabel}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className={styles.createMetaGrid}>
+                          <div className={styles.createMetaItem}>
+                            <p className={styles.createMetaLabel}>Spec</p>
+                            <p className={`${styles.createMetaValue} ${styles.createMetaValueClamp}`} title={details.spec || ''}>{details.spec || '-'}</p>
+                          </div>
+                          <div className={styles.createMetaItem}>
+                            <p className={styles.createMetaLabel}>Size</p>
+                            <p className={`${styles.createMetaValue} ${styles.createMetaValueClamp}`} title={details.size || ''}>{details.size || '-'}</p>
+                          </div>
+                          <div className={styles.createMetaItem}>
+                            <p className={styles.createMetaLabel}>Qty & Unit</p>
+                            <p className={styles.createMetaValue}>
+                              {details.quantity || '-'}{details.unit ? ` ${details.unit}` : ''}
+                            </p>
+                          </div>
+                          <div className={`${styles.createMetaItem} ${styles.createMetaItemL1}`}>
+                            <p className={styles.createMetaLabel}>L1</p>
+                            <p className={`${styles.createMetaValue} ${styles.createMetaValueL1}`}>
+                              {priceData.l1 ? `₹${priceData.l1.toLocaleString('en-IN')}` : '-'}
+                            </p>
+                          </div>
+                          <div className={styles.createMetaItem}>
+                            <p className={styles.createMetaLabel}>Vendors</p>
+                            <p className={`${styles.createMetaValue} ${styles.createMetaValueClampVendor}`} title={getVendorNames(product)}>{getVendorNames(product)}</p>
+                          </div>
+                        </div>
+
+                        <div className={styles.chartToggleRow}>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            className={`${styles.chartToggleBtn} ${noQuotes ? styles.chartToggleBtnDisabled : ''}`}
+                            onClick={(e) => { if (!noQuotes) toggleCardFlip(product.id, e); }}
+                            onKeyDown={(e) => { if (!noQuotes && (e.key === 'Enter' || e.key === ' ')) toggleCardFlip(product.id, e); }}
+                          >
+                            View Chart →
                           </span>
+                        </div>
+                      </button>
+
+                      {/* BACK FACE - Vendor Price Chart */}
+                      <div className={`${styles.flipFace} ${styles.flipBack} ${styles.createProductRow}`}>
+                        <div className={styles.chartFaceHeader}>
+                          <div className={styles.chartFaceHeaderLeft}>
+                            <p className={styles.chartFaceTitle}>{details.name}</p>
+                            <div className={styles.chartTypeSwitch}>
+                              <button
+                                type="button"
+                                className={`${styles.chartTypeSwitchBtn} ${(chartTypes[product.id] || 'bar') === 'bar' ? styles.chartTypeSwitchBtnActive : ''}`}
+                                onClick={() => setChartTypes(prev => ({ ...prev, [product.id]: 'bar' }))}
+                              >
+                                Bar
+                              </button>
+                              <button
+                                type="button"
+                                className={`${styles.chartTypeSwitchBtn} ${chartTypes[product.id] === 'line' ? styles.chartTypeSwitchBtnActive : ''}`}
+                                onClick={() => setChartTypes(prev => ({ ...prev, [product.id]: 'line' }))}
+                              >
+                                Line
+                              </button>
+                            </div>
+                          </div>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            className={styles.chartBackBtn}
+                            onClick={(e) => toggleCardFlip(product.id, e)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleCardFlip(product.id, e); }}
+                          >
+                            ← Back to product
+                          </span>
+                        </div>
+                        <div className={styles.chartContainer}>
+                          {isFlipped && (() => {
+                            if (priceData.vendors.length === 0) {
+                              return <p className={styles.chartEmpty}>No price data available</p>;
+                            }
+                            const activeChartType = chartTypes[product.id] || 'bar';
+                            const targetPrice = formData.target_price ? parseFloat(formData.target_price) : null;
+                            const { data, options } = buildChartConfig(priceData, targetPrice, activeChartType);
+                            const ChartComp = activeChartType === 'line' ? Line : Bar;
+                            return <ChartComp data={data} options={options} plugins={[targetLinePlugin, barLabelsPlugin]} />;
+                          })()}
+                        </div>
+                        <div className={styles.chartLegend}>
+                          {priceData.l1 && (
+                            <span className={styles.chartLegendL1}>L1: ₹{priceData.l1.toLocaleString('en-IN')}</span>
+                          )}
+                          <span className={styles.chartLegendCount}>{priceData.vendors.length} vendor(s)</span>
                         </div>
                       </div>
                     </div>
-
-                    <div className={styles.createMetaGrid}>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Spec</p>
-                        <p className={styles.createMetaValue}>{details.spec || '-'}</p>
-                      </div>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Size</p>
-                        <p className={styles.createMetaValue}>{details.size || '-'}</p>
-                      </div>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Qty</p>
-                        <p className={styles.createMetaValue}>{details.quantity || '-'}</p>
-                      </div>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Unit</p>
-                        <p className={styles.createMetaValue}>{details.unit || '-'}</p>
-                      </div>
-                      <div className={styles.createMetaItem}>
-                        <p className={styles.createMetaLabel}>Vendors</p>
-                        <p className={styles.createMetaValue}>{getVendorNames(product)}</p>
-                      </div>
-                    </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -738,7 +1105,7 @@ const NegotiationModal = ({
           )}
         </section>
 
-        <div className={styles.formGrid}>
+        <div className={`${styles.formGrid} ${selectedProducts.length === 0 ? styles.formGridDisabled : ''}`}>
           <div className={styles.formCard}>
             <label htmlFor="neg-target-price" className={styles.formLabel}>
               Target Price (₹) <span className={styles.requiredMark}>*</span>
@@ -752,6 +1119,7 @@ const NegotiationModal = ({
               onChange={(e) => setFormData({ ...formData, target_price: e.target.value })}
               placeholder="Enter target price"
               required
+              disabled={selectedProducts.length === 0}
               className={styles.fieldInput}
             />
           </div>
@@ -767,6 +1135,7 @@ const NegotiationModal = ({
               onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
               min={new Date().toISOString().slice(0, 16)}
               required
+              disabled={selectedProducts.length === 0}
               className={styles.fieldInput}
             />
             <p className={styles.formHint}>
@@ -799,6 +1168,7 @@ const NegotiationModal = ({
     COMPLETED: { bg: '#e3f2fd', color: '#1565c0', border: '#90caf9', label: 'Completed', icon: '✓' },
     CLOSED: { bg: '#f3e5f5', color: '#6a1b9a', border: '#ce93d8', label: 'Closed', icon: '✓' },
     REJECTED: { bg: '#fce4ec', color: '#c62828', border: '#ef9a9a', label: 'Rejected', icon: '✗' },
+    EXPIRED: { bg: '#fce4ec', color: '#c62828', border: '#ef9a9a', label: 'Expired', icon: '⊘' },
   };
 
   const getStatusStyle = (status) => statusConfig[status] || statusConfig.CLOSED;
@@ -808,6 +1178,7 @@ const NegotiationModal = ({
     if (status === 'ACTIVE') return 'active';
     if (status === 'ENDED') return 'ended';
     if (status === 'REJECTED') return 'rejected';
+    if (status === 'EXPIRED') return 'expired';
     if (status === 'COMPLETED') return 'completed';
     return 'closed';
   };
@@ -846,7 +1217,7 @@ const NegotiationModal = ({
     uniqueRounds.forEach(round => {
       const productId = round.rfq_product_id;
       if (!grouped[productId]) {
-        const product = products.find(p => p.id === productId);
+        const product = products.find(p => String(p.id) === String(productId));
         grouped[productId] = {
           productName: round.product_name || (product ? getProductName(product) : `Product ${productId}`),
           productDetails: product ? getProductDetails(product) : null,
@@ -961,8 +1332,8 @@ const NegotiationModal = ({
                             )}
                           </div>
 
-                          {/* Approval Workflow Journey */}
-                          {(effectiveStatus === 'PENDING_APPROVAL' || effectiveStatus === 'REJECTED' || effectiveStatus === 'APPROVED') && (
+                          {/* Approval Workflow Journey — show for all rounds that went through approval */}
+                          {(effectiveStatus !== 'DRAFT') && (
                             <div>
                               <div
                                 onClick={() => toggleApprovalJourney(round)}
@@ -972,9 +1343,19 @@ const NegotiationModal = ({
                                   {expandedApprovalJourney === round.id ? '▼' : '▶'}
                                 </span>
                                 Approval Workflow
-                                {approvals.length > 0 && (
+                                {approvals.length > 0 && effectiveStatus === 'PENDING_APPROVAL' && (
                                   <span className={styles.workflowMeta}>
                                     ({approvals.filter(a => a.status === 'PENDING').length} pending)
+                                  </span>
+                                )}
+                                {(effectiveStatus === 'ACTIVE' || effectiveStatus === 'ENDED' || effectiveStatus === 'COMPLETED') && (
+                                  <span className={styles.workflowMeta} style={{ color: '#198754' }}>
+                                    (approved)
+                                  </span>
+                                )}
+                                {(effectiveStatus === 'EXPIRED') && (
+                                  <span className={styles.workflowMeta} style={{ color: '#dc3545' }}>
+                                    (cancelled)
                                   </span>
                                 )}
                               </div>
@@ -1030,6 +1411,7 @@ const NegotiationModal = ({
                                                     steps={instance.steps}
                                                     currentStep={instance.current_step}
                                                     initiatedBy={instance.initiated_by}
+                                                    instanceStatus={instance.status}
                                                   />
                                                 ) : (
                                                   <div className={styles.journeyEmpty}>
@@ -1076,22 +1458,14 @@ const NegotiationModal = ({
 
     // Helper to check if a round has ended based on end_date
     // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
-    const isRoundEnded = (round) => {
-      const status = (round?.status || '').toUpperCase();
-      if (status === 'ACTIVE' && round?.end_date && moment.utc(round.end_date).isBefore(moment())) {
-        return true;
-      }
-      return false;
-    };
-
     // Exclude rejected rounds from pending
     const pendingRounds = activeRounds.filter(r =>
       (r.status === 'PENDING_APPROVAL' || r.status === 'pending_approval') && !isRoundRejected(r)
     );
-    // Active rounds: status is ACTIVE, end_date has NOT passed, and not rejected
+    // Active rounds: status is ACTIVE and not rejected
     const activeRoundsList = activeRounds.filter(r => {
       const status = (r?.status || '').toUpperCase();
-      return status === 'ACTIVE' && !isRoundEnded(r) && !isRoundRejected(r);
+      return status === 'ACTIVE' && !isRoundRejected(r);
     });
 
     return (
@@ -1107,7 +1481,7 @@ const NegotiationModal = ({
               <div className="mb-4">
                 <h6 className={styles.pendingSectionTitle}>Pending Approval</h6>
                 {pendingRounds.map((round) => {
-                  const product = products.find(p => p.id === round.rfq_product_id);
+                  const product = products.find(p => String(p.id) === String(round.rfq_product_id));
                   const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
                   const approvals = round.approvals || [];
 
@@ -1246,7 +1620,7 @@ const NegotiationModal = ({
               <div>
                 <h6 className={styles.pendingSectionTitle}>Active Rounds</h6>
                 {activeRoundsList.map((round) => {
-                  const product = products.find(p => p.id === round.rfq_product_id);
+                  const product = products.find(p => String(p.id) === String(round.rfq_product_id));
                   const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
                   return (
                     <div key={round.id} className={styles.pendingCard}>
@@ -1338,11 +1712,19 @@ const NegotiationModal = ({
   return (
     <>
     <Modal show={show} onHide={onHide} size="lg" centered dialogClassName={styles.negotiationModalDialog}>
-      <Modal.Header closeButton className={styles.modalHeader}>
+      <Modal.Header className={styles.modalHeader}>
         <div className={styles.modalTitleWrap}>
           <Modal.Title className={styles.modalTitle}>{getModalTitle()}</Modal.Title>
           <p className={styles.modalSubtitle}>{getModalSubtitle()}</p>
         </div>
+        <button
+          type="button"
+          className={styles.modalCloseBtn}
+          onClick={onHide}
+          aria-label="Close"
+        >
+          ✕
+        </button>
       </Modal.Header>
       <Modal.Body className={styles.modalBody}>
         {loading ? (

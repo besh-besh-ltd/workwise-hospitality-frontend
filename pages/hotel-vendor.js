@@ -6,7 +6,7 @@ import RegisterUserModal from '../components/modal/RegisterUserModal';
 import AuthModal from '../components/modal/AuthModal';
 import LoginWithOtherDeviceModal from '../components/modal/LoginWithOtherDeviceModal';
 import MembershipInfoModal from '../components/modal/MembershipInfoModal';
-import PaymentProcessingModal from '../components/register/PaymentProcessingModal';
+import PostPaymentFlow from '../components/register/PostPaymentFlow';
 import {
   loadScript,
   verifyHospitalityPayment,
@@ -37,7 +37,7 @@ const HotelVendor = () => {
   const [loginError, setLoginError] = useState('');
   const [showMembershipInfoModal, setShowMembershipInfoModal] = useState(false);
   const [showOtherDeviceModal, setShowOtherDeviceModal] = useState(false);
-  const [showPaymentProcessingModal, setShowPaymentProcessingModal] = useState(false);
+  const [postPaymentData, setPostPaymentData] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [dashboardUrl, setDashboardUrl] = useState('/dashboard/buyer');
   // Use ref instead of state for payment success tracking - refs are synchronous
@@ -115,6 +115,18 @@ const HotelVendor = () => {
       description: 'Hospitality Vendor Registration',
       image: '/assets/images/logo.png',
       handler: function (response) {
+        // Mark payment as successful so token isn't cleared on unmount
+        paymentSuccessfulRef.current = true;
+        // Launch PostPaymentFlow — it handles verification, login, RFQs, and dashboard redirect
+        setPostPaymentData({
+          razorpayData: {
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_signature: response.razorpay_signature,
+          },
+          orderId,
+          userCredentials,
+        });
         setShowPaymentProcessingModal(true);
         // Secure, signature-validated path. The deprecated
         // /users/test-razorpay-webhook bypassed signature verification
@@ -175,7 +187,7 @@ const HotelVendor = () => {
       },
       modal: {
         ondismiss: function () {
-          setShowPaymentProcessingModal(false);
+          // Razorpay modal dismissed without completing — no action needed
         },
       },
       prefill: { name: '', email: '', contact: '' },
@@ -185,7 +197,7 @@ const HotelVendor = () => {
 
     const paymentObject = new window.Razorpay(options);
     paymentObject.on('payment.failed', function () {
-      setShowPaymentProcessingModal(false);
+      toast.error('Payment failed. Please try again.');
     });
     paymentObject.open();
   };
@@ -1111,7 +1123,14 @@ const HotelVendor = () => {
         }}
       />
 
-      <PaymentProcessingModal show={showPaymentProcessingModal || showPaymentLoaderPreview} />
+      <PostPaymentFlow
+        show={!!postPaymentData || showPaymentLoaderPreview}
+        razorpayData={postPaymentData?.razorpayData || (showPaymentLoaderPreview ? { razorpay_payment_id: 'preview', razorpay_order_id: 'preview', razorpay_signature: 'preview' } : null)}
+        orderId={postPaymentData?.orderId || (showPaymentLoaderPreview ? 'preview' : null)}
+        userCredentials={postPaymentData?.userCredentials}
+        swSubscription={swSubscription}
+        onDone={() => { paymentSuccessfulRef.current = true; }}
+      />
 
     </>
   );

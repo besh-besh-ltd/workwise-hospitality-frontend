@@ -40,6 +40,7 @@ import { getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { Badge, Button, Alert, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill } from "react-icons/bs";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
+import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import {
   buildBuyerTechEvalProductSummary,
   getBuyerTechEvalStatusConfig
@@ -1100,11 +1101,10 @@ const RfqManagementPreview = () => {
     const checkActiveNegotiationRounds = async () => {
       if (!id) return;
       try {
-        const response = await getAllActiveNegotiationRounds(id);
-        // Backend returns rounds with status IN ('PENDING_APPROVAL', 'ACTIVE')
-        // but does NOT filter by end_date > NOW(). We must filter on frontend
-        // to match the backend createQuote/updateQuoteItems check:
-        //   status = 'ACTIVE' AND end_date > NOW()
+        const response = await getAllActiveNegotiationRounds(id, token);
+        // Backend returns rounds with status IN ('PENDING_APPROVAL', 'ACTIVE', 'ENDED', 'CLOSED')
+        // We filter on frontend for truly active rounds to match the backend
+        // createQuote/updateQuoteItems check: status = 'ACTIVE' AND end_date > NOW()
         const now = new Date();
         const activeRounds = (response?.data || []).filter(
           r => {
@@ -1977,7 +1977,7 @@ const RfqManagementPreview = () => {
 
                   <div className="manage-rfq-con">
                     {/* Content for Manage RFQs tab */}
-                    <div className="d-flex justify-content-between align-items-center" style={{ gap: 16, flexWrap: 'wrap' }}>
+                    <div className="d-flex justify-content-between align-items-center mb-3" style={{ gap: 16, flexWrap: 'wrap' }}>
                       <div style={{ minWidth: 0, flex: '1 1 auto' }}>
                         {rfqDetails?.title ? (
                           <>
@@ -2194,6 +2194,10 @@ const RfqManagementPreview = () => {
                         )}
                       </div>
                     </div>
+
+                    {type == "buyer-view" && rfqDetails?.products?.length > 0 && !rfqDetails.products.some(p => p.tech_evaluation_status?.has_tech_eval) && (
+                      <NoTechClausesBanner entityLabel={getEntityLabel(rfqDetails?.is_tender)} />
+                    )}
 
                     <div className="details-table">
                       {rfqDetails?.products?.length > 0 && (
@@ -2502,6 +2506,8 @@ const RfqManagementPreview = () => {
                                       rfq_product_id={item.id}
                                       productName={item?.product_details[0]?.name || ''}
                                       onStatusLoaded={(hasData) => handleNegotiationLoaded(item.id, hasData)}
+                                      token={token}
+                                      vendorView={type !== "buyer-view"}
                                     />
                                   )}
                                 </tr>
@@ -2900,11 +2906,11 @@ const RfqManagementPreview = () => {
         isOpen={showCloseConfirmModal}
         onClose={() => setShowCloseConfirmModal(false)}
         onConfirm={handleCloseRFQ}
-        title={`Close ${getEntityLabel(rfqDetails?.is_tender)}`}
+        title={`Close this ${getEntityLabel(rfqDetails?.is_tender)}`}
         description={`Are you sure you want to close ${getEntityLabel(rfqDetails?.is_tender)} #${
           rfqDetails?.rfq_no || `this ${getEntityLabel(rfqDetails?.is_tender)}`
-        }?\nOnce closed, vendors will no longer be able to submit quotes.`}
-        confirmButtonColor="warning"
+        }?\nOnce closed, every actions will be restricted & vendors will no longer be able to submit quotes.`}
+        confirmButtonColor="danger"
         confirmButtonText={`Close ${getEntityLabel(rfqDetails?.is_tender)}`}
         cancelButtonText="Cancel"
       />

@@ -161,7 +161,7 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
   let cardStyle = CARD_STYLES.active;
   if (hasSubmittedQuote) cardStyle = CARD_STYLES.submitted;
   else if (isActive) cardStyle = CARD_STYLES.active;
-  else if (isExpired && round?.status === 'ACTIVE') cardStyle = CARD_STYLES.expired;
+  else if (round?.status === 'ENDED' || (round?.status === 'ENDED' || (isExpired && round?.status === 'ACTIVE'))) cardStyle = CARD_STYLES.expired;
   else if (isClosed) cardStyle = CARD_STYLES.closed;
   else cardStyle = CARD_STYLES.expired;
 
@@ -190,7 +190,7 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
             <Badge bg="primary" style={{ fontSize: '0.7rem' }}>Submitted</Badge>
           ) : isActive ? (
             <Badge bg="success" style={{ fontSize: '0.7rem' }}>Active</Badge>
-          ) : (isExpired && round?.status === 'ACTIVE') ? (
+          ) : (round?.status === 'ENDED' || (isExpired && round?.status === 'ACTIVE')) ? (
             <Badge bg="danger" style={{ fontSize: '0.7rem' }}>Expired</Badge>
           ) : isClosed ? (
             <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>{round.status === 'COMPLETED' ? 'Completed' : 'Closed'}</Badge>
@@ -216,7 +216,7 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
           <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 500 }}>
             {timeRemaining} left
           </span>
-        ) : (isExpired && round?.status === 'ACTIVE') ? (
+        ) : (round?.status === 'ENDED' || (isExpired && round?.status === 'ACTIVE')) ? (
           <span style={{ fontSize: '0.75rem', color: '#dc2626' }}>
             Round ended
           </span>
@@ -244,8 +244,8 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
             <div
               className="p-3 mb-3 rounded"
               style={{
-                backgroundColor: isActive ? '#ecfdf5' : hasSubmittedQuote ? '#eff6ff' : (isExpired && round?.status === 'ACTIVE') ? '#fef2f2' : '#f9fafb',
-                border: `1px solid ${isActive ? '#a7f3d0' : hasSubmittedQuote ? '#bfdbfe' : (isExpired && round?.status === 'ACTIVE') ? '#fecaca' : '#e5e7eb'}`,
+                backgroundColor: isActive ? '#ecfdf5' : hasSubmittedQuote ? '#eff6ff' : (round?.status === 'ENDED' || (isExpired && round?.status === 'ACTIVE')) ? '#fef2f2' : '#f9fafb',
+                border: `1px solid ${isActive ? '#a7f3d0' : hasSubmittedQuote ? '#bfdbfe' : (round?.status === 'ENDED' || (isExpired && round?.status === 'ACTIVE')) ? '#fecaca' : '#e5e7eb'}`,
               }}
             >
               <div className="d-flex justify-content-between align-items-center mb-2">
@@ -256,7 +256,7 @@ const VendorNegotiationInfo = ({ rfq_id, rfq_product_id, productName }) => {
                   <Badge bg="primary">Quote Submitted</Badge>
                 ) : isActive ? (
                   <Badge bg="success">Active</Badge>
-                ) : (isExpired && round?.status === 'ACTIVE') ? (
+                ) : (round?.status === 'ENDED' || (isExpired && round?.status === 'ACTIVE')) ? (
                   <Badge bg="danger">Expired</Badge>
                 ) : (
                   <Badge bg="secondary">{round.status}</Badge>

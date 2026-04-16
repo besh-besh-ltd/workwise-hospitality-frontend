@@ -293,7 +293,7 @@ const CurrentStageSection = ({
       case 'NEGOTIATION':
         // Find active negotiation round
         const activeRound = lifecycleData?.negotiationRounds?.find(r =>
-          r.status === 'PENDING_APPROVAL' || r.status === 'ACTIVE'
+          r.status === 'PENDING_APPROVAL' || r.status === 'ACTIVE' || r.status === 'ENDED' || r.status === 'CLOSED'
         );
         entityId = activeRound?.id;
         break;

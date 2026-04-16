@@ -62,7 +62,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
       r.status === 'ACTIVE' && r.end_date && moment.utc(r.end_date).isAfter(now)
     );
     const expiredRounds = rounds.filter(r =>
-      r.status === 'ACTIVE' && r.end_date && moment.utc(r.end_date).isBefore(now)
+      r.status === 'ENDED' || (r.status === 'ACTIVE' && r.end_date && moment.utc(r.end_date).isBefore(now))
     );
 
     return (

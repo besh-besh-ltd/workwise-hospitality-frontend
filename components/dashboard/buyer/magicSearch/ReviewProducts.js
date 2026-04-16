@@ -8,7 +8,7 @@ import Select from 'react-select';
 import { getCountries, getStates, getCities } from '@/services/cms';
 import { toast } from 'react-toastify';
 import _ from 'lodash';
-import { vendorConditions } from '../../vendor/search';
+import { vendorConditions } from '../../vendor/searchConfig';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Tooltip from 'react-bootstrap/Tooltip';
 import React, { memo } from 'react';

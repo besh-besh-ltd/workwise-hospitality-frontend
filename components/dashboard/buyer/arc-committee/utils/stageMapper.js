@@ -280,7 +280,7 @@ const getCurrentStage = (lifecycleData) => {
   // Check negotiation rounds
   if (lifecycleData?.negotiationRounds?.length > 0) {
     const activeRound = lifecycleData.negotiationRounds.find(r =>
-      r.status === 'ACTIVE' || r.status === 'PENDING_APPROVAL'
+      r.status === 'ACTIVE' || r.status === 'PENDING_APPROVAL' || r.status === 'ENDED' || r.status === 'CLOSED'
     );
     if (activeRound) return 'NEGOTIATION';
     return 'QUOTE_FINALIZED';

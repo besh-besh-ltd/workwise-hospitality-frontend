@@ -460,8 +460,26 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
                     <div className={styles.secLabel}>Negotiation</div>
                     {pg.negotiation_rounds.map((r, ri) => (
                       <div key={ri} className={styles.negCard}>
-                        <strong>Round {r.round_number}</strong>
-                        <Badge bg={r.status === 'ACTIVE' ? 'primary' : 'secondary'} style={{ fontSize: '0.58rem' }} className="ms-2">{r.status}</Badge>
+                        <div className={styles.negHead}>
+                          <strong>Round {r.round_number}</strong>
+                          <Badge bg={r.status === 'ACTIVE' ? 'primary' : r.status === 'ENDED' ? 'warning' : 'secondary'} text={r.status === 'ENDED' ? 'dark' : undefined} style={{ fontSize: '0.58rem' }}>{r.status}</Badge>
+                        </div>
+                        {(r.target_price != null || r.end_date) && (
+                          <div className={styles.negMeta}>
+                            {r.target_price != null && (
+                              <span className={styles.negMetaItem}>
+                                <span className={styles.negMetaLabel}>Target:</span>
+                                <span className={styles.negMetaValue}>₹{r.target_price.toLocaleString('en-IN')}</span>
+                              </span>
+                            )}
+                            {r.end_date && (
+                              <span className={styles.negMetaItem}>
+                                <span className={styles.negMetaLabel}>Ends:</span>
+                                <span className={styles.negMetaValue}>{moment.utc(r.end_date).local().format('DD/MM/YY, hh:mm A')}</span>
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {r.vendors?.map((v, vi) => (
                           <div key={vi} className={styles.negVRow}><span>{v.vendor_company || v.vendor_name}</span>{v.quoted_price != null ? <span className={styles.qPrice}>₹{v.quoted_price.toLocaleString('en-IN')}</span> : <span className={styles.noQ}>—</span>}</div>
                         ))}

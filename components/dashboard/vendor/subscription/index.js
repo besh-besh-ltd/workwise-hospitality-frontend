@@ -6,7 +6,9 @@ import { getProfile } from "@/services/Auth";
 import {
   modifySubscription,
   renewHospitalitySubscription,
-  extendSubscription
+  extendSubscription,
+  getMatchingOpenRfqs,
+  joinOpenRfqs
 } from "@/services/subscription";
 import FullLoader from "@/components/shared/FullLoader";
 import useSubscriptionData from "./hooks/useSubscriptionData";
@@ -18,6 +20,7 @@ import PaymentHistorySection from "./PaymentHistorySection";
 import EditSubscriptionDrawer from "./EditSubscriptionDrawer";
 import ModificationConfirmModal from "./ModificationConfirmModal";
 import ModificationSuccessModal from "./ModificationSuccessModal";
+import OpenRfqsModal from "./OpenRfqsModal";
 import SubscriptionErrorModal from "./SubscriptionErrorModal";
 import EmptyState from "./EmptyState";
 import styles from "./Subscription.module.css";
@@ -35,6 +38,7 @@ const SubscriptionPage = () => {
   const [confirmData, setConfirmData] = useState(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [successModal, setSuccessModal] = useState(null);
+  const [showRfqInfo, setShowRfqInfo] = useState(false);
   const [errorModal, setErrorModal] = useState(false);
 
   const refreshAll = useCallback(async () => {
@@ -72,6 +76,21 @@ const SubscriptionPage = () => {
 
   const handleSuccessClose = async () => {
     setSuccessModal(null);
+    // WH-67: Auto-join matching open RFQs after payment, then show info
+    try {
+      const res = await getMatchingOpenRfqs();
+      if (res?.data?.rfqs?.length > 0) {
+        const rfqIds = res.data.rfqs.map((r) => r.rfq_id);
+        await joinOpenRfqs({ rfq_ids: rfqIds });
+        setShowRfqInfo(true);
+        return;
+      }
+    } catch (_) {}
+    await refreshAll();
+  };
+
+  const handleRfqInfoAcknowledge = async () => {
+    setShowRfqInfo(false);
     await refreshAll();
   };
 
@@ -277,6 +296,10 @@ const SubscriptionPage = () => {
           data={successModal}
           onClose={handleSuccessClose}
         />
+      )}
+
+      {showRfqInfo && (
+        <OpenRfqsModal onAcknowledge={handleRfqInfoAcknowledge} />
       )}
 
       {errorModal && (
