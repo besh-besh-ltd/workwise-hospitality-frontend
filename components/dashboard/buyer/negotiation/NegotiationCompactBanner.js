@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { Plus, History, ShieldCheck } from 'lucide-react';
 import { getAllActiveNegotiationRounds, getNegotiationRounds } from '@/services/negotiation';
 import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
@@ -48,8 +49,8 @@ const NegotiationCompactBanner = ({
         if (preloadedApprovalBundle) {
           for (let i = 0; i < rounds.length; i++) {
             const round = rounds[i];
-            if (round.status === 'PENDING_APPROVAL' && round.rfq_product_id) {
-              const instances = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+            if (round.status === 'PENDING_APPROVAL' && round.id) {
+              const instances = preloadedApprovalBundle.negotiation_instances?.[String(round.id)] || [];
               const pendingInstance = instances.find(inst => inst.status === 'PENDING');
               if (pendingInstance) {
                 const currentStep = (pendingInstance.steps || []).find(s => s.step_order === pendingInstance.current_step);
@@ -87,9 +88,9 @@ const NegotiationCompactBanner = ({
       // Enrich PENDING_APPROVAL rounds with approval data from the approval engine
       for (let i = 0; i < rounds.length; i++) {
         const round = rounds[i];
-        if (round.status === 'PENDING_APPROVAL' && round.rfq_product_id) {
+        if (round.status === 'PENDING_APPROVAL' && round.id) {
           try {
-            const instancesRes = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
+            const instancesRes = await getEntityApprovalInstances('NEGOTIATION', round.id);
             const instances = instancesRes?.data || instancesRes || [];
             const pendingInstance = (Array.isArray(instances) ? instances : []).find(inst => inst.status === 'PENDING');
             if (pendingInstance) {
@@ -246,6 +247,22 @@ const NegotiationCompactBanner = ({
 
   const pendingApprovers = getPendingApprovers();
 
+  // Check if every product already has all its vendors in an active/pending round
+  // (blocks Create Round when there's nothing left to negotiate)
+  const allVendorsInRounds = products.length > 0 && products.every(product => {
+    const activeRound = product.active_round;
+    if (!activeRound) return false;
+    const vendorApprovals = activeRound.vendor_approvals || [];
+    // If any vendor is rejected, the product is still available for re-negotiation
+    if (vendorApprovals.some(va => va.status === 'REJECTED')) return false;
+    // Old-style round (vendor_ids null) covers all vendors
+    if (!activeRound.vendor_ids) return true;
+    const productVendors = product.product_vendors || [];
+    if (productVendors.length === 0) return false;
+    const roundVendorIdSet = new Set((activeRound.vendor_ids || []).map(Number));
+    return productVendors.every(v => roundVendorIdSet.has(Number(v.id || v.user_id)));
+  });
+
   // Check if ARC is approved (hide ended rounds when ARC is approved)
   const isArcApproved = arcApprovalData?.status === 'APPROVED';
 
@@ -320,15 +337,38 @@ const NegotiationCompactBanner = ({
         </div>
 
         <div className={styles.bannerActions}>
-          <button
-            type="button"
-            onClick={handleCreateClick}
-            disabled={!canWrite || permissionsLoading}
-            className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
-          >
-            <Plus size={14} strokeWidth={2.5} />
-            Create Round
-          </button>
+          {allVendorsInRounds ? (
+            <OverlayTrigger
+              placement="top"
+              overlay={
+                <Tooltip id="create-round-disabled">
+                  All vendors are already in negotiation round
+                </Tooltip>
+              }
+            >
+              <span className="d-inline-block">
+                <button
+                  type="button"
+                  disabled
+                  className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <Plus size={14} strokeWidth={2.5} />
+                  Create Round
+                </button>
+              </span>
+            </OverlayTrigger>
+          ) : (
+            <button
+              type="button"
+              onClick={handleCreateClick}
+              disabled={!canWrite || permissionsLoading}
+              className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+            >
+              <Plus size={14} strokeWidth={2.5} />
+              Create Round
+            </button>
+          )}
           <button
             type="button"
             onClick={handleHistoryClick}

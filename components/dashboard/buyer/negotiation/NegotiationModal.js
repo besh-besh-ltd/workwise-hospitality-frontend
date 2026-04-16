@@ -173,7 +173,7 @@ const NegotiationModal = ({
     for (const round of rounds) {
       if (round.status !== 'PENDING_APPROVAL' || round.approvals) continue;
       try {
-        const instancesRes = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
+        const instancesRes = await getEntityApprovalInstances('NEGOTIATION', round.id);
         const instances = instancesRes?.data?.data || instancesRes?.data || instancesRes || [];
         const pendingInstance = (Array.isArray(instances) ? instances : []).find(inst => inst.status === 'PENDING');
         if (pendingInstance) {
@@ -241,9 +241,9 @@ const NegotiationModal = ({
     if (preloadedApprovalBundle) {
       const instances = {};
       for (const round of pendingRounds) {
-        const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)];
+        const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.id)];
         if (bundled && bundled.length > 0) {
-          instances[round.rfq_product_id] = bundled[0]; // Latest instance
+          instances[round.id] = bundled[0]; // Latest instance
         }
       }
       setApprovalInstances(instances);
@@ -256,16 +256,16 @@ const NegotiationModal = ({
 
     for (const round of pendingRounds) {
       try {
-        const response = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
+        const response = await getEntityApprovalInstances('NEGOTIATION', round.id);
         const instanceList = response?.data?.data || response?.data || [];
 
         if (instanceList && instanceList.length > 0) {
           const detailResponse = await getApprovalInstanceDetails(instanceList[0].id);
           const detailedInstance = detailResponse?.data?.data || detailResponse?.data;
-          instances[round.rfq_product_id] = detailedInstance;
+          instances[round.id] = detailedInstance;
         }
       } catch (error) {
-        console.error(`Error loading approval for product ${round.rfq_product_id}:`, error);
+        console.error(`Error loading approval for round ${round.id}:`, error);
       }
     }
 
@@ -331,7 +331,7 @@ const NegotiationModal = ({
 
     // Use preloaded bundle if available
     if (preloadedApprovalBundle) {
-      const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+      const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.id)] || [];
       const filtered = filterByRound(bundled);
       const sorted = [...filtered].sort((a, b) => (a.id || 0) - (b.id || 0));
       setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: sorted } }));
@@ -340,7 +340,7 @@ const NegotiationModal = ({
 
     // Fallback: fetch from API
     try {
-      const response = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
+      const response = await getEntityApprovalInstances('NEGOTIATION', round.id);
       const instanceList = response?.data?.data || response?.data || [];
       const allInstances = Array.isArray(instanceList) ? instanceList : [];
 
@@ -1510,7 +1510,10 @@ const NegotiationModal = ({
                                     <div className={styles.journeyList}>
                                       {approvalJourneys[round.id].instances.map((instance, instIdx) => {
                                         const isLast = instIdx === approvalJourneys[round.id].instances.length - 1;
-                                        const instStatus = (instance.status || '').toUpperCase();
+                                        const rawInstStatus = (instance.status || '').toUpperCase();
+                                        // If the round itself ended/expired/closed without approval, treat pending instance as cancelled for display
+                                        const roundEnded = ['EXPIRED', 'ENDED', 'CLOSED'].includes(effectiveStatus);
+                                        const instStatus = (roundEnded && rawInstStatus === 'PENDING') ? 'CANCELLED' : rawInstStatus;
                                         const attemptNum = instIdx + 1;
                                         const journeyTone = getJourneyTone(instStatus);
 
@@ -1550,7 +1553,7 @@ const NegotiationModal = ({
                                                     steps={instance.steps}
                                                     currentStep={instance.current_step}
                                                     initiatedBy={instance.initiated_by}
-                                                    instanceStatus={instance.status}
+                                                    instanceStatus={instStatus}
                                                   />
                                                 ) : (
                                                   <div className={styles.journeyEmpty}>
@@ -1625,7 +1628,7 @@ const NegotiationModal = ({
                   const approvals = round.approvals || [];
 
                   // Get approval instance from hospitality API (authoritative source for can_user_approve)
-                  const approvalInstance = approvalInstances[round.rfq_product_id];
+                  const approvalInstance = approvalInstances[round.id];
 
                   // Use approval instance data if available, otherwise fall back to round.approvals
                   const canApprove = approvalInstance
