@@ -190,3 +190,27 @@ export const getDepartmentSubGraphPreview = (policyId, params = {}) =>
     }
   });
 
+export const getPendingImpact = (policyId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/general/hospitality/approval/policies/${policyId}/pending-impact`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const getInstanceChangeHistory = (instanceId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/general/hospitality/approval/instance/${instanceId}/change-history`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+

@@ -922,9 +922,23 @@ $transition-fast: all 0.15s ease;
   font-weight: 600;
   cursor: pointer;
   transition: $transition;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 
-  &:hover { background: $primary-dark; }
-  &:disabled { opacity: 0.6; cursor: not-allowed; }
+  &:hover:not(:disabled) { background: $primary-dark; }
+  &:disabled { opacity: 0.7; cursor: not-allowed; }
+}
+
+.submitBtnSpinner {
+  width: 13px;
+  height: 13px;
+  border: 1.8px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
 }
 
 // ============================================
@@ -1291,6 +1305,175 @@ $transition-fast: all 0.15s ease;
   border: 1px dashed $border-light;
 }
 
+// --- Hierarchical scope view: Company → Business Unit → Roles ---
+// Compact grouped layout — admin sees roles within a scope at a glance
+// without unnecessary chrome eating vertical space.
+
+.scopeGroupList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scopeGroupCard {
+  border: 1px solid $border-subtle;
+  border-radius: $radius-md;
+  background: #fff;
+  overflow: hidden;
+  position: relative;
+}
+
+// Slim accent strip on the left edge of each company card — gives visual
+// rhythm between cards without extra vertical padding.
+.scopeGroupCard::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: $primary;
+  opacity: 0.7;
+}
+
+.scopeCompanyHeading {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: $text-dark;
+  padding: 7px 12px 7px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid $border-subtle;
+  letter-spacing: -0.005em;
+}
+
+.scopeBuBlock {
+  padding: 6px 10px 8px 14px;
+
+  & + & {
+    border-top: 1px dashed $border-subtle;
+  }
+}
+
+// "Silent letters" — small, muted BU name above the role rows
+.scopeBuHeading {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: $text-placeholder;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+  padding-left: 4px;
+}
+
+.scopeRoleList {
+  display: flex;
+  flex-direction: column;
+}
+
+.scopeRoleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: transparent;
+  min-height: 28px;
+  transition: background $transition-fast;
+
+  &:hover { background: $bg-hover; }
+}
+
+.scopeRoleRowEditing {
+  background: rgba(46, 91, 168, 0.07);
+  box-shadow: inset 2px 0 0 $primary;
+
+  &:hover { background: rgba(46, 91, 168, 0.10); }
+}
+
+.scopeRoleMain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.scopeRoleTitle {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: $text-dark;
+  line-height: 1.2;
+}
+
+.scopeRoleDeptTag {
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid $border-subtle;
+  padding: 0 6px;
+  border-radius: 8px;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+}
+
+.scopeRoleEditingBadge {
+  font-size: 9px;
+  font-weight: 700;
+  color: $primary;
+  background: rgba(46, 91, 168, 0.1);
+  padding: 1px 6px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+}
+
+.scopeRoleActions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  opacity: 0.55;
+  transition: opacity $transition-fast;
+}
+
+// Reveal action buttons on row hover for a cleaner default state.
+.scopeRoleRow:hover .scopeRoleActions,
+.scopeRoleRowEditing .scopeRoleActions {
+  opacity: 1;
+}
+
+.scopeRoleEdit,
+.scopeRoleRemove {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: $text-light;
+  @include flex-center;
+  cursor: pointer;
+  transition: $transition-fast;
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
+.scopeRoleEdit:hover:not(:disabled) {
+  background: rgba(46, 91, 168, 0.1);
+  color: $primary;
+}
+
+.scopeRoleRemove:hover:not(:disabled) {
+  background: $red-bg;
+  color: $red;
+}
+
 // --- Add Role Form ---
 .addRoleSection { padding: 16px; }
 
@@ -1369,7 +1552,11 @@ $transition-fast: all 0.15s ease;
 }
 
 .permissionsEmpty { font-size: 12px; color: $text-light; font-style: italic; }
-.addRoleFooter { display: flex; justify-content: flex-end; }
+.addRoleFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 
 // ============================================
 //  Responsive
