@@ -9,7 +9,7 @@ import MembershipInfoModal from '../components/modal/MembershipInfoModal';
 import PaymentProcessingModal from '../components/register/PaymentProcessingModal';
 import {
   loadScript,
-  testRazorPayEndpoint,
+  verifyHospitalityPayment,
   hospitalitySubscriptionPayment
 } from '../services/subscription';
 import storageInstance from '../utils/storageInstance';
@@ -116,13 +116,15 @@ const HotelVendor = () => {
       image: '/assets/images/logo.png',
       handler: function (response) {
         setShowPaymentProcessingModal(true);
+        // Secure, signature-validated path. The deprecated
+        // /users/test-razorpay-webhook bypassed signature verification
+        // and did not handle the modification/extension branches.
         const payload = {
-          order_id: orderId,
-          razorpay_payment_id: response.razorpay_payment_id,
           razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
           razorpay_signature: response.razorpay_signature,
         };
-        testRazorPayEndpoint(payload)
+        verifyHospitalityPayment(payload)
           .then(async (res) => {
             if (res && res.status === 1) {
               const summary = res.data?.payment_summary || {};
@@ -280,6 +282,13 @@ const HotelVendor = () => {
           hospitalitySubscriptionPayment(payload)
             .then(async (res) => {
               if (res?.status) {
+                // Free renewal path: backend completed the renewal server-
+                // side (admin-assigned / zero-priced items). Nothing to pay.
+                if (res?.free_renewal) {
+                  toast.success(res?.message || 'Subscription renewed. Please log in again.');
+                  setShowLoginModal(false);
+                  return;
+                }
                 // Pass login credentials for auto-login after payment
                 await payWithRazorPay(res?.data, { email: values.email, password: values.password });
                 setShowLoginModal(false);
