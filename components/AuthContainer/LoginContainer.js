@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/router';
 import { LoginService, SWSubscribe, handleSocialLogin, getProfile } from "@/services/Auth";
-import { hospitalitySubscriptionPayment, loadScript, testRazorPayEndpoint } from "@/services/subscription";
+import { hospitalitySubscriptionPayment, loadScript, verifyHospitalityPayment } from "@/services/subscription";
 import { toast } from 'react-toastify';
 import { useGoogleLogin } from "@react-oauth/google";
 import { useSelector, useDispatch } from 'react-redux';
@@ -50,9 +50,16 @@ const LoginContainer = (props) => {
             };
             const response = await hospitalitySubscriptionPayment(payload);
             if (response?.status) {
+                // Free renewal path: backend completed the renewal server-side
+                // (admin-assigned items / zero-priced items). No Razorpay
+                // modal to open — just prompt the vendor to log in again.
+                if (response?.free_renewal) {
+                    toast.success(response?.message || "Subscription renewed. Please log in again.");
+                    return;
+                }
                 await payWithRazorPay(response?.data);
             } else {
-                toast.error("Unable to initiate payment. Please try again.");
+                toast.error(response?.message || "Unable to initiate payment. Please try again.");
             }
         } catch (error) {
             console.error("Hospitality payment error:", error);
@@ -79,16 +86,26 @@ const LoginContainer = (props) => {
             name: "Workwise",
             description: "Hospitality Vendor Subscription",
             image: "/assets/images/logo.png",
-            handler: function () {
+            handler: function (response) {
+                // Use the secure verify-payment endpoint which validates the
+                // Razorpay HMAC signature server-side. Previously this used
+                // /users/test-razorpay-webhook which is deprecated and skips
+                // signature validation. All three fields below are supplied
+                // by Razorpay in the handler response.
                 const payload = {
-                    order_id: orderId
+                    razorpay_order_id: response?.razorpay_order_id || orderId,
+                    razorpay_payment_id: response?.razorpay_payment_id,
+                    razorpay_signature: response?.razorpay_signature
                 };
-                testRazorPayEndpoint(payload)
+                verifyHospitalityPayment(payload)
                     .then(() => {
-                        toast.success("Payment successful! Please login again after a minute.");
+                        toast.success("Payment successful! Please login again.");
                     })
-                    .catch(() => {
-                        toast.success("Payment captured. Please login again after a minute.");
+                    .catch((err) => {
+                        const msg = err?.message?.response?.data?.message
+                            || err?.response?.data?.message
+                            || "Payment verification failed. Please contact support if the amount was debited.";
+                        toast.error(msg);
                     });
             },
             prefill: {
