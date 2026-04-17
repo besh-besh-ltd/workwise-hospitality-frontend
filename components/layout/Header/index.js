@@ -55,7 +55,6 @@ const Header = () => {
     getStoredHospitalityContext()
   );
   const [userBusinessUnits, setUserBusinessUnits] = useState([]);
-  const [hiddenNavItems, setHiddenNavItems] = useState([]);
   const userProfile = useSelector((state) => state.userProfile);
 
   // ── Derived state ─────────────────────────────
@@ -274,32 +273,8 @@ const Header = () => {
     return () => unsubscribe && unsubscribe();
   }, []);
 
-  // Responsive nav overflow
-  useEffect(() => {
-    const updateNavVisibility = () => {
-      if (!loggedinUser || !(pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor"))) {
-        setHiddenNavItems([]);
-        return;
-      }
-      const navItems = currentRoleMenu?.filter((m) => m.targetMenu === "nav") || [];
-      const windowWidth = window.innerWidth;
-      let visibleCount = navItems.length;
-
-      if (windowWidth < 768) {
-        visibleCount = 0;
-      } else if (windowWidth < 1100) {
-        visibleCount = Math.max(3, Math.floor((windowWidth - 350) / 130));
-      } else if (windowWidth < 1400) {
-        visibleCount = Math.max(4, Math.floor((windowWidth - 350) / 120));
-      }
-      visibleCount = Math.min(visibleCount, navItems.length);
-      setHiddenNavItems(navItems.slice(visibleCount));
-    };
-
-    updateNavVisibility();
-    window.addEventListener("resize", updateNavVisibility);
-    return () => window.removeEventListener("resize", updateNavVisibility);
-  }, [loggedinUser, pathname, currentRoleMenu]);
+  // Responsive nav overflow is now handled by DashboardShell on dashboard/vendor routes.
+  // This Header only renders on public pages, so no dashboard-nav overflow logic is needed.
 
   // ── Render ────────────────────────────────────
   return (
@@ -396,71 +371,11 @@ const Header = () => {
             </div>
           )}
 
-          {/* ── Dashboard Navigation ── */}
-          {isDashboardPage && (() => {
-            const isHospitalityVendor = userProfile?.is_hospitality == 1 && currentUserType === "vendor";
-            const hasValidSub = !!userProfile?.has_valid_hospitality_subscription;
-            const isSubLocked = isHospitalityVendor && !hasValidSub;
-
-            return (
-            <div className={`${styles.dashNav} ${styles.hideMobile}`}>
-              <nav>
-                <ul className={styles.dashNavList}>
-                  {currentRoleMenu
-                    ?.filter((m) => m.targetMenu === "nav")
-                    ?.filter((item) => !hiddenNavItems.some((h) => h.href === item.href))
-                    ?.map((item) => {
-                      const locked = isSubLocked && item.requiresSubscription;
-                      return (
-                      <li
-                        key={item.href}
-                        className={`${styles.dashNavItem} ${pathname === item.href ? styles.dashNavItemActive : ""} ${locked ? styles.dashNavDisabled : ""}`}
-                      >
-                        {locked ? (
-                          <>
-                            <span className={styles.dashNavLink}>
-                              {item.label}
-                            </span>
-                            <span className={styles.lockTooltip}>Subscription is required</span>
-                          </>
-                        ) : (
-                          <Link href={item.href} className={styles.dashNavLink}>
-                            {item.label}
-                          </Link>
-                        )}
-                        {!locked && hasPendingApproval(item.href) && (
-                          <span className={styles.approvalDot} />
-                        )}
-                      </li>
-                      );
-                    })}
-                </ul>
-              </nav>
-            </div>
-            );
-          })()}
-
-          {/* ── Dashboard User Menu ── */}
-          {isDashboardPage && (
-            <div className={styles.hideMobile}>
-              <UserMenu
-                user={loggedinUser}
-                userBusinessUnits={userBusinessUnits}
-                currentUserType={currentUserType}
-                roleMenu={currentRoleMenu}
-                hiddenNavItems={hiddenNavItems}
-                pathname={pathname}
-                isOpen={popoverVisible}
-                onToggle={() => setPopoverVisible(!popoverVisible)}
-                onLogout={handleLogout}
-                onClose={() => setPopoverVisible(false)}
-                hasPendingApproval={hasPendingApproval}
-              />
-            </div>
-          )}
+          {/* Dashboard navigation + user menu now live in DashboardShell.
+              This Header renders on public pages only. */}
 
           {/* ── Hamburger ── */}
-          {(isPublicPage || isDashboardPage) && (
+          {isPublicPage && (
             <button
               type="button"
               className={`${styles.hamburger} ${styles.hideDesktop} ${menuClass ? styles.hamburgerOpen : ""}`}

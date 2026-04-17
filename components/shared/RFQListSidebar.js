@@ -61,6 +61,8 @@ const RFQListSidebar = ({
   // Mobile drawer mode (opt-in: pass undefined to keep existing behavior)
   mobileOpen,
   onMobileClose,
+  // Embedded mode: fills parent container, no sticky/resize (used inside DashboardShell sidebar)
+  embedded = false,
 }) => {
   const router = useRouter();
   const TAB_STORAGE_KEY = `rfqSidebarTab_${pageId}`;
@@ -168,18 +170,20 @@ const RFQListSidebar = ({
       )}
       <div
         ref={wrapperRef}
-        className={`${styles.wrapper} ${isMobileDrawer ? styles.wrapperMobile : ''} ${isMobileDrawer && mobileOpen ? styles.wrapperMobileOpen : ''}`}
-        style={isMobileDrawer ? undefined : {
+        className={`${embedded ? styles.wrapperEmbedded : styles.wrapper} ${isMobileDrawer ? styles.wrapperMobile : ''} ${isMobileDrawer && mobileOpen ? styles.wrapperMobileOpen : ''}`}
+        style={embedded || isMobileDrawer ? undefined : {
           width: sidebarWidth,
           minWidth: sidebarWidth,
           transition: isResizing ? 'none' : 'width 0.2s ease, min-width 0.2s ease',
         }}
       >
       <div className={styles.sidebar}>
-        {/* Header */}
-        <div className={styles.sidebarHeader}>
-          <p className={styles.sidebarTitle}>{title}</p>
-        </div>
+        {/* Header — hidden when no title provided */}
+        {title && (
+          <div className={styles.sidebarHeader}>
+            <p className={styles.sidebarTitle}>{title}</p>
+          </div>
+        )}
 
         {/* Tabs */}
         {tabs.length > 0 && (
@@ -436,8 +440,8 @@ const RFQListSidebar = ({
         </div>
       </div>
 
-      {/* Resize drag handle */}
-      {!isMobileDrawer && (
+      {/* Resize drag handle (hidden in embedded mode) */}
+      {!isMobileDrawer && !embedded && (
         <div
           className={`${styles.resizeHandle} ${isResizing ? styles.resizeHandleActive : ''}`}
           onMouseDown={handleMouseDown}

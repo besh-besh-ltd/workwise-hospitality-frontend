@@ -39,8 +39,8 @@ import NegotiationCompactBanner from "./negotiation/NegotiationCompactBanner";
 import { getNegotiationApprovalBundle } from "@/services/negotiation";
 import { getAvailableHierarchies } from "@/services/general";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
+import { TwoPanelPage } from "@/components/layout/DashboardShell";
 import useIsMobile from "@/hooks/useIsMobile";
-import { BsList } from "react-icons/bs";
 import useQuoteCompareViewModel from "@/hooks/useQuoteCompareViewModel";
 import { buildComparisonContextTables } from "@/utils/quoteCompareTableViewModel";
 import QuoteCompareHeaderCard from "@/components/dashboard/buyer/quoteCompare/QuoteCompareHeaderCard";
@@ -1750,95 +1750,89 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
   // Inline loading — single loader for the entire right section
   const isContentLoading = !!rfq && (permissionsLoading || !rfqMetadataReady || quotesLoading);
 
+  const quoteCompareSidebar = (
+    <RFQListSidebar
+      title={null}
+      embedded
+      mobileOpen={isMobile ? sidebarOpen : undefined}
+      onMobileClose={() => setSidebarOpen(false)}
+      rfqList={myRFQs}
+      loading={loading}
+      selectedRfqId={rfq}
+      onItemClick={handleRfqSelect}
+      linkPrefix="/dashboard/buyer/quote-compare"
+      linkQueryKey="rfq"
+      extraQueryParams={{ tab: activeTab }}
+      tabs={[
+        {
+          key: 'action_required',
+          label: 'Action Required',
+          filter: (item) => {
+            // Closed RFQs are read-only — only show in All tab
+            if (String(item.status) === '2') return false;
+            // Pre-deadline RFQs should not appear as action-required yet.
+            if (item.bid_end_date && !checkBidExpired(item.bid_end_date)) return false;
+            // User is current approver
+            if (item.approval_required) return true;
+            // Already fully done or all finalized (in approval) or partially approved
+            if (item.finalization_approval_completed === true) return false;
+            if (item.is_finalized === true) return false;
+            if (item.finalization_partially_approved === true) return false;
+            // Products still need finalization and vendors have responded
+            return parseInt(item.active_quote_count || 0) > 0;
+          },
+        },
+        {
+          key: 'in_progress',
+          label: 'In Progress',
+          filter: (item) => {
+            if (String(item.status) === '2') return false;
+            if (item.approval_required || item.finalization_approval_completed) return false;
+            return (item.is_finalized && !item.finalization_approval_completed)
+              || item.finalization_partially_approved;
+          },
+        },
+        { key: 'all', label: 'All', filter: null },
+      ]}
+      defaultTab="action_required"
+      rfqNo={rfqNo}
+      onRfqNoChange={(val) => setRfqNo(val)}
+      searchPlaceholder="Search by number..."
+      userHotelMappings={userHotelMappings}
+      selectedHotelIds={selectedHotelIds}
+      onHotelSelectionChange={handleHotelSelectionChange}
+      showTypeFilter={true}
+      isTenderFilter={isTenderFilter}
+      onTenderFilterChange={(val) => {
+        setIsTenderFilter(val);
+        setpage(1);
+      }}
+      getItemTags={(item) => {
+        if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
+        if (item.finalization_approval_completed) return [{ label: 'Finalized', variant: 'success' }];
+        if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
+        if (item.is_finalized || item.finalization_partially_approved) return [{ label: 'Awaiting Approval', variant: 'info' }];
+        if (item.has_finalization) return [{ label: 'Partially Finalized', variant: 'purple' }];
+        return [{ label: 'In Negotiation', variant: 'info' }];
+      }}
+      showLoadMore={true}
+      hasMore={hasMoreQuotes}
+      onLoadMore={loadMoreRFQs}
+      pageId="quote_compare"
+    />
+  );
+
   return (
     <>
       {finalizeLoading && <Loader />}
-      <section className="quote-common-header compare-received-quote sc-pt-80">
-        <div className="container-fluid">
-          <div className="d-flex justify-content-between align-items-center">
-            <h3 className="heading">Quote Comparison</h3>
-          </div>
-        </div>
-      </section>
-
-      <section className="quote-edit-sec-1">
-        <div className="container-fluid">
-          <div className={revampStyles.layoutRow}>
-              {isMobile && (
-                <button className={revampStyles.mobileSidebarToggle} onClick={() => setSidebarOpen(true)}>
-                  <BsList size={18} /> Select RFQ
-                </button>
-              )}
-              <RFQListSidebar
-                title="Quote Comparison"
-                mobileOpen={isMobile ? sidebarOpen : undefined}
-                onMobileClose={() => setSidebarOpen(false)}
-                rfqList={myRFQs}
-                loading={loading}
-                selectedRfqId={rfq}
-                onItemClick={handleRfqSelect}
-                linkPrefix="/dashboard/buyer/quote-compare"
-                linkQueryKey="rfq"
-                extraQueryParams={{ tab: activeTab }}
-                tabs={[
-                  {
-                    key: 'action_required',
-                    label: 'Action Required',
-                    filter: (item) => {
-                      // Closed RFQs are read-only — only show in All tab
-                      if (String(item.status) === '2') return false;
-                      // Pre-deadline RFQs should not appear as action-required yet.
-                      if (item.bid_end_date && !checkBidExpired(item.bid_end_date)) return false;
-                      // User is current approver
-                      if (item.approval_required) return true;
-                      // Already fully done or all finalized (in approval) or partially approved
-                      if (item.finalization_approval_completed === true) return false;
-                      if (item.is_finalized === true) return false;
-                      if (item.finalization_partially_approved === true) return false;
-                      // Products still need finalization and vendors have responded
-                      return parseInt(item.active_quote_count || 0) > 0;
-                    },
-                  },
-                  {
-                    key: 'in_progress',
-                    label: 'In Progress',
-                    filter: (item) => {
-                      if (String(item.status) === '2') return false;
-                      if (item.approval_required || item.finalization_approval_completed) return false;
-                      return (item.is_finalized && !item.finalization_approval_completed)
-                        || item.finalization_partially_approved;
-                    },
-                  },
-                  { key: 'all', label: 'All', filter: null },
-                ]}
-                defaultTab="action_required"
-                rfqNo={rfqNo}
-                onRfqNoChange={(val) => setRfqNo(val)}
-                searchPlaceholder="Search by number..."
-                userHotelMappings={userHotelMappings}
-                selectedHotelIds={selectedHotelIds}
-                onHotelSelectionChange={handleHotelSelectionChange}
-                showTypeFilter={true}
-                isTenderFilter={isTenderFilter}
-                onTenderFilterChange={(val) => {
-                  setIsTenderFilter(val);
-                  setpage(1);
-                }}
-                getItemTags={(item) => {
-                  if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
-                  if (item.finalization_approval_completed) return [{ label: 'Finalized', variant: 'success' }];
-                  if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
-                  if (item.is_finalized || item.finalization_partially_approved) return [{ label: 'Awaiting Approval', variant: 'info' }];
-                  if (item.has_finalization) return [{ label: 'Partially Finalized', variant: 'purple' }];
-                  return [{ label: 'In Negotiation', variant: 'info' }];
-                }}
-                showLoadMore={true}
-                hasMore={hasMoreQuotes}
-                onLoadMore={loadMoreRFQs}
-                pageId="quote_compare"
-              />
-
-            <div className={revampStyles.contentColumn}>
+      <TwoPanelPage
+        title="Quote Comparison"
+        subtitle="Compare vendor quotes, finalize selections, and track negotiations."
+        sidebar={quoteCompareSidebar}
+        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(true) : undefined}
+        mobileToggleLabel="Select RFQ"
+      >
+            <div>
               <div className="quote-sec-table quote-sec-tab">
 
                 {/* Empty State - when no RFQ selected */}
@@ -2101,9 +2095,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 ) : null}
               </div>
             </div>
-          </div>
-        </div>
-      </section>
+      </TwoPanelPage>
 
       <NormalizeInfoModal
         show={showNormalizeModal}

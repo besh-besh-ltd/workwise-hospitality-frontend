@@ -14,12 +14,12 @@ import UpdateGRNModal from "./UpdateGRNModal";
 import { Badge, Alert } from "react-bootstrap";
 import { BsFileEarmarkText } from "react-icons/bs";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
+import { TwoPanelPage } from "@/components/layout/DashboardShell";
 import { useSelector } from "react-redux";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import useIsMobile from "@/hooks/useIsMobile";
-import { BsList } from "react-icons/bs";
 import styles from "./PurchaseOrder.module.scss";
 
 const PurchaseOrders = () => {
@@ -367,77 +367,69 @@ const PurchaseOrders = () => {
       fetchUserHotelMappings();
     }, []);
 
+  const poSidebar = (
+    <RFQListSidebar
+      title={null}
+      embedded
+      mobileOpen={isMobile ? sidebarOpen : undefined}
+      onMobileClose={() => setSidebarOpen(false)}
+      rfqList={myRFQs}
+      loading={rfqLoading}
+      selectedRfqId={rfq}
+      linkPrefix="/dashboard/buyer/purchase-order"
+      linkQueryKey="rfq"
+      tabs={[
+        {
+          key: 'action_required',
+          label: 'Action Required',
+          filter: (item) => {
+            // Closed RFQs are read-only — only show in All tab
+            if (String(item.status) === '2') return false;
+            if (item.po_completed === true) return false;
+            return item.has_draft_po === true || item.approval_required === true;
+          },
+        },
+        {
+          key: 'in_progress',
+          label: 'In Progress',
+          filter: (item) => {
+            if (String(item.status) === '2') return false;
+            if (item.po_completed === true) return false;
+            if (item.has_draft_po === true || item.approval_required === true) return false;
+            return item.has_pending_po_approval === true;
+          },
+        },
+        { key: 'all', label: 'All', filter: null },
+      ]}
+      defaultTab="action_required"
+      rfqNo={rfqNo}
+      onRfqNoChange={(val) => setRfqNo(val)}
+      searchPlaceholder="Search by number..."
+      userHotelMappings={userHotelMappings}
+      selectedHotelIds={selectedHotelIds}
+      onHotelSelectionChange={(ids) => setSelectedHotelIds(ids)}
+      showTypeFilter={false}
+      getItemTags={(item) => {
+        if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
+        if (item.po_completed) return [{ label: 'Completed', variant: 'success' }];
+        if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
+        if (item.has_draft_po) return [{ label: 'Draft', variant: 'neutral' }];
+        if (item.has_pending_po_approval) return [{ label: 'In Approval', variant: 'info' }];
+        return [{ label: 'In Progress', variant: 'info' }];
+      }}
+      pageId="purchase_order"
+    />
+  );
+
   return (
     <>
-      <section className="quote-common-header compare-received-quote sc-pt-80">
-        <div className="container-fluid">
-          <div className="row">
-            <div className="col-md-6">
-              <h3 className="heading">Purchase Order Management</h3>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="quote-edit-sec-1">
-        <div className="container-fluid">
-          <div className={styles.layoutRow}>
-              {isMobile && (
-                <button className={styles.mobileSidebarToggle} onClick={() => setSidebarOpen(true)}>
-                  <BsList size={18} /> Select RFQ
-                </button>
-              )}
-              <RFQListSidebar
-                title="Purchase Orders"
-                mobileOpen={isMobile ? sidebarOpen : undefined}
-                onMobileClose={() => setSidebarOpen(false)}
-                rfqList={myRFQs}
-                loading={rfqLoading}
-                selectedRfqId={rfq}
-                linkPrefix="/dashboard/buyer/purchase-order"
-                linkQueryKey="rfq"
-                tabs={[
-                  {
-                    key: 'action_required',
-                    label: 'Action Required',
-                    filter: (item) => {
-                      // Closed RFQs are read-only — only show in All tab
-                      if (String(item.status) === '2') return false;
-                      if (item.po_completed === true) return false;
-                      return item.has_draft_po === true || item.approval_required === true;
-                    },
-                  },
-                  {
-                    key: 'in_progress',
-                    label: 'In Progress',
-                    filter: (item) => {
-                      if (String(item.status) === '2') return false;
-                      if (item.po_completed === true) return false;
-                      if (item.has_draft_po === true || item.approval_required === true) return false;
-                      return item.has_pending_po_approval === true;
-                    },
-                  },
-                  { key: 'all', label: 'All', filter: null },
-                ]}
-                defaultTab="action_required"
-                rfqNo={rfqNo}
-                onRfqNoChange={(val) => setRfqNo(val)}
-                searchPlaceholder="Search by number..."
-                userHotelMappings={userHotelMappings}
-                selectedHotelIds={selectedHotelIds}
-                onHotelSelectionChange={(ids) => setSelectedHotelIds(ids)}
-                showTypeFilter={false}
-                getItemTags={(item) => {
-                  if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
-                  if (item.po_completed) return [{ label: 'Completed', variant: 'success' }];
-                  if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
-                  if (item.has_draft_po) return [{ label: 'Draft', variant: 'neutral' }];
-                  if (item.has_pending_po_approval) return [{ label: 'In Approval', variant: 'info' }];
-                  return [{ label: 'In Progress', variant: 'info' }];
-                }}
-                pageId="purchase_order"
-              />
-            <div className={styles.contentColumn}>
+      <TwoPanelPage
+        title="Purchase Order Management"
+        subtitle="Track, approve, and manage purchase orders."
+        sidebar={poSidebar}
+        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(true) : undefined}
+        mobileToggleLabel="Select RFQ"
+      >
               {/* Empty state - no RFQ selected */}
               {!rfq && !permissionsLoading && (
                 <div className={styles.emptyState}>
@@ -574,12 +566,9 @@ const PurchaseOrders = () => {
                   )}
                 </>
               )}
-            </div>
-          </div>
-        </div>
-      </section>
+      </TwoPanelPage>
 
-      <UpdateGRNModal 
+      <UpdateGRNModal
         show={showGRNModal} 
         onClose={() => setShowGRNModal(false)} 
         onAction={handleConfirmGRNUpdate}

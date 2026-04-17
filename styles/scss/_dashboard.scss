@@ -1,0 +1,58 @@
+/* ============================================
+   Dashboard route overrides
+   Neutralizes legacy global padding/spacing so the
+   DashboardShell + TwoPanelPage own the layout math.
+   ============================================ */
+
+body.dashboard-route {
+  background-color: #ffffff;
+
+  /* Legacy utilities from _all.scss */
+  .container-fluid {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .sc-pt-80 {
+    padding-top: 0;
+  }
+
+  .sc-pb-80 {
+    padding-bottom: 0;
+  }
+
+  .sc-pt-50 {
+    padding-top: 0;
+  }
+
+  .sc-pb-50 {
+    padding-bottom: 0;
+  }
+
+  /* Neutralize legacy wrappers that add dark strips / large gaps */
+  .quote-common-header,
+  .compare-received-quote,
+  .quote-edit-sec-1,
+  .buyer-common-header,
+  .buyer-rfq-sec-1,
+  .buyer-rfq-sec-tab {
+    background-color: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .quote-edit-sec-1 .container-fluid,
+  .buyer-rfq-sec-1 .container-fluid {
+    margin-top: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .tabs-container {
+    display: none !important;
+  }
+
+  .manage-rfq-con {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}

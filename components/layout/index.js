@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Header from "./Header";
+import DashboardShell from "./DashboardShell";
 // import Footer from "./Footer";
 import { getCmsData } from "@/services/cms";
 import { useDispatch } from "react-redux";
@@ -125,6 +126,13 @@ const Layout = (props) => {
   const isVendorRegistrationPage = router.pathname === '/vendor-registration';
   const shouldHideNavbarFooter = isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage;
 
+  // Use the new global DashboardShell for all logged-in dashboard/vendor routes.
+  // Public/marketing pages (and anonymous visits to /vendor/*) continue to use
+  // the existing top Header.
+  const isDashboardPath =
+    router.pathname?.startsWith('/dashboard') || router.pathname?.startsWith('/vendor');
+  const isDashboardRoute = isDashboardPath && isLoggedIn;
+
   return (
     <>
 
@@ -134,9 +142,16 @@ const Layout = (props) => {
       </Head>
 
       <div className="min-vh-100 d-flex flex-column" onClick={handleContainerClick}>
-        {!shouldHideNavbarFooter && <Header />}
-        {/* Home-only announcement bar just below navbar */}
-        <main className="flex-grow-1 ">{props.children}</main>
+        {shouldHideNavbarFooter ? (
+          <main className="flex-grow-1 ">{props.children}</main>
+        ) : isDashboardRoute ? (
+          <DashboardShell>{props.children}</DashboardShell>
+        ) : (
+          <>
+            <Header />
+            <main className="flex-grow-1 ">{props.children}</main>
+          </>
+        )}
         {/* {!shouldHideNavbarFooter && <Footer />} */}
       </div>
     </>
