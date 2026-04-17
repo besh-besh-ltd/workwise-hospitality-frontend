@@ -1,342 +1,188 @@
-import Image from "next/image";
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback, useMemo, useRef } from "react";
 import Head from "next/head";
-import { getDashboardData } from "@/services/Auth";
-import FullLoader from "@/components/shared/FullLoader";
-import RfqOverview from "./dashboard-components/RfqOverview";
-import VendorOverview from "./dashboard-components/VendorOverview";
-import AnalyticsReport from "./dashboard-components/AnalyticsReport";
-import { toast } from "react-toastify";
-import DownloadReportsForBuyer from "@/components/modal/DownloadReportsForBuyer";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFileDownload } from "@fortawesome/free-solid-svg-icons";
+import moment from "moment";
+import Select from "react-select";
+import { useSelector } from "react-redux";
+import { RefreshCw } from "lucide-react";
+import HotelFilter from "@/components/shared/HotelFilter";
+import ActionCenter from "./dashboard-components/ActionCenter";
+import ProcurementSnapshot from "./dashboard-components/ProcurementSnapshot";
+import NegotiationSavings from "./dashboard-components/NegotiationSavings";
+import CostIntelligence from "./dashboard-components/CostIntelligence";
+import CategoryInsights from "./dashboard-components/CategoryInsights";
+import WorkflowEfficiency from "./dashboard-components/WorkflowEfficiency";
+import SmartInsights from "./dashboard-components/SmartInsights";
+import styles from "../buyer/BuyerDashboard.module.scss";
 
+const DURATION_OPTIONS = [
+  { label: "Last 7 Days", value: "past7days" },
+  { label: "Last 15 Days", value: "past15days" },
+  { label: "This Month", value: "currentMonth" },
+  { label: "Last 6 Months", value: "past6months" },
+  { label: "Custom", value: "custom" },
+];
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
+};
 
-const BuyerPage = () => {
-  const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
-  const [openDownloadReports, setOpenDownloadReports] = useState(false);
+const getDateRange = (type, customStart, customEnd) => {
+  const today = moment().endOf("day");
+  let start_date, end_date;
 
-
-  const getData = async () => {
-    setLoading(true);
-    try {
-      const res = await getDashboardData({
-        project_id: -1,
-        rfq_type: "",
-        reverse_auction: "-1",
-        sort: "DESC",
-        page,
-        limit
-      })
-      setDashboardData(res.data);
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setLoading(false);
-    }
+  switch (type) {
+    case "past7days":
+      start_date = moment().subtract(6, "days").startOf("day").format("YYYY-MM-DD");
+      end_date = today.format("YYYY-MM-DD");
+      break;
+    case "past15days":
+      start_date = moment().subtract(14, "days").startOf("day").format("YYYY-MM-DD");
+      end_date = today.format("YYYY-MM-DD");
+      break;
+    case "currentMonth":
+      start_date = moment().startOf("month").format("YYYY-MM-DD");
+      end_date = today.format("YYYY-MM-DD");
+      break;
+    case "past6months":
+      start_date = moment().subtract(5, "months").startOf("month").format("YYYY-MM-DD");
+      end_date = today.format("YYYY-MM-DD");
+      break;
+    case "custom":
+      start_date = customStart || moment().subtract(30, "days").format("YYYY-MM-DD");
+      end_date = customEnd || today.format("YYYY-MM-DD");
+      break;
+    default:
+      start_date = moment().subtract(6, "days").startOf("day").format("YYYY-MM-DD");
+      end_date = today.format("YYYY-MM-DD");
   }
 
-  const get_notification_title = (item, type) => {
-    if (type == "title") {
-      if (item.notification_type == "new_quote_received") {
-        return "New Quotation Received";
-      } else if (item.notification_type == "rfq_created") {
-        return "New Tender / RFQ Created";
-      }
-    } else {
-      if (item.notification_type == "new_quote_received") {
-        return `You've received a new quotation on Tender / RFQ #${item.rfq_no}`;
-      } else if (item.notification_type == "rfq_created") {
-        return `You've created a new Tender / RFQ #${item.rfq_no} and shared it with the vendors!`;
-      }
-    }
-  };
+  return { start_date, end_date };
+};
 
+const BuyerPage = () => {
+  const userProfile = useSelector((state) => state.userProfile);
+  const firstName = userProfile?.name?.split(" ")?.[0] || "there";
 
-  useEffect(() => {
-    getData();
+  const [selectedHotelIds, setSelectedHotelIds] = useState([]);
+  const [duration, setDuration] = useState(DURATION_OPTIONS[0]);
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const filters = useMemo(() => {
+    const { start_date, end_date } = getDateRange(
+      duration.value,
+      customStartDate,
+      customEndDate
+    );
+    return {
+      hotel_ids: selectedHotelIds.join(","),
+      start_date,
+      end_date,
+      duration_type: duration.value,
+      _refresh: refreshKey,
+    };
+  }, [selectedHotelIds, duration, customStartDate, customEndDate, refreshKey]);
+
+  const handleHotelChange = useCallback((ids) => {
+    setSelectedHotelIds(ids || []);
   }, []);
 
+  const handleDurationChange = useCallback((option) => {
+    setDuration(option);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    setRefreshKey((k) => k + 1);
+    setTimeout(() => setIsRefreshing(false), 1200);
+  }, []);
 
   return (
     <>
       <Head>
         <title>Dashboard | Buyer</title>
       </Head>
-      <section className="buyer-common-header sc-pt-80">
-        <div className="container-fluid">
-          <h1 className="heading">Dashboard</h1>
-        </div>
-      </section>
-
-      <section className="buyer-sec-1">
-        <div className="container-fluid rounded-2 shadow p-4 mb-4 h-100 hasFullLoader">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h2 className="fs-4 fw-medium mb-0">Summary</h2>
+      <div className={styles.dashboardContainer}>
+        {/* Header */}
+        <div className={styles.pageHeader}>
+          <div className={styles.greetingBlock}>
+            <h1 className={styles.greeting}>{getGreeting()}, {firstName}! 👋</h1>
+            <p className={styles.greetingSubtext}>
+              Here's your procurement overview and pending actions.
+            </p>
+          </div>
+          <div className={styles.filterBar}>
+            <div className={styles.filterItem}>
+              <HotelFilter
+                selectedHotelIds={selectedHotelIds}
+                onSelectionChange={handleHotelChange}
+                isMulti={true}
+                placeholder="All Business Units"
+              />
+            </div>
+            <div className={styles.filterItem}>
+              <Select
+                options={DURATION_OPTIONS}
+                value={duration}
+                onChange={handleDurationChange}
+                placeholder="Duration"
+                isClearable={false}
+                isSearchable={false}
+                classNamePrefix="react-select"
+              />
+            </div>
             <button
-              id="download_report-summary_section-buyer_dashboard"
-              type="button"
-              className="btn btn-primary border-0 py-2"
-              style={{ width: "200px" }}
-              onClick={() => setOpenDownloadReports(true)}
+              className={styles.refreshBtn}
+              onClick={handleRefresh}
+              title="Refresh all data"
             >
-              <FontAwesomeIcon icon={faFileDownload} className="me-2" />
-              Download Report
+              <RefreshCw size={15} className={isRefreshing ? styles.spinning : ""} />
             </button>
-          </div>
-
-          {/* RFQ summary */}
-          <div className="row">
-            <div className="col-md-3 buyer-col hasFullLoader">
-              {loading && <FullLoader />}
-              <div className="detail-con ">
-                <div className="detail-con-text">
-                  <h2>
-                    {dashboardData?.total_rfqs
-                      ? dashboardData?.total_rfqs
-                      : 0}
-                  </h2>
-                  <span>Total Tender / RFQs</span>
-                </div>
-                <div className="detail-con-icon p-order">
-                  <Image
-                    src="/assets/images/p-order-icon.png"
-                    alt="Workwise"
-                    width={26}
-                    height={30}
-                    priority={true}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="col-md-3 buyer-col hasFullLoader">
-              {loading && <FullLoader />}
-              <div className="detail-con ">
-                <div className="detail-con-text">
-                  <h2>
-                    {dashboardData?.active_rfqs
-                      ? dashboardData?.active_rfqs
-                      : 0}
-                  </h2>
-                  <span>Total Active Tender / RFQs</span>
-                </div>
-                <div className="detail-con-icon buy">
-                  <Image
-                    src="/assets/images/buy-icon.png"
-                    alt="Workwise"
-                    width={30}
-                    height={30}
-                    priority={true}
-                  />
-                </div>
-              </div>
-            </div>
-            {/* <div className="col-md-3 buyer-col hasFullLoader">
-              {loading && <FullLoader />}
-              <div className="detail-con ">
-                <div className="detail-con-text">
-                  <h2>
-                    {dashboardData?.completed_rfqs
-                      ? dashboardData?.completed_rfqs
-                      : 0}
-                  </h2>
-                  <span>Completed RFQs</span>
-                </div>
-
-                <div className="detail-con-icon buy">
-                  <Image
-                    src="/assets/images/buy-icon.png"
-                    alt="Workwise"
-                    width={30}
-                    height={30}
-                    priority={true}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="col-md-3 buyer-col hasFullLoader">
-              {loading && <FullLoader />}
-              <div className="detail-con ">
-                <div className="detail-con-text">
-                  <h2>
-                    {dashboardData?.closed_rfqs
-                      ? dashboardData?.closed_rfqs
-                      : 0}
-                  </h2>
-                  <span>Closed RFQs</span>
-                </div>
-
-                <div className="detail-con-icon buy">
-                  <Image
-                    src="/assets/images/buy-icon.png"
-                    alt="Workwise"
-                    width={30}
-                    height={30}
-                    priority={true}
-                  />
-                </div>
-              </div>
-            </div> */}
-            <div className="col-md-3 buyer-col hasFullLoader">
-              {loading && <FullLoader />}
-              <div className="detail-con ">
-                <div className="detail-con-text">
-                  <h2>
-                    {dashboardData?.quotes_received
-                      ? dashboardData?.quotes_received
-                      : 0}
-                  </h2>
-                  <span>Quotes for Active Tender / RFQs</span>
-                </div>
-                <div className="detail-con-icon buy">
-                  <Image
-                    src="/assets/images/order.png"
-                    alt="Workwise"
-                    width={30}
-                    height={30}
-                    priority={true}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 buyer-col hasFullLoader">
-              {loading && <FullLoader />}
-              <div className="detail-con ">
-                <div className="detail-con-text">
-                  <h2>
-                    {dashboardData?.pending_responses
-                      ? dashboardData?.pending_responses
-                      : 0}
-                  </h2>
-                  <span>Pending Responses</span>
-                </div>
-                <div className="detail-con-icon reject">
-                  <Image
-                    src="/assets/images/reject-icon.png"
-                    alt="Workwise"
-                    width={24}
-                    height={30}
-                    priority={true}
-                  />
-                </div>
-              </div>
-            </div>
-            {/* <div className="col-md-3 buyer-col hasFullLoader">
-              {loading && <FullLoader />}
-              <div className="detail-con ">
-                <div className="detail-con-text">
-                  <h2>
-                    &#8377;
-                    {dashboardData?.savings
-                      ? dashboardData?.savings.toLocaleString()
-                      : 0}
-                  </h2>
-                  <span>Your Savings</span>
-                </div>
-                <div className="detail-con-icon reject">
-                  <Image
-                    src="/assets/images/buy-icon.png"
-                    alt="Workwise"
-                    width={24}
-                    height={30}
-                    priority={true}
-                  />
-                </div>
-              </div>
-            </div> */}
-
-          </div>
-
-          {/* Project Summary */}
-          <div className="row">
-            <div className="col-md-3 buyer-col hasFullLoader">
-              {loading && <FullLoader />}
-              <div className="detail-con ">
-                <div className="detail-con-text">
-                  <h2>
-                    {dashboardData?.total_projects
-                      ? dashboardData?.total_projects
-                      : 0}
-                  </h2>
-                  <span>Total Projects</span>
-                </div>
-                <div className="detail-con-icon p-order">
-                  <Image
-                    src="/assets/images/p-order-icon.png"
-                    alt="Workwise"
-                    width={26}
-                    height={30}
-                    priority={true}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="col-md-3 buyer-col hasFullLoader">
-              {loading && <FullLoader />}
-              <div className="detail-con ">
-                <div className="detail-con-text">
-                  <h2>
-                    {dashboardData?.active_projects
-                      ? dashboardData?.active_projects
-                      : 0}
-                  </h2>
-                  <span>Total Active Projects</span>
-                </div>
-                <div className="detail-con-icon buy">
-                  <Image
-                    src="/assets/images/buy-icon.png"
-                    alt="Workwise"
-                    width={30}
-                    height={30}
-                    priority={true}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 buyer-col hasFullLoader">
-              {loading && <FullLoader />}
-              <div className="detail-con ">
-                <div className="detail-con-text">
-                  <h2>
-                    {dashboardData?.closed_projects
-                      ? dashboardData?.closed_projects
-                      : 0}
-                  </h2>
-                  <span>Closed Projects</span>
-                </div>
-                <div className="detail-con-icon reject">
-                  <Image
-                    src="/assets/images/reject-icon.png"
-                    alt="Workwise"
-                    width={24}
-                    height={30}
-                    priority={true}
-                  />
-                </div>
-              </div>
-            </div>
+            {duration.value === "custom" && (
+              <>
+                <input
+                  type="date"
+                  className={styles.dateInput}
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  max={customEndDate || undefined}
+                />
+                <input
+                  type="date"
+                  className={styles.dateInput}
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  min={customStartDate || undefined}
+                />
+              </>
+            )}
           </div>
         </div>
 
-        <RfqOverview
-          tableRfqData={dashboardData?.rfq_data}
-          notificationData={dashboardData?.notificaiton_data}
-          tableLoading={loading}
-        />
-        <VendorOverview />
-        {/* <AnalyticsReport /> */}
+        {/* Action Center */}
+        <ActionCenter filters={filters} />
 
+        {/* Procurement Snapshot */}
+        <ProcurementSnapshot filters={filters} />
 
-        {openDownloadReports &&
-          <DownloadReportsForBuyer
-            isOpen={openDownloadReports}
-            closeModal={() => setOpenDownloadReports(false)}
-          />}
-      </section>
+        {/* 2-Column Layout */}
+        <div className={styles.mainContent}>
+          <div className={styles.leftColumn}>
+            <NegotiationSavings filters={filters} />
+            <CostIntelligence filters={filters} />
+          </div>
+          <div className={styles.rightColumn}>
+            <CategoryInsights filters={filters} />
+            <WorkflowEfficiency filters={filters} />
+            <SmartInsights filters={filters} />
+          </div>
+        </div>
+      </div>
     </>
   );
 };

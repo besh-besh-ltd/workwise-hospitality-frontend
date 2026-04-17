@@ -1,0 +1,127 @@
+.card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  border: 1px solid #eee;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  gap: 16px;
+
+  @media (max-width: 576px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--dark-color);
+  margin: 0;
+}
+
+.sectionSubtitle {
+  font-size: 12px;
+  color: #999;
+  margin: 2px 0 0 0;
+}
+
+.vendorSectionLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #999;
+  margin: 0 0 10px 0;
+}
+
+.productSelector {
+  min-width: 200px;
+
+  @media (max-width: 576px) {
+    width: 100%;
+  }
+}
+
+.chartContainer {
+  height: 220px;
+  margin-bottom: 28px;
+  position: relative;
+}
+
+.vendorGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.vendorCard {
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: #ddd;
+  }
+
+  &.best {
+    border-color: rgba(66, 139, 65, 0.3);
+    background: rgba(66, 139, 65, 0.02);
+  }
+}
+
+.vendorName {
+  font-size: 11px;
+  font-weight: 500;
+  color: #777;
+  margin: 0 0 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vendorPriceRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vendorPrice {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--dark-color);
+}
+
+.bestBadge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--secondary-color);
+  background: rgba(66, 139, 65, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  font-size: 14px;
+}

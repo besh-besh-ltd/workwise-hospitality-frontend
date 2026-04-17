@@ -1,0 +1,118 @@
+.actionSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.snapshotGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  position: relative;
+  min-height: 70px;
+
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metricCard {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+
+  &:hover {
+    border-color: #ddd;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  &.highlighted {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 16px rgba(46, 91, 168, 0.25);
+
+    .metricLabel {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .metricValue {
+      color: #fff;
+    }
+
+    .sparkBar {
+      background: rgba(255, 255, 255, 0.2);
+      &.active {
+        background: #fff;
+      }
+    }
+  }
+}
+
+.metricLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #999;
+  margin: 0;
+}
+
+.metricValue {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--dark-color);
+  line-height: 1.2;
+  margin: 4px 0;
+}
+
+.trendRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.trendText {
+  font-size: 12px;
+  font-weight: 600;
+
+  &.positive {
+    color: var(--secondary-color);
+  }
+  &.negative {
+    color: var(--red-color);
+  }
+}
+
+.sparkline {
+  height: 28px;
+  margin-top: 8px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.sparkBar {
+  flex: 1;
+  border-radius: 2px;
+  transition: height 0.3s ease;
+  background: #eef1f5;
+
+  &.active {
+    background: var(--primary-color);
+  }
+}

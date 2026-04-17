@@ -1,0 +1,100 @@
+.card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  border: 1px solid #eee;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--dark-color);
+  margin: 0;
+}
+
+.sectionSubtitle {
+  font-size: 12px;
+  color: #999;
+  margin: 2px 0 20px 0;
+}
+
+.stageList {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.stageItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stageName {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #777;
+}
+
+.stageTime {
+  font-size: 12px;
+  font-weight: 700;
+
+  &.normal {
+    color: var(--primary-color);
+  }
+  &.bottleneck {
+    color: var(--red-color);
+  }
+}
+
+.progressTrack {
+  width: 100%;
+  height: 10px;
+  background: var(--light-grey);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s ease;
+
+  &.normal {
+    background: var(--primary-color);
+  }
+  &.bottleneck {
+    background: var(--red-color);
+  }
+}
+
+.bottleneckWarning {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--red-color);
+  margin-top: 2px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  font-size: 14px;
+}
