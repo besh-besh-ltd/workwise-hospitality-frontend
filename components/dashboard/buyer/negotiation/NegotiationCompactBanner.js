@@ -247,20 +247,13 @@ const NegotiationCompactBanner = ({
 
   const pendingApprovers = getPendingApprovers();
 
-  // Check if every product already has all its vendors in an active/pending round
-  // (blocks Create Round when there's nothing left to negotiate)
+  // Button is disabled only when every vendor on every product is already in an active/pending round.
+  // in_active_round is the per-vendor flag that correctly handles parallel rounds and reflects
+  // rejected vendors (set to false by backend so they're eligible for a new round).
   const allVendorsInRounds = products.length > 0 && products.every(product => {
-    const activeRound = product.active_round;
-    if (!activeRound) return false;
-    const vendorApprovals = activeRound.vendor_approvals || [];
-    // If any vendor is rejected, the product is still available for re-negotiation
-    if (vendorApprovals.some(va => va.status === 'REJECTED')) return false;
-    // Old-style round (vendor_ids null) covers all vendors
-    if (!activeRound.vendor_ids) return true;
     const productVendors = product.product_vendors || [];
-    if (productVendors.length === 0) return false;
-    const roundVendorIdSet = new Set((activeRound.vendor_ids || []).map(Number));
-    return productVendors.every(v => roundVendorIdSet.has(Number(v.id || v.user_id)));
+    if (productVendors.length === 0) return true; // nothing to negotiate for this product
+    return productVendors.every(v => v.in_active_round === true);
   });
 
   // Check if ARC is approved (hide ended rounds when ARC is approved)
