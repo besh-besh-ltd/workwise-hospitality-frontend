@@ -614,6 +614,13 @@ export const updateUserAccount = (userId, accountData) => {
             if (accountData.payroll_company_id !== undefined) {
                 payload.payroll_company_id = accountData.payroll_company_id;
             }
+            // Forward the approval-impact confirmation flag. Without this, the
+            // backend's pre-flight check keeps re-firing on every retry from the
+            // warning modal — the user clicks Proceed, the flag never reaches
+            // the API, and the save loops back to WARNING forever.
+            if (accountData.confirmed_approval_impact === true) {
+                payload.confirmed_approval_impact = true;
+            }
 
             let response = await axiosInstance.put(`users/update-user-detail`, payload);
             resolve(response);

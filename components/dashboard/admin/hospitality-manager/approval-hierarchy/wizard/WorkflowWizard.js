@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { toast } from "react-toastify";
 import { BsArrowLeft, BsArrowRight } from "react-icons/bs";
 import { createApprovalPolicy, updateApprovalPolicy } from "@/services/approval";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import WizardStepper from "./WizardStepper";
 import StepSelectProcessOnly from "./StepSelectProcessOnly";
 import StepConfigureStages from "./StepConfigureStages";
@@ -55,6 +56,13 @@ const WorkflowWizard = ({
 
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
+
+  // Pre-flight impact warning state. When the backend returns
+  // `APPROVAL_IMPACT_WARNING` for one or more stages during save, we collect
+  // them here, show a single consolidated modal, and on confirm re-run those
+  // stage saves with `confirmed_approval_impact: true`.
+  const [impactWarning, setImpactWarning] = useState(null);
+  // Shape: { pending: [{ payload, warning }, ...] }
 
   const [wizardForm, setWizardForm] = useState(() => ({
     process_id: isEditing ? editingProcess?.id : null,
@@ -153,59 +161,122 @@ const WorkflowWizard = ({
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
+  // Save a single stage payload. If the backend signals that pending
+  // approvals would be affected (APPROVAL_IMPACT_WARNING), we surface that to
+  // the caller instead of treating it as an error or a success.
+  const saveStagePayload = async (payload) => {
+    const fn = payload.id ? updateApprovalPolicy : createApprovalPolicy;
+    const response = await fn(payload);
+    // Axios interceptor unwraps response.data, so `response` is the JSON body.
+    if (response?.status === 0 && response?.code === "APPROVAL_IMPACT_WARNING") {
+      return { kind: "warning", warning: response.data };
+    }
+    return { kind: "success", response };
+  };
+
+  const buildStagePayloads = () => {
+    const base = {
+      hospitality_company_id: parseInt(companyId),
+      hotel_id: parseInt(hotelId),
+      process_id: wizardForm.process_id,
+      department_id: null,
+      is_master: true,
+      is_active: true,
+    };
+
+    const policyIdByEntity = {};
+    if (editingPolicies?.length) {
+      editingPolicies.forEach((p) => {
+        policyIdByEntity[p.entity_type] = p.id;
+      });
+    }
+
+    return (wizardForm.stages || []).map((stage) => {
+      const entity_type = stage.entity_type;
+      const steps = (stage.steps || []).map((step, idx) => ({
+        ...step,
+        step_order: idx + 1,
+      }));
+      const payload = {
+        ...base,
+        entity_type,
+        is_department_scoped: stage.is_department_scoped,
+        steps,
+      };
+      if (policyIdByEntity[entity_type]) {
+        payload.id = policyIdByEntity[entity_type];
+      }
+      return payload;
+    });
+  };
+
   const handleSave = async () => {
     if (!validateStep(2)) return;
 
     setSaving(true);
     try {
-      const base = {
-        hospitality_company_id: parseInt(companyId),
-        hotel_id: parseInt(hotelId),
-        process_id: wizardForm.process_id,
-        department_id: null,
-        is_master: true,
-        is_active: true,
-      };
+      const payloads = buildStagePayloads();
+      const pendingConfirmations = [];
 
-      const policyIdByEntity = {};
-      if (editingPolicies?.length) {
-        editingPolicies.forEach((p) => {
-          policyIdByEntity[p.entity_type] = p.id;
-        });
-      }
-
-      for (let i = 0; i < (wizardForm.stages || []).length; i++) {
-        const stage = wizardForm.stages[i];
-        const entity_type = stage.entity_type;
-        const steps = (stage.steps || []).map((step, idx) => ({
-          ...step,
-          step_order: idx + 1,
-        }));
-
-        const payload = {
-          ...base,
-          entity_type,
-          is_department_scoped: stage.is_department_scoped,
-          steps,
-        };
-
-        if (policyIdByEntity[entity_type]) {
-          payload.id = policyIdByEntity[entity_type];
-          await updateApprovalPolicy(payload);
-        } else {
-          await createApprovalPolicy(payload);
+      // First pass: attempt to save every stage. Stages with no impact are
+      // saved immediately. Stages that affect pending approvals come back as
+      // warnings (the backend did NOT save them) and are collected.
+      for (const payload of payloads) {
+        const result = await saveStagePayload(payload);
+        if (result.kind === "warning") {
+          pendingConfirmations.push({ payload, warning: result.warning });
         }
       }
 
-      toast.success("Workflow saved successfully");
-      onSave();
+      if (pendingConfirmations.length === 0) {
+        toast.success("Workflow saved successfully");
+        onSave();
+        return;
+      }
+
+      // Hand off to the confirmation modal. The wizard stays in the saving
+      // state until the user confirms or cancels.
+      setImpactWarning({ pending: pendingConfirmations });
     } catch (error) {
       console.error("Error saving workflow:", error);
       toast.error(
         error?.response?.data?.message || error?.message || "Failed to save workflow"
       );
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmImpact = async () => {
+    if (!impactWarning?.pending?.length) {
+      setImpactWarning(null);
+      setSaving(false);
+      return;
+    }
+    try {
+      for (const { payload } of impactWarning.pending) {
+        // Re-send with confirmation flag so the backend skips the warning gate
+        // and proceeds to save + propagate.
+        await saveStagePayload({ ...payload, confirmed_approval_impact: true });
+      }
+      toast.success("Workflow saved and pending approvals updated");
+      setImpactWarning(null);
+      onSave();
+    } catch (error) {
+      console.error("Error confirming impact:", error);
+      toast.error(
+        error?.response?.data?.message || error?.message || "Failed to apply changes"
+      );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCancelImpact = () => {
+    const skipped = impactWarning?.pending?.map((p) => p.payload.entity_type).join(", ");
+    setImpactWarning(null);
+    setSaving(false);
+    if (skipped) {
+      toast.info(`Changes to ${skipped} were not applied. Other stages saved.`);
     }
   };
 
@@ -351,6 +422,72 @@ const WorkflowWizard = ({
           </div>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={!!impactWarning}
+        onClose={handleCancelImpact}
+        onConfirm={handleConfirmImpact}
+        title="Pending approvals will be affected"
+        description={
+          impactWarning
+            ? `${impactWarning.pending.length} stage${impactWarning.pending.length === 1 ? "" : "s"} you changed will modify in-flight approvals. Review the impact below before continuing.`
+            : ""
+        }
+        confirmButtonColor="warning"
+        confirmButtonText="Confirm and apply changes"
+        cancelButtonText="Cancel"
+        showCloseButton
+        customFooter={
+          impactWarning ? (
+            <div style={{ maxHeight: 320, overflowY: "auto", textAlign: "left" }}>
+              {impactWarning.pending.map(({ payload, warning }) => (
+                <div
+                  key={`${payload.entity_type}-${payload.id || "new"}`}
+                  style={{
+                    border: "1px solid #f3d28a",
+                    background: "#fff8e6",
+                    borderRadius: 8,
+                    padding: 12,
+                    marginBottom: 10,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <strong style={{ fontSize: 13 }}>{warning.entity_type}</strong>
+                    <span style={{ fontSize: 12, color: "#92400e" }}>
+                      {warning.pending_count} pending instance
+                      {warning.pending_count === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  {warning.instances?.length > 0 && (
+                    <div style={{ fontSize: 12, color: "#374151" }}>
+                      {warning.instances.slice(0, 6).map((inst) => (
+                        <div key={inst.id} style={{ marginBottom: 2 }}>
+                          • {inst.entity_identifier}
+                          <span style={{ color: "#6b7280" }}>
+                            {" "}— step {inst.current_step}/{inst.total_steps}
+                          </span>
+                        </div>
+                      ))}
+                      {warning.instances.length > 6 && (
+                        <div style={{ color: "#6b7280", fontStyle: "italic" }}>
+                          and {warning.instances.length - 6} more…
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : null
+        }
+      />
     </div>
   );
 };
