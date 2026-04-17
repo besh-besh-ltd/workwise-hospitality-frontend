@@ -50,7 +50,9 @@ const NegotiationCompactBanner = ({
           for (let i = 0; i < rounds.length; i++) {
             const round = rounds[i];
             if (round.status === 'PENDING_APPROVAL' && round.id) {
-              const instances = preloadedApprovalBundle.negotiation_instances?.[String(round.id)] || [];
+              const byRoundId = preloadedApprovalBundle.negotiation_instances?.[String(round.id)] || [];
+              const byProductId = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+              const instances = byRoundId.length > 0 ? byRoundId : byProductId;
               const pendingInstance = instances.find(inst => inst.status === 'PENDING');
               if (pendingInstance) {
                 const currentStep = (pendingInstance.steps || []).find(s => s.step_order === pendingInstance.current_step);

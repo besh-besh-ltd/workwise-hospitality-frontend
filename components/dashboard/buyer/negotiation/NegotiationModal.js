@@ -238,12 +238,20 @@ const NegotiationModal = ({
     if (pendingRounds.length === 0) return;
 
     // Use preloaded bundle if available
+    // Bundle may be keyed by round.id (new) or rfq_product_id (old) — try both
     if (preloadedApprovalBundle) {
       const instances = {};
       for (const round of pendingRounds) {
-        const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.id)];
-        if (bundled && bundled.length > 0) {
-          instances[round.id] = bundled[0]; // Latest instance
+        const byRoundId = preloadedApprovalBundle.negotiation_instances?.[String(round.id)] || [];
+        const byProductId = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+        const bundled = byRoundId.length > 0 ? byRoundId : byProductId;
+        // Find the instance matching this specific round
+        const matched = bundled.find(inst => {
+          const meta = inst.metadata || {};
+          return meta.round_id == null || String(meta.round_id) === String(round.id);
+        });
+        if (matched) {
+          instances[round.id] = matched;
         }
       }
       setApprovalInstances(instances);
@@ -330,8 +338,11 @@ const NegotiationModal = ({
     };
 
     // Use preloaded bundle if available
+    // Bundle may be keyed by round.id (new) or rfq_product_id (old) — try both
     if (preloadedApprovalBundle) {
-      const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.id)] || [];
+      const byRoundId = preloadedApprovalBundle.negotiation_instances?.[String(round.id)] || [];
+      const byProductId = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+      const bundled = byRoundId.length > 0 ? byRoundId : byProductId;
       const filtered = filterByRound(bundled);
       const sorted = [...filtered].sort((a, b) => (a.id || 0) - (b.id || 0));
       setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: sorted } }));

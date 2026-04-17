@@ -77,7 +77,8 @@ const NegotiationWorkflowModal = ({
 
         <ApprovalWorkflowSection
           entityType="NEGOTIATION"
-          entityId={round.rfq_product_id}
+          entityId={round.id}
+          allEntityIds={[round.id, round.rfq_product_id].filter(Boolean)}
           entityLabel={`Negotiation Round ${round.round_number}`}
           hospitalityCompanyId={hospitalityCompanyId}
           hotelId={hotelId}
