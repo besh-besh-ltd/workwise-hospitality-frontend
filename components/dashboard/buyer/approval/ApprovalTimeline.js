@@ -66,6 +66,26 @@ const statusConfig = {
     cardBg: "#fef8f8",
     cardBorder: "#f5c2c7",
   },
+  REMOVED: {
+    stepIcon: BsDashCircleFill,
+    color: "#6c757d",
+    bgColor: "#f0f0f0",
+    borderColor: "#adb5bd",
+    label: "Removed",
+    badgeVariant: "secondary",
+    cardBg: "#f8f9fa",
+    cardBorder: "#dee2e6",
+  },
+  SKIPPED: {
+    stepIcon: BsSkipForwardFill,
+    color: "#adb5bd",
+    bgColor: "#f8f9fa",
+    borderColor: "#dee2e6",
+    label: "Skipped",
+    badgeVariant: "light",
+    cardBg: "#ffffff",
+    cardBorder: "#e9ecef",
+  },
 };
 
 const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus, isActionRequired = false }) => {
@@ -102,6 +122,8 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
         return { icon: BsCheckCircleFill, color: "#198754", text: "Approved", dotColor: "#198754" };
       case "REJECTED":
         return { icon: BsXCircleFill, color: "#dc3545", text: "Rejected", dotColor: "#dc3545" };
+      case "REMOVED":
+        return { icon: BsDashCircleFill, color: "#dc3545", text: "Removed", dotColor: "#dc3545" };
       default:
         // PENDING approver — context matters
         if (isInstanceApproved) {
@@ -290,6 +312,36 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
           background: rgba(249,115,22,0.15);
           color: #9a3412;
         }
+
+        /* Custom minimal "Added mid-approval" badge — replaces the default
+           Bootstrap blue Badge. Subtle blue pill with a small live-dot prefix
+           that signals "this got added later" without competing with the
+           step's own status badge. */
+        .at-midflight-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 9.5px;
+          font-weight: 600;
+          letter-spacing: 0.03em;
+          color: #1d4ed8;
+          background: rgba(59, 130, 246, 0.07);
+          border: 1px solid rgba(59, 130, 246, 0.22);
+          padding: 1px 8px 1px 6px;
+          border-radius: 10px;
+          line-height: 1.55;
+          white-space: nowrap;
+          vertical-align: middle;
+        }
+        .at-midflight-badge::before {
+          content: '';
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: #3b82f6;
+          flex-shrink: 0;
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+        }
         .at-step-header-right {
           display: flex;
           align-items: center;
@@ -328,43 +380,6 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
           border-top-color: rgba(249,115,22,0.15);
         }
 
-        /* Department group */
-        .at-dept-group {
-          margin-top: 8px;
-        }
-        .at-dept-group + .at-dept-group {
-          margin-top: 10px;
-          padding-top: 10px;
-          border-top: 1px dashed #e9ecef;
-        }
-        .at-dept-label {
-          font-size: 0.68rem;
-          font-weight: 600;
-          color: #6c757d;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          padding: 0 10px;
-          margin-bottom: 2px;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-        .at-dept-label::before {
-          content: '';
-          display: inline-block;
-          width: 6px;
-          height: 6px;
-          border-radius: 2px;
-          background: #adb5bd;
-          flex-shrink: 0;
-        }
-        .at-step-card.is-current-pending .at-dept-group + .at-dept-group {
-          border-top-color: rgba(255,193,7,0.2);
-        }
-        .at-step-card.is-action-required .at-dept-group + .at-dept-group {
-          border-top-color: rgba(249,115,22,0.2);
-        }
-
         /* Approver row */
         .at-approver {
           display: flex;
@@ -393,7 +408,7 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
         }
         .at-approver-content {
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           gap: 10px;
           min-width: 0;
           flex: 1;
@@ -425,6 +440,82 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
           border-color: #e2e8f0;
           background: #f1f5f9;
           opacity: 0.6;
+        }
+        .at-approver-icon-wrap.removed {
+          border-color: #fecaca;
+          border-style: solid;
+          background: #fef2f2;
+        }
+
+        /* Separator between active approvers and the removed group.
+           A thin pink/red rule with an inline label so the section is
+           obvious without taking much vertical space. */
+        .at-removed-separator {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin: 12px 2px 12px;
+        }
+        .at-removed-separator::before,
+        .at-removed-separator::after {
+          content: '';
+          flex: 1;
+          height: 1px;
+          background: linear-gradient(to right, transparent, #fecaca, transparent);
+        }
+        .at-removed-separator-label {
+          font-size: 0.62rem;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #b91c1c;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          padding: 2px 8px;
+          border-radius: 10px;
+          white-space: nowrap;
+        }
+
+        /* Removed approver row — fully visible, red-tinted so the user
+           sees them at a glance. Reason + timestamp on hover of the name. */
+        .at-approver.is-removed {
+          background: rgba(220, 38, 38, 0.05);
+          border: 1px solid rgba(220, 38, 38, 0.12);
+        }
+        .at-approver.is-removed:hover {
+          background: rgba(220, 38, 38, 0.08);
+        }
+        .at-step-card.is-current-pending .at-approver.is-removed,
+        .at-step-card.is-action-required .at-approver.is-removed {
+          background: rgba(220, 38, 38, 0.05);
+        }
+        .at-step-card.is-current-pending .at-approver.is-removed:hover,
+        .at-step-card.is-action-required .at-approver.is-removed:hover {
+          background: rgba(220, 38, 38, 0.09);
+        }
+        .at-removed-name {
+          color: #b91c1c !important;
+          font-weight: 600;
+        }
+        .at-removed-meta {
+          color: #b91c1c !important;
+          opacity: 0.75;
+        }
+
+        /* Prominent red badge — renders on the right side of the removed
+           approver row, replacing the on-hover-only tooltip. */
+        .at-removed-badge {
+          display: inline-flex;
+          align-items: center;
+          font-size: 0.7rem;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          padding: 4px 10px;
+          border-radius: 12px;
+          background: #dc3545;
+          color: #ffffff;
+          white-space: nowrap;
+          box-shadow: 0 1px 2px rgba(220, 38, 38, 0.25);
         }
         .at-approver-info {
           flex: 1;
@@ -676,6 +767,12 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
                     <span className="at-step-title">Step {step.step_order}</span>
                     {isCurrentPending && !isStepActionRequired && <span className="at-current-tag">Current</span>}
                     {isStepActionRequired && <span className="at-action-tag">Action Required</span>}
+                    {step.added_mid_flight && (
+                      <span className="at-midflight-badge" title="This step was added mid-approval">
+                        Added mid-approval
+                      </span>
+                    )}
+                    {step.removed_mid_flight && <Badge bg="secondary" style={{ fontSize: "0.58rem", marginLeft: 4 }}>Removed</Badge>}
                   </div>
                   <div className="at-step-badges">
                     <Badge
@@ -712,95 +809,163 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
                 </div>
               </div>
 
-              {/* Approver details - grouped by department */}
+              {/* Approver details — flat list (department shown inline as meta).
+                  Department grouping was removed because users in multiple
+                  departments can't be cleanly bucketed and the visual fragmented
+                  badly when several approvers spanned different depts.
+
+                  Removed approvers are partitioned to the bottom of the list,
+                  visually separated, and rendered in red so they're obvious at
+                  a glance. The full removal reason + timestamp is on hover of
+                  the name (and inline on mobile). */}
               <Collapse in={isExpandedStep}>
                 <div>
                   <div className="at-step-body">
                     {(() => {
-                      // Group approvers by department
-                      const deptGroups = {};
-                      (step.approvers || []).forEach((approver) => {
-                        const dept = approver.user_department || "Other";
-                        if (!deptGroups[dept]) deptGroups[dept] = [];
-                        deptGroups[dept].push(approver);
-                      });
-                      const deptKeys = Object.keys(deptGroups);
-                      const showDeptHeaders = deptKeys.length > 1;
+                      const allApprovers = step.approvers || [];
+                      const activeApprovers = allApprovers.filter(a => a.status !== "REMOVED");
+                      const removedApprovers = allApprovers.filter(a => a.status === "REMOVED");
 
-                      return deptKeys.map((dept) => (
-                        <div className="at-dept-group" key={dept}>
-                          {showDeptHeaders && (
-                            <div className="at-dept-label">{dept}</div>
-                          )}
-                          {deptGroups[dept].map((approver) => {
-                            const aStatus = getApproverStatus(approver.status, { isStepApproved: isStepApprovedAny });
-                            const AIcon = aStatus.icon;
-                            const isSkipped = approver.status === "PENDING" && isStepApprovedAny;
-                            const isApproverExpired = approver.status === "PENDING" && isExpired;
-                            const iconClass = approver.status === "APPROVED" ? "done"
-                              : approver.status === "REJECTED" ? "failed"
-                              : isApproverExpired ? "failed"
-                              : isSkipped ? "skipped" : "waiting";
-                            const tagClass = approver.status === "APPROVED" ? "approved"
-                              : approver.status === "REJECTED" ? "rejected"
-                              : isApproverExpired ? "rejected"
-                              : isSkipped ? "skipped" : "waiting";
+                      const renderActive = (approver) => {
+                        const aStatus = getApproverStatus(approver.status, { isStepApproved: isStepApprovedAny });
+                        const AIcon = aStatus.icon;
+                        const isSkipped = approver.status === "PENDING" && isStepApprovedAny;
+                        const isApproverExpired = approver.status === "PENDING" && isExpired;
+                        const iconClass = approver.status === "APPROVED" ? "done"
+                          : approver.status === "REJECTED" ? "failed"
+                          : isApproverExpired ? "failed"
+                          : isSkipped ? "skipped" : "waiting";
+                        const tagClass = approver.status === "APPROVED" ? "approved"
+                          : approver.status === "REJECTED" ? "rejected"
+                          : isApproverExpired ? "rejected"
+                          : isSkipped ? "skipped" : "waiting";
 
-                            return (
-                              <div className="at-approver" key={approver.user_id} style={isSkipped ? { opacity: 0.55 } : undefined}>
-                                <div className="at-approver-content">
-                                  <div className={`at-approver-icon-wrap ${iconClass}`}>
-                                    <AIcon size={12} style={{ color: aStatus.color }} />
-                                  </div>
-                                  <div className="at-approver-info">
-                                    <div className="at-approver-primary">
-                                      <span className="at-approver-name">{approver.user_name}</span>
-                                    </div>
-                                    <div className="at-approver-meta-row">
-                                      {approver.employee_code && (
-                                        <span className="at-approver-meta">{approver.employee_code}</span>
-                                      )}
-                                      {approver.user_designation && (
-                                        <span className="at-approver-meta">{approver.user_designation}</span>
-                                      )}
-                                      {approver.acted_at && (
-                                        <span className="at-approver-meta">· {formatDate(approver.acted_at)}</span>
-                                      )}
-                                    </div>
-                                    {isMobile && approver.comment && (
-                                      <div className="at-comment-inline">
-                                        <strong>Comment:</strong> {approver.comment}
-                                      </div>
-                                    )}
-                                  </div>
+                        return (
+                          <div
+                            className="at-approver"
+                            key={approver.user_id}
+                            style={isSkipped ? { opacity: 0.55 } : undefined}
+                          >
+                            <div className="at-approver-content">
+                              <div className={`at-approver-icon-wrap ${iconClass}`}>
+                                <AIcon size={12} style={{ color: aStatus.color }} />
+                              </div>
+                              <div className="at-approver-info">
+                                <div className="at-approver-primary">
+                                  <span className="at-approver-name">{approver.user_name}</span>
+                                  {approver.added_mid_flight && (
+                                    <span className="at-midflight-badge" title="This approver was added mid-approval">
+                                      Added mid-approval
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="at-approver-side">
-                                  <span className={`at-approver-status-tag ${tagClass}`}>
-                                    {aStatus.text}
+                                <div className="at-approver-meta-row">
+                                  {approver.employee_code && (
+                                    <span className="at-approver-meta">{approver.employee_code}</span>
+                                  )}
+                                  {approver.user_designation && (
+                                    <span className="at-approver-meta">{approver.user_designation}</span>
+                                  )}
+                                  {approver.user_department && (
+                                    <span className="at-approver-meta">· {approver.user_department}</span>
+                                  )}
+                                  {approver.acted_at && (
+                                    <span className="at-approver-meta">· {formatDate(approver.acted_at)}</span>
+                                  )}
+                                </div>
+                                {isMobile && approver.comment && (
+                                  <div className="at-comment-inline">
+                                    <strong>Comment:</strong> {approver.comment}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="at-approver-side">
+                              <span className={`at-approver-status-tag ${tagClass}`}>
+                                {aStatus.text}
+                              </span>
+                              {approver.comment && !isMobile && (
+                                <OverlayTrigger
+                                  placement="top"
+                                  overlay={
+                                    <Tooltip>
+                                      <div style={{ textAlign: "left", maxWidth: 280 }}>
+                                        <strong>{approver.user_name}:</strong><br />
+                                        &ldquo;{approver.comment}&rdquo;
+                                      </div>
+                                    </Tooltip>
+                                  }
+                                >
+                                  <span className="at-comment-btn">
+                                    <BsChatLeftTextFill size={13} style={{ color: aStatus.color }} />
                                   </span>
-                                  {approver.comment && !isMobile && (
-                                    <OverlayTrigger
-                                      placement="top"
-                                      overlay={
-                                        <Tooltip>
-                                          <div style={{ textAlign: "left", maxWidth: 280 }}>
-                                            <strong>{approver.user_name}:</strong><br />
-                                            &ldquo;{approver.comment}&rdquo;
-                                          </div>
-                                        </Tooltip>
-                                      }
-                                    >
-                                      <span className="at-comment-btn">
-                                        <BsChatLeftTextFill size={13} style={{ color: aStatus.color }} />
-                                      </span>
-                                    </OverlayTrigger>
+                                </OverlayTrigger>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      const renderRemoved = (approver) => {
+                        const removalReasonLabel = approver.removal_reason === "policy_change" ? "Policy Change"
+                          : approver.removal_reason === "role_removed" ? "Role Change"
+                          : approver.removal_reason === "user_deactivated" ? "Account Deactivation"
+                          : approver.removal_reason === "dept_removed" ? "Department Change"
+                          : approver.removal_reason === "scope_removed" ? "Scope Change"
+                          : approver.removal_reason || "Administrative Change";
+                        const whenLabel = approver.removed_at ? formatDate(approver.removed_at) : null;
+
+                        return (
+                          <div className="at-approver is-removed" key={approver.user_id}>
+                            <div className="at-approver-content">
+                              <div className="at-approver-icon-wrap removed">
+                                <BsXCircleFill size={12} style={{ color: "#dc3545" }} />
+                              </div>
+                              <div className="at-approver-info">
+                                <div className="at-approver-primary">
+                                  <span className="at-approver-name at-removed-name">
+                                    {approver.user_name}
+                                  </span>
+                                </div>
+                                <div className="at-approver-meta-row">
+                                  {approver.employee_code && (
+                                    <span className="at-approver-meta at-removed-meta">{approver.employee_code}</span>
+                                  )}
+                                  {approver.user_designation && (
+                                    <span className="at-approver-meta at-removed-meta">{approver.user_designation}</span>
+                                  )}
+                                  {approver.user_department && (
+                                    <span className="at-approver-meta at-removed-meta">· {approver.user_department}</span>
+                                  )}
+                                  {whenLabel && (
+                                    <span className="at-approver-meta at-removed-meta">· <strong>Removed on</strong> {whenLabel}</span>
                                   )}
                                 </div>
                               </div>
-                            );
-                          })}
-                        </div>
-                      ));
+                            </div>
+                            <div className="at-approver-side">
+                              <span className="at-removed-badge">
+                                <BsXCircleFill size={10} style={{ marginRight: 4, verticalAlign: "-1px" }} />
+                                {removalReasonLabel}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      return (
+                        <>
+                          {activeApprovers.map(renderActive)}
+                          {removedApprovers.length > 0 && (
+                            <div className="at-removed-separator" aria-label="Removed approvers">
+                              <span className="at-removed-separator-label">
+                                Removed ({removedApprovers.length})
+                              </span>
+                            </div>
+                          )}
+                          {removedApprovers.map(renderRemoved)}
+                        </>
+                      );
                     })()}
                   </div>
                 </div>
