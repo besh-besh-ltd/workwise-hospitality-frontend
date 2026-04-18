@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { Modal, Button, Form, Table, Badge, Alert, Spinner } from 'react-bootstrap';
+import { Modal, Form, Spinner } from 'react-bootstrap';
 import {
   createNegotiationRound,
   approveNegotiationRound,
@@ -27,6 +27,7 @@ import {
   Tooltip as ChartTooltip,
 } from 'chart.js';
 import { calculateTotal } from '@/utils/sharedFunctions';
+import VendorSelectionPanel from './VendorSelectionPanel';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
 import ApprovalActionModal from '../approval/ApprovalActionModal';
 import ApprovalTimeline from '../approval/ApprovalTimeline';
@@ -127,6 +128,8 @@ const NegotiationModal = ({
   // Chart flip state for create mode product rows
   const [flippedCards, setFlippedCards] = useState({});
   const [chartTypes, setChartTypes] = useState({}); // { [productId]: 'bar' | 'line' }
+  // Vendor selection for parallel rounds
+  const [selectedVendors, setSelectedVendors] = useState({}); // { [productId]: [vendorId, ...] }
 
   const toggleCardFlip = (productId, e) => {
     e.stopPropagation();
@@ -144,6 +147,7 @@ const NegotiationModal = ({
       setSelectedProducts(preSelectedProductId ? [preSelectedProductId] : []);
       setFormData({ target_price: '', end_date: '' });
       setFlippedCards({});
+      setSelectedVendors({});
       loadQuoteApprovalStatuses();
     }
     if (show && mode === 'view-approve' && activeRounds.length > 0) {
@@ -164,12 +168,41 @@ const NegotiationModal = ({
     }
   }, [show, mode, activeRounds, initialRoundsHistory]);
 
+  // Enrich PENDING_APPROVAL rounds with approval data from the hospitality approval engine
+  const enrichRoundsWithApprovals = async (rounds) => {
+    for (const round of rounds) {
+      if (round.status !== 'PENDING_APPROVAL' || round.approvals) continue;
+      try {
+        const instancesRes = await getEntityApprovalInstances('NEGOTIATION', round.id);
+        const instances = instancesRes?.data?.data || instancesRes?.data || instancesRes || [];
+        const pendingInstance = (Array.isArray(instances) ? instances : []).find(inst => inst.status === 'PENDING');
+        if (pendingInstance) {
+          const detailRes = await getApprovalInstanceDetails(pendingInstance.id);
+          const detail = detailRes?.data?.data || detailRes?.data || detailRes || {};
+          const currentStep = (detail.steps || []).find(s => s.step_order === detail.current_step);
+          if (currentStep?.approvers) {
+            round.approvals = currentStep.approvers.map(a => ({
+              approver_user_id: a.approver_user_id || a.user_id,
+              approver_name: a.user_name,
+              approver_email: a.user_email,
+              status: a.status
+            }));
+          }
+        }
+      } catch (err) {
+        // Skip enrichment on error
+      }
+    }
+    return rounds;
+  };
+
   const loadHistoryData = async () => {
     if (!rfq_id) return;
 
     // Use prop data if available
     if (initialRoundsHistory.length > 0) {
-      setRoundsHistory(initialRoundsHistory);
+      const enriched = await enrichRoundsWithApprovals([...initialRoundsHistory]);
+      setRoundsHistory(enriched);
       return;
     }
 
@@ -189,7 +222,8 @@ const NegotiationModal = ({
         }
       }
 
-      setRoundsHistory(rounds);
+      const enriched = await enrichRoundsWithApprovals(rounds);
+      setRoundsHistory(enriched);
     } catch (error) {
       console.error('Error loading history in modal:', error);
       setRoundsHistory([]);
@@ -204,12 +238,20 @@ const NegotiationModal = ({
     if (pendingRounds.length === 0) return;
 
     // Use preloaded bundle if available
+    // Bundle may be keyed by round.id (new) or rfq_product_id (old) — try both
     if (preloadedApprovalBundle) {
       const instances = {};
       for (const round of pendingRounds) {
-        const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)];
-        if (bundled && bundled.length > 0) {
-          instances[round.rfq_product_id] = bundled[0]; // Latest instance
+        const byRoundId = preloadedApprovalBundle.negotiation_instances?.[String(round.id)] || [];
+        const byProductId = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+        const bundled = byRoundId.length > 0 ? byRoundId : byProductId;
+        // Find the instance matching this specific round
+        const matched = bundled.find(inst => {
+          const meta = inst.metadata || {};
+          return meta.round_id == null || String(meta.round_id) === String(round.id);
+        });
+        if (matched) {
+          instances[round.id] = matched;
         }
       }
       setApprovalInstances(instances);
@@ -222,16 +264,16 @@ const NegotiationModal = ({
 
     for (const round of pendingRounds) {
       try {
-        const response = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
+        const response = await getEntityApprovalInstances('NEGOTIATION', round.id);
         const instanceList = response?.data?.data || response?.data || [];
 
         if (instanceList && instanceList.length > 0) {
           const detailResponse = await getApprovalInstanceDetails(instanceList[0].id);
           const detailedInstance = detailResponse?.data?.data || detailResponse?.data;
-          instances[round.rfq_product_id] = detailedInstance;
+          instances[round.id] = detailedInstance;
         }
       } catch (error) {
-        console.error(`Error loading approval for product ${round.rfq_product_id}:`, error);
+        console.error(`Error loading approval for round ${round.id}:`, error);
       }
     }
 
@@ -296,8 +338,11 @@ const NegotiationModal = ({
     };
 
     // Use preloaded bundle if available
+    // Bundle may be keyed by round.id (new) or rfq_product_id (old) — try both
     if (preloadedApprovalBundle) {
-      const bundled = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+      const byRoundId = preloadedApprovalBundle.negotiation_instances?.[String(round.id)] || [];
+      const byProductId = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+      const bundled = byRoundId.length > 0 ? byRoundId : byProductId;
       const filtered = filterByRound(bundled);
       const sorted = [...filtered].sort((a, b) => (a.id || 0) - (b.id || 0));
       setApprovalJourneys(prev => ({ ...prev, [roundId]: { loading: false, instances: sorted } }));
@@ -306,7 +351,7 @@ const NegotiationModal = ({
 
     // Fallback: fetch from API
     try {
-      const response = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
+      const response = await getEntityApprovalInstances('NEGOTIATION', round.id);
       const instanceList = response?.data?.data || response?.data || [];
       const allInstances = Array.isArray(instanceList) ? instanceList : [];
 
@@ -361,31 +406,36 @@ const NegotiationModal = ({
   const handleProductToggle = (productId) => {
     setSelectedProducts(prev => {
       if (prev.includes(productId)) {
+        setSelectedVendors(sv => { const next = { ...sv }; delete next[productId]; return next; });
         return [];
       } else {
+        // Auto-select available vendors (not in round, or rejected)
+        const product = products.find(p => p.id === productId);
+        if (product) {
+          const allVendorIds = Array.from(getVendorIdsForProduct(product));
+          const activeRound = product.active_round;
+          const vendorApprovals = activeRound?.vendor_approvals || [];
+          const roundVendorIds = new Set((activeRound?.vendor_ids || []).map(Number));
+
+          const availableIds = allVendorIds.filter(vid => {
+            if (!roundVendorIds.has(vid)) return true;
+            const approval = vendorApprovals.find(va => Number(va.vendor_id) === vid);
+            return approval && approval.status === 'REJECTED';
+          });
+          setSelectedVendors(sv => ({ ...sv, [productId]: availableIds }));
+        }
         return [productId];
       }
     });
   };
 
   const handleSelectAll = () => {
-    // Only allow selecting products that have quotes, no active round, and quotes not approved
-    const availableProducts = products.filter(p => hasQuotes(p) && !hasActiveRound(p.id) && !isQuoteApproved(p.id));
+    const availableProducts = products.filter(p => !getProductRoundStatus(p.id).isDisabled);
     if (selectedProducts.length === availableProducts.length) {
       setSelectedProducts([]);
     } else {
       setSelectedProducts(availableProducts.map(p => p.id));
     }
-  };
-
-  const hasActiveRound = (productId) => {
-    return activeRounds.some(r =>
-      r.rfq_product_id === productId &&
-      r.status === 'ACTIVE' &&
-      r.end_date &&
-      moment.utc(r.end_date).isAfter(moment()) &&
-      !r.approvals?.some(a => a.status === 'REJECTED') // Exclude rejected rounds
-    );
   };
 
   // Safely get vendor details from a quotation (supports both legacy and normalized shapes)
@@ -420,10 +470,129 @@ const NegotiationModal = ({
     return validQuotations.length > 0;
   };
 
+  // Get all vendor IDs for a product from product_vendors
+  const getVendorIdsForProduct = (product) => {
+    const productVendors = product?.product_vendors || [];
+    const ids = new Set();
+    productVendors.forEach(v => {
+      const vid = Number(v.id || v.user_id);
+      if (vid) ids.add(vid);
+    });
+    return ids;
+  };
+
+  // Determine product's disabled state and status badge based on vendor approval statuses
+  const getProductRoundStatus = (productId) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return { isDisabled: true, statusLabel: '', statusClass: '' };
+
+    // Priority 1: Hospitality approval workflow
+    if (isQuoteApproved(productId)) {
+      return { isDisabled: true, statusLabel: 'Approved', statusClass: styles.createStatusApproved };
+    }
+
+    // Priority 2: No valid quotes
+    if (!hasQuotes(product)) {
+      return { isDisabled: true, statusLabel: 'No Quotes', statusClass: styles.createStatusNoQuotes };
+    }
+
+    const activeRound = product.active_round;
+
+    // Priority 3: No active round
+    if (!activeRound) {
+      return { isDisabled: false, statusLabel: 'Available', statusClass: '' };
+    }
+
+    const vendorApprovals = activeRound.vendor_approvals || [];
+    const roundVendorIds = activeRound.vendor_ids;
+
+    // Priority 4: Old-style round (vendor_ids null)
+    if (roundVendorIds === null || roundVendorIds === undefined) {
+      return { isDisabled: true, statusLabel: 'Pending Approval', statusClass: styles.createStatusPending };
+    }
+
+    // Priority 5: Check vendor approval statuses
+    const hasRejected = vendorApprovals.some(va => va.status === 'REJECTED');
+    const allApproved = vendorApprovals.length > 0 && vendorApprovals.every(va => va.status === 'APPROVED');
+
+    // ENABLED: any vendor rejected
+    if (hasRejected) {
+      return { isDisabled: false, statusLabel: 'Rejected', statusClass: styles.createStatusRejected };
+    }
+
+    // ENABLED: some product_vendors not in the round
+    const productVendors = product.product_vendors || [];
+    const roundVendorIdSet = new Set(roundVendorIds.map(Number));
+    const vendorsNotInRound = productVendors.some(v => {
+      const vid = Number(v.id || v.user_id);
+      return vid && !roundVendorIdSet.has(vid);
+    });
+    if (vendorsNotInRound) {
+      const coveredCount = roundVendorIds.length;
+      return { isDisabled: false, statusLabel: `${coveredCount} vendor${coveredCount !== 1 ? 's' : ''} in round`, statusClass: styles.createStatusPartial };
+    }
+
+    // DISABLED: all approved
+    if (allApproved) {
+      return { isDisabled: true, statusLabel: 'Approved', statusClass: styles.createStatusApproved };
+    }
+
+    // DISABLED: all pending, or mixed pending+approved
+    return { isDisabled: true, statusLabel: 'Pending Approval', statusClass: styles.createStatusPending };
+  };
+
+  // Vendor toggle handler for negotiation round creation
+  const handleVendorToggle = (productId, vendorId) => {
+    setSelectedVendors(prev => {
+      const current = [...(prev[productId] || [])];
+      const idx = current.indexOf(vendorId);
+      if (idx >= 0) {
+        current.splice(idx, 1);
+      } else {
+        current.push(vendorId);
+      }
+      return { ...prev, [productId]: current };
+    });
+  };
+
+  // Select/deselect all available vendors for a product
+  const handleSelectAllVendors = (productId) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+    const allVendorIds = Array.from(getVendorIdsForProduct(product));
+    const activeRound = product.active_round;
+    const vendorApprovals = activeRound?.vendor_approvals || [];
+    const roundVendorIds = new Set((activeRound?.vendor_ids || []).map(Number));
+
+    const availableIds = allVendorIds.filter(vid => {
+      if (!roundVendorIds.has(vid)) return true;
+      const approval = vendorApprovals.find(va => Number(va.vendor_id) === vid);
+      return approval && approval.status === 'REJECTED';
+    });
+
+    setSelectedVendors(prev => {
+      const current = prev[productId] || [];
+      const allSelected = availableIds.every(id => current.includes(id));
+      if (allSelected) {
+        return { ...prev, [productId]: [] };
+      } else {
+        return { ...prev, [productId]: availableIds };
+      }
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedProducts.length === 0 || !formData.target_price || !formData.end_date) {
       toast.error('Please select a product and fill all fields');
+      return;
+    }
+
+    // Validate vendor selection
+    const productId = selectedProducts[0];
+    const vendorIds = selectedVendors[productId] || [];
+    if (vendorIds.length === 0) {
+      toast.error('Please select at least one vendor');
       return;
     }
 
@@ -434,15 +603,16 @@ const NegotiationModal = ({
       const utcEndDate = moment(formData.end_date).utc().format();
 
       // Create rounds for each selected product
-      for (const productId of selectedProducts) {
+      for (const pid of selectedProducts) {
         await createNegotiationRound({
           rfq_id,
-          rfq_product_id: parseInt(productId),
+          rfq_product_id: parseInt(pid),
           target_price: parseFloat(formData.target_price),
-          end_date: utcEndDate
+          end_date: utcEndDate,
+          vendor_ids: selectedVendors[pid] || []
         });
       }
-      
+
       toast.success('Negotiation round created successfully');
       onRefresh();
       onHide();
@@ -652,43 +822,25 @@ const NegotiationModal = ({
     v?.organization_name || v?.company_name || v?.vendor_company_name || v?.name || v?.email || 'Unknown Vendor';
 
   const getVendorNames = (product) => {
+    const productVendors = product?.product_vendors || [];
     const quotations = product?.quotations || [];
-    const allVendors = product?.all_vendors || [];
 
-    if (quotations.length === 0) {
-      const vendorsWithQuotes = allVendors.filter(v =>
-        v.rfq_product_vendor_id && (v.has_quote || v.quote_submitted || v.total_price > 0 || v.unit_price > 0)
-      );
-      if (vendorsWithQuotes.length > 0) {
-        const names = vendorsWithQuotes.slice(0, 3).map(v => getVendorDisplayName(v));
-        if (vendorsWithQuotes.length > 3) {
-          return `${names.join(', ')} +${vendorsWithQuotes.length - 3} more`;
-        }
-        return names.join(', ');
+    // Primary source: product_vendors from API
+    if (productVendors.length > 0) {
+      const names = productVendors.slice(0, 3).map(v => getVendorDisplayName(v));
+      if (productVendors.length > 3) {
+        return `${names.join(', ')} +${productVendors.length - 3} more`;
       }
-      const vendorsWithCodes = allVendors.filter(v => v.rfq_product_vendor_id);
-      if (vendorsWithCodes.length > 0) {
-        const names = vendorsWithCodes.slice(0, 3).map(v => getVendorDisplayName(v));
-        if (vendorsWithCodes.length > 3) {
-          return `${names.join(', ')} +${vendorsWithCodes.length - 3} more`;
-        }
-        return names.join(', ');
-      }
-      return 'No quotes';
+      return names.join(', ');
     }
 
+    // Fallback: extract from quotations
     const validQuotations = quotations.filter(q => {
       const hasId = q.id != null || q.quote_id != null || q.quote_item_id != null;
       return hasId && !isQuoteRegretted(q);
     });
 
-    if (validQuotations.length === 0) {
-      const vendorsWithCodes = allVendors.filter(v => v.rfq_product_vendor_id);
-      if (vendorsWithCodes.length > 0) {
-        return vendorsWithCodes.slice(0, 3).map(v => getVendorDisplayName(v)).join(', ');
-      }
-      return 'No quotes';
-    }
+    if (validQuotations.length === 0) return 'No quotes';
 
     const names = validQuotations.slice(0, 3).map(q => {
       const vendorDetails = getVendorDetailsFromQuote(q);
@@ -696,19 +848,6 @@ const NegotiationModal = ({
         const name = getVendorDisplayName(vendorDetails);
         if (name !== 'Unknown Vendor') return name;
       }
-      if (allVendors.length > 0 && q.created_by) {
-        const allVendor = allVendors.find(
-          v => v.id === q.created_by || v.user_id === q.created_by
-        );
-        if (allVendor) return getVendorDisplayName(allVendor);
-      }
-      if (allVendors.length > 0 && vendorDetails) {
-        const allVendorByDetails = allVendors.find(
-          v => v.id === vendorDetails.id || v.user_id === vendorDetails.user_id
-        );
-        if (allVendorByDetails) return getVendorDisplayName(allVendorByDetails);
-      }
-      if (allVendors.length === 1) return getVendorDisplayName(allVendors[0]);
       return null;
     }).filter(Boolean);
 
@@ -914,8 +1053,7 @@ const NegotiationModal = ({
   };
 
   const renderCreateForm = () => {
-    // Products that can have negotiation: have quotes, no active round, quotes not approved
-    const availableProducts = products.filter(p => hasQuotes(p) && !hasActiveRound(p.id) && !isQuoteApproved(p.id));
+    const availableProducts = products.filter(p => !getProductRoundStatus(p.id).isDisabled);
 
     return (
       <Form onSubmit={handleSubmit}>
@@ -940,25 +1078,9 @@ const NegotiationModal = ({
           ) : (
             <div className={styles.createProductList}>
               {products.map((product) => {
-                const hasRound = hasActiveRound(product.id);
-                const quoteApproved = isQuoteApproved(product.id);
-                const noQuotes = !hasQuotes(product);
-                const isDisabled = hasRound || quoteApproved || noQuotes;
+                const { isDisabled, statusLabel, statusClass } = getProductRoundStatus(product.id);
                 const isSelected = selectedProducts.includes(product.id);
                 const details = getProductDetails(product);
-
-                let statusLabel = 'Available';
-                let statusClass = '';
-                if (quoteApproved) {
-                  statusLabel = 'Approved';
-                  statusClass = styles.createStatusApproved;
-                } else if (hasRound) {
-                  statusLabel = 'Active Round';
-                  statusClass = styles.createStatusActive;
-                } else if (noQuotes) {
-                  statusLabel = 'No Quotes';
-                  statusClass = styles.createStatusNoQuotes;
-                }
 
                 const priceData = getVendorPriceData(product);
                 const isFlipped = flippedCards[product.id];
@@ -990,7 +1112,7 @@ const NegotiationModal = ({
                           />
                           <div className={styles.createTitleBlock}>
                             <p className={styles.createProductName}>{details.name}</p>
-                            {isDisabled && (
+                            {statusLabel !== 'Available' && (
                               <div className={styles.createStatusRow}>
                                 <span className={`${styles.createStatusBadge} ${statusClass}`}>
                                   {statusLabel}
@@ -1031,9 +1153,9 @@ const NegotiationModal = ({
                           <span
                             role="button"
                             tabIndex={0}
-                            className={`${styles.chartToggleBtn} ${noQuotes ? styles.chartToggleBtnDisabled : ''}`}
-                            onClick={(e) => { if (!noQuotes) toggleCardFlip(product.id, e); }}
-                            onKeyDown={(e) => { if (!noQuotes && (e.key === 'Enter' || e.key === ' ')) toggleCardFlip(product.id, e); }}
+                            className={`${styles.chartToggleBtn} ${!hasQuotes(product) ? styles.chartToggleBtnDisabled : ''}`}
+                            onClick={(e) => { if (hasQuotes(product)) toggleCardFlip(product.id, e); }}
+                            onKeyDown={(e) => { if (hasQuotes(product) && (e.key === 'Enter' || e.key === ' ')) toggleCardFlip(product.id, e); }}
                           >
                             View Chart →
                           </span>
@@ -1105,7 +1227,21 @@ const NegotiationModal = ({
           )}
         </section>
 
-        <div className={`${styles.formGrid} ${selectedProducts.length === 0 ? styles.formGridDisabled : ''}`}>
+        {selectedProducts.length > 0 && (() => {
+          const selectedProduct = products.find(p => p.id === selectedProducts[0]);
+          if (!selectedProduct) return null;
+          return (
+            <VendorSelectionPanel
+              product={selectedProduct}
+              selectedVendorIds={selectedVendors[selectedProduct.id] || []}
+              onVendorToggle={(vid) => handleVendorToggle(selectedProduct.id, vid)}
+              onSelectAll={() => handleSelectAllVendors(selectedProduct.id)}
+              getVendorDisplayName={getVendorDisplayName}
+            />
+          );
+        })()}
+
+        <div className={`${styles.formGrid} ${!(selectedVendors[selectedProducts[0]] || []).length ? styles.formGridDisabled : ''}`}>
           <div className={styles.formCard}>
             <label htmlFor="neg-target-price" className={styles.formLabel}>
               Target Price (₹) <span className={styles.requiredMark}>*</span>
@@ -1119,7 +1255,7 @@ const NegotiationModal = ({
               onChange={(e) => setFormData({ ...formData, target_price: e.target.value })}
               placeholder="Enter target price"
               required
-              disabled={selectedProducts.length === 0}
+              disabled={!(selectedVendors[selectedProducts[0]] || []).length}
               className={styles.fieldInput}
             />
           </div>
@@ -1135,7 +1271,7 @@ const NegotiationModal = ({
               onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
               min={new Date().toISOString().slice(0, 16)}
               required
-              disabled={selectedProducts.length === 0}
+              disabled={!(selectedVendors[selectedProducts[0]] || []).length}
               className={styles.fieldInput}
             />
             <p className={styles.formHint}>
@@ -1151,7 +1287,7 @@ const NegotiationModal = ({
           <button
             type="submit"
             className={styles.actionPrimary}
-            disabled={submitting || selectedProducts.length === 0 || !canWrite || permissionsLoading}
+            disabled={submitting || selectedProducts.length === 0 || !(selectedVendors[selectedProducts[0]] || []).length || !canWrite || permissionsLoading}
           >
             {submitting ? <Spinner size="sm" /> : 'Create Round'}
           </button>
@@ -1332,6 +1468,20 @@ const NegotiationModal = ({
                             )}
                           </div>
 
+                          {/* Vendors in this round */}
+                          {round.vendors && round.vendors.length > 0 && (
+                            <div className={styles.roundVendorList}>
+                              <span className={styles.roundMetaLabel}>Vendors</span>
+                              <div className={styles.roundVendorBadges}>
+                                {round.vendors.map((v, i) => (
+                                  <span key={i} className={styles.roundVendorBadge}>
+                                    {v.organization_name || v.name || `Vendor ${v.id}`}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Approval Workflow Journey — show for all rounds that went through approval */}
                           {(effectiveStatus !== 'DRAFT') && (
                             <div>
@@ -1371,7 +1521,10 @@ const NegotiationModal = ({
                                     <div className={styles.journeyList}>
                                       {approvalJourneys[round.id].instances.map((instance, instIdx) => {
                                         const isLast = instIdx === approvalJourneys[round.id].instances.length - 1;
-                                        const instStatus = (instance.status || '').toUpperCase();
+                                        const rawInstStatus = (instance.status || '').toUpperCase();
+                                        // If the round itself ended/expired/closed without approval, treat pending instance as cancelled for display
+                                        const roundEnded = ['EXPIRED', 'ENDED', 'CLOSED'].includes(effectiveStatus);
+                                        const instStatus = (roundEnded && rawInstStatus === 'PENDING') ? 'CANCELLED' : rawInstStatus;
                                         const attemptNum = instIdx + 1;
                                         const journeyTone = getJourneyTone(instStatus);
 
@@ -1411,7 +1564,7 @@ const NegotiationModal = ({
                                                     steps={instance.steps}
                                                     currentStep={instance.current_step}
                                                     initiatedBy={instance.initiated_by}
-                                                    instanceStatus={instance.status}
+                                                    instanceStatus={instStatus}
                                                   />
                                                 ) : (
                                                   <div className={styles.journeyEmpty}>
@@ -1451,18 +1604,13 @@ const NegotiationModal = ({
   };
 
   const renderViewApprove = () => {
-    // Helper to check if a round has been rejected via approvals
     const isRoundRejected = (round) => {
       return round?.approvals?.some(a => a.status === 'REJECTED');
     };
 
-    // Helper to check if a round has ended based on end_date
-    // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
-    // Exclude rejected rounds from pending
     const pendingRounds = activeRounds.filter(r =>
       (r.status === 'PENDING_APPROVAL' || r.status === 'pending_approval') && !isRoundRejected(r)
     );
-    // Active rounds: status is ACTIVE and not rejected
     const activeRoundsList = activeRounds.filter(r => {
       const status = (r?.status || '').toUpperCase();
       return status === 'ACTIVE' && !isRoundRejected(r);
@@ -1472,89 +1620,91 @@ const NegotiationModal = ({
       <div>
         {renderRoundStatusSummary()}
         {pendingRounds.length === 0 && activeRoundsList.length === 0 ? (
-          <div className={styles.sectionCard}>
-            <Alert variant="info" className="mb-0">No active negotiation rounds</Alert>
-          </div>
+          <div className={styles.vaEmptyState}>No active negotiation rounds</div>
         ) : (
           <>
             {pendingRounds.length > 0 && (
-              <div className="mb-4">
-                <h6 className={styles.pendingSectionTitle}>Pending Approval</h6>
+              <div className={styles.vaSection}>
+                <p className={styles.vaSectionTitle}>Pending Approval</p>
                 {pendingRounds.map((round) => {
                   const product = products.find(p => String(p.id) === String(round.rfq_product_id));
                   const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
                   const approvals = round.approvals || [];
-
-                  // Get approval instance from hospitality API (authoritative source for can_user_approve)
-                  const approvalInstance = approvalInstances[round.rfq_product_id];
-
-                  // Use approval instance data if available, otherwise fall back to round.approvals
+                  const approvalInstance = approvalInstances[round.id];
                   const canApprove = approvalInstance
                     ? approvalInstance.can_user_approve === true
                     : (() => {
-                        // Fallback: Use string comparison to avoid type issues
                         const userApproval = approvals.find(a =>
                           String(a.approver_user_id) === String(currentUserId)
                         );
                         return userApproval && (
                           userApproval.status === 'PENDING' ||
                           userApproval.status === 'pending' ||
-                          !userApproval.status  // null/undefined treated as pending
+                          !userApproval.status
                         );
                       })();
-
-                  // Only show as current approver if not loading and canApprove is true
                   const isCurrentApprover = !loadingApprovals && canApprove;
                   const approvalStatus = approvalInstance?.status;
+                  const approvedCount = approvals.filter(a => a.status === 'APPROVED').length;
 
                   return (
                     <div
                       key={round.id}
-                      className={`${styles.pendingCard} ${isCurrentApprover ? styles.pendingCardAttention : ''}`}
+                      className={`${styles.vaCard} ${isCurrentApprover ? styles.vaCardAttention : ''}`}
                     >
-                      <div className={styles.pendingHeader}>
+                      <div className={styles.vaCardHead}>
                         <div>
-                          <p className={styles.pendingTitle}>{productName}</p>
-                          <div className={styles.pendingBadgeRow}>
-                            <Badge bg="warning" text="dark">Round {round.round_number}</Badge>
+                          <p className={styles.vaProductName}>{productName}</p>
+                          <div className={styles.vaBadgeRow}>
+                            <span className={`${styles.vaRoundBadge} ${styles.vaRoundBadgePending}`}>
+                              Round {round.round_number}
+                            </span>
                             {isCurrentApprover && (
-                              <Badge bg="danger">Your Action Required</Badge>
+                              <span className={styles.vaActionRequired}>Your Action Required</span>
                             )}
                           </div>
+                          {round.vendors && round.vendors.length > 0 && (
+                            <div className={styles.roundVendorBadges} style={{ marginTop: '4px' }}>
+                              {round.vendors.map((v, i) => (
+                                <span key={i} className={styles.roundVendorBadge}>
+                                  {v.organization_name || v.name || `Vendor ${v.id}`}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <div className={styles.pendingActions}>
+                        <div className={styles.vaActions}>
                           {loadingApprovals ? (
                             <Spinner size="sm" />
                           ) : canApprove ? (
-                            <div className={styles.decisionActions}>
-                              <Button
-                                variant="success"
-                                size="sm"
+                            <div className={styles.vaDecisionRow}>
+                              <button
+                                type="button"
+                                className={styles.vaBtnApprove}
                                 onClick={() => openActionModal(round, 'APPROVE')}
                                 disabled={submitting || !canWrite || permissionsLoading}
                               >
                                 Approve Round
-                              </Button>
-                              <Button
-                                variant="danger"
-                                size="sm"
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.vaBtnReject}
                                 onClick={() => openActionModal(round, 'REJECT')}
                                 disabled={submitting || !canWrite || permissionsLoading}
                               >
                                 Reject Round
-                              </Button>
+                              </button>
                             </div>
                           ) : approvalInstance ? (
-                            <Badge bg={approvalStatus === 'APPROVED' ? 'success' :
-                                     approvalStatus === 'REJECTED' ? 'danger' : 'secondary'}>
+                            <span className={styles.vaStatusBadge}>
                               {approvalStatus === 'PENDING' ? 'Awaiting Approval' : approvalStatus || 'Pending'}
-                            </Badge>
+                            </span>
                           ) : (
-                            <Badge bg="secondary">Not an approver</Badge>
+                            <span className={styles.vaStatusBadge}>Not an approver</span>
                           )}
-                          <Button
-                            variant="outline-secondary"
-                            size="sm"
+                          <button
+                            type="button"
+                            className={styles.vaBtnOutline}
                             onClick={() => {
                               setSelectedRoundForWorkflow(round);
                               onHide();
@@ -1562,52 +1712,76 @@ const NegotiationModal = ({
                             }}
                           >
                             View Workflow Details
-                          </Button>
+                          </button>
                         </div>
                       </div>
-                      <div className={styles.metaInlineRow}>
-                        <div className={styles.metaInlineBlock}>
-                          <span className={styles.metaInlineLabel}>Target Price</span>
-                          <span className={styles.metaInlineValue}>₹{parseFloat(round.target_price).toLocaleString()}</span>
+
+                      <div className={styles.vaMetaRow}>
+                        <div className={styles.vaMetaBlock}>
+                          <span className={styles.vaMetaLabel}>Target Price</span>
+                          <span className={styles.vaMetaValue}>₹{parseFloat(round.target_price).toLocaleString()}</span>
                         </div>
-                        <div className={styles.metaInlineBlock}>
-                          <span className={styles.metaInlineLabel}>End Date</span>
-                          <span className={styles.metaInlineValue}>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</span>
+                        <div className={styles.vaMetaBlock}>
+                          <span className={styles.vaMetaLabel}>End Date</span>
+                          <span className={styles.vaMetaValue}>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</span>
                         </div>
                       </div>
-                      
-                      {/* Round Approval Status */}
-                      {round.approvals && round.approvals.length > 0 && (
-                        <div className={styles.approverBand}>
-                          <p className={styles.approverBandTitle}>
-                            Round Approval Status
-                          </p>
-                          <div className={styles.approverList}>
-                            {round.approvals.map((approval, idx) => (
-                              <div key={idx} className="d-flex align-items-center gap-1">
-                                <Badge 
-                                  bg={
-                                    approval.status === 'APPROVED' ? 'success' :
-                                    approval.status === 'REJECTED' ? 'danger' :
-                                    'warning'
-                                  }
-                                  style={{ fontSize: '0.7rem' }}
-                                >
-                                  {approval.approver_name || `User ${approval.approver_user_id}`}
-                                </Badge>
-                                <small className={styles.approverStatus}>
-                                  {approval.status === 'APPROVED' ? '✓ Approved' :
-                                   approval.status === 'REJECTED' ? '✗ Rejected' :
-                                   '⏳ Pending'}
-                                </small>
-                              </div>
+
+                      {/* Vendors in this round with quoted prices */}
+                      {(() => {
+                        const roundVendorIds = (round.vendor_ids || []).map(Number);
+                        if (roundVendorIds.length === 0) return null;
+                        const quotations = product?.quotations || [];
+                        const productVendors = product?.product_vendors || [];
+                        const vendors = roundVendorIds.map(vid => {
+                          const pv = productVendors.find(v => Number(v.id || v.user_id) === vid);
+                          const name = pv ? (pv.organization_name || pv.company_name || pv.name || 'Unknown Vendor') : 'Unknown Vendor';
+                          const matchedQuote = quotations.find(q => {
+                            const vd = q.quote_details?.vendor_details;
+                            return Number(vd?.id || vd?.user_id || q.vendor_id || q.created_by) === vid;
+                          });
+                          return { id: vid, name, totalPrice: parseFloat(matchedQuote?.total_price || 0) };
+                        });
+                        return (
+                          <div className={styles.wfVendorSection}>
+                            <p className={styles.wfSectionLabel}>Vendors ({vendors.length})</p>
+                            <div className={styles.wfVendorList}>
+                              {vendors.map(v => (
+                                <div key={v.id} className={styles.wfVendorRow}>
+                                  <span className={styles.wfVendorName}>{v.name}</span>
+                                  {v.totalPrice > 0 && (
+                                    <span className={styles.wfVendorPriceValue}>₹{v.totalPrice.toLocaleString('en-IN')}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {approvals.length > 0 && (
+                        <div className={styles.vaApproverBand}>
+                          <p className={styles.vaApproverTitle}>Round Approval Status</p>
+                          <div className={styles.vaApproverList}>
+                            {approvals.map((approval, idx) => (
+                              <span
+                                key={idx}
+                                className={`${styles.vaApproverChip} ${
+                                  approval.status === 'APPROVED' ? styles.vaApproverApproved :
+                                  approval.status === 'REJECTED' ? styles.vaApproverRejected :
+                                  styles.vaApproverPending
+                                }`}
+                              >
+                                {approval.approver_name || `User ${approval.approver_user_id}`}
+                                {' '}
+                                {approval.status === 'APPROVED' ? '✓' :
+                                 approval.status === 'REJECTED' ? '✗' : '⏳'}
+                              </span>
                             ))}
                           </div>
-                          <div className="mt-1">
-                            <small className={styles.approverStatus}>
-                              {round.approvalStatus?.approved || 0} of {round.approvalStatus?.total || 0} approvers have approved this round
-                            </small>
-                          </div>
+                          <p className={styles.vaApproverNote}>
+                            {approvedCount} of {approvals.length} approvers have approved this round
+                          </p>
                         </div>
                       )}
                     </div>
@@ -1617,92 +1791,79 @@ const NegotiationModal = ({
             )}
 
             {activeRoundsList.length > 0 && (
-              <div>
-                <h6 className={styles.pendingSectionTitle}>Active Rounds</h6>
+              <div className={styles.vaSection}>
+                <p className={styles.vaSectionTitle}>Active Rounds</p>
                 {activeRoundsList.map((round) => {
                   const product = products.find(p => String(p.id) === String(round.rfq_product_id));
                   const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
                   return (
-                    <div key={round.id} className={styles.pendingCard}>
-                      <div className={styles.pendingHeader}>
+                    <div key={round.id} className={styles.vaCard}>
+                      <div className={styles.vaCardHead}>
                         <div>
-                          <p className={styles.pendingTitle}>{productName}</p>
-                          <div className={styles.pendingBadgeRow}>
-                            <Badge bg="success">Round {round.round_number}</Badge>
+                          <p className={styles.vaProductName}>{productName}</p>
+                          <div className={styles.vaBadgeRow}>
+                            <span className={`${styles.vaRoundBadge} ${styles.vaRoundBadgeActive}`}>
+                              Round {round.round_number}
+                            </span>
                           </div>
-                        </div>
-                         <Button
-                           variant={selectedRound?.id === round.id ? "primary" : "outline-primary"}
-                           size="sm"
-                           onClick={() => {
-                             if (selectedRound?.id === round.id) {
-                               setSelectedRound(null);
-                               setRoundQuotes([]);
-                             } else {
-                               setSelectedRound(round);
-                               loadRoundQuotes(round.id);
-                             }
-                           }}
-                           disabled={loading}
-                         >
-                           {loading && selectedRound?.id === round.id ? (
-                             <Spinner size="sm" />
-                           ) : selectedRound?.id === round.id ? (
-                             'Hide Quotes'
-                           ) : (
-                             'View Quotes'
-                           )}
-                         </Button>
-                      </div>
-                      <div className={styles.metaInlineRow}>
-                        <div className={styles.metaInlineBlock}>
-                          <span className={styles.metaInlineLabel}>Target Price</span>
-                          <span className={styles.metaInlineValue}>₹{parseFloat(round.target_price).toLocaleString()}</span>
-                        </div>
-                        <div className={styles.metaInlineBlock}>
-                          <span className={styles.metaInlineLabel}>End Date</span>
-                          <span className={styles.metaInlineValue}>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</span>
+                          {round.vendors && round.vendors.length > 0 && (
+                            <div className={styles.roundVendorBadges} style={{ marginTop: '4px' }}>
+                              {round.vendors.map((v, i) => (
+                                <span key={i} className={styles.roundVendorBadge}>
+                                  {v.organization_name || v.name || `Vendor ${v.id}`}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
+                      <div className={styles.vaMetaRow}>
+                        <div className={styles.vaMetaBlock}>
+                          <span className={styles.vaMetaLabel}>Target Price</span>
+                          <span className={styles.vaMetaValue}>₹{parseFloat(round.target_price).toLocaleString()}</span>
+                        </div>
+                        <div className={styles.vaMetaBlock}>
+                          <span className={styles.vaMetaLabel}>End Date</span>
+                          <span className={styles.vaMetaValue}>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</span>
+                        </div>
+                      </div>
+
+                      {/* Vendors in this round with quoted prices */}
+                      {(() => {
+                        const roundVendorIds = (round.vendor_ids || []).map(Number);
+                        if (roundVendorIds.length === 0) return null;
+                        const quotations = product?.quotations || [];
+                        const productVendors = product?.product_vendors || [];
+                        const vendors = roundVendorIds.map(vid => {
+                          const pv = productVendors.find(v => Number(v.id || v.user_id) === vid);
+                          const name = pv ? (pv.organization_name || pv.company_name || pv.name || 'Unknown Vendor') : 'Unknown Vendor';
+                          const matchedQuote = quotations.find(q => {
+                            const vd = q.quote_details?.vendor_details;
+                            return Number(vd?.id || vd?.user_id || q.vendor_id || q.created_by) === vid;
+                          });
+                          return { id: vid, name, totalPrice: parseFloat(matchedQuote?.total_price || 0) };
+                        });
+                        return (
+                          <div className={styles.wfVendorSection}>
+                            <p className={styles.wfSectionLabel}>Vendors ({vendors.length})</p>
+                            <div className={styles.wfVendorList}>
+                              {vendors.map(v => (
+                                <div key={v.id} className={styles.wfVendorRow}>
+                                  <span className={styles.wfVendorName}>{v.name}</span>
+                                  {v.totalPrice > 0 && (
+                                    <span className={styles.wfVendorPriceValue}>₹{v.totalPrice.toLocaleString('en-IN')}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
               </div>
             )}
-
-             {selectedRound && (
-               <div className={styles.quotesSection}>
-                 <h6 className={styles.quotesTitle}>Quotes for Round {selectedRound.round_number}</h6>
-                 {loading ? (
-                   <div className="text-center py-3">
-                     <Spinner size="sm" />
-                   </div>
-                 ) : roundQuotes.length === 0 ? (
-                   <Alert variant="info" className="mb-0">No quotes submitted yet</Alert>
-                 ) : (
-                   <Table striped bordered hover size="sm" className={styles.quotesTable}>
-                     <thead>
-                       <tr>
-                         <th>Vendor</th>
-                         <th>Quoted Price</th>
-                         <th>Previous Price</th>
-                         <th>Submitted At</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       {roundQuotes.map((quote, idx) => (
-                         <tr key={idx}>
-                           <td>{quote.vendor_name || quote.vendor_company_name}</td>
-                           <td>₹{parseFloat(quote.quoted_price || 0).toLocaleString()}</td>
-                           <td>{quote.previous_price ? `₹${parseFloat(quote.previous_price).toLocaleString()}` : '-'}</td>
-                           <td>{quote.submitted_at ? moment(quote.submitted_at).format('DD-MM-YYYY hh:mm A') : '-'}</td>
-                         </tr>
-                       ))}
-                     </tbody>
-                   </Table>
-                 )}
-               </div>
-             )}
           </>
         )}
       </div>
@@ -1756,6 +1917,7 @@ const NegotiationModal = ({
           handleShow();
         }}
         round={selectedRoundForWorkflow}
+        products={products}
         hospitalityCompanyId={hospitalityCompanyId}
         hotelId={hotelId}
         departmentId={departmentId}

@@ -3,15 +3,19 @@ import axiosInstance from "@/lib/axios";
 /**
  * Create a new negotiation round (product-specific)
  */
-export const createNegotiationRound = ({ rfq_id, rfq_product_id, target_price, end_date }) => {
+export const createNegotiationRound = ({ rfq_id, rfq_product_id, target_price, end_date, vendor_ids }) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.post('/negotiation/rounds', {
+      const payload = {
         rfq_id,
         rfq_product_id,
         target_price,
         end_date
-      });
+      };
+      if (vendor_ids && vendor_ids.length > 0) {
+        payload.vendor_ids = vendor_ids;
+      }
+      const response = await axiosInstance.post('/negotiation/rounds', payload);
       resolve(response);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
