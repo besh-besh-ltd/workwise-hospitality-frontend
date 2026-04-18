@@ -607,7 +607,7 @@ const ProductComparisonMatrix = ({
                                   activeRound && activeRound.status === 'ACTIVE' ? (
                                     <OverlayTrigger
                                       placement="left"
-                                      overlay={<Tooltip>An active negotiation round is ongoing, vendor finalization is restricted</Tooltip>}
+                                      overlay={<Tooltip>Negotiation round is ongoing, vendor finalization is restricted</Tooltip>}
                                     >
                                       <div
                                         style={{ cursor: 'not-allowed' }}
@@ -824,7 +824,7 @@ const ProductComparisonMatrix = ({
                     const isDisabled = isActiveRoundBlocking || noPermission || notInHierarchy || !lowestQuote;
 
                     const tooltipText = isActiveRoundBlocking
-                      ? 'An active negotiation round is ongoing, vendor finalization is restricted'
+                      ? 'Negotiation round is ongoing, vendor finalization is restricted'
                       : noPermission
                       ? 'Required permission is missing'
                       : notInHierarchy

@@ -23,6 +23,7 @@ const ConfirmationModal = ({
     cancelButtonText = "Cancel",
     showCloseButton = false,
     customFooter = null,
+    hideCancelButton = false,
 }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const v = VARIANTS[confirmButtonColor] || VARIANTS.danger;
@@ -73,31 +74,38 @@ const ConfirmationModal = ({
                         <div className={`${styles.iconWrap} ${v.iconCls}`}>
                             <Icon size={18} strokeWidth={1.8} />
                         </div>
-                        <h4 className={styles.title}>{title}</h4>
+                        {/* Stack title + description in a column next to the icon
+                            so the title→description gap is exactly title's
+                            margin-bottom (no wasted flex space from icon being
+                            taller than the title). */}
+                        <div className={styles.headerText}>
+                            <h4 className={styles.title}>{title}</h4>
+                            {description && (
+                                <p
+                                    className={styles.desc}
+                                    dangerouslySetInnerHTML={{
+                                        __html: description.replace(/\\n/g, '<br />')
+                                    }}
+                                />
+                            )}
+                        </div>
                     </div>
-
-                    {description && (
-                        <p
-                            className={styles.desc}
-                            dangerouslySetInnerHTML={{
-                                __html: description.replace(/\\n/g, '<br />')
-                            }}
-                        />
-                    )}
 
                     {customFooter && (
                         <div className={styles.footer}>{customFooter}</div>
                     )}
 
                     <div className={styles.actions}>
-                        <button
-                            onClick={onClose}
-                            className={`${styles.btn} ${styles.btnCancel}`}
-                            id="cancel_confirmation_modal-modal_body-confirmation_modal"
-                            disabled={isProcessing}
-                        >
-                            {cancelButtonText}
-                        </button>
+                        {!hideCancelButton && (
+                            <button
+                                onClick={onClose}
+                                className={`${styles.btn} ${styles.btnCancel}`}
+                                id="cancel_confirmation_modal-modal_body-confirmation_modal"
+                                disabled={isProcessing}
+                            >
+                                {cancelButtonText}
+                            </button>
+                        )}
                         <button
                             onClick={handleConfirmClick}
                             className={`${styles.btn} ${v.btnCls}`}

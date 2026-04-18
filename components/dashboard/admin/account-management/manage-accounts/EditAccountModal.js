@@ -74,6 +74,7 @@ const EditAccountModal = ({
   userDepartments,
   userMappings,
   onSave,
+  isSaving = false,
 }) => {
   const [roleScopes, setRoleScopes] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -173,8 +174,23 @@ const EditAccountModal = ({
 
   const isAdmin = account.role === 7;
 
+  // While saving, ignore close attempts (overlay click, ESC, X button) so the
+  // user can't accidentally bail mid-request and end up in a confused state
+  // where the API call lands but the modal is gone.
+  const handleRequestClose = () => {
+    if (isSaving) return;
+    onClose();
+  };
+
   return (
-    <Modal isOpen={isOpen} onRequestClose={onClose} ariaHideApp={false} style={modalOverlayStyles}>
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={handleRequestClose}
+      shouldCloseOnOverlayClick={!isSaving}
+      shouldCloseOnEsc={!isSaving}
+      ariaHideApp={false}
+      style={modalOverlayStyles}
+    >
       <div className={styles.modalHeader}>
         <div>
           <h5 className={styles.modalTitle}>Edit Account</h5>
@@ -182,7 +198,12 @@ const EditAccountModal = ({
             Update details for <strong>{account.name}</strong>
           </div>
         </div>
-        <button type="button" className={styles.modalClose} onClick={onClose}>
+        <button
+          type="button"
+          className={styles.modalClose}
+          onClick={handleRequestClose}
+          disabled={isSaving}
+        >
           <HiX size={16} />
         </button>
       </div>
@@ -195,7 +216,11 @@ const EditAccountModal = ({
       >
         {({ errors, touched, values, setFieldValue, isValid }) => (
           <Form className={styles.modalForm}>
-            <div className={styles.modalBody}>
+            <div
+              className={styles.modalBody}
+              style={isSaving ? { pointerEvents: "none", opacity: 0.55, transition: "opacity 0.15s ease" } : { transition: "opacity 0.15s ease" }}
+              aria-busy={isSaving}
+            >
               {/* Basic Info */}
               <div className={styles.modalSection}>
                 <div className={styles.modalSectionTitle}>Basic Information</div>
@@ -370,6 +395,11 @@ const EditAccountModal = ({
                     onRemoveRole={(index) =>
                       setRoleScopes((prev) => prev.filter((_, i) => i !== index))
                     }
+                    onReplaceRole={(index, newScope) =>
+                      setRoleScopes((prev) =>
+                        prev.map((r, i) => (i === index ? newScope : r))
+                      )
+                    }
                     isEditMode
                     userDepartments={userDepartments}
                     userId={account.id}
@@ -379,11 +409,21 @@ const EditAccountModal = ({
             </div>
 
             <div className={styles.modalFooter}>
-              <button type="button" className={styles.cancelBtn} onClick={onClose}>
+              <button
+                type="button"
+                className={styles.cancelBtn}
+                onClick={handleRequestClose}
+                disabled={isSaving}
+              >
                 Cancel
               </button>
-              <button type="submit" className={styles.submitBtn} disabled={!isValid}>
-                Update Account
+              <button
+                type="submit"
+                className={styles.submitBtn}
+                disabled={!isValid || isSaving}
+              >
+                {isSaving && <span className={styles.submitBtnSpinner} aria-hidden="true" />}
+                {isSaving ? "Saving..." : "Update Account"}
               </button>
             </div>
           </Form>
