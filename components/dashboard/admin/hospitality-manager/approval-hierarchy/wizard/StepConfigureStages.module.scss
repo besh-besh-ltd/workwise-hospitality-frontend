@@ -1,0 +1,78 @@
+@import '../tokens';
+
+.heading { font-size: 18px; font-weight: 700; color: $dark; margin-bottom: 4px; font-family: $font; }
+.subtext { font-size: 13px; color: $muted; margin-bottom: 16px; font-family: $font; }
+
+// Flow timeline
+.flow { position: relative; }
+.flow::before {
+  content: ''; position: absolute; left: 19px; top: 20px; bottom: 20px;
+  width: 2px; background: linear-gradient(180deg, rgba($primary, 0.25), $border, rgba($primary, 0.25)); z-index: 0;
+}
+
+.stage { position: relative; z-index: 1; margin-bottom: 6px; &:last-child { margin-bottom: 0; } }
+.stageHeader { display: flex; align-items: center; cursor: pointer; user-select: none; }
+
+.flowDot {
+  width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; transition: all 0.2s ease; position: relative; z-index: 2;
+}
+.flowDotFilled { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.flowDotEmpty { border: 2px dashed $border; background: $card; }
+
+.stageCard {
+  flex: 1; margin-left: 10px; padding: 10px 14px; background: $card;
+  border: 1px solid $border; border-radius: 10px; transition: all 0.15s ease;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  &:hover { border-color: rgba($primary, 0.25); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+}
+.stageCardExpanded {
+  border-color: rgba($primary, 0.4); background: $blue-light;
+  box-shadow: 0 2px 8px rgba($primary, 0.06);
+}
+.stageInfo { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.stageName { font-size: 13px; font-weight: 600; font-family: $font; }
+.levelPill {
+  background: $page-bg; border: 1px solid $border; border-radius: 10px;
+  padding: 1px 8px; font-size: 11px; font-weight: 600; color: $muted;
+  font-family: $font; white-space: nowrap;
+}
+.levelPillActive { background: $green-tint; border-color: #bbf7d0; color: #166534; }
+.chevron { color: $muted; transition: transform 0.2s; flex-shrink: 0; }
+
+.stageBody { margin-left: 19px; padding-left: 31px; padding-top: 8px; padding-bottom: 4px; }
+.emptyBody {
+  border: 1px solid $border; border-radius: 10px; background: $page-bg;
+  padding: 20px; text-align: center;
+  p { margin: 0 0 8px; font-size: 13px; color: $muted; font-family: $font; }
+}
+.addBtn {
+  border: 1px solid rgba($primary, 0.25); background: $blue-light; color: $primary;
+  font-size: 12px; font-weight: 600; border-radius: 8px; padding: 5px 14px;
+  display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+  transition: all 0.15s ease; font-family: $font;
+  &:hover { background: $primary; color: #fff; border-color: $primary; }
+}
+.addFull {
+  width: 100%; padding: 10px; border: 1px solid rgba($primary, 0.2);
+  border-radius: 10px; background: $blue-light; color: $primary;
+  font-size: 13px; font-weight: 600; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; gap: 6px; transition: all 0.15s ease;
+  margin-top: 6px; font-family: $font;
+  &:hover { background: $primary; color: #fff; border-color: $primary; }
+}
+
+.connector { display: flex; align-items: center; justify-content: center; padding: 2px 0; margin-left: 19px; position: relative; z-index: 1; }
+
+// Preview panel
+.preview { position: sticky; top: 20px; }
+.previewCard {
+  border: 1px solid $border; border-radius: 16px; background: $card;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.02); overflow: hidden;
+}
+.previewHeader {
+  font-size: 13px; font-weight: 600; color: $muted; padding: 12px 16px;
+  border-bottom: 1px solid $border; display: flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg, $page-bg, $card); font-family: $font;
+}
+.previewBody { padding: 14px 16px; }

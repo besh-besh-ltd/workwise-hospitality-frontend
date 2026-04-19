@@ -1,141 +1,94 @@
 import React, { useMemo, useState } from "react";
-import { BsPlus, BsDiagram3 } from "react-icons/bs";
+import { BsPlus, BsDiagram3, BsLayers, BsShieldCheck } from "react-icons/bs";
 import ProcessManageBar from "./ProcessManageBar";
-import ProcessSection from "./ProcessSection";
+import WorkflowCardV2 from "./WorkflowCardV2";
 import EmptyState from "./EmptyState";
-import DepartmentAccessMatrix from "./DepartmentAccessMatrix";
-import { BRAND_TEAL } from "../constants";
 import DepartmentSubGraphPreview from "../preview/DepartmentSubGraphPreview";
+import { DS, getStageEntityOrder } from "../constants";
+import s from "./DashboardView.module.scss";
 
-const DashboardView = ({
-  policies,
-  processes,
-  departments,
-  onCreateWorkflow,
-  onEditWorkflow,
-  onDeleteWorkflow,
-  onDeletePolicy,
-  onCreateProcess,
-  onUpdateProcess,
-  onDeleteProcess,
-  getApproverDisplayInfo,
-  getDeptSubGraphPreview,
-  onRefreshDepartments,
-}) => {
+const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onEditWorkflow, onDeleteWorkflow, onDeletePolicy, onCreateProcess, onUpdateProcess, onDeleteProcess, getApproverDisplayInfo, getDeptSubGraphPreview }) => {
   const [previewPolicy, setPreviewPolicy] = useState(null);
   const [previewData, setPreviewData] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
-  // Group policies by process only (no department dimension)
-  const groupedByProcess = useMemo(() => {
-    const processGroups = {};
+  const stats = useMemo(() => ({
+    totalProcesses: (processes || []).length,
+    totalPolicies: policies.length,
+    totalLevels: policies.reduce((sum, p) => sum + (p.steps?.length || 0), 0),
+  }), [policies, processes]);
 
-    // Initialize process buckets
+  const processGroups = useMemo(() => {
+    const groups = [];
     (processes || []).forEach((proc) => {
-      processGroups[proc.id] = { process: proc, policies: [] };
+      const entityOrder = getStageEntityOrder(proc.process_type);
+      groups.push({ process: proc, policies: policies.filter((p) => p.process_id === proc.id && entityOrder.includes(p.entity_type)) });
     });
-    processGroups["no_process"] = {
-      process: { id: null, name: "No Process Selected" },
-      policies: [],
-    };
-
-    // Place each policy (master policies only) into its process bucket
-    policies.forEach((policy) => {
-      const procKey = policy.process_id || "no_process";
-      const group = processGroups[procKey] || processGroups["no_process"];
-      group.policies.push(policy);
-    });
-
-    return processGroups;
+    const orphans = policies.filter((p) => !p.process_id);
+    if (orphans.length > 0) groups.push({ process: { id: null, name: "Uncategorized", process_type: "RFQ" }, policies: orphans, isOrphan: true });
+    return groups;
   }, [policies, processes]);
 
   const hasAnyWorkflows = policies.length > 0;
 
-  const handleViewDeptMapping = async (policy) => {
-    setPreviewPolicy(policy);
-    setPreviewLoading(true);
-    try {
-      const data = await getDeptSubGraphPreview(policy.id);
-      setPreviewData(data);
-    } catch (err) {
-      console.error("Error loading preview:", err);
-      setPreviewData(null);
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
+  const handleClosePreview = () => { setPreviewPolicy(null); setPreviewData(null); };
 
-  const handleClosePreview = () => {
-    setPreviewPolicy(null);
-    setPreviewData(null);
-  };
+  const STAT_CARDS = [
+    { label: "Processes", value: stats.totalProcesses, icon: BsDiagram3, color: DS.primary, bg: DS.blueTint },
+    { label: "Workflow Stages", value: stats.totalPolicies, icon: BsLayers, color: DS.secondary, bg: DS.greenTint },
+    { label: "Approval Levels", value: stats.totalLevels, icon: BsShieldCheck, color: DS.accent, bg: DS.orangeTint },
+  ];
 
   return (
     <div>
-      {/* Department Access Matrix - collapsible section at top */}
-      <DepartmentAccessMatrix onRefresh={onRefreshDepartments} />
-
-      <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-        <div className="flex-grow-1">
-          <ProcessManageBar
-            processes={processes}
-            onCreateProcess={onCreateProcess}
-            onUpdateProcess={onUpdateProcess}
-            onDeleteProcess={onDeleteProcess}
-          />
-        </div>
-        <button
-          className="btn d-flex align-items-center gap-1"
-          onClick={onCreateWorkflow}
-          style={{
-            backgroundColor: BRAND_TEAL,
-            borderColor: BRAND_TEAL,
-            color: "#fff",
-            borderRadius: "8px",
-            padding: "8px 18px",
-            fontSize: "13px",
-            fontWeight: 500,
-            whiteSpace: "nowrap",
-          }}
-        >
-          <BsPlus size={18} /> Create Workflow
-        </button>
-      </div>
-
-      {!hasAnyWorkflows && processes.length === 0 ? (
-        <div className="card border-0 shadow-sm" style={{ borderRadius: "12px" }}>
-          <div className="card-body">
-            <EmptyState onCreateWorkflow={onCreateWorkflow} />
-          </div>
-        </div>
-      ) : (
-        <>
-          {Object.entries(groupedByProcess).map(([key, group]) => {
-            if (group.policies.length === 0 && key !== "no_process") return null;
+      {(hasAnyWorkflows || (processes || []).length > 0) && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 18 }}>
+          {STAT_CARDS.map((card) => {
+            const Icon = card.icon;
             return (
-              <ProcessSection
-                key={key}
-                process={group.process}
-                policies={group.policies}
-                onEdit={onEditWorkflow}
-                onDeleteWorkflow={onDeleteWorkflow}
-                onDeletePolicy={onDeletePolicy}
-                getApproverDisplayInfo={getApproverDisplayInfo}
-                onViewDeptMapping={handleViewDeptMapping}
-              />
+              <div key={card.label} style={{ background: DS.card, border: `1px solid ${DS.border}`, borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: card.bg, color: card.color, flexShrink: 0 }}><Icon size={18} /></div>
+                <div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: DS.dark, fontFamily: "'Poppins', sans-serif", lineHeight: 1 }}>{card.value}</div>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: DS.muted, fontFamily: "'Poppins', sans-serif", marginTop: 1 }}>{card.label}</div>
+                </div>
+              </div>
             );
           })}
-        </>
+        </div>
       )}
 
-      {previewPolicy && (
-        <DepartmentSubGraphPreview
-          policy={previewPolicy}
-          previewData={previewData}
-          loading={previewLoading}
-          onClose={handleClosePreview}
-        />
+      <div className={s.topBar}>
+        <div className="flex-grow-1"><ProcessManageBar processes={processes} onCreateProcess={onCreateProcess} onUpdateProcess={onUpdateProcess} onDeleteProcess={onDeleteProcess} /></div>
+        <button className={s.createBtn} onClick={onCreateWorkflow}><BsPlus size={18} /> Create Workflow</button>
+      </div>
+
+      {!hasAnyWorkflows && (processes || []).length === 0 ? (
+        <div style={{ background: DS.card, border: `1px solid ${DS.border}`, borderRadius: 16 }}><EmptyState onCreateWorkflow={onCreateWorkflow} /></div>
+      ) : (
+        <>
+          {processGroups.some((g) => g.policies.length > 0) && <div className={s.sectionLabel}>Workflows</div>}
+          {processGroups.map((group) => {
+            if (group.policies.length === 0) return null;
+            if (group.isOrphan) return group.policies.map((policy) => (
+              <WorkflowCardV2 key={policy.id} process={{ id: null, name: `${policy.entity_type} Approval`, process_type: "RFQ" }} policies={[policy]} onEdit={() => onDeletePolicy?.(policy.id)} onDelete={() => onDeletePolicy?.(policy.id)} getApproverDisplayInfo={getApproverDisplayInfo} />
+            ));
+            return <WorkflowCardV2 key={group.process.id} process={group.process} policies={group.policies} onEdit={onEditWorkflow} onDelete={onDeleteWorkflow} getApproverDisplayInfo={getApproverDisplayInfo} />;
+          })}
+          {processGroups.filter((g) => !g.isOrphan && g.policies.length === 0).length > 0 && (
+            <>
+              <div className={s.sectionLabel} style={{ marginTop: 10 }}>Unconfigured</div>
+              {processGroups.filter((g) => !g.isOrphan && g.policies.length === 0).map((group) => (
+                <div key={`empty-${group.process.id}`} className={s.emptyProc}>
+                  <div><div className={s.emptyProcName}>{group.process.name}</div><div className={s.emptyProcSub}>No workflows configured</div></div>
+                  <button className={s.configureBtn} onClick={() => onEditWorkflow(group.process)}><BsPlus size={14} /> Configure</button>
+                </div>
+              ))}
+            </>
+          )}
+        </>
       )}
+      {previewPolicy && <DepartmentSubGraphPreview policy={previewPolicy} previewData={previewData} loading={previewLoading} onClose={handleClosePreview} />}
     </div>
   );
 };

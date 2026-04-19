@@ -74,6 +74,7 @@ const ManageAccountsPage = () => {
   // Access modal state
   const [accessModal, setAccessModal] = useState({ open: false, account: null });
   const [accessModalMappings, setAccessModalMappings] = useState([]);
+  const [removeMappingConfirm, setRemoveMappingConfirm] = useState({ open: false, mapping: null });
 
   // Progressive loading state
   const [initialLoad, setInitialLoad] = useState(true);
@@ -301,10 +302,15 @@ const ManageAccountsPage = () => {
     }
   };
 
-  const handleApprovalImpactConfirm = () => {
+  const handleApprovalImpactConfirm = async () => {
     const data = approvalImpactModal.pendingAccountData;
-    setApprovalImpactModal({ open: false, type: null, data: null, pendingAccountData: null });
-    if (data) handleSaveAccount(data, true);
+    if (data?._removeMapping) {
+      await executeRemoveMapping(data._removeMapping, true);
+      setApprovalImpactModal({ open: false, type: null, data: null, pendingAccountData: null });
+    } else if (data) {
+      setApprovalImpactModal({ open: false, type: null, data: null, pendingAccountData: null });
+      handleSaveAccount(data, true);
+    }
   };
 
   // ── Access Modal Handlers ────────────────────────────────
@@ -350,23 +356,63 @@ const ManageAccountsPage = () => {
     }
   };
 
-  const handleAccessRemoveMapping = async (mapping) => {
+  const handleAccessRemoveMapping = (mapping) => {
+    setRemoveMappingConfirm({ open: true, mapping });
+  };
+
+  const executeRemoveMapping = async (mapping, confirmed = false) => {
     const userId = accessModal.account?.id;
-    if (!userId) return;
+    if (!userId || !mapping) return;
+    const payload = {
+      company_id: mapping.hospitality_company_id,
+      mapping_type: mapping.mapping_type,
+      hotel_id: mapping.mapping_type === 1 ? mapping.hospitality_hotel_id : null,
+    };
+    if (confirmed) payload.confirmed_approval_impact = true;
     try {
-      await deleteUserMapping(userId, {
-        company_id: mapping.hospitality_company_id,
-        mapping_type: mapping.mapping_type,
-        hotel_id: mapping.mapping_type === 1 ? mapping.hospitality_hotel_id : null,
-      });
-      toast.success("Access removed");
-      setAccessModalMappings(userProfile?.hospitality_mappings || []);
+      const response = await deleteUserMapping(userId, payload);
+
+      // Backend returns HTTP 200 with status: 0 for approval impact warning
+      if (response?.code === 'APPROVAL_IMPACT_WARNING' && !confirmed) {
+        setRemoveMappingConfirm({ open: false, mapping: null });
+        setApprovalImpactModal({
+          open: true,
+          type: 'warning',
+          data: response.data,
+          pendingAccountData: { _removeMapping: mapping }
+        });
+        return;
+      }
+
+      const removedCount = response?.data?.removed_role_scopes || 0;
+      toast.success(`Access removed${removedCount > 0 ? ` (${removedCount} role scope${removedCount > 1 ? 's' : ''} cleared)` : ''}`);
+      setRemoveMappingConfirm({ open: false, mapping: null });
+      try {
+        const res = await getUserMappingsById(userId);
+        setAccessModalMappings(res?.data || []);
+      } catch { /* ignore */ }
       refreshCurrentPage();
     } catch (error) {
-      toast.error(
-        error?.message?.response?.data?.message || "Failed to remove access"
-      );
+      // Backend returns HTTP 400 for auto-complete blocked
+      const errData = error?.message?.response?.data || error?.response?.data;
+      if (errData?.code === 'APPROVAL_AUTO_COMPLETE_BLOCKED') {
+        setRemoveMappingConfirm({ open: false, mapping: null });
+        setApprovalImpactModal({
+          open: true,
+          type: 'blocked',
+          data: errData.data,
+          pendingAccountData: null
+        });
+        return;
+      }
+      toast.error(errData?.message || "Failed to remove access");
     }
+  };
+
+  const handleConfirmRemoveMapping = async () => {
+    const mapping = removeMappingConfirm.mapping;
+    if (!mapping) return;
+    await executeRemoveMapping(mapping);
   };
 
   // ── Render ─────────────────────────────────────────────────
@@ -631,6 +677,26 @@ const ManageAccountsPage = () => {
             </div>
           ) : null
         }
+      />
+
+      {/* Remove Mapping Confirmation */}
+      <ConfirmationModal
+        isOpen={removeMappingConfirm.open}
+        onClose={() => setRemoveMappingConfirm({ open: false, mapping: null })}
+        onConfirm={handleConfirmRemoveMapping}
+        title="Remove Access"
+        description={
+          removeMappingConfirm.mapping
+            ? `Removing access to ${
+                removeMappingConfirm.mapping.mapping_type === 0
+                  ? (removeMappingConfirm.mapping.company_name || 'this company')
+                  : (removeMappingConfirm.mapping.hotel_name || 'this business unit')
+              } will also remove all role scopes assigned for it.`
+            : 'Are you sure you want to remove this access?'
+        }
+        confirmButtonColor="danger"
+        confirmButtonText="Remove"
+        cancelButtonText="Cancel"
       />
     </div>
   );

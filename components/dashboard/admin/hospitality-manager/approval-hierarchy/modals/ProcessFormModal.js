@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
-import { BRAND_TEAL, PROCESS_TYPES } from "../constants";
+import { BsXLg } from "react-icons/bs";
+import { DS, PROCESS_TYPES, PROCESS_TYPE_COLORS } from "../constants";
+import s from "./ProcessFormModal.module.scss";
 
 const PROCESS_TYPE_OPTIONS = [
-  { value: PROCESS_TYPES.RFQ, label: "RFQ (RFQ → Tech → Negotiation → Neg. Quote → PO)" },
-  { value: PROCESS_TYPES.TENDER, label: "Tender (Tender → Tech → Negotiation → Neg. Quote → ARC)" },
-  { value: PROCESS_TYPES.ARC, label: "ARC (Tender → Tech → Negotiation → Neg. Quote → ARC)" },
+  { value: PROCESS_TYPES.RFQ, label: "RFQ", desc: "RFQ > Tech > Negotiation > Neg. Quote > PO" },
+  { value: PROCESS_TYPES.TENDER, label: "Tender", desc: "Tender > Tech > Negotiation > Neg. Quote > ARC" },
+  { value: PROCESS_TYPES.ARC, label: "ARC", desc: "Tender > Tech > Negotiation > Neg. Quote > ARC" },
 ];
 
 const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) => {
@@ -16,15 +18,8 @@ const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) =>
 
   useEffect(() => {
     if (isOpen) {
-      if (editingProcess) {
-        setName(editingProcess.name || "");
-        setDescription(editingProcess.description || "");
-        setProcess_type(editingProcess.process_type || PROCESS_TYPES.RFQ);
-      } else {
-        setName("");
-        setDescription("");
-        setProcess_type(PROCESS_TYPES.RFQ);
-      }
+      if (editingProcess) { setName(editingProcess.name || ""); setDescription(editingProcess.description || ""); setProcess_type(editingProcess.process_type || PROCESS_TYPES.RFQ); }
+      else { setName(""); setDescription(""); setProcess_type(PROCESS_TYPES.RFQ); }
       setSaving(false);
     }
   }, [isOpen, editingProcess]);
@@ -32,158 +27,64 @@ const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) =>
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
-    try {
-      await onSave({
-        name: name.trim(),
-        description: description.trim() || null,
-        process_type: process_type || PROCESS_TYPES.RFQ,
-      });
-      onClose();
-    } catch (error) {
-      // Error toast handled by parent hook
-    } finally {
-      setSaving(false);
-    }
+    try { await onSave({ name: name.trim(), description: description.trim() || null, process_type: process_type || PROCESS_TYPES.RFQ }); onClose(); }
+    catch (error) { /* handled by parent */ }
+    finally { setSaving(false); }
   };
 
   const isEdit = !!editingProcess;
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onRequestClose={saving ? undefined : onClose}
-      ariaHideApp={false}
-      contentLabel={isEdit ? "Edit Process" : "Create Process"}
-      shouldCloseOnOverlayClick={!saving}
-      shouldCloseOnEsc={!saving}
+    <Modal isOpen={isOpen} onRequestClose={saving ? undefined : onClose} ariaHideApp={false} contentLabel={isEdit ? "Edit Process" : "Create Process"} shouldCloseOnOverlayClick={!saving} shouldCloseOnEsc={!saving}
       style={{
-        overlay: {
-          backgroundColor: "rgba(0, 0, 0, 0.75)",
-          zIndex: 9999,
-        },
-        content: {
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          maxWidth: "480px",
-          width: "90%",
-          border: "none",
-          background: "#fff",
-          overflow: "hidden",
-          padding: "0",
-          borderRadius: "12px",
-          maxHeight: "95vh",
-          display: "flex",
-          flexDirection: "column",
-        },
+        overlay: { backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" },
+        content: { position: "relative", inset: "auto", maxWidth: 480, width: "92%", border: `1px solid ${DS.border}`, background: DS.card, overflow: "hidden", padding: 0, borderRadius: 16, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" },
       }}
     >
-      {/* Header - Fixed */}
-      <div style={{ borderBottom: "1px solid #e5e7eb", padding: "16px 20px", flexShrink: 0 }}>
-        <div className="d-flex justify-content-between align-items-center">
-          <h5 className="mb-0 fw-bold" style={{ fontSize: "18px" }}>
-            {isEdit ? "Edit Process" : "Create Process"}
-          </h5>
-          <button
-            type="button"
-            className="btn-close"
-            onClick={onClose}
-            disabled={saving}
-            aria-label="Close"
-          />
-        </div>
+      <div className={s.header}>
+        <span className={s.title}>{isEdit ? "Edit Process" : "Create Process"}</span>
+        <button className={s.closeBtn} onClick={onClose} disabled={saving}><BsXLg size={14} /></button>
       </div>
-
-      {/* Content - Dynamic shrinking */}
-      <div style={{ padding: "20px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-        <div className="mb-3" style={{ flexShrink: 0 }}>
-          <label className="form-label fw-semibold" style={{ fontSize: "13px", marginBottom: "6px" }}>
-            Process Name <span className="text-danger">*</span>
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g., Renovation, Day to Day Procurement"
-            maxLength={100}
-            autoFocus
-            style={{ borderRadius: "6px" }}
-          />
+      <div className={s.body}>
+        <div className={s.field}>
+          <label className={s.label}>Process Name<span className={s.required}>*</span></label>
+          <input type="text" className={s.input} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Renovation, Day to Day Procurement" maxLength={100} autoFocus />
         </div>
-        {!isEdit && (
-          <div className="mb-3" style={{ flexShrink: 0 }}>
-            <label className="form-label fw-semibold" style={{ fontSize: "13px", marginBottom: "6px" }}>
-              Process type
-            </label>
-            <select
-              className="form-select"
-              value={process_type}
-              onChange={(e) => setProcess_type(e.target.value)}
-              style={{ borderRadius: "6px" }}
-            >
-              {PROCESS_TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-          <label className="form-label fw-semibold" style={{ fontSize: "13px", marginBottom: "6px", flexShrink: 0 }}>
-            Description <span className="text-muted fw-normal">(optional)</span>
-          </label>
-          <textarea
-            className="form-control"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Brief description of this process..."
-            maxLength={500}
-            style={{ borderRadius: "6px", resize: "none", flex: 1, minHeight: "60px" }}
-          />
-          <small className="text-muted d-block text-end mt-1" style={{ flexShrink: 0 }}>{description.length}/500</small>
-        </div>
-      </div>
-
-      {/* Footer - Fixed */}
-      <div
-        className="d-flex justify-content-end gap-2"
-        style={{ borderTop: "1px solid #e5e7eb", padding: "14px 20px", flexShrink: 0 }}
-      >
-        <button
-          className="btn btn-outline-secondary"
-          onClick={onClose}
-          disabled={saving}
-          style={{ borderRadius: "6px", padding: "8px 20px", fontSize: "13px" }}
-        >
-          Cancel
-        </button>
-        <button
-          className="btn"
-          onClick={handleSave}
-          disabled={saving || !name.trim()}
-          style={{
-            backgroundColor: BRAND_TEAL,
-            borderColor: BRAND_TEAL,
-            color: "#fff",
-            borderRadius: "6px",
-            padding: "8px 20px",
-            fontSize: "13px",
-            opacity: saving || !name.trim() ? 0.65 : 1,
-          }}
-        >
-          {saving ? (
-            <>
-              <span className="spinner-border spinner-border-sm me-2" role="status" />
-              Saving...
-            </>
-          ) : isEdit ? (
-            "Update Process"
-          ) : (
-            "Create Process"
+        <div className={s.field}>
+          <label className={s.label}>Process Type{!isEdit && <span className={s.required}>*</span>}</label>
+          {isEdit ? (() => {
+            const currentOpt = PROCESS_TYPE_OPTIONS.find((o) => o.value === process_type) || PROCESS_TYPE_OPTIONS[0];
+            const color = PROCESS_TYPE_COLORS[currentOpt.value.toUpperCase()] || DS.primary;
+            return (
+              <div className={s.typeCard} style={{ borderColor: color, background: color + "08", cursor: "default" }}>
+                <div className={s.typeName} style={{ color }}>{currentOpt.label}</div>
+                <div className={s.typeDesc}>{currentOpt.desc}</div>
+              </div>
+            );
+          })() : (
+            <div className={s.types}>
+              {PROCESS_TYPE_OPTIONS.map((opt) => {
+                const color = PROCESS_TYPE_COLORS[opt.value.toUpperCase()] || DS.primary;
+                return (
+                  <div key={opt.value} className={`${s.typeCard} ${process_type === opt.value ? s.typeCardSelected : ""}`} onClick={() => setProcess_type(opt.value)} style={process_type === opt.value ? { borderColor: color, background: color + "08" } : undefined}>
+                    <div className={s.typeName} style={{ color: process_type === opt.value ? color : DS.dark }}>{opt.label}</div>
+                    <div className={s.typeDesc}>{opt.desc}</div>
+                  </div>
+                );
+              })}
+            </div>
           )}
+        </div>
+        <div className={s.field}>
+          <label className={s.label}>Description <span className={s.optional}>(optional)</span></label>
+          <textarea className={`${s.input} ${s.textarea}`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief description..." maxLength={500} />
+          <div className={s.charCount}>{description.length}/500</div>
+        </div>
+      </div>
+      <div className={s.footer}>
+        <button className={`${s.btn} ${s.btnCancel}`} onClick={onClose} disabled={saving}>Cancel</button>
+        <button className={`${s.btn} ${s.btnSave}`} onClick={handleSave} disabled={saving || !name.trim()}>
+          {saving ? (<><span className="spinner-border spinner-border-sm" role="status" /> Saving...</>) : isEdit ? "Update Process" : "Create Process"}
         </button>
       </div>
     </Modal>

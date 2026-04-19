@@ -276,11 +276,19 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
         <div className={styles.actionsRow} onClick={(e) => e.stopPropagation()}>
           {isDraft ? (
             <>
-              <Link href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.id}`}>
-                <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>Edit Draft</button>
-              </Link>
-              {onDelete && (
-                <button className={`btn btn-sm ${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => onDelete(data)}>Delete</button>
+              {currentUser && String(data.created_by) === String(currentUser.id) ? (
+                <>
+                  <Link href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.id}`}>
+                    <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>Edit Draft</button>
+                  </Link>
+                  {onDelete && (
+                    <button className={`btn btn-sm ${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => onDelete(data)}>Delete</button>
+                  )}
+                </>
+              ) : (
+                <Link href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.id}&view_only=true`}>
+                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>View Draft</button>
+                </Link>
               )}
             </>
           ) : (

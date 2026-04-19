@@ -3,9 +3,10 @@ import { useSelector } from "react-redux";
 import { HiX, HiPencil } from "react-icons/hi";
 import { getDepartments, getRoles, getRolePermissions } from "@/services/rbac";
 import { getHospitalityEntities, getUserMappingsById } from "@/services/hospitality";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import styles from "@/components/dashboard/admin/account-management/manage-accounts/ManageAccounts.module.scss";
 
-export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDepartment: propSelectedDepartment, isEditMode = true, onRemoveRole, onReplaceRole = null, userDepartments = [], userId = null, externalMappings = null }) {
+export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDepartment: propSelectedDepartment, isEditMode = true, onRemoveRole, onReplaceRole = null, userDepartments = [], userId = null, externalMappings = null, pendingScopeRef = null }) {
   const userProfile = useSelector((state) => state.userProfile);
   const [roles, setRoles] = useState([]);
   const [companies, setCompanies] = useState([]);
@@ -27,6 +28,24 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   // When set, the bottom form pre-fills with that role's scope and the
   // primary action becomes "Save Changes" instead of "Add Role".
   const [editingIndex, setEditingIndex] = useState(null);
+  const [allAccessConfirm, setAllAccessConfirm] = useState({ open: false, scope: null });
+
+  // Expose current form state to parent so it can auto-add on save
+  useEffect(() => {
+    if (!pendingScopeRef) return;
+    if (selectedRole && selectedCompany) {
+      pendingScopeRef.current = {
+        role_id: selectedRole.id,
+        role_title: selectedRole.title,
+        company_id: selectedCompany.id,
+        hotel_id: selectedHotel?.id || null,
+        department_id: selectedDepartment?.id || null,
+        permissions
+      };
+    } else {
+      pendingScopeRef.current = null;
+    }
+  }, [selectedRole, selectedCompany, selectedHotel, selectedDepartment, permissions, pendingScopeRef]);
 
   /* ---------------- Effects ---------------- */
 
@@ -172,63 +191,13 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     setCompanies(filteredCompanies);
   }, [userMappings, allCompanies, isEditMode, userMappingsLoaded, externalMappings]);
 
+  // Role scope department dropdown always shows all departments.
+  // department_id = NULL in role scope means literal all-department access,
+  // so the dropdown is not restricted by the user's own departments.
   useEffect(() => {
     if (allDepartments.length === 0) return;
-
-    if (isEditMode) {
-      if (userDepartments === undefined) {
-        setDepartments(allDepartments);
-        return;
-      }
-
-      if (Array.isArray(userDepartments)) {
-        if (userDepartments.length > 0) {
-          const userDeptIds = userDepartments.map(d => {
-            if (typeof d === 'number') return Number(d);
-            if (typeof d === 'object' && d !== null) {
-              const id = d.id || d.value || d.department_id;
-              return id ? Number(id) : null;
-            }
-            return null;
-          }).filter(id => id !== null && id !== undefined);
-
-          if (userDeptIds.length > 0) {
-            const filteredDepts = allDepartments.filter(d => {
-              const deptId = Number(d.id || d.value);
-              return userDeptIds.includes(deptId);
-            });
-            setDepartments(filteredDepts);
-          } else {
-            setDepartments([]);
-          }
-        } else {
-          setDepartments([]);
-        }
-      } else {
-        setDepartments(allDepartments);
-      }
-    } else {
-      // Not in edit mode — filter by userDepartments if provided
-      if (Array.isArray(userDepartments) && userDepartments.length > 0) {
-        const userDeptIds = userDepartments.map(d => {
-          if (typeof d === 'number') return Number(d);
-          if (typeof d === 'object' && d !== null) {
-            const id = d.id || d.value || d.department_id;
-            return id ? Number(id) : null;
-          }
-          return null;
-        }).filter(id => id !== null && id !== undefined);
-
-        if (userDeptIds.length > 0) {
-          setDepartments(allDepartments.filter(d => userDeptIds.includes(Number(d.id || d.value))));
-        } else {
-          setDepartments(allDepartments);
-        }
-      } else {
-        setDepartments(allDepartments);
-      }
-    }
-  }, [isEditMode, userDepartments, allDepartments]);
+    setDepartments(allDepartments);
+  }, [allDepartments]);
 
   useEffect(() => {
     if (propSelectedDepartment && !isEditMode) {
@@ -285,6 +254,16 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     setError(null);
   };
 
+  const commitScope = (scope) => {
+    if (editingIndex !== null && onReplaceRole) {
+      onReplaceRole(editingIndex, scope);
+      setEditingIndex(null);
+    } else {
+      onAddRole(scope);
+    }
+    resetForm();
+  };
+
   const handleAddRole = () => {
     if (!selectedRole || !selectedCompany) return;
 
@@ -297,9 +276,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       permissions
     };
 
-    // Prevent exact duplicate role scope. When editing, exclude the row being
-    // edited from the duplicate check (otherwise editing without changing
-    // anything would falsely flag itself as a duplicate).
+    // Prevent exact duplicate role scope
     const isDuplicate = (existingRoles || []).some((r, i) => {
       if (editingIndex !== null && i === editingIndex) return false;
       return r.role_id === newScope.role_id &&
@@ -312,17 +289,15 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       return;
     }
 
-    if (editingIndex !== null && onReplaceRole) {
-      // Edit = remove the original + insert the modified one in the same slot
-      // (atomic via parent's onReplaceRole — calling onRemoveRole + onAddRole
-      // sequentially would race on parent state).
-      onReplaceRole(editingIndex, newScope);
-      setEditingIndex(null);
-    } else {
-      onAddRole(newScope);
+    // If hotel or department is "All" (null), confirm with user
+    const allHotel = !newScope.hotel_id;
+    const allDept = !newScope.department_id;
+    if (allHotel || allDept) {
+      setAllAccessConfirm({ open: true, scope: newScope });
+      return;
     }
 
-    resetForm();
+    commitScope(newScope);
   };
 
   const handleEditRole = (index) => {
@@ -666,6 +641,27 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
           </div>
         </>
       )}
+      {/* All-access confirmation modal */}
+      <ConfirmationModal
+        isOpen={allAccessConfirm.open}
+        onClose={() => setAllAccessConfirm({ open: false, scope: null })}
+        onConfirm={() => {
+          const scope = allAccessConfirm.scope;
+          setAllAccessConfirm({ open: false, scope: null });
+          if (scope) commitScope(scope);
+        }}
+        title="Grant broad access?"
+        description={(() => {
+          if (!allAccessConfirm.scope) return '';
+          const parts = [];
+          if (!allAccessConfirm.scope.hotel_id) parts.push('all business units');
+          if (!allAccessConfirm.scope.department_id) parts.push('all departments');
+          return `This role will have access across ${parts.join(' and ')}. Are you sure?`;
+        })()}
+        confirmButtonColor="warning"
+        confirmButtonText="Yes, grant access"
+        cancelButtonText="Cancel"
+      />
     </div>
   );
 }
