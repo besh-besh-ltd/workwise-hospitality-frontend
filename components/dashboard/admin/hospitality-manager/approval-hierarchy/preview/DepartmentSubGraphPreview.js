@@ -16,11 +16,6 @@ import {
 import { Collapse } from "react-bootstrap";
 import { getEntityTypeConfig, BRAND_TEAL, BRAND_TEAL_LIGHT } from "../constants";
 
-const ACCESS_COLORS = {
-  ALL: { border: "#16a34a", bg: "#f0fdf4", text: "#15803d", badge: "#dcfce7" },
-  INDIVIDUAL: { border: "#4f46e5", bg: "#eef2ff", text: "#4338ca", badge: "#e0e7ff" },
-};
-
 const DepartmentSubGraphPreview = ({ policy, previewData, loading, onClose }) => {
   const [expandedDepts, setExpandedDepts] = useState({});
 
@@ -799,21 +794,8 @@ const DepartmentSubGraphPreview = ({ policy, previewData, loading, onClose }) =>
               <>
                 <div className="dsg-description">
                   Shows how the master approval workflow resolves for each department based on
-                  access type and role assignments.
+                  role scope assignments.
                 </div>
-                {previewData.all_access_departments?.length > 0 && (
-                  <div className="dsg-all-access-banner">
-                    <div className="dsg-all-access-banner-icon">
-                      <BsShieldFillCheck size={14} />
-                    </div>
-                    <div>
-                      <span className="dsg-all-access-dept-name">
-                        {previewData.all_access_departments.map(d => d.title).join(", ")}
-                      </span>
-                      {" "}users are included in every department below (ALL access)
-                    </div>
-                  </div>
-                )}
                 {previewData.department_subgraphs.map((sg) => (
                   <DeptCard
                     key={sg.department.id}
@@ -859,25 +841,20 @@ const DepartmentSubGraphPreview = ({ policy, previewData, loading, onClose }) =>
    =================================================================== */
 const DeptCard = ({ subgraph, expanded, onToggle }) => {
   const { department, steps, active_steps, will_auto_approve } = subgraph;
-  const accessType = (department.access_type || "INDIVIDUAL").toUpperCase();
-  const accentClass = accessType === "ALL" ? "all" : "individual";
   const progressPct = steps.length > 0 ? (active_steps / steps.length) * 100 : 0;
 
   return (
-    <div className={`dsg-dept-card accent-${accentClass === "all" ? "all" : "individual"}`}>
+    <div className="dsg-dept-card accent-individual">
       <div className="dsg-dept-head" onClick={onToggle}>
         <div className="dsg-dept-left">
           <BsChevronRight
             size={12}
             className={`dsg-dept-chevron${expanded ? " open" : ""}`}
           />
-          <div className={`dsg-dept-icon ${accentClass}`}>
+          <div className="dsg-dept-icon individual">
             <BsBuilding size={15} />
           </div>
           <span className="dsg-dept-name">{department.title}</span>
-          <span className={`dsg-access-badge ${accentClass}`}>
-            {accessType}
-          </span>
           {will_auto_approve && (
             <span className="dsg-auto-badge">
               <BsCheckCircleFill size={10} />

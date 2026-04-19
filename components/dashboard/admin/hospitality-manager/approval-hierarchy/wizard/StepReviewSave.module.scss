@@ -1,0 +1,18 @@
+@import '../tokens';
+
+.heading { font-size: 18px; font-weight: 700; color: $dark; margin-bottom: 6px; font-family: $font; }
+.subtext { font-size: 13px; color: $muted; margin-bottom: 20px; font-family: $font; }
+.summaryGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.summaryCard { background: $page-bg; border: 1px solid $border; border-radius: 12px; padding: 14px 16px; }
+.summaryLabel { font-size: 11px; font-weight: 600; color: $muted; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; font-family: $font; }
+.summaryValue { font-size: 14px; font-weight: 600; color: $dark; font-family: $font; }
+.typePill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; margin-left: 6px; font-family: $font; }
+.flowContainer { background: $card; border: 1px solid $border; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+.flowHeader { font-size: 13px; font-weight: 600; color: $muted; padding: 14px 20px; border-bottom: 1px solid $border; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: $font; }
+.flowBody { padding: 20px; max-width: 500px; margin: 0 auto; }
+.infoBanner {
+  background: $green-tint; border: 1px solid rgba($secondary, 0.3); border-radius: 10px;
+  padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+  margin-top: 20px; max-width: 600px; margin-left: auto; margin-right: auto;
+  p { margin: 0; font-size: 13px; color: #2e7d32; line-height: 1.5; font-family: $font; }
+}
