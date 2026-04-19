@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { getRFQById, closeRFQ, withdrawPublish } from "@/services/rfq";
@@ -6,6 +6,8 @@ import ViewRFQ from "./manageRFQ/ViewRFQ";
 import { toast } from "react-toastify";
 import { getEntityLabel } from "@/utils/sharedFunctions";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import { useModulePermissions } from "@/hooks/useModulePermissions";
+import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 
 const RfqManagementDetails = () => {
   const router = useRouter();
@@ -20,11 +22,30 @@ const RfqManagementDetails = () => {
 
   const isCreator = rfqDetails && userProfile && String(rfqDetails.created_by) === String(userProfile.id);
 
+  // Permission check for viewing this RFQ
+  const moduleKey = rfqDetails?.is_tender == 1 ? 'boq' : 'rfq';
+  const hotelIds = useMemo(() => {
+    return rfqDetails?.hotel_id ? [rfqDetails.hotel_id] : [];
+  }, [rfqDetails?.hotel_id]);
+  const { canRead, loading: permLoading } = useModulePermissions({
+    moduleKey,
+    hotelIds,
+    departmentId: rfqDetails?.department_id || null,
+    enabled: !!rfqDetails,
+  });
+  const [apiForbidden, setApiForbidden] = useState(false);
+  const isAccessDenied = apiForbidden || (rfqDetails && !permLoading && !canRead);
+
   useEffect(() => {
     if(id && id !== '') {
       getRFQById(id).then(res => {
         setrfqDetails(res.data)
       }).catch((err) => {
+        const status = err?.response?.status || err?.message?.response?.status;
+        if (status === 403) {
+          setApiForbidden(true);
+          return;
+        }
         console.error("Error fetching RFQ:", err);
       })
     }
@@ -80,6 +101,10 @@ const RfqManagementDetails = () => {
       setWithdrawLoading(false);
     }
   };
+
+  if (isAccessDenied) {
+    return <AccessDeniedPage />;
+  }
 
   return (
     <>

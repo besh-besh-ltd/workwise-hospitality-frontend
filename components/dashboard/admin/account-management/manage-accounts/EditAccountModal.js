@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Modal from "react-modal";
 import { Formik, Form } from "formik";
 import { HiX } from "react-icons/hi";
@@ -78,6 +78,7 @@ const EditAccountModal = ({
 }) => {
   const [roleScopes, setRoleScopes] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const pendingScopeRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -133,6 +134,22 @@ const EditAccountModal = ({
       statusVal = 1;
     }
 
+    // Auto-add pending role scope if the user filled the form but didn't click Add
+    let finalRoleScopes = [...(roleScopes || [])];
+    const pending = pendingScopeRef.current;
+    if (pending && pending.role_id && pending.company_id) {
+      const isDuplicate = finalRoleScopes.some(
+        (r) =>
+          r.role_id === pending.role_id &&
+          r.company_id === pending.company_id &&
+          (r.hotel_id || null) === (pending.hotel_id || null) &&
+          (r.department_id || null) === (pending.department_id || null)
+      );
+      if (!isDuplicate) {
+        finalRoleScopes.push(pending);
+      }
+    }
+
     let departmentIds = [];
     if (values.department_id && Array.isArray(values.department_id)) {
       departmentIds = values.department_id.map((dept) =>
@@ -142,14 +159,14 @@ const EditAccountModal = ({
 
     const roleScopeDeptIds = Array.from(
       new Set(
-        (roleScopes || [])
+        finalRoleScopes
           .map((r) => r.department_id)
           .filter((id) => id !== null && id !== undefined)
       )
     );
     departmentIds = Array.from(new Set([...departmentIds, ...roleScopeDeptIds]));
 
-    const filteredRoles = (roleScopes || []).map((role) => ({
+    const filteredRoles = finalRoleScopes.map((role) => ({
       role_id: role.role_id,
       role_title: role.role_title || null,
       company_id: role.company_id || null,
@@ -403,6 +420,7 @@ const EditAccountModal = ({
                     isEditMode
                     userDepartments={userDepartments}
                     userId={account.id}
+                    pendingScopeRef={pendingScopeRef}
                   />
                 </div>
               )}

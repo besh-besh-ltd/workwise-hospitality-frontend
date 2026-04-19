@@ -11,6 +11,38 @@ import {
 export const BRAND_TEAL = "#158993";
 export const BRAND_TEAL_LIGHT = "#e8f5f6";
 
+// Design system tokens
+export const BRAND_PRIMARY = "#2E5BA8";
+export const BRAND_SECONDARY = "#428B41";
+export const BRAND_ACCENT = "#FFA500";
+export const BRAND_DARK = "#1A2730";
+export const DS = {
+  primary: "#2E5BA8",
+  secondary: "#428B41",
+  accent: "#FFA500",
+  dark: "#1A2730",
+  body: "#5B5B5B",
+  muted: "#6C757D",
+  error: "#DB0A0A",
+  inputBg: "#FFFFFF",
+  pageBg: "#F8F9FA",
+  border: "#D3D3D3",
+  card: "#FFFFFF",
+  blueTint: "#E3F2FD",
+  blueLight: "#F0F4FF",
+  greenTint: "#E8F5E8",
+  orangeTint: "#FFF3E0",
+};
+
+export const PROCESS_TYPE_COLORS = {
+  RFQ: "#2E5BA8",
+  TENDER: "#428B41",
+  ARC: "#FFA500",
+};
+
+/** Append hex-alpha to a hex color. Usage: alpha(DS.primary, '40') → '#2E5BA840' */
+export const alpha = (hex, a) => `${hex}${a}`;
+
 export const entityTypes = [
   { value: "RFQ", label: "RFQ Approval", description: "Request for Quotation", icon: BsFileEarmarkText, color: "#2E5BA8" },
   { value: "TENDER", label: "Tender Approval", description: "Tender submissions", icon: BsClipboard2Check, color: "#428B41" },

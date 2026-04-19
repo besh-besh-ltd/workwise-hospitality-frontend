@@ -1,0 +1,48 @@
+@import '../tokens';
+
+.wrap { padding: 16px 0; }
+.wrapCompact { padding: 8px 0; }
+.emptyIcon { opacity: 0.3; }
+.stepCard {
+  background: #fff; border: 1px solid $border; border-left: 4px solid $primary;
+  border-radius: 8px; transition: all 0.2s ease; position: relative;
+  &:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); transform: translateY(-1px); }
+}
+.stepCardCompact { padding: 10px 12px; }
+.stepCardFull { padding: 16px 20px; }
+.stepCircle {
+  border-radius: 50%; background: $primary; color: #fff; display: flex;
+  align-items: center; justify-content: center; font-weight: 700;
+  box-shadow: 0 2px 6px rgba($primary, 0.3);
+}
+.stepCircleSm { width: 24px; height: 24px; min-width: 24px; font-size: 11px; }
+.stepCircleLg { width: 36px; height: 36px; min-width: 36px; font-size: 14px; }
+.connector { display: flex; flex-direction: column; align-items: center; }
+.connectorSm { padding: 4px 0; }
+.connectorLg { padding: 8px 0; }
+.connectorLine { width: 2px; background: $primary; position: relative; }
+.connectorLineSm { height: 16px; }
+.connectorLineLg { height: 24px; }
+.connectorLine::after {
+  content: ''; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent;
+  border-top: 6px solid $primary;
+}
+.connectorLabel { font-size: 10px; color: #9ca3af; margin-top: 6px; font-weight: 500; }
+.decisionBadge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+  border-radius: 4px; font-weight: 500;
+}
+.decisionBadgeSm { font-size: 10px; }
+.decisionBadgeLg { font-size: 11px; }
+.decisionAny { background: #dcfce7; color: #166534; }
+.decisionAll { background: #fef3c7; color: #92400e; }
+.typeBadge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+  border-radius: 4px; background: #f3f4f6; color: #374151;
+}
+.typeBadgeSm { font-size: 10px; }
+.typeBadgeLg { font-size: 11px; }
+.roleUsersList { background: #f9fafb; border: 1px solid $border; border-radius: 6px; padding: 8px 10px; margin-top: 8px; }
+.roleUserItem { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.roleUserItem + .roleUserItem { border-top: 1px solid #f3f4f6; }

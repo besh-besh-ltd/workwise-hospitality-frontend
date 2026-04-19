@@ -341,6 +341,15 @@ const QuoteCompare = () => {
     }
   }, [rfq, rfqMetadataReady, permissionsLoading, canReadNegotiation, canReadQuoteCompare]);
 
+  // Reset quotesLoading when access is denied so the AccessDenied banner can render.
+  // Without this, quotesLoading stays true (set during Stage 1 metadata) because
+  // initializeRfqData() is never called when both permissions are false.
+  useEffect(() => {
+    if (rfq && rfqMetadataReady && !permissionsLoading && !canReadNegotiation && !canReadQuoteCompare) {
+      setquotesLoading(false);
+    }
+  }, [rfq, rfqMetadataReady, permissionsLoading, canReadNegotiation, canReadQuoteCompare]);
+
   // Re-fetch quotes on filter change (TA, freight, normalize) — only for already-initialized RFQ
   const filterInitialized = useRef(false);
   useEffect(() => {
@@ -589,7 +598,7 @@ const handleCloseNormalizeModal = () => {
  
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
-    getRfqs({ tech_eval: false, page, limit, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote", hotel_id: selectedHotelIds && selectedHotelIds.length > 0 ? selectedHotelIds[0] : null })
+    getRfqs({ tech_eval: false, quote_compare: true, page, limit, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote", hotel_id: selectedHotelIds && selectedHotelIds.length > 0 ? selectedHotelIds[0] : null })
       .then((res) => {
         setloading(false);
         const newData = Array.isArray(res) ? res : [];
@@ -1748,7 +1757,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
   const isAccessDenied = currentRFQ && !permissionsLoading && !canReadNegotiation && !canReadQuoteCompare;
 
   // Inline loading — single loader for the entire right section
-  const isContentLoading = !!rfq && (permissionsLoading || !rfqMetadataReady || quotesLoading);
+  // When access is denied, stop showing the spinner so the AccessDenied banner can render
+  const isContentLoading = !!rfq && !isAccessDenied && (permissionsLoading || !rfqMetadataReady || quotesLoading);
 
   return (
     <>

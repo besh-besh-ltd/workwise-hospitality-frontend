@@ -105,7 +105,7 @@ export function cleanUpdatableData(updatableData) {
 
 const CreateRFQ = () => {
   const router = useRouter();
-  const { draft_id } = router.query;
+  const { draft_id, view_only } = router.query;
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [mainLoading, setMainLoading] = useState(false);
@@ -135,6 +135,10 @@ const CreateRFQ = () => {
   const allTerms = useSelector((data) => data.allTerms);
   const selectedTerms = useSelector((data) => data.rfqFormData.terms);
   const termFiles = useSelector((state) => state.rfqFormData.term_and_condition_files || []);
+  // View-only mode: when viewing someone else's draft (linked via view_only=true)
+  // Also verified against created_by once draft loads
+  const isViewOnlyDraft = view_only === 'true' && draft_id && userProfile &&
+    rfqFormDataFromStore?.created_by && String(rfqFormDataFromStore.created_by) !== String(userProfile.id);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [countryCode , setCountryCode] = useState ([]);
   const [ onecountrycode ,setonecountrycode] = useState("");
@@ -310,13 +314,14 @@ const CreateRFQ = () => {
     }
   }
 
-  const fetchDepartments = async () => {
+  const fetchDepartments = async (hotelId = null) => {
     try {
-      const response = await getDepartments();
+      const resource = rfqFormDataFromStore?.is_tender === 1 ? 'boq' : 'rfq';
+      const params = hotelId ? { hotel_id: hotelId, resource } : {};
+      const response = await getDepartments(params);
       const depts = (response?.data?.data || response?.data || []).map((d) => ({
         value: d.id,
-        label: d.title || d.name,
-        accessType: d.access_type || 'INDIVIDUAL'
+        label: d.title || d.name
       }));
       setDepartments(depts);
     } catch (error) {
@@ -354,6 +359,9 @@ const CreateRFQ = () => {
       }
     }
 
+    // Clear department selection when hotel changes since available departments may differ
+    // (departments are re-fetched by the selectedHotelIds useEffect)
+    dispatch(setOtherFormFields({ field_name: "department_id", value: null }));
     dispatch(setOtherFormFields({ field_name: "project_id", value: -1 }));
     setHasUnsavedChanges(true);
   }
@@ -2073,13 +2081,20 @@ useEffect(() => {
       getVendorApproveList();
       fetchCountryCodes();
       fetchHospitalityContexts();
-      fetchDepartments();
       fetchProcesses();
     } catch (error) {
       console.log("SOMETHING WENT WRONG DURING INITIAL FETCHING");
       toast.error(error.message)
     }
   }, []);
+
+  // Fetch departments scoped to the selected hotel (covers manual selection, draft loading, auto-selection)
+  // Skip when no hotel is selected — department dropdown won't show until hotel is chosen anyway
+  useEffect(() => {
+    if (selectedHotelIds && selectedHotelIds.length > 0) {
+      fetchDepartments(selectedHotelIds[0]);
+    }
+  }, [selectedHotelIds]);
   // Watch for changes in the draft_id from URL
   useEffect(() => {
     // Changes by Agnij 2025-06-17 [Reset state when draft_id changes]
@@ -2287,8 +2302,9 @@ useEffect(() => {
 
   // Handle access denied (no create/update permission for drafts)
   // For new RFQs we check canCreate, for existing drafts we check canUpdate
-  const hasPermission = draft_id ? (canUpdate || canCreate) : canCreate;
-  if (selectedHotelIds.length > 0 && !permissionsLoading && !hasPermission && !canRead) {
+  // View-only drafts (someone else's) are always read-only regardless of RBAC permissions
+  const hasPermission = isViewOnlyDraft ? false : (draft_id ? (canUpdate || canCreate) : canCreate);
+  if (!isViewOnlyDraft && selectedHotelIds.length > 0 && !permissionsLoading && !hasPermission && !canRead) {
     return (
       <AccessDeniedPage
         title="Access Denied"
@@ -2303,16 +2319,25 @@ useEffect(() => {
     <>
       {(mainLoading || storeLoading) && <Loader />}
 
-      {/* Read-only banner - Show when user has read but not create/update permission */}
-      {selectedHotelIds.length > 0 && !hasPermission && canRead && (
-        <ReadOnlyBanner
-          title="View Only Mode"
-          message="You don't have create/edit permissions for the selected business units. Contact your administrator to request access."
-        />
-      )}
-
       <div className="create-rfq-con">
           <>
+            {/* Read-only banner - viewing someone else's draft */}
+            {isViewOnlyDraft && (
+              <ReadOnlyBanner
+                title="View Only Mode"
+                message="This draft was created by another user. You can view it but cannot make changes."
+                noMarginTop
+              />
+            )}
+
+            {/* Read-only banner - Show when user has read but not create/update permission */}
+            {!isViewOnlyDraft && selectedHotelIds.length > 0 && !hasPermission && canRead && (
+              <ReadOnlyBanner
+                title="View Only Mode"
+                message="You don't have create/edit permissions for the selected business units. Contact your administrator to request access."
+                noMarginTop
+              />
+            )}
             {/* Add Products Button */}
             <div className="details-table mt-0">
               {!loading && rfqProducts.length == 0 ? (
@@ -2736,31 +2761,11 @@ useEffect(() => {
                                       classNamePrefix="react-select"
                                       isClearable
                                     />
-                                    {rfqFormDataFromStore.department_id && (() => {
-                                      const selectedDept = departments.find(d => d.value === rfqFormDataFromStore.department_id);
-                                      if (!selectedDept) return null;
-                                      return (
-                                        <small className="d-block mt-1" style={{ fontSize: "11px" }}>
-                                          <span
-                                            style={{
-                                              padding: "1px 8px",
-                                              borderRadius: "10px",
-                                              fontSize: "10px",
-                                              fontWeight: 600,
-                                              backgroundColor: selectedDept.accessType === "ALL" ? "#dcfce7" : "#dbeafe",
-                                              color: selectedDept.accessType === "ALL" ? "#166534" : "#1e40af",
-                                            }}
-                                          >
-                                            {selectedDept.accessType}
-                                          </span>
-                                          <span className="text-muted ms-1">
-                                            {selectedDept.accessType === "ALL"
-                                              ? "Approvers from any department can approve"
-                                              : "Only department members can approve"}
-                                          </span>
-                                        </small>
-                                      );
-                                    })()}
+                                    {rfqFormDataFromStore.department_id && (
+                                      <small className="d-block mt-1 text-muted" style={{ fontSize: "11px" }}>
+                                        Approvers with this department scope or All Departments can approve
+                                      </small>
+                                    )}
                                   </div>
                                 )}
 
