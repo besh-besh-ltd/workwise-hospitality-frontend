@@ -13,28 +13,31 @@ import useIsMobile from "@/hooks/useIsMobile";
 import styles from "@/components/layout/DashboardShell/DashboardShell.module.css";
 
 const TAB_CONFIG = [
-  { key: "pendingRFQs", label: "Pending", urlKey: "pending-rfq", Icon: ClipboardCheck, showBadge: true },
-  { key: "manageRFQs", label: "Manage", urlKey: "manage-rfq", Icon: FileText },
-  { key: "draftRFQs", label: "Drafts", urlKey: "draft-rfq", Icon: FilePenLine },
-  { key: "closedRFQs", label: "Closed", urlKey: "closed-rfq", Icon: XCircle },
-  { key: "completedRFQs", label: "Approved", urlKey: "completed-rfq", Icon: CheckCircle2 },
+  { key: "pendingRFQs", label: "Approval Pending RFQs", urlKey: "pending-rfq", Icon: ClipboardCheck, showBadge: true },
+  { key: "manageRFQs", label: "Running RFQs", urlKey: "manage-rfq", Icon: FileText },
+  { key: "draftRFQs", label: "Draft RFQs", urlKey: "draft-rfq", Icon: FilePenLine },
+  { key: "closedRFQs", label: "Closed RFQs", urlKey: "closed-rfq", Icon: XCircle },
+  { key: "completedRFQs", label: "Approved RFQs", urlKey: "completed-rfq", Icon: CheckCircle2 },
 ];
 
 const URL_TO_TAB = {};
 TAB_CONFIG.forEach(t => { URL_TO_TAB[t.urlKey] = t.key; });
+// Hidden tab (not in sidebar nav, but accessible via URL)
+URL_TO_TAB['create-rfq'] = 'createRFQs';
 
 const RfqManagement = () => {
   const [activeTab, setActiveTab] = useState("pendingRFQs");
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingRFQs, setPendingRFQs] = useState([]);
   const [pendingLoading, setPendingLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filterData, setFilterData] = useState({
     project_id: -1,
     rfq_type: "",
     reverse_auction: "-1",
     sort: "DESC",
-    rfq_no: null,
+    search_val: null,
     is_tender: null,
     page: 1,
     limit: 10,
@@ -97,6 +100,8 @@ const RfqManagement = () => {
   }, [router])
 
 
+  const showFilters = activeTab === "pendingRFQs" || activeTab === "manageRFQs" || activeTab === "closedRFQs" || activeTab === "completedRFQs";
+
   const activeFilterData = useMemo(() => ({ ...filterData, completed_status: 'active' }), [filterData]);
   const completedFilterData = useMemo(() => ({ ...filterData, completed_status: 'completed' }), [filterData]);
   const closedFilterData = useMemo(() => ({ ...filterData, completed_status: 'closed' }), [filterData]);
@@ -150,15 +155,10 @@ const RfqManagement = () => {
       title="Tender / RFQ Management"
       subtitle="Create, track, and manage your procurement requests."
       sidebar={tabSidebar}
+      filters={showFilters ? <FilterSection setFilterData={setFilterData} disabled={pendingLoading || listLoading} /> : null}
       onMobileSidebarToggle={isMobile ? () => setSidebarOpen(true) : undefined}
       mobileToggleLabel="Switch view"
     >
-      {/* Filter Section - Shared across pending, manage, and completed tabs */}
-      {(activeTab === "pendingRFQs" || activeTab === "manageRFQs" || activeTab === "closedRFQs" || activeTab === "completedRFQs") && (
-        <div style={{ marginBottom: 16 }}>
-          <FilterSection setFilterData={setFilterData} />
-        </div>
-      )}
 
       {activeTab === "pendingRFQs" && (
         <PendingApprovalsList
@@ -174,16 +174,16 @@ const RfqManagement = () => {
         <CreateRFQ/>
       )}
       {activeTab === "manageRFQs" && (
-        <ManageRFQ filterData={activeFilterData} setFilterData={setFilterData} />
+        <ManageRFQ filterData={activeFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
       )}
       {activeTab === "draftRFQs" && (
         <DraftRFQ/>
       )}
       {activeTab === "closedRFQs" && (
-        <ManageRFQ filterData={closedFilterData} setFilterData={setFilterData} />
+        <ManageRFQ filterData={closedFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
       )}
       {activeTab === "completedRFQs" && (
-        <ManageRFQ filterData={completedFilterData} setFilterData={setFilterData} />
+        <ManageRFQ filterData={completedFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
       )}
     </TwoPanelPage>
   );

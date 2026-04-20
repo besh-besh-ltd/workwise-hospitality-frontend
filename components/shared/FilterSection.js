@@ -1,16 +1,82 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Select from 'react-select';
 import { useSelector } from 'react-redux';
+import { Search } from 'lucide-react';
 
+const selectStyles = {
+    control: (base, state) => ({
+        ...base,
+        minHeight: 34,
+        fontSize: 12.5,
+        borderColor: state.isFocused ? '#2e5ba8' : '#e2e2e2',
+        boxShadow: state.isFocused ? '0 0 0 1px #2e5ba8' : 'none',
+        borderRadius: 7,
+        background: '#fff',
+        cursor: 'pointer',
+        '&:hover': { borderColor: '#ccc' },
+    }),
+    valueContainer: (base) => ({
+        ...base,
+        padding: '0 8px',
+    }),
+    indicatorSeparator: () => ({ display: 'none' }),
+    dropdownIndicator: (base) => ({
+        ...base,
+        padding: '4px 6px',
+        color: '#999',
+    }),
+    menu: (base) => ({
+        ...base,
+        borderRadius: 8,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+        border: '1px solid #f0f0f0',
+        zIndex: 20,
+        marginTop: 3,
+    }),
+    option: (base, state) => ({
+        ...base,
+        fontSize: 12.5,
+        padding: '7px 10px',
+        cursor: 'pointer',
+        backgroundColor: state.isSelected ? '#2e5ba8' : state.isFocused ? '#f5f7fa' : 'transparent',
+        color: state.isSelected ? '#fff' : '#334155',
+    }),
+    placeholder: (base) => ({
+        ...base,
+        fontSize: 12.5,
+        color: '#aaa',
+    }),
+    singleValue: (base) => ({
+        ...base,
+        fontSize: 12.5,
+        color: '#334155',
+    }),
+    multiValue: (base) => ({
+        ...base,
+        background: '#f0f4fa',
+        borderRadius: 4,
+    }),
+    multiValueLabel: (base) => ({
+        ...base,
+        fontSize: 11,
+        color: '#2e5ba8',
+        fontWeight: 500,
+        padding: '1px 3px',
+    }),
+    multiValueRemove: (base) => ({
+        ...base,
+        color: '#2e5ba8',
+        '&:hover': { background: 'rgba(46,91,168,0.1)', color: '#2e5ba8' },
+    }),
+};
 
-const FilterSection = ({ title, setFilterData }) => {
+const FilterSection = ({ title, setFilterData, disabled = false }) => {
     const userProfile = useSelector((state) => state.userProfile);
-    const [rfqNo, setRfqNo] =useState(null);
+    const [rfqNo, setRfqNo] = useState(null);
     const [userHotelMappings, setUserHotelMappings] = useState([]);
     const [selectedHotelIds, setSelectedHotelIds] = useState([]);
     const isInitialRfqNo = useRef(true);
 
-    // Flat option list: drop company-wide mappings (no hotel id) and dedupe by hotel id.
     const validHotelOptions = useMemo(() => {
         const seen = new Set();
         const out = [];
@@ -32,49 +98,32 @@ const FilterSection = ({ title, setFilterData }) => {
             return;
         }
         const handler = setTimeout(() => {
-                setFilterData((prevState) => ({
-                    ...prevState,
-                    ["rfq_no"]: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
-                }));
-        }, 1000);
-
-        return () => {
-          clearTimeout(handler);
-        };
-      }, [rfqNo]);
-
-      
+            const val = rfqNo?.trim() || '';
+            setFilterData((prevState) => ({
+                ...prevState,
+                search_val: val || null,
+            }));
+        }, 800);
+        return () => clearTimeout(handler);
+    }, [rfqNo]);
 
     const handleFilterChange = (selectedOption, actionMeta) => {
         const { name } = actionMeta;
         let value;
         if (selectedOption === null) {
-            // Handle clear action
-            if (name === "reverse_auction") {
-                value = "-1";
-            } else if (name === "is_tender") {
-                value = null;
-            } else {
-                value = "";
-            }
+            if (name === "reverse_auction") value = "-1";
+            else if (name === "is_tender") value = null;
+            else value = "";
         } else {
             value = selectedOption.value;
         }
-
-        setFilterData((prevState) => ({
-            ...prevState,
-            [name]: value,
-        }));
-    }
+        setFilterData((prevState) => ({ ...prevState, [name]: value }));
+    };
 
     const handleHotelSelectionChange = (hotelIds) => {
         setSelectedHotelIds(hotelIds);
-        setFilterData((prevState) => ({
-            ...prevState,
-            hotel_ids: hotelIds,
-            page: 1,
-        }));
-    }
+        setFilterData((prevState) => ({ ...prevState, hotel_ids: hotelIds, page: 1 }));
+    };
 
     useEffect(() => {
         const mappings = userProfile?.hospitality_mappings || [];
@@ -82,130 +131,141 @@ const FilterSection = ({ title, setFilterData }) => {
     }, [userProfile]);
 
     return (
-        <div className="filter-section">
-            {title && <h2 className="title">{title}</h2>}
-
-            <div className="row mb-4 text-sm" >
-
-                <div className="col-md-2 col-lg-2">
-                    <label>Search Tender / RFQ No.</label>
-                    <input
-                        id="search_rfq_no-filter_section-manage_rfq_page"
-                        className="form-control react-select" 
-                        style={{ borderRadius: '0.25rem', borderColor: '#ced4da', boxShadow: 'none' }}
-                        value={rfqNo}
-                        onChange={(e)=> setRfqNo(e.target.value)}
-                        name="rfq_type"
-                        placeholder="Ex. 123456"
-                        isClearable
-                    />
+        <div style={filterWrapStyle}>
+            <div style={{ ...filterGridStyle, ...(disabled ? disabledStyle : {}) }}>
+                {/* Search */}
+                <div style={searchItemStyle}>
+                    <div style={searchWrapStyle}>
+                        <Search size={14} style={{ color: '#999', flexShrink: 0 }} />
+                        <input
+                            style={searchInputStyle}
+                            value={rfqNo || ''}
+                            onChange={(e) => setRfqNo(e.target.value)}
+                            placeholder="Search by Title or RFQ No."
+                        />
+                    </div>
                 </div>
 
+                {/* Business Units */}
                 {validHotelOptions.length > 0 && (
-                    <div className="col-md-2 col-lg-2">
-                        <label>Select Business Units</label>
+                    <div style={filterItemStyle}>
                         <Select
-                            id="select_hotels_filter-filter_section-manage_rfq_page"
                             isMulti
                             options={validHotelOptions}
                             value={validHotelOptions.filter(opt =>
                                 selectedHotelIds.includes(opt.hospitality_hotel_id)
                             )}
-                            onChange={(selectedOptions) => {
-                                const ids = selectedOptions
-                                    ? selectedOptions
-                                        .map(opt => opt.hospitality_hotel_id)
-                                        .filter(id => id != null)
-                                    : [];
+                            onChange={(opts) => {
+                                const ids = opts ? opts.map(o => o.hospitality_hotel_id).filter(Boolean) : [];
                                 handleHotelSelectionChange(ids);
                             }}
-                            placeholder="Select BUs"
+                            placeholder="Business Units"
                             closeMenuOnSelect={false}
-                            classNamePrefix="react-select"
                             isClearable
-                            getOptionValue={(option) => String(option.hospitality_hotel_id)}
-                            getOptionLabel={(option) => option.hotel_name || ''}
-                            styles={{
-                                option: (base) => ({
-                                    ...base,
-                                    fontSize: '12px',
-                                    paddingTop: 6,
-                                    paddingBottom: 6,
-                                }),
-                                multiValueLabel: (base) => ({
-                                    ...base,
-                                    fontSize: '11px',
-                                }),
-                            }}
-                            noOptionsMessage={() => 'No business units found'}
+                            getOptionValue={(o) => String(o.hospitality_hotel_id)}
+                            getOptionLabel={(o) => o.hotel_name || ''}
+                            styles={selectStyles}
+                            noOptionsMessage={() => 'No business units'}
                         />
                     </div>
                 )}
 
-
-                <div className="col-md-3 col-lg-2">
-                    <label>Tender / RFQ Type</label>
+                {/* RFQ Type */}
+                <div style={filterItemStyle}>
                     <Select
-                        id="rfq_type_filter-filter_section-manage_rfq_page"
                         options={[
                             { label: "Budgetary", value: "budgetary" },
-                            { label: "Firm", value: "firm" }
+                            { label: "Firm", value: "firm" },
                         ]}
                         onChange={handleFilterChange}
                         name="rfq_type"
-                        placeholder="Select"
+                        placeholder="RFQ Type"
                         isClearable
+                        styles={selectStyles}
                     />
                 </div>
 
-                <div className="col-md-3 col-lg-2">
-                    <label>Reverse Auction</label>
+                {/* Type */}
+                <div style={filterItemStyle}>
                     <Select
-                        id="reverse_auction_filter-filter_section-manage_rfq_page"
-                        options={[
-                            { label: "Enabled", value: "1" },
-                            { label: "Disabled", value: "0" }
-                        ]}
-                        onChange={handleFilterChange}
-                        name="reverse_auction"
-                        placeholder="Select"
-                        isClearable
-                    />
-                </div>
-
-                <div className="col-md-3 col-lg-2">
-                    <label>Type</label>
-                    <Select
-                        id="is_tender_filter-filter_section-manage_rfq_page"
                         options={[
                             { label: "RFQ", value: "0" },
-                            { label: "Tender", value: "1" }
+                            { label: "Tender", value: "1" },
                         ]}
                         onChange={handleFilterChange}
                         name="is_tender"
-                        placeholder="Select"
+                        placeholder="Type"
                         isClearable
+                        styles={selectStyles}
                     />
                 </div>
 
-                <div className="col-md-3 col-lg-2">
-                    <label>Sort By</label>
+                {/* Sort */}
+                <div style={filterItemStyle}>
                     <Select
-                        id="sort_by_filter-filter_section-manage_rfq_page"
                         options={[
-                            { label: "Latest to Oldest", value: "DESC" },
-                            { label: "Oldest to Latest", value: "ASC" }
+                            { label: "Latest First", value: "DESC" },
+                            { label: "Oldest First", value: "ASC" },
                         ]}
                         onChange={handleFilterChange}
                         name="sort"
-                        placeholder="Select"
-                        defaultValue={{ label: "Latest to Oldest", value: "DESC" }}
-                        />
+                        placeholder="Sort"
+                        defaultValue={{ label: "Latest First", value: "DESC" }}
+                        styles={selectStyles}
+                    />
                 </div>
-
             </div>
         </div>
-    )
-}
+    );
+};
 
-export default FilterSection
+const disabledStyle = {
+    opacity: 0.5,
+    pointerEvents: 'none',
+    userSelect: 'none',
+};
+
+const filterWrapStyle = {
+    paddingBottom: 14,
+    borderBottom: '1px solid #eef0f3',
+};
+
+const filterGridStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+};
+
+const searchItemStyle = {
+    flex: '2 1 200px',
+    minWidth: 180,
+};
+
+const filterItemStyle = {
+    flex: '0 1 160px',
+    minWidth: 130,
+};
+
+const searchWrapStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    border: '1px solid #e2e2e2',
+    borderRadius: 7,
+    padding: '0 10px',
+    height: 34,
+    background: '#fff',
+    transition: 'border-color 0.15s',
+};
+
+const searchInputStyle = {
+    border: 'none',
+    outline: 'none',
+    fontSize: 12.5,
+    color: '#334155',
+    width: '100%',
+    background: 'transparent',
+};
+
+export default FilterSection;

@@ -58,14 +58,17 @@ const getTitle = (item) => {
   return `#${item.entity_id}`;
 };
 
-const PendingApprovalsModal = ({ onClose }) => {
+const PendingApprovalsModal = ({ onClose, filters }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await getPendingApprovalsDetail();
+        const res = await getPendingApprovalsDetail({
+          start_date: filters?.start_date,
+          end_date: filters?.end_date,
+        });
         setItems(res.data || []);
       } catch {
         setItems([]);

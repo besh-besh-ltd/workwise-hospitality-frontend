@@ -1,0 +1,196 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.greeting {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--dark-color);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #999;
+  margin: 0;
+}
+
+/* ── Stats Grid ── */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.statCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #ddd;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.statIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.statInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.statValue {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--dark-color);
+  line-height: 1.2;
+}
+
+.statLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ── Activity Grid ── */
+.activityGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.activityCard {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--dark-color);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.cardBody {
+  padding: 6px 18px 14px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.activityItem {
+  padding: 10px 0;
+  border-bottom: 1px solid #f7f7f7;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.activityTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.activityTitle {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--dark-color);
+}
+
+.activityDate {
+  font-size: 11px;
+  color: #999;
+}
+
+.ratingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #b45309;
+  background: #fffbeb;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.activityText {
+  font-size: 12.5px;
+  color: #666;
+  margin: 0 0 2px;
+  line-height: 1.4;
+}
+
+.activityUser {
+  font-size: 11px;
+  color: #999;
+}
+
+.emptyText {
+  font-size: 13px;
+  color: #999;
+  text-align: center;
+  padding: 24px 0;
+  margin: 0;
+}
+
+/* ── Table Section ── */
+.tableSection {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+}

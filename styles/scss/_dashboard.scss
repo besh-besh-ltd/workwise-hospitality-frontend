@@ -13,18 +13,12 @@ body.dashboard-route {
     padding-right: 0;
   }
 
-  .sc-pt-80 {
-    padding-top: 0;
-  }
-
-  .sc-pb-80 {
-    padding-bottom: 0;
-  }
-
+  .sc-pt-80,
   .sc-pt-50 {
     padding-top: 0;
   }
 
+  .sc-pb-80,
   .sc-pb-50 {
     padding-bottom: 0;
   }
@@ -54,5 +48,29 @@ body.dashboard-route {
   .manage-rfq-con {
     padding: 0 !important;
     margin: 0 !important;
+  }
+
+  /* ── Vendor & Admin page alignment ── */
+  /* Remove gray header strips and add consistent spacing */
+  .vendor-dashboard-header,
+  .vendor-common-header,
+  .admin-common-header {
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Ensure page titles align consistently */
+  .vendor-dashboard-header h2,
+  .vendor-common-header h2,
+  .admin-common-header h2,
+  .vendor-dashboard-header h3,
+  .vendor-common-header h3,
+  .admin-common-header h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 4px 0;
+    letter-spacing: -0.2px;
   }
 }

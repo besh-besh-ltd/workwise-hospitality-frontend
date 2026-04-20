@@ -19,6 +19,7 @@ const DURATION_OPTIONS = [
   { label: "Last 15 Days", value: "past15days" },
   { label: "This Month", value: "currentMonth" },
   { label: "Last 6 Months", value: "past6months" },
+  { label: "All Time", value: "allTime" },
   { label: "Custom", value: "custom" },
 ];
 
@@ -48,6 +49,10 @@ const getDateRange = (type, customStart, customEnd) => {
       break;
     case "past6months":
       start_date = moment().subtract(5, "months").startOf("month").format("YYYY-MM-DD");
+      end_date = today.format("YYYY-MM-DD");
+      break;
+    case "allTime":
+      start_date = "2025-01-01";
       end_date = today.format("YYYY-MM-DD");
       break;
     case "custom":

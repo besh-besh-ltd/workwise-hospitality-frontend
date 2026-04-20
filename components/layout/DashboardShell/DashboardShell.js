@@ -96,15 +96,10 @@ const DashboardShell = ({ children }) => {
           currentUserType={currentUserType}
           subSidebar={subSidebar}
           onLogoutRequest={handleLogoutRequest}
+          onOpenMobileNav={() => setMobileNavOpen(true)}
+          mobileRfqToggle={mobileRfqBtn}
         />
         <div className={styles.main}>
-          <TopBar
-            user={loggedinUser}
-            currentUserType={currentUserType}
-            onOpenMobileNav={() => setMobileNavOpen(true)}
-            mobileRfqToggle={mobileRfqBtn}
-            onLogoutRequest={handleLogoutRequest}
-          />
           <div className={styles.content}>{children}</div>
         </div>
       </div>

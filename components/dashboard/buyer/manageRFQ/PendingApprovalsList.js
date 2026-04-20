@@ -1,59 +1,47 @@
-import FullLoader from "@/components/shared/FullLoader";
 import React from "react";
 import RFQCard from "./RFQCard";
+import RFQListSkeleton from "./RFQListSkeleton";
 import Pagination from "@/components/shared/Pagination";
-import { Alert } from "react-bootstrap";
-import { BsCheckCircleFill, BsExclamationTriangleFill } from "react-icons/bs";
+import { AlertTriangle, CheckCircle } from "lucide-react";
 
 const PendingApprovalsList = ({ filterData, setFilterData, pendingRFQs = [], totalRFQs = 0, loading = false }) => {
 
   return (
-    <div className="pending-approvals-list">
+    <div>
       {/* Header Banner */}
-      <Alert
-        variant="warning"
-        className="mb-2 py-2 border-0 d-flex align-items-center gap-2"
-        style={{
-          background: "#fff8e6",
-          borderLeft: "3px solid #ffc107",
-        }}
-      >
-        <BsExclamationTriangleFill size={16} className="text-warning flex-shrink-0" />
-        <small>
-          <strong>Action Required:</strong>
-          <span className="ms-1 text-dark">
-            The following Tender / RFQ require your approval. Click "View & Approve" to take action.
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8,
+        padding: "8px 14px", marginBottom: 12, borderRadius: 8,
+        background: "#fffbeb", borderLeft: "3px solid #f59e0b",
+        fontSize: 12.5,
+      }}>
+        <AlertTriangle size={15} style={{ color: "#f59e0b", flexShrink: 0 }} />
+        <span>
+          <strong>Action Required</strong>
+          <span style={{ color: "#555", marginLeft: 4 }}>
+            — These Tender / RFQs need your approval. Click to review.
           </span>
-        </small>
-      </Alert>
+        </span>
+      </div>
 
-      <div className="details-table hasFullLoader mt-0">
-        {/* Loading State */}
-        {loading && <FullLoader />}
+      <div>
+        {loading && <RFQListSkeleton count={5} />}
 
-        {/* Empty State */}
         {!loading && pendingRFQs.length === 0 && (
-          <div className="text-center py-5">
-            <div
-              className="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
-              style={{
-                width: 64,
-                height: 64,
-                backgroundColor: "#d1e7dd",
-              }}
-            >
-              <BsCheckCircleFill size={36} className="text-success" />
+          <div style={{ textAlign: "center", padding: "48px 20px" }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: "50%", background: "#ecfdf5",
+              display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 12,
+            }}>
+              <CheckCircle size={28} style={{ color: "#22c55e" }} />
             </div>
-            <h5 className="text-success fw-semibold m-2 fs-5">No Pending Approvals</h5>
-            <p className="text-muted text-sm">
-              You're all caught up! There's nothing waiting for your approval.
-            </p>
+            <p style={{ fontSize: 14, fontWeight: 600, color: "#22c55e", margin: "0 0 4px" }}>No Pending Approvals</p>
+            <p style={{ fontSize: 13, color: "#999", margin: 0 }}>You're all caught up!</p>
           </div>
         )}
 
-        {/* Card List */}
         {!loading && pendingRFQs.length > 0 && (
-          <div className="d-flex flex-column gap-2 my-3">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {pendingRFQs.map((item) => (
               <RFQCard
                 key={`pending_rfq_${item.id}`}
@@ -64,7 +52,6 @@ const PendingApprovalsList = ({ filterData, setFilterData, pendingRFQs = [], tot
           </div>
         )}
 
-        {/* Pagination */}
         {!loading && pendingRFQs.length > 0 && (
           <Pagination
             page={filterData.page}

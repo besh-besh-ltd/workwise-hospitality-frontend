@@ -3,22 +3,20 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
-import { LogOut } from "lucide-react";
+import { LogOut, User, Key, ChevronDown, Menu } from "lucide-react";
 import { roleMenus } from "@/components/layout/Header/headerConfig";
 import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
 import SideNavItem from "./SideNavItem";
 import { getNavIcon } from "./navIcons";
 import styles from "./DashboardShell.module.css";
 
-/**
- * Combined sidebar: nav rail + sub-sidebar slot.
- * Footer has a simple logout button (no popover — profile lives in TopBar now).
- */
 const SideNav = ({
   user,
   currentUserType,
   subSidebar,
   onLogoutRequest,
+  onOpenMobileNav,
+  mobileRfqToggle,
 }) => {
   const router = useRouter();
   const { pathname } = router;
@@ -30,20 +28,29 @@ const SideNav = ({
     enabled: !!user,
   });
 
-  // Tooltip for compact logout button
-  const [logoutTooltipVisible, setLogoutTooltipVisible] = useState(false);
-  const [logoutTooltipPos, setLogoutTooltipPos] = useState({ left: 0, top: 0 });
-  const logoutBtnRef = useRef(null);
+  // Profile popover state
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+  const popoverPortalRef = useRef(null);
 
-  const showLogoutTooltip = useCallback(() => {
-    if (!logoutBtnRef.current) return;
-    const rect = logoutBtnRef.current.getBoundingClientRect();
-    setLogoutTooltipPos({ left: rect.right + 10, top: rect.top + rect.height / 2 });
-    setLogoutTooltipVisible(true);
-  }, []);
-  const hideLogoutTooltip = useCallback(() => setLogoutTooltipVisible(false), []);
+  useEffect(() => {
+    if (!profileOpen) return;
+    const handler = (e) => {
+      if (
+        profileRef.current && !profileRef.current.contains(e.target) &&
+        (!popoverPortalRef.current || !popoverPortalRef.current.contains(e.target))
+      ) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [profileOpen]);
 
-  // Derive menu items
+  useEffect(() => { setProfileOpen(false); }, [pathname]);
+
+
+  // Menu config
   const isHospitalityCompany = userProfile?.is_hospitality == 1;
   const isHospitalityVendor = isHospitalityCompany && currentUserType === "vendor";
   const hasValidSub = !!userProfile?.has_valid_hospitality_subscription;
@@ -61,8 +68,26 @@ const SideNav = ({
 
   const navItems = currentRoleMenu.filter((m) => m.targetMenu === "nav");
 
-  const isItemActive = (href) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+  const groupedNavItems = useMemo(() => {
+    const groups = [];
+    let currentSection = null;
+    navItems.forEach((item) => {
+      const section = item.section || "";
+      if (section !== currentSection) {
+        groups.push({ section, items: [] });
+        currentSection = section;
+      }
+      groups[groups.length - 1].items.push(item);
+    });
+    return groups;
+  }, [navItems]);
+
+  const isItemActive = (href) => {
+    // Dashboard link: exact match only (don't highlight on sub-pages)
+    const dashHref = getDashboardHref();
+    if (href === dashHref) return pathname === href;
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   const getDashboardHref = () => {
     const map = {
@@ -76,105 +101,204 @@ const SideNav = ({
     return map[currentUserType] || "/dashboard/buyer";
   };
 
-  // Portal tooltip for compact logout
-  const logoutTooltip = hasSubSidebar && typeof document !== "undefined"
-    ? createPortal(
-        <span
-          className={styles.navTooltip}
-          style={{
-            left: logoutTooltipPos.left,
-            top: logoutTooltipPos.top,
-            transform: "translateY(-50%)",
-            opacity: logoutTooltipVisible ? 1 : 0,
-          }}
-        >
-          Logout
-        </span>,
-        document.body
-      )
-    : null;
+  const profileHref = useMemo(() => {
+    const menu = roleMenus[currentUserType] || [];
+    const profileItem = menu.find(m => m.targetMenu === "popup" && m.icon === "person");
+    return profileItem?.href || `/dashboard/${currentUserType}/editprofile`;
+  }, [currentUserType]);
+
+  const initial = user?.name?.charAt(0)?.toUpperCase() || "U";
+  const userName = user?.name || "User";
+  const userEmail = user?.email || "";
+
+  // Business unit count
+  const allMappings = userProfile?.hospitality_mappings || [];
+  const seenBUs = new Set();
+  allMappings.forEach((m) => {
+    if (m?.hospitality_hotel_id != null) seenBUs.add(m.hospitality_hotel_id);
+  });
+  const buCount = seenBUs.size;
+
 
   return (
-    <aside className={`${styles.sidebar} ${hasSubSidebar ? styles.sidebarWithSub : styles.sidebarExpanded}`}>
-      {/* ── Nav rail ── */}
-      <div className={`${styles.rail} ${hasSubSidebar ? styles.railCollapsed : styles.railExpanded}`}>
-        {/* Header: greeting when expanded, logo mark when collapsed */}
-        <div className={`${styles.railHeader} ${hasSubSidebar ? styles.railHeaderCollapsed : styles.railHeaderExpanded}`}>
-          {hasSubSidebar ? (
-            <Link href={getDashboardHref()} className={styles.logoLink} aria-label="Workwise">
-              <span className={styles.logoMark}>W</span>
-            </Link>
-          ) : (
-            <div className={styles.greeting}>
-              <span className={styles.greetingWave}>👋</span>
-              <div className={styles.greetingText}>
-                <span className={styles.greetingLine}>Welcome back,</span>
-                <span className={styles.greetingName}>{user?.name || "there"}!</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Nav items */}
-        <nav className={`${styles.railNav} ${hasSubSidebar ? styles.railNavCollapsed : styles.railNavExpanded}`}>
-          {navItems.map((item) => {
-            const Icon = getNavIcon(item.href);
-            const locked = isSubLocked && item.requiresSubscription;
-            const active = !locked && isItemActive(item.href);
-            return (
-              <SideNavItem
-                key={item.href}
-                href={item.href}
-                label={item.label}
-                Icon={Icon}
-                active={active}
-                compact={hasSubSidebar}
-                locked={locked}
-                hasPending={!locked && hasPendingApproval(item.href)}
-              />
-            );
-          })}
-        </nav>
-
-        {/* Footer: simple logout button */}
-        <div className={`${styles.railFooter} ${hasSubSidebar ? styles.railFooterCollapsed : styles.railFooterExpanded}`}>
-          {hasSubSidebar ? (
-            /* Compact: icon-only logout with tooltip */
-            <>
-              <button
-                ref={logoutBtnRef}
-                type="button"
-                className={styles.logoutBtnCompact}
-                onClick={onLogoutRequest}
-                onMouseEnter={showLogoutTooltip}
-                onMouseLeave={hideLogoutTooltip}
-                aria-label="Logout"
-              >
-                <LogOut size={18} strokeWidth={1.6} />
-              </button>
-              {logoutTooltip}
-            </>
-          ) : (
-            /* Expanded: full logout button with label */
-            <button
-              type="button"
-              className={styles.logoutBtn}
-              onClick={onLogoutRequest}
-            >
-              <LogOut size={16} strokeWidth={1.6} />
-              <span>Logout</span>
-            </button>
-          )}
-        </div>
+    <>
+      {/* Mobile top bar — only visible on mobile */}
+      <div className={styles.mobileTopBar}>
+        <button
+          type="button"
+          className={styles.hamburger}
+          onClick={onOpenMobileNav}
+          aria-label="Open menu"
+        >
+          <Menu size={20} strokeWidth={2} />
+        </button>
+        <span className={styles.mobileTopBarLogo}>Workwise</span>
+        {mobileRfqToggle}
       </div>
 
-      {/* ── Sub-sidebar (RFQ list / tab nav, rendered via context) ── */}
-      {hasSubSidebar && (
-        <div className={styles.subSidebar}>
-          {subSidebar}
+      <aside className={`${styles.sidebar} ${hasSubSidebar ? styles.sidebarWithSub : styles.sidebarExpanded}`}>
+        <div className={`${styles.rail} ${hasSubSidebar ? styles.railCollapsed : styles.railExpanded}`}>
+          {/* Header — Profile */}
+          <div className={`${styles.railHeader} ${hasSubSidebar ? styles.railHeaderCollapsed : styles.railHeaderExpanded}`}>
+            {hasSubSidebar ? (
+              <div ref={profileRef} className={styles.compactProfileWrap}>
+                <button
+                  type="button"
+                  className={styles.compactProfileBtn}
+                  onClick={() => setProfileOpen((v) => !v)}
+                >
+                  <span className={styles.sidebarProfileAvatarWrap}>
+                    <span className={styles.sidebarProfileAvatar}>{initial}</span>
+                    <span className={styles.onlineDot} />
+                  </span>
+                </button>
+                {profileOpen && typeof document !== "undefined" && createPortal(
+                  <div ref={popoverPortalRef} className={styles.compactProfilePopover} style={{
+                    position: "fixed",
+                    top: profileRef.current?.getBoundingClientRect()?.bottom + 6 || 60,
+                    left: profileRef.current?.getBoundingClientRect()?.left || 8,
+                  }}>
+                    <div className={styles.popoverHeaderCompact}>
+                      <div className={styles.popoverUserName}>{userName}</div>
+                      <div className={styles.popoverUserContext}>{buCount > 0 ? `${buCount} Business Unit${buCount > 1 ? "s" : ""}` : userEmail}</div>
+                    </div>
+                    <div className={styles.popoverDivider} />
+                    <div className={styles.popoverSection}>
+                      <Link href={profileHref} className={styles.popoverItem} onClick={() => setProfileOpen(false)}>
+                        <span className={styles.popoverItemIcon}><User size={15} strokeWidth={1.6} /></span>
+                        Profile
+                      </Link>
+                      <Link href={`/change-password?redirect_url=${typeof window !== "undefined" ? window.location.pathname : "/"}`} className={styles.popoverItem} onClick={() => setProfileOpen(false)}>
+                        <span className={styles.popoverItemIcon}><Key size={15} strokeWidth={1.6} /></span>
+                        Change Password
+                      </Link>
+                    </div>
+                    <div className={styles.popoverDivider} />
+                    <div className={styles.popoverSection}>
+                      <button type="button" className={`${styles.popoverItem} ${styles.popoverItemLogout}`} onClick={() => { setProfileOpen(false); onLogoutRequest?.(); }}>
+                        <span className={styles.popoverItemIcon}><LogOut size={15} strokeWidth={1.6} /></span>
+                        Logout
+                      </button>
+                    </div>
+                  </div>,
+                  document.body
+                )}
+              </div>
+            ) : (
+              <div ref={profileRef} className={styles.headerProfileWrap}>
+                <button
+                  type="button"
+                  className={`${styles.sidebarProfileBtn} ${profileOpen ? styles.sidebarProfileBtnOpen : ""}`}
+                  onClick={() => setProfileOpen((v) => !v)}
+                >
+                  <span className={styles.sidebarProfileAvatarWrap}>
+                    <span className={styles.sidebarProfileAvatar}>{initial}</span>
+                    <span className={styles.onlineDot} />
+                  </span>
+                  <span className={styles.sidebarProfileName}>{userName}</span>
+                  <ChevronDown size={13} strokeWidth={2} className={styles.sidebarProfileChevron} />
+                </button>
+
+                {profileOpen && (
+                  <div className={styles.sidebarProfilePopoverDown}>
+                    <div className={styles.popoverHeaderCompact}>
+                      <div className={styles.popoverUserName}>{userName}</div>
+                      <div className={styles.popoverUserContext}>{buCount > 0 ? `${buCount} Business Unit${buCount > 1 ? "s" : ""}` : userEmail}</div>
+                    </div>
+                    <div className={styles.popoverDivider} />
+                    <div className={styles.popoverSection}>
+                      <Link href={profileHref} className={styles.popoverItem} onClick={() => setProfileOpen(false)}>
+                        <span className={styles.popoverItemIcon}><User size={15} strokeWidth={1.6} /></span>
+                        Profile
+                      </Link>
+                      <Link href={`/change-password?redirect_url=${typeof window !== "undefined" ? window.location.pathname : "/"}`} className={styles.popoverItem} onClick={() => setProfileOpen(false)}>
+                        <span className={styles.popoverItemIcon}><Key size={15} strokeWidth={1.6} /></span>
+                        Change Password
+                      </Link>
+                    </div>
+                    <div className={styles.popoverDivider} />
+                    <div className={styles.popoverSection}>
+                      <button type="button" className={`${styles.popoverItem} ${styles.popoverItemLogout}`} onClick={() => { setProfileOpen(false); onLogoutRequest?.(); }}>
+                        <span className={styles.popoverItemIcon}><LogOut size={15} strokeWidth={1.6} /></span>
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Nav items */}
+          <nav className={`${styles.railNav} ${hasSubSidebar ? styles.railNavCollapsed : styles.railNavExpanded}`}>
+            {hasSubSidebar ? (
+              navItems.map((item) => {
+                const Icon = getNavIcon(item.href);
+                const locked = isSubLocked && item.requiresSubscription;
+                const active = !locked && isItemActive(item.href);
+                return (
+                  <SideNavItem
+                    key={item.href}
+                    href={item.href}
+                    label={item.label}
+                    Icon={Icon}
+                    active={active}
+                    compact
+                    locked={locked}
+                    hasPending={!locked && hasPendingApproval(item.href)}
+                  />
+                );
+              })
+            ) : (
+              groupedNavItems.map((group, gi) => (
+                <div key={group.section || gi}>
+                  {group.section && (
+                    <p className={`${styles.sectionLabel} ${gi === 0 ? styles.sectionLabelFirst : ""}`}>
+                      {group.section}
+                    </p>
+                  )}
+                  {group.items.map((item) => {
+                    const Icon = getNavIcon(item.href);
+                    const locked = isSubLocked && item.requiresSubscription;
+                    const active = !locked && isItemActive(item.href);
+                    return (
+                      <SideNavItem
+                        key={item.href}
+                        href={item.href}
+                        label={item.label}
+                        Icon={Icon}
+                        active={active}
+                        compact={false}
+                        locked={locked}
+                        hasPending={!locked && hasPendingApproval(item.href)}
+                      />
+                    );
+                  })}
+                </div>
+              ))
+            )}
+          </nav>
+
+          {/* Footer — Logout */}
+          <div className={`${styles.railFooter} ${hasSubSidebar ? styles.railFooterCollapsed : styles.railFooterExpanded}`}>
+            <button
+              type="button"
+              className={hasSubSidebar ? styles.logoutBtnCompact : styles.logoutBtn}
+              onClick={onLogoutRequest}
+            >
+              <LogOut size={hasSubSidebar ? 18 : 16} strokeWidth={1.6} />
+              {!hasSubSidebar && <span>Logout</span>}
+            </button>
+          </div>
         </div>
-      )}
-    </aside>
+
+        {hasSubSidebar && (
+          <div className={styles.subSidebar}>
+            {subSidebar}
+          </div>
+        )}
+      </aside>
+    </>
   );
 };
 

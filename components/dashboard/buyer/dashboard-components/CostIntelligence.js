@@ -30,7 +30,7 @@ const formatCurrency = (value) => {
   if (!value || value === 0) return "\u20B90";
   if (value >= 10000000) return `\u20B9${(value / 10000000).toFixed(1)}Cr`;
   if (value >= 100000) return `\u20B9${(value / 100000).toFixed(1)}L`;
-  if (value >= 1000) return `\u20B9${(value / 1000).toFixed(0)}K`;
+  if (value >= 1000) return `\u20B9${(value / 1000).toFixed(1)}K`;
   return `\u20B9${Math.round(value).toLocaleString("en-IN")}`;
 };
 

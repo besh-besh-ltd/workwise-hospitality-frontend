@@ -33,7 +33,7 @@ export const STATUS_CONFIG = {
   },
   OPEN: {
     key: 'open',
-    label: 'Open',
+    label: 'Published',
     icon: BsCheckCircleFill,
     borderColor: '#198754',
     backgroundColor: '#d1e7dd',

@@ -117,25 +117,91 @@
 
 .compactView {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  gap: 16px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
   cursor: pointer;
   transition: background-color 0.2s ease;
 
   &:hover {
     background-color: #fafbfc;
   }
-
-  @media (max-width: 991px) {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
 }
 
-// Left Section: Status + Title + Project + Products
+// Row 1: badges + title + lifecycle + expand
+.compactRow1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.compactRow1 .title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rfqNumberInline {
+  font-size: 0.74rem;
+  color: #94a3b8;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+// Row 2: metadata pills
+.compactRow2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-left: 1px;
+}
+
+.metaChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+  background: #f5f7fa;
+  padding: 3px 9px;
+  border-radius: 5px;
+  transition: background 0.15s ease;
+}
+
+.metaSep {
+  width: 1px;
+  height: 14px;
+  background: #e5e7eb;
+  flex-shrink: 0;
+}
+
+// Days-left color variants
+.daysGreen {
+  color: #16a34a;
+  background: #f0fdf4;
+  font-weight: 600;
+}
+
+.daysYellow {
+  color: #b45309;
+  background: #fffbeb;
+  font-weight: 600;
+}
+
+.daysRed {
+  color: #dc2626;
+  background: #fef2f2;
+  font-weight: 600;
+}
+
+// Keep old classes for backward compat
 .leftSection {
   display: flex;
   align-items: center;

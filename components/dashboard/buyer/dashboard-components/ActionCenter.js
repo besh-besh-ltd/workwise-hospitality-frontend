@@ -5,6 +5,7 @@ import { getActionCenterData } from "@/services/dashboard";
 import CardError from "./CardError";
 import CardTooltip from "./CardTooltip";
 import PendingApprovalsModal from "./PendingApprovalsModal";
+import RejectedPOsModal from "./RejectedPOsModal";
 import styles from "./ActionCenter.module.scss";
 
 const ACTION_CARDS = [
@@ -50,13 +51,14 @@ const ACTION_CARDS = [
   },
   {
     key: "rejected_vendors",
-    label: "Rejected / Reassign",
+    label: "PO Rejected",
     tooltip: "POs rejected by vendors that need to be reassigned to another vendor",
     icon: UserX,
     colorClass: "red",
     badgeClass: "reassign",
     badgeText: "REASSIGN",
-    href: "/dashboard/buyer/rfq-management",
+    href: null,
+    modal: "rejected",
   },
 ];
 
@@ -65,6 +67,7 @@ const ActionCenter = ({ filters }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showRejectedModal, setShowRejectedModal] = useState(false);
   const intervalRef = useRef(null);
 
   const fetchData = async () => {
@@ -125,12 +128,12 @@ const ActionCenter = ({ filters }) => {
           );
 
           if (!card.href) {
+            const openModal = () => {
+              if (card.modal === "rejected") setShowRejectedModal(true);
+              else setShowApprovalModal(true);
+            };
             return (
-              <div
-                key={card.key}
-                className={styles.actionCard}
-                onClick={() => setShowApprovalModal(true)}
-              >
+              <div key={card.key} className={styles.actionCard} onClick={openModal}>
                 {inner}
               </div>
             );
@@ -145,7 +148,10 @@ const ActionCenter = ({ filters }) => {
       </div>
 
       {showApprovalModal && (
-        <PendingApprovalsModal onClose={() => setShowApprovalModal(false)} />
+        <PendingApprovalsModal onClose={() => setShowApprovalModal(false)} filters={filters} />
+      )}
+      {showRejectedModal && (
+        <RejectedPOsModal onClose={() => setShowRejectedModal(false)} />
       )}
     </section>
   );

@@ -94,7 +94,7 @@ const ApprovalHierarchyRedesigned = () => {
 
   if (loading) {
     return (
-      <div className="container-fluid py-4 mt-5">
+      <div className="container-fluid">
         <div className="mb-4">
           <div style={{ width: 60, height: 14, background: DS.pageBg, borderRadius: 4, marginBottom: 10 }} />
           <div style={{ width: 200, height: 24, background: DS.pageBg, borderRadius: 6, marginBottom: 6 }} />
@@ -106,7 +106,7 @@ const ApprovalHierarchyRedesigned = () => {
   }
 
   return (
-    <div className="container-fluid py-4 mt-5">
+    <div className="container-fluid">
       {/* Page header */}
       <div className="mb-4">
         <button

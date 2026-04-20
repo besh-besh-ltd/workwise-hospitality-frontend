@@ -67,8 +67,8 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
       style={{ borderLeftColor: statusConfig.borderColor }}
     >
       <div className={styles.compactView} onClick={handleToggleExpand}>
-        {/* Left: Identity */}
-        <div className={styles.leftSection}>
+        {/* ── Row 1: Badges + Title + Lifecycle + Expand ── */}
+        <div className={styles.compactRow1}>
           <span className={`${styles.typeBadge} ${isTender ? styles.tenderType : styles.rfqType}`}>
             {isTender ? <Gavel size={11} /> : <FileText size={11} />}
             {isTender ? 'Tender' : 'RFQ'}
@@ -88,49 +88,20 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
             </span>
           )}
 
-          <div className={styles.titleBlock}>
-            <span className={styles.title} style={!data.title && isDraft ? { color: '#8c939a', fontStyle: 'italic' } : undefined} title={data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}>{data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}</span>
-            <span className={styles.rfqNumber}>{formatRFQNumber(data.rfq_no, data.is_tender)}</span>
-          </div>
+          <span className={styles.title} style={!data.title && isDraft ? { color: '#8c939a', fontStyle: 'italic' } : undefined} title={data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}>
+            {data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}
+          </span>
 
-          {data.project_name && (
-            <div className={styles.projectChip}>
-              <Folder size={12} /><span>{data.project_name}</span>
-            </div>
+          <span className={styles.rfqNumberInline}>{formatRFQNumber(data.rfq_no, data.is_tender)}</span>
+
+          {/* Unread Queries */}
+          {data.unseen_query_count > 0 && (
+            <Badge bg="danger" className={styles.queryBadgeCompact}>
+              <MessageCircle size={10} /><span>{data.unseen_query_count}</span>
+            </Badge>
           )}
 
-          {!isDraft && (
-            <>
-              {/* Divider */}
-              <span className={styles.sectionDivider} />
-
-              {/* Vendor Stats */}
-              <div className={styles.vendorChip}>
-                <Users size={13} className={styles.vendorIconBlue} />
-                <span className={styles.vendorNum}>{totalVendors}</span>
-                <span className={styles.vendorLabel}>Invited</span>
-
-                <span className={styles.vendorSep} />
-
-                <Send size={13} className={allQuotesReceived ? styles.vendorIconGreen : styles.vendorIconOrange} />
-                <span className={styles.vendorNum}>{quotesReceived}</span>
-                <span className={styles.vendorLabel}>Participated</span>
-              </div>
-            </>
-          )}
-          {isDraft && data.status === 5 && (
-            <>
-              <span className={styles.sectionDivider} />
-              <span className={styles.statusBadge} style={{ backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffc107', fontSize: '0.7rem' }}>
-                Previously submitted for publishing
-              </span>
-            </>
-          )}
-        </div>
-
-        {/* Right: Lifecycle + Date + Expand */}
-        <div className={styles.rightSection}>
-          {/* Lifecycle Pill - hidden for drafts and terminated RFQs */}
+          {/* Lifecycle Pill */}
           {lifecycleConfig && !isDraft && statusConfig.key !== 'terminated' && (() => {
             const stagesFiltered = LIFECYCLE_STAGES_ORDERED.filter(k => k !== 'TECHNICAL_REJECTED');
             const stepNum = stagesFiltered.indexOf(data.lifecycle_stage) + 1;
@@ -157,7 +128,6 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
 
                 {showLifecycleTooltip && (
                   <div className={styles.lcTooltip}>
-                    {/* Stage info */}
                     <div className={styles.lcTTTop}>
                       <span className={styles.lcTTDot} style={{ backgroundColor: lifecycleConfig.dotColor }} />
                       <div className={styles.lcTTInfo}>
@@ -165,8 +135,6 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                         <span className={styles.lcTTDesc}>{lifecycleConfig.description}</span>
                       </div>
                     </div>
-
-                    {/* Progress bar */}
                     <div className={styles.lcTTProgress}>
                       <span className={styles.lcTTProgressLabel}>Progress</span>
                       <div className={styles.lcTTBar}>
@@ -177,8 +145,6 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                         })}
                       </div>
                     </div>
-
-                    {/* Action holders */}
                     {data.action_holders?.users?.length > 0 && (
                       <div className={styles.lcTTActors}>
                         <div className={styles.lcTTActorsHeader}>
@@ -206,36 +172,97 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
             );
           })()}
 
-          {/* Unread Queries */}
-          {data.unseen_query_count > 0 && (
-            <Badge bg="danger" className={styles.queryBadgeCompact}>
-              <MessageCircle size={10} /><span>{data.unseen_query_count}</span>
-            </Badge>
+          <div className={styles.expandToggle}>
+            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </div>
+        </div>
+
+        {/* ── Row 2: Metadata (vendors, date, project, created) ── */}
+        <div className={styles.compactRow2}>
+          {!isDraft && (
+            <>
+              <span className={styles.metaChip}>
+                <Users size={12} className={styles.vendorIconBlue} />
+                <span>{totalVendors} Invited</span>
+              </span>
+              <span className={styles.metaSep} />
+              <span className={styles.metaChip}>
+                <Send size={12} className={allQuotesReceived ? styles.vendorIconGreen : styles.vendorIconOrange} />
+                <span>{quotesReceived} Participated</span>
+              </span>
+            </>
           )}
 
-          {/* Date */}
-          <div className={styles.dateBlock}>
-            {publishState.isPrePublishState && data.tender_publish_date ? (
-              <PublishDateTimer publishDate={data.tender_publish_date} variant="badge" showLabel={true} />
-            ) : (
-              <>
-                <div className={styles.dateItem}>
+          {!isDraft && (
+            <>
+              <span className={styles.metaSep} />
+              {publishState.isPrePublishState && data.tender_publish_date ? (
+                <span className={styles.metaChip}>
+                  <PublishDateTimer publishDate={data.tender_publish_date} variant="badge" showLabel={true} />
+                </span>
+              ) : bidEndAt ? (
+                <>
+                  <span className={styles.metaChip}>
+                    <Calendar size={12} />
+                    <span>Bid ends {bidEndAt.format('DD MMM, YYYY')}</span>
+                  </span>
+                  {daysRemaining && (
+                    <span className={`${styles.metaChip} ${
+                      daysRemaining.text === 'Ended' ? styles.daysRed
+                      : daysRemaining.urgent ? styles.daysYellow
+                      : styles.daysGreen
+                    }`}>
+                      {daysRemaining.text}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className={styles.metaChip}>
                   <Calendar size={12} />
-                  <span>{formattedBidEndDate}</span>
-                </div>
-                {daysRemaining && (
-                  <Badge className={styles.daysLeftBadge} style={{ backgroundColor: daysRemaining.urgent ? '#dc3545' : '#6c757d', color: '#fff' }}>
-                    {daysRemaining.text}
-                  </Badge>
-                )}
-              </>
-            )}
-          </div>
+                  <span>No deadline set</span>
+                </span>
+              )}
+            </>
+          )}
 
-          {/* Expand */}
-          <div className={styles.expandToggle}>
-            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </div>
+          {data.project_name && (
+            <>
+              <span className={styles.metaSep} />
+              <span className={styles.metaChip}>
+                <Folder size={12} />
+                <span>{data.project_name}</span>
+              </span>
+            </>
+          )}
+
+          {data.contact_name && (
+            <>
+              <span className={styles.metaSep} />
+              <span className={styles.metaChip}>
+                <User size={12} />
+                <span>{data.contact_name}</span>
+              </span>
+            </>
+          )}
+
+          {data.timestamp && (
+            <>
+              <span className={styles.metaSep} />
+              <span className={styles.metaChip}>
+                <Clock size={12} />
+                <span>{moment(data.timestamp).format('DD MMM YYYY')}</span>
+              </span>
+            </>
+          )}
+
+          {isDraft && data.status === 5 && (
+            <>
+              <span className={styles.metaSep} />
+              <span className={styles.statusBadge} style={{ backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffc107', fontSize: '0.7rem' }}>
+                Previously submitted for publishing
+              </span>
+            </>
+          )}
         </div>
       </div>
 

@@ -22,6 +22,7 @@
 .content {
   flex: 1 1 0%;
   min-width: 0;
+  padding: 20px 24px;
 }
 
 /* ── Combined sidebar container ─────────────── */
@@ -34,13 +35,13 @@
   flex-shrink: 0;
   z-index: 1020;
   border-right: 1px solid #e5e7eb;
-  background: #ffffff;
+  background: #fafbfc;
   transition: width 0.2s ease;
 }
 
 /* Expanded: nav rail with labels (no sub-sidebar) */
 .sidebarExpanded {
-  width: 230px;
+  width: 250px;
   padding: 0 !important;
   border-radius: 0 !important;
 }
@@ -58,7 +59,7 @@
   flex-direction: column;
   flex-shrink: 0;
   height: 100%;
-  background: #ffffff;
+  background: #fafbfc;
   overflow: visible;
   transition: width 0.2s ease;
   position: relative;
@@ -87,7 +88,7 @@
 
 .railHeaderExpanded {
   justify-content: flex-start;
-  padding: 0 14px;
+  padding: 0 8px;
 }
 
 .railHeaderCollapsed {
@@ -105,41 +106,12 @@
   overflow: hidden;
 }
 
-/* Greeting in expanded sidebar header */
-.greeting {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow: hidden;
-}
-
-.greetingWave {
-  font-size: 18px;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.greetingText {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-  min-width: 0;
-}
-
-.greetingLine {
-  font-size: 11px;
-  color: #94a3b8;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-}
-
-.greetingName {
-  font-size: 13.5px;
+/* Logo text in expanded sidebar header */
+.logoText {
+  font-size: 15px;
   font-weight: 700;
   color: #0f172a;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: -0.3px;
 }
 
 .logoMark {
@@ -167,7 +139,8 @@
 }
 
 .railNavExpanded {
-  padding: 10px 10px;
+  padding: 8px 12px;
+  gap: 2px;
 }
 
 .railNavCollapsed {
@@ -185,10 +158,10 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 9px 12px;
+  padding: 10px 14px;
   border-radius: 10px;
   color: #64748b;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 500;
   letter-spacing: 0.01em;
   text-decoration: none;
@@ -197,14 +170,14 @@
   background: transparent;
   width: 100%;
   text-align: left;
-  min-height: 38px;
+  min-height: 40px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .navItem:hover {
   color: #334155;
-  background: #f8fafc;
-  border-color: #f1f5f9;
+  background: #f0f2f5;
+  border-color: #eaecf0;
 }
 
 .navItem:hover .navIcon {
@@ -214,10 +187,9 @@
 
 .navItemActive {
   color: #1e3a5f;
-  background: linear-gradient(135deg, #f0f5ff 0%, #e8effc 100%);
-  border-color: #dce6f7;
+  background: #edf2ff;
+  border-color: #e0e8f7;
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(46, 91, 168, 0.06);
 }
 
 .navItemActive .navIcon {
@@ -231,7 +203,7 @@
   top: 8px;
   bottom: 8px;
   width: 3px;
-  background: linear-gradient(180deg, #2e5ba8 0%, #3b6dc2 100%);
+  background: #2e5ba8;
   border-radius: 0 4px 4px 0;
 }
 
@@ -315,6 +287,21 @@
   transition: color 0.2s ease;
 }
 
+/* Section labels for grouped nav */
+.sectionLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a0aec0;
+  padding: 0 14px;
+  margin: 16px 0 4px 0;
+}
+
+.sectionLabelFirst {
+  margin-top: 4px;
+}
+
 /* Pending approval dot */
 .approvalDot {
   width: 6px;
@@ -371,12 +358,12 @@
 
 /* Rail footer (user avatar) */
 .railFooter {
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #eef0f3;
   flex-shrink: 0;
 }
 
 .railFooterExpanded {
-  padding: 8px;
+  padding: 10px 12px;
 }
 
 .railFooterCollapsed {
@@ -385,18 +372,152 @@
   justify-content: center;
 }
 
+/* ── Sidebar profile button (replaces topbar) ── */
+.sidebarProfileBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.sidebarProfileBtn:hover {
+  background: #eef0f4;
+}
+
+.sidebarProfileBtnOpen {
+  background: #eef0f4;
+}
+
+.sidebarProfileAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2e5ba8 0%, #3b6dc2 100%);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.sidebarProfileName {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebarProfileChevron {
+  color: #bbb;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.sidebarProfileBtnOpen .sidebarProfileChevron {
+  transform: rotate(180deg);
+}
+
+/* Header profile wrapper */
+.headerProfileWrap {
+  width: 100%;
+  position: relative;
+}
+
+.sidebarProfileAvatarWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.onlineDot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 1.5px solid #fafbfc;
+}
+
+/* Compact profile (collapsed rail) */
+.compactProfileWrap {
+  position: relative;
+}
+
+.compactProfileBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.compactProfileBtn:hover {
+  background: #f0f2f5;
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+}
+
+.compactProfilePopover {
+  width: 220px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.06),
+    0 10px 24px -3px rgba(15, 23, 42, 0.1);
+  z-index: 9999;
+  overflow: hidden;
+  animation: popoverIn 0.12s ease;
+}
+
+/* Profile popover — opens downward from header */
+.sidebarProfilePopoverDown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.06),
+    0 10px 24px -3px rgba(15, 23, 42, 0.1);
+  z-index: 1060;
+  overflow: hidden;
+  animation: popoverIn 0.12s ease;
+}
+
 /* Sidebar logout button — expanded */
 .logoutBtn {
   width: 100%;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 10px 14px;
   border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
   color: #94a3b8;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -443,6 +564,10 @@
   border-bottom: 1px solid #f1f5f9;
 }
 
+.popoverHeaderCompact {
+  padding: 10px 14px;
+}
+
 .popoverAvatar {
   width: 34px;
   height: 34px;
@@ -457,19 +582,19 @@
 }
 
 .popoverUserName {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12.5px;
+  font-weight: 600;
   color: #0f172a;
 }
 
 .popoverUserContext {
   margin-top: 1px;
-  font-size: 11.5px;
-  color: #64748b;
+  font-size: 10.5px;
+  color: #94a3b8;
 }
 
 .popoverSection {
-  padding: 4px 0;
+  padding: 3px 0;
 }
 
 .popoverDivider {
@@ -481,10 +606,10 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
+  gap: 8px;
+  padding: 7px 14px;
   color: #334155;
-  font-size: 13px;
+  font-size: 12.5px;
   text-decoration: none;
   border: none;
   background: transparent;
@@ -649,19 +774,31 @@
   overflow: hidden;
 }
 
-/* ── Top bar ────────────────────────────────── */
-.topBar {
+/* ── Mobile top bar (replaces topbar on small screens) ── */
+.mobileTopBar {
+  display: none;
   position: sticky;
   top: 0;
   z-index: 1010;
   height: 48px;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
-  display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 0 20px;
+  gap: 10px;
+  padding: 0 12px;
+}
+
+.mobileTopBarLogo {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+  flex: 1;
+}
+
+/* ── Top bar (kept for backwards compat, hidden on desktop) ── */
+.topBar {
+  display: none;
 }
 
 .topBarLeft {
@@ -917,14 +1054,29 @@
 
 /* ── TwoPanelPage ───────────────────────────── */
 .pageRoot {
-  padding: 20px 24px;
-  min-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh);
+  overflow: hidden;
+  margin: -20px -24px;
+}
+
+.pageTopSection {
+  flex-shrink: 0;
+  padding: 16px 24px 0;
+  background: #ffffff;
+}
+
+.pageScrollSection {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 24px 24px;
 }
 
 .pageHeader {
   display: flex;
   flex-direction: column;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .pageHeaderRow {
@@ -1165,6 +1317,10 @@
     display: none;
   }
 
+  .mobileTopBar {
+    display: flex;
+  }
+
   .hamburger {
     display: inline-flex;
   }
@@ -1173,17 +1329,22 @@
     display: inline-flex;
   }
 
+  .content {
+    padding: 16px;
+  }
+
   .pageRoot {
-    padding: 16px 16px;
+    height: auto;
+    overflow: visible;
+    margin: -16px;
   }
 
-  .topBar {
-    justify-content: space-between;
-    padding: 0 12px;
+  .pageTopSection {
+    padding: 12px 16px 0;
   }
 
-  .profileInfo {
-    display: none;
+  .pageScrollSection {
+    padding: 12px 16px 16px;
   }
 }
 

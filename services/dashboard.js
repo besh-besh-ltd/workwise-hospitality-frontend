@@ -77,10 +77,21 @@ export const getSmartInsightsData = (params) => {
   });
 };
 
-export const getPendingApprovalsDetail = () => {
+export const getRejectedPOsDetail = () => {
   return new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.get('/dashboard-v2/pending-approvals');
+      const response = await axiosInstance.get('/dashboard-v2/rejected-pos');
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error.message });
+    }
+  });
+};
+
+export const getPendingApprovalsDetail = (params) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get('/dashboard-v2/pending-approvals', { params });
       resolve(response);
     } catch (error) {
       reject({ message: error?.response?.data?.message || error.message });
