@@ -648,9 +648,20 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
                         </button>
                       )}
                       {rfqStatus === 2 && (
-                        <button type="button" className="btn btn-danger" disabled id="rfq_closed-rfq_status-view_rfq_page">
-                          {getEntityLabel(data?.is_tender)} is Closed
-                        </button>
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={
+                            <Tooltip id={`close-info-${data?.id || 'x'}`}>
+                              {data?.close_comment || 'RFQ has been closed'}
+                            </Tooltip>
+                          }
+                        >
+                          <span className="d-inline-block">
+                            <button type="button" className="btn btn-danger" disabled style={{ pointerEvents: 'none' }} id="rfq_closed-rfq_status-view_rfq_page">
+                              {getEntityLabel(data?.is_tender)} is Closed
+                            </button>
+                          </span>
+                        </OverlayTrigger>
                       )}
                       {(rfqStatus === 3 || rfqStatus === 4) && (
                         <>

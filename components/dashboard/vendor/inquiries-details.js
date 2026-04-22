@@ -38,7 +38,7 @@ import { getClarifications } from "@/services/clarification";
 import NegotiationColumnCell from "@/components/dashboard/buyer/negotiation/NegotiationColumnCell";
 import { getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { Badge, Button, Alert, OverlayTrigger, Tooltip } from "react-bootstrap";
-import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill } from "react-icons/bs";
+import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill, BsXCircleFill } from "react-icons/bs";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
 import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import {
@@ -429,10 +429,10 @@ const RfqManagementPreview = () => {
 
   const isCreator = rfqDetails && userProfile && String(rfqDetails.created_by) === String(userProfile.id);
 
-  const handleCloseRFQ = async () => {
+  const handleCloseRFQ = async (comment) => {
     setcloseRFqLoading(true);
     try {
-      await closeRFQ(id);
+      await closeRFQ(id, comment);
       getRFQdetails();
       toast.success(`${getEntityLabel(rfqDetails?.is_tender)} closed successfully`);
     } catch (err) {
@@ -2155,9 +2155,20 @@ const RfqManagementPreview = () => {
                           </button>
                         )}
                         {enableBuyerView && rfqDetails?.status == 2 && (
-                          <button type="button" className="btn btn-danger" style={actionBtnStyle} disabled>
-                            {getEntityLabel(rfqDetails?.is_tender)} is Closed
-                          </button>
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={
+                              <Tooltip id={`close-info-${rfqDetails?.id || 'x'}`}>
+                                {rfqDetails?.close_comment || 'RFQ has been closed'}
+                              </Tooltip>
+                            }
+                          >
+                            <span className="d-inline-block">
+                              <button type="button" className="btn btn-danger" style={{ ...actionBtnStyle, pointerEvents: 'none' }} disabled>
+                                {getEntityLabel(rfqDetails?.is_tender)} is Closed
+                              </button>
+                            </span>
+                          </OverlayTrigger>
                         )}
 
                         {/* Withdraw Publish Request - Creator Only */}
@@ -2194,6 +2205,13 @@ const RfqManagementPreview = () => {
                         )}
                       </div>
                     </div>
+
+                    {rfqDetails?.status == 2 && rfqDetails?.close_comment && (
+                      <div className="alert alert-danger d-flex align-items-center gap-2 mt-3 mb-3" role="alert" style={{ borderRadius: '8px' }}>
+                        <BsXCircleFill size={18} className="flex-shrink-0" />
+                        <span><strong>This {getEntityLabel(rfqDetails?.is_tender)} has been closed.</strong> {rfqDetails.close_comment}</span>
+                      </div>
+                    )}
 
                     {type == "buyer-view" && rfqDetails?.products?.length > 0 && !rfqDetails.products.some(p => p.tech_evaluation_status?.has_tech_eval) && (
                       <NoTechClausesBanner entityLabel={getEntityLabel(rfqDetails?.is_tender)} />
@@ -2913,6 +2931,9 @@ const RfqManagementPreview = () => {
         confirmButtonColor="danger"
         confirmButtonText={`Close ${getEntityLabel(rfqDetails?.is_tender)}`}
         cancelButtonText="Cancel"
+        requireComment
+        commentLabel="Reason for closing"
+        commentPlaceholder="Please provide a reason for closing this RFQ..."
       />
 
       {/* Withdraw Publish Request Confirmation Modal */}

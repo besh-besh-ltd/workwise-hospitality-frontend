@@ -150,6 +150,18 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
               >
                 Open
               </span>
+            ) : data.close_comment ? (
+              <OverlayTrigger
+                placement="top"
+                overlay={<Tooltip id={`close-info-${data?.id}`}>{data.close_comment}</Tooltip>}
+              >
+                <span
+                  className="badge rounded-pill ms-5"
+                  style={{ backgroundColor: '#e9ecef', color: '#495057', cursor: 'pointer' }}
+                >
+                  Closed
+                </span>
+              </OverlayTrigger>
             ) : (
               <span
                 className="badge rounded-pill ms-5"
