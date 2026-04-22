@@ -6,9 +6,6 @@ import { Formik, Form } from "formik";
 import { toast } from "react-toastify";
 
 import CommonFormInput from "@/components/shared/CommonFormInput";
-import FullLoader from "@/components/shared/FullLoader";
-import Loader from "@/components/shared/Loader";
-import ProfileImageUploader from "@/components/shared/ProfileImageUploader";
 import LocationModal from "@/components/modal/LocationModal";
 
 import {
@@ -24,10 +21,8 @@ import {
 import { getCities, getCountries, getStates } from "@/services/cms";
 import { getMyHospitalityContexts } from "@/services/hospitality";
 import { EditOnlyProfileSchema } from "@/utils/schema";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { FaEdit, FaTrashAlt } from "react-icons/fa";
-import { faEdit } from "@fortawesome/free-regular-svg-icons";
-import { faAtlas, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { Pencil, Trash2, Camera } from "lucide-react";
+import styles from "./EditProfile.module.scss";
 
 // User type mapping utility
 const getUserTypeLabel = (userType) => {
@@ -420,386 +415,176 @@ const handleCreateLocation = async (locationData) => {
     fetchInitialData();
   }, []);
 
+  const userInitial = userDetails?.name?.charAt(0)?.toUpperCase() || "U";
+
   return (
     <>
       <Head>
         <title>Workwise | Edit Profile</title>
       </Head>
-      <section className="buyer-common-header sc-pt-80">
-        <div className="container-fluid">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h1 className="heading">Edit profile</h1>
-          </div>
-        </div>
-      </section>
 
-      <section className="buyer-edit-sec-1">
-        {mainLoading && <Loader />}
-        <div className="container-fluid">
-          <div className="row">
-            <div className="col-md-2">
-              {profileImageLoading ? (
-                <FullLoader />
+      <div className={styles.page}>
+
+        {/* ── Profile header: avatar + name + badge ── */}
+        <div className={styles.profileHeader}>
+          <div className={styles.avatarWrap}>
+            <div className={styles.avatarInner}>
+              {userProfileLogo ? (
+                <img src={userProfileLogo} alt={userDetails?.name || "Profile"} />
               ) : (
-                <ProfileImageUploader
-                  imageUrl={userProfileLogo}
-                  placeholderUrl="/assets/images/user-img.png"
-                  onChange={isCompanyEditableForUserRef.current ? uploadToClient : null}
-                  loading={profileImageLoading}
-                  disabled={!isCompanyEditableForUserRef.current}
-                />
+                <div className={styles.avatarPlaceholder}>{userInitial}</div>
               )}
             </div>
-
-            {/* START: details form container */}
-            <div className="col-md-8">
-              {/* START: user details form */}
-              <Formik
-                enableReinitialize
-                initialValues={userDetails}
-                onSubmit={handleUpdate}
-              >
-                {({ errors, touched, setFieldValue }) => (
-                  <Form className="buyer-edit-sec-form">
-                    <span className="title">Contact Details</span>
-                    <CommonFormInput
-                      name="name"
-                      label="Name"
-                      touched={touched}
-                      errors={errors}
-                      required
-                    />
-                    <CommonFormInput
-                      name="email"
-                      label="Email"
-                      type="email"
-                      touched={touched}
-                      errors={errors}
-                      required
-                    />
-                    <CommonFormInput
-                      name="mobile"
-                      type="mobile"
-                      label="Mobile"
-                      values={userDetails?.mobile}
-                      errors={errors}
-                      onChange={setFieldValue}
-                      required
-                    />
-                    <div className="text-end">
-                      <button type="submit" className="btn btn-secondary" id="save_contact_details-contact_details-edit_profile_page">
-                        Save
-                      </button>
-                    </div>
-                  </Form>
-                )}
-              </Formik>
-              {/* END: user details form */}
-
-              {/* START: company details form: only editable for company admin */}
-              <Formik
-                enableReinitialize
-                initialValues={companyDetails}
-                validationSchema={EditOnlyProfileSchema}
-                onSubmit={handleCompanyUpdate}
-              >
-                {({ values, errors, touched, setFieldValue }) => (
-                  <Form className="buyer-edit-sec-form">
-                    <span className="title">Company Details</span>
-                    <div className="row">
-                      <div className="col-md-6">
-                        <CommonFormInput
-                          name="company_name"
-                          label="Company Name"
-                          touched={touched}
-                          errors={errors}
-                          required
-                          placeholder="e.g. Workwise Solutions Pvt. Ltd."
-                          disabled={!isCompanyEditableForUserRef.current}
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <CommonFormInput
-                          name="established_year"
-                          type="number"
-                          label="Estd. Year"
-                          touched={touched}
-                          errors={errors}
-                          placeholder="e.g. 2018"
-                          disabled={!isCompanyEditableForUserRef.current}
-                        />
-                      </div>
-                      <div className="col-md-12">
-                        <CommonFormInput
-                          name="about_company"
-                          type="textarea"
-                          label="About Company"
-                          touched={touched}
-                          errors={errors}
-                          values={companyDetails?.about_company}
-                          onChange={(e) => { setCompanyDetails({ ...companyDetails, about_company: e.target.value }); }}
-                          placeholder="Brief description about your company"
-                          disabled={!isCompanyEditableForUserRef.current}
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <CommonFormInput
-                          name="gstin"
-                          label="GSTIN"
-                          touched={touched}
-                          errors={errors}
-                          placeholder="Enter 15-digit GSTIN (e.g. 27AAECS1234F1Z2)"
-                          disabled={!isCompanyEditableForUserRef.current}
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <CommonFormInput
-                          name="website"
-                          label="Website"
-                          touched={touched}
-                          errors={errors}
-                          type="url"
-                          placeholder="e.g. https://www.yourcompany.com"
-                          disabled={!isCompanyEditableForUserRef.current}
-                        />
-                      </div>
-                      {/* <div className="col-md-6">
-                        <CommonFormInput
-                          name="street_address"
-                          label="Street Address"
-                          touched={touched}
-                          errors={errors}
-                          placeholder="e.g. 271 Business Park, Western Express Highway"
-                          disabled={!isCompanyEditableForUserRef.current}
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <CommonFormInput
-                          name="postal_code"
-                          label="Pin Code"
-                          touched={touched}
-                          errors={errors}
-                          placeholder="e.g. 110001"
-                          disabled={!isCompanyEditableForUserRef.current}
-                        />
-                      </div> */}
-
-                      {/* Location Inputs */}
-                      {/* <div className="col-md-4">
-                        <CommonFormInput
-                          name="country"
-                          label="Country"
-                          type="select"
-                          isClearable={false}
-                          isMulti={false}
-                          options={locationOptions.countries.map((c) => ({
-                            label: c.country_name,
-                            value: c.id,
-                          }))}
-                          values={values.country}
-                          onChange={(option) => handleLocationChange("country", option, setFieldValue)}
-                          disabled={!isCompanyEditableForUserRef.current}
-                        />
-                      </div> */}
-                      {/* <div className="col-md-4">
-                        <CommonFormInput
-                          name="state"
-                          label="State"
-                          type="select"
-                          isClearable={false}
-                          isMulti={false}
-                          options={locationOptions.states.map((s) => ({
-                            label: s.state_name,
-                            value: s.id,
-                          }))}
-                          values={values.state}
-                          onChange={(option) => handleLocationChange("state", option, setFieldValue)}
-                          disabled={!isCompanyEditableForUserRef.current}
-                        />
-                      </div> */}
-                      {/* <div className="col-md-4">
-                        <CommonFormInput
-                          name="city"
-                          label="City"
-                          type="select"
-                          isClearable={false}
-                          isMulti={false}
-                          options={locationOptions.cities.map((c) => ({
-                            label: c.city_name,
-                            value: c.id,
-                          }))}
-                          values={values.city}
-                          onChange={(option) => handleLocationChange("city", option, setFieldValue)}
-                          disabled={!isCompanyEditableForUserRef.current}
-                        />
-                      </div> */}
-                      {isCompanyEditableForUserRef.current && (
-                        <div className="col-12 text-end">
-                          <button type="submit" className="btn btn-secondary" id="save_company_details-company_details-edit_profile_page">
-                            Save
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </Form>
-                )}
-              </Formik>
-              {/* END: company details form: only editable for company admin */}
-
-              {isHospitalityUser && (
-                <div className="buyer-edit-sec-form">
-                  <div className="d-flex flex-wrap align-items-center justify-content-between mb-3">
-                    <span className="title mb-0">Hospitality Scope</span>
-                    <span
-                      className="badge"
-                      style={{
-                        backgroundColor: "#f8fafc",
-                        color: "#0f172a",
-                        fontWeight: 600,
-                        padding: "8px 16px",
-                        borderRadius: "999px",
-                      }}
-                    >
-                      {hospitalityLoading
-                        ? "Loading…"
-                        : groupedHospitalityScopes.length
-                        ? `${groupedHospitalityScopes.length} company${
-                            groupedHospitalityScopes.length > 1 ? " mappings" : " mapping"
-                          }`
-                        : "No mappings yet"}
-                    </span>
-                  </div>
-                  {hospitalityLoading ? (
-                    <p className="text-muted mb-0">
-                      Fetching your hospitality access…
-                    </p>
-                  ) : groupedHospitalityScopes.length === 0 ? (
-                    <p className="text-muted mb-0">
-                      You are not mapped to any hospitality company or business unit yet.
-                      Contact your administrator to gain access.
-                    </p>
-                  ) : (
-                    groupedHospitalityScopes.map((scope) => (
-                      <div
-                        key={`hospitality-scope-${scope.companyId}`}
-                        className="border rounded p-3 mb-3"
-                      >
-                        <div className="d-flex flex-wrap justify-content-between align-items-start gap-2">
-                          <div>
-                            <h5 className="mb-1">{scope.companyName}</h5>
-                            {scope.hasCompanyAccess && (
-                              <span className="badge bg-primary">
-                                Company-level access
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-muted small">
-                            {scope.hotels.length
-                              ? `${scope.hotels.length} business unit${
-                                  scope.hotels.length > 1 ? "s" : ""
-                                }`
-                              : "No business unit-level mapping"}
-                          </span>
-                        </div>
-                        {scope.hotels.length > 0 && (
-                          <div className="d-flex flex-wrap gap-2 mt-3">
-                            {scope.hotels.map((hotel) => (
-                              <span
-                                key={`hotel-${scope.companyId}-${hotel.id}`}
-                                className="badge bg-light text-dark border"
-                              >
-                                {hotel.name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {/* Locations Table Section - Simple and clean */}
-              <div className="buyer-edit-sec-form">
-
-                {/* Heading */}
-                <div className="d-flex align-items-center justify-content-between mb-3">
-                  <h5 className="title">Company Locations ({locations?.length || 0})</h5>
-
-                  {isCompanyEditableForUserRef.current && (
-                    <button
-                      className="btn btn-secondary"
-                      onClick={handleAddLocation}
-                    >
-                      Add Location
-                    </button>
-                  )}
-                </div>
-
-                {/* Table Container */}
-                <div className="contact-form">
-                  {locations && locations.length > 0 ? (
-                    <div className="table-responsive">
-                      <table className="table table-striped">
-                        <thead>
-                          <tr>
-                            <th scope="col">S.R.</th>
-                            <th scope="col">Address</th>
-                            <th scope="col">City</th>
-                            <th scope="col">State</th>
-                            <th scope="col">Country</th>
-                            <th scope="col">Postal Code</th>
-                            {isCompanyEditableForUserRef.current && <th scope="col">Actions</th>}
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {locations.map((location, idx) => (
-                            <tr key={location.id || idx}>
-                              <td>{idx + 1}</td>
-                              <td style={{ maxWidth: 300 }}>
-                                {location.address || location.street_address || "-"}
-                              </td>
-                              <td>{location.city_name || "-"}</td>
-                              <td>{location.state_name || "-"}</td>
-                              <td>{location.country_name || "-"}</td>
-                              <td>{location.postal_code || "-"}</td>
-
-                              {isCompanyEditableForUserRef.current && (
-                                <td>
-                                  <span
-                                    role="button"
-                                    className="cursor-pointer me-3"
-                                    onClick={() => handleEditLocation(location)}
-                                  >
-                                    <FontAwesomeIcon icon={faEdit} />
-                                  </span>
-                                  <span
-                                    role="button"
-                                    className="cursor-pointer text-danger"
-                                    onClick={() => handleDeleteLocation(location.id)}
-                                  >
-                                    <FontAwesomeIcon icon={faTrash} />
-                                  </span>
-                                </td>
-                              )}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-muted">No locations found.</p>
-                  )}
-                </div>
-
-              </div>
-
-            </div>
-            {/* END: details form container */}
+            {isCompanyEditableForUserRef.current && (
+              <label className={styles.avatarUpload}>
+                <Camera size={12} strokeWidth={2} />
+                <input type="file" accept="image/*" onChange={uploadToClient} />
+              </label>
+            )}
+          </div>
+          <div className={styles.profileInfo}>
+            <h2 className={styles.profileName}>{userDetails?.name || "—"}</h2>
+            <p className={styles.profileEmail}>{userDetails?.email || ""}</p>
+            <span className={styles.profileBadge}>
+              {getUserTypeLabel(userType)}
+            </span>
           </div>
         </div>
-      </section>
+
+        {/* ── Contact Details ── */}
+        <Formik enableReinitialize initialValues={userDetails} onSubmit={handleUpdate}>
+          {({ errors, touched, setFieldValue }) => (
+            <Form className={styles.section}>
+              <h3 className={styles.sectionTitle}>Contact Details</h3>
+              <div className={styles.formGrid}>
+                <CommonFormInput name="name" label="Name" touched={touched} errors={errors} required />
+                <CommonFormInput name="email" label="Email" type="email" touched={touched} errors={errors} required />
+                <CommonFormInput name="mobile" type="mobile" label="Mobile" values={userDetails?.mobile} errors={errors} onChange={setFieldValue} required />
+                <div className={styles.formActions}>
+                  <button type="submit" className={styles.saveBtn} id="save_contact_details-contact_details-edit_profile_page">Save</button>
+                </div>
+              </div>
+            </Form>
+          )}
+        </Formik>
+
+        {/* ── Company Details ── */}
+        <Formik enableReinitialize initialValues={companyDetails} validationSchema={EditOnlyProfileSchema} onSubmit={handleCompanyUpdate}>
+          {({ values, errors, touched, setFieldValue }) => (
+            <Form className={styles.section}>
+              <h3 className={styles.sectionTitle}>Company Details</h3>
+              <div className={styles.formGrid}>
+                <CommonFormInput name="company_name" label="Company Name" touched={touched} errors={errors} required placeholder="e.g. Workwise Solutions Pvt. Ltd." disabled={!isCompanyEditableForUserRef.current} />
+                <CommonFormInput name="established_year" type="number" label="Estd. Year" touched={touched} errors={errors} placeholder="e.g. 2018" disabled={!isCompanyEditableForUserRef.current} />
+                <div className={styles.fullWidth}>
+                  <CommonFormInput name="about_company" type="textarea" label="About Company" touched={touched} errors={errors} values={companyDetails?.about_company} onChange={(e) => { setCompanyDetails({ ...companyDetails, about_company: e.target.value }); }} placeholder="Brief description about your company" disabled={!isCompanyEditableForUserRef.current} />
+                </div>
+                <CommonFormInput name="gstin" label="GSTIN" touched={touched} errors={errors} placeholder="Enter 15-digit GSTIN" disabled={!isCompanyEditableForUserRef.current} />
+                <CommonFormInput name="website" label="Website" touched={touched} errors={errors} type="url" placeholder="e.g. https://www.yourcompany.com" disabled={!isCompanyEditableForUserRef.current} />
+                {isCompanyEditableForUserRef.current && (
+                  <div className={styles.formActions}>
+                    <button type="submit" className={styles.saveBtn} id="save_company_details-company_details-edit_profile_page">Save</button>
+                  </div>
+                )}
+              </div>
+            </Form>
+          )}
+        </Formik>
+
+        {/* ── Hospitality Scope ── */}
+        {isHospitalityUser && (
+          <div className={styles.section}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 className={styles.sectionTitle} style={{ marginBottom: 0, paddingBottom: 0, borderBottom: 'none' }}>Hospitality Scope</h3>
+              <span className={styles.scopeCount}>
+                {hospitalityLoading ? "Loading…" : groupedHospitalityScopes.length ? `${groupedHospitalityScopes.length} mapping${groupedHospitalityScopes.length > 1 ? "s" : ""}` : "No mappings"}
+              </span>
+            </div>
+            <div style={{ marginTop: 16 }}>
+              {hospitalityLoading ? (
+                <p className={styles.emptyText}>Fetching your hospitality access…</p>
+              ) : groupedHospitalityScopes.length === 0 ? (
+                <p className={styles.emptyText}>You are not mapped to any hospitality company or business unit yet. Contact your administrator.</p>
+              ) : (
+                groupedHospitalityScopes.map((scope) => (
+                  <div key={`hospitality-scope-${scope.companyId}`} className={styles.scopeCard}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+                      <div>
+                        <h5 className={styles.scopeCompanyName}>{scope.companyName}</h5>
+                        {scope.hasCompanyAccess && <span className={styles.scopeBadgePrimary}>Company-level access</span>}
+                      </div>
+                      <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                        {scope.hotels.length ? `${scope.hotels.length} business unit${scope.hotels.length > 1 ? "s" : ""}` : "No BU mapping"}
+                      </span>
+                    </div>
+                    {scope.hotels.length > 0 && (
+                      <div className={styles.scopeHotels}>
+                        {scope.hotels.map((hotel) => (
+                          <span key={`hotel-${scope.companyId}-${hotel.id}`} className={styles.scopeHotelPill}>{hotel.name}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Company Locations ── */}
+        <div className={styles.section}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h3 className={styles.sectionTitle} style={{ marginBottom: 0, paddingBottom: 0, borderBottom: 'none' }}>
+              Company Locations ({locations?.length || 0})
+            </h3>
+            {isCompanyEditableForUserRef.current && (
+              <button type="button" className={styles.addLocationBtn} onClick={handleAddLocation}>+ Add Location</button>
+            )}
+          </div>
+
+          {locations && locations.length > 0 ? (
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Address</th>
+                    <th>City</th>
+                    <th>State</th>
+                    <th>Country</th>
+                    <th>Postal Code</th>
+                    {isCompanyEditableForUserRef.current && <th>Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {locations.map((location, idx) => (
+                    <tr key={location.id || idx}>
+                      <td>{idx + 1}</td>
+                      <td>{location.address || location.street_address || "-"}</td>
+                      <td>{location.city_name || "-"}</td>
+                      <td>{location.state_name || "-"}</td>
+                      <td>{location.country_name || "-"}</td>
+                      <td>{location.postal_code || "-"}</td>
+                      {isCompanyEditableForUserRef.current && (
+                        <td>
+                          <button type="button" className={styles.actionIcon} onClick={() => handleEditLocation(location)}>
+                            <Pencil size={14} />
+                          </button>
+                          <button type="button" className={styles.actionIconDanger} onClick={() => handleDeleteLocation(location.id)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className={styles.emptyText}>No locations found.</p>
+          )}
+        </div>
+      </div>
 
       {/* Location Modal */}
       <LocationModal

@@ -155,7 +155,7 @@ const [userDocuments, setUserDocuments] = useState({
   const getUserTypeLabel = (userType) => {
     const userTypeMap = {
       2: "Procurement",
-      3: "Seller",
+      3: "Vendor",
       4: "Other",
       7: "Admin",
       8: "Management",
@@ -904,7 +904,7 @@ const fetchProfileDocuments = async () => {
   return (
     <>
       {createLoading && <Loader />}
-      <section className="vendor-common-header sc-pt-80">
+      <section>
         <div className="container-fluid">
           <div
             style={{
@@ -920,9 +920,9 @@ const fetchProfileDocuments = async () => {
                   display: "inline-block",
                   backgroundColor: "#f3f4f6",
                   color: "#374151",
-                  padding: "10px 20px",
+                  padding: "4px 20px",
                   borderRadius: "25px",
-                  fontSize: "18px",
+                  fontSize: "16px",
                   fontWeight: "600",
                   border: "2px solid #d1d5db",
                 }}
@@ -933,15 +933,6 @@ const fetchProfileDocuments = async () => {
           </div>
         </div>
       </section>
-
-      {/* Subscription info for hospitality vendors */}
-      {isHospitalityVendor && (
-        <section className="vendor-edit-sec-1" style={{ paddingBottom: 0 }}>
-          <div className="container-fluid">
-            <SubscriptionStatus />
-          </div>
-        </section>
-      )}
 
       <section className="vendor-edit-sec-1">
         {mainLoading && <Loader />}

@@ -30,6 +30,13 @@ export const usePendingApprovalIndicators = ({ enabled = true } = {}) => {
       return;
     }
 
+    // Approval counts are buyer-only — skip for vendors (user_type=3)
+    const userType = storageInstance.getStorage("current-user-type");
+    if (userType === "vendor") {
+      setPendingHrefs(new Set());
+      return;
+    }
+
     const currentFetchId = ++fetchIdRef.current;
 
     try {

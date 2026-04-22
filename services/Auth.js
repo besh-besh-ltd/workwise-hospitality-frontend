@@ -652,4 +652,7 @@ export const getMyDepartments = () => {
   });
 };
 
+export const verifyVendorToken = (token) => {
+  return axiosInstance.post('/users/verify-vendor-token', { token });
+};
 

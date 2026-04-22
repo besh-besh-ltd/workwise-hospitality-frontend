@@ -1993,4 +1993,225 @@ body.dashboard-route {
 
     .query-input-bar { padding: 10px 12px; }
   }
+
+  /* =============================================
+     VENDOR EDIT PROFILE — Modern overrides
+     Matches the admin/buyer EditProfile.module.scss
+     ============================================= */
+
+  .vendor-edit-sec-1 {
+    background: transparent !important;
+    padding: 0 !important;
+
+    .container-fluid {
+      margin: 24px 0 0 0 !important;
+      padding: 0 !important;
+    }
+
+    /* Kill the legacy 2-col layout (avatar col + form col) */
+    > .container-fluid > .row {
+      display: block !important;
+      margin: 0 !important;
+    }
+
+    > .container-fluid > .row > .col-md-2 {
+      display: none !important; /* Hide old avatar column — we don't need it */
+    }
+
+    > .container-fluid > .row > .col-md-8 {
+      width: 100% !important;
+      max-width: 100% !important;
+      flex: none !important;
+      margin-left: 0 !important;
+      padding: 0 !important;
+    }
+  }
+
+  /* ── Form sections ── */
+  .vendor-edit-sec-form {
+    background: #fff !important;
+    border: 1px solid #e8ecf1 !important;
+    border-radius: 12px !important;
+    padding: 20px 24px !important;
+    margin-bottom: 16px !important;
+    box-shadow: none !important;
+  }
+
+  .vendor-edit-sec-form .title {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: #475569 !important;
+    display: block !important;
+    margin-bottom: 16px !important;
+    padding-bottom: 12px !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    line-height: normal !important;
+  }
+
+  /* ── Form inputs inside vendor profile ── */
+  .vendor-edit-sec-form .form-group {
+    margin-bottom: 16px !important;
+  }
+
+  .vendor-edit-sec-form .form-group label {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: #94a3b8 !important;
+    margin-bottom: 4px !important;
+  }
+
+  .vendor-edit-sec-form .form-control,
+  .vendor-edit-sec-form .form-select,
+  .vendor-edit-sec-form select.form-control {
+    font-size: 13px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    padding: 9px 12px !important;
+    color: #1e293b !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    height: auto !important;
+    min-height: 42px !important;
+    transition: border-color 0.15s !important;
+
+    &:focus {
+      border-color: var(--primary-color) !important;
+      box-shadow: 0 0 0 2px rgba(46, 91, 168, 0.1) !important;
+      outline: none !important;
+    }
+
+    &:disabled {
+      background: #f5f5f5 !important;
+      color: #94a3b8 !important;
+      border-color: #e2e8f0 !important;
+    }
+
+    &::placeholder { color: #a0aec0 !important; }
+  }
+
+  .vendor-edit-sec-form textarea.form-control {
+    min-height: 80px !important;
+    resize: vertical !important;
+  }
+
+  /* ── Save buttons ── */
+  .vendor-edit-sec-1 .btn.btn-secondary.edit-profile,
+  .vendor-edit-sec-form .btn.btn-secondary,
+  .vendor-edit-sec-form .btn.btn-primary {
+    padding: 8px 24px !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    border: none !important;
+    background: var(--primary-color) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+
+    &:hover { background: #1e4a8a !important; }
+  }
+
+  /* Add location / add buttons */
+  .vendor-edit-sec-form .btn.btn-primary {
+    background: #f0f4ff !important;
+    color: var(--primary-color) !important;
+    border: 1px dashed #c7d7f2 !important;
+
+    &:hover {
+      background: #e0eaff !important;
+      border-color: var(--primary-color) !important;
+    }
+  }
+
+  /* ── Tables inside vendor profile ── */
+  .vendor-edit-sec-form .table {
+    border: 1px solid #e8ecf1 !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+
+    thead th {
+      font-size: 10px !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.06em !important;
+      color: #64748b !important;
+      background: #f8fafc !important;
+      padding: 10px 14px !important;
+      border-bottom: 2px solid #e2e8f0 !important;
+      white-space: nowrap !important;
+    }
+
+    tbody td {
+      font-size: 13px !important;
+      color: #334155 !important;
+      padding: 12px 14px !important;
+      border-bottom: 1px solid #f1f5f9 !important;
+      vertical-align: middle !important;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none !important;
+    }
+
+    tbody tr:hover {
+      background: #fafbfd !important;
+    }
+  }
+
+  /* ── File upload areas ── */
+  .vendor-edit-sec-form .upload,
+  .vendor-edit-sec-form label.upload {
+    background: #f8fafc !important;
+    border: 1.5px dashed #cbd5e1 !important;
+    border-radius: 10px !important;
+    padding: 14px 20px !important;
+    font-size: 12.5px !important;
+    color: #475569 !important;
+    cursor: pointer !important;
+    transition: all 0.15s !important;
+
+    &:hover {
+      background: #f0f4ff !important;
+      border-color: var(--primary-color) !important;
+    }
+  }
+
+  /* ── Payment Terms table rows ── */
+  .vendor-edit-sec-form .payment-terms-row,
+  .vendor-edit-sec-form .row.g-2.align-items-end {
+    padding: 8px 0 !important;
+    border-bottom: 1px solid #f5f5f5 !important;
+    margin-bottom: 8px !important;
+
+    &:last-child { border-bottom: none !important; }
+  }
+
+  /* ── Vendor Reviews cards ── */
+  .vendor-edit-sec-form .card {
+    border: 1px solid #e8ecf1 !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+    transition: border-color 0.15s !important;
+
+    &:hover { border-color: #cbd5e1 !important; }
+  }
+
+  /* ── SPOC section styling ── */
+  .vendor-edit-sec-form .badge {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    padding: 4px 10px !important;
+    border-radius: 6px !important;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 767px) {
+    .vendor-edit-sec-form {
+      padding: 16px !important;
+    }
+  }
 }

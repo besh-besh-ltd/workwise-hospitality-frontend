@@ -125,6 +125,7 @@ const DashboardShell = ({ children }) => {
         confirmButtonText="Sign Out"
         cancelButtonText="Stay Signed In"
       />
+
     </TwoPanelContext.Provider>
   );
 };
