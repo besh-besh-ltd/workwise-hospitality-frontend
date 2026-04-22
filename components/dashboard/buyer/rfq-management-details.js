@@ -51,10 +51,10 @@ const RfqManagementDetails = () => {
     }
   }, [router])
 
-  const handleCloseRFQ = async () => {
+  const handleCloseRFQ = async (comment) => {
     setCloseLoading(true);
     try {
-      const response = await closeRFQ(id);
+      const response = await closeRFQ(id, comment);
       if (response && response.status === 1) {
         toast.success(`${getEntityLabel(rfqDetails?.is_tender)} closed successfully`);
         // Refresh RFQ data to show updated status
@@ -127,6 +127,9 @@ const RfqManagementDetails = () => {
         confirmButtonColor="warning"
         confirmButtonText="Close RFQ"
         cancelButtonText="Cancel"
+        requireComment
+        commentLabel="Reason for closing"
+        commentPlaceholder="Please provide a reason for closing this RFQ..."
       />
 
       {/* Withdraw Publish Request Confirmation Modal */}

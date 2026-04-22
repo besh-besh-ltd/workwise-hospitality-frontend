@@ -125,6 +125,51 @@
   font-weight: 400;
 }
 
+// --- Comment textarea ---
+.commentGroup {
+  margin-top: 14px;
+  padding-left: 56px;
+}
+
+.commentLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.commentTextarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+
+  &:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background: #fff;
+  }
+}
+
+.commentError {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
 // --- Custom footer ---
 .footer {
   margin-top: 10px;
@@ -269,6 +314,7 @@
 @media (max-width: 480px) {
   .inner { padding: 18px 20px 16px; }
   .desc { padding-left: 0; }
+  .commentGroup { padding-left: 0; }
   .footer { padding-left: 0; }
   .actions { flex-direction: column-reverse; gap: 6px; }
   .btn { width: 100%; justify-content: center; }

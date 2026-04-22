@@ -512,10 +512,10 @@ export const getExistingPOByVendor = (vendor_id, rfq_id) => {
 };
 
 
-export const closeRFQ = (id) => {
+export const closeRFQ = (id, comment) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/close-rfq/${id}`);
+      let response = await axiosInstance.post(`/rfq/close-rfq/${id}`, { comment });
       resolve(response);
     } catch (error) {
       reject({ message: error });
