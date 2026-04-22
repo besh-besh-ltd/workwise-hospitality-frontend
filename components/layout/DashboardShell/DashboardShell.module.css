@@ -1128,6 +1128,7 @@
   display: flex;
   flex-direction: column;
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
+  border-radius: 0 !important;
   animation: slideInLeft 0.25s ease;
 }
 
@@ -1136,11 +1137,39 @@
   to   { transform: translateX(0); }
 }
 
+/* Toggle-based mobile drawer (used by tab sidebars portaled to body) */
+.mobileDrawerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  z-index: 1070;
+}
+
+.mobileDrawerToggle {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 86vw;
+  max-width: 300px;
+  height: 100vh;
+  background: #ffffff;
+  z-index: 1080;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+}
+
+.mobileDrawerToggleOpen {
+  transform: translateX(0);
+}
+
 .mobileDrawerHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #f1f5f9;
   flex-shrink: 0;
 }
@@ -1175,8 +1204,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
-  margin: 8px 12px;
+  padding: 6px;
+  margin: 8px 0;
   background: #f8fafc;
   border-radius: 10px;
   border: 1px solid #f1f5f9;
@@ -1313,6 +1342,9 @@
 
 /* ── Responsive ─────────────────────────────── */
 @media (max-width: 991px) {
+  .shell {
+    flex-direction: column;
+  }
   .sidebar {
     display: none;
   }

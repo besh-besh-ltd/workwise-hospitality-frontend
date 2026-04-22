@@ -1839,7 +1839,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         title="Quote Comparison"
         subtitle="Compare vendor quotes, finalize selections, and track negotiations."
         sidebar={quoteCompareSidebar}
-        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(true) : undefined}
+        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
+        mobileSidebarOpen={sidebarOpen}
         mobileToggleLabel="Select RFQ"
       >
             <div>

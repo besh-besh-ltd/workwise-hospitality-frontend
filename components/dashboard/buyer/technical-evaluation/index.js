@@ -668,7 +668,8 @@ const BuyerTechnicalEvaluation = () => {
         title="Technical Evaluation"
         subtitle="Review vendor submissions against technical clauses."
         sidebar={techEvalSidebar}
-        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(true) : undefined}
+        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
+        mobileSidebarOpen={sidebarOpen}
         mobileToggleLabel="Select RFQ"
       >
               <div className="quote-sec-table quote-sec-tab">

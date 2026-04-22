@@ -533,7 +533,6 @@
   position: absolute;
   bottom: calc(100% + 10px);
   right: 0;
-  z-index: 1000;
   width: 280px;
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -932,5 +931,133 @@
     opacity: 1;
     padding: 16px;
     border-top-color: #e9ecef;
+  }
+}
+
+// ============================================
+// MOBILE RESPONSIVE — Full info, no truncation
+// ============================================
+
+@media (max-width: 767px) {
+  .compactView {
+    padding: 10px 12px;
+    gap: 8px;
+    position: relative;
+  }
+
+  // Row 1: Stack badges on one line, title on next line (full, no truncate)
+  .compactRow1 {
+    flex-wrap: wrap;
+    gap: 6px;
+
+    .title {
+      order: 10; // Push title to its own line
+      flex: 0 0 100%;
+      white-space: normal; // Show full title, no truncation
+      overflow: visible;
+      text-overflow: unset;
+      font-size: 0.84rem;
+      line-height: 1.35;
+      margin-top: 2px;
+    }
+  }
+
+  .rfqNumberInline {
+    order: 3;
+    font-size: 0.7rem;
+  }
+
+  .queryBadgeCompact {
+    order: 4;
+  }
+
+  // Expand toggle — fixed top-right corner
+  .expandToggle {
+    position: absolute;
+    top: 10px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    margin: 0;
+  }
+
+  // Row 2: Wrap chips as mini pills, hide separators
+  .compactRow2 {
+    gap: 4px;
+  }
+
+  .metaSep {
+    display: none;
+  }
+
+  .metaChip {
+    font-size: 0.68rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+
+  // Status / type badges — smaller
+  .typeBadge {
+    padding: 3px 7px;
+    font-size: 0.62rem;
+  }
+
+  .statusBadge {
+    padding: 3px 8px;
+    font-size: 0.66rem;
+  }
+
+  // Expanded view — compact mobile layout
+  .expandedView.visible {
+    padding: 10px 12px;
+  }
+
+  .metaRow {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+  }
+
+  .metaItem {
+    font-size: 0.72rem;
+    gap: 4px;
+
+    svg { width: 12px; height: 12px; }
+  }
+
+  .timelineRow {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+  }
+
+  .timelineItem {
+    font-size: 0.72rem;
+    gap: 5px;
+
+    svg { width: 12px; height: 12px; }
+  }
+
+  .actionsRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .actionBtn {
+    padding: 7px 10px;
+    font-size: 11.5px;
+    text-align: center;
+    box-shadow: none;
+    width: 100%;
+
+    &:hover {
+      transform: none;
+    }
   }
 }

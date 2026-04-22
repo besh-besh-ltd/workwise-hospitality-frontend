@@ -1408,16 +1408,10 @@ return { deletedTerms, createdTerms, updatedTerms };
   return (
     <>
       {submitLoading && <Loader />}
-      <section className="quote-common-header sc-pt-80">
-        <div className="container-fluid">
-          <div className="row">
-            <div className="col-md-6">
-              <h3 className="heading">Send Quotation</h3>
-            </div>
-            <div className="col-md-6"></div>
-          </div>
-        </div>
-      </section>
+      <div className="mb-4">
+        <h1 className='pageTitle'>Fill your quotation</h1>
+        <p className='pageSubtitle'>Fill in your quotation details below</p>
+      </div>
 
       {/* Table Placeholder */}
       {loading && (
@@ -1425,7 +1419,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           <div className="container-fluid">
             <div className="row">
               <div className="col-md-12">
-                <div className="quote-sec-table">
+                <div>
                   <div className="quote-sec-table-top">
                     <h3 className="title">
                       <PlaceholderLoading
@@ -1668,7 +1662,7 @@ return { deletedTerms, createdTerms, updatedTerms };
               )}
             <div className="row">
               <div className="col-md-12">
-                <div className="quote-sec-table">
+                <div>
                   <div className="quote-sec-table-top">
 
                       {/* RFQ Details Section */}

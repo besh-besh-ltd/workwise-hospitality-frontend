@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from 'next/router';
 import { ClipboardCheck, FileText, FilePenLine, XCircle, CheckCircle2 } from "lucide-react";
@@ -120,7 +121,7 @@ const RfqManagement = () => {
   };
 
   // Build the tab sub-sidebar
-  const tabSidebar = (
+  const tabNav = (
     <div className={styles.tabSidebar}>
       <div className={styles.tabSidebarHeader}>
         <h2 className={styles.tabSidebarTitle}>Tender / RFQ Management</h2>
@@ -134,7 +135,7 @@ const RfqManagement = () => {
               key={tabItem.key}
               id={`${tabItem.key}-rfq_tabs-rfq_management_page`}
               className={`${styles.tabSidebarItem} ${isActive ? styles.tabSidebarItemActive : ""}`}
-              onClick={() => handleTabChange(tabItem.key)}
+              onClick={() => { handleTabChange(tabItem.key); if (isMobile) setSidebarOpen(false); }}
             >
               <span className={styles.tabSidebarIcon}>
                 <Icon size={16} strokeWidth={1.75} />
@@ -150,41 +151,59 @@ const RfqManagement = () => {
     </div>
   );
 
+  // On mobile, portal the tab sidebar as a drawer to escape display:none parent
+  const mobileDrawer = isMobile && typeof document !== "undefined" ? createPortal(
+    <>
+      {sidebarOpen && <div className={styles.mobileDrawerOverlay} onClick={() => setSidebarOpen(false)} />}
+      <div className={`${styles.mobileDrawerToggle} ${sidebarOpen ? styles.mobileDrawerToggleOpen : ""}`}>
+        {tabNav}
+      </div>
+    </>,
+    document.body
+  ) : null;
+
+  const tabSidebar = isMobile ? (
+    <>{tabNav}{mobileDrawer}</>
+  ) : tabNav;
+
   return (
     <TwoPanelPage
       title="Tender / RFQ Management"
       subtitle="Create, track, and manage your procurement requests."
       sidebar={tabSidebar}
       filters={showFilters ? <FilterSection setFilterData={setFilterData} disabled={pendingLoading || listLoading} /> : null}
-      onMobileSidebarToggle={isMobile ? () => setSidebarOpen(true) : undefined}
+      onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
+      mobileSidebarOpen={sidebarOpen}
       mobileToggleLabel="Switch view"
     >
 
-      {activeTab === "pendingRFQs" && (
-        <PendingApprovalsList
-          filterData={filterData}
-          setFilterData={setFilterData}
-          pendingRFQs={pendingRFQs}
-          totalRFQs={pendingCount}
-          loading={pendingLoading}
-        />
-      )}
+      <div className="mt-2">
+        {activeTab === "pendingRFQs" && (
+          <PendingApprovalsList
+            filterData={filterData}
+            setFilterData={setFilterData}
+            pendingRFQs={pendingRFQs}
+            totalRFQs={pendingCount}
+            loading={pendingLoading}
+          />
+        )}
 
-      {activeTab === "createRFQs" && (
-        <CreateRFQ/>
-      )}
-      {activeTab === "manageRFQs" && (
-        <ManageRFQ filterData={activeFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
-      )}
-      {activeTab === "draftRFQs" && (
-        <DraftRFQ/>
-      )}
-      {activeTab === "closedRFQs" && (
-        <ManageRFQ filterData={closedFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
-      )}
-      {activeTab === "completedRFQs" && (
-        <ManageRFQ filterData={completedFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
-      )}
+        {activeTab === "createRFQs" && (
+          <CreateRFQ/>
+        )}
+        {activeTab === "manageRFQs" && (
+          <ManageRFQ filterData={activeFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
+        )}
+        {activeTab === "draftRFQs" && (
+          <DraftRFQ/>
+        )}
+        {activeTab === "closedRFQs" && (
+          <ManageRFQ filterData={closedFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
+        )}
+        {activeTab === "completedRFQs" && (
+          <ManageRFQ filterData={completedFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
+        )}
+      </div>
     </TwoPanelPage>
   );
 };

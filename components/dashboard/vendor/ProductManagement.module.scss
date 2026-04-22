@@ -174,6 +174,67 @@
 
 .loadingCell, .emptyCell { text-align: center; padding: 40px 18px !important; color: #999; font-size: 13px; }
 
+/* ── Skeleton Loading ── */
+@keyframes skeletonShimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.shimmerBar {
+  background: #f0f0f0;
+  background-image: linear-gradient(90deg, #f0f0f0 0%, #e8e8e8 20%, #f0f0f0 40%, #f0f0f0 100%);
+  background-size: 800px 100%;
+  animation: skeletonShimmer 1.2s linear infinite;
+  border-radius: 4px;
+}
+
+/* Mappings skeleton */
+.skeletonMappingsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
+}
+
+.skeletonMappingCard {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.skeletonMappingHeader {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px; border-bottom: 1px solid #f0f0f0;
+}
+
+.skeletonMappingIcon { width: 32px; height: 32px; border-radius: 8px; }
+.skeletonMappingHeaderText { display: flex; flex-direction: column; gap: 5px; }
+
+.skeletonMappingBody { padding: 12px 18px; display: flex; flex-direction: column; gap: 6px; }
+
+.skeletonHotelRow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 8px; background: #f9fafb; border: 1px solid #f0f0f0;
+}
+
+.skeletonDot { width: 7px; height: 7px; border-radius: 50%; }
+.skeletonHotelInfo { display: flex; flex-direction: column; gap: 4px; }
+
+.skeletonCatRow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; border-radius: 8px; background: #f9fafb; border: 1px solid #f0f0f0;
+}
+
+/* Table skeleton */
+.skeletonTableRow {
+  display: flex; align-items: center; gap: 18px; padding: 12px 18px;
+  border-bottom: 1px solid #f5f5f5;
+  &:last-child { border-bottom: none; }
+}
+
+.skeletonTableCell { display: flex; align-items: center; gap: 8px; }
+
 /* Pagination */
 .pagination {
   display: flex; align-items: center; justify-content: center;

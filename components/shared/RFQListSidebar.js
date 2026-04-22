@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
 import Select from 'react-select';
 import { BsExclamationCircleFill, BsHourglassSplit, BsInboxFill, BsCircle } from 'react-icons/bs';
@@ -141,7 +142,7 @@ const RFQListSidebar = ({
     return counts;
   }, [rfqList, tabs]);
 
-  const hasActiveFilters = rfqNo || (selectedHotelIds && selectedHotelIds.length > 0) || isTenderFilter !== null;
+  const hasActiveFilters = rfqNo || (selectedHotelIds && selectedHotelIds.length > 0) || (isTenderFilter !== null && isTenderFilter !== undefined);
 
   const renderTag = (tag, idx) => {
     const variantClass = {
@@ -162,9 +163,14 @@ const RFQListSidebar = ({
 
   const isMobileDrawer = typeof mobileOpen === 'boolean';
 
-  return (
+  // On mobile, the sidebar is inside a display:none parent (<aside>).
+  // Portal the mobile drawer to document.body so it's always visible.
+  const mobileDrawerPortal = isMobileDrawer && typeof document !== 'undefined'
+    ? (content) => createPortal(content, document.body)
+    : null;
+
+  const sidebarContent = (
     <>
-      {/* Mobile overlay backdrop */}
       {isMobileDrawer && mobileOpen && (
         <div className={styles.overlay} onClick={() => onMobileClose?.()} />
       )}
@@ -357,7 +363,15 @@ const RFQListSidebar = ({
 
           {!loading && filteredList.length === 0 && (
             <div className={styles.emptyState}>
-              <p className={styles.emptyText}>No items found</p>
+              {hasActiveFilters ? (
+                <p className={styles.emptyText}>No matching items found</p>
+              ) : (
+                <>
+                  <span className={styles.emptyEmoji}>🎉</span>
+                  <p className={styles.emptyTextPositive}>You're all set!</p>
+                  <p className={styles.emptySubtext}>No pending items to review</p>
+                </>
+              )}
             </div>
           )}
 
@@ -451,6 +465,9 @@ const RFQListSidebar = ({
     </div>
     </>
   );
+
+  // Portal to body on mobile so the drawer escapes display:none parents
+  return mobileDrawerPortal ? mobileDrawerPortal(sidebarContent) : sidebarContent;
 };
 
 export default RFQListSidebar;

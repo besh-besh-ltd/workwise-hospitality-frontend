@@ -173,16 +173,52 @@ const InquiriesReceived = ({ pageType = 0 }) => {
     { label: "Closing Soon", value: stats.closing_soon, icon: Clock, color: "#ef4444" },
   ];
 
-  const SkeletonRows = () => (
-    <div className={styles.skeletonWrap}>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className={styles.skeletonCard}>
-          <div className={styles.shimmer} style={{ width: 80, height: 14 }} />
-          <div className={styles.shimmer} style={{ width: "60%", height: 14 }} />
-          <div className={styles.shimmer} style={{ width: 120, height: 12 }} />
+  const SkeletonStatCards = () => (
+    <div className={styles.skeletonStatsGrid}>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className={styles.skeletonStatCard}>
+          <div className={`${styles.shimmerBar} ${styles.skeletonStatIcon}`} />
+          <div className={styles.skeletonStatInfo}>
+            <div className={styles.shimmerBar} style={{ width: 48, height: 22 }} />
+            <div className={styles.shimmerBar} style={{ width: 80, height: 11 }} />
+          </div>
         </div>
       ))}
-      <style>{`@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
+    </div>
+  );
+
+  const SkeletonFilterBar = () => (
+    <div className={styles.skeletonFilterBar}>
+      <div className={`${styles.shimmerBar} ${styles.skeletonSearchBar}`} />
+      <div className={`${styles.shimmerBar} ${styles.skeletonFilterPill}`} />
+      <div className={`${styles.shimmerBar} ${styles.skeletonFilterPill}`} />
+      <div className={`${styles.shimmerBar} ${styles.skeletonFilterPill}`} />
+    </div>
+  );
+
+  const SkeletonRows = () => (
+    <div className={styles.skeletonWrap}>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className={styles.skeletonRow}>
+          <div className={styles.skeletonRowLeft}>
+            <div className={styles.skeletonRowTopLine}>
+              <div className={styles.shimmerBar} style={{ width: 64, height: 12 }} />
+              <div className={styles.shimmerBar} style={{ width: 90, height: 12 }} />
+            </div>
+            <div className={styles.shimmerBar} style={{ width: "70%", height: 14 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className={styles.shimmerBar} style={{ width: 100, height: 12 }} />
+              <div className={styles.shimmerBar} style={{ width: 70, height: 12 }} />
+              <div className={styles.shimmerBar} style={{ width: 80, height: 12 }} />
+            </div>
+          </div>
+          <div className={styles.skeletonRowRight}>
+            <div className={styles.shimmerBar} style={{ width: 72, height: 24, borderRadius: 5 }} />
+            <div className={styles.shimmerBar} style={{ width: 60, height: 24, borderRadius: 5 }} />
+            <div className={styles.shimmerBar} style={{ width: 80, height: 14 }} />
+          </div>
+        </div>
+      ))}
     </div>
   );
 
@@ -200,45 +236,49 @@ const InquiriesReceived = ({ pageType = 0 }) => {
             </div>
 
             {/* ── Stat Cards ── */}
-            <div className={styles.statsGrid}>
-              {STAT_CARDS.map((card) => {
-                const Icon = card.icon;
-                return (
-                  <div key={card.label} className={styles.statCard}>
-                    <div className={styles.statIcon} style={{ background: `${card.color}10`, color: card.color }}>
-                      <Icon size={20} />
+            {loading && !stats.total ? <SkeletonStatCards /> : (
+              <div className={styles.statsGrid}>
+                {STAT_CARDS.map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <div key={card.label} className={styles.statCard}>
+                      <div className={styles.statIcon} style={{ background: `${card.color}10`, color: card.color }}>
+                        <Icon size={20} />
+                      </div>
+                      <div className={styles.statInfo}>
+                        <span className={styles.statValue}>{card.value}</span>
+                        <span className={styles.statLabel}>{card.label}</span>
+                      </div>
                     </div>
-                    <div className={styles.statInfo}>
-                      <span className={styles.statValue}>{loading && !stats.total ? "–" : card.value}</span>
-                      <span className={styles.statLabel}>{card.label}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* ── Filters ── */}
-            <div className={styles.filterBar}>
-              <div className={styles.searchWrap}>
-                <Search size={14} className={styles.searchIcon} />
-                <input
-                  className={styles.searchInput}
-                  type="text"
-                  placeholder="Search by RFQ No, Title, or Company..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                />
+            {loading && !stats.total ? <SkeletonFilterBar /> : (
+              <div className={styles.filterBar}>
+                <div className={styles.searchWrap}>
+                  <Search size={14} className={styles.searchIcon} />
+                  <input
+                    className={styles.searchInput}
+                    type="text"
+                    placeholder="Search by RFQ No, Title, or Company..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                  />
+                </div>
+                <div className={styles.filterSelect}>
+                  <Select options={DEADLINE_OPTIONS} value={deadlineFilter} onChange={setDeadlineFilter} styles={selectStyles} isSearchable={false} />
+                </div>
+                <div className={styles.filterSelect}>
+                  <Select options={QUOTE_OPTIONS} value={quoteFilter} onChange={setQuoteFilter} styles={selectStyles} isSearchable={false} />
+                </div>
+                <div className={styles.filterSelect}>
+                  <Select options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} styles={selectStyles} isSearchable={false} />
+                </div>
               </div>
-              <div className={styles.filterSelect}>
-                <Select options={DEADLINE_OPTIONS} value={deadlineFilter} onChange={setDeadlineFilter} styles={selectStyles} isSearchable={false} />
-              </div>
-              <div className={styles.filterSelect}>
-                <Select options={QUOTE_OPTIONS} value={quoteFilter} onChange={setQuoteFilter} styles={selectStyles} isSearchable={false} />
-              </div>
-              <div className={styles.filterSelect}>
-                <Select options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} styles={selectStyles} isSearchable={false} />
-              </div>
-            </div>
+            )}
           </>
         )}
 

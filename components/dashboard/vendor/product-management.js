@@ -58,6 +58,78 @@ const ProductManagement = () => {
   const standaloneSubs = mappings.categories.standalone_subcategories;
   const hasMappings = hotels.length > 0 || mainCats.length > 0 || standaloneSubs.length > 0;
 
+  const SkeletonMappings = () => (
+    <div className={styles.skeletonMappingsGrid}>
+      {/* Hotels skeleton */}
+      <div className={styles.skeletonMappingCard}>
+        <div className={styles.skeletonMappingHeader}>
+          <div className={`${styles.shimmerBar} ${styles.skeletonMappingIcon}`} />
+          <div className={styles.skeletonMappingHeaderText}>
+            <div className={styles.shimmerBar} style={{ width: 100, height: 13 }} />
+            <div className={styles.shimmerBar} style={{ width: 60, height: 10 }} />
+          </div>
+        </div>
+        <div className={styles.skeletonMappingBody}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className={styles.skeletonHotelRow}>
+              <div className={`${styles.shimmerBar} ${styles.skeletonDot}`} />
+              <div className={styles.skeletonHotelInfo}>
+                <div className={styles.shimmerBar} style={{ width: 120, height: 13 }} />
+                <div className={styles.shimmerBar} style={{ width: 70, height: 10 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Categories skeleton */}
+      <div className={styles.skeletonMappingCard}>
+        <div className={styles.skeletonMappingHeader}>
+          <div className={`${styles.shimmerBar} ${styles.skeletonMappingIcon}`} />
+          <div className={styles.skeletonMappingHeaderText}>
+            <div className={styles.shimmerBar} style={{ width: 130, height: 13 }} />
+            <div className={styles.shimmerBar} style={{ width: 90, height: 10 }} />
+          </div>
+        </div>
+        <div className={styles.skeletonMappingBody}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className={styles.skeletonCatRow}>
+              <div className={styles.shimmerBar} style={{ width: 13, height: 13 }} />
+              <div className={styles.shimmerBar} style={{ width: 100 + i * 20, height: 13 }} />
+              <div className={styles.shimmerBar} style={{ width: 22, height: 16, borderRadius: 999 }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const SkeletonTableRows = () => (
+    <>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <tr key={i}>
+          <td>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className={styles.shimmerBar} style={{ width: 14, height: 14, borderRadius: 3 }} />
+              <div className={styles.shimmerBar} style={{ width: 100 + (i % 3) * 30, height: 13 }} />
+            </div>
+          </td>
+          <td>
+            <div className={styles.shimmerBar} style={{ width: 64, height: 22, borderRadius: 999 }} />
+          </td>
+          <td>
+            <div className={styles.shimmerBar} style={{ width: 80, height: 22, borderRadius: 5 }} />
+          </td>
+          <td>
+            <div style={{ display: "flex", gap: 4 }}>
+              <div className={styles.shimmerBar} style={{ width: 60, height: 20, borderRadius: 4 }} />
+              <div className={styles.shimmerBar} style={{ width: 50, height: 20, borderRadius: 4 }} />
+            </div>
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+
   return (
     <>
       <Head><title>Product Management | Vendor</title></Head>
@@ -66,6 +138,7 @@ const ProductManagement = () => {
         <p className={styles.pageSubtitle}>Your mapped hotels, subscribed categories, and product inventory.</p>
 
         {/* ── Mappings Section ── */}
+        {mappingsLoading && <SkeletonMappings />}
         {!mappingsLoading && hasMappings && (
           <div className={styles.mappingsGrid}>
             {/* Hotels */}
@@ -182,7 +255,7 @@ const ProductManagement = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={4} className={styles.loadingCell}>Loading products...</td></tr>
+                  <SkeletonTableRows />
                 ) : products.length === 0 ? (
                   <tr><td colSpan={4} className={styles.emptyCell}>No products found.</td></tr>
                 ) : products.map((item) => (

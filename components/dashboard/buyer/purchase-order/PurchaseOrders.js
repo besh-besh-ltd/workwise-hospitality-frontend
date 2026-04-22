@@ -427,14 +427,15 @@ const PurchaseOrders = () => {
         title="Purchase Order Management"
         subtitle="Track, approve, and manage purchase orders."
         sidebar={poSidebar}
-        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(true) : undefined}
+        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
+        mobileSidebarOpen={sidebarOpen}
         mobileToggleLabel="Select RFQ"
       >
               {/* Empty state - no RFQ selected */}
               {!rfq && !permissionsLoading && (
                 <div className={styles.emptyState}>
                   <div className={styles.emptyStateIcon}>
-                    <BsFileEarmarkText size={24} />
+                    <BsFileEarmarkText size={36} />
                   </div>
                   <h4 className={styles.emptyStateTitle}>Select an RFQ to View Purchase Orders</h4>
                   <p className={styles.emptyStateDesc}>

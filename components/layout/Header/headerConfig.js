@@ -82,9 +82,9 @@ export const roleMenus = {
     { href: "/dashboard/vendor/", label: "Dashboard", targetMenu: "nav", section: "Main" },
     { href: "/dashboard/vendor/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
     { href: "/dashboard/vendor/product-management", label: "Product Management", targetMenu: "nav", requiresSubscription: true, section: "Catalogue" },
-    { href: "/dashboard/vendor/inquiries-received", label: "Received Inquiries", targetMenu: "nav", requiresSubscription: true, section: "Catalogue" },
+    { href: "/dashboard/vendor/inquiries-received", label: "Received Inquiries", targetMenu: "nav", requiresSubscription: true, section: "Orders" },
+    { href: "/dashboard/vendor/order-book", label: "Order Book", targetMenu: "nav", requiresSubscription: true, section: "Orders" },
     { href: "/dashboard/vendor/subscription", label: "Subscription", targetMenu: "nav", section: "Account" },
-    { href: "/dashboard/vendor/order-book", label: "Order Book", targetMenu: "nav", requiresSubscription: true, section: "Catalogue" },
   ],
 };
 

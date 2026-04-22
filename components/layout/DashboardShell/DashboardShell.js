@@ -3,7 +3,7 @@ import { useDispatch } from "react-redux";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import posthog from "posthog-js";
-import { PanelLeftOpen } from "lucide-react";
+import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import { clearUserProfile } from "@/redux/slice";
 import { getUserDetails } from "@/services/Auth";
 import storageInstance from "@/utils/storageInstance";
@@ -83,8 +83,10 @@ const DashboardShell = ({ children }) => {
       className={styles.mobileRfqToggle}
       onClick={mobileRfqToggle.callback}
     >
-      <PanelLeftOpen size={15} strokeWidth={1.75} />
-      {mobileRfqToggle.label}
+      {mobileRfqToggle.isOpen
+        ? <><PanelLeftClose size={15} strokeWidth={1.75} /> Close Sidebar</>
+        : <><PanelLeftOpen size={15} strokeWidth={1.75} /> {mobileRfqToggle.label}</>
+      }
     </button>
   ) : null;
 

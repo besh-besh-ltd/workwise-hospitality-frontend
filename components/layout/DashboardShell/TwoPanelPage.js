@@ -1,6 +1,9 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useLayoutEffect } from "react";
 import { useTwoPanelContext } from "./TwoPanelContext";
 import styles from "./DashboardShell.module.css";
+
+// useLayoutEffect on client, useEffect on server (SSR safe)
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 const TwoPanelPage = ({
   title,
@@ -9,22 +12,29 @@ const TwoPanelPage = ({
   actions,
   filters,
   onMobileSidebarToggle,
+  mobileSidebarOpen = false,
   mobileToggleLabel = "Select from list",
   children,
 }) => {
   const { setSubSidebar, setMobileRfqToggle } = useTwoPanelContext();
 
-  useEffect(() => {
+  // useLayoutEffect so the sub-sidebar is set before the browser paints,
+  // preventing a flash of expanded nav items in the collapsed rail.
+  useIsomorphicLayoutEffect(() => {
     setSubSidebar(sidebar);
     return () => setSubSidebar(null);
   }, [sidebar]);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (onMobileSidebarToggle) {
-      setMobileRfqToggle({ callback: onMobileSidebarToggle, label: mobileToggleLabel });
+      setMobileRfqToggle({
+        callback: onMobileSidebarToggle,
+        label: mobileToggleLabel,
+        isOpen: mobileSidebarOpen,
+      });
     }
     return () => setMobileRfqToggle(null);
-  }, [onMobileSidebarToggle, mobileToggleLabel]);
+  }, [onMobileSidebarToggle, mobileToggleLabel, mobileSidebarOpen]);
 
   return (
     <div className={styles.pageRoot}>

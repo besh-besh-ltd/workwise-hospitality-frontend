@@ -8,7 +8,6 @@ import { Router, useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { closeRFQ, withdrawPublish, terminateRFQ, getAllClauses, getRFQById, sendQuotation, fetchVendorAgreement, getTechClearedVendorsResult, submitRFQApprovalAction, getTechEvalStatus } from "@/services/rfq";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
-import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
 import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-icons";
 import moment from "moment";
@@ -1219,7 +1218,7 @@ const RfqManagementPreview = () => {
     <>
       {loading && (
         <>
-          <section className="buyer-common-header sc-pt-80 ">
+          <section className="buyer-common-header sc-pt-80 mt-0">
             <div className="container-fluid">
               <h1 className="heading">
                 <PlaceholderLoading shape="rect" width={600} height={50} />
@@ -1227,8 +1226,7 @@ const RfqManagementPreview = () => {
             </div>
           </section>
 
-          <section className="buyer-rfq-det-sec-1 hasFullLoader">
-            {loading && <Loader />}
+          <section className="buyer-rfq-det-sec-1 mt-2 hasFullLoader">
             <div className="container-fluid">
               <div className="row">
                 <div className="col-md-12">
@@ -1250,7 +1248,7 @@ const RfqManagementPreview = () => {
 
                     <div className="details-table">
                       <div className="table-responsive">
-                        <table className="table table-striped ">
+                        <table className="table table-striped">
                           <thead>
                             <tr>
                               <th>Name of product</th>
@@ -1497,15 +1495,20 @@ const RfqManagementPreview = () => {
       {/* // Not loading contents */}
       {!loading && rfqDetails && rfqDetails.id && (
         <>
-          <section className="buyer-common-header sc-pt-80">
+          <section className={`${!enableBuyerView && 'buyer-common-header'} my-0`}>
             <div className="container-fluid">
               <div className="d-flex justify-content-between align-items-center flex-wrap gap-4">
                 <div>
-                  {!enableBuyerView && (
+                  {!enableBuyerView ? (
                     <h1 className="heading mb-0">
                       Inquiry from {rfqDetails.company_name} ({getEntityLabel(rfqDetails?.is_tender)} #
                       {rfqDetails.rfq_no})
                     </h1>
+                  ) : (
+                    <div>
+                      <h1 className='pageTitle'>RFQ Management Details</h1>
+                      <p className='pageSubtitle'>A complete overview of your RFQ details</p>
+                    </div>
                   )}
                 </div>
                 {!enableBuyerView && <div className="d-flex gap-3">
@@ -1756,7 +1759,7 @@ const RfqManagementPreview = () => {
             </div>
           </section>
 
-          <section className="buyer-rfq-det-sec-1">
+          <section className="buyer-rfq-det-sec-1 mt-2">
             <div className="container-fluid">
               <div className="row">
                 <div className="col-md-12">
@@ -1940,7 +1943,7 @@ const RfqManagementPreview = () => {
 
                 {rfqDetails?.vendor_clarification_date && (
                         <div className=" col-md-2 col-sm-6 ">
-                          <strong>Clarification Date:</strong>
+                          <strong>Clarification End Date:</strong>
                           <div>{formatDisplayDate(rfqDetails.vendor_clarification_date, { includeTime: true })}</div>
                         </div>
                       )}
@@ -1981,7 +1984,7 @@ const RfqManagementPreview = () => {
                       <div style={{ minWidth: 0, flex: '1 1 auto' }}>
                         {rfqDetails?.title ? (
                           <>
-                            <span className="title mb-0" style={{ display: 'block', lineHeight: 1.25, wordBreak: 'break-word' }}>
+                            <span className="title" style={{ display: 'block', lineHeight: 1.25, wordBreak: 'break-word' }}>
                               {rfqDetails.title}
                             </span>
                             <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500, display: 'inline-block', marginTop: 2 }}>
@@ -1989,7 +1992,7 @@ const RfqManagementPreview = () => {
                             </span>
                           </>
                         ) : (
-                          <span className="title mb-0">
+                          <span className="title">
                             {getEntityLabel(rfqDetails?.is_tender)} #{rfqDetails.rfq_no} details
                           </span>
                         )}
@@ -2201,7 +2204,7 @@ const RfqManagementPreview = () => {
 
                     <div className="details-table">
                       {rfqDetails?.products?.length > 0 && (
-                      <div className="table-responsive">
+                      <div className="table-responsive mb-3">
                         <table className="table table-striped" style={{ tableLayout: "auto", width: "100%" }}>
                           <thead>
                             <tr className="text-nowrap">
@@ -2520,39 +2523,11 @@ const RfqManagementPreview = () => {
 
                       <form>
                         <div className="row">
-                          <div className="col-md-12">
-                            <div className="row wacomnamepp">
-
-                              {type == "buyer-view" &&
-                                rfqDetails?.project_name &&
-                                rfqDetails?.project_name != "" && (
-                                  <div className="col-md-3">
-                                    <div className="form-group mt-0 mb-2">
-                                      <label
-                                        htmlFor="project_name"
-                                        className="form-label"
-                                      >
-                                        Project Name
-                                      </label>
-                                      <input
-                                        type="text"
-                                        id="project_name"
-                                        className="form-control"
-                                        name="project_name"
-                                        disabled
-                                        value={`${rfqDetails?.project_name}`}
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                            </div>
-                          </div>
-
                           {rfqDetails && rfqDetails?.id && (
                             <div className="col-md-12">
-                              <div className="row terms-conditions">
+                              <div className="row ms-1">
                                 <div className="col-md-6">
-                                  <div className="mt-4 pt-3 border-top">
+                                  <div className="">
                                     <h4>Terms & Conditions</h4>
                                     {(!rfqDetails?.terms ||
                                       rfqDetails?.terms.length === 0) && (
@@ -2868,7 +2843,7 @@ const RfqManagementPreview = () => {
       )}
 
       {!loading && rfqDetails && !rfqDetails.id && (
-        <section className="buyer-common-header sc-pt-80">
+        <section className="buyer-common-header sc-pt-80 mt-0">
           <div className="container-fluid">
             {<h1 className="heading">Tender / RFQ Not Available!</h1>}
           </div>
