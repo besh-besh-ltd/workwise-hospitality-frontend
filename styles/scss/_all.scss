@@ -4115,7 +4115,7 @@ body.at-top {
             color: #525252;
           }
 
-          input {
+          input:not(.react-select__input) {
             width: 100%;
             border: 1px solid #a5a5a5;
             padding: 10px;
