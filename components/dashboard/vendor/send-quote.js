@@ -1086,7 +1086,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           setTenderPaymentLoading(false);
           // setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
-          const errorMessage = error.response?.data?.message || "Unable to update quote. Please try again.";
+          const errorMessage = error?.response?.data?.message || error?.message || "Unable to update quote. Please try again.";
           toast.error(errorMessage);
         })
     }
@@ -1152,7 +1152,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           setTenderPaymentLoading(false);
           // setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
-          const errorMessage = err.response?.data?.message || "Unable to send quote. Please try again.";
+          const errorMessage = err?.response?.data?.message || err?.message || "Unable to send quote. Please try again.";
           toast.error(errorMessage);
         });
     }

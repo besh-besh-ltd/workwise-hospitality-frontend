@@ -94,6 +94,7 @@ export const useModulePermissions = ({ moduleKey, hotelIds = [], departmentId = 
   const canCreate = hasPermission("create");
   const canDelete = hasPermission("delete");
   const canApprove = hasPermission("approve");
+  const canRegenerate = hasPermission("regenerate");
 
   // Determine access mode based on permissions
   const getAccessMode = () => {
@@ -113,6 +114,7 @@ export const useModulePermissions = ({ moduleKey, hotelIds = [], departmentId = 
     canCreate,
     canDelete,
     canApprove,
+    canRegenerate,
     accessMode,
     hasPermission,
     refetch: fetchPermissions,

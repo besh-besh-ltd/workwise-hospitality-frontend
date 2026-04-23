@@ -80,6 +80,7 @@ const PurchaseOrders = () => {
     canUpdate,
     canCreate,
     canApprove,
+    canRegenerate: rawCanRegenerate,
     loading: permissionsLoading,
   } = useModulePermissions({
     moduleKey: "awarding",
@@ -92,6 +93,7 @@ const PurchaseOrders = () => {
   const isRfqClosed = String(currentRfqData?.status) === '2';
   const rawCanWrite = canUpdate || canCreate;
   const canWrite = rawCanWrite && !isRfqClosed;
+  const canRegenerate = rawCanRegenerate && !isRfqClosed;
 
   // Fetch RFQ metadata when rfq changes (for permission context)
   useEffect(() => {
@@ -521,6 +523,7 @@ const PurchaseOrders = () => {
                       approvalLevel={approvalLevel}
                       canWrite={canWrite}
                       canApprove={canApprove}
+                      canRegenerate={canRegenerate}
                     />
                     </>
                   )}
@@ -569,6 +572,7 @@ const PurchaseOrders = () => {
                       } : undefined}
                       canWrite={canWrite}
                       canApprove={canApprove}
+                      canRegenerate={canRegenerate}
                     />
                     </>
                   )}

@@ -399,7 +399,7 @@ export const sendQuotation = (payload, token) => {
       let response = await axiosInstance.post(`/rfq/quote/create${token !== undefined ? `?token=${token}` : ''}`, payload);
       resolve(response);
     } catch (error) {
-      reject({ message: error });
+      reject(error);
     }
   });
 };
@@ -421,7 +421,7 @@ export const updateQuotation = (quote_id, payload, token) => {
       let response = await axiosInstance.put(`/rfq/quote/update/${quote_id}${token !== undefined ? `?token=${token}` : ''}`, payload);
       resolve(response);
     } catch (error) {
-      reject({ message: error });
+      reject(error);
     }
   });
 };
