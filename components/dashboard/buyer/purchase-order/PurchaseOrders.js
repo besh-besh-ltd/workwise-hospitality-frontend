@@ -404,7 +404,7 @@ const PurchaseOrders = () => {
                       // Closed RFQs are read-only — only show in All tab
                       if (String(item.status) === '2') return false;
                       if (item.po_completed === true) return false;
-                      return item.has_draft_po === true || item.approval_required === true;
+                      return item.has_draft_po === true || item.approval_required === true || item.has_po_rejection === true;
                     },
                   },
                   {
@@ -430,6 +430,7 @@ const PurchaseOrders = () => {
                 getItemTags={(item) => {
                   if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
                   if (item.po_completed) return [{ label: 'Completed', variant: 'success' }];
+                  if (item.has_po_rejection) return [{ label: 'PO Rejected', variant: 'danger' }];
                   if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
                   if (item.has_draft_po) return [{ label: 'Draft', variant: 'neutral' }];
                   if (item.has_pending_po_approval) return [{ label: 'In Approval', variant: 'info' }];

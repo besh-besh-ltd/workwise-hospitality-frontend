@@ -1732,6 +1732,11 @@ const EditRFQ = () => {
                         <strong>PO has been approved — editing is restricted for this product</strong>
                       </div>
                     )}
+                    {product.is_dead_end && (
+                      <div className="alert alert-danger mb-1 mt-2 py-1 px-2" style={{ fontSize: '0.85rem' }}>
+                        <strong>All vendor POs were rejected for this product.</strong> You can add new vendors or modify specs.
+                      </div>
+                    )}
                     {productsWithNoVendors.has(product.id) && (
                       <small className="text-danger fw-bold d-block mb-1">
                         No eligible vendors for selected business units
