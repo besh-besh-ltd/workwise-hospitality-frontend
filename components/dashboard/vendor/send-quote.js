@@ -1086,7 +1086,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           setTenderPaymentLoading(false);
           // setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
-          const errorMessage = error.response?.data?.message || "Unable to update quote. Please try again.";
+          const errorMessage = error?.response?.data?.message || error?.message || "Unable to update quote. Please try again.";
           toast.error(errorMessage);
         })
     }
@@ -1152,7 +1152,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           setTenderPaymentLoading(false);
           // setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
-          const errorMessage = err.response?.data?.message || "Unable to send quote. Please try again.";
+          const errorMessage = err?.response?.data?.message || err?.message || "Unable to send quote. Please try again.";
           toast.error(errorMessage);
         });
     }
@@ -2236,9 +2236,18 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 const isProductFinalized = item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized";
                                 const isProductDisabled = isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct || isBidExpiredForProduct;
 
+                                // Detect if any charge type uses absolute (₹) mode for this line item
+                                const effectiveFreightMode = chargesMode.freight[item.id] || chargesMode.freight.global;
+                                const effectivePackageMode = chargesMode.package[item.id] || chargesMode.package.global;
+                                const effectiveTaxMode = chargesMode.tax[item.id] || chargesMode.tax.global;
+                                const absoluteCharges = [];
+                                if (effectiveFreightMode === 'absolute') absoluteCharges.push('Freight');
+                                if (effectivePackageMode === 'absolute') absoluteCharges.push('Packaging');
+                                if (effectiveTaxMode === 'absolute') absoluteCharges.push('Taxes');
+
                                 return (
+                                  <React.Fragment key={`q_${item.id}_${item.product_id}_${item.variant}`}>
                                   <tr
-                                    key={`q_${item.id}_${item.product_id}_${item.variant}`}
                                   >
                                     <td>{index + 1}</td>
                                     <td>
@@ -2910,6 +2919,16 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       </td>
                                     )} */}
                                   </tr>
+                                  {absoluteCharges.length > 0 && (
+                                    <tr>
+                                      <td colSpan={currentLowest ? 9 : 8} style={{ padding: '12px', border: 'none', background: 'transparent' }}>
+                                        <Alert variant="warning" className="mb-0 py-2 px-3" style={{ fontSize: '0.82rem', borderRadius: '6px' }}>
+                                          <strong>Warning:</strong> You've selected <strong>₹ (Rupees)</strong> instead of <strong>%</strong> for <strong>{absoluteCharges.join(', ')}</strong> in this item. Please verify this is intentional.
+                                        </Alert>
+                                      </td>
+                                    </tr>
+                                  )}
+                                  </React.Fragment>
                                 );
                               }
                             })}
@@ -3037,9 +3056,56 @@ return { deletedTerms, createdTerms, updatedTerms };
         onConfirm={handleSubmitQuoteConfirm}
         title="Submit Quote"
         description="Are you sure you want to submit this quote?\nThis action will send your quote to the buyer."
-        confirmButtonColor="success"
+        confirmButtonColor={(() => {
+          const hasAbsolute = rfqDetails?.products?.some(item => {
+            if (!isAvailableForQuote(item)) return false;
+            return (chargesMode.freight[item.id] || chargesMode.freight.global) === 'absolute'
+              || (chargesMode.package[item.id] || chargesMode.package.global) === 'absolute'
+              || (chargesMode.tax[item.id] || chargesMode.tax.global) === 'absolute';
+          });
+          return hasAbsolute ? 'warning' : 'success';
+        })()}
         confirmButtonText="Submit Quote"
         cancelButtonText="Cancel"
+        customFooter={(() => {
+          const itemsWithRupees = rfqDetails?.products
+            ?.filter(item => isAvailableForQuote(item))
+            ?.map((item) => {
+              const abs = [];
+              if ((chargesMode.freight[item.id] || chargesMode.freight.global) === 'absolute') abs.push('Freight');
+              if ((chargesMode.package[item.id] || chargesMode.package.global) === 'absolute') abs.push('Packaging');
+              if ((chargesMode.tax[item.id] || chargesMode.tax.global) === 'absolute') abs.push('Taxes');
+              return abs.length > 0 ? { name: item?.product_details?.[0]?.name, charges: abs } : null;
+            })
+            ?.filter(Boolean) || [];
+
+          if (itemsWithRupees.length === 0) return null;
+
+          return (
+            <div style={{
+              background: '#fff3cd',
+              border: '1px solid #ffc107',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginTop: '8px',
+              width: '100%'
+            }}>
+              <p style={{ fontWeight: 700, color: '#856404', marginBottom: '8px', fontSize: '0.9rem' }}>
+                &#9888; Some items have ₹ (Rupees) selected instead of %
+              </p>
+              <ul style={{ margin: 0, paddingLeft: '18px', color: '#856404', fontSize: '0.82rem' }}>
+                {itemsWithRupees.map((item, idx) => (
+                  <li key={idx}>
+                    <strong>{item.name}</strong> — {item.charges.join(', ')}
+                  </li>
+                ))}
+              </ul>
+              <p style={{ fontWeight: 600, color: '#856404', marginTop: '8px', marginBottom: 0, fontSize: '0.82rem' }}>
+                Please confirm this is intentional before submitting.
+              </p>
+            </div>
+          );
+        })()}
       />
 
       {showQuoteHistoryModal && (

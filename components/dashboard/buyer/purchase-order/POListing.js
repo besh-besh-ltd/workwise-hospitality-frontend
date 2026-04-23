@@ -1,5 +1,7 @@
 import { getCompanyUsers } from "@/services/Auth";
-import { handlePOApproval } from "@/services/po";
+import { handlePOApproval, handleRegeneratePO, handleUploadPODocument } from "@/services/po";
+import RegeneratePOModal from "./RegeneratePOModal";
+import { toast } from "react-toastify";
 import useDebounce, { addCommasToNumber, formatDisplayDate } from "@/utils/sharedFunctions";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -111,10 +113,14 @@ const POListing = ({
   approvalLevel,
   canWrite,
   canApprove,
+  canRegenerate,
 }) => {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showGRNUpdateModal, setShowGRNUpdateModal] = useState(false);
   const [pendingPO, setPendingPO] = useState(null);
+  const [showRegenerateModal, setShowRegenerateModal] = useState(false);
+  const [regeneratePOId, setRegeneratePOId] = useState(null);
+  const [regenerateLoading, setRegenerateLoading] = useState(false);
 
   const [filters, setFilters] = useState({
     poNumber: "",
@@ -150,6 +156,41 @@ const POListing = ({
   const handleMarkGRNClick = (po) => {
     setPendingPO(po);
     setShowGRNUpdateModal(true);
+  };
+
+  const handleRegenerateClick = (po) => {
+    setRegeneratePOId(po.id);
+    setShowRegenerateModal(true);
+  };
+
+  const handleRegenerate = async () => {
+    setRegenerateLoading(true);
+    try {
+      await handleRegeneratePO(regeneratePOId);
+      toast.success("PO document regenerated successfully!");
+      setShowRegenerateModal(false);
+      setRegeneratePOId(null);
+      refetchPOList({ ...filters, poNumber: debouncedPONumber });
+    } catch (error) {
+      toast.error(error.message || "Failed to regenerate PO document");
+    } finally {
+      setRegenerateLoading(false);
+    }
+  };
+
+  const handleUploadPO = async (file) => {
+    setRegenerateLoading(true);
+    try {
+      await handleUploadPODocument(regeneratePOId, file);
+      toast.success("PO document uploaded successfully!");
+      setShowRegenerateModal(false);
+      setRegeneratePOId(null);
+      refetchPOList({ ...filters, poNumber: debouncedPONumber });
+    } catch (error) {
+      toast.error(error.message || "Failed to upload PO document");
+    } finally {
+      setRegenerateLoading(false);
+    }
   };
 
   const handleApproveCancel = () => { setShowApproveModal(false); setPendingPO(null); };
@@ -207,6 +248,7 @@ const POListing = ({
               onApprove={canWrite ? handleApproveClick : undefined}
               onReject={canWrite ? handleRejectClick : undefined}
               initiatePO={canWrite && handleInitiatePO ? () => handleInitiatePO(po.id) : undefined}
+              onRegenerate={canRegenerate ? handleRegenerateClick : undefined}
             />
           ))
         )}
@@ -244,6 +286,13 @@ const POListing = ({
         description={`Are you sure you want to mark GRN for PO #${pendingPO?.po_number || "this purchase order"}?\nThis action will mark the status for this PO as GRN ( Goods Reciept Note ), That will indicate that the goods has been delivered to the site.`}
         customFooter={`This Action Cannot be Reversed!`}
         confirmButtonColor="success" confirmButtonText="Yes, Go Ahead" cancelButtonText="No, Cancel It"
+      />
+      <RegeneratePOModal
+        show={showRegenerateModal}
+        onClose={() => { setShowRegenerateModal(false); setRegeneratePOId(null); }}
+        onRegenerate={handleRegenerate}
+        onUpload={handleUploadPO}
+        isProcessing={regenerateLoading}
       />
     </div>
   );

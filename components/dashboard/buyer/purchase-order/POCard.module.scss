@@ -14,7 +14,7 @@ $urgency-critical: #dc3545;
   background: #fff;
   border: 1px solid #dee2e6;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 // ========================================
@@ -32,6 +32,7 @@ $urgency-critical: #dc3545;
   color: #495057;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  min-width: 860px;
 
   .colStatus,
   .colPoNumber {
@@ -51,7 +52,7 @@ $urgency-critical: #dc3545;
   }
 
   .colActions {
-    text-align: right;
+    text-align: center;
   }
 }
 
@@ -68,6 +69,7 @@ $urgency-critical: #dc3545;
   gap: 8px;
   cursor: pointer;
   transition: background 0.15s ease;
+  min-width: 860px;
 
   &:hover {
     background: #f8f9fa;
@@ -158,26 +160,61 @@ $urgency-critical: #dc3545;
 .milestoneUpcoming { opacity: 0.9; }
 .milestoneNormal { opacity: 0.8; }
 
-// PDF Button
-.pdfBtn {
-  display: flex; align-items: center; justify-content: center; gap: 5px;
-  padding: 6px 14px; border-radius: 6px; color: #721c24; background: #f8d7da;
-  border: 1.5px solid #dc3545; transition: all 0.2s ease; text-decoration: none;
-  font-size: 0.8rem; font-weight: 600; white-space: nowrap;
-  &:hover { background: #dc3545; color: white; border-color: #dc3545; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3); }
+// ========================================
+// ACTION BUTTONS — icon-only
+// ========================================
+.colActions { width: 130px; flex-shrink: 0; display: flex; gap: 8px; justify-content: center; }
+
+.iconBtn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 10px;
+  border: none; cursor: pointer; text-decoration: none;
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, #e7f1ff 0%, #d0e2ff 100%);
+  color: #1a56db;
+  box-shadow: 0 1px 3px rgba(13, 110, 253, 0.15);
+
+  &:hover {
+    background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.35);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(13, 110, 253, 0.25);
+  }
 }
 
-// ========================================
-// ACTION BUTTONS
-// ========================================
-.colActions { flex: 1; min-width: 120px; display: flex; gap: 8px; justify-content: center; padding-right: 4px; }
+.iconBtnDanger {
+  background: linear-gradient(135deg, #fde8e8 0%, #f8d0d0 100%);
+  color: #c81e1e;
+  box-shadow: 0 1px 3px rgba(220, 53, 69, 0.15);
+  &:hover {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.35);
+  }
+}
 
+.iconBtnSuccess {
+  background: linear-gradient(135deg, #d4edda 0%, #b8dfca 100%);
+  color: #155724;
+  box-shadow: 0 1px 3px rgba(40, 167, 69, 0.15);
+  &:hover {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.35);
+  }
+}
+
+// Legacy text button styles kept for Initiate PO (draft state) on mobile
 .approveBtn, .rejectBtn, .viewBtn, .initiateBtn {
   padding: 6px 14px; border-radius: 6px; border: 1.5px solid; cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 5px;
   transition: all 0.2s ease; font-size: 0.8rem; font-weight: 600; white-space: nowrap;
 }
-
 .approveBtn { background: #d4edda; border-color: #28a745; color: #155724;
   &:hover { background: #28a745; color: white; border-color: #28a745; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3); }
 }
@@ -259,7 +296,6 @@ $urgency-critical: #dc3545;
   .approveBtn, .rejectBtn, .viewBtn, .initiateBtn {
     flex: 1;
     justify-content: center;
-    padding: 10px 12px;
     font-size: 0.85rem;
   }
 }
@@ -269,10 +305,6 @@ $urgency-critical: #dc3545;
 // ========================================
 @media (max-width: 1200px) { .colInitiator { display: none; } .projectName { display: none; } }
 @media (max-width: 1100px) { .colDate { display: none; } }
-@media (max-width: 992px) {
-  .colVendor { width: 120px; }
-  .approveBtn, .rejectBtn, .viewBtn, .pdfBtn { span { display: none; } padding: 5px 8px; }
-}
 @media (max-width: 768px) {
   .headerRow { display: none; }
   .poRow { display: none; }
