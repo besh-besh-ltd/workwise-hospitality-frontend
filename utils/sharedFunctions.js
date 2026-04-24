@@ -847,7 +847,7 @@ export const getRFQPublishState = (data) => {
     //   - withdrawn (status 5)
     // Permission/owner checks live in canEditRfq() — this flag only encodes
     // the *status-based* slice that the existing UI was already gating on.
-    canEdit: !isClosed && !!data && (!isBidEnded(data) || data.has_dead_end_product),
+    canEdit: !isClosed && !!data && (!isBidEnded(data) || data.has_dead_end_product || data.has_tech_stuck_product),
     // Helper for edit URL determination (only used when canEdit === true)
     editUrl: (id) => `/dashboard/buyer/rfq-management-edit?id=${id}`,
     // Helper for queries/reminder visibility
@@ -902,7 +902,7 @@ export const canEditRfq = (rfq, currentUser) => {
   // so the creator can extend the deadline.
   // Also allow editing when a product is dead-ended (all eligible vendors'
   // POs were rejected) so the creator can add new vendors or modify specs.
-  if (isBidEnded(rfq) && rfq.is_quotes_present && !rfq.has_dead_end_product) {
+  if (isBidEnded(rfq) && rfq.is_quotes_present && !rfq.has_dead_end_product && !rfq.has_tech_stuck_product) {
     return {
       allowed: false,
       reason: 'The submission deadline has passed; this RFQ can no longer be edited.'
@@ -920,6 +920,13 @@ export const canEditRfq = (rfq, currentUser) => {
       allowed: true,
       deadEndEdit: true,
       reason: 'Editing is enabled because one or more products have all vendor POs rejected.'
+    };
+  }
+  if (rfq.has_tech_stuck_product) {
+    return {
+      allowed: true,
+      restrictedEdit: true,
+      reason: 'Restricted editing: only bid end date extension and vendor refresh are available because all vendors failed technical evaluation.'
     };
   }
   return { allowed: true };
