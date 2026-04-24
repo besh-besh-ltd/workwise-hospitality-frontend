@@ -9,6 +9,7 @@ import {
   createApprovalPolicy,
   updateApprovalPolicy,
   deleteApprovalPolicy,
+  getPendingImpact,
 } from "@/services/approval";
 import { getRoles, getBatchUserRoleScopes } from "@/services/rbac";
 import { getCompanyUserMappings, getHospitalityHotels } from "@/services/hospitality";
@@ -291,7 +292,9 @@ const ApprovalHierarchyPage = () => {
     return { name: "Unknown", email: "", type: "", typeLabel: "", users: [] };
   };
 
-  const handleSavePolicy = async () => {
+  const [pendingImpactModal, setPendingImpactModal] = useState({ open: false, data: null });
+
+  const handleSavePolicy = async (skipPendingCheck = false) => {
     if (!policyForm.entity_type) {
       toast.error("Please select a document type");
       return;
@@ -307,6 +310,26 @@ const ApprovalHierarchyPage = () => {
       if (!step.approver_source_type || !step.approver_source_id) {
         toast.error(`Approval level ${i + 1} is incomplete. Please select an approver.`);
         return;
+      }
+    }
+
+    // For existing policies, check if there are pending instances before saving
+    if (policyForm.id && !skipPendingCheck) {
+      try {
+        console.log("[PendingImpact] Checking policy", policyForm.id);
+        const impactResponse = await getPendingImpact(policyForm.id);
+        console.log("[PendingImpact] Raw response:", JSON.stringify(impactResponse));
+        const impactData = impactResponse?.data || impactResponse;
+        console.log("[PendingImpact] Parsed data:", JSON.stringify(impactData));
+        if (impactData?.pending_count > 0) {
+          console.log("[PendingImpact] Found pending instances, showing modal");
+          setPendingImpactModal({ open: true, data: impactData });
+          return; // Wait for user confirmation
+        }
+        console.log("[PendingImpact] No pending instances, proceeding with save");
+      } catch (err) {
+        // If check fails, proceed with save (best effort)
+        console.warn("[PendingImpact] Could not check pending impact:", err);
       }
     }
 
@@ -328,7 +351,12 @@ const ApprovalHierarchyPage = () => {
       let response;
       if (policyForm.id) {
         response = await updateApprovalPolicy(payload);
-        toast.success("Workflow updated successfully");
+        const propagation = response?.propagation || response?.data?.propagation;
+        if (propagation?.instances_affected > 0) {
+          toast.success(`Workflow updated. ${propagation.instances_affected} pending instance(s) updated.`);
+        } else {
+          toast.success("Workflow updated successfully");
+        }
       } else {
         response = await createApprovalPolicy(payload);
         toast.success("Workflow created successfully");
@@ -344,6 +372,11 @@ const ApprovalHierarchyPage = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handlePendingImpactConfirm = () => {
+    setPendingImpactModal({ open: false, data: null });
+    handleSavePolicy(true); // Skip the check, proceed with save
   };
 
   const handleEditPolicy = async (policyId) => {
@@ -937,7 +970,7 @@ const ApprovalHierarchyPage = () => {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={handleSavePolicy}
+                  onClick={() => handleSavePolicy()}
                   disabled={saving}
                   style={{ backgroundColor: "#158993", borderColor: "#158993" }}
                 >
@@ -1038,6 +1071,46 @@ const ApprovalHierarchyPage = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* Pending Impact Confirmation Modal */}
+      {pendingImpactModal.open && (
+        <div className="modal show d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1060 }}>
+          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: 520 }}>
+            <div className="modal-content" style={{ borderRadius: 12 }}>
+              <div className="modal-header" style={{ borderBottom: "1px solid #e9ecef", backgroundColor: "#FEF3C7" }}>
+                <h6 className="modal-title fw-bold" style={{ color: "#92400E" }}>
+                  Warning — Pending Approvals Will Be Affected
+                </h6>
+                <button type="button" className="btn-close" onClick={() => setPendingImpactModal({ open: false, data: null })}></button>
+              </div>
+              <div className="modal-body" style={{ fontSize: 14 }}>
+                <p className="mb-2">
+                  This policy has <strong>{pendingImpactModal.data?.pending_count || 0}</strong> pending approval instance(s).
+                  Saving these changes will propagate to all pending instances. Affected approvers will be notified by email.
+                </p>
+                {pendingImpactModal.data?.instances?.length > 0 && (
+                  <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #e9ecef", borderRadius: 8, padding: 8, marginTop: 8 }}>
+                    {pendingImpactModal.data.instances.map((inst, idx) => (
+                      <div key={idx} style={{ padding: "6px 8px", borderBottom: idx < pendingImpactModal.data.instances.length - 1 ? "1px solid #f1f5f9" : "none", fontSize: 13 }}>
+                        <strong>{inst.entity_type}</strong> — {inst.entity_identifier || `ID-${inst.entity_id}`}
+                        <span style={{ color: "#6c757d", marginLeft: 8 }}>Step {inst.current_step}/{inst.total_steps}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer" style={{ borderTop: "1px solid #e9ecef" }}>
+                <button className="btn btn-outline-secondary btn-sm" onClick={() => setPendingImpactModal({ open: false, data: null })}>
+                  Cancel
+                </button>
+                <button className="btn btn-warning btn-sm" onClick={handlePendingImpactConfirm} disabled={saving}>
+                  {saving ? "Saving..." : "Save & Propagate"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

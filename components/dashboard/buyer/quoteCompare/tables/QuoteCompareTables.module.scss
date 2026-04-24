@@ -1070,21 +1070,41 @@ $breakup-insight-tones: (
     overflow: hidden;
     box-shadow: 0 16px 40px rgba(25, 47, 80, 0.18);
   }
+}
 
-  :global(.modal-header) {
-    background: #f6f9ff;
-    border-bottom: 1px solid #dbe6f4;
-    padding: 14px 16px;
-    position: relative;
-  }
+.breakupModalHeader {
+  background: #f6f9ff;
+  border-bottom: 1px solid #dbe6f4;
+  padding: 16px 18px !important;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
 
-  :global(.btn-close) {
-    opacity: 0.65;
-    margin: 0 !important;
-    padding: 6px !important;
-    border-radius: 6px;
-    position: relative;
-    z-index: 2;
+.breakupModalCloseBtn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border: 1px solid #d0dae8;
+  background: #fff;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #6b829e;
+  font-size: 13px;
+  padding: 0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-top: 2px;
+
+  &:hover {
+    background: #f0f4fa;
+    border-color: #b8c8dc;
+    color: #3d5a7a;
   }
 }
 

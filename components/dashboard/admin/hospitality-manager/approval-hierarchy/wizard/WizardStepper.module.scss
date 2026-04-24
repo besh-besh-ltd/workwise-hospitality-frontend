@@ -1,0 +1,81 @@
+@import '../tokens';
+
+.wrap {
+  padding-bottom: 24px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid rgba($border, 0.5);
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba($primary, 0.4), transparent);
+  }
+}
+.context { text-align: center; margin-bottom: 20px; }
+.contextStep {
+  font-size: 11px; font-weight: 600; color: $muted;
+  text-transform: uppercase; letter-spacing: 1px; font-family: $font;
+}
+.contextTitle {
+  font-size: 16px; font-weight: 700; color: $dark;
+  margin-top: 2px; font-family: $font;
+}
+.track {
+  display: flex; align-items: flex-start; justify-content: center;
+  max-width: 440px; margin: 0 auto;
+}
+.item {
+  display: flex; flex-direction: column; align-items: center;
+  flex: 1; position: relative; min-width: 60px;
+}
+.connector {
+  position: absolute; top: 20px;
+  left: calc(50% + 20px); right: calc(-50% + 20px);
+  height: 3px; background: $border; z-index: 0;
+  border-radius: 2px; transition: background 0.4s ease;
+  overflow: hidden;
+}
+.connectorCompleted { background: $primary; }
+.connectorActive {
+  background: $border;
+  &::after {
+    content: ''; position: absolute; top: 0; left: 0;
+    width: 60%; height: 100%; background: $primary; border-radius: 2px;
+  }
+}
+.circle {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1; transition: all 0.3s ease;
+  font-size: 15px; font-weight: 700; font-family: $font;
+  position: relative;
+}
+.circleCompleted {
+  background: $blue-tint; border: 2px solid $primary; color: $primary;
+}
+.circleActive {
+  background: linear-gradient(135deg, $primary, rgba($primary, 0.87));
+  border: 2px solid $primary; color: #fff;
+  box-shadow: 0 0 0 5px rgba($primary, 0.08), 0 2px 8px rgba($primary, 0.2);
+}
+.circlePending {
+  background: $page-bg; border: 2px solid $border; color: $muted;
+}
+.label {
+  margin-top: 8px; font-size: 11px; font-weight: 600;
+  text-align: center; color: $muted; line-height: 1.2;
+  font-family: $font; transition: color 0.3s;
+}
+.labelActive, .labelCompleted { color: $primary; }
+
+@media (max-width: 575px) {
+  .label { display: none; }
+  .wrap { padding-bottom: 18px; margin-bottom: 22px; }
+  .contextTitle { font-size: 14px; }
+  .circle { width: 36px; height: 36px; font-size: 13px; }
+}

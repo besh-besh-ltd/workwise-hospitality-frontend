@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, UserCheck, Users, Folder, FileText, Gavel, AlertTriangle, Zap, Send } from 'lucide-react';
+import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, UserCheck, Users, Folder, FileText, Gavel, AlertTriangle, Zap, Send, UserX } from 'lucide-react';
 import Link from 'next/link';
 import { useSelector } from 'react-redux';
 import moment from 'moment';
@@ -37,7 +37,8 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
 
   const totalVendors = data.vendors?.[0]?.total_vendors || 0;
   const quotesReceived = data.vendors?.[0]?.quote_received || 0;
-  const allQuotesReceived = totalVendors > 0 && quotesReceived === totalVendors;
+  const quotesRegretted = data.vendors?.[0]?.quote_regretted || 0;
+  const allQuotesReceived = totalVendors > 0 && (quotesReceived + quotesRegretted) === totalVendors;
 
   const lifecycleConfig = data.lifecycle_stage ? getLifecycleConfig(data.lifecycle_stage) : null;
   const currentStageIndex = data.lifecycle_stage ? LIFECYCLE_STAGES_ORDERED.indexOf(data.lifecycle_stage) : -1;
@@ -115,6 +116,15 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                 <Send size={13} className={allQuotesReceived ? styles.vendorIconGreen : styles.vendorIconOrange} />
                 <span className={styles.vendorNum}>{quotesReceived}</span>
                 <span className={styles.vendorLabel}>Participated</span>
+
+                {quotesRegretted > 0 && (
+                  <>
+                    <span className={styles.vendorSep} />
+                    <UserX size={13} className={styles.vendorIconRed} />
+                    <span className={styles.vendorNum}>{quotesRegretted}</span>
+                    <span className={styles.vendorLabel}>Regretted</span>
+                  </>
+                )}
               </div>
             </>
           )}
@@ -276,11 +286,19 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
         <div className={styles.actionsRow} onClick={(e) => e.stopPropagation()}>
           {isDraft ? (
             <>
-              <Link href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.id}`}>
-                <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>Edit Draft</button>
-              </Link>
-              {onDelete && (
-                <button className={`btn btn-sm ${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => onDelete(data)}>Delete</button>
+              {currentUser && String(data.created_by) === String(currentUser.id) ? (
+                <>
+                  <Link href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.id}`}>
+                    <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>Edit Draft</button>
+                  </Link>
+                  {onDelete && (
+                    <button className={`btn btn-sm ${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => onDelete(data)}>Delete</button>
+                  )}
+                </>
+              ) : (
+                <Link href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.id}&view_only=true`}>
+                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>View Draft</button>
+                </Link>
               )}
             </>
           ) : (

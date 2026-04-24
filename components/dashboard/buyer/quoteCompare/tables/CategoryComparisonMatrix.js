@@ -23,6 +23,9 @@ const formatCurrency = (value) => {
 const formatRoundStatus = (status) => {
   if (status === "ACTIVE") return "Active";
   if (status === "PENDING_APPROVAL") return "Pending Approval";
+  if (status === "ENDED") return "Ended";
+  if (status === "CLOSED") return "Closed";
+  if (status === "COMPLETED") return "Completed";
   return status || "";
 };
 

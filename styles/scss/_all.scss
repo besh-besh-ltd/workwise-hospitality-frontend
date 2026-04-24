@@ -1,6 +1,16 @@
 @import "variable";
 // @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
+/* Remove default spinner buttons from number inputs */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 .grecaptcha-badge {
   left: 8px !important;
   bottom: 8px !important;
@@ -4125,7 +4135,7 @@ body.at-top {
             color: #525252;
           }
 
-          input {
+          input:not(.react-select__input) {
             width: 100%;
             border: 1px solid #a5a5a5;
             padding: 10px;
@@ -8795,7 +8805,11 @@ button:disabled {
 }
 
 /* Prevent body overflow while allowing dropdown visibility */
-html, body {
+html {
+  width: 100%;
+  max-width: 100%;
+}
+body {
   overflow-x: hidden;
   width: 100%;
   max-width: 100%;

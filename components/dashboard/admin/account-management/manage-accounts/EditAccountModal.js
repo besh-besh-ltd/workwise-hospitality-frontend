@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Modal from "react-modal";
 import { Formik, Form } from "formik";
 import { HiX } from "react-icons/hi";
@@ -74,9 +74,11 @@ const EditAccountModal = ({
   userDepartments,
   userMappings,
   onSave,
+  isSaving = false,
 }) => {
   const [roleScopes, setRoleScopes] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const pendingScopeRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -132,6 +134,22 @@ const EditAccountModal = ({
       statusVal = 1;
     }
 
+    // Auto-add pending role scope if the user filled the form but didn't click Add
+    let finalRoleScopes = [...(roleScopes || [])];
+    const pending = pendingScopeRef.current;
+    if (pending && pending.role_id && pending.company_id) {
+      const isDuplicate = finalRoleScopes.some(
+        (r) =>
+          r.role_id === pending.role_id &&
+          r.company_id === pending.company_id &&
+          (r.hotel_id || null) === (pending.hotel_id || null) &&
+          (r.department_id || null) === (pending.department_id || null)
+      );
+      if (!isDuplicate) {
+        finalRoleScopes.push(pending);
+      }
+    }
+
     let departmentIds = [];
     if (values.department_id && Array.isArray(values.department_id)) {
       departmentIds = values.department_id.map((dept) =>
@@ -141,14 +159,14 @@ const EditAccountModal = ({
 
     const roleScopeDeptIds = Array.from(
       new Set(
-        (roleScopes || [])
+        finalRoleScopes
           .map((r) => r.department_id)
           .filter((id) => id !== null && id !== undefined)
       )
     );
     departmentIds = Array.from(new Set([...departmentIds, ...roleScopeDeptIds]));
 
-    const filteredRoles = (roleScopes || []).map((role) => ({
+    const filteredRoles = finalRoleScopes.map((role) => ({
       role_id: role.role_id,
       role_title: role.role_title || null,
       company_id: role.company_id || null,
@@ -173,8 +191,23 @@ const EditAccountModal = ({
 
   const isAdmin = account.role === 7;
 
+  // While saving, ignore close attempts (overlay click, ESC, X button) so the
+  // user can't accidentally bail mid-request and end up in a confused state
+  // where the API call lands but the modal is gone.
+  const handleRequestClose = () => {
+    if (isSaving) return;
+    onClose();
+  };
+
   return (
-    <Modal isOpen={isOpen} onRequestClose={onClose} ariaHideApp={false} style={modalOverlayStyles}>
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={handleRequestClose}
+      shouldCloseOnOverlayClick={!isSaving}
+      shouldCloseOnEsc={!isSaving}
+      ariaHideApp={false}
+      style={modalOverlayStyles}
+    >
       <div className={styles.modalHeader}>
         <div>
           <h5 className={styles.modalTitle}>Edit Account</h5>
@@ -182,7 +215,12 @@ const EditAccountModal = ({
             Update details for <strong>{account.name}</strong>
           </div>
         </div>
-        <button type="button" className={styles.modalClose} onClick={onClose}>
+        <button
+          type="button"
+          className={styles.modalClose}
+          onClick={handleRequestClose}
+          disabled={isSaving}
+        >
           <HiX size={16} />
         </button>
       </div>
@@ -195,7 +233,11 @@ const EditAccountModal = ({
       >
         {({ errors, touched, values, setFieldValue, isValid }) => (
           <Form className={styles.modalForm}>
-            <div className={styles.modalBody}>
+            <div
+              className={styles.modalBody}
+              style={isSaving ? { pointerEvents: "none", opacity: 0.55, transition: "opacity 0.15s ease" } : { transition: "opacity 0.15s ease" }}
+              aria-busy={isSaving}
+            >
               {/* Basic Info */}
               <div className={styles.modalSection}>
                 <div className={styles.modalSectionTitle}>Basic Information</div>
@@ -370,20 +412,36 @@ const EditAccountModal = ({
                     onRemoveRole={(index) =>
                       setRoleScopes((prev) => prev.filter((_, i) => i !== index))
                     }
+                    onReplaceRole={(index, newScope) =>
+                      setRoleScopes((prev) =>
+                        prev.map((r, i) => (i === index ? newScope : r))
+                      )
+                    }
                     isEditMode
                     userDepartments={userDepartments}
                     userId={account.id}
+                    pendingScopeRef={pendingScopeRef}
                   />
                 </div>
               )}
             </div>
 
             <div className={styles.modalFooter}>
-              <button type="button" className={styles.cancelBtn} onClick={onClose}>
+              <button
+                type="button"
+                className={styles.cancelBtn}
+                onClick={handleRequestClose}
+                disabled={isSaving}
+              >
                 Cancel
               </button>
-              <button type="submit" className={styles.submitBtn} disabled={!isValid}>
-                Update Account
+              <button
+                type="submit"
+                className={styles.submitBtn}
+                disabled={!isValid || isSaving}
+              >
+                {isSaving && <span className={styles.submitBtnSpinner} aria-hidden="true" />}
+                {isSaving ? "Saving..." : "Update Account"}
               </button>
             </div>
           </Form>

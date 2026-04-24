@@ -1102,10 +1102,9 @@ const RfqManagementPreview = () => {
       if (!id) return;
       try {
         const response = await getAllActiveNegotiationRounds(id, token);
-        // Backend returns rounds with status IN ('PENDING_APPROVAL', 'ACTIVE')
-        // but does NOT filter by end_date > NOW(). We must filter on frontend
-        // to match the backend createQuote/updateQuoteItems check:
-        //   status = 'ACTIVE' AND end_date > NOW()
+        // Backend returns rounds with status IN ('PENDING_APPROVAL', 'ACTIVE', 'ENDED', 'CLOSED')
+        // We filter on frontend for truly active rounds to match the backend
+        // createQuote/updateQuoteItems check: status = 'ACTIVE' AND end_date > NOW()
         const now = new Date();
         const activeRounds = (response?.data || []).filter(
           r => {

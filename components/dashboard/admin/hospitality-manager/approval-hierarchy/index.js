@@ -2,13 +2,13 @@
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { BsArrowLeft } from "react-icons/bs";
-import FullLoader from "@/components/shared/FullLoader";
+import SkeletonLoader from "./dashboard/SkeletonLoader";
 import { deleteApprovalPolicy } from "@/services/approval";
 import useApprovalData from "./hooks/useApprovalData";
 import useProcessData from "./hooks/useProcessData";
 import DashboardView from "./dashboard/DashboardView";
 import WorkflowWizard from "./wizard/WorkflowWizard";
-import { BRAND_TEAL, getStageEntityOrder } from "./constants";
+import { DS, getStageEntityOrder } from "./constants";
 
 const ApprovalHierarchyRedesigned = () => {
   const router = useRouter();
@@ -94,8 +94,13 @@ const ApprovalHierarchyRedesigned = () => {
 
   if (loading) {
     return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
-        <FullLoader />
+      <div className="container-fluid py-4 mt-5">
+        <div className="mb-4">
+          <div style={{ width: 60, height: 14, background: DS.pageBg, borderRadius: 4, marginBottom: 10 }} />
+          <div style={{ width: 200, height: 24, background: DS.pageBg, borderRadius: 6, marginBottom: 6 }} />
+          <div style={{ width: 160, height: 14, background: DS.pageBg, borderRadius: 4 }} />
+        </div>
+        <SkeletonLoader variant={viewMode === "wizard" ? "wizard" : "dashboard"} />
       </div>
     );
   }
@@ -105,7 +110,7 @@ const ApprovalHierarchyRedesigned = () => {
       {/* Page header */}
       <div className="mb-4">
         <button
-          className="btn btn-link text-decoration-none p-0 mb-2 d-flex align-items-center gap-1"
+          className="d-inline-flex align-items-center gap-1"
           onClick={() => {
             if (viewMode === "wizard") {
               handleWizardCancel();
@@ -113,12 +118,26 @@ const ApprovalHierarchyRedesigned = () => {
               router.back();
             }
           }}
-          style={{ color: "#6b7280", fontSize: "13px" }}
+          style={{
+            color: DS.primary,
+            fontSize: "13px",
+            fontFamily: "'Poppins', sans-serif",
+            fontWeight: 500,
+            background: DS.blueTint,
+            border: "none",
+            borderRadius: 8,
+            padding: "6px 14px",
+            cursor: "pointer",
+            transition: "all 0.15s",
+            marginBottom: 10,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = DS.primary + "18"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = DS.blueTint; }}
         >
-          <BsArrowLeft size={14} />
+          <BsArrowLeft size={13} />
           {viewMode === "wizard" ? "Back to Workflows" : "Back"}
         </button>
-        <h4 className="mb-1 fw-bold" style={{ color: "#1a1a1a" }}>
+        <h4 className="mb-1 fw-bold" style={{ color: DS.dark, fontFamily: "'Poppins', sans-serif" }}>
           {viewMode === "wizard"
             ? editingProcess
               ? "Edit Approval Workflow"
@@ -126,7 +145,7 @@ const ApprovalHierarchyRedesigned = () => {
             : "Approval Workflows"}
         </h4>
         {hotel && (
-          <p className="text-muted mb-0" style={{ fontSize: "14px" }}>
+          <p className="mb-0" style={{ fontSize: "13px", color: DS.muted, fontFamily: "'Poppins', sans-serif" }}>
             {hotel.name}
             {(hotel.city || hotel.state) && (
               <span> — {[hotel.city, hotel.state].filter(Boolean).join(", ")}</span>
@@ -150,7 +169,7 @@ const ApprovalHierarchyRedesigned = () => {
           onDeleteProcess={handleDeleteProcess}
           getApproverDisplayInfo={getApproverDisplayInfo}
           getDeptSubGraphPreview={getDeptSubGraphPreview}
-          onRefreshDepartments={refreshDepartments}
+
         />
       ) : (
         <WorkflowWizard

@@ -22,6 +22,7 @@ import PeopleTab from "./hospitality-manager/PeopleTab";
 import CompanyFormModal from "./hospitality-manager/modals/CompanyFormModal";
 import HotelFormModal from "./hospitality-manager/modals/HotelFormModal";
 import PaymentModal from "./hospitality-manager/modals/PaymentModal";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import styles from "./hospitality-manager/HospitalityManager.module.css";
 
 const dedupeHospitalityMappings = (list = []) => {
@@ -63,6 +64,8 @@ const HospitalityManager = () => {
   const [isSubmittingHotel, setIsSubmittingHotel] = useState(false);
   const [isLoadingCompanyMappingList, setIsLoadingCompanyMappingList] = useState(false);
   const [sendingCredentialsHotelId, setSendingCredentialsHotelId] = useState(null);
+  const [removeMappingConfirm, setRemoveMappingConfirm] = useState({ open: false, mapping: null });
+  const [approvalImpactModal, setApprovalImpactModal] = useState({ open: false, type: null, data: null, pendingMapping: null });
 
   // --- Derived Data ---
   const selectedCompany = useMemo(
@@ -313,22 +316,55 @@ const HospitalityManager = () => {
     );
   };
 
-  const handleRemoveUserMapping = async (mapping) => {
+  const handleRemoveUserMapping = (mapping) => {
     if (!selectedCompanyId) return;
-    const confirmRemove = window.confirm("Remove this user mapping?");
-    if (!confirmRemove) return;
+    setRemoveMappingConfirm({ open: true, mapping });
+  };
+
+  const executeRemoveMapping = async (mapping, confirmed = false) => {
+    if (!mapping || !selectedCompanyId) return;
+    const payload = {
+      company_id: selectedCompanyId,
+      mapping_type: mapping.mapping_type,
+      hotel_id: mapping.mapping_type === 1 ? mapping.hospitality_hotel_id || mapping.hotel_id : null,
+    };
+    if (confirmed) payload.confirmed_approval_impact = true;
     try {
-      await deleteUserMapping(mapping.user_id, {
-        company_id: selectedCompanyId,
-        mapping_type: mapping.mapping_type,
-        hotel_id: mapping.mapping_type === 1 ? mapping.hospitality_hotel_id || mapping.hotel_id : null,
-      });
-      toast.success("Mapping removed");
+      const response = await deleteUserMapping(mapping.user_id, payload);
+
+      if (response?.code === 'APPROVAL_IMPACT_WARNING' && !confirmed) {
+        setRemoveMappingConfirm({ open: false, mapping: null });
+        setApprovalImpactModal({ open: true, type: 'warning', data: response.data, pendingMapping: mapping });
+        return;
+      }
+
+      const removedCount = response?.data?.removed_role_scopes || 0;
+      toast.success(`Mapping removed${removedCount > 0 ? ` (${removedCount} role scope${removedCount > 1 ? 's' : ''} cleared)` : ''}`);
+      setRemoveMappingConfirm({ open: false, mapping: null });
       await loadAllUserMappings();
     } catch (error) {
+      const errData = error?.message?.response?.data || error?.response?.data;
+      if (errData?.code === 'APPROVAL_AUTO_COMPLETE_BLOCKED') {
+        setRemoveMappingConfirm({ open: false, mapping: null });
+        setApprovalImpactModal({ open: true, type: 'blocked', data: errData.data, pendingMapping: null });
+        return;
+      }
       console.error(error);
-      toast.error("Failed to remove mapping");
+      toast.error(errData?.message || "Failed to remove mapping");
     }
+  };
+
+  const handleConfirmRemoveMapping = async () => {
+    const mapping = removeMappingConfirm.mapping;
+    if (!mapping) return;
+    await executeRemoveMapping(mapping);
+  };
+
+  const handleApprovalImpactConfirm = async () => {
+    const mapping = approvalImpactModal.pendingMapping;
+    if (!mapping) return;
+    await executeRemoveMapping(mapping, true);
+    setApprovalImpactModal({ open: false, type: null, data: null, pendingMapping: null });
   };
 
   const handleCreateHO = async () => {
@@ -543,6 +579,52 @@ const HospitalityManager = () => {
         company={selectedCompany}
         selectedCompanyId={selectedCompanyId}
         onSuccess={() => loadCompanies()}
+      />
+
+      {/* Remove Mapping Confirmation */}
+      <ConfirmationModal
+        isOpen={removeMappingConfirm.open}
+        onClose={() => setRemoveMappingConfirm({ open: false, mapping: null })}
+        onConfirm={handleConfirmRemoveMapping}
+        title="Remove Access"
+        description={
+          removeMappingConfirm.mapping
+            ? `Removing access to ${
+                removeMappingConfirm.mapping.mapping_type === 0
+                  ? "this company"
+                  : (removeMappingConfirm.mapping.hotel_name || "this business unit")
+              } will also remove all role scopes assigned for it.`
+            : "Are you sure you want to remove this access?"
+        }
+        confirmButtonColor="danger"
+        confirmButtonText="Remove"
+        cancelButtonText="Cancel"
+      />
+
+      {/* Approval Impact Modal */}
+      <ConfirmationModal
+        isOpen={approvalImpactModal.open}
+        onClose={() => setApprovalImpactModal({ open: false, type: null, data: null, pendingMapping: null })}
+        onConfirm={
+          approvalImpactModal.type === 'blocked'
+            ? () => setApprovalImpactModal({ open: false, type: null, data: null, pendingMapping: null })
+            : handleApprovalImpactConfirm
+        }
+        title={
+          approvalImpactModal.type === 'blocked'
+            ? 'Removal would skip approvals'
+            : 'This user has open approvals'
+        }
+        description={
+          approvalImpactModal.type === 'blocked'
+            ? 'Without this user the workflows below would self-approve, with no human review. Reassign their role to another user first, then try again.'
+            : "Removing this access will skip the user's pending approvals. Other approvers can still act."
+        }
+        confirmButtonColor={approvalImpactModal.type === 'blocked' ? 'danger' : 'warning'}
+        confirmButtonText={approvalImpactModal.type === 'blocked' ? 'Got it' : 'Proceed anyway'}
+        cancelButtonText="Cancel"
+        hideCancelButton={approvalImpactModal.type === 'blocked'}
+        showCloseButton
       />
     </>
   );

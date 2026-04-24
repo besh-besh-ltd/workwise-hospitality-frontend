@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { Button } from 'react-bootstrap';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Plus, History, ShieldCheck } from 'lucide-react';
 import { getAllActiveNegotiationRounds, getNegotiationRounds } from '@/services/negotiation';
 import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
 import NegotiationModal from './NegotiationModal';
@@ -48,8 +49,10 @@ const NegotiationCompactBanner = ({
         if (preloadedApprovalBundle) {
           for (let i = 0; i < rounds.length; i++) {
             const round = rounds[i];
-            if (round.status === 'PENDING_APPROVAL' && round.rfq_product_id) {
-              const instances = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+            if (round.status === 'PENDING_APPROVAL' && round.id) {
+              const byRoundId = preloadedApprovalBundle.negotiation_instances?.[String(round.id)] || [];
+              const byProductId = preloadedApprovalBundle.negotiation_instances?.[String(round.rfq_product_id)] || [];
+              const instances = byRoundId.length > 0 ? byRoundId : byProductId;
               const pendingInstance = instances.find(inst => inst.status === 'PENDING');
               if (pendingInstance) {
                 const currentStep = (pendingInstance.steps || []).find(s => s.step_order === pendingInstance.current_step);
@@ -87,9 +90,9 @@ const NegotiationCompactBanner = ({
       // Enrich PENDING_APPROVAL rounds with approval data from the approval engine
       for (let i = 0; i < rounds.length; i++) {
         const round = rounds[i];
-        if (round.status === 'PENDING_APPROVAL' && round.rfq_product_id) {
+        if (round.status === 'PENDING_APPROVAL' && round.id) {
           try {
-            const instancesRes = await getEntityApprovalInstances('NEGOTIATION', round.rfq_product_id);
+            const instancesRes = await getEntityApprovalInstances('NEGOTIATION', round.id);
             const instances = instancesRes?.data || instancesRes || [];
             const pendingInstance = (Array.isArray(instances) ? instances : []).find(inst => inst.status === 'PENDING');
             if (pendingInstance) {
@@ -169,24 +172,11 @@ const NegotiationCompactBanner = ({
   const handleModalClose = () => {
     setShowModal(false);
     setModalMode(null);
-    loadActiveRounds();
-    // Sync parent's negotiation data with this banner
-    onRoundChange?.();
   };
 
   // Helper to check if a round has been rejected via approvals
   const isRoundRejected = (round) => {
     return round?.approvals?.some(a => a.status === 'REJECTED');
-  };
-
-  // Helper to check if a round has ended based on end_date
-  // Note: end_date from server is in UTC, so use moment.utc() to parse it correctly
-  const isRoundEnded = (round) => {
-    const status = (round?.status || '').toUpperCase();
-    if (status === 'ACTIVE' && round?.end_date && moment.utc(round.end_date).isBefore(moment())) {
-      return true;
-    }
-    return false;
   };
 
   // Filter out rejected rounds from pending
@@ -195,21 +185,22 @@ const NegotiationCompactBanner = ({
     return status === 'PENDING_APPROVAL' && !isRoundRejected(r);
   });
 
-  // Active rounds: status is ACTIVE, end_date has NOT passed, and not rejected
+  // Active rounds: status is ACTIVE and not rejected
   const activeRoundsList = (activeRounds || []).filter(r => {
     const status = r?.status?.toUpperCase();
-    return status === 'ACTIVE' && !isRoundEnded(r) && !isRoundRejected(r);
+    return status === 'ACTIVE' && !isRoundRejected(r);
   });
 
-  // Rounds from activeRounds that have ended (status ACTIVE but end_date passed) and not rejected
+  // Ended rounds from activeRounds (status ENDED)
   const endedFromActiveRounds = (activeRounds || []).filter(r => {
-    return isRoundEnded(r) && !isRoundRejected(r);
+    const status = r?.status?.toUpperCase();
+    return status === 'ENDED' && !isRoundRejected(r);
   });
 
   // Calculate ended rounds from history (CLOSED or COMPLETED status)
   const endedFromHistory = (roundsHistory || []).filter(r => {
     const status = r?.status?.toUpperCase();
-    return status === 'CLOSED' || status === 'COMPLETED';
+    return status === 'CLOSED' || status === 'COMPLETED' || status === 'EXPIRED' || status === 'ENDED';
   });
 
   // Combine ended rounds, deduplicate by ID
@@ -257,6 +248,15 @@ const NegotiationCompactBanner = ({
   };
 
   const pendingApprovers = getPendingApprovers();
+
+  // Button is disabled only when every vendor on every product is already in an active/pending round.
+  // in_active_round is the per-vendor flag that correctly handles parallel rounds and reflects
+  // rejected vendors (set to false by backend so they're eligible for a new round).
+  const allVendorsInRounds = products.length > 0 && products.every(product => {
+    const productVendors = product.product_vendors || [];
+    if (productVendors.length === 0) return true; // nothing to negotiate for this product
+    return productVendors.every(v => v.in_active_round === true);
+  });
 
   // Check if ARC is approved (hide ended rounds when ARC is approved)
   const isArcApproved = arcApprovalData?.status === 'APPROVED';
@@ -332,33 +332,56 @@ const NegotiationCompactBanner = ({
         </div>
 
         <div className={styles.bannerActions}>
-          <Button
-            variant="light"
-            size="sm"
-            onClick={handleCreateClick}
-            disabled={!canWrite || permissionsLoading}
-            className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
-          >
-            Create Round
-          </Button>
-          <Button
-            variant="light"
-            size="sm"
+          {allVendorsInRounds ? (
+            <OverlayTrigger
+              placement="top"
+              overlay={
+                <Tooltip id="create-round-disabled">
+                  All vendors are already in negotiation round
+                </Tooltip>
+              }
+            >
+              <span className="d-inline-block">
+                <button
+                  type="button"
+                  disabled
+                  className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <Plus size={14} strokeWidth={2.5} />
+                  Create Round
+                </button>
+              </span>
+            </OverlayTrigger>
+          ) : (
+            <button
+              type="button"
+              onClick={handleCreateClick}
+              disabled={!canWrite || permissionsLoading}
+              className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+            >
+              <Plus size={14} strokeWidth={2.5} />
+              Create Round
+            </button>
+          )}
+          <button
+            type="button"
             onClick={handleHistoryClick}
             className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
           >
+            <History size={14} strokeWidth={2} />
             View History
-          </Button>
+          </button>
           {pendingApprovalsCount > 0 && (
-            <Button
-              variant="light"
-              size="sm"
+            <button
+              type="button"
               onClick={handleViewApproveClick}
               disabled={!canWrite || permissionsLoading}
               className={`${styles.actionBtn} ${styles.actionBtnAttention}`}
             >
+              <ShieldCheck size={14} strokeWidth={2} />
               Approval Queue
-            </Button>
+            </button>
           )}
         </div>
       </div>
@@ -374,7 +397,7 @@ const NegotiationCompactBanner = ({
         roundsHistory={roundsHistory}
         selectedProduct={null}
         onProductSelect={() => {}}
-        onRefresh={loadActiveRounds}
+        onRefresh={() => { loadActiveRounds(); onRoundChange?.(); }}
         canWrite={canWrite}
         permissionsLoading={permissionsLoading}
         hospitalityCompanyId={hospitalityCompanyId}

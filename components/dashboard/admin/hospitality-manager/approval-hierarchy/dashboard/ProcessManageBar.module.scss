@@ -1,0 +1,23 @@
+@import '../tokens';
+
+.bar { display: flex; align-items: center; gap: 8px; padding: 8px 0; flex-wrap: wrap; }
+.label { font-size: 12px; font-weight: 600; color: $muted; margin-right: 2px; white-space: nowrap; font-family: $font; }
+.pill {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px;
+  border-radius: 20px; font-size: 12px; font-weight: 500; transition: all 0.15s ease; font-family: $font;
+  &:hover { filter: brightness(0.95); }
+}
+.pillAction {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%; background: transparent;
+  border: none; padding: 0; cursor: pointer; transition: all 0.15s ease;
+  &:hover { background: rgba(0,0,0,0.1); }
+}
+.pillActionDelete:hover { background: #fee2e2 !important; color: $error !important; }
+.addBtn {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 14px;
+  border-radius: 20px; border: 1px dashed $border; background: transparent;
+  font-size: 12px; font-weight: 500; color: $muted; cursor: pointer;
+  transition: all 0.15s ease; font-family: $font;
+  &:hover { border-color: $primary; color: $primary; background: $blue-light; }
+}

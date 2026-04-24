@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
-import { HiX } from "react-icons/hi";
+import { HiX, HiPencil } from "react-icons/hi";
 import { getDepartments, getRoles, getRolePermissions } from "@/services/rbac";
 import { getHospitalityEntities, getUserMappingsById } from "@/services/hospitality";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import styles from "@/components/dashboard/admin/account-management/manage-accounts/ManageAccounts.module.scss";
 
-export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDepartment: propSelectedDepartment, isEditMode = true, onRemoveRole, userDepartments = [], userId = null, externalMappings = null }) {
+export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDepartment: propSelectedDepartment, isEditMode = true, onRemoveRole, onReplaceRole = null, userDepartments = [], userId = null, externalMappings = null, pendingScopeRef = null }) {
   const userProfile = useSelector((state) => state.userProfile);
   const [roles, setRoles] = useState([]);
   const [companies, setCompanies] = useState([]);
@@ -22,6 +23,29 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedHotel, setSelectedHotel] = useState(null);
   const [selectedDepartment, setSelectedDepartment] = useState(propSelectedDepartment || null);
+
+  // null = create mode; number = index into existingRoles being edited.
+  // When set, the bottom form pre-fills with that role's scope and the
+  // primary action becomes "Save Changes" instead of "Add Role".
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [allAccessConfirm, setAllAccessConfirm] = useState({ open: false, scope: null });
+
+  // Expose current form state to parent so it can auto-add on save
+  useEffect(() => {
+    if (!pendingScopeRef) return;
+    if (selectedRole && selectedCompany) {
+      pendingScopeRef.current = {
+        role_id: selectedRole.id,
+        role_title: selectedRole.title,
+        company_id: selectedCompany.id,
+        hotel_id: selectedHotel?.id || null,
+        department_id: selectedDepartment?.id || null,
+        permissions
+      };
+    } else {
+      pendingScopeRef.current = null;
+    }
+  }, [selectedRole, selectedCompany, selectedHotel, selectedDepartment, permissions, pendingScopeRef]);
 
   /* ---------------- Effects ---------------- */
 
@@ -167,63 +191,13 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     setCompanies(filteredCompanies);
   }, [userMappings, allCompanies, isEditMode, userMappingsLoaded, externalMappings]);
 
+  // Role scope department dropdown always shows all departments.
+  // department_id = NULL in role scope means literal all-department access,
+  // so the dropdown is not restricted by the user's own departments.
   useEffect(() => {
     if (allDepartments.length === 0) return;
-
-    if (isEditMode) {
-      if (userDepartments === undefined) {
-        setDepartments(allDepartments);
-        return;
-      }
-
-      if (Array.isArray(userDepartments)) {
-        if (userDepartments.length > 0) {
-          const userDeptIds = userDepartments.map(d => {
-            if (typeof d === 'number') return Number(d);
-            if (typeof d === 'object' && d !== null) {
-              const id = d.id || d.value || d.department_id;
-              return id ? Number(id) : null;
-            }
-            return null;
-          }).filter(id => id !== null && id !== undefined);
-
-          if (userDeptIds.length > 0) {
-            const filteredDepts = allDepartments.filter(d => {
-              const deptId = Number(d.id || d.value);
-              return userDeptIds.includes(deptId);
-            });
-            setDepartments(filteredDepts);
-          } else {
-            setDepartments([]);
-          }
-        } else {
-          setDepartments([]);
-        }
-      } else {
-        setDepartments(allDepartments);
-      }
-    } else {
-      // Not in edit mode — filter by userDepartments if provided
-      if (Array.isArray(userDepartments) && userDepartments.length > 0) {
-        const userDeptIds = userDepartments.map(d => {
-          if (typeof d === 'number') return Number(d);
-          if (typeof d === 'object' && d !== null) {
-            const id = d.id || d.value || d.department_id;
-            return id ? Number(id) : null;
-          }
-          return null;
-        }).filter(id => id !== null && id !== undefined);
-
-        if (userDeptIds.length > 0) {
-          setDepartments(allDepartments.filter(d => userDeptIds.includes(Number(d.id || d.value))));
-        } else {
-          setDepartments(allDepartments);
-        }
-      } else {
-        setDepartments(allDepartments);
-      }
-    }
-  }, [isEditMode, userDepartments, allDepartments]);
+    setDepartments(allDepartments);
+  }, [allDepartments]);
 
   useEffect(() => {
     if (propSelectedDepartment && !isEditMode) {
@@ -271,37 +245,91 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
 
   /* ---------------- Handlers ---------------- */
 
-  const handleAddRole = () => {
-    if (!selectedRole || !selectedCompany) return;
-
-    // Prevent exact duplicate role scope
-    const isDuplicate = (existingRoles || []).some(
-      (r) =>
-        r.role_id === selectedRole.id &&
-        r.company_id === selectedCompany.id &&
-        (r.hotel_id || null) === (selectedHotel?.id || null) &&
-        (r.department_id || null) === (selectedDepartment?.id || null)
-    );
-    if (isDuplicate) {
-      setError("This exact role assignment already exists.");
-      return;
-    }
-
-    onAddRole({
-      role_id: selectedRole.id,
-      role_title: selectedRole.title,
-      company_id: selectedCompany.id,
-      hotel_id: selectedHotel?.id || null,
-      department_id: selectedDepartment?.id || null,
-      permissions
-    });
-
+  const resetForm = () => {
     setSelectedRole(null);
     setSelectedCompany(null);
     setSelectedHotel(null);
     setSelectedDepartment(null);
     setPermissions({});
     setError(null);
+  };
+
+  const commitScope = (scope) => {
+    if (editingIndex !== null && onReplaceRole) {
+      onReplaceRole(editingIndex, scope);
+      setEditingIndex(null);
+    } else {
+      onAddRole(scope);
+    }
+    resetForm();
+  };
+
+  const handleAddRole = () => {
+    if (!selectedRole || !selectedCompany) return;
+
+    const newScope = {
+      role_id: selectedRole.id,
+      role_title: selectedRole.title,
+      company_id: selectedCompany.id,
+      hotel_id: selectedHotel?.id || null,
+      department_id: selectedDepartment?.id || null,
+      permissions
+    };
+
+    // Prevent exact duplicate role scope
+    const isDuplicate = (existingRoles || []).some((r, i) => {
+      if (editingIndex !== null && i === editingIndex) return false;
+      return r.role_id === newScope.role_id &&
+        r.company_id === newScope.company_id &&
+        (r.hotel_id || null) === newScope.hotel_id &&
+        (r.department_id || null) === newScope.department_id;
+    });
+    if (isDuplicate) {
+      setError("This exact role assignment already exists.");
+      return;
+    }
+
+    // If hotel or department is "All" (null), confirm with user
+    const allHotel = !newScope.hotel_id;
+    const allDept = !newScope.department_id;
+    if (allHotel || allDept) {
+      setAllAccessConfirm({ open: true, scope: newScope });
+      return;
+    }
+
+    commitScope(newScope);
+  };
+
+  const handleEditRole = (index) => {
+    const role = (existingRoles || [])[index];
+    if (!role) return;
+
+    // Pre-fill the form with this role's scope. The role/company/hotel/dept
+    // dropdowns each look up the matching item from their loaded master lists,
+    // so the existing value renders as the selected option.
+    const matchedRole = roles.find((r) => r.id === role.role_id) || { id: role.role_id, title: role.role_title };
+    const matchedCompany = allCompanies.find((c) => c.id === role.company_id);
+    const matchedHotel = role.hotel_id
+      ? matchedCompany?.hotels?.find((h) => h.id === role.hotel_id) || null
+      : null;
+    const matchedDept = role.department_id
+      ? allDepartments.find((d) => d.id === role.department_id) || null
+      : null;
+
+    setSelectedRole(matchedRole);
+    setSelectedCompany(matchedCompany || null);
+    setSelectedHotel(matchedHotel);
+    setSelectedDepartment(matchedDept);
+    // Permissions will auto-load via the selectedRole effect, but seed with
+    // the saved permissions immediately so there's no flash of empty state.
+    setPermissions(role.permissions || {});
+    setEditingIndex(index);
+    setError(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    resetForm();
   };
 
   /* ---------------- Helpers ---------------- */
@@ -325,6 +353,40 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   };
 
   const hasPermissions = Object.keys(permissions).length > 0;
+  const isEditing = editingIndex !== null;
+
+  // Group existingRoles into Company → Business Unit → [roles] so the admin
+  // can scan their scope hierarchy directly instead of paging through a flat
+  // list. Each leaf carries _index so edit/remove still target the correct
+  // row in the original existingRoles array.
+  const groupedRoles = useMemo(() => {
+    const groups = new Map(); // companyId -> { name, hotels: Map<hotelId, [roles]> }
+    (existingRoles || []).forEach((role, idx) => {
+      const cid = role.company_id ?? '__none__';
+      const hid = role.hotel_id ?? '__all__';
+      if (!groups.has(cid)) {
+        groups.set(cid, { name: getCompanyName(role.company_id), hotels: new Map() });
+      }
+      const company = groups.get(cid);
+      if (!company.hotels.has(hid)) {
+        company.hotels.set(hid, {
+          name: getHotelName(role.company_id, role.hotel_id),
+          roles: [],
+        });
+      }
+      company.hotels.get(hid).roles.push({ ...role, _index: idx });
+    });
+    // Materialise into arrays for stable rendering order.
+    return Array.from(groups.entries()).map(([cid, c]) => ({
+      companyId: cid,
+      companyName: c.name,
+      hotels: Array.from(c.hotels.entries()).map(([hid, h]) => ({
+        hotelId: hid,
+        hotelName: h.name,
+        roles: h.roles,
+      })),
+    }));
+  }, [existingRoles, allCompanies, allDepartments]);
 
   return (
     <div className={styles.roleSelectorWrap}>
@@ -341,69 +403,76 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
 
       {!loading && (
         <>
-          {/* Assigned Roles */}
+          {/* Assigned Roles — grouped by Company → Business Unit so the admin
+              can see roles within a scope at a glance. Department info stays
+              as a subtle inline tag on each role rather than its own grouping
+              level (per UX feedback). */}
           <div className={styles.assignedRolesSection}>
             <div className={styles.assignedRolesTitle}>
               Assigned Roles {existingRoles?.length > 0 && `(${existingRoles.length})`}
             </div>
 
-            {existingRoles && existingRoles.length > 0 ? (
-              <div className={styles.assignedRolesList}>
-                {existingRoles.map((role, index) => {
-                  const perms = role.permissions || {};
-                  const permEntries = Object.entries(perms).filter(
-                    ([, actions]) => Array.isArray(actions) && actions.length > 0
-                  );
-
-                  // Build a compact permission summary string
-                  const permSummary = permEntries.map(([resource, actions]) => ({
-                    resource,
-                    actions: actions.join(", "),
-                  }));
-
-                  return (
-                    <div key={index} className={styles.roleRow}>
-                      <div className={styles.roleRowMain}>
-                        <div className={styles.roleRowTopLine}>
-                          <span className={styles.roleRowTitle}>
-                            {role.role_title || role.title}
-                          </span>
-                          <span className={styles.roleRowScopePath}>
-                            <span className={styles.roleRowScopeValue}>{getCompanyName(role.company_id)}</span>
-                            <span className={styles.roleRowScopeSep}> → </span>
-                            <span className={styles.roleRowScopeValue}>{getHotelName(role.company_id, role.hotel_id)}</span>
-                            <span className={styles.roleRowScopeSep}> → </span>
-                            <span className={styles.roleRowScopeValue}>{getDeptName(role.department_id)}</span>
-                          </span>
-                        </div>
-                        <div className={styles.roleRowPermLine}>
-                          {permSummary.length > 0 ? (
-                            permSummary.map((p, i) => (
-                              <span key={p.resource}>
-                                {i > 0 && <span className={styles.roleRowPermDot}>·</span>}
-                                <span className={styles.roleRowPermHighlight}>{p.resource}</span>
-                                {": "}
-                                {p.actions}
-                              </span>
-                            ))
-                          ) : (
-                            <span>Default role permissions</span>
-                          )}
+            {groupedRoles.length > 0 ? (
+              <div className={styles.scopeGroupList}>
+                {groupedRoles.map((company) => (
+                  <div className={styles.scopeGroupCard} key={`co-${company.companyId}`}>
+                    <div className={styles.scopeCompanyHeading}>{company.companyName}</div>
+                    {company.hotels.map((hotel) => (
+                      <div className={styles.scopeBuBlock} key={`bu-${company.companyId}-${hotel.hotelId}`}>
+                        <div className={styles.scopeBuHeading}>{hotel.hotelName}</div>
+                        <div className={styles.scopeRoleList}>
+                          {hotel.roles.map((role) => {
+                            const isThisRowEditing = editingIndex === role._index;
+                            return (
+                              <div
+                                key={`r-${role._index}`}
+                                className={`${styles.scopeRoleRow} ${isThisRowEditing ? styles.scopeRoleRowEditing : ""}`}
+                              >
+                                <div className={styles.scopeRoleMain}>
+                                  <span className={styles.scopeRoleTitle}>
+                                    {role.role_title || role.title}
+                                  </span>
+                                  {role.department_id && (
+                                    <span className={styles.scopeRoleDeptTag}>
+                                      {getDeptName(role.department_id)}
+                                    </span>
+                                  )}
+                                  {isThisRowEditing && (
+                                    <span className={styles.scopeRoleEditingBadge}>Editing</span>
+                                  )}
+                                </div>
+                                <div className={styles.scopeRoleActions}>
+                                  {onReplaceRole && (
+                                    <button
+                                      type="button"
+                                      className={styles.scopeRoleEdit}
+                                      onClick={() => handleEditRole(role._index)}
+                                      title="Edit role"
+                                      disabled={isEditing && !isThisRowEditing}
+                                    >
+                                      <HiPencil size={13} />
+                                    </button>
+                                  )}
+                                  {onRemoveRole && (
+                                    <button
+                                      type="button"
+                                      className={styles.scopeRoleRemove}
+                                      onClick={() => onRemoveRole(role._index)}
+                                      title="Remove role"
+                                      disabled={isEditing && !isThisRowEditing}
+                                    >
+                                      <HiX size={13} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                      {onRemoveRole && (
-                        <button
-                          type="button"
-                          className={styles.roleRowRemove}
-                          onClick={() => onRemoveRole(index)}
-                          title="Remove role"
-                        >
-                          <HiX size={13} />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+                    ))}
+                  </div>
+                ))}
               </div>
             ) : (
               <div className={styles.assignedRolesEmpty}>
@@ -412,9 +481,12 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
             )}
           </div>
 
-          {/* Add Role Form */}
+          {/* Add / Edit Role Form. Shared form: in create mode it inserts a
+              new role; in edit mode it replaces the role at editingIndex. */}
           <div className={styles.addRoleSection}>
-            <div className={styles.addRoleTitle}>Add New Role</div>
+            <div className={styles.addRoleTitle}>
+              {isEditing ? "Edit Role" : "Add New Role"}
+            </div>
             <div className={styles.addRoleGrid}>
               {/* Role */}
               <div className={styles.addRoleField}>
@@ -548,18 +620,48 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
             )}
 
             <div className={styles.addRoleFooter}>
+              {isEditing && (
+                <button
+                  type="button"
+                  className={styles.outlineBtn}
+                  onClick={handleCancelEdit}
+                >
+                  Cancel
+                </button>
+              )}
               <button
                 type="button"
                 className={styles.primaryBtn}
                 disabled={!selectedRole || !selectedCompany}
                 onClick={handleAddRole}
               >
-                Add Role
+                {isEditing ? "Save Changes" : "Add Role"}
               </button>
             </div>
           </div>
         </>
       )}
+      {/* All-access confirmation modal */}
+      <ConfirmationModal
+        isOpen={allAccessConfirm.open}
+        onClose={() => setAllAccessConfirm({ open: false, scope: null })}
+        onConfirm={() => {
+          const scope = allAccessConfirm.scope;
+          setAllAccessConfirm({ open: false, scope: null });
+          if (scope) commitScope(scope);
+        }}
+        title="Grant broad access?"
+        description={(() => {
+          if (!allAccessConfirm.scope) return '';
+          const parts = [];
+          if (!allAccessConfirm.scope.hotel_id) parts.push('all business units');
+          if (!allAccessConfirm.scope.department_id) parts.push('all departments');
+          return `This role will have access across ${parts.join(' and ')}. Are you sure?`;
+        })()}
+        confirmButtonColor="warning"
+        confirmButtonText="Yes, grant access"
+        cancelButtonText="Cancel"
+      />
     </div>
   );
 }

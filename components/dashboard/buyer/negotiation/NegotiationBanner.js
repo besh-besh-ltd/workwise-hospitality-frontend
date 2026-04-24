@@ -148,6 +148,10 @@ const NegotiationBanner = ({ rfq_id, currentUser }) => {
         return <Badge bg="warning" className="px-2 py-1">Pending Approval</Badge>;
       case 'ACTIVE':
         return <Badge bg="success" className="px-2 py-1">Active</Badge>;
+      case 'ENDED':
+        return <Badge bg="secondary" className="px-2 py-1">Ended</Badge>;
+      case 'CLOSED':
+        return <Badge bg="secondary" className="px-2 py-1">Closed</Badge>;
       case 'COMPLETED':
         return <Badge bg="secondary" className="px-2 py-1">Completed</Badge>;
       case 'CANCELLED':
