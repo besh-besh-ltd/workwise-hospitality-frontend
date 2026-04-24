@@ -900,7 +900,11 @@ export const canEditRfq = (rfq, currentUser) => {
   }
   // Bid window passed — but allow edit if no vendors submitted quotes,
   // so the creator can extend the deadline.
-  if (isBidEnded(rfq) && rfq.is_quotes_present) {
+  // Also allow editing when a product is dead-ended (all eligible vendors'
+  // POs were rejected and no other vendor available) or tech-stuck (all vendors
+  // failed tech eval), matching backend assertEditAllowed() bypass.
+  if (isBidEnded(rfq) && rfq.is_quotes_present
+      && !rfq.has_dead_end_product && !rfq.has_tech_stuck_product) {
     return {
       allowed: false,
       reason: 'The submission deadline has passed; this RFQ can no longer be edited.'
