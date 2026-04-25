@@ -526,7 +526,7 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
             <strong>PO Number #{po.po_number || po.id}</strong>
             {po.product_names && <span className={styles.poGroupProducts}>{po.product_names}</span>}
             <span className={styles.poVendor}>{po.vendor_company || po.vendor_name}</span>
-            <Badge bg={['approved','completed','sent'].includes(po.status) ? 'success' : po.status === 'pending_approval' ? 'warning' : 'secondary'} style={{ fontSize: '0.6rem' }}>{po.status?.replace(/_/g, ' ')}</Badge>
+            <Badge bg={['approved','completed','sent'].includes(po.status) ? 'success' : po.status === 'pending_approval' ? 'warning' : ['rejected','rejected_by_vendor','cancelled'].includes(po.status) ? 'danger' : 'secondary'} style={{ fontSize: '0.6rem' }}>{po.status === 'rejected_by_vendor' ? 'Rejected by Vendor' : po.status?.replace(/_/g, ' ')}</Badge>
             {po.total_amount != null && <span className={styles.poBold} style={{ marginLeft: 'auto' }}>₹{po.total_amount.toLocaleString('en-IN')}</span>}
           </div>
         ))}

@@ -1803,6 +1803,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       if (item.bid_end_date && !checkBidExpired(item.bid_end_date)) return false;
                       // User is current approver
                       if (item.approval_required) return true;
+                      // PO rejected by vendor — needs re-finalization
+                      if (item.has_po_rejection) return true;
                       // Already fully done or all finalized (in approval) or partially approved
                       if (item.finalization_approval_completed === true) return false;
                       if (item.is_finalized === true) return false;
