@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { extractQuotation, fetchQuoteHistory, getRFQById, sendQuotation, updateQuotation, createTenderPaymentOrder, verifyTenderPayment } from "@/services/rfq";
+import { extractQuotation, fetchQuoteHistory, getRFQById, sendQuotation, updateQuotation, createTenderPaymentOrder, verifyTenderPayment, getChargeNames, createChargeName, updateChargeName, deleteChargeName } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
 import Loader from "@/components/shared/Loader";
 import { toast } from "react-toastify";
@@ -28,10 +28,6 @@ import { checkBidExpired } from "@/utils/sharedFunctions";
 import { Alert } from "react-bootstrap";
 import { Tooltip } from "react-tooltip";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
-
-const PREDEFINED_CHARGE_NAMES = [
-  "Freight", "Packaging", "Insurance", "Loading/Unloading", "Testing/Inspection"
-];
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   const baseStyle = {
@@ -86,16 +82,18 @@ const SendQuotePageComp = () => {
 
   const [globalFreight, setglobalFreight] = useState(0);
   const [globalPackaging, setglobalPackaging] = useState(0);
-  const [globalTax, setglobalTax] = useState(0);
-  const [globalTaxMode, setGlobalTaxMode] = useState("percentage");
   const [globalOtherCharges, setGlobalOtherCharges] = useState([]);
   const [chargesModalOpen, setChargesModalOpen] = useState(null);
   const [chargesSummaryOpen, setChargesSummaryOpen] = useState(true);
-  const [customChargeNames, setCustomChargeNames] = useState([]);
+  const [chargeNamesList, setChargeNamesList] = useState([]);
   const [addingCustomCharge, setAddingCustomCharge] = useState(false);
   const [editingCustomCharge, setEditingCustomCharge] = useState(null);
   const [customChargeInput, setCustomChargeInput] = useState("");
   const [chargeDropdownOpen, setChargeDropdownOpen] = useState(false);
+  const [globalChargeDropdownOpen, setGlobalChargeDropdownOpen] = useState(false);
+  const [addingGlobalCustomCharge, setAddingGlobalCustomCharge] = useState(false);
+  const [editingGlobalCustomCharge, setEditingGlobalCustomCharge] = useState(null);
+  const [globalCustomChargeInput, setGlobalCustomChargeInput] = useState("");
   const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
   const [globalComment, setglobalComment] = useState("");
   const [vendorGSTIN, setVendorGSTIN] = useState(null);
@@ -220,15 +218,17 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
 // Save the initial payment terms list from backend
 const originalPaymentTermsListRef = useRef(null);
 
-  const grandTotalBeforeGlobalTax = quoteProducts.reduce(
+  const grandTotalBeforeGlobalCharges = quoteProducts.reduce(
     (sum, product) => sum + (Number(product?.total_price) || 0),
     0
   );
-  const globalTaxValue = parseFloat(globalTax) || 0;
-  const globalTaxAmount = grandTotalBeforeGlobalTax > 0
-    ? (globalTaxMode === "percentage" ? (grandTotalBeforeGlobalTax * globalTaxValue) / 100 : globalTaxValue)
-    : 0;
-  const grandTotalIncludingGST = grandTotalBeforeGlobalTax + globalTaxAmount;
+  let globalChargesTotal = 0;
+  if (grandTotalBeforeGlobalCharges > 0) {
+    globalOtherCharges.forEach(c => {
+      globalChargesTotal += (c.amount_mode === "percentage") ? (grandTotalBeforeGlobalCharges * (parseFloat(c.amount) || 0)) / 100 : (parseFloat(c.amount) || 0);
+    });
+  }
+  const grandTotalIncludingGST = grandTotalBeforeGlobalCharges + globalChargesTotal;
   const grandTotalIncludingGSTText = formatPrice(grandTotalIncludingGST);
 
   const resolveChargeValue = (value, mode, base) => {
@@ -338,7 +338,6 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
     // Check global fields
     if (globalFreight > 0 ||
         globalPackaging > 0 ||
-        globalTax > 0 ||
         globalPaymentTerms.trim() !== "" ||
         globalComment.trim() !== "" ||
         globalDocumentFiles.length > 0 ||
@@ -372,6 +371,9 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
 
     if (id) {
       getRFQdetails();
+      getChargeNames().then(res => {
+        if (res?.data) setChargeNamesList(res.data);
+      }).catch(() => {});
     }
 
     // Update the tech evaluation restriction flag
@@ -593,8 +595,7 @@ const loadRazorpayScript = () => {
         if (res.data.quote_details) {
           setglobalComment(res.data.quote_details.global_comment || ""); // Set globalComment from API or fallback to empty string
           setglobalPaymentTerms(res.data.quote_details.global_payment_term || ""); // Set globalPaymentTerms from API or fallback to empty string
-          setglobalTax(res.data.quote_details.global_tax || 0);
-          setGlobalTaxMode(res.data.quote_details.global_tax_mode || "percentage");
+          setGlobalOtherCharges((res.data.quote_details.global_charges || []).map(c => ({ _id: generateChargeId(), name: c.name, amount: c.tax || 0, amount_mode: c.tax_mode || "percentage" })));
 
           //  one state and useRef for payment terms to track newly added, updated, and deleted terms
           const paymetTermData = res.data.quotations[0]?.payment_terms || []
@@ -781,19 +782,6 @@ const loadRazorpayScript = () => {
     setquoteProducts(updated);
   };
 
-  // Auto-apply global other charges to all products whenever they change
-  useEffect(() => {
-    if (!rfqDetails?.products || quoteProducts.length === 0) return;
-    const chargesWithNames = globalOtherCharges.filter(c => c.name && c.name.trim() !== "");
-    setquoteProducts(prev => prev.map(item => {
-      const newCharges = chargesWithNames.map(c => ({ ...c, _id: generateChargeId() }));
-      const updatedItem = { ...item, other_charges: newCharges };
-      const prod = rfqDetails?.products?.find((pi) => pi.id == item.id);
-      const qty = parseFloat(getProductSpecValueByTitle(prod?.product_specs, "Quantity")) || 0;
-      updatedItem.total_price = computeItemTotal(updatedItem, qty);
-      return updatedItem;
-    }));
-  }, [globalOtherCharges]);
 
   const handleUpdateData = (
     item_id,
@@ -908,8 +896,6 @@ return { deletedTerms, createdTerms, updatedTerms };
       quoteProducts: JSON.parse(JSON.stringify(quoteProducts)),
       globalFreight,
       globalPackaging,
-      globalTax,
-      globalTaxMode,
       globalPaymentTerms,
       globalComment,
       globalDocumentFiles: [...globalDocumentFiles],
@@ -926,8 +912,6 @@ return { deletedTerms, createdTerms, updatedTerms };
       setquoteProducts(formStateRef.current.quoteProducts);
       setglobalFreight(formStateRef.current.globalFreight);
       setglobalPackaging(formStateRef.current.globalPackaging);
-      setglobalTax(formStateRef.current.globalTax);
-      setGlobalTaxMode(formStateRef.current.globalTaxMode || "percentage");
       setglobalPaymentTerms(formStateRef.current.globalPaymentTerms);
       setglobalComment(formStateRef.current.globalComment);
       setGlobalDocumentFiles(formStateRef.current.globalDocumentFiles);
@@ -1135,8 +1119,14 @@ return { deletedTerms, createdTerms, updatedTerms };
       globalComment,
       term_and_condition_files: globalDocumentFiles,
       vendorGSTIN,
-      global_tax: parseFloat(globalTax) || 0,
-      global_tax_mode: globalTaxMode,
+      global_charges: globalOtherCharges
+        .filter(c => c.name && c.name.trim() !== "")
+        .map(({ _id, amount, amount_mode, ...rest }) => ({
+          name: rest.name,
+          tax: parseFloat(amount) || 0,
+          tax_mode: amount_mode || "percentage",
+          is_global: true,
+        })),
     };
 
     if (alreadyQuoted) {
@@ -1904,36 +1894,186 @@ return { deletedTerms, createdTerms, updatedTerms };
                     <div className="row align-items-stretch mb-4">
                       {/* ========== COLUMN 1: Global Costing + Quote Document + Global Comment ========== */}
                       <div className="col-lg-4 col-12 d-flex">
-                        <div className="card border shadow-sm rounded-3 w-100 h-100">
-                          <div className="card-body d-flex flex-column">
-                            <h3 className="fs-6 fw-semibold mb-3">
-                              Global Costing
+                        <div className="card border shadow-sm rounded-3 w-100" style={{ maxHeight: "400px" }}>
+                          <div className="card-body d-flex flex-column" style={{ overflow: "hidden" }}>
+                            <h3 className="fs-6 fw-semibold mb-3" style={{ flexShrink: 0 }}>
+                              Global Taxing
                             </h3>
 
-                            <div className="d-flex align-items-center gap-2">
-                              <label className="form-label mb-0" style={{ whiteSpace: "nowrap" }}>Tax / VAT</label>
-                              <input
-                                type="number"
-                                className="form-control form-control-sm"
-                                min={0}
-                                style={{ flex: 1, minWidth: 0, height: "31px" }}
-                                value={globalTax}
-                                placeholder={globalTaxMode === "percentage" ? "Tax (%)" : "Tax (₹)"}
-                                onChange={(e) => setglobalTax(e.target.value || "")}
-                                onWheel={(e) => e.currentTarget.blur()}
-                              />
-                              <PercentageAbsoluteToggle
-                                currentMode={globalTaxMode}
-                                onToggle={(value) => setGlobalTaxMode(value)}
-                              />
-                            </div>
-                            <small className="text-muted d-block mt-1" style={{ fontSize: "0.72rem" }}>
-                              <IoMdInformationCircleOutline size={13} className="me-1" style={{ verticalAlign: "text-bottom" }} />
-                              This tax will be applied to your Grand Total.
-                            </small>
 
-                            {/* spacer to push upload to bottom */}
-                            <div style={{ flex: 1 }} />
+                            {/* Global Charges Dropdown - fixed above scroll */}
+                            <div style={{ flexShrink: 0 }}>
+                            <h6 className="fw-semibold mb-2 text-muted" style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>Taxes</h6>
+
+                            {(() => {
+                              const selectedNames = globalOtherCharges.map(c => c.name);
+                              const availableCharges = chargeNamesList.filter(c => c.is_global && !selectedNames.includes(c.name));
+
+                              if (addingGlobalCustomCharge) {
+                                return (
+                                  <div className="d-flex align-items-center gap-2 mb-3">
+                                    <input type="text" className="form-control form-control-sm" placeholder="Enter charge name"
+                                      style={{ flex: 1 }}
+                                      value={globalCustomChargeInput} onChange={(e) => setGlobalCustomChargeInput(e.target.value)}
+                                      autoFocus
+                                      onKeyDown={async (e) => {
+                                        if (e.key === "Enter" && globalCustomChargeInput.trim()) {
+                                          try {
+                                            const res = await createChargeName({ name: globalCustomChargeInput.trim(), is_global: true });
+                                            setChargeNamesList(prev => [...prev, { id: res?.data?.id || res?.id, name: globalCustomChargeInput.trim(), is_global: true }]);
+                                            setGlobalOtherCharges(prev => [...prev, { _id: generateChargeId(), name: globalCustomChargeInput.trim(), amount: 0, amount_mode: "percentage" }]);
+                                            toast.success("Charge added successfully");
+                                          } catch (err) { toast.error("Failed to create charge"); }
+                                          setAddingGlobalCustomCharge(false); setGlobalCustomChargeInput("");
+                                        }
+                                      }}
+                                    />
+                                    <button type="button" className="btn btn-sm btn-success" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={async () => {
+                                        if (!globalCustomChargeInput.trim()) return;
+                                        try {
+                                          const res = await createChargeName({ name: globalCustomChargeInput.trim(), is_global: true });
+                                          setChargeNamesList(prev => [...prev, { id: res?.data?.id || res?.id, name: globalCustomChargeInput.trim(), is_global: true }]);
+                                          setGlobalOtherCharges(prev => [...prev, { _id: generateChargeId(), name: globalCustomChargeInput.trim(), amount: 0, amount_mode: "percentage" }]);
+                                          toast.success("Charge added successfully");
+                                        } catch (err) { toast.error("Failed to create charge"); }
+                                        setAddingGlobalCustomCharge(false); setGlobalCustomChargeInput("");
+                                      }}
+                                    >Add</button>
+                                    <button type="button" className="btn btn-sm btn-outline-secondary" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={() => { setAddingGlobalCustomCharge(false); setGlobalCustomChargeInput(""); }}
+                                    >Cancel</button>
+                                  </div>
+                                );
+                              }
+
+                              if (editingGlobalCustomCharge) {
+                                return (
+                                  <div className="d-flex align-items-center gap-2 mb-3">
+                                    <input type="text" className="form-control form-control-sm" placeholder="Edit charge name"
+                                      style={{ flex: 1 }}
+                                      value={globalCustomChargeInput} onChange={(e) => setGlobalCustomChargeInput(e.target.value)}
+                                      autoFocus
+                                      onKeyDown={async (e) => {
+                                        if (e.key === "Enter" && globalCustomChargeInput.trim()) {
+                                          try {
+                                            await updateChargeName(editingGlobalCustomCharge.id, { name: globalCustomChargeInput.trim(), is_global: true });
+                                            setChargeNamesList(prev => prev.map(c => c.id === editingGlobalCustomCharge.id ? { ...c, name: globalCustomChargeInput.trim() } : c));
+                                            toast.success("Charge updated successfully");
+                                          } catch (err) { toast.error("Failed to update charge"); }
+                                          setEditingGlobalCustomCharge(null); setGlobalCustomChargeInput("");
+                                        }
+                                      }}
+                                    />
+                                    <button type="button" className="btn btn-sm btn-success" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={async () => {
+                                        if (!globalCustomChargeInput.trim()) return;
+                                        try {
+                                          await updateChargeName(editingGlobalCustomCharge.id, { name: globalCustomChargeInput.trim(), is_global: true });
+                                          setChargeNamesList(prev => prev.map(c => c.id === editingGlobalCustomCharge.id ? { ...c, name: globalCustomChargeInput.trim() } : c));
+                                          toast.success("Charge updated successfully");
+                                        } catch (err) { toast.error("Failed to update charge"); }
+                                        setEditingGlobalCustomCharge(null); setGlobalCustomChargeInput("");
+                                      }}
+                                    >Save</button>
+                                    <button type="button" className="btn btn-sm btn-outline-secondary" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={() => { setEditingGlobalCustomCharge(null); setGlobalCustomChargeInput(""); }}
+                                    >Cancel</button>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="position-relative mb-3">
+                                  {globalChargeDropdownOpen && (
+                                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }}
+                                      onClick={() => setGlobalChargeDropdownOpen(false)}
+                                    />
+                                  )}
+                                  <div className="form-select form-select-sm" style={{ cursor: "pointer" }}
+                                    onClick={() => setGlobalChargeDropdownOpen(prev => !prev)}
+                                  >
+                                    Select tax type...
+                                  </div>
+                                  {globalChargeDropdownOpen && (
+                                    <div className="position-absolute w-100 bg-white border rounded shadow-sm d-flex flex-column" style={{ zIndex: 10, top: "100%", left: 0, maxHeight: "200px" }}>
+                                      <div style={{ flex: 1, overflowY: "auto" }}>
+                                      {availableCharges.map(charge => (
+                                        <div key={charge.id} className="d-flex align-items-center justify-content-between px-3 py-2" style={{ cursor: "pointer", fontSize: "0.85rem" }}
+                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
+                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                        >
+                                          <span style={{ flex: 1 }} onClick={() => {
+                                            setGlobalOtherCharges(prev => [...prev, { _id: generateChargeId(), name: charge.name, amount: 0, amount_mode: "percentage" }]);
+                                            setGlobalChargeDropdownOpen(false);
+                                          }}>{charge.name}</span>
+                                          {charge.created_by !== null && (
+                                            <span className="d-flex gap-2 ms-2" style={{ flexShrink: 0 }}>
+                                              <FiEdit2 size={13} color="#198754" style={{ cursor: "pointer" }} title="Edit"
+                                                onClick={(e) => { e.stopPropagation(); setEditingGlobalCustomCharge(charge); setGlobalCustomChargeInput(charge.name); setGlobalChargeDropdownOpen(false); }}
+                                              />
+                                              <FiTrash2 size={13} color="#dc3545" style={{ cursor: "pointer" }} title="Delete"
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  try {
+                                                    await deleteChargeName(charge.id);
+                                                    setChargeNamesList(prev => prev.filter(c => c.id !== charge.id));
+                                                    toast.success("Charge deleted successfully");
+                                                  } catch (err) { toast.error("Failed to delete charge"); }
+                                                  setGlobalChargeDropdownOpen(false);
+                                                }}
+                                              />
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                      </div>
+                                      <div className="px-3 py-2 text-primary fw-semibold" style={{ cursor: "pointer", fontSize: "0.85rem", borderTop: "1px solid #eee", flexShrink: 0 }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                        onClick={() => { setAddingGlobalCustomCharge(true); setGlobalChargeDropdownOpen(false); }}
+                                      >
+                                        + Add custom charge
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                            </div>
+
+                            {/* Scrollable charge cards */}
+                            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+                            {globalOtherCharges.map((charge, idx) => (
+                              <div key={charge._id} className="border rounded p-2 mb-2" style={{ fontSize: "0.85rem" }}>
+                                <div className="d-flex align-items-center justify-content-between mb-1">
+                                  <span className="fw-semibold" style={{ fontSize: "0.85rem" }}>{charge.name}</span>
+                                  <FiTrash2 size={14} color="#dc3545" style={{ cursor: "pointer", flexShrink: 0 }}
+                                    onClick={() => setGlobalOtherCharges(prev => prev.filter(c => c._id !== charge._id))}
+                                  />
+                                </div>
+                                <div className="d-flex align-items-center gap-1">
+                                  <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                    placeholder={charge.amount_mode === "percentage" ? "Tax (%)" : "Tax (₹)"}
+                                    value={charge.amount || ""}
+                                    onChange={(e) => {
+                                      const updated = [...globalOtherCharges];
+                                      updated[idx] = { ...updated[idx], amount: parseFloat(e.target.value) || 0 };
+                                      setGlobalOtherCharges(updated);
+                                    }}
+                                    onWheel={(e) => e.currentTarget.blur()}
+                                  />
+                                  <PercentageAbsoluteToggle currentMode={charge.amount_mode}
+                                    onToggle={(value) => {
+                                      const updated = [...globalOtherCharges];
+                                      updated[idx] = { ...updated[idx], amount_mode: value };
+                                      setGlobalOtherCharges(updated);
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                            </div>
 
                             {/* Upload Quotation Document */}
                             <label
@@ -2193,8 +2333,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                             {/* Charge Dropdown */}
                             {!isDisabled && (() => {
                               const selectedNames = (modalProduct.other_charges || []).map(c => c.name);
-                              const allNames = [...PREDEFINED_CHARGE_NAMES, ...customChargeNames.filter(n => !PREDEFINED_CHARGE_NAMES.includes(n))];
-                              const availableNames = allNames.filter(n => !selectedNames.includes(n));
+                              const availableCharges = chargeNamesList.filter(c => !c.is_global && !selectedNames.includes(c.name));
 
                               if (addingCustomCharge) {
                                 return (
@@ -2203,23 +2342,31 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       style={{ flex: 1 }}
                                       value={customChargeInput} onChange={(e) => setCustomChargeInput(e.target.value)}
                                       autoFocus
-                                      onKeyDown={(e) => {
+                                      onKeyDown={async (e) => {
                                         if (e.key === "Enter" && customChargeInput.trim()) {
-                                          if (!customChargeNames.includes(customChargeInput.trim())) setCustomChargeNames(prev => [...prev, customChargeInput.trim()]);
-                                          handleAddOtherCharge(modalIndex, customChargeInput.trim());
+                                          try {
+                                            const res = await createChargeName({ name: customChargeInput.trim(), is_global: false });
+                                            setChargeNamesList(prev => [...prev, { id: res?.data?.id || res?.id, name: customChargeInput.trim(), is_global: false }]);
+                                            handleAddOtherCharge(modalIndex, customChargeInput.trim());
+                                            toast.success("Charge added successfully");
+                                          } catch (err) { toast.error("Failed to create charge"); }
                                           setAddingCustomCharge(false); setCustomChargeInput("");
                                         }
                                       }}
                                     />
-                                    <button type="button" className="btn btn-sm btn-success" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap" }}
-                                      onClick={() => {
+                                    <button type="button" className="btn btn-sm btn-success" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={async () => {
                                         if (!customChargeInput.trim()) return;
-                                        if (!customChargeNames.includes(customChargeInput.trim())) setCustomChargeNames(prev => [...prev, customChargeInput.trim()]);
-                                        handleAddOtherCharge(modalIndex, customChargeInput.trim());
+                                        try {
+                                          const res = await createChargeName({ name: customChargeInput.trim(), is_global: false });
+                                          setChargeNamesList(prev => [...prev, { id: res?.data?.id || res?.id, name: customChargeInput.trim(), is_global: false }]);
+                                          handleAddOtherCharge(modalIndex, customChargeInput.trim());
+                                          toast.success("Charge added successfully");
+                                          } catch (err) { toast.error("Failed to create charge"); }
                                         setAddingCustomCharge(false); setCustomChargeInput("");
                                       }}
                                     >Add</button>
-                                    <button type="button" className="btn btn-sm btn-outline-secondary" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap" }}
+                                    <button type="button" className="btn btn-sm btn-outline-secondary" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
                                       onClick={() => { setAddingCustomCharge(false); setCustomChargeInput(""); }}
                                     >Cancel</button>
                                   </div>
@@ -2233,21 +2380,29 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       style={{ flex: 1 }}
                                       value={customChargeInput} onChange={(e) => setCustomChargeInput(e.target.value)}
                                       autoFocus
-                                      onKeyDown={(e) => {
+                                      onKeyDown={async (e) => {
                                         if (e.key === "Enter" && customChargeInput.trim()) {
-                                          setCustomChargeNames(prev => prev.map(n => n === editingCustomCharge ? customChargeInput.trim() : n));
+                                          try {
+                                            await updateChargeName(editingCustomCharge.id, { name: customChargeInput.trim() });
+                                            setChargeNamesList(prev => prev.map(c => c.id === editingCustomCharge.id ? { ...c, name: customChargeInput.trim() } : c));
+                                            toast.success("Charge updated successfully");
+                                          } catch (err) { toast.error("Failed to update charge"); }
                                           setEditingCustomCharge(null); setCustomChargeInput("");
                                         }
                                       }}
                                     />
-                                    <button type="button" className="btn btn-sm btn-success" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap" }}
-                                      onClick={() => {
+                                    <button type="button" className="btn btn-sm btn-success" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={async () => {
                                         if (!customChargeInput.trim()) return;
-                                        setCustomChargeNames(prev => prev.map(n => n === editingCustomCharge ? customChargeInput.trim() : n));
+                                        try {
+                                          await updateChargeName(editingCustomCharge.id, { name: customChargeInput.trim() });
+                                          setChargeNamesList(prev => prev.map(c => c.id === editingCustomCharge.id ? { ...c, name: customChargeInput.trim() } : c));
+                                          toast.success("Charge updated successfully");
+                                          } catch (err) { toast.error("Failed to update charge"); }
                                         setEditingCustomCharge(null); setCustomChargeInput("");
                                       }}
                                     >Save</button>
-                                    <button type="button" className="btn btn-sm btn-outline-secondary" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap" }}
+                                    <button type="button" className="btn btn-sm btn-outline-secondary" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
                                       onClick={() => { setEditingCustomCharge(null); setCustomChargeInput(""); }}
                                     >Cancel</button>
                                   </div>
@@ -2256,35 +2411,47 @@ return { deletedTerms, createdTerms, updatedTerms };
 
                               return (
                                 <div className="position-relative mb-3">
+                                  {chargeDropdownOpen && (
+                                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }}
+                                      onClick={() => setChargeDropdownOpen(false)}
+                                    />
+                                  )}
                                   <div className="form-select form-select-sm" style={{ cursor: "pointer" }}
                                     onClick={() => setChargeDropdownOpen(prev => !prev)}
                                   >
                                     Select charge type...
                                   </div>
                                   {chargeDropdownOpen && (
-                                    <div className="position-absolute w-100 bg-white border rounded shadow-sm" style={{ zIndex: 10, top: "100%", left: 0, maxHeight: "200px", overflowY: "auto" }}>
-                                      {availableNames.map(name => {
-                                        const isCustom = customChargeNames.includes(name);
-                                        return (
-                                          <div key={name} className="d-flex align-items-center justify-content-between px-3 py-2" style={{ cursor: "pointer", fontSize: "0.85rem" }}
-                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
-                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                                          >
-                                            <span style={{ flex: 1 }} onClick={() => { handleAddOtherCharge(modalIndex, name); setChargeDropdownOpen(false); }}>{name}</span>
-                                            {isCustom && (
-                                              <span className="d-flex gap-2 ms-2" style={{ flexShrink: 0 }}>
-                                                <FiEdit2 size={13} color="#198754" style={{ cursor: "pointer" }} title="Edit"
-                                                  onClick={(e) => { e.stopPropagation(); setEditingCustomCharge(name); setCustomChargeInput(name); setChargeDropdownOpen(false); }}
-                                                />
-                                                <FiTrash2 size={13} color="#dc3545" style={{ cursor: "pointer" }} title="Delete"
-                                                  onClick={(e) => { e.stopPropagation(); setCustomChargeNames(prev => prev.filter(n => n !== name)); setChargeDropdownOpen(false); }}
-                                                />
-                                              </span>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                      <div className="px-3 py-2 text-primary fw-semibold" style={{ cursor: "pointer", fontSize: "0.85rem", borderTop: "1px solid #eee" }}
+                                    <div className="position-absolute w-100 bg-white border rounded shadow-sm d-flex flex-column" style={{ zIndex: 10, top: "100%", left: 0, maxHeight: "200px" }}>
+                                      <div style={{ flex: 1, overflowY: "auto" }}>
+                                      {availableCharges.map(charge => (
+                                        <div key={charge.id} className="d-flex align-items-center justify-content-between px-3 py-2" style={{ cursor: "pointer", fontSize: "0.85rem" }}
+                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
+                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                        >
+                                          <span style={{ flex: 1 }} onClick={() => { handleAddOtherCharge(modalIndex, charge.name); setChargeDropdownOpen(false); }}>{charge.name}</span>
+                                          {charge.created_by !== null && (
+                                            <span className="d-flex gap-2 ms-2" style={{ flexShrink: 0 }}>
+                                              <FiEdit2 size={13} color="#198754" style={{ cursor: "pointer" }} title="Edit"
+                                                onClick={(e) => { e.stopPropagation(); setEditingCustomCharge(charge); setCustomChargeInput(charge.name); setChargeDropdownOpen(false); }}
+                                              />
+                                              <FiTrash2 size={13} color="#dc3545" style={{ cursor: "pointer" }} title="Delete"
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  try {
+                                                    await deleteChargeName(charge.id);
+                                                    setChargeNamesList(prev => prev.filter(c => c.id !== charge.id));
+                                                    toast.success("Charge deleted successfully");
+                                                  } catch (err) { toast.error("Failed to delete charge"); }
+                                                  setChargeDropdownOpen(false);
+                                                }}
+                                              />
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                      </div>
+                                      <div className="px-3 py-2 text-primary fw-semibold" style={{ cursor: "pointer", fontSize: "0.85rem", borderTop: "1px solid #eee", flexShrink: 0 }}
                                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
                                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
                                         onClick={() => { setAddingCustomCharge(true); setChargeDropdownOpen(false); }}
@@ -2454,15 +2621,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 const isBidExpiredForProduct = isBidExpired && !activeNegotiationProductIds.has(item.id);
                                 const isProductFinalized = item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized";
                                 const isProductDisabled = isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct || isBidExpiredForProduct;
-
-                                // Detect if any charge type uses absolute (₹) mode for this line item
-                                const effectiveFreightMode = chargesMode.freight[item.id] || chargesMode.freight.global;
-                                const effectivePackageMode = chargesMode.package[item.id] || chargesMode.package.global;
-                                const effectiveTaxMode = chargesMode.tax[item.id] || chargesMode.tax.global;
-                                const absoluteCharges = [];
-                                if (effectiveFreightMode === 'absolute') absoluteCharges.push('Freight');
-                                if (effectivePackageMode === 'absolute') absoluteCharges.push('Packaging');
-                                if (effectiveTaxMode === 'absolute') absoluteCharges.push('Taxes');
 
                                 return (
                                   <React.Fragment key={`q_${item.id}_${item.product_id}_${item.variant}`}>
@@ -2895,15 +3053,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       </td>
                                     )} */}
                                   </tr>
-                                  {absoluteCharges.length > 0 && (
-                                    <tr>
-                                      <td colSpan={currentLowest ? 9 : 8} style={{ padding: '12px', border: 'none', background: 'transparent' }}>
-                                        <Alert variant="warning" className="mb-0 py-2 px-3" style={{ fontSize: '0.82rem', borderRadius: '6px' }}>
-                                          <strong>Warning:</strong> You've selected <strong>₹ (Rupees)</strong> instead of <strong>%</strong> for <strong>{absoluteCharges.join(', ')}</strong> in this item. Please verify this is intentional.
-                                        </Alert>
-                                      </td>
-                                    </tr>
-                                  )}
                                   </React.Fragment>
                                 );
                               }
@@ -2959,7 +3108,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                         <div className="d-flex justify-content-end mb-2">
                           <GrandTotalBreakup
                             totalBase={quoteBreakup.totalBase}
-                            totalTax={quoteBreakup.totalTax + globalTaxAmount}
+                            totalTax={quoteBreakup.totalTax + globalChargesTotal}
                             totalOtherCharges={quoteBreakup.totalOtherCharges}
                             grandTotal={grandTotalIncludingGST}
                             formatPrice={formatPrice}
@@ -3033,28 +3182,11 @@ return { deletedTerms, createdTerms, updatedTerms };
         onConfirm={handleSubmitQuoteConfirm}
         title="Submit Quote"
         description="Are you sure you want to submit this quote?\nThis action will send your quote to the buyer."
-        confirmButtonColor={(() => {
-          const hasAbsolute = rfqDetails?.products?.some(item => {
-            if (!isAvailableForQuote(item)) return false;
-            return (chargesMode.freight[item.id] || chargesMode.freight.global) === 'absolute'
-              || (chargesMode.package[item.id] || chargesMode.package.global) === 'absolute'
-              || (chargesMode.tax[item.id] || chargesMode.tax.global) === 'absolute';
-          });
-          return hasAbsolute ? 'warning' : 'success';
-        })()}
+        confirmButtonColor="success"
         confirmButtonText="Submit Quote"
         cancelButtonText="Cancel"
         customFooter={(() => {
-          const itemsWithRupees = rfqDetails?.products
-            ?.filter(item => isAvailableForQuote(item))
-            ?.map((item) => {
-              const abs = [];
-              if ((chargesMode.freight[item.id] || chargesMode.freight.global) === 'absolute') abs.push('Freight');
-              if ((chargesMode.package[item.id] || chargesMode.package.global) === 'absolute') abs.push('Packaging');
-              if ((chargesMode.tax[item.id] || chargesMode.tax.global) === 'absolute') abs.push('Taxes');
-              return abs.length > 0 ? { name: item?.product_details?.[0]?.name, charges: abs } : null;
-            })
-            ?.filter(Boolean) || [];
+          const itemsWithRupees = [];
 
           if (itemsWithRupees.length === 0) return null;
 
