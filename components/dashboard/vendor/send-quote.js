@@ -29,20 +29,22 @@ import { Alert } from "react-bootstrap";
 import { Tooltip } from "react-tooltip";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
 
-const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
+const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm", disabled = false }) => {
   const baseStyle = {
     padding: "0 0.5rem",
     height: "31px",
     lineHeight: "1",
     fontSize: "0.8rem",
     border: "none",
-    cursor: "pointer",
+    cursor: disabled ? "not-allowed" : "pointer",
     transition: "background-color 0.3s ease",
+    opacity: disabled ? 0.6 : 1,
   };
   return (
     <div className="d-flex" role="group" style={{ flexShrink: 0 }}>
       <button type="button"
-        onClick={() => onToggle('percentage')}
+        onClick={() => { if (!disabled) onToggle('percentage'); }}
+        disabled={disabled}
         style={{
           ...baseStyle,
           borderRadius: "4px 0 0 4px",
@@ -51,7 +53,8 @@ const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
         }}
       >%</button>
       <button type="button"
-        onClick={() => onToggle('absolute')}
+        onClick={() => { if (!disabled) onToggle('absolute'); }}
+        disabled={disabled}
         style={{
           ...baseStyle,
           borderRadius: "0 4px 4px 0",
@@ -1905,7 +1908,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                             <div style={{ flexShrink: 0 }}>
                             <h6 className="fw-semibold mb-2 text-muted" style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>Taxes</h6>
 
-                            {(() => {
+                            {!isBidExpired && (() => {
                               const selectedNames = globalOtherCharges.map(c => c.name);
                               const availableCharges = chargeNamesList.filter(c => c.is_global && !selectedNames.includes(c.name));
 
@@ -2048,14 +2051,17 @@ return { deletedTerms, createdTerms, updatedTerms };
                               <div key={charge._id} className="border rounded p-2 mb-2" style={{ fontSize: "0.85rem" }}>
                                 <div className="d-flex align-items-center justify-content-between mb-1">
                                   <span className="fw-semibold" style={{ fontSize: "0.85rem" }}>{charge.name}</span>
-                                  <FiTrash2 size={14} color="#dc3545" style={{ cursor: "pointer", flexShrink: 0 }}
-                                    onClick={() => setGlobalOtherCharges(prev => prev.filter(c => c._id !== charge._id))}
-                                  />
+                                  {!isBidExpired && (
+                                    <FiTrash2 size={14} color="#dc3545" style={{ cursor: "pointer", flexShrink: 0 }}
+                                      onClick={() => setGlobalOtherCharges(prev => prev.filter(c => c._id !== charge._id))}
+                                    />
+                                  )}
                                 </div>
                                 <div className="d-flex align-items-center gap-1">
                                   <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
                                     placeholder={charge.amount_mode === "percentage" ? "Tax (%)" : "Tax (₹)"}
                                     value={charge.amount || ""}
+                                    disabled={isBidExpired}
                                     onChange={(e) => {
                                       const updated = [...globalOtherCharges];
                                       updated[idx] = { ...updated[idx], amount: parseFloat(e.target.value) || 0 };
@@ -2064,6 +2070,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                     onWheel={(e) => e.currentTarget.blur()}
                                   />
                                   <PercentageAbsoluteToggle currentMode={charge.amount_mode}
+                                    disabled={isBidExpired}
                                     onToggle={(value) => {
                                       const updated = [...globalOtherCharges];
                                       updated[idx] = { ...updated[idx], amount_mode: value };
@@ -2077,11 +2084,12 @@ return { deletedTerms, createdTerms, updatedTerms };
 
                             {/* Upload Quotation Document */}
                             <label
-                              className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2 mt-3"
+                              className={`upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2 mt-3 ${isBidExpired ? "disabled" : ""}`}
                               style={{
                                 background: "#edf0ff",
                                 border: "1px dashed #c9cff8",
-                                cursor: "pointer",
+                                cursor: isBidExpired ? "not-allowed" : "pointer",
+                                opacity: isBidExpired ? 0.6 : 1,
                               }}
                             >
                               <FontAwesomeIcon icon={faFile} className="me-2" />
@@ -2091,6 +2099,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
                                 onChange={(e) => uploadGlobalDocumentFiles(e)}
                                 multiple
+                                disabled={isBidExpired}
                               />
                             </label>
 
@@ -2198,6 +2207,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                               value={globalPaymentTerms}
                               placeholder="100% Against Proforma Invoice"
                               onChange={(e) => setglobalPaymentTerms(e.target.value)}
+                              disabled={isBidExpired}
                             />
                             </>
                           )}
@@ -2208,6 +2218,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                             value={globalComment}
                             placeholder="Placeholder text for global comment"
                             onChange={(e) => setglobalComment(e.target.value)}
+                            disabled={isBidExpired}
                           />
                         </div>
                       </div>
@@ -2225,6 +2236,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 value={vendorGSTIN}
                                 placeholder="Enter your GSTIN as per delivery location"
                                 onChange={(e) => setVendorGSTIN(e.target.value)}
+                                disabled={isBidExpired}
                               />
                             </div>
                           </div>
@@ -2249,6 +2261,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 )}
                                 </div>
 
+                            {!isBidExpired && (
                             <SmartButton
                                   onClick={() =>
                                     setPaymentTermsRows((prev) => [ ...(prev || []), { id:null,  value: "", type: "advance", days: "", comment:'' } ])
@@ -2258,6 +2271,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                             label="Add Term"
                             icon={<FontAwesomeIcon icon={faPlus} className="me-1" />}
                           />
+                            )}
 
 
                               </div>
@@ -2265,6 +2279,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                               <PaymentTermsEditor
                                 value={paymentTermsRows}
                                 onChange={setPaymentTermsRows}
+                                disabled={isBidExpired}
                               />
                             </div>
                       </div>
@@ -2724,10 +2739,13 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         {(parseFloat(quoteProducts[index]?.unit_price) > 0) && (
                                           <span
                                             className="text-primary d-block text-end mt-1"
-                                            style={{ fontSize: "0.72rem", cursor: isProductDisabled ? "default" : "pointer" }}
-                                            onClick={() => { if (!isProductDisabled) setChargesModalOpen(index); }}
+                                            style={{ fontSize: "0.72rem", cursor: "pointer" }}
+                                            onClick={() => setChargesModalOpen(index)}
                                           >
-                                            {getChargesSummary(quoteProducts[index]).length > 0 ? "Edit Charges" : "+ Add Charges"}
+                                            {isProductDisabled
+                                              ? (getChargesSummary(quoteProducts[index]).length > 0 ? "Show Charges" : "")
+                                              : (getChargesSummary(quoteProducts[index]).length > 0 ? "Edit Charges" : "+ Add Charges")
+                                            }
                                           </span>
                                         )}
 
@@ -2741,6 +2759,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               onWheel={(e) => e.target.blur()} disabled={isProductDisabled}
                                             />
                                             <PercentageAbsoluteToggle currentMode={chargesMode.tax[quoteProducts[index]?.id] || "percentage"}
+                                              disabled={isProductDisabled}
                                               onToggle={(value) => {
                                                 setChargesMode(prev => ({ ...prev, tax: { ...prev.tax, [quoteProducts[index].id]: value } }));
                                                 handleChargeFieldUpdate(index, "tax", quoteProducts[index].tax || 0, { tax: value });
@@ -3237,7 +3256,7 @@ export default SendQuotePageComp;
 
 
 //  PaymentTermsUIOnly component
-const PaymentTermsEditor = ({ value, onChange }) => {
+const PaymentTermsEditor = ({ value, onChange, disabled = false }) => {
   const rows = Array.isArray(value) ? value : [];
 
     const setRows = (next) => onChange && onChange(next);
@@ -3282,7 +3301,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                 }
                 min={0}
                 max={100}
-                disabled={isDeleted}
+                disabled={isDeleted || disabled}
               />
             </div>
 
@@ -3299,7 +3318,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                     comment: nextType === "credit" ? "" : (row.comment ?? ""),
                   });
                 }}
-                disabled={isDeleted}
+                disabled={isDeleted || disabled}
               >
                 <option value="advance">Advance</option>
                 <option value="credit">Credit</option>
@@ -3321,7 +3340,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                     })
                   }
                   min={1}
-                disabled={ isDeleted}
+                disabled={isDeleted || disabled}
                 />
               </div>
             ) : (
@@ -3335,13 +3354,13 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                   placeholder={row.type === "other" ? "Describe payment term" : "Note (optional)"}
                   value={row.comment || ""}
                   onChange={(e) => updateRow(index, { comment: e.target.value })}
-               disabled={ isDeleted}
+               disabled={isDeleted || disabled}
                 />
               </div>
             )}
 
             <div className="col-2 d-flex mb-1">
-              {!isDeleted ? (
+              {!disabled && (!isDeleted ? (
                 <SmartButton
                   onClick={() => markDeleted(index)}
                   theme={"red"}
@@ -3355,7 +3374,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                   style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
                   label="Restore"
                 />
-              )}
+              ))}
             </div>
 
             {/* Small status line below inputs when deleted */}

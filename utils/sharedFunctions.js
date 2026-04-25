@@ -427,38 +427,22 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
 // return 0
   let total_qty = parseFloat(quantity) || 0;
   let unit_price = item.unit_price || 0;
-  
-  // Handle null values by defaulting to 0
-  let freight_price = item.freight_price !== null ? parseFloat(item.freight_price) : 0;
-  let package_price = item.package_price !== null ? parseFloat(item.package_price) : 0;
   let tax = item.tax !== null ? parseFloat(item.tax) : 0;
 
-  let total_without_fpt = unit_price * total_qty;
-  let FP = (item.freight_mode ?? "percentage") == 'percentage' ? (total_without_fpt * freight_price) / 100 : freight_price;
-  let PP = (item.package_mode ?? "percentage") == 'percentage' ? (total_without_fpt * package_price) / 100 : package_price;
+  let base = unit_price * total_qty;
+  if (base <= 0) return 0;
 
-  // Freight & Package taxes
-  let freight_tax = item.freight_tax !== null && item.freight_tax !== undefined ? parseFloat(item.freight_tax) : 0;
-  let package_tax = item.package_tax !== null && item.package_tax !== undefined ? parseFloat(item.package_tax) : 0;
-  let FT = (item.freight_tax_mode ?? "percentage") == 'percentage' ? (FP * freight_tax) / 100 : freight_tax;
-  let PT = (item.package_tax_mode ?? "percentage") == 'percentage' ? (PP * package_tax) / 100 : package_tax;
-
-  let total_with_fpt = total_without_fpt + FP + PP;
-  let T = (item.tax_mode ?? "percentage") == 'percentage' ? (total_with_fpt * tax) / 100 : tax;
-
-  // Tax on Tax
-  let tax_tax = item.tax_tax !== null && item.tax_tax !== undefined ? parseFloat(item.tax_tax) : 0;
-  let TT = (item.tax_tax_mode ?? "percentage") == 'percentage' ? (T * tax_tax) / 100 : tax_tax;
+  let T = (item.tax_mode ?? "percentage") == 'percentage' ? (base * tax) / 100 : tax;
 
   // Other charges
   let otherChargesTotal = 0;
   (item.other_charges || []).forEach(c => {
-    let cAmt = (c.amount_mode ?? "percentage") == 'percentage' ? (total_without_fpt * (parseFloat(c.amount) || 0)) / 100 : (parseFloat(c.amount) || 0);
+    let cAmt = (c.amount_mode ?? "percentage") == 'percentage' ? (base * (parseFloat(c.amount) || 0)) / 100 : (parseFloat(c.amount) || 0);
     let cTax = (c.tax_mode ?? "percentage") == 'percentage' ? (cAmt * (parseFloat(c.tax) || 0)) / 100 : (parseFloat(c.tax) || 0);
     otherChargesTotal += cAmt + cTax;
   });
 
-  let TotalPrice = total_with_fpt + T + FT + PT + TT + otherChargesTotal;
+  let TotalPrice = base + T + otherChargesTotal;
 
 const DELIVERY_DAYS = parseInt(item.delivery_period || 0);
 

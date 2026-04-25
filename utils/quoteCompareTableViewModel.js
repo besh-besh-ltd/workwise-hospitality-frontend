@@ -106,12 +106,14 @@ export const getQuoteTotal = (product, quote, normalizeFilter = false) => {
 export const getMissingCostParts = (quote, freightFilter = false) => {
   const details = getQuoteDetails(quote) || {};
   const parts = [];
+  const otherCharges = details.other_charges || quote?.other_charges || [];
 
-  const packageValue = toNumber(pick(details.package_price, quote?.package_price));
-  const freightValue = toNumber(pick(details.freight_price, quote?.freight_price));
+  // Check if packaging exists in other_charges or legacy fields
+  const hasPackaging = otherCharges.some(c => c.name === "Packaging" && toNumber(c.amount) > 0) || toNumber(pick(details.package_price, quote?.package_price)) > 0;
+  const hasFreight = otherCharges.some(c => c.name === "Freight" && toNumber(c.amount) > 0) || toNumber(pick(details.freight_price, quote?.freight_price)) > 0;
 
-  if (packageValue === 0) parts.push("Package");
-  if (!freightFilter && freightValue === 0) parts.push("Freight");
+  if (!hasPackaging) parts.push("Package");
+  if (!freightFilter && !hasFreight) parts.push("Freight");
 
   return parts;
 };
@@ -190,11 +192,37 @@ const getChargeEffectiveValue = (details = {}, chargeType = "freight", quantity 
   return toNumber(details[chargeType]);
 };
 
+// Get resolved value for an other_charge entry
+const getOtherChargeEffectiveValue = (charge, subtotal) => {
+  const amount = toNumber(charge.amount);
+  const amountResolved = charge.amount_mode === "percentage" ? (subtotal * amount) / 100 : amount;
+  const tax = toNumber(charge.tax);
+  const taxResolved = charge.tax_mode === "percentage" ? (amountResolved * tax) / 100 : tax;
+  return amountResolved + taxResolved;
+};
+
+// Get resolved value for a global_charge entry
+const getGlobalChargeEffectiveValue = (charge, grandTotal) => {
+  const tax = toNumber(charge.tax);
+  return charge.tax_mode === "percentage" ? (grandTotal * tax) / 100 : tax;
+};
+
+// Collect unique charge names across all quotations
+export const collectChargeNames = (columns) => {
+  const otherChargeNames = new Set();
+  const globalChargeNames = new Set();
+  columns.forEach(col => {
+    const otherCharges = col.details?.other_charges || [];
+    otherCharges.forEach(c => { if (c.name) otherChargeNames.add(c.name); });
+    const globalCharges = col.details?.global_charges || col.quote?.global_charges || [];
+    globalCharges.forEach(c => { if (c.name) globalChargeNames.add(c.name); });
+  });
+  return { otherChargeNames: [...otherChargeNames], globalChargeNames: [...globalChargeNames] };
+};
+
 const metricValueResolvers = {
   basePrice: (column) => toNumber(column.details?.unit_price),
   subtotal: (column) => toNumber(column.details?.unit_price) * toNumber(column.quantity),
-  packaging: (column) => getChargeEffectiveValue(column.details, "packaging", column.quantity),
-  freight: (column) => getChargeEffectiveValue(column.details, "freight", column.quantity),
   gst: (column) => getChargeEffectiveValue(column.details, "gst", column.quantity),
   total: (column) => toNumber(column.total),
   delivery: (column) => toNumber(column.delivery),
@@ -391,11 +419,11 @@ export const buildProductComparisonModel = ({
   const eligible = columns.filter((column) => !column.isRegret && column.price > 0);
   const lowestQuote = eligible.length > 0 ? eligible[0].quote : null;
 
+  const { otherChargeNames, globalChargeNames } = collectChargeNames(columns);
+
   const metricKeys = [
     "basePrice",
     "subtotal",
-    "packaging",
-    "freight",
     "gst",
     "total",
     "delivery",
@@ -412,6 +440,8 @@ export const buildProductComparisonModel = ({
     rowComparativeStats,
     freightAdvantageVendorIds,
     riskFlags,
+    otherChargeNames,
+    globalChargeNames,
   };
 };
 
