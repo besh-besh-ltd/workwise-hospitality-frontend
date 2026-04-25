@@ -28,6 +28,9 @@ const TechEvalWorkflowStatus = ({
   const getStatusIcon = () => {
     switch (workflowState) {
       case TECH_EVAL_WORKFLOW_STATES.COMPLETED:
+        if (blockedInsufficientVendors && totalPassedVerified === 0) {
+          return <BsExclamationTriangleFill className="text-danger" size={20} />;
+        }
         return <BsCheckCircleFill className="text-success" size={20} />;
       case TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL:
         return <BsClockFill className="text-warning" size={20} />;
@@ -40,7 +43,10 @@ const TechEvalWorkflowStatus = ({
 
   // Get progress bar variant based on state
   const getProgressVariant = () => {
-    if (workflowState === TECH_EVAL_WORKFLOW_STATES.COMPLETED) return 'success';
+    if (workflowState === TECH_EVAL_WORKFLOW_STATES.COMPLETED) {
+      if (blockedInsufficientVendors && totalPassedVerified === 0) return 'danger';
+      return 'success';
+    }
     if (progressPercent >= 60) return 'info';
     if (progressPercent >= 40) return 'warning';
     return 'primary';
@@ -53,7 +59,7 @@ const TechEvalWorkflowStatus = ({
         className="border rounded p-3"
         style={{
           backgroundColor: workflowState === TECH_EVAL_WORKFLOW_STATES.COMPLETED
-            ? '#d1e7dd'
+            ? (blockedInsufficientVendors && totalPassedVerified === 0 ? '#f8d7da' : '#d1e7dd')
             : workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL
             ? '#fff3cd'
             : '#f8f9fa'
@@ -96,10 +102,16 @@ const TechEvalWorkflowStatus = ({
 
         {/* Status Message */}
         <div className="mt-2">
-          {workflowState === TECH_EVAL_WORKFLOW_STATES.COMPLETED && (
+          {workflowState === TECH_EVAL_WORKFLOW_STATES.COMPLETED && !(blockedInsufficientVendors && totalPassedVerified === 0) && (
             <small className="text-success fw-medium">
               <BsCheckCircleFill className="me-1" />
               Evaluation complete! {totalPassedVerified} vendor{totalPassedVerified !== 1 ? 's' : ''} cleared and verified.
+            </small>
+          )}
+          {workflowState === TECH_EVAL_WORKFLOW_STATES.COMPLETED && blockedInsufficientVendors && totalPassedVerified === 0 && (
+            <small className="text-danger fw-medium">
+              <BsExclamationTriangleFill className="me-1" />
+              All vendors failed. Extend bid deadline and refresh vendors to add new candidates.
             </small>
           )}
           {workflowState === TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL && (
@@ -124,13 +136,24 @@ const TechEvalWorkflowStatus = ({
       </div>
 
       {/* Insufficient Vendors Warning */}
-      {blockedInsufficientVendors && (
+      {blockedInsufficientVendors && totalPassedVerified > 0 && (
         <Alert variant="warning" className="mt-2 mb-0 py-2">
           <div className="d-flex align-items-center gap-2">
             <BsExclamationTriangleFill size={18} />
             <div>
               <strong>Warning:</strong> No more replacement vendors available.
-              The evaluation will continue with the available vendors.
+              The evaluation will continue with the {totalPassedVerified} vendor{totalPassedVerified !== 1 ? 's' : ''} that passed.
+            </div>
+          </div>
+        </Alert>
+      )}
+      {blockedInsufficientVendors && totalPassedVerified === 0 && (
+        <Alert variant="danger" className="mt-2 mb-0 py-2">
+          <div className="d-flex align-items-center gap-2">
+            <BsExclamationTriangleFill size={18} />
+            <div>
+              <strong>All eligible vendors have failed.</strong> No replacement vendors are available.
+              Extend the Quote Submission End Date and refresh vendors from the Edit page to proceed.
             </div>
           </div>
         </Alert>

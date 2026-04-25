@@ -174,10 +174,11 @@ const RFQLifecycleJourney = ({ rfqId, isTender = false, onActionComplete }) => {
           const isOpen = !!expandedPhases[phase.key];
           const canOpen = phase.status !== 'upcoming' && phase.status !== 'skipped';
           const Icon = PHASE_ICONS[phase.key] || BsCircle;
-          const isBlocked = phase.sub_status === 'no_vendors_participated';
+          const isBlocked = phase.sub_status === 'no_vendors_participated' || phase.sub_status === 'all_vendors_failed';
+          const isPartiallyStuck = phase.sub_status === 'partially_stuck';
           const isCancelled = (phase.is_cancelled || isBlocked) && phase.status === 'current';
           const isActionRequired = !isCancelled && phase.status === 'current' && data.user_action_required && data.user_action_phase === phase.key;
-          const statusKey = isCancelled ? 'cancelled' : isActionRequired ? 'action_required' : phase.status;
+          const statusKey = isCancelled ? 'cancelled' : isActionRequired ? 'action_required' : isPartiallyStuck ? 'expired' : phase.status;
           const rowClass = styles[`row_${statusKey}`] || styles[`row_${phase.status}`];
           const nodeClass = styles[`node_${statusKey}`] || styles[`node_${phase.status}`];
           const cardClass = styles[`card_${statusKey}`] || styles[`card_${phase.status}`];
@@ -185,7 +186,8 @@ const RFQLifecycleJourney = ({ rfqId, isTender = false, onActionComplete }) => {
             <div key={phase.key} className={`${styles.row} ${rowClass}`}>
               <div className={styles.rail}>
                 <div className={`${styles.node} ${nodeClass}`}>
-                  {phase.status === 'completed' && <BsCheckCircleFill size={14} />}
+                  {phase.status === 'completed' && !isPartiallyStuck && <BsCheckCircleFill size={14} />}
+                  {phase.status === 'completed' && isPartiallyStuck && <BsExclamationTriangleFill size={14} />}
                   {phase.status === 'current' && !isCancelled && !isActionRequired && <div className={styles.pulse} />}
                   {phase.status === 'current' && isActionRequired && <div className={styles.pulse_action_required} />}
                   {isCancelled && <div className={styles.pulse_cancelled} />}
@@ -207,7 +209,8 @@ const RFQLifecycleJourney = ({ rfqId, isTender = false, onActionComplete }) => {
                     {isCancelled && !isBlocked && <span className={styles.tagCurCancelled}>Cancelled</span>}
                     {phase.status === 'expired' && <span className={styles.tagExp}>Expired</span>}
                     {phase.status === 'skipped' && <span className={styles.tagSkip}>Skipped</span>}
-                    {phase.sub_status && phase.status === 'current' && !isCancelled && <span className={styles.tagSub}>{phase.sub_status.replace(/_/g, ' ')}</span>}
+                    {isPartiallyStuck && <span className={styles.tagExp}>Partially Stuck</span>}
+                    {phase.sub_status && phase.status === 'current' && !isCancelled && !isPartiallyStuck && <span className={styles.tagSub}>{phase.sub_status.replace(/_/g, ' ')}</span>}
                     <span style={{ flex: 1 }} />
                     {/* Approve/Reject buttons are now in the top-level header for all stages */}
                     {phase.completed_at && <span className={styles.dateTag}><BsCalendar3 size={9} /> {fmt(phase.completed_at)}</span>}
@@ -249,14 +252,20 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
   // Technical: group by product → by round
   if (phase.key === 'technical') {
     if (phase.awaiting_quotes) {
+      let awaitingTitle = 'Waiting for vendor quotes before technical evaluation can begin';
+      let awaitingCta = null;
+      if (phase.sub_status === 'all_vendors_failed') {
+        awaitingTitle = 'All eligible vendors failed technical evaluation';
+        awaitingCta = 'Extend the bid submission deadline from the Edit page to invite more vendors and resume evaluation.';
+      } else if (phase.sub_status === 'no_vendors_participated') {
+        awaitingTitle = 'Quote submission window closed without sufficient vendor participation';
+        awaitingCta = 'Extend the bid submission deadline from the Edit page to allow more vendors to participate.';
+      }
       return (
         <AwaitingQuotesPanel
           phase={phase}
-          title={
-            phase.sub_status === 'no_vendors_participated'
-              ? 'Quote submission window closed without any eligible vendor participation'
-              : 'Waiting for vendor quotes before technical evaluation can begin'
-          }
+          title={awaitingTitle}
+          cta={awaitingCta}
         />
       );
     }
@@ -360,14 +369,17 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
   // Commercial: group by product
   if (phase.key === 'commercial') {
     if (phase.awaiting_quotes) {
+      let commTitle = 'Waiting for vendor quotes before commercial evaluation can begin';
+      let commCta = null;
+      if (phase.sub_status === 'no_vendors_participated') {
+        commTitle = 'Quote submission window closed without sufficient vendor participation';
+        commCta = 'Extend the bid submission deadline from the Edit page to allow more vendors to participate.';
+      }
       return (
         <AwaitingQuotesPanel
           phase={phase}
-          title={
-            phase.sub_status === 'no_vendors_participated'
-              ? 'Quote submission window closed without any eligible vendor participation'
-              : 'Waiting for vendor quotes before commercial evaluation can begin'
-          }
+          title={commTitle}
+          cta={commCta}
         />
       );
     }
@@ -577,12 +589,13 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
   return null;
 };
 
-const AwaitingQuotesPanel = ({ phase, title }) => {
+const AwaitingQuotesPanel = ({ phase, title, cta }) => {
   const stats = phase.awaiting_quotes || {};
   const ah = phase.action_holders;
   const ua = phase.upcoming_actors;
   const currentActors = (ah?.users?.length ? ah.users : ua?.evaluators) || [];
   const currentLabel = ah?.label || (phase.key === 'technical' ? 'Technical Evaluators' : 'Commercial Evaluators');
+  const isClosed = phase.sub_status === 'no_vendors_participated' || phase.sub_status === 'all_vendors_failed';
   const statCards = [
     { key: 'participated', label: 'Participated', value: stats.participated || 0 },
     { key: 'quotes', label: 'Sent Quotes', value: stats.sent_quotes || 0 },
@@ -591,7 +604,7 @@ const AwaitingQuotesPanel = ({ phase, title }) => {
 
   return (
     <div className={styles.awaitingWrap}>
-      <div className={`${styles.awaitingBanner} ${phase.sub_status === 'no_vendors_participated' ? styles.awaitingBannerClosed : ''}`}>
+      <div className={`${styles.awaitingBanner} ${isClosed ? styles.awaitingBannerClosed : ''}`}>
         <BsClipboardCheck size={14} />
         <div style={{ flex: 1 }}>
           <div><strong>{title}</strong></div>
@@ -600,6 +613,12 @@ const AwaitingQuotesPanel = ({ phase, title }) => {
             {stats.bid_end_date && <span>Deadline: {fmtBidDeadline(stats.bid_end_date)}</span>}
             {stats.regrets > 0 && <span>{stats.regrets} regret{stats.regrets === 1 ? '' : 's'}</span>}
           </div>
+          {cta && (
+            <div style={{ marginTop: 6, fontSize: '0.82rem', color: '#b91c1c', fontWeight: 500 }} className='d-flex align-items-center'>
+              <BsExclamationTriangleFill size={12} style={{ marginRight: 4, verticalAlign: 'text-bottom' }} />
+              {cta}
+            </div>
+          )}
         </div>
       </div>
 

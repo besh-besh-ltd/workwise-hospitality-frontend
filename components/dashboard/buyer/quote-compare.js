@@ -1797,6 +1797,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     filter: (item) => {
                       // Closed RFQs are read-only — only show in All tab
                       if (String(item.status) === '2') return false;
+                      // PO rejected with no replacement — needs attention
+                      if (item.has_po_rejection) return true;
                       // Pre-deadline RFQs should not appear as action-required yet.
                       if (item.bid_end_date && !checkBidExpired(item.bid_end_date)) return false;
                       // User is current approver
