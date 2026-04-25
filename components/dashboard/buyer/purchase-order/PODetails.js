@@ -122,7 +122,7 @@ const elipsisToLimit = (text, limit = 45) => {
   return text.length > limit ? text.slice(0, limit).concat('...') : text;
 }
 
-const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers, isEditing, setIsEditing, handleUpdatePO, canWrite = true, canApprove = false }) => {
+const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers, isEditing, setIsEditing, handleUpdatePO, canWrite = true, canApprove = false, canRegenerate = false }) => {
   const {
     id,
     rfq_id,
@@ -444,7 +444,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                   <BsPersonPlus size={14} /> Site Rep
                 </button>
               )}
-              {canWrite && (
+              {canRegenerate && (
                 <button className={styles.heroBtn} onClick={() => setShowRegenerateModal(true)} id="regenerate_po-po_details-purchase_order_page">
                   <BsArrowRepeat size={14} /> Regenerate PO Doc
                 </button>

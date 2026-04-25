@@ -3,7 +3,7 @@ import { Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { MdCheck, MdClose } from 'react-icons/md';
 import { IoMdEye } from 'react-icons/io';
 import { FiAlertTriangle, FiUser } from 'react-icons/fi';
-import { BsFilePdf } from 'react-icons/bs';
+import { BsArrowRepeat, BsFilePdf } from 'react-icons/bs';
 import { addCommasToNumber } from '@/utils/sharedFunctions';
 import useIsMobile from '@/hooks/useIsMobile';
 import styles from './POCard.module.scss';
@@ -13,7 +13,8 @@ const POCard = ({
   onClick,
   onApprove,
   onReject,
-  initiatePO
+  initiatePO,
+  onRegenerate
 }) => {
   const statusConfig = {
     pending_approval: { label: 'Pending', variant: 'warning', requiresAction: true },
@@ -109,6 +110,7 @@ const POCard = ({
   const handleReject = (e) => { e.stopPropagation(); onReject?.(po); };
   const handleInitiate = (e) => { e.stopPropagation(); initiatePO?.(); };
   const handleView = (e) => { e.stopPropagation(); onClick?.(po); };
+  const handleRegenerate = (e) => { e.stopPropagation(); onRegenerate?.(po); };
 
   if (isMobile) {
     return (
@@ -137,9 +139,16 @@ const POCard = ({
           ) : isDraft && initiatePO ? (
             <button className={styles.initiateBtn} onClick={handleInitiate}>Initiate PO</button>
           ) : (
-            <button className={styles.viewBtn} onClick={handleView}>
-              <IoMdEye size={14} /> View PO
-            </button>
+            <>
+              <button className={styles.viewBtn} onClick={handleView}>
+                <IoMdEye size={14} /> View PO
+              </button>
+              {onRegenerate && !isDraft && (
+                <button className={styles.viewBtn} onClick={handleRegenerate}>
+                  <BsArrowRepeat size={14} /> Regenerate
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -208,32 +217,53 @@ const POCard = ({
       <div className={styles.colActions}>
         {showApprovalActions ? (
           <>
-            <button className={styles.approveBtn} onClick={handleApprove} title="Approve this PO" id={`approve_po_${po.id}-po_actions-po_listing`}>
-              <MdCheck size={14} /><span>Approve</span>
-            </button>
-            <button className={styles.rejectBtn} onClick={handleReject} title="Reject this PO" id={`reject_po_${po.id}-po_actions-po_listing`}>
-              <MdClose size={14} /><span>Reject</span>
-            </button>
+            <OverlayTrigger placement="top" overlay={<Tooltip id={`approve-tip-${po.id}`}>Approve</Tooltip>}>
+              <button className={`${styles.iconBtn} ${styles.iconBtnSuccess}`} onClick={handleApprove} id={`approve_po_${po.id}-po_actions-po_listing`}>
+                <MdCheck size={18} />
+              </button>
+            </OverlayTrigger>
+            <OverlayTrigger placement="top" overlay={<Tooltip id={`reject-tip-${po.id}`}>Reject</Tooltip>}>
+              <button className={`${styles.iconBtn} ${styles.iconBtnDanger}`} onClick={handleReject} id={`reject_po_${po.id}-po_actions-po_listing`}>
+                <MdClose size={18} />
+              </button>
+            </OverlayTrigger>
           </>
         ) : isDraft ? (
           initiatePO ? (
-            <button className={styles.initiateBtn} onClick={handleInitiate} title="Initiate this PO">Initiate Purchase Order</button>
+            <OverlayTrigger placement="top" overlay={<Tooltip id={`initiate-tip-${po.id}`}>Initiate Purchase Order</Tooltip>}>
+              <button className={styles.iconBtn} onClick={handleInitiate}>
+                <BsArrowRepeat size={15} />
+              </button>
+            </OverlayTrigger>
           ) : (
             <OverlayTrigger placement="top" overlay={<Tooltip id={`initiate-disabled-${po.id}`}>Only members with write access can initiate a Purchase Order</Tooltip>}>
               <span>
-                <button className={styles.initiateBtn} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>Initiate Purchase Order</button>
+                <button className={styles.iconBtn} disabled style={{ opacity: 0.4, cursor: 'not-allowed' }}>
+                  <BsArrowRepeat size={15} />
+                </button>
               </span>
             </OverlayTrigger>
           )
         ) : (
           <>
-            <button className={styles.viewBtn} onClick={handleView} title="View Details" id={`view_po_${po.id}-po_actions-po_listing`}>
-              <IoMdEye size={14} /><span>View PO</span>
-            </button>
+            <OverlayTrigger placement="top" overlay={<Tooltip id={`view-tip-${po.id}`}>View PO</Tooltip>}>
+              <button className={styles.iconBtn} onClick={handleView} id={`view_po_${po.id}-po_actions-po_listing`}>
+                <IoMdEye size={18} />
+              </button>
+            </OverlayTrigger>
             {po.poPdfUrl && (
-              <a href={po.poPdfUrl} target="_blank" rel="noopener noreferrer" className={styles.pdfBtn} onClick={(e) => e.stopPropagation()} title="View PO PDF">
-                <BsFilePdf size={14} /><span>View PDF</span>
-              </a>
+              <OverlayTrigger placement="top" overlay={<Tooltip id={`pdf-tip-${po.id}`}>View PDF</Tooltip>}>
+                <a href={po.poPdfUrl} target="_blank" rel="noopener noreferrer" className={`${styles.iconBtn} ${styles.iconBtnDanger}`} onClick={(e) => e.stopPropagation()}>
+                  <BsFilePdf size={16} />
+                </a>
+              </OverlayTrigger>
+            )}
+            {onRegenerate && (
+              <OverlayTrigger placement="top" overlay={<Tooltip id={`regen-tip-${po.id}`}>Regenerate PO</Tooltip>}>
+                <button className={`${styles.iconBtn} ${styles.iconBtnSuccess}`} onClick={handleRegenerate} id={`regenerate_po_${po.id}-po_actions-po_listing`}>
+                  <BsArrowRepeat size={16} />
+                </button>
+              </OverlayTrigger>
             )}
           </>
         )}
