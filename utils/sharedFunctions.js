@@ -1,5 +1,49 @@
 import { useState, useEffect } from 'react';
 
+const ROLE_DASHBOARD_SEGMENTS = new Set([
+  'buyer', 'vendor', 'admin', 'management', 'engineering', 'finance'
+]);
+
+const DEFAULT_DASHBOARD_BY_USER_TYPE = {
+  buyer: '/dashboard/buyer',
+  vendor: '/dashboard/vendor',
+  admin: '/dashboard/admin',
+  management: '/dashboard/management',
+  engineering: '/dashboard/engineering',
+  finance: '/dashboard/finance',
+};
+
+/**
+ * Resolves a post-login redirect target so users are never sent to a dashboard
+ * that belongs to a different role. If the requested redirect points at
+ * /dashboard/<otherRole>/... it's swapped for the user's own /dashboard/<userType>.
+ * Same-role and non-dashboard paths pass through unchanged.
+ *
+ * Pre-login the original URL is captured by axios.js / authGuard.js with
+ * encodeURIComponent, and Next.js auto-decodes router.query, so `redirect` here
+ * is already a plain path like "/dashboard/vendor/inquiries-details?id=5".
+ *
+ * @param {string|undefined|null} redirect - Raw redirect path from router.query.
+ * @param {string} userType - User type that just authenticated.
+ * @returns {string} A path that's safe to navigate the user to.
+ */
+export const resolvePostLoginRedirect = (redirect, userType) => {
+  const fallback = DEFAULT_DASHBOARD_BY_USER_TYPE[userType] || '/';
+  if (!redirect || typeof redirect !== 'string') return fallback;
+  // Reject anything that isn't a same-origin absolute path (defends against
+  // protocol-relative URLs like "//evil.com" being used as an open redirect).
+  if (!redirect.startsWith('/') || redirect.startsWith('//')) return fallback;
+  const path = redirect.split('?')[0].split('#')[0];
+  const match = path.match(/^\/dashboard\/([^/]+)/);
+  if (match) {
+    const segment = match[1];
+    if (ROLE_DASHBOARD_SEGMENTS.has(segment) && segment !== userType) {
+      return fallback;
+    }
+  }
+  return redirect;
+};
+
 /**
  * Executes an asynchronous data-fetching function while managing a loading state.
  * @async
