@@ -27,8 +27,9 @@ import {
   Tooltip as ChartTooltip,
 } from 'chart.js';
 import { calculateTotal } from '@/utils/sharedFunctions';
+import { getChargeNames } from '@/services/rfq';
 import VendorAccordionPanel from './VendorAccordionPanel';
-import NegotiationFieldsSelect from './NegotiationFieldsSelect';
+import NegotiationFieldsSelect, { getChargeTargetKey } from './NegotiationFieldsSelect';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
 import ApprovalActionModal from '../approval/ApprovalActionModal';
 import ApprovalTimeline from '../approval/ApprovalTimeline';
@@ -105,15 +106,6 @@ const NegotiationModal = ({
   const [formData, setFormData] = useState({
     end_date: '',
     negotiation_fields: [],
-    target_base_price: '',
-    target_freight: '',
-    target_freight_mode: 'percentage',
-    target_packaging: '',
-    target_packaging_mode: 'percentage',
-    target_delivery_date: '',
-    target_payment_terms: '',
-    target_vendor_tc: '',
-    target_comments: '',
   });
   // Per-vendor local targets: { [vendorId]: { base_price: '', freight: '', ... } }
   const [vendorTargets, setVendorTargets] = useState({});
@@ -145,6 +137,8 @@ const NegotiationModal = ({
   const [chartTypes, setChartTypes] = useState({}); // { [productId]: 'bar' | 'line' }
   // Vendor selection for parallel rounds
   const [selectedVendors, setSelectedVendors] = useState({}); // { [productId]: [vendorId, ...] }
+  // Charge names from API
+  const [chargeNamesList, setChargeNamesList] = useState([]); // All charge names from /rfq/charge-names
 
   const toggleCardFlip = (productId, e) => {
     e.stopPropagation();
@@ -163,20 +157,16 @@ const NegotiationModal = ({
       setFormData({
         end_date: '',
         negotiation_fields: [],
-        target_base_price: '',
-        target_freight: '',
-        target_freight_mode: 'percentage',
-        target_packaging: '',
-        target_packaging_mode: 'percentage',
-        target_delivery_date: '',
-        target_payment_terms: '',
-        target_vendor_tc: '',
-        target_comments: '',
       });
       setVendorTargets({});
       setFlippedCards({});
       setSelectedVendors({});
       loadQuoteApprovalStatuses();
+      // Fetch charge names for negotiation fields
+      getChargeNames().then(res => {
+        const data = res?.data || res || [];
+        setChargeNamesList(Array.isArray(data) ? data : []);
+      }).catch(() => setChargeNamesList([]));
     }
     if (show && mode === 'view-approve' && activeRounds.length > 0) {
       const pendingRound = activeRounds.find(r => r.status === 'PENDING_APPROVAL');
@@ -524,49 +514,24 @@ const NegotiationModal = ({
       return { isDisabled: true, statusLabel: 'No Quotes', statusClass: styles.createStatusNoQuotes };
     }
 
+    // Per-field negotiation: product is always available for new rounds on different fields
     const activeRound = product.active_round;
-
-    // Priority 3: No active round
     if (!activeRound) {
       return { isDisabled: false, statusLabel: 'Available', statusClass: '' };
     }
 
+    // Show informational status but never disable — buyer can create rounds for other fields
     const vendorApprovals = activeRound.vendor_approvals || [];
-    const roundVendorIds = activeRound.vendor_ids;
-
-    // Priority 4: Old-style round (vendor_ids null)
-    if (roundVendorIds === null || roundVendorIds === undefined) {
-      return { isDisabled: true, statusLabel: 'Pending Approval', statusClass: styles.createStatusPending };
-    }
-
-    // Priority 5: Check vendor approval statuses
-    const hasRejected = vendorApprovals.some(va => va.status === 'REJECTED');
     const allApproved = vendorApprovals.length > 0 && vendorApprovals.every(va => va.status === 'APPROVED');
+    const hasRejected = vendorApprovals.some(va => va.status === 'REJECTED');
 
-    // ENABLED: any vendor rejected
+    if (allApproved) {
+      return { isDisabled: false, statusLabel: 'Approved', statusClass: styles.createStatusApproved };
+    }
     if (hasRejected) {
       return { isDisabled: false, statusLabel: 'Rejected', statusClass: styles.createStatusRejected };
     }
-
-    // ENABLED: some product_vendors not in the round
-    const productVendors = product.product_vendors || [];
-    const roundVendorIdSet = new Set(roundVendorIds.map(Number));
-    const vendorsNotInRound = productVendors.some(v => {
-      const vid = Number(v.id || v.user_id);
-      return vid && !roundVendorIdSet.has(vid);
-    });
-    if (vendorsNotInRound) {
-      const coveredCount = roundVendorIds.length;
-      return { isDisabled: false, statusLabel: `${coveredCount} vendor${coveredCount !== 1 ? 's' : ''} in round`, statusClass: styles.createStatusPartial };
-    }
-
-    // DISABLED: all approved
-    if (allApproved) {
-      return { isDisabled: true, statusLabel: 'Approved', statusClass: styles.createStatusApproved };
-    }
-
-    // DISABLED: all pending, or mixed pending+approved
-    return { isDisabled: true, statusLabel: 'Pending Approval', statusClass: styles.createStatusPending };
+    return { isDisabled: false, statusLabel: 'In Negotiation', statusClass: styles.createStatusPartial };
   };
 
   // Vendor toggle handler for negotiation round creation
@@ -584,18 +549,16 @@ const NegotiationModal = ({
   };
 
   // Select/deselect all available vendors for a product
+  // Must match VendorAccordionPanel's availableVendors logic (only regretted vendors are disabled)
   const handleSelectAllVendors = (productId) => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
     const allVendorIds = Array.from(getVendorIdsForProduct(product));
-    const activeRound = product.active_round;
-    const vendorApprovals = activeRound?.vendor_approvals || [];
-    const roundVendorIds = new Set((activeRound?.vendor_ids || []).map(Number));
+    const priceData = getVendorPriceData(product);
 
     const availableIds = allVendorIds.filter(vid => {
-      if (!roundVendorIds.has(vid)) return true;
-      const approval = vendorApprovals.find(va => Number(va.vendor_id) === vid);
-      return approval && approval.status === 'REJECTED';
+      const priceInfo = priceData.vendors.find(vp => vp.vendorId === vid);
+      return !priceInfo?.isRegret;
     });
 
     setSelectedVendors(prev => {
@@ -626,16 +589,17 @@ const NegotiationModal = ({
       return;
     }
 
-    // Validate that at least one numeric target is set if numeric fields are selected
-    const numericFields = ['base_price', 'freight', 'packaging', 'delivery_period'];
-    const hasAnyNumericField = effectiveFields.some(f => numericFields.includes(f));
-    const hasNumericTarget = (
-      (effectiveFields.includes('base_price') && formData.target_base_price) ||
-      (effectiveFields.includes('freight') && formData.target_freight) ||
-      (effectiveFields.includes('packaging') && formData.target_packaging) ||
-      (effectiveFields.includes('delivery_period') && formData.target_delivery_date)
-    );
-    if (hasAnyNumericField && !hasNumericTarget) {
+    // Validate that at least one target is set (global or per-vendor) for the selected fields
+    const productVendorIds = selectedVendors[selectedProducts[0]] || [];
+    const hasAnyLocalTarget = productVendorIds.some(vid => {
+      const vt = vendorTargets[vid] || {};
+      return effectiveFields.some(f => vt[f]);
+    });
+    const hasAnyGlobalTarget = effectiveFields.some(f => {
+      const targetKey = getChargeTargetKey(f);
+      return targetKey && formData[targetKey];
+    });
+    if (!hasAnyLocalTarget && !hasAnyGlobalTarget) {
       toast.error('Please set at least one target value for the selected negotiation fields');
       return;
     }
@@ -648,38 +612,47 @@ const NegotiationModal = ({
 
       // Create rounds for each selected product
       for (const pid of selectedProducts) {
-        // Build per-vendor targets (exclude internal _localFields key)
         const productVendorIds = selectedVendors[pid] || [];
-        const perVendorTargets = {};
-        productVendorIds.forEach(vid => {
-          const vt = vendorTargets[vid];
-          if (!vt) return;
-          const cleaned = {};
+        const vendorTargetsArray = productVendorIds.map(vid => {
+          const vt = vendorTargets[vid] || {};
+          const fields = [];
+          const nonModeKeys = ['base_price', 'payment_terms', 'comments'];
+          // Include per-vendor local targets
           Object.keys(vt).forEach(k => {
-            if (k === '_localFields') return;
-            if (vt[k]) cleaned[k] = vt[k];
+            if (k === '_localFields' || k.endsWith('_mode')) return;
+            if (vt[k]) {
+              const fieldObj = { name: k, target: vt[k] };
+              if (!nonModeKeys.includes(k)) {
+                const modeVal = vt[`${k}_mode`] || 'percentage';
+                fieldObj.mode = modeVal === 'amount' ? 'absolute' : modeVal;
+              }
+              fields.push(fieldObj);
+            }
           });
-          if (Object.keys(cleaned).length > 0) {
-            perVendorTargets[vid] = cleaned;
-          }
-        });
+          // Fall back to global targets for selected fields not set per-vendor
+          const setFieldNames = new Set(fields.map(f => f.name));
+          effectiveFields.forEach(f => {
+            if (setFieldNames.has(f)) return;
+            const targetKey = getChargeTargetKey(f);
+            const globalVal = targetKey && formData[targetKey];
+            if (globalVal) {
+              const fieldObj = { name: f, target: globalVal };
+              if (!nonModeKeys.includes(f)) {
+                const modeKey = `target_${f}_mode`;
+                const modeVal = formData[modeKey] || 'percentage';
+                fieldObj.mode = modeVal === 'amount' ? 'absolute' : modeVal;
+              }
+              fields.push(fieldObj);
+            }
+          });
+          return { vendor_id: vid, fields };
+        }).filter(v => v.fields.length > 0);
 
         await createNegotiationRound({
           rfq_id,
           rfq_product_id: parseInt(pid),
           end_date: utcEndDate,
-          vendor_ids: productVendorIds,
-          negotiation_fields: effectiveFields,
-          target_base_price: effectiveFields.includes('base_price') ? parseFloat(formData.target_base_price) || null : null,
-          target_freight: effectiveFields.includes('freight') ? parseFloat(formData.target_freight) || null : null,
-          target_freight_mode: formData.target_freight_mode,
-          target_packaging: effectiveFields.includes('packaging') ? parseFloat(formData.target_packaging) || null : null,
-          target_packaging_mode: formData.target_packaging_mode,
-          target_delivery_date: effectiveFields.includes('delivery_period') ? formData.target_delivery_date : null,
-          target_payment_terms: effectiveFields.includes('payment_terms') ? formData.target_payment_terms || null : null,
-          target_vendor_tc: effectiveFields.includes('vendor_tc') ? formData.target_vendor_tc || null : null,
-          target_comments: effectiveFields.includes('comments') ? formData.target_comments || null : null,
-          vendor_targets: Object.keys(perVendorTargets).length > 0 ? perVendorTargets : null,
+          vendor_targets: vendorTargetsArray,
         });
       }
 
@@ -966,12 +939,13 @@ const NegotiationModal = ({
     const quotations = product?.quotations || [];
     const validQuotations = quotations.filter(q => {
       const hasId = q.id != null || q.quote_id != null || q.quote_item_id != null;
-      return hasId && !isQuoteRegretted(q);
+      return hasId;
     });
 
     if (validQuotations.length === 0) return { vendors: [], l1: null };
 
     const vendors = validQuotations.map(q => {
+      const isRegret = isQuoteRegretted(q);
       const vendorDetails = getVendorDetailsFromQuote(q);
       const vendorName = vendorDetails ? getVendorDisplayName(vendorDetails) : 'Unknown';
 
@@ -995,10 +969,7 @@ const NegotiationModal = ({
       // Extract flat pricing fields for tooltip breakdown
       const src = (Array.isArray(q.quote_details) && q.quote_details[0]) || q;
       const unitPrice = parseFloat(src.unit_price || 0);
-      const freightPrice = parseFloat(src.freight_price || 0);
-      const freightMode = src.freight_mode || 'percentage';
-      const packagePrice = parseFloat(src.package_price || 0);
-      const packageMode = src.package_mode || 'percentage';
+      const otherCharges = src.other_charges || [];
       const tax = parseFloat(src.tax || 0);
       const taxMode = src.tax_mode || 'percentage';
       const quantity = parseFloat(src.quantity || q.quantity || product?.quantity || 0);
@@ -1018,10 +989,11 @@ const NegotiationModal = ({
 
       return {
         vendorName, totalPrice, unitPrice, quantity,
-        freightPrice, freightMode, packagePrice, packageMode, tax, taxMode,
+        otherCharges, tax, taxMode,
         deliveryPeriod, paymentTerms, vendorTC, comment, vendorId,
+        isRegret,
       };
-    }).filter(v => v.totalPrice > 0);
+    }).filter(v => v.totalPrice > 0 || v.isRegret);
 
     vendors.sort((a, b) => a.totalPrice - b.totalPrice);
     const l1 = vendors.length > 0 ? vendors[0].totalPrice : null;
@@ -1095,8 +1067,9 @@ const NegotiationModal = ({
                 `Unit Price: ${fmt(v.unitPrice)}`,
                 `Qty: ${v.quantity || '-'}`,
               ];
-              if (v.packagePrice) lines.push(`Packaging: ${fmtCharge(v.packagePrice, v.packageMode)}`);
-              if (v.freightPrice) lines.push(`Freight: ${fmtCharge(v.freightPrice, v.freightMode)}`);
+              (v.otherCharges || []).forEach(c => {
+                if (c.amount) lines.push(`${c.name}: ${fmtCharge(c.amount, c.amount_mode)}`);
+              });
               if (v.tax) lines.push(`GST: ${fmtCharge(v.tax, v.taxMode)}`);
               lines.push(`Total: ${fmt(v.totalPrice)}`);
               if (v.isL1) lines.push('★ L1 (Lowest)');
@@ -1289,7 +1262,7 @@ const NegotiationModal = ({
                               return <p className={styles.chartEmpty}>No price data available</p>;
                             }
                             const activeChartType = chartTypes[product.id] || 'bar';
-                            const targetPrice = formData.target_base_price ? parseFloat(formData.target_base_price) : null;
+                            const targetPrice = null; // Target prices are now per-vendor, not global
                             const { data, options } = buildChartConfig(priceData, targetPrice, activeChartType);
                             const ChartComp = activeChartType === 'line' ? Line : Bar;
                             return <ChartComp data={data} options={options} plugins={[targetLinePlugin, barLabelsPlugin]} />;
@@ -1321,6 +1294,19 @@ const NegotiationModal = ({
           if (!selectedProduct) return null;
           const priceData = getVendorPriceData(selectedProduct);
           const hasVendorsSelected = (selectedVendors[selectedProduct.id] || []).length > 0;
+
+          // Collect unique charge names from all vendors
+          const dynamicChargeNames = [];
+          const seenChargeNames = new Set();
+          (priceData.vendors || []).forEach(v => {
+            (v.otherCharges || []).forEach(c => {
+              if (c.name && !seenChargeNames.has(c.name)) {
+                seenChargeNames.add(c.name);
+                dynamicChargeNames.push(c.name);
+              }
+            });
+          });
+
           return (
             <>
               <NegotiationFieldsSelect
@@ -1337,6 +1323,7 @@ const NegotiationModal = ({
                 formData={formData}
                 onFormChange={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
                 disabled={!hasVendorsSelected}
+                defaultCharges={chargeNamesList.filter(c => c.created_by === null)}
               />
 
               <VendorAccordionPanel
@@ -1347,6 +1334,7 @@ const NegotiationModal = ({
                 getVendorDisplayName={getVendorDisplayName}
                 selectedFields={getEffectiveFields()}
                 vendorPriceData={priceData}
+                chargeNamesList={chargeNamesList}
                 vendorTargets={vendorTargets}
                 onVendorTargetChange={(vendorId, fieldKey, value) => {
                   setVendorTargets(prev => ({
@@ -1531,7 +1519,18 @@ const NegotiationModal = ({
                             <div className={styles.roundMetaItem}>
                               <span className={styles.roundMetaLabel}>Target</span>
                               <div className={styles.roundMetaValue}>
-                                ₹{parseFloat(round.target_price || 0).toLocaleString()}
+                                {round.target_price != null
+                                  ? `₹${parseFloat(round.target_price).toLocaleString()}`
+                                  : (() => {
+                                      const fields = round.vendor_approvals?.flatMap(va => va.negotiation_fields || []) || [];
+                                      return fields.length > 0 ? fields.map(f => {
+                                        const label = f.name === 'base_price' ? 'Base Price' : f.name === 'payment_terms' ? 'Payment Terms' : (f.label || f.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+                                        const val = f.target || f.target_price;
+                                        const formatted = f.mode === 'percentage' ? `${val}%` : `₹${val}`;
+                                        return `${label}: ${formatted}`;
+                                      }).join(', ') : '--';
+                                    })()
+                                }
                               </div>
                             </div>
                             <div className={styles.roundMetaItem}>
@@ -1796,43 +1795,84 @@ const NegotiationModal = ({
 
                       <div className={styles.vaMetaRow}>
                         <div className={styles.vaMetaBlock}>
-                          <span className={styles.vaMetaLabel}>Target Price</span>
-                          <span className={styles.vaMetaValue}>₹{parseFloat(round.target_price).toLocaleString()}</span>
-                        </div>
-                        <div className={styles.vaMetaBlock}>
                           <span className={styles.vaMetaLabel}>End Date</span>
                           <span className={styles.vaMetaValue}>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</span>
                         </div>
                       </div>
 
-                      {/* Vendors in this round with quoted prices */}
+                      {/* Vendor Accordions */}
                       {(() => {
                         const roundVendorIds = (round.vendor_ids || []).map(Number);
                         if (roundVendorIds.length === 0) return null;
                         const quotations = product?.quotations || [];
                         const productVendors = product?.product_vendors || [];
-                        const vendors = roundVendorIds.map(vid => {
-                          const pv = productVendors.find(v => Number(v.id || v.user_id) === vid);
-                          const name = pv ? (pv.organization_name || pv.company_name || pv.name || 'Unknown Vendor') : 'Unknown Vendor';
-                          const matchedQuote = quotations.find(q => {
-                            const vd = q.quote_details?.vendor_details;
-                            return Number(vd?.id || vd?.user_id || q.vendor_id || q.created_by) === vid;
-                          });
-                          return { id: vid, name, totalPrice: parseFloat(matchedQuote?.total_price || 0) };
-                        });
+                        const vendorApprovals = round.vendor_approvals || [];
+
                         return (
                           <div className={styles.wfVendorSection}>
-                            <p className={styles.wfSectionLabel}>Vendors ({vendors.length})</p>
-                            <div className={styles.wfVendorList}>
-                              {vendors.map(v => (
-                                <div key={v.id} className={styles.wfVendorRow}>
-                                  <span className={styles.wfVendorName}>{v.name}</span>
-                                  {v.totalPrice > 0 && (
-                                    <span className={styles.wfVendorPriceValue}>₹{v.totalPrice.toLocaleString('en-IN')}</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
+                            <p className={styles.wfSectionLabel}>Vendors ({roundVendorIds.length})</p>
+                            {roundVendorIds.map(vid => {
+                              const pv = productVendors.find(v => Number(v.id || v.user_id) === vid);
+                              const name = pv ? (pv.organization_name || pv.company_name || pv.name || 'Unknown Vendor') : 'Unknown Vendor';
+                              const matchedQuote = quotations.find(q => {
+                                const vd = q.quote_details?.vendor_details;
+                                return Number(vd?.id || vd?.user_id || q.vendor_id || q.created_by) === vid;
+                              });
+                              const totalPrice = parseFloat(matchedQuote?.total_price || 0);
+                              const va = vendorApprovals.find(a => Number(a.vendor_id) === vid);
+                              const negFields = va?.negotiation_fields || [];
+                              const negFieldNames = new Set(negFields.map(f => f.name));
+
+                              // Build all fields: base_price, payment_terms, + other_charges from quote
+                              const src = matchedQuote || {};
+                              const otherCharges = src.other_charges || [];
+                              const allFields = [
+                                { slug: 'base_price', label: 'Base Price', quoted: src.unit_price ? `₹${Number(src.unit_price).toLocaleString('en-IN')}` : '--' },
+                                { slug: 'payment_terms', label: 'Payment Terms', quoted: (() => {
+                                  const pt = src.payment_terms;
+                                  if (!pt) return '--';
+                                  if (typeof pt === 'string') return pt;
+                                  if (Array.isArray(pt)) return pt.map(t => `${t.value || ''}% ${t.type || ''}`).filter(Boolean).join(', ') || '--';
+                                  return '--';
+                                })() },
+                                ...otherCharges.map(c => ({
+                                  slug: c.slug || c.name,
+                                  label: c.name,
+                                  quoted: c.amount_mode === 'percentage' ? `${c.amount}%` : `₹${Number(c.amount).toLocaleString('en-IN')}`,
+                                })),
+                              ];
+
+                              return (
+                                <details key={vid} className={styles.wfVendorRow}>
+                                  <summary>
+                                    <span className={styles.wfVendorSummaryLeft}>
+                                      <span className={styles.wfVendorChevron}>▶</span>
+                                      <span>{name}</span>
+                                    </span>
+                                    {totalPrice > 0 && <span className={styles.wfVendorTotalPrice}>₹{totalPrice.toLocaleString('en-IN')}</span>}
+                                  </summary>
+                                  <div className={styles.wfVendorBody}>
+                                    {negFields.map(nf => {
+                                      const field = allFields.find(f => f.slug === nf.name || f.slug === nf.slug);
+                                      const displayLabel = field?.label || nf.name;
+                                      const quoted = field?.quoted || '--';
+                                      const target = nf.target || nf.target_price;
+                                      return (
+                                        <div key={nf.name} className={`${styles.wfNegFieldCard} ${styles.wfNegFieldCardActive}`}>
+                                          <div className={styles.wfNegFieldLabel}>{displayLabel}</div>
+                                          <div className={styles.wfNegFieldValue}>
+                                            {quoted}
+                                            {target && (
+                                              <span className={styles.wfNegFieldTarget}>→ {nf.mode === 'percentage' ? `${target}%` : `₹${target}`}</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </details>
+                              );
+                            })}
                           </div>
                         );
                       })()}
@@ -1897,43 +1937,79 @@ const NegotiationModal = ({
                       </div>
                       <div className={styles.vaMetaRow}>
                         <div className={styles.vaMetaBlock}>
-                          <span className={styles.vaMetaLabel}>Target Price</span>
-                          <span className={styles.vaMetaValue}>₹{parseFloat(round.target_price).toLocaleString()}</span>
-                        </div>
-                        <div className={styles.vaMetaBlock}>
                           <span className={styles.vaMetaLabel}>End Date</span>
                           <span className={styles.vaMetaValue}>{moment.utc(round.end_date).local().format('DD-MM-YYYY hh:mm A')}</span>
                         </div>
                       </div>
 
-                      {/* Vendors in this round with quoted prices */}
+                      {/* Vendor Accordions */}
                       {(() => {
                         const roundVendorIds = (round.vendor_ids || []).map(Number);
                         if (roundVendorIds.length === 0) return null;
                         const quotations = product?.quotations || [];
                         const productVendors = product?.product_vendors || [];
-                        const vendors = roundVendorIds.map(vid => {
-                          const pv = productVendors.find(v => Number(v.id || v.user_id) === vid);
-                          const name = pv ? (pv.organization_name || pv.company_name || pv.name || 'Unknown Vendor') : 'Unknown Vendor';
-                          const matchedQuote = quotations.find(q => {
-                            const vd = q.quote_details?.vendor_details;
-                            return Number(vd?.id || vd?.user_id || q.vendor_id || q.created_by) === vid;
-                          });
-                          return { id: vid, name, totalPrice: parseFloat(matchedQuote?.total_price || 0) };
-                        });
+                        const vendorApprovals = round.vendor_approvals || [];
+
                         return (
                           <div className={styles.wfVendorSection}>
-                            <p className={styles.wfSectionLabel}>Vendors ({vendors.length})</p>
-                            <div className={styles.wfVendorList}>
-                              {vendors.map(v => (
-                                <div key={v.id} className={styles.wfVendorRow}>
-                                  <span className={styles.wfVendorName}>{v.name}</span>
-                                  {v.totalPrice > 0 && (
-                                    <span className={styles.wfVendorPriceValue}>₹{v.totalPrice.toLocaleString('en-IN')}</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
+                            <p className={styles.wfSectionLabel}>Vendors ({roundVendorIds.length})</p>
+                            {roundVendorIds.map(vid => {
+                              const pv = productVendors.find(v => Number(v.id || v.user_id) === vid);
+                              const name = pv ? (pv.organization_name || pv.company_name || pv.name || 'Unknown Vendor') : 'Unknown Vendor';
+                              const matchedQuote = quotations.find(q => {
+                                const vd = q.quote_details?.vendor_details;
+                                return Number(vd?.id || vd?.user_id || q.vendor_id || q.created_by) === vid;
+                              });
+                              const totalPrice = parseFloat(matchedQuote?.total_price || 0);
+                              const va = vendorApprovals.find(a => Number(a.vendor_id) === vid);
+                              const negFields = va?.negotiation_fields || [];
+                              const negFieldNames = new Set(negFields.map(f => f.name));
+
+                              const src = matchedQuote || {};
+                              const otherCharges = src.other_charges || [];
+                              const allFields = [
+                                { name: 'base_price', label: 'Base Price', quoted: src.unit_price ? `₹${Number(src.unit_price).toLocaleString('en-IN')}` : '--' },
+                                { name: 'payment_terms', label: 'Payment Terms', quoted: (() => {
+                                  const pt = src.payment_terms;
+                                  if (!pt) return '--';
+                                  if (typeof pt === 'string') return pt;
+                                  if (Array.isArray(pt)) return pt.map(t => `${t.value || ''}% ${t.type || ''}`).filter(Boolean).join(', ') || '--';
+                                  return '--';
+                                })() },
+                                ...otherCharges.map(c => ({
+                                  name: c.name, label: c.name,
+                                  quoted: c.amount_mode === 'percentage' ? `${c.amount}%` : `₹${Number(c.amount).toLocaleString('en-IN')}`,
+                                })),
+                              ];
+
+                              return (
+                                <details key={vid} className={styles.wfVendorRow}>
+                                  <summary>
+                                    <span className={styles.wfVendorSummaryLeft}>
+                                      <span className={styles.wfVendorChevron}>▶</span>
+                                      <span>{name}</span>
+                                    </span>
+                                    {totalPrice > 0 && <span className={styles.wfVendorTotalPrice}>₹{totalPrice.toLocaleString('en-IN')}</span>}
+                                  </summary>
+                                  <div className={styles.wfVendorBody}>
+                                    {allFields.map(field => {
+                                      const isNeg = negFieldNames.has(field.name);
+                                      const negField = negFields.find(f => f.name === field.name);
+                                      const target = negField ? (negField.target || negField.target_price) : null;
+                                      return (
+                                        <div key={field.name} className={`${styles.wfNegFieldCard} ${isNeg ? styles.wfNegFieldCardActive : styles.wfNegFieldCardInactive}`}>
+                                          <div className={styles.wfNegFieldLabel}>{field.label}</div>
+                                          <div className={styles.wfNegFieldValue}>
+                                            {field.quoted}
+                                            {isNeg && target && <span className={styles.wfNegFieldTarget}>→ {negField?.mode === 'percentage' ? `${target}%` : `₹${target}`}</span>}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </details>
+                              );
+                            })}
                           </div>
                         );
                       })()}

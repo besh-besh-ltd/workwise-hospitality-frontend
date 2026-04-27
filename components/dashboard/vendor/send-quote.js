@@ -125,6 +125,7 @@ const [negotiationQuoteSubmitted, setNegotiationQuoteSubmitted] = useState({});
 // Bid expiry and active negotiation round state
 const [isBidExpired, setIsBidExpired] = useState(false);
 const [activeNegotiationProductIds, setActiveNegotiationProductIds] = useState(new Set());
+const [activeNegotiationFields, setActiveNegotiationFields] = useState({});
 const [hasActiveNegotiationRounds, setHasActiveNegotiationRounds] = useState(false);
 // Changes by Agnij [Preserve form state when Razorpay modal opens]
 const formStateRef = useRef(null);
@@ -461,6 +462,19 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
           const productIds = new Set(activeRounds.map(r => r.rfq_product_id));
           setActiveNegotiationProductIds(productIds);
           setHasActiveNegotiationRounds(productIds.size > 0);
+
+          // Extract per-field negotiation data
+          const fieldsByProduct = {};
+          activeRounds.forEach(r => {
+            // The API filters by vendor token, so vendor_approvals should contain this vendor's entry
+            const myApproval = (r.vendor_approvals || [])[0];
+            if (!myApproval?.negotiation_fields) return;
+            fieldsByProduct[r.rfq_product_id] = myApproval.negotiation_fields.map(f => ({
+              name: f.name,
+              targetPrice: f.target || f.target_price,
+            }));
+          });
+          setActiveNegotiationFields(fieldsByProduct);
         } catch (error) {
           console.error("Error checking active negotiation rounds:", error);
           setActiveNegotiationProductIds(new Set());
@@ -816,8 +830,8 @@ const loadRazorpayScript = () => {
           item[type] = value;
         }
 
-        // Clear tax and charges if base price is 0
-        if (type === "unit_price" && (!parseFloat(value) || parseFloat(value) <= 0)) {
+        // Clear tax and charges only when base price is explicitly set to 0 (not when field is empty mid-edit)
+        if (type === "unit_price" && value !== "" && parseFloat(value) === 0) {
           item.tax = 0;
           item.other_charges = [];
         }
@@ -2311,6 +2325,19 @@ return { deletedTerms, createdTerms, updatedTerms };
                     const isBidExpiredForProduct = isBidExpired && !activeNegotiationProductIds.has(rfqProduct.id);
                     const isDisabled = isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct || isBidExpiredForProduct;
 
+                    // Per-field negotiation check for modal charges
+                    const modalNegotiatedFields = activeNegotiationFields[rfqProduct.id] || [];
+                    const isChargeNegotiable = (chargeName, chargeSlug) => {
+                      if (!isBidExpired) return true;
+                      if (!activeNegotiationProductIds.has(rfqProduct.id)) return false;
+                      if (isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct) return false;
+                      return modalNegotiatedFields.some(f => f.name === chargeName || f.name === chargeSlug || f.name === (chargeSlug || chargeName));
+                    };
+                    const getChargeTargetPrice = (chargeNameOrSlug) => {
+                      const field = modalNegotiatedFields.find(f => f.name === chargeNameOrSlug);
+                      return field?.targetPrice ?? null;
+                    };
+
                     return (
                       <Modal
                         isOpen={true}
@@ -2488,13 +2515,21 @@ return { deletedTerms, createdTerms, updatedTerms };
                               <p className="text-muted text-center py-3" style={{ fontSize: "0.85rem" }}>No charges added yet. Select a charge type above.</p>
                             )}
 
-                            {(modalProduct.other_charges || []).map((charge) => (
+                            {(modalProduct.other_charges || []).map((charge) => {
+                              const chargeDisabled = !isChargeNegotiable(charge.name, charge.slug);
+                              const chargeTarget = getChargeTargetPrice(charge.slug || charge.name);
+                              return (
                               <div key={charge._id} className="border rounded p-2 mb-2">
                                 <div className="d-flex justify-content-between align-items-center mb-2">
-                                  <span className="fw-semibold" style={{ fontSize: "0.85rem" }}>{charge.name}</span>
-                                  <FiTrash2 size={14} color="#dc3545" style={{ cursor: isDisabled ? "not-allowed" : "pointer", flexShrink: 0 }}
-                                    onClick={() => { if (!isDisabled) handleRemoveOtherCharge(modalIndex, charge._id); }}
-                                  />
+                                  <span className="fw-semibold" style={{ fontSize: "0.85rem" }}>
+                                    {charge.name}
+                                    {chargeTarget != null && <small className="text-muted ms-2">(Target: ₹{chargeTarget})</small>}
+                                  </span>
+                                  {!chargeDisabled && (
+                                    <FiTrash2 size={14} color="#dc3545" style={{ cursor: "pointer", flexShrink: 0 }}
+                                      onClick={() => handleRemoveOtherCharge(modalIndex, charge._id)}
+                                    />
+                                  )}
                                 </div>
                                 <div className="row g-4 align-items-start">
                                   <div className="col-sm-6">
@@ -2504,9 +2539,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         placeholder={charge.amount_mode === "percentage" ? "%" : "₹"}
                                         value={charge.amount || ""}
                                         onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "amount", parseFloat(e.target.value) || 0)}
-                                        onWheel={(e) => e.target.blur()} disabled={isDisabled}
+                                        onWheel={(e) => e.target.blur()} disabled={chargeDisabled}
                                       />
                                       <PercentageAbsoluteToggle currentMode={charge.amount_mode}
+                                        disabled={chargeDisabled}
                                         onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "amount_mode", value)}
                                       />
                                     </div>
@@ -2518,16 +2554,18 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         placeholder={charge.tax_mode === "percentage" ? "%" : "₹"}
                                         value={charge.tax || ""}
                                         onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "tax", parseFloat(e.target.value) || 0)}
-                                        onWheel={(e) => e.target.blur()} disabled={isDisabled}
+                                        onWheel={(e) => e.target.blur()} disabled={chargeDisabled}
                                       />
                                       <PercentageAbsoluteToggle currentMode={charge.tax_mode}
+                                        disabled={chargeDisabled}
                                         onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "tax_mode", value)}
                                       />
                                     </div>
                                   </div>
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
 
                           {/* Sticky Footer: Summary + Save Button */}
@@ -2636,6 +2674,21 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 const isBidExpiredForProduct = isBidExpired && !activeNegotiationProductIds.has(item.id);
                                 const isProductFinalized = item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized";
                                 const isProductDisabled = isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct || isBidExpiredForProduct;
+                                // When bid expired but negotiation active, only negotiated fields should be enabled
+                                const isBidExpiredNonNegotiable = isBidExpired && !isBidExpiredForProduct && !isProductFinalized && !isTechEvalPendingOrRejected && !isNegotiationSubmittedForProduct;
+
+                                // Per-field negotiation check
+                                const negotiatedFields = activeNegotiationFields[item.id] || [];
+                                const isFieldNegotiable = (fieldName) => {
+                                  if (!isBidExpired) return true;
+                                  if (!activeNegotiationProductIds.has(item.id)) return false;
+                                  if (isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct) return false;
+                                  return negotiatedFields.some(f => f.name === fieldName);
+                                };
+                                const getTargetPrice = (fieldName) => {
+                                  const field = negotiatedFields.find(f => f.name === fieldName);
+                                  return field?.targetPrice ?? null;
+                                };
 
                                 return (
                                   <React.Fragment key={`q_${item.id}_${item.product_id}_${item.variant}`}>
@@ -2724,7 +2777,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             )
                                           }
                                           onWheel={(e) => e.target.blur()}
-                                          disabled={isProductDisabled}
+                                          disabled={!isFieldNegotiable('base_price')}
+                                          title={getTargetPrice('base_price') != null ? `Target: ₹${getTargetPrice('base_price')}` : ''}
                                         />
 
                                         {isTechEvalPendingOrRejected && (
@@ -2756,10 +2810,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               placeholder={chargesMode.tax[quoteProducts[index]?.id] === "absolute" ? "Tax (₹)" : "Tax (%)"}
                                               value={quoteProducts[index].tax || ""}
                                               onChange={(e) => handleUpdateData(item.id, e, item.product_id, item.variant, "tax", "", getProductSpecValueByTitle(item?.product_specs, "Quantity"))}
-                                              onWheel={(e) => e.target.blur()} disabled={isProductDisabled}
+                                              onWheel={(e) => e.target.blur()} disabled={isProductDisabled || isBidExpiredNonNegotiable}
                                             />
                                             <PercentageAbsoluteToggle currentMode={chargesMode.tax[quoteProducts[index]?.id] || "percentage"}
-                                              disabled={isProductDisabled}
+                                              disabled={isProductDisabled || isBidExpiredNonNegotiable}
                                               onToggle={(value) => {
                                                 setChargesMode(prev => ({ ...prev, tax: { ...prev.tax, [quoteProducts[index].id]: value } }));
                                                 handleChargeFieldUpdate(index, "tax", quoteProducts[index].tax || 0, { tax: value });
@@ -2896,7 +2950,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                                 )
                                               )
                                             }
-                                            disabled={isProductDisabled}
+                                            disabled={isProductDisabled || (isBidExpiredNonNegotiable && !isFieldNegotiable('comments'))}
                                           ></textarea>
                                           <span htmlFor="comment">0/300</span>
                                         </div>
@@ -2936,7 +2990,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           );
                                         }}
                                         onWheel={(e) => e.target.blur()}
-                                        disabled={isProductDisabled}
+                                        disabled={isProductDisabled || (isBidExpiredNonNegotiable && !isFieldNegotiable('delivery_period'))}
                                       />
                                       {isTechEvalPendingOrRejected && (
                                         <small
@@ -2972,7 +3026,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             uploadQuoteItemFiles(e, item)
                                           }
                                           multiple={true}
-                                          disabled={isProductDisabled}
+                                          disabled={isProductDisabled || isBidExpiredNonNegotiable}
                                         />
                                       </label>
                                       {alreadyQuoted && (

@@ -3,29 +3,59 @@ import styles from './NegotiationUI.module.scss';
 
 export const NEGOTIATION_FIELD_OPTIONS = [
   { value: 'base_price', label: 'Base Price', inputType: 'number', placeholder: 'Enter target base price', step: '0.01', min: '0', hasMode: false },
-  { value: 'freight', label: 'Freight', inputType: 'number', placeholder: 'Enter target freight', step: '0.01', min: '0', hasMode: true, modeKey: 'target_freight_mode' },
-  { value: 'packaging', label: 'Packaging', inputType: 'number', placeholder: 'Enter target packaging', step: '0.01', min: '0', hasMode: true, modeKey: 'target_packaging_mode' },
-  { value: 'delivery_period', label: 'Delivery Period', inputType: 'date', placeholder: '' },
   { value: 'payment_terms', label: 'Payment Terms', inputType: 'text', placeholder: 'Enter target payment terms' },
-  { value: 'vendor_tc', label: 'Vendor T&C', inputType: 'text', placeholder: 'Enter target T&C' },
-  { value: 'comments', label: 'Comments', inputType: 'text', placeholder: 'Enter target comments' },
 ];
 
-export const NUMERIC_FIELDS = ['base_price', 'freight', 'packaging', 'delivery_period'];
+// Build dynamic charge field option from charge object { name, slug } or string
+export const buildChargeFieldOption = (charge) => {
+  const name = typeof charge === 'string' ? charge : charge.name;
+  const slug = typeof charge === 'string' ? charge : (charge.slug || charge.name);
+  return {
+    value: slug,
+    label: name,
+    inputType: 'number',
+    placeholder: `Enter target ${name.toLowerCase()}`,
+    step: '0.01',
+    min: '0',
+    hasMode: true,
+    modeKey: `target_${slug}_mode`,
+    isDynamic: true,
+  };
+};
+
+export const NUMERIC_FIELDS = ['base_price', 'delivery_period'];
 export const TEXT_FIELDS = ['payment_terms', 'vendor_tc', 'comments'];
 
 // Map field value to its formData target key
 export const FIELD_TARGET_KEYS = {
   base_price: 'target_base_price',
-  freight: 'target_freight',
-  packaging: 'target_packaging',
   delivery_period: 'target_delivery_date',
   payment_terms: 'target_payment_terms',
   vendor_tc: 'target_vendor_tc',
   comments: 'target_comments',
 };
 
-const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData, onFormChange, disabled = false }) => {
+// Get target key for dynamic charge fields
+export const getChargeTargetKey = (fieldValue) => {
+  if (FIELD_TARGET_KEYS[fieldValue]) return FIELD_TARGET_KEYS[fieldValue];
+  return `target_${fieldValue}`;
+};
+
+const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData, onFormChange, disabled = false, dynamicChargeFields = [], defaultCharges = [] }) => {
+
+  // Build the full list of fields: static options + default charges from API (created_by === null)
+  const allFieldOptions = React.useMemo(() => {
+    const fields = [...NEGOTIATION_FIELD_OPTIONS];
+    const existingSlugs = new Set(fields.map(f => f.value));
+    defaultCharges.forEach(charge => {
+      const slug = charge.slug || charge.name;
+      if (!existingSlugs.has(slug)) {
+        existingSlugs.add(slug);
+        fields.push(buildChargeFieldOption(charge));
+      }
+    });
+    return fields;
+  }, [defaultCharges]);
 
   const handleCardClick = (fieldValue) => {
     if (disabled) return;
@@ -54,9 +84,9 @@ const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData,
         </div>
       </div>
       <div className={styles.negFieldCardsGrid}>
-        {NEGOTIATION_FIELD_OPTIONS.map(field => {
+        {allFieldOptions.map(field => {
           const isSelected = selectedFields.includes(field.value);
-          const targetKey = FIELD_TARGET_KEYS[field.value];
+          const targetKey = getChargeTargetKey(field.value);
           const targetValue = formData[targetKey] || '';
           const mode = field.modeKey ? (formData[field.modeKey] || 'percentage') : null;
 

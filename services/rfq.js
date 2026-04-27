@@ -1470,7 +1470,7 @@ export const submitRFQApprovalAction = (rfqId, payload) => {
 export const getChargeNames = () => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/charge-names`);
+      let response = await axiosInstance.get(`/rfq/charge-names/all`);
       resolve(response);
     } catch (error) {
       reject({ message: error });

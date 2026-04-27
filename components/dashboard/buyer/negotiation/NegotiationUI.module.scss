@@ -2092,15 +2092,60 @@ $status-colors: (
 }
 
 .wfVendorRow {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.wfVendorRow summary {
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  list-style: none;
+  user-select: none;
+}
+
+.wfVendorRow summary::-webkit-details-marker {
+  display: none;
+}
+
+.wfVendorSummaryLeft {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 14px;
-  border-bottom: 1px solid #f0f2f5;
+  gap: 8px;
+}
+
+.wfVendorChevron {
+  font-size: 0.6rem;
+  color: #6c757d;
+  transition: transform 0.2s;
+}
+
+.wfVendorRow[open] .wfVendorChevron {
+  transform: rotate(90deg);
+}
+
+.wfVendorTotalPrice {
+  font-weight: 700;
+  color: var(--primary-color);
+  white-space: nowrap;
+}
+
+.wfVendorBody {
+  padding: 8px 14px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid #e9ecef;
 }
 
 .wfVendorRow:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .wfLoadMoreBtn {
@@ -2126,6 +2171,42 @@ $status-colors: (
 
 .wfVendorRow:nth-child(even) {
   background: #fafbfc;
+}
+
+.wfNegFieldCard {
+  flex: 1 0 140px;
+  max-width: 200px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.wfNegFieldCardActive {
+  border: 1.5px solid var(--primary-color);
+  background: #f0f4ff;
+}
+
+.wfNegFieldCardInactive {
+  border: 1px solid #e9ecef;
+  background: #f8f9fa;
+  opacity: 0.7;
+}
+
+.wfNegFieldLabel {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  color: #6c757d;
+  margin-bottom: 4px;
+}
+
+.wfNegFieldValue {
+  font-weight: 500;
+}
+
+.wfNegFieldTarget {
+  color: var(--primary-color);
+  margin-left: 4px;
 }
 
 .wfVendorName {

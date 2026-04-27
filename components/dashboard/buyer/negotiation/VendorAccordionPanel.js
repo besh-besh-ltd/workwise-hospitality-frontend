@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { NEGOTIATION_FIELD_OPTIONS, FIELD_TARGET_KEYS } from './NegotiationFieldsSelect';
+import { NEGOTIATION_FIELD_OPTIONS, FIELD_TARGET_KEYS, buildChargeFieldOption, getChargeTargetKey } from './NegotiationFieldsSelect';
 import styles from './NegotiationUI.module.scss';
 
 /**
@@ -43,10 +43,6 @@ const getFieldDisplayValue = (vendorData, fieldKey) => {
       return vendorData.unitPrice
         ? `₹${Number(vendorData.unitPrice).toLocaleString('en-IN')}`
         : '--';
-    case 'freight':
-      return formatCharge(vendorData.freightPrice, vendorData.freightMode) || '--';
-    case 'packaging':
-      return formatCharge(vendorData.packagePrice, vendorData.packageMode) || '--';
     case 'payment_terms':
       return formatPaymentTerms(vendorData.paymentTerms) || '--';
     case 'vendor_tc':
@@ -55,8 +51,12 @@ const getFieldDisplayValue = (vendorData, fieldKey) => {
       return vendorData.comment || '--';
     case 'delivery_period':
       return vendorData.deliveryPeriod ? `${vendorData.deliveryPeriod}` : '--';
-    default:
+    default: {
+      // Dynamic charge fields — match by slug or name
+      const charge = (vendorData.otherCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
+      if (charge) return formatCharge(charge.amount, charge.amount_mode) || '--';
       return '--';
+    }
   }
 };
 
@@ -168,6 +168,7 @@ const VendorAccordionPanel = ({
   onVendorTargetChange,
   onVendorLocalFieldToggle,
   globalFormData = {},
+  chargeNamesList = [],
 }) => {
   const [hoveredVendorId, setHoveredVendorId] = useState(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -207,9 +208,10 @@ const VendorAccordionPanel = ({
       if (isInRound) {
         approvalStatus = approval?.status || 'PENDING';
       }
-      const isDisabled = isInRound && approvalStatus !== 'REJECTED';
-
       const priceInfo = vendorPriceData.vendors.find(vp => vp.vendorId === vendorId);
+      const isRegret = priceInfo?.isRegret || false;
+      // Per-field negotiation: vendor can be in a round for some fields but still eligible for others
+      const isDisabled = isRegret;
 
       return {
         id: vendorId,
@@ -218,6 +220,7 @@ const VendorAccordionPanel = ({
         activeRoundInfo: v.active_round_info || null,
         approvalStatus,
         isDisabled,
+        isRegret,
         quoteData: priceInfo || null,
       };
     }).sort((a, b) => a.totalPrice - b.totalPrice);
@@ -303,7 +306,7 @@ const VendorAccordionPanel = ({
           const isSelected = selectedVendorIds.includes(vendor.id);
           // Selected vendors are always expanded; unselected expand on hover/tap
           const isExpanded = isSelected || hoveredVendorId === vendor.id || tappedVendorId === vendor.id;
-          const { isDisabled, quoteData } = vendor;
+          const { isDisabled, isRegret, quoteData } = vendor;
           const thisVendorTargets = vendorTargets[vendor.id] || {};
 
           return (
@@ -328,35 +331,48 @@ const VendorAccordionPanel = ({
                 />
                 <div className={styles.vendorInfo}>
                   <p className={styles.vendorName}>{vendor.name}</p>
-                  {vendor.approvalStatus && (
-                    <span className={`${styles.vendorApprovalBadge} ${
-                      vendor.approvalStatus === 'APPROVED' ? styles.vendorApprovalApproved :
-                      vendor.approvalStatus === 'REJECTED' ? styles.vendorApprovalRejected :
-                      styles.vendorApprovalPending
-                    }`}>
-                      {vendor.approvalStatus === 'APPROVED' ? 'Approved' :
-                       vendor.approvalStatus === 'REJECTED' ? 'Rejected' :
-                       'Pending Approval'}
-                      {vendor.activeRoundInfo?.round_number ? ` · Round ${vendor.activeRoundInfo.round_number}` : ''}
+                  {isRegret && (
+                    <span className="badge bg-danger ms-2" style={{ fontSize: "0.7rem", verticalAlign: "middle" }}>Regretted</span>
+                  )}
+                  {vendor.approvalStatus && !isRegret && vendor.approvalStatus === 'PENDING' && (
+                    <span className={`${styles.vendorApprovalBadge} ${styles.vendorApprovalPending}`}>
+                      Pending Approval{vendor.activeRoundInfo?.round_number ? ` · Round ${vendor.activeRoundInfo.round_number}` : ''}
                     </span>
                   )}
-                  {vendor.totalPrice > 0 && (
+                  {isRegret ? (
+                    <p className={styles.vendorPrice} style={{ color: "#dc3545" }}>Regretted</p>
+                  ) : vendor.totalPrice > 0 ? (
                     <p className={styles.vendorPrice}>
                       ₹{vendor.totalPrice.toLocaleString('en-IN')}
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
               <div className={`${styles.vendorAccordionBody} ${isExpanded ? styles.vendorAccordionBodyOpen : ''}`}>
                 <div className={styles.vendorQuoteCardsGrid}>
-                  {NEGOTIATION_FIELD_OPTIONS.map(field => {
+                  {(() => {
+                    // Vendor accordion shows: comment, payment_terms, and vendor-specific custom charges
+                    const defaultChargeSlugs = new Set(
+                      chargeNamesList.filter(c => c.created_by === null).map(c => c.slug || c.name)
+                    );
+                    const vendorCustomCharges = (quoteData?.otherCharges || [])
+                      .filter(c => !defaultChargeSlugs.has(c.slug || c.name))
+                      .map(c => ({ name: c.name, slug: c.slug || c.name }))
+                      .map(buildChargeFieldOption);
+                    const vendorFields = [
+                      NEGOTIATION_FIELD_OPTIONS.find(f => f.value === 'payment_terms'),
+                      { value: 'comments', label: 'Comments', inputType: 'text', placeholder: 'Enter target comments' },
+                      ...vendorCustomCharges,
+                    ].filter(Boolean);
+                    return vendorFields;
+                  })().map(field => {
                     const isGlobalSelected = selectedFields.includes(field.value);
                     const localFields = thisVendorTargets._localFields || [];
                     const isLocalSelected = localFields.includes(field.value);
                     const isActive = isGlobalSelected || isLocalSelected;
                     const displayValue = getFieldDisplayValue(quoteData, field.value);
-                    const globalTargetKey = FIELD_TARGET_KEYS[field.value];
+                    const globalTargetKey = getChargeTargetKey(field.value);
                     const globalTarget = globalFormData[globalTargetKey] || '';
                     const localTarget = thisVendorTargets[field.value] || '';
                     const localMode = thisVendorTargets[`${field.value}_mode`] || 'percentage';
