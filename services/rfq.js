@@ -1465,3 +1465,48 @@ export const submitRFQApprovalAction = (rfqId, payload) => {
     }
   });
 };
+
+// Charge Names CRUD
+export const getChargeNames = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/charge-names/all`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const createChargeName = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/charge-names`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const updateChargeName = (id, payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.put(`/rfq/charge-names/${id}`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const deleteChargeName = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.delete(`/rfq/charge-names/${id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
