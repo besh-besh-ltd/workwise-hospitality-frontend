@@ -804,8 +804,9 @@ useEffect(() => {
     // Deep clone the form data to avoid direct mutation
     const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
 
-    // Remove spurious 'value' key that is not expected by the backend
+    // Remove spurious keys that are not expected by the backend
     delete formDataCopy.value;
+    delete formDataCopy.created_by;
 
     // Ensure company_name is included from either form values, Redux store, or user profile
     formDataCopy.company_name = values.company_name || formDataCopy.company_name || userProfile?.company_name || "";

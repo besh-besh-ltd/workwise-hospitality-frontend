@@ -399,7 +399,7 @@ export const sendQuotation = (payload, token) => {
       let response = await axiosInstance.post(`/rfq/quote/create${token !== undefined ? `?token=${token}` : ''}`, payload);
       resolve(response);
     } catch (error) {
-      reject({ message: error });
+      reject(error);
     }
   });
 };
@@ -421,7 +421,7 @@ export const updateQuotation = (quote_id, payload, token) => {
       let response = await axiosInstance.put(`/rfq/quote/update/${quote_id}${token !== undefined ? `?token=${token}` : ''}`, payload);
       resolve(response);
     } catch (error) {
-      reject({ message: error });
+      reject(error);
     }
   });
 };
@@ -1462,6 +1462,51 @@ export const submitRFQApprovalAction = (rfqId, payload) => {
       resolve(response);
     } catch (error) {
       reject({ message: error?.response?.data?.message || error?.message || "Failed to submit approval action" });
+    }
+  });
+};
+
+// Charge Names CRUD
+export const getChargeNames = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/charge-names/all`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const createChargeName = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/charge-names`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const updateChargeName = (id, payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.put(`/rfq/charge-names/${id}`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const deleteChargeName = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.delete(`/rfq/charge-names/${id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
     }
   });
 };

@@ -3,6 +3,7 @@ const GrandTotalBreakup = ({
   totalFreight = 0,
   totalPackaging = 0,
   totalTax = 0,
+  totalOtherCharges = 0,
   grandTotal = 0,
   formatPrice,
   align = "end",
@@ -14,6 +15,7 @@ const GrandTotalBreakup = ({
     { label: "Freight", value: totalFreight },
     { label: "Packaging", value: totalPackaging },
     { label: "Tax (GST)", value: totalTax },
+    { label: "Other Charges", value: totalOtherCharges },
   ].filter((item) => item.value > 0);
 
   const hasBreakup = lineItems.length > 0;

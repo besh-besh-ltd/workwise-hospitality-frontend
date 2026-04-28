@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { extractQuotation, fetchQuoteHistory, getRFQById, sendQuotation, updateQuotation, createTenderPaymentOrder, verifyTenderPayment } from "@/services/rfq";
+import { extractQuotation, fetchQuoteHistory, getRFQById, sendQuotation, updateQuotation, createTenderPaymentOrder, verifyTenderPayment, getChargeNames, createChargeName, updateChargeName, deleteChargeName } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
 import Loader from "@/components/shared/Loader";
 import { toast } from "react-toastify";
@@ -16,47 +16,52 @@ import SmartButton from "@/components/shared/SmartButton";
 import { calculateTotal as sharedCalculateTotal } from "@/utils/sharedFunctions";
 import { QuotesOverrideModal } from "@/components/modal/ExtractedQuotesModal";
 import { IoMdInformationCircleOutline } from "react-icons/io";
+import { FiTrash2, FiChevronDown, FiChevronUp, FiCheck, FiX, FiEdit2 } from "react-icons/fi";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal";
 import ProductNegotiationBadge from "./ProductNegotiationBadge";
+import Modal from "react-modal";
 import { checkOpenClarification } from "@/services/clarification";
 import { getAllVendorNegotiationStatus, getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { checkBidExpired } from "@/utils/sharedFunctions";
 import { Alert } from "react-bootstrap";
+import { Tooltip } from "react-tooltip";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
 
-const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
+const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm", disabled = false }) => {
+  const baseStyle = {
+    padding: "0 0.5rem",
+    height: "31px",
+    lineHeight: "1",
+    fontSize: "0.8rem",
+    border: "none",
+    cursor: disabled ? "not-allowed" : "pointer",
+    transition: "background-color 0.3s ease",
+    opacity: disabled ? 0.6 : 1,
+  };
   return (
-    <div className="mt-2 d-flex " role="group" style={{marginBottom : "16px"}} >
-      <SmartButton
-        onClick={() => onToggle('percentage')}
-        theme={currentMode === 'percentage' ? 'primary' : 'light'}
-        style={{ 
-          paddingLeft: "0.6rem", 
-          paddingRight: "0.6rem",
-          borderTopRightRadius: 0,
-          borderBottomRightRadius: 0,
-          minHeight : "40px",
-          marginBottom: "10px"
+    <div className="d-flex" role="group" style={{ flexShrink: 0 }}>
+      <button type="button"
+        onClick={() => { if (!disabled) onToggle('percentage'); }}
+        disabled={disabled}
+        style={{
+          ...baseStyle,
+          borderRadius: "4px 0 0 4px",
+          backgroundColor: currentMode === 'percentage' ? 'var(--primary-color)' : 'var(--dark-grey-color)',
+          color: currentMode === 'percentage' ? '#fff' : '#000',
         }}
-        label="%"
-        id="percentage_toggle-percentage_absolute_toggle-send_quote_page"
-      />
-      <SmartButton
-        onClick={() => onToggle('absolute')}
-        theme={currentMode === 'absolute' ? 'primary' : 'light'}
-        style={{ 
-          paddingLeft: "0.6rem", 
-          paddingRight: "0.6rem",
-          borderTopLeftRadius: 0,
-          borderBottomLeftRadius: 0,
-          minHeight : "40px",
-          marginBottom: "10px"
+      >%</button>
+      <button type="button"
+        onClick={() => { if (!disabled) onToggle('absolute'); }}
+        disabled={disabled}
+        style={{
+          ...baseStyle,
+          borderRadius: "0 4px 4px 0",
+          backgroundColor: currentMode === 'absolute' ? 'var(--primary-color)' : 'var(--dark-grey-color)',
+          color: currentMode === 'absolute' ? '#fff' : '#000',
         }}
-        label="₹"
-        id="absolute_toggle-percentage_absolute_toggle-send_quote_page"
-      />
+      >₹</button>
     </div>
   );
 };
@@ -75,14 +80,23 @@ const SendQuotePageComp = () => {
 
 
   const [chargesMode, setChargesMode] = useState({
-    freight: { global: "percentage" },
-    package: { global: "percentage" },
-    tax: { global: "percentage" }
+    tax: { global: "percentage" },
   })
-  
+
   const [globalFreight, setglobalFreight] = useState(0);
   const [globalPackaging, setglobalPackaging] = useState(0);
-  const [globalTax, setglobalTax] = useState(0);
+  const [globalOtherCharges, setGlobalOtherCharges] = useState([]);
+  const [chargesModalOpen, setChargesModalOpen] = useState(null);
+  const [chargesSummaryOpen, setChargesSummaryOpen] = useState(true);
+  const [chargeNamesList, setChargeNamesList] = useState([]);
+  const [addingCustomCharge, setAddingCustomCharge] = useState(false);
+  const [editingCustomCharge, setEditingCustomCharge] = useState(null);
+  const [customChargeInput, setCustomChargeInput] = useState("");
+  const [chargeDropdownOpen, setChargeDropdownOpen] = useState(false);
+  const [globalChargeDropdownOpen, setGlobalChargeDropdownOpen] = useState(false);
+  const [addingGlobalCustomCharge, setAddingGlobalCustomCharge] = useState(false);
+  const [editingGlobalCustomCharge, setEditingGlobalCustomCharge] = useState(null);
+  const [globalCustomChargeInput, setGlobalCustomChargeInput] = useState("");
   const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
   const [globalComment, setglobalComment] = useState("");
   const [vendorGSTIN, setVendorGSTIN] = useState(null);
@@ -111,6 +125,7 @@ const [negotiationQuoteSubmitted, setNegotiationQuoteSubmitted] = useState({});
 // Bid expiry and active negotiation round state
 const [isBidExpired, setIsBidExpired] = useState(false);
 const [activeNegotiationProductIds, setActiveNegotiationProductIds] = useState(new Set());
+const [activeNegotiationFields, setActiveNegotiationFields] = useState({});
 const [hasActiveNegotiationRounds, setHasActiveNegotiationRounds] = useState(false);
 // Changes by Agnij [Preserve form state when Razorpay modal opens]
 const formStateRef = useRef(null);
@@ -207,39 +222,49 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
 // Save the initial payment terms list from backend
 const originalPaymentTermsListRef = useRef(null);
 
-  const grandTotalIncludingGST = quoteProducts.reduce(
+  const grandTotalBeforeGlobalCharges = quoteProducts.reduce(
     (sum, product) => sum + (Number(product?.total_price) || 0),
     0
   );
+  let globalChargesTotal = 0;
+  if (grandTotalBeforeGlobalCharges > 0) {
+    globalOtherCharges.forEach(c => {
+      globalChargesTotal += (c.amount_mode === "percentage") ? (grandTotalBeforeGlobalCharges * (parseFloat(c.amount) || 0)) / 100 : (parseFloat(c.amount) || 0);
+    });
+  }
+  const grandTotalIncludingGST = grandTotalBeforeGlobalCharges + globalChargesTotal;
   const grandTotalIncludingGSTText = formatPrice(grandTotalIncludingGST);
 
+  const resolveChargeValue = (value, mode, base) => {
+    const v = parseFloat(value) || 0;
+    return mode === "percentage" ? (base * v) / 100 : v;
+  };
+
   const quoteBreakup = useMemo(() => {
-    let totalBase = 0, totalFreight = 0, totalPackaging = 0, totalTax = 0;
+    let totalBase = 0, totalTax = 0, totalOtherCharges = 0;
     quoteProducts.forEach(item => {
       const prod = rfqDetails?.products?.find(pi => pi.id == item.id);
       const qtySpec = prod?.product_specs?.find(s => s.title === "Quantity");
       const qty = parseFloat(qtySpec?.value || item.quantity) || 0;
       const unitPrice = parseFloat(item.unit_price) || 0;
       const base = unitPrice * qty;
-      const freightMode = chargesMode?.freight?.[item.id] || "percentage";
-      const packageMode = chargesMode?.package?.[item.id] || "percentage";
+      if (base <= 0) return;
+
       const taxMode = chargesMode?.tax?.[item.id] || "percentage";
-      const freight = freightMode === "percentage"
-        ? (base * (parseFloat(item.freight_price) || 0)) / 100
-        : parseFloat(item.freight_price) || 0;
-      const packaging = packageMode === "percentage"
-        ? (base * (parseFloat(item.package_price) || 0)) / 100
-        : parseFloat(item.package_price) || 0;
-      const subtotal = base + freight + packaging;
-      const tax = taxMode === "percentage"
-        ? (subtotal * (parseFloat(item.tax) || 0)) / 100
-        : parseFloat(item.tax) || 0;
+      const tax = resolveChargeValue(item.tax, taxMode, base);
+
+      let itemOtherCharges = 0;
+      (item.other_charges || []).forEach(charge => {
+        const cAmt = resolveChargeValue(charge.amount, charge.amount_mode, base);
+        const cTax = resolveChargeValue(charge.tax, charge.tax_mode, cAmt);
+        itemOtherCharges += cAmt + cTax;
+      });
+
       totalBase += base;
-      totalFreight += freight;
-      totalPackaging += packaging;
       totalTax += tax;
+      totalOtherCharges += itemOtherCharges;
     });
-    return { totalBase, totalFreight, totalPackaging, totalTax };
+    return { totalBase, totalTax, totalOtherCharges };
   }, [quoteProducts, rfqDetails, chargesMode]);
 
   // Check if any quoteable product has pending/incomplete tech eval
@@ -315,28 +340,32 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
   // Changes by Agnij 2024-07-30 [Add function to check if fields are filled]
   const isAnyFieldFilled = () => {
     // Check global fields
-    if (globalFreight > 0 || 
-        globalPackaging > 0 || 
-        globalTax > 0 || 
-        globalPaymentTerms.trim() !== "" || 
-        globalComment.trim() !== "" || 
-        globalDocumentFiles.length > 0) {
+    if (globalFreight > 0 ||
+        globalPackaging > 0 ||
+        globalPaymentTerms.trim() !== "" ||
+        globalComment.trim() !== "" ||
+        globalDocumentFiles.length > 0 ||
+        globalOtherCharges.some(c => (c.name && c.name.trim() !== "") || c.amount > 0)) {
       return true;
     }
-    
+
     // Check product fields
     for (const product of quoteProducts) {
-      if (product.unit_price > 0 || 
-          product.freight_price > 0 || 
-          product.package_price > 0 || 
-          product.tax > 0 || 
-          product.comment.trim() !== "" || 
-          (product.delivery_period.toString().trim() !== "" && !isNaN(parseInt(product.delivery_period)) && parseInt(product.delivery_period) > 0) || 
+      if (product.unit_price > 0 ||
+          product.freight_price > 0 ||
+          product.package_price > 0 ||
+          product.tax > 0 ||
+          product.freight_tax > 0 ||
+          product.package_tax > 0 ||
+          product.tax_tax > 0 ||
+          (product.other_charges && product.other_charges.some(c => (c.name && c.name.trim() !== "") || c.amount > 0)) ||
+          product.comment.trim() !== "" ||
+          (product.delivery_period.toString().trim() !== "" && !isNaN(parseInt(product.delivery_period)) && parseInt(product.delivery_period) > 0) ||
           (product.document_files && product.document_files.length > 0)) {
         return true;
       }
     }
-    
+
     return false;
   };
 
@@ -346,6 +375,9 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
 
     if (id) {
       getRFQdetails();
+      getChargeNames().then(res => {
+        if (res?.data) setChargeNamesList(res.data);
+      }).catch(() => {});
     }
 
     // Update the tech evaluation restriction flag
@@ -430,6 +462,19 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
           const productIds = new Set(activeRounds.map(r => r.rfq_product_id));
           setActiveNegotiationProductIds(productIds);
           setHasActiveNegotiationRounds(productIds.size > 0);
+
+          // Extract per-field negotiation data
+          const fieldsByProduct = {};
+          activeRounds.forEach(r => {
+            // The API filters by vendor token, so vendor_approvals should contain this vendor's entry
+            const myApproval = (r.vendor_approvals || [])[0];
+            if (!myApproval?.negotiation_fields) return;
+            fieldsByProduct[r.rfq_product_id] = myApproval.negotiation_fields.map(f => ({
+              name: f.name,
+              targetPrice: f.target || f.target_price,
+            }));
+          });
+          setActiveNegotiationFields(fieldsByProduct);
         } catch (error) {
           console.error("Error checking active negotiation rounds:", error);
           setActiveNegotiationProductIds(new Set());
@@ -567,6 +612,7 @@ const loadRazorpayScript = () => {
         if (res.data.quote_details) {
           setglobalComment(res.data.quote_details.global_comment || ""); // Set globalComment from API or fallback to empty string
           setglobalPaymentTerms(res.data.quote_details.global_payment_term || ""); // Set globalPaymentTerms from API or fallback to empty string
+          setGlobalOtherCharges((res.data.quote_details.global_charges || []).map(c => ({ _id: generateChargeId(), name: c.name, amount: c.tax || 0, amount_mode: c.tax_mode || "percentage" })));
 
           //  one state and useRef for payment terms to track newly added, updated, and deleted terms
           const paymetTermData = res.data.quotations[0]?.payment_terms || []
@@ -608,9 +654,8 @@ const loadRazorpayScript = () => {
                 ? productItem.product_details[0].name
                 : "",
               unit_price: quoteItem.unit_price || "",
-              package_price: quoteItem.package_price || globalPackaging || null,
-              tax: quoteItem.tax || globalTax || null,
-              freight_price: quoteItem.freight_price || globalFreight || null,
+              tax: quoteItem.tax || null,
+              tax_mode: quoteItem?.tax_mode || "percentage",
               total_price: sharedCalculateTotal(
                 quoteItem,
                 getProductSpecValueByTitle(
@@ -625,23 +670,25 @@ const loadRazorpayScript = () => {
                   return item.file_url;
                 }) || [],
               document_files: [],
-              freight_mode: quoteItem?.freight_mode || "percentage",
-              package_mode: quoteItem?.package_mode || "percentage",
-              tax_mode: quoteItem?.tax_mode || "percentage",
+              other_charges: (() => {
+                const existing = (quoteItem?.other_charges || []).map(c => ({ ...c, _id: generateChargeId() }));
+                const existingNames = existing.map(c => c.name);
+                const migrated = [];
+                if (parseFloat(quoteItem.freight_price) > 0 && !existingNames.includes("Freight")) {
+                  migrated.push({ _id: generateChargeId(), name: "Freight", amount: parseFloat(quoteItem.freight_price) || 0, amount_mode: quoteItem?.freight_mode || "percentage", tax: parseFloat(quoteItem?.freight_tax) || 0, tax_mode: quoteItem?.freight_tax_mode || "percentage" });
+                }
+                if (parseFloat(quoteItem.package_price) > 0 && !existingNames.includes("Packaging")) {
+                  migrated.push({ _id: generateChargeId(), name: "Packaging", amount: parseFloat(quoteItem.package_price) || 0, amount_mode: quoteItem?.package_mode || "percentage", tax: parseFloat(quoteItem?.package_tax) || 0, tax_mode: quoteItem?.package_tax_mode || "percentage" });
+                }
+                return [...migrated, ...existing];
+              })(),
             });
           });
           setquoteProducts(bidProducts);
 
-          const freightProductObj = { global: "percentage" };
-          bidProducts.forEach(product => { freightProductObj[product.id] = product.freight_mode})
-
-          const packageProductObj = { global: "percentage" };
-          bidProducts.forEach(product => { packageProductObj[product.id] = product.package_mode})
-
           const taxProductObj = { global: "percentage" };
-          bidProducts.forEach(product => { taxProductObj[product.id] = product.tax_mode})
-
-          setChargesMode({ freight: freightProductObj, package: packageProductObj, tax: taxProductObj });
+          bidProducts.forEach(product => { taxProductObj[product.id] = product.tax_mode || "percentage" });
+          setChargesMode({ tax: taxProductObj });
           if (res.data.quotations.length > 0)
             setalreadyQuoted(res.data.quotations)
         }
@@ -654,6 +701,105 @@ const loadRazorpayScript = () => {
       });
   };
 
+  const generateChargeId = () => `oc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+  const computeItemTotal = (item, qty, modes) => {
+    const base = (parseFloat(item.unit_price) || 0) * qty;
+    if (base <= 0) return 0;
+
+    const taxMode = modes?.tax || chargesMode.tax[item.id] || "percentage";
+    const mainTax = resolveChargeValue(item.tax, taxMode, base);
+
+    let otherChargesTotal = 0;
+    (item.other_charges || []).forEach(charge => {
+      const cAmt = resolveChargeValue(charge.amount, charge.amount_mode, base);
+      const cTax = resolveChargeValue(charge.tax, charge.tax_mode, cAmt);
+      otherChargesTotal += cAmt + cTax;
+    });
+
+    return Math.round(base + mainTax + otherChargesTotal) || 0;
+  };
+
+  const getChargesSummary = (product) => {
+    const lines = [];
+    (product.other_charges || []).forEach(c => {
+      if (c.name && parseFloat(c.amount) > 0) {
+        lines.push(`${c.name}: ${c.amount_mode === "percentage" ? c.amount + "%" : "₹" + c.amount}`);
+      }
+    });
+    return lines;
+  };
+
+  const handleAddOtherCharge = (productIndex, chargeName = "") => {
+    setquoteProducts(prev => prev.map((item, idx) => {
+      if (idx === productIndex) {
+        return {
+          ...item,
+          other_charges: [
+            ...(item.other_charges || []),
+            { _id: generateChargeId(), name: chargeName, amount: 0, amount_mode: "percentage", tax: 0, tax_mode: "percentage" }
+          ]
+        };
+      }
+      return item;
+    }));
+  };
+
+  const handleRemoveOtherCharge = (productIndex, chargeId) => {
+    const updated = quoteProducts.map((item, idx) => {
+      if (idx === productIndex) {
+        return {
+          ...item,
+          other_charges: item.other_charges.filter(c => c._id !== chargeId)
+        };
+      }
+      return item;
+    });
+    // Recalculate totals
+    const recalculated = updated.map((item) => {
+      const prod = rfqDetails?.products?.find((pi) => pi.id == item.id);
+      const qty = parseFloat(getProductSpecValueByTitle(prod?.product_specs, "Quantity")) || 0;
+      item.total_price = computeItemTotal(item, qty);
+      return item;
+    });
+    setquoteProducts(recalculated);
+  };
+
+  const handleUpdateOtherCharge = (productIndex, chargeId, field, value) => {
+    const updated = quoteProducts.map((item, idx) => {
+      if (idx === productIndex) {
+        const updatedCharges = item.other_charges.map(c => {
+          if (c._id === chargeId) {
+            return { ...c, [field]: value };
+          }
+          return c;
+        });
+        const updatedItem = { ...item, other_charges: updatedCharges };
+        const prod = rfqDetails?.products?.find((pi) => pi.id == item.id);
+        const qty = parseFloat(getProductSpecValueByTitle(prod?.product_specs, "Quantity")) || 0;
+        updatedItem.total_price = computeItemTotal(updatedItem, qty);
+        return updatedItem;
+      }
+      return item;
+    });
+    setquoteProducts(updated);
+  };
+
+  const handleChargeFieldUpdate = (productIndex, field, value, modeOverrides) => {
+    const updated = quoteProducts.map((item, idx) => {
+      if (idx === productIndex) {
+        const updatedItem = { ...item, [field]: value };
+        const prod = rfqDetails?.products?.find((pi) => pi.id == item.id);
+        const qty = parseFloat(getProductSpecValueByTitle(prod?.product_specs, "Quantity")) || 0;
+        updatedItem.total_price = computeItemTotal(updatedItem, qty, modeOverrides);
+        return updatedItem;
+      }
+      return item;
+    });
+    setquoteProducts(updated);
+  };
+
+
   const handleUpdateData = (
     item_id,
     e,
@@ -664,8 +810,6 @@ const loadRazorpayScript = () => {
     total_qty = parseFloat(total_qty),
     file,
     fileOperation,
-    freightMode = chargesMode.freight[item_id],
-    packageMode = chargesMode.package[item_id],
     taxMode = chargesMode.tax[item_id],
   ) => {
     let value = e.target.value;
@@ -686,55 +830,40 @@ const loadRazorpayScript = () => {
           item[type] = value;
         }
 
-        const totalWithoutFPT = item.unit_price * total_qty;
-        const freightPrice = freightMode == "percentage" ? ((totalWithoutFPT * parseFloat(item.freight_price || 0)) / 100) : parseFloat(item.freight_price || 0);
-        const packagePrice = packageMode == "percentage" ? ((totalWithoutFPT * parseFloat(item.package_price || 0)) / 100) : parseFloat(item.package_price || 0);
+        // Clear tax and charges only when base price is explicitly set to 0 (not when field is empty mid-edit)
+        if (type === "unit_price" && value !== "" && parseFloat(value) === 0) {
+          item.tax = 0;
+          item.other_charges = [];
+        }
 
-        // Subtotal before Tax
-        const subtotalBeforeTax = totalWithoutFPT + freightPrice + packagePrice;
+        const base = (parseFloat(item.unit_price) || 0) * total_qty;
+        if (base <= 0) {
+          item.total_price = 0;
+        } else {
+          const tax = taxMode == "percentage" ? ((base * parseFloat(item.tax || 0)) / 100) : parseFloat(item.tax || 0);
 
-        // Calculate Tax (percentage of subtotalBeforeTax)
-        const tax = taxMode == "percentage" ? ((subtotalBeforeTax * parseFloat(item.tax || 0)) / 100) : parseFloat(item.tax || 0);
+          let otherChargesTotal = 0;
+          (item.other_charges || []).forEach(charge => {
+            const cAmt = resolveChargeValue(charge.amount, charge.amount_mode, base);
+            const cTax = resolveChargeValue(charge.tax, charge.tax_mode, cAmt);
+            otherChargesTotal += cAmt + cTax;
+          });
 
-        // Final total price
-        const getTotalPrice = subtotalBeforeTax + tax;
-        item.total_price = getTotalPrice ? Math.round(getTotalPrice) : 0;
+          item.total_price = Math.round(base + tax + otherChargesTotal) || 0;
+        }
       }
       return item;
     });
     setquoteProducts(d);
   };
 
-  const calculateTotal = (products, is_global = false, charge) => {
+  const calculateTotal = (products) => {
     const d = products.map((item) => {
-
-      let prod = rfqDetails.products.find((pi) => pi.id == item.id);
-
-      let unit_price = parseFloat(item.unit_price) || 0;
-      let freight_price = parseFloat(item.freight_price) || 0;
-      let package_price = parseFloat(item.package_price) || 0;
-      let item_tax = parseFloat(item.tax) || 0;
-      let total_qty = parseFloat(getProductSpecValueByTitle(prod.product_specs, "Quantity")) || 0;
-
-      const totalWithoutFPT = unit_price * total_qty;
-      const freightPrice = (charge == 'freight' ? chargesMode.freight.global : chargesMode.freight[item.id]) == "percentage" ? ((totalWithoutFPT * freight_price) / 100) : freight_price;
-      const packagePrice = (charge == 'package' ? chargesMode.package.global : chargesMode.package[item.id]) == "percentage" ? ((totalWithoutFPT * package_price) / 100) : package_price;
-
-      // Subtotal before Tax
-      const subtotalBeforeTax = totalWithoutFPT + freightPrice + packagePrice;
-
-      // Calculate Tax (percentage of subtotalBeforeTax)
-      const tax = (charge == 'tax' ? chargesMode.tax.global : chargesMode.tax[item.id]) == "percentage" ? ((subtotalBeforeTax * item_tax) / 100) : item_tax;
-
-      // Final total price
-      const totalPrice = subtotalBeforeTax + tax;
-
-      const total = Math.round(totalPrice) || 0;
-      item.total_price = total;
-
+      const prod = rfqDetails.products.find((pi) => pi.id == item.id);
+      const total_qty = parseFloat(getProductSpecValueByTitle(prod.product_specs, "Quantity")) || 0;
+      item.total_price = computeItemTotal(item, total_qty);
       return item;
     });
-
     setquoteProducts(d);
   }
 
@@ -784,13 +913,13 @@ return { deletedTerms, createdTerms, updatedTerms };
       quoteProducts: JSON.parse(JSON.stringify(quoteProducts)),
       globalFreight,
       globalPackaging,
-      globalTax,
       globalPaymentTerms,
       globalComment,
       globalDocumentFiles: [...globalDocumentFiles],
       paymentTermsRows: JSON.parse(JSON.stringify(paymentTermsRows)),
       vendorGSTIN,
-      chargesMode: JSON.parse(JSON.stringify(chargesMode))
+      chargesMode: JSON.parse(JSON.stringify(chargesMode)),
+      globalOtherCharges: JSON.parse(JSON.stringify(globalOtherCharges)),
     };
   };
 
@@ -800,13 +929,13 @@ return { deletedTerms, createdTerms, updatedTerms };
       setquoteProducts(formStateRef.current.quoteProducts);
       setglobalFreight(formStateRef.current.globalFreight);
       setglobalPackaging(formStateRef.current.globalPackaging);
-      setglobalTax(formStateRef.current.globalTax);
       setglobalPaymentTerms(formStateRef.current.globalPaymentTerms);
       setglobalComment(formStateRef.current.globalComment);
       setGlobalDocumentFiles(formStateRef.current.globalDocumentFiles);
       setPaymentTermsRows(formStateRef.current.paymentTermsRows);
       setVendorGSTIN(formStateRef.current.vendorGSTIN);
       setChargesMode(formStateRef.current.chargesMode);
+      setGlobalOtherCharges(formStateRef.current.globalOtherCharges || []);
       formStateRef.current = null;
     }
   };
@@ -1006,7 +1135,15 @@ return { deletedTerms, createdTerms, updatedTerms };
       global_payment_term_list: paymentTermsRows,    // NEW structured array
       globalComment,
       term_and_condition_files: globalDocumentFiles,
-      vendorGSTIN
+      vendorGSTIN,
+      global_charges: globalOtherCharges
+        .filter(c => c.name && c.name.trim() !== "")
+        .map(({ _id, amount, amount_mode, ...rest }) => ({
+          name: rest.name,
+          tax: parseFloat(amount) || 0,
+          tax_mode: amount_mode || "percentage",
+          is_global: true,
+        })),
     };
 
     if (alreadyQuoted) {
@@ -1053,19 +1190,16 @@ return { deletedTerms, createdTerms, updatedTerms };
         .map(product => {
           if(product.unit_price == 0) {
             product.tax = 0;
-            product.freight_price = 0;
-            product.package_price = 0;
             product.total_price = 0;
+            product.other_charges = [];
           }
 
-          product.freight_price = parseFloat(product.freight_price) || 0;
           product.tax = parseFloat(product.tax) || 0;
-          product.package_price = parseFloat(product.package_price) || 0;
+          product.tax_mode = chargesMode.tax[product.id] || product.tax_mode || "percentage";
           product.total_price = parseFloat(product.total_price) || 0;
-
-          product.freight_mode = chargesMode.freight[product.id] || product.freight_mode;
-          product.package_mode = chargesMode.package[product.id] || product.package_mode;
-          product.tax_mode = chargesMode.tax[product.id] || product.tax_mode;
+          product.other_charges = (product.other_charges || [])
+            .filter(c => c.name && c.name.trim() !== "")
+            .map(({ _id, ...rest }) => rest);
 
           return product;
         })
@@ -1086,7 +1220,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           setTenderPaymentLoading(false);
           // setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
-          const errorMessage = error.response?.data?.message || "Unable to update quote. Please try again.";
+          const errorMessage = error?.response?.data?.message || error?.message || "Unable to update quote. Please try again.";
           toast.error(errorMessage);
         })
     }
@@ -1108,19 +1242,18 @@ return { deletedTerms, createdTerms, updatedTerms };
       const updatedProducts = filteredquoteProducts.map(product => {
         if(product.unit_price == 0) {
           product.tax = 0;
-          product.freight_price = 0;
-          product.package_price = 0;
           product.total_price = 0;
+          product.other_charges = [];
         } else {
-          product.freight_price = parseFloat(product.freight_price) || 0;
-          product.tax = parseFloat(product.tax) || 0;
-          product.package_price = parseFloat(product.package_price) || 0;
           product.total_price = parseFloat(product.total_price) || 0;
         }
 
-        product.freight_mode = chargesMode.freight[product.id] || chargesMode.freight.global;
-        product.package_mode = chargesMode.package[product.id] || chargesMode.package.global;
-        product.tax_mode = chargesMode.tax[product.id] || chargesMode.tax.global;
+        product.tax = parseFloat(product.tax) || 0;
+        product.tax_mode = chargesMode.tax[product.id] || "percentage";
+        product.other_charges = (product.other_charges || [])
+          .filter(c => c.name && c.name.trim() !== "")
+          .map(({ _id, ...rest }) => rest);
+
         return product;
       })
 
@@ -1152,7 +1285,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           setTenderPaymentLoading(false);
           // setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
-          const errorMessage = err.response?.data?.message || "Unable to send quote. Please try again.";
+          const errorMessage = err?.response?.data?.message || err?.message || "Unable to send quote. Please try again.";
           toast.error(errorMessage);
         });
     }
@@ -1281,42 +1414,6 @@ return { deletedTerms, createdTerms, updatedTerms };
     setGlobalDocumentFiles(newFileLinks);
   }
   
-  const updateChargesByGlobal = (chargeType) => {
-    if(chargeType == "freight") {
-      const freightGlobalValues = { global: chargesMode.freight.global };
-      Object.keys(chargesMode.freight).forEach((key) => {
-        if (key == "global") return;
-        freightGlobalValues[key] = chargesMode.freight.global;
-      });
-
-      setChargesMode((prev) => ({
-        ...prev,
-        freight: freightGlobalValues,
-      }));
-    } else if (chargeType == "package") {
-      const packageGlobalValues = { global: chargesMode.package.global };
-      Object.keys(chargesMode.package).forEach(key => {
-        if(key == "global") return;
-        packageGlobalValues[key] = chargesMode.package.global;
-      })
-
-      setChargesMode(prev => ({
-        ...prev,
-        package: packageGlobalValues,
-      }))
-    } else if (chargeType == "tax") {
-      const taxGlobalValues = { global: chargesMode.tax.global };
-      Object.keys(chargesMode.tax).forEach(key => {
-        if(key == "global") return;
-        taxGlobalValues[key] = chargesMode.tax.global;
-      })
-
-      setChargesMode(prev => ({
-        ...prev,
-        tax: taxGlobalValues,
-      }))
-    }
-  }
 
   const overrideQuote = (overrideQuotes) => {
     if (overrideQuotes && Array.isArray(overrideQuotes)) {
@@ -1354,52 +1451,6 @@ return { deletedTerms, createdTerms, updatedTerms };
       toast.info("Quoted has been overrided to respective products")
     }
   };
-
-  useEffect(() => {
-    updateChargesByGlobal("freight");
-    calculateTotal(quoteProducts, true, 'freight');
-  }, [chargesMode.freight.global])
-
-  useEffect(() => {
-    updateChargesByGlobal("package");
-    calculateTotal(quoteProducts, true, 'package');
-  }, [chargesMode.package.global, chargesMode.tax.global])
-
-  useEffect(() => {
-    updateChargesByGlobal("tax");
-    calculateTotal(quoteProducts, true, 'tax');
-  }, [chargesMode.tax.global])
-
-  useEffect(() => {
-    const updated = quoteProducts.map((item) => ({
-      ...item,
-      freight_price:
-        globalFreight === "" ? 0 : globalFreight ?? item.freight_price ?? 0,
-    }));
-    updateChargesByGlobal("freight");
-    calculateTotal(updated, true, 'freight');
-  }, [globalFreight]);
-
-  useEffect(() => {
-    const updated = quoteProducts.map((item) => ({
-      ...item,
-      package_price:
-        globalPackaging === ""
-          ? 0
-          : globalPackaging ?? item.package_price ?? 0,
-    }));
-    updateChargesByGlobal("package");
-    calculateTotal(updated, true, 'package');
-  }, [globalPackaging]);
-
-  useEffect(() => {
-    const updated = quoteProducts.map((item) => ({
-      ...item,
-      tax: globalTax === "" ? 0 : globalTax ?? item.tax ?? 0,
-    }));
-    updateChargesByGlobal("tax");
-    calculateTotal(updated, true, 'tax');
-  }, [globalTax]);
 
   useEffect(() => {
     console.log("EXTRACTED DATA:", extractedQuotes.data)
@@ -1469,9 +1520,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                             <th>Qty</th>
                             {/* <th>Unit</th> */}
                             <th>Pricing</th>
-                            {/* <th>Freight</th> */}
-                            <th>Package</th>
-                            <th>Taxes</th>
                             <th>Total</th>
                             <th>Vendor Comments</th>
                             <th style={{ maxWidth: "100px" }}>
@@ -1857,120 +1905,199 @@ return { deletedTerms, createdTerms, updatedTerms };
                     <div className="row align-items-stretch mb-4">
                       {/* ========== COLUMN 1: Global Costing + Quote Document + Global Comment ========== */}
                       <div className="col-lg-4 col-12 d-flex">
-                        <div className="card border shadow-sm rounded-3 w-100 h-100">
-                          <div className="card-body">
-                            <h3 className="fs-6 fw-semibold mb-3">
-                              Global Costing
+                        <div className="card border shadow-sm rounded-3 w-100" style={{ maxHeight: "400px" }}>
+                          <div className="card-body d-flex flex-column" style={{ overflow: "hidden" }}>
+                            <h3 className="fs-6 fw-semibold mb-3" style={{ flexShrink: 0 }}>
+                              Global Taxing
                             </h3>
 
-                            <div className="row g-3 mb-4">
-                              {/* Freight */}
-                              <div className="col-12 col-sm-4">
-                                <label className="form-label">Freight</label>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  min={0}
-                                  value={globalFreight}
-                                  placeholder={
-                                    chargesMode.freight.global === "percentage"
-                                      ? "3%"
-                                      : "₹950"
-                                  }
-                                  onChange={(e) =>
-                                    setglobalFreight(e.target.value || "")
-                                  }
-                                  onWheel={(e) => e.currentTarget.blur()}
-                                />
-                                <div className="mt-2">
-                                  <PercentageAbsoluteToggle
-                                    currentMode={chargesMode.freight.global}
-                                    onToggle={(value) =>
-                                      setChargesMode((prev) => ({
-                                        ...prev,
-                                        freight: {
-                                          ...prev.freight,
-                                          global: value,
-                                        },
-                                      }))
-                                    }
-                                  />
-                                </div>
-                              </div>
 
-                              {/* Packaging */}
-                              <div className="col-12 col-sm-4">
-                                <label className="form-label">Packaging</label>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  min={0}
-                                  value={globalPackaging}
-                                  placeholder={
-                                    chargesMode.package.global === "percentage"
-                                      ? "4%"
-                                      : "₹1450"
-                                  }
-                                  onChange={(e) =>
-                                    setglobalPackaging(e.target.value || "")
-                                  }
-                                  onWheel={(e) => e.currentTarget.blur()}
-                                />
-                                <div className="mt-2">
-                                  <PercentageAbsoluteToggle
-                                    currentMode={chargesMode.package.global}
-                                    onToggle={(value) =>
-                                      setChargesMode((prev) => ({
-                                        ...prev,
-                                        package: {
-                                          ...prev.package,
-                                          global: value,
-                                        },
-                                      }))
-                                    }
-                                  />
-                                </div>
-                              </div>
+                            {/* Global Charges Dropdown - fixed above scroll */}
+                            <div style={{ flexShrink: 0 }}>
+                            <h6 className="fw-semibold mb-2 text-muted" style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>Taxes</h6>
 
-                              {/* TAX */}
-                              <div className="col-12 col-sm-4">
-                                <label className="form-label">TAX/VAT</label>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  min={0}
-                                  value={globalTax}
-                                  placeholder={
-                                    chargesMode.tax.global === "percentage"
-                                      ? "18%"
-                                      : "₹18940"
-                                  }
-                                  onChange={(e) =>
-                                    setglobalTax(e.target.value || "")
-                                  }
-                                  onWheel={(e) => e.currentTarget.blur()}
-                                />
-                                <div className="mt-2">
-                                  <PercentageAbsoluteToggle
-                                    currentMode={chargesMode.tax.global}
-                                    onToggle={(value) =>
-                                      setChargesMode((prev) => ({
-                                        ...prev,
-                                        tax: { ...prev.tax, global: value },
-                                      }))
-                                    }
+                            {!isBidExpired && (() => {
+                              const selectedNames = globalOtherCharges.map(c => c.name);
+                              const availableCharges = chargeNamesList.filter(c => c.is_global && !selectedNames.includes(c.name));
+
+                              if (addingGlobalCustomCharge) {
+                                return (
+                                  <div className="d-flex align-items-center gap-2 mb-3">
+                                    <input type="text" className="form-control form-control-sm" placeholder="Enter charge name"
+                                      style={{ flex: 1 }}
+                                      value={globalCustomChargeInput} onChange={(e) => setGlobalCustomChargeInput(e.target.value)}
+                                      autoFocus
+                                      onKeyDown={async (e) => {
+                                        if (e.key === "Enter" && globalCustomChargeInput.trim()) {
+                                          try {
+                                            const res = await createChargeName({ name: globalCustomChargeInput.trim(), is_global: true });
+                                            setChargeNamesList(prev => [...prev, { id: res?.data?.id || res?.id, name: globalCustomChargeInput.trim(), is_global: true }]);
+                                            setGlobalOtherCharges(prev => [...prev, { _id: generateChargeId(), name: globalCustomChargeInput.trim(), amount: 0, amount_mode: "percentage" }]);
+                                            toast.success("Charge added successfully");
+                                          } catch (err) { toast.error("Failed to create charge"); }
+                                          setAddingGlobalCustomCharge(false); setGlobalCustomChargeInput("");
+                                        }
+                                      }}
+                                    />
+                                    <button type="button" className="btn btn-sm btn-success" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={async () => {
+                                        if (!globalCustomChargeInput.trim()) return;
+                                        try {
+                                          const res = await createChargeName({ name: globalCustomChargeInput.trim(), is_global: true });
+                                          setChargeNamesList(prev => [...prev, { id: res?.data?.id || res?.id, name: globalCustomChargeInput.trim(), is_global: true }]);
+                                          setGlobalOtherCharges(prev => [...prev, { _id: generateChargeId(), name: globalCustomChargeInput.trim(), amount: 0, amount_mode: "percentage" }]);
+                                          toast.success("Charge added successfully");
+                                        } catch (err) { toast.error("Failed to create charge"); }
+                                        setAddingGlobalCustomCharge(false); setGlobalCustomChargeInput("");
+                                      }}
+                                    >Add</button>
+                                    <button type="button" className="btn btn-sm btn-outline-secondary" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={() => { setAddingGlobalCustomCharge(false); setGlobalCustomChargeInput(""); }}
+                                    >Cancel</button>
+                                  </div>
+                                );
+                              }
+
+                              if (editingGlobalCustomCharge) {
+                                return (
+                                  <div className="d-flex align-items-center gap-2 mb-3">
+                                    <input type="text" className="form-control form-control-sm" placeholder="Edit charge name"
+                                      style={{ flex: 1 }}
+                                      value={globalCustomChargeInput} onChange={(e) => setGlobalCustomChargeInput(e.target.value)}
+                                      autoFocus
+                                      onKeyDown={async (e) => {
+                                        if (e.key === "Enter" && globalCustomChargeInput.trim()) {
+                                          try {
+                                            await updateChargeName(editingGlobalCustomCharge.id, { name: globalCustomChargeInput.trim(), is_global: true });
+                                            setChargeNamesList(prev => prev.map(c => c.id === editingGlobalCustomCharge.id ? { ...c, name: globalCustomChargeInput.trim() } : c));
+                                            toast.success("Charge updated successfully");
+                                          } catch (err) { toast.error("Failed to update charge"); }
+                                          setEditingGlobalCustomCharge(null); setGlobalCustomChargeInput("");
+                                        }
+                                      }}
+                                    />
+                                    <button type="button" className="btn btn-sm btn-success" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={async () => {
+                                        if (!globalCustomChargeInput.trim()) return;
+                                        try {
+                                          await updateChargeName(editingGlobalCustomCharge.id, { name: globalCustomChargeInput.trim(), is_global: true });
+                                          setChargeNamesList(prev => prev.map(c => c.id === editingGlobalCustomCharge.id ? { ...c, name: globalCustomChargeInput.trim() } : c));
+                                          toast.success("Charge updated successfully");
+                                        } catch (err) { toast.error("Failed to update charge"); }
+                                        setEditingGlobalCustomCharge(null); setGlobalCustomChargeInput("");
+                                      }}
+                                    >Save</button>
+                                    <button type="button" className="btn btn-sm btn-outline-secondary" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={() => { setEditingGlobalCustomCharge(null); setGlobalCustomChargeInput(""); }}
+                                    >Cancel</button>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="position-relative mb-3">
+                                  {globalChargeDropdownOpen && (
+                                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }}
+                                      onClick={() => setGlobalChargeDropdownOpen(false)}
+                                    />
+                                  )}
+                                  <div className="form-select form-select-sm" style={{ cursor: "pointer" }}
+                                    onClick={() => setGlobalChargeDropdownOpen(prev => !prev)}
+                                  >
+                                    Select tax type...
+                                  </div>
+                                  {globalChargeDropdownOpen && (
+                                    <div className="position-absolute w-100 bg-white border rounded shadow-sm d-flex flex-column" style={{ zIndex: 10, top: "100%", left: 0, maxHeight: "200px" }}>
+                                      <div style={{ flex: 1, overflowY: "auto" }}>
+                                      {availableCharges.map(charge => (
+                                        <div key={charge.id} className="d-flex align-items-center justify-content-between px-3 py-2" style={{ cursor: "pointer", fontSize: "0.85rem" }}
+                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
+                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                        >
+                                          <span style={{ flex: 1 }} onClick={() => {
+                                            setGlobalOtherCharges(prev => [...prev, { _id: generateChargeId(), name: charge.name, amount: 0, amount_mode: "percentage" }]);
+                                            setGlobalChargeDropdownOpen(false);
+                                          }}>{charge.name}</span>
+                                          {charge.created_by !== null && (
+                                            <span className="d-flex gap-2 ms-2" style={{ flexShrink: 0 }}>
+                                              <FiEdit2 size={13} color="#198754" style={{ cursor: "pointer" }} title="Edit"
+                                                onClick={(e) => { e.stopPropagation(); setEditingGlobalCustomCharge(charge); setGlobalCustomChargeInput(charge.name); setGlobalChargeDropdownOpen(false); }}
+                                              />
+                                              <FiTrash2 size={13} color="#dc3545" style={{ cursor: "pointer" }} title="Delete"
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  try {
+                                                    await deleteChargeName(charge.id);
+                                                    setChargeNamesList(prev => prev.filter(c => c.id !== charge.id));
+                                                    toast.success("Charge deleted successfully");
+                                                  } catch (err) { toast.error("Failed to delete charge"); }
+                                                  setGlobalChargeDropdownOpen(false);
+                                                }}
+                                              />
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                      </div>
+                                      <div className="px-3 py-2 text-primary fw-semibold" style={{ cursor: "pointer", fontSize: "0.85rem", borderTop: "1px solid #eee", flexShrink: 0 }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                        onClick={() => { setAddingGlobalCustomCharge(true); setGlobalChargeDropdownOpen(false); }}
+                                      >
+                                        + Add custom charge
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                            </div>
+
+                            {/* Scrollable charge cards */}
+                            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+                            {globalOtherCharges.map((charge, idx) => (
+                              <div key={charge._id} className="border rounded p-2 mb-2" style={{ fontSize: "0.85rem" }}>
+                                <div className="d-flex align-items-center justify-content-between mb-1">
+                                  <span className="fw-semibold" style={{ fontSize: "0.85rem" }}>{charge.name}</span>
+                                  {!isBidExpired && (
+                                    <FiTrash2 size={14} color="#dc3545" style={{ cursor: "pointer", flexShrink: 0 }}
+                                      onClick={() => setGlobalOtherCharges(prev => prev.filter(c => c._id !== charge._id))}
+                                    />
+                                  )}
+                                </div>
+                                <div className="d-flex align-items-center gap-1">
+                                  <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                    placeholder={charge.amount_mode === "percentage" ? "Tax (%)" : "Tax (₹)"}
+                                    value={charge.amount || ""}
+                                    disabled={isBidExpired}
+                                    onChange={(e) => {
+                                      const updated = [...globalOtherCharges];
+                                      updated[idx] = { ...updated[idx], amount: parseFloat(e.target.value) || 0 };
+                                      setGlobalOtherCharges(updated);
+                                    }}
+                                    onWheel={(e) => e.currentTarget.blur()}
+                                  />
+                                  <PercentageAbsoluteToggle currentMode={charge.amount_mode}
+                                    disabled={isBidExpired}
+                                    onToggle={(value) => {
+                                      const updated = [...globalOtherCharges];
+                                      updated[idx] = { ...updated[idx], amount_mode: value };
+                                      setGlobalOtherCharges(updated);
+                                    }}
                                   />
                                 </div>
                               </div>
+                            ))}
                             </div>
 
                             {/* Upload Quotation Document */}
                             <label
-                              className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
+                              className={`upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2 mt-3 ${isBidExpired ? "disabled" : ""}`}
                               style={{
                                 background: "#edf0ff",
                                 border: "1px dashed #c9cff8",
-                                cursor: "pointer",
+                                cursor: isBidExpired ? "not-allowed" : "pointer",
+                                opacity: isBidExpired ? 0.6 : 1,
                               }}
                             >
                               <FontAwesomeIcon icon={faFile} className="me-2" />
@@ -1980,6 +2107,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
                                 onChange={(e) => uploadGlobalDocumentFiles(e)}
                                 multiple
+                                disabled={isBidExpired}
                               />
                             </label>
 
@@ -2087,6 +2215,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                               value={globalPaymentTerms}
                               placeholder="100% Against Proforma Invoice"
                               onChange={(e) => setglobalPaymentTerms(e.target.value)}
+                              disabled={isBidExpired}
                             />
                             </>
                           )}
@@ -2097,6 +2226,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                             value={globalComment}
                             placeholder="Placeholder text for global comment"
                             onChange={(e) => setglobalComment(e.target.value)}
+                            disabled={isBidExpired}
                           />
                         </div>
                       </div>
@@ -2114,6 +2244,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 value={vendorGSTIN}
                                 placeholder="Enter your GSTIN as per delivery location"
                                 onChange={(e) => setVendorGSTIN(e.target.value)}
+                                disabled={isBidExpired}
                               />
                             </div>
                           </div>
@@ -2138,6 +2269,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 )}
                                 </div>
 
+                            {!isBidExpired && (
                             <SmartButton
                                   onClick={() =>
                                     setPaymentTermsRows((prev) => [ ...(prev || []), { id:null,  value: "", type: "advance", days: "", comment:'' } ])
@@ -2147,6 +2279,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                             label="Add Term"
                             icon={<FontAwesomeIcon icon={faPlus} className="me-1" />}
                           />
+                            )}
 
 
                               </div>
@@ -2154,20 +2287,335 @@ return { deletedTerms, createdTerms, updatedTerms };
                               <PaymentTermsEditor
                                 value={paymentTermsRows}
                                 onChange={setPaymentTermsRows}
+                                disabled={isBidExpired}
                               />
                             </div>
                       </div>
                   </div>
                   </div>
-                  <div className="table-responsive">
+                  {/* Charges Modal */}
+                  {chargesModalOpen !== null && rfqDetails?.products && (() => {
+                    const modalIndex = chargesModalOpen;
+                    const modalProduct = quoteProducts[modalIndex];
+                    const rfqProduct = rfqDetails.products[modalIndex];
+                    if (!modalProduct || !rfqProduct) return null;
+                    const productName = rfqProduct?.product_details?.[0]?.name || "Item";
+                    const qty = parseFloat(getProductSpecValueByTitle(rfqProduct?.product_specs, "Quantity")) || 0;
+                    const unit = getProductSpecValueByTitle(rfqProduct?.product_specs, "Unit") || "";
+                    const base = (parseFloat(modalProduct.unit_price) || 0) * qty;
+
+                    // Calculate summary values from other_charges
+                    let allChargesTotal = 0;
+                    (modalProduct.other_charges || []).forEach(c => {
+                      const cAmt = resolveChargeValue(c.amount, c.amount_mode, base);
+                      const cTax = resolveChargeValue(c.tax, c.tax_mode, cAmt);
+                      allChargesTotal += cAmt + cTax;
+                    });
+
+                    const isProductFinalized = rfqProduct.finalization_status === "Another vendor is finalized" || rfqProduct.finalization_status === "You are finalized";
+                    const techStatus = techEvalStatuses[rfqProduct.id];
+                    const isTechEvalPendingOrRejected = showTechEvalRestrictions && techStatus && techStatus.has_tech_eval === true && techStatus.is_accepted !== true;
+                    const isNegotiationSubmittedForProduct = !!negotiationQuoteSubmitted[rfqProduct.id];
+                    const isBidExpiredForProduct = isBidExpired && !activeNegotiationProductIds.has(rfqProduct.id);
+                    const isDisabled = isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct || isBidExpiredForProduct;
+
+                    // Per-field negotiation check for modal charges
+                    const modalNegotiatedFields = activeNegotiationFields[rfqProduct.id] || [];
+                    const isChargeNegotiable = (chargeName, chargeSlug) => {
+                      if (!isBidExpired) return true;
+                      if (!activeNegotiationProductIds.has(rfqProduct.id)) return false;
+                      if (isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct) return false;
+                      return modalNegotiatedFields.some(f => f.name === chargeName || f.name === chargeSlug || f.name === (chargeSlug || chargeName));
+                    };
+                    const getChargeTargetPrice = (chargeNameOrSlug) => {
+                      const field = modalNegotiatedFields.find(f => f.name === chargeNameOrSlug);
+                      return field?.targetPrice ?? null;
+                    };
+
+                    return (
+                      <Modal
+                        isOpen={true}
+                        onRequestClose={() => setChargesModalOpen(null)}
+                        ariaHideApp={false}
+                        contentLabel="Charges Modal"
+                        className="contact-modal contact-modal-new"
+                        style={{
+                          overlay: { backgroundColor: "rgba(0, 0, 0, 0.75)", zIndex: 9999 },
+                          content: {
+                            position: "absolute",
+                            top: "50%",
+                            left: "50%",
+                            transform: "translate(-50%, -50%)",
+                            maxWidth: "780px",
+                            width: "95%",
+                            border: "none",
+                            background: "transparent",
+                            overflow: "hidden",
+                            padding: "20px",
+                            maxHeight: "85vh",
+                            height: "85vh",
+                          },
+                        }}
+                      >
+                        <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#fff", borderRadius: "8px", overflow: "hidden" }}>
+                          {/* Fixed Header */}
+                          <div className="d-flex justify-content-between align-items-center" style={{ padding: "16px 20px", borderBottom: "1px solid #dee2e6", flexShrink: 0 }}>
+                            <h5 className="fw-bold mb-0" style={{ fontSize: "1rem" }}>Charges — {productName} <small className="text-muted">(Qty: {qty} {unit})</small></h5>
+                            <button onClick={() => setChargesModalOpen(null)} className="btn-close" aria-label="Close" style={{ fontSize: "0.7rem" }}></button>
+                          </div>
+
+                          {/* Scrollable Body */}
+                          <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+                            {/* Charge Dropdown */}
+                            {!isDisabled && (() => {
+                              const selectedNames = (modalProduct.other_charges || []).map(c => c.name);
+                              const availableCharges = chargeNamesList.filter(c => !c.is_global && !selectedNames.includes(c.name));
+
+                              if (addingCustomCharge) {
+                                return (
+                                  <div className="d-flex align-items-center gap-2 mb-3">
+                                    <input type="text" className="form-control form-control-sm" placeholder="Enter charge name"
+                                      style={{ flex: 1 }}
+                                      value={customChargeInput} onChange={(e) => setCustomChargeInput(e.target.value)}
+                                      autoFocus
+                                      onKeyDown={async (e) => {
+                                        if (e.key === "Enter" && customChargeInput.trim()) {
+                                          try {
+                                            const res = await createChargeName({ name: customChargeInput.trim(), is_global: false });
+                                            setChargeNamesList(prev => [...prev, { id: res?.data?.id || res?.id, name: customChargeInput.trim(), is_global: false }]);
+                                            handleAddOtherCharge(modalIndex, customChargeInput.trim());
+                                            toast.success("Charge added successfully");
+                                          } catch (err) { toast.error("Failed to create charge"); }
+                                          setAddingCustomCharge(false); setCustomChargeInput("");
+                                        }
+                                      }}
+                                    />
+                                    <button type="button" className="btn btn-sm btn-success" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={async () => {
+                                        if (!customChargeInput.trim()) return;
+                                        try {
+                                          const res = await createChargeName({ name: customChargeInput.trim(), is_global: false });
+                                          setChargeNamesList(prev => [...prev, { id: res?.data?.id || res?.id, name: customChargeInput.trim(), is_global: false }]);
+                                          handleAddOtherCharge(modalIndex, customChargeInput.trim());
+                                          toast.success("Charge added successfully");
+                                          } catch (err) { toast.error("Failed to create charge"); }
+                                        setAddingCustomCharge(false); setCustomChargeInput("");
+                                      }}
+                                    >Add</button>
+                                    <button type="button" className="btn btn-sm btn-outline-secondary" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={() => { setAddingCustomCharge(false); setCustomChargeInput(""); }}
+                                    >Cancel</button>
+                                  </div>
+                                );
+                              }
+
+                              if (editingCustomCharge) {
+                                return (
+                                  <div className="d-flex align-items-center gap-2 mb-3">
+                                    <input type="text" className="form-control form-control-sm" placeholder="Edit charge name"
+                                      style={{ flex: 1 }}
+                                      value={customChargeInput} onChange={(e) => setCustomChargeInput(e.target.value)}
+                                      autoFocus
+                                      onKeyDown={async (e) => {
+                                        if (e.key === "Enter" && customChargeInput.trim()) {
+                                          try {
+                                            await updateChargeName(editingCustomCharge.id, { name: customChargeInput.trim() });
+                                            setChargeNamesList(prev => prev.map(c => c.id === editingCustomCharge.id ? { ...c, name: customChargeInput.trim() } : c));
+                                            toast.success("Charge updated successfully");
+                                          } catch (err) { toast.error("Failed to update charge"); }
+                                          setEditingCustomCharge(null); setCustomChargeInput("");
+                                        }
+                                      }}
+                                    />
+                                    <button type="button" className="btn btn-sm btn-success" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={async () => {
+                                        if (!customChargeInput.trim()) return;
+                                        try {
+                                          await updateChargeName(editingCustomCharge.id, { name: customChargeInput.trim() });
+                                          setChargeNamesList(prev => prev.map(c => c.id === editingCustomCharge.id ? { ...c, name: customChargeInput.trim() } : c));
+                                          toast.success("Charge updated successfully");
+                                          } catch (err) { toast.error("Failed to update charge"); }
+                                        setEditingCustomCharge(null); setCustomChargeInput("");
+                                      }}
+                                    >Save</button>
+                                    <button type="button" className="btn btn-sm btn-outline-secondary" style={{ fontSize: "0.75rem", padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
+                                      onClick={() => { setEditingCustomCharge(null); setCustomChargeInput(""); }}
+                                    >Cancel</button>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="position-relative mb-3">
+                                  {chargeDropdownOpen && (
+                                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }}
+                                      onClick={() => setChargeDropdownOpen(false)}
+                                    />
+                                  )}
+                                  <div className="form-select form-select-sm" style={{ cursor: "pointer" }}
+                                    onClick={() => setChargeDropdownOpen(prev => !prev)}
+                                  >
+                                    Select charge type...
+                                  </div>
+                                  {chargeDropdownOpen && (
+                                    <div className="position-absolute w-100 bg-white border rounded shadow-sm d-flex flex-column" style={{ zIndex: 10, top: "100%", left: 0, maxHeight: "200px" }}>
+                                      <div style={{ flex: 1, overflowY: "auto" }}>
+                                      {availableCharges.map(charge => (
+                                        <div key={charge.id} className="d-flex align-items-center justify-content-between px-3 py-2" style={{ cursor: "pointer", fontSize: "0.85rem" }}
+                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
+                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                        >
+                                          <span style={{ flex: 1 }} onClick={() => { handleAddOtherCharge(modalIndex, charge.name); setChargeDropdownOpen(false); }}>{charge.name}</span>
+                                          {charge.created_by !== null && (
+                                            <span className="d-flex gap-2 ms-2" style={{ flexShrink: 0 }}>
+                                              <FiEdit2 size={13} color="#198754" style={{ cursor: "pointer" }} title="Edit"
+                                                onClick={(e) => { e.stopPropagation(); setEditingCustomCharge(charge); setCustomChargeInput(charge.name); setChargeDropdownOpen(false); }}
+                                              />
+                                              <FiTrash2 size={13} color="#dc3545" style={{ cursor: "pointer" }} title="Delete"
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  try {
+                                                    await deleteChargeName(charge.id);
+                                                    setChargeNamesList(prev => prev.filter(c => c.id !== charge.id));
+                                                    toast.success("Charge deleted successfully");
+                                                  } catch (err) { toast.error("Failed to delete charge"); }
+                                                  setChargeDropdownOpen(false);
+                                                }}
+                                              />
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                      </div>
+                                      <div className="px-3 py-2 text-primary fw-semibold" style={{ cursor: "pointer", fontSize: "0.85rem", borderTop: "1px solid #eee", flexShrink: 0 }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                        onClick={() => { setAddingCustomCharge(true); setChargeDropdownOpen(false); }}
+                                      >
+                                        + Add custom charge
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+
+                            {/* Charges List */}
+                            {(modalProduct.other_charges || []).length > 0 && (
+                              <h6 className="fw-semibold mb-3 text-muted" style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>Charges</h6>
+                            )}
+
+                            {(modalProduct.other_charges || []).length === 0 && (
+                              <p className="text-muted text-center py-3" style={{ fontSize: "0.85rem" }}>No charges added yet. Select a charge type above.</p>
+                            )}
+
+                            {(modalProduct.other_charges || []).map((charge) => {
+                              const chargeDisabled = !isChargeNegotiable(charge.name, charge.slug);
+                              const chargeTarget = getChargeTargetPrice(charge.slug || charge.name);
+                              return (
+                              <div key={charge._id} className="border rounded p-2 mb-2">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                  <span className="fw-semibold" style={{ fontSize: "0.85rem" }}>
+                                    {charge.name}
+                                    {chargeTarget != null && <small className="text-muted ms-2">(Target: ₹{chargeTarget})</small>}
+                                  </span>
+                                  {!chargeDisabled && (
+                                    <FiTrash2 size={14} color="#dc3545" style={{ cursor: "pointer", flexShrink: 0 }}
+                                      onClick={() => handleRemoveOtherCharge(modalIndex, charge._id)}
+                                    />
+                                  )}
+                                </div>
+                                <div className="row g-4 align-items-start">
+                                  <div className="col-sm-6">
+                                    <small className="text-muted d-block mb-1">Amount</small>
+                                    <div className="d-flex align-items-center gap-1">
+                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                        placeholder={charge.amount_mode === "percentage" ? "%" : "₹"}
+                                        value={charge.amount || ""}
+                                        onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "amount", parseFloat(e.target.value) || 0)}
+                                        onWheel={(e) => e.target.blur()} disabled={chargeDisabled}
+                                      />
+                                      <PercentageAbsoluteToggle currentMode={charge.amount_mode}
+                                        disabled={chargeDisabled}
+                                        onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "amount_mode", value)}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="col-sm-6">
+                                    <small className="text-muted d-block mb-1">Tax</small>
+                                    <div className="d-flex align-items-center gap-1">
+                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                        placeholder={charge.tax_mode === "percentage" ? "%" : "₹"}
+                                        value={charge.tax || ""}
+                                        onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "tax", parseFloat(e.target.value) || 0)}
+                                        onWheel={(e) => e.target.blur()} disabled={chargeDisabled}
+                                      />
+                                      <PercentageAbsoluteToggle currentMode={charge.tax_mode}
+                                        disabled={chargeDisabled}
+                                        onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "tax_mode", value)}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Sticky Footer: Summary + Save Button */}
+                          <div style={{ flexShrink: 0, borderTop: "1px solid #dee2e6" }}>
+                            <div className="p-3" style={{ background: "#f8f9fa" }}>
+                              <div
+                                className="d-flex justify-content-between align-items-center"
+                                style={{ cursor: "pointer", padding: "4px 0", borderRadius: "4px", transition: "background-color 0.2s ease" }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#eaeaea"}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                onClick={() => setChargesSummaryOpen(prev => !prev)}
+                              >
+                                <h6 className="fw-semibold mb-0" style={{ fontSize: "0.8rem" }}>Charges Summary</h6>
+                                {chargesSummaryOpen ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
+                              </div>
+                              {chargesSummaryOpen && (
+                                <div style={{ fontSize: "0.82rem", marginTop: "8px" }}>
+                                  {(modalProduct.other_charges || []).map((charge) => {
+                                    const cAmt = resolveChargeValue(charge.amount, charge.amount_mode, base);
+                                    const cTax = resolveChargeValue(charge.tax, charge.tax_mode, cAmt);
+                                    if (cAmt <= 0 && cTax <= 0) return null;
+                                    return (
+                                      <div key={charge._id} className="d-flex justify-content-between">
+                                        <span>{charge.name || "Unnamed"}:</span>
+                                        <span>₹{cAmt.toFixed(2)} {cTax > 0 ? `(Tax: ₹${cTax.toFixed(2)})` : ""}</span>
+                                      </div>
+                                    );
+                                  })}
+                                  <hr className="my-2" />
+                                  <div className="d-flex justify-content-between fw-bold">
+                                    <span>All Charges Total:</span>
+                                    <span>₹{allChargesTotal.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className="d-flex justify-content-end" style={{ padding: "10px 20px", background: "#fff" }}>
+                              <button className="btn btn-secondary btn-sm" onClick={() => setChargesModalOpen(null)}>
+                                Save & Close
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </Modal>
+                    );
+                  })()}
+
+                  <div  className="table-responsive" style={{ width: "100%", overflowX: "hidden" }}>
                     <div className="table-container">
-                      <table className="table">
+                      <table className="table" style={{ width: "100%", tableLayout: "auto" }}>
                         <thead>
                           <tr>
                             <th
                               rowSpan="2"
-                              className="align-middle"
-                              style={{ maxWidth: "40px" }}
+                              className="align-middle text-center"
+                              style={{ width: "45px", maxWidth: "45px" }}
                             >
                               Sl No.
                             </th>
@@ -2175,32 +2623,23 @@ return { deletedTerms, createdTerms, updatedTerms };
                               Item Details
                             </th>
                             <th
-                              className="text-center"
-                              style={{ minWidth: "160px" }}
+                              className="text-center align-middle"
+                              style={{ width: "150px", minWidth: "150px", maxWidth: "150px" }}
                             >
-                              Pricing
-                              <br />
-                              <small>(Base + Freight)</small>
+                              Base Price<br/>+<br/>Other Charges
                             </th>
 
-                            <th
-                              className="text-center"
-                              style={{ minWidth: "160px" }}
-                            >
-                              Packaging / Taxes
-                            </th>
-
-                            <th className="text-center">Total</th>
+                            <th className="text-center align-middle" style={{ minWidth: "150px" }}>Total</th>
                             {currentLowest ? (
-                              <th rowSpan="2" className="align-middle">
+                              <th rowSpan="2" className="align-middle text-center">
                                 Current Lowest
                               </th>
                             ) : null}
-                            <th className="text-center">Specific Comments</th>
-                            <th className="text-center">
+                            <th className="text-center align-middle" style={{ width: "130px" }}>Comment(s)</th>
+                            <th className="text-center align-middle" style={{ width: "110px" }}>
                               Delivery Period <small>(In Days)</small>
                             </th>
-                            <th className="text-center">Add Documents</th>
+                            <th className="text-center align-middle">Documents</th>
                             {/* {alreadyQuoted ? (
                               <th className="text-center">
                                 Previous Documents
@@ -2229,12 +2668,27 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 const isBidExpiredForProduct = isBidExpired && !activeNegotiationProductIds.has(item.id);
                                 const isProductFinalized = item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized";
                                 const isProductDisabled = isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct || isBidExpiredForProduct;
+                                // When bid expired but negotiation active, only negotiated fields should be enabled
+                                const isBidExpiredNonNegotiable = isBidExpired && !isBidExpiredForProduct && !isProductFinalized && !isTechEvalPendingOrRejected && !isNegotiationSubmittedForProduct;
+
+                                // Per-field negotiation check
+                                const negotiatedFields = activeNegotiationFields[item.id] || [];
+                                const isFieldNegotiable = (fieldName) => {
+                                  if (!isBidExpired) return true;
+                                  if (!activeNegotiationProductIds.has(item.id)) return false;
+                                  if (isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct) return false;
+                                  return negotiatedFields.some(f => f.name === fieldName);
+                                };
+                                const getTargetPrice = (fieldName) => {
+                                  const field = negotiatedFields.find(f => f.name === fieldName);
+                                  return field?.targetPrice ?? null;
+                                };
 
                                 return (
+                                  <React.Fragment key={`q_${item.id}_${item.product_id}_${item.variant}`}>
                                   <tr
-                                    key={`q_${item.id}_${item.product_id}_${item.variant}`}
                                   >
-                                    <td>{index + 1}</td>
+                                    <td style={{ textAlign: "center", backgroundColor: "#f8f9fa", verticalAlign: "middle" }}>{index + 1}</td>
                                     <td>
                                       <p className="fw-semibold text-nowrap mb-1">
                                         {item?.product_details[0]?.name}
@@ -2257,22 +2711,21 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           Negotiation Quote Submitted
                                         </span>
                                       )}
-                                      <p className="text-sm mb-1">
-                                        {getProductSpecValueByTitle(
-                                          item?.product_specs,
-                                          "Size"
-                                        )}
-                                      </p>
+                                      {getProductSpecValueByTitle(item?.product_specs, "Size") && (
+                                        <p className="text-sm mb-1">
+                                          {getProductSpecValueByTitle(item?.product_specs, "Size")}
+                                        </p>
+                                      )}
                                       <p className="text-sm mb-1 text-success fw-bold">
                                         {`${getProductSpecValueByTitle(
                                           item?.product_specs,
                                           "Quantity"
-                                        )} - ${getProductSpecValueByTitle(
+                                        )} ${getProductSpecValueByTitle(
                                           item?.product_specs,
                                           "Unit"
                                         )}`}
                                       </p>
-                                      {item?.product_specs[1]?.value && (
+                                      {getProductSpecValueByTitle(item?.product_specs, "Spec") && (
                                         <ReadMore
                                           content={`- ${getProductSpecValueByTitle(
                                             item?.product_specs,
@@ -2282,19 +2735,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           additionalClasses="text-sm"
                                         />
                                       )}
-                                      <button
-                                        className="minimal-btn "
-                                        style={{ marginTop: "auto" }}
-                                        // style={{"maxWidth":"120px"}}
-                                        onClick={() =>
-                                          openQuoteHistoryModal(
-                                            item.product_id,
-                                            index
-                                          )
-                                        } // Replace with your actual handler function
-                                      >
-                                        Prev Quotes
-                                      </button>
                                       {isTechEvalPendingOrRejected && (
                                         <small
                                           className="d-block text-danger mt-1"
@@ -2304,21 +2744,14 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         </small>
                                       )}
                                     </td>
-                                    <td style={{ minWidth: "160px" }}>
-                                      {/* Base Price */}
-                                      <div className="mb-2">
-                                        <small
-                                          className="d-block fw-bold"
-                                          style={{ fontSize: "0.9rem" , marginBottom : "10px" }}
-                                        >
-                                          Base Price
-                                        </small>
+                                    <td style={{ width: "150px", minWidth: "150px", maxWidth: "150px" }}>
+                                      <div>
                                         <input
                                           type="number"
                                           name=""
                                           id=""
                                           placeholder="₹"
-                                          style={{ minWidth: "150px" }}
+                                          style={{ width: "100%" }}
                                           value={
                                             quoteProducts[index].unit_price
                                           }
@@ -2338,7 +2771,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             )
                                           }
                                           onWheel={(e) => e.target.blur()}
-                                          disabled={isProductDisabled}
+                                          disabled={!isFieldNegotiable('base_price')}
+                                          title={getTargetPrice('base_price') != null ? `Target: ₹${getTargetPrice('base_price')}` : ''}
                                         />
 
                                         {isTechEvalPendingOrRejected && (
@@ -2349,308 +2783,85 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             Not accepted
                                           </small>
                                         )}
-                                      </div>
 
-                                      {/* Freight */}
-                                      <div className="mt-2">
-                                        {/* Label */}
-                                        <small
-                                          className="d-block fw-bold"
-                                          style={{ fontSize: "0.9rem" }}
-                                        >
-                                          Freight
-                                        </small>
-
-                                        {/* Input + Toggle */}
-                                        <div className="d-flex align-items-center">
-                                          <input
-                                            type="number"
-                                            min={0}
-                                            style={{
-                                              width: "80px",
-                                              marginRight: "8px",
-                                              marginTop: "-18px",
-                                            }}
-                                            placeholder={
-                                              chargesMode.freight[item.id] ===
-                                              "percentage"
-                                                ? "%"
-                                                : "₹"
-                                            }
-                                            value={
-                                              quoteProducts[index]
-                                                .freight_price || ""
-                                            }
-                                            onChange={(e) =>
-                                              handleUpdateData(
-                                                item.id,
-                                                e,
-                                                item.product_id,
-                                                item.variant,
-                                                "freight_price",
-                                                "",
-                                                getProductSpecValueByTitle(
-                                                  item?.product_specs,
-                                                  "Quantity"
-                                                )
-                                              )
-                                            }
-                                            onWheel={(e) => e.target.blur()}
-                                            disabled={isProductDisabled}
-                                          />
-
-                                          <PercentageAbsoluteToggle
-                                            currentMode={
-                                              chargesMode.freight[item.id]
-                                            }
-                                            onToggle={(value) => {
-                                              setChargesMode((prev) => ({
-                                                ...prev,
-                                                freight: {
-                                                  ...prev.freight,
-                                                  [item.id]: value,
-                                                },
-                                              }));
-                                              handleUpdateData(
-                                                item.id,
-                                                {
-                                                  target: {
-                                                    value:
-                                                      quoteProducts[index]
-                                                        .freight_price || 0,
-                                                  },
-                                                },
-                                                item.product_id,
-                                                item.variant,
-                                                "freight_price",
-                                                "",
-                                                getProductSpecValueByTitle(
-                                                  item?.product_specs,
-                                                  "Quantity"
-                                                ),
-                                                null,
-                                                null,
-                                                value
-                                              );
-                                            }}
-                                          />
-                                        </div>
-
-                                        {/* Error message */}
-                                        {isTechEvalPendingOrRejected && (
-                                          <small
-                                            className="d-block text-danger mt-1"
-                                            style={{ fontSize: "0.7rem" }}
+                                        {(parseFloat(quoteProducts[index]?.unit_price) > 0) && (
+                                          <span
+                                            className="text-primary d-block text-end mt-1"
+                                            style={{ fontSize: "0.72rem", cursor: "pointer" }}
+                                            onClick={() => setChargesModalOpen(index)}
                                           >
-                                            Not accepted
-                                          </small>
+                                            {isProductDisabled
+                                              ? (getChargesSummary(quoteProducts[index]).length > 0 ? "Show Charges" : "")
+                                              : (getChargesSummary(quoteProducts[index]).length > 0 ? "Edit Charges" : "+ Add Charges")
+                                            }
+                                          </span>
+                                        )}
+
+                                        {/* Tax/VAT inline */}
+                                        {(parseFloat(quoteProducts[index]?.unit_price) > 0) && (
+                                          <div className="d-flex align-items-center gap-1 mt-2">
+                                            <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0, height: "31px" }}
+                                              placeholder={chargesMode.tax[quoteProducts[index]?.id] === "absolute" ? "Tax (₹)" : "Tax (%)"}
+                                              value={quoteProducts[index].tax || ""}
+                                              onChange={(e) => handleUpdateData(item.id, e, item.product_id, item.variant, "tax", "", getProductSpecValueByTitle(item?.product_specs, "Quantity"))}
+                                              onWheel={(e) => e.target.blur()} disabled={isProductDisabled || isBidExpiredNonNegotiable}
+                                            />
+                                            <PercentageAbsoluteToggle currentMode={chargesMode.tax[quoteProducts[index]?.id] || "percentage"}
+                                              disabled={isProductDisabled || isBidExpiredNonNegotiable}
+                                              onToggle={(value) => {
+                                                setChargesMode(prev => ({ ...prev, tax: { ...prev.tax, [quoteProducts[index].id]: value } }));
+                                                handleChargeFieldUpdate(index, "tax", quoteProducts[index].tax || 0, { tax: value });
+                                              }}
+                                            />
+                                          </div>
                                         )}
                                       </div>
                                     </td>
 
-                                    <td style={{ minWidth: "180px" }}>
-                                      {/* Packaging */}
-                                      <div className="mb-3" style={{maxHeight : "48px"}}>
-                                        <small
-                                          className="d-block fw-bold "
-                                          style={{ fontSize: "0.9rem" }}
-                                        >
-                                          Packaging
-                                        </small>
-
-                                        <div className="d-flex align-items-center ">
-                                          <input
-                                            type="number"
-                                            min={0}
-                                            style={{
-                                              width: "80px",
-                                              marginRight: "8px",
-                                              marginTop: "-18px",
-                                            }}
-                                            placeholder={
-                                              chargesMode.package[item.id] ===
-                                              "percentage"
-                                                ? "%"
-                                                : "₹"
-                                            }
-                                            value={
-                                              quoteProducts[index]
-                                                .package_price || ""
-                                            }
-                                            onChange={(e) =>
-                                              handleUpdateData(
-                                                item.id,
-                                                e,
-                                                item.product_id,
-                                                item.variant,
-                                                "package_price",
-                                                "",
-                                                getProductSpecValueByTitle(
-                                                  item?.product_specs,
-                                                  "Quantity"
-                                                )
-                                              )
-                                            }
-                                            onWheel={(e) => e.target.blur()}
-                                            disabled={isProductDisabled}
-                                          />
-
-                                          <PercentageAbsoluteToggle
-                                            currentMode={
-                                              chargesMode.package[item.id]
-                                            }
-                                            onToggle={(value) => {
-                                              setChargesMode((prev) => ({
-                                                ...prev,
-                                                package: {
-                                                  ...prev.package,
-                                                  [item.id]: value,
-                                                },
-                                              }));
-                                              handleUpdateData(
-                                                item.id,
-                                                {
-                                                  target: {
-                                                    value:
-                                                      quoteProducts[index]
-                                                        .package_price || 0,
-                                                  },
-                                                },
-                                                item.product_id,
-                                                item.variant,
-                                                "package_price",
-                                                "",
-                                                getProductSpecValueByTitle(
-                                                  item?.product_specs,
-                                                  "Quantity"
-                                                ),
-                                                null,
-                                                null,
-                                                undefined,
-                                                value
-                                              );
-                                            }}
-                                          />
-                                        </div>
-
-                                        {isTechEvalPendingOrRejected && (
-                                          <small
-                                            className="d-block text-danger mt-1"
-                                            style={{ fontSize: "0.7rem" }}
+                                    <td style={{ minWidth: "150px", textAlign: "center", verticalAlign: "middle" }}>
+                                      {(() => {
+                                        const totalVal = quoteProducts[index].total_price;
+                                        const formattedTotal = totalVal > 0 ? formatPrice(totalVal) : "₹0.00";
+                                        const chargeLines = getChargesSummary(quoteProducts[index]);
+                                        const hasCharges = chargeLines.length > 0;
+                                        const isTruncated = formattedTotal.length > 14;
+                                        const showTooltip = isTruncated || hasCharges;
+                                        return (
+                                          <>
+                                          <span
+                                            className="fw-bold"
+                                            style={{ fontSize: "0.9rem", display: "inline-block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "140px" }}
+                                            {...(showTooltip ? {
+                                              "data-tooltip-id": "charges-tooltip",
+                                              "data-tooltip-html":
+                                                `<strong>${formattedTotal}</strong>` +
+                                                (hasCharges ? `<hr style="margin:4px 0;border-color:#ccc"/>` + chargeLines.join("<br/>") : "")
+                                            } : {})}
                                           >
-                                            Not accepted
-                                          </small>
-                                        )}
-                                      </div>
-
-                                      {/* Taxes */}
-                                      <div className="mt-8" style={{marginTop : "32px"}}>
-                                        <small
-                                          className="d-block fw-bold mb-1"
-                                          style={{ fontSize: "0.9rem", }}
-                                        >
-                                          Taxes/VAT
-                                        </small>
-
-                                        <div className="d-flex align-items-center">
-                                          <input
-                                            type="number"
-                                            min={0}
+                                            {formattedTotal}
+                                          </span>
+                                          <button
+                                            className="d-block mx-auto mt-2"
                                             style={{
-                                              width: "80px",
-                                              marginRight: "8px",
-                                              marginTop: "-24px",
+                                              fontSize: "0.7rem",
+                                              padding: "2px 8px",
+                                              backgroundColor: "#dbdbec",
+                                              color: "#000080",
+                                              border: "none",
+                                              borderRadius: "3px",
+                                              fontWeight: 500,
+                                              cursor: "pointer",
+                                              transition: "opacity 0.2s ease",
                                             }}
-                                            placeholder={
-                                              chargesMode.tax[item.id] ===
-                                              "percentage"
-                                                ? "%"
-                                                : "₹"
-                                            }
-                                            value={
-                                              quoteProducts[index].tax || ""
-                                            }
-                                            onChange={(e) =>
-                                              handleUpdateData(
-                                                item.id,
-                                                e,
-                                                item.product_id,
-                                                item.variant,
-                                                "tax",
-                                                "",
-                                                getProductSpecValueByTitle(
-                                                  item?.product_specs,
-                                                  "Quantity"
-                                                )
-                                              )
-                                            }
-                                            onWheel={(e) => e.target.blur()}
-                                            disabled={isProductDisabled}
-                                          />
-
-                                          <PercentageAbsoluteToggle
-                                            currentMode={
-                                              chargesMode.tax[item.id]
-                                            }
-                                            onToggle={(value) => {
-                                              setChargesMode((prev) => ({
-                                                ...prev,
-                                                tax: {
-                                                  ...prev.tax,
-                                                  [item.id]: value,
-                                                },
-                                              }));
-                                              handleUpdateData(
-                                                item.id,
-                                                {
-                                                  target: {
-                                                    value:
-                                                      quoteProducts[index]
-                                                        .tax || 0,
-                                                  },
-                                                },
-                                                item.product_id,
-                                                item.variant,
-                                                "tax",
-                                                "",
-                                                getProductSpecValueByTitle(
-                                                  item?.product_specs,
-                                                  "Quantity"
-                                                ),
-                                                null,
-                                                null,
-                                                undefined,
-                                                undefined,
-                                                value
-                                              );
-                                            }}
-                                          />
-                                        </div>
-
-                                        {isTechEvalPendingOrRejected && (
-                                          <small
-                                            className="d-block text-danger mt-1"
-                                            style={{ fontSize: "0.7rem" }}
+                                            onMouseEnter={(e) => e.target.style.opacity = "0.75"}
+                                            onMouseLeave={(e) => e.target.style.opacity = "1"}
+                                            onClick={() => openQuoteHistoryModal(item.product_id, index)}
                                           >
-                                            Not accepted
-                                          </small>
-                                        )}
-                                      </div>
-                                    </td>
-
-                                    <td>
-                                      <input
-                                        type="number"
-                                        name=""
-                                        id=""
-                                        placeholder="₹"
-                                        value={quoteProducts[index].total_price}
-                                        disabled
-                                        style={{
-                                          maxWidth: "120px",
-                                          marginTop: "22px",
-                                        }}
-                                      />
+                                            Prev Quotes
+                                          </button>
+                                          </>
+                                        );
+                                      })()}
                                     </td>
                                     {currentLowest ? (
                                       rfqDetails?.products[index]
@@ -2712,11 +2923,12 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             name="comment"
                                             id="comment"
                                             cols="30"
-                                            rows="3"
+                                            rows="2"
                                             value={quoteProducts[index].comment}
                                             style={{
-                                              maxWidth: "180px",
-                                              minHeight: "120px",
+                                              maxWidth: "200px",
+                                              minHeight: "38px",
+                                              resize: "vertical",
                                             }}
                                             onChange={(e) =>
                                               handleUpdateData(
@@ -2732,7 +2944,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                                 )
                                               )
                                             }
-                                            disabled={isProductDisabled}
+                                            disabled={isProductDisabled || (isBidExpiredNonNegotiable && !isFieldNegotiable('comments'))}
                                           ></textarea>
                                           <span htmlFor="comment">0/300</span>
                                         </div>
@@ -2747,9 +2959,9 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         )}
                                       </div>
                                     </td>
-                                    <td style={{ width: 250 }}>
+                                    <td style={{ width: "110px", textAlign: "center" }}>
                                       <input
-                                        style={{ maxWidth: "80px" }}
+                                        style={{ maxWidth: "70px", textAlign: "center" }}
                                         name="delivery_period"
                                         id="delivery_period"
                                         type="number"
@@ -2772,7 +2984,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           );
                                         }}
                                         onWheel={(e) => e.target.blur()}
-                                        disabled={isProductDisabled}
+                                        disabled={isProductDisabled || (isBidExpiredNonNegotiable && !isFieldNegotiable('delivery_period'))}
                                       />
                                       {isTechEvalPendingOrRejected && (
                                         <small
@@ -2784,17 +2996,21 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         </small>
                                       )}
                                     </td>
-                                    <td style={{ maxWidth: 250 }}>
+                                    <td style={{ maxWidth: 200 }}>
                                       <label
                                         className={`upload uploadInlineFile d-flex align-items-center justify-content-center ${
                                           isTechEvalPendingOrRejected
                                             ? "disabled"
                                             : ""
                                         }`}
+                                        style={{ padding: "5px 8px", fontSize: "0.78rem", transition: "opacity 0.2s ease" }}
+                                        onMouseEnter={(e) => e.currentTarget.style.opacity = "0.75"}
+                                        onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
                                       >
                                         <FontAwesomeIcon
                                           icon={faFile}
-                                          className="me-2"
+                                          className="me-1"
+                                          style={{ fontSize: "0.75rem" }}
                                         />{" "}
                                         Upload
                                         <input
@@ -2804,7 +3020,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             uploadQuoteItemFiles(e, item)
                                           }
                                           multiple={true}
-                                          disabled={isProductDisabled}
+                                          disabled={isProductDisabled || isBidExpiredNonNegotiable}
                                         />
                                       </label>
                                       {alreadyQuoted && (
@@ -2904,6 +3120,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       </td>
                                     )} */}
                                   </tr>
+                                  </React.Fragment>
                                 );
                               }
                             })}
@@ -2911,6 +3128,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                       </table>
                     </div>
                   </div>
+
+                  <Tooltip id="charges-tooltip" place="top" style={{ maxWidth: 250, fontSize: 12, borderRadius: 6, zIndex: 9999, lineHeight: "1.6" }} />
 
                   <div className="quote-sec-btm">
                     <div className="row">
@@ -2956,9 +3175,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                         <div className="d-flex justify-content-end mb-2">
                           <GrandTotalBreakup
                             totalBase={quoteBreakup.totalBase}
-                            totalFreight={quoteBreakup.totalFreight}
-                            totalPackaging={quoteBreakup.totalPackaging}
-                            totalTax={quoteBreakup.totalTax}
+                            totalTax={quoteBreakup.totalTax + globalChargesTotal}
+                            totalOtherCharges={quoteBreakup.totalOtherCharges}
                             grandTotal={grandTotalIncludingGST}
                             formatPrice={formatPrice}
                             align="end"
@@ -3034,6 +3252,36 @@ return { deletedTerms, createdTerms, updatedTerms };
         confirmButtonColor="success"
         confirmButtonText="Submit Quote"
         cancelButtonText="Cancel"
+        customFooter={(() => {
+          const itemsWithRupees = [];
+
+          if (itemsWithRupees.length === 0) return null;
+
+          return (
+            <div style={{
+              background: '#fff3cd',
+              border: '1px solid #ffc107',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginTop: '8px',
+              width: '100%'
+            }}>
+              <p style={{ fontWeight: 700, color: '#856404', marginBottom: '8px', fontSize: '0.9rem' }}>
+                &#9888; Some items have ₹ (Rupees) selected instead of %
+              </p>
+              <ul style={{ margin: 0, paddingLeft: '18px', color: '#856404', fontSize: '0.82rem' }}>
+                {itemsWithRupees.map((item, idx) => (
+                  <li key={idx}>
+                    <strong>{item.name}</strong> — {item.charges.join(', ')}
+                  </li>
+                ))}
+              </ul>
+              <p style={{ fontWeight: 600, color: '#856404', marginTop: '8px', marginBottom: 0, fontSize: '0.82rem' }}>
+                Please confirm this is intentional before submitting.
+              </p>
+            </div>
+          );
+        })()}
       />
 
       {showQuoteHistoryModal && (
@@ -3056,7 +3304,7 @@ export default SendQuotePageComp;
 
 
 //  PaymentTermsUIOnly component
-const PaymentTermsEditor = ({ value, onChange }) => {
+const PaymentTermsEditor = ({ value, onChange, disabled = false }) => {
   const rows = Array.isArray(value) ? value : [];
 
     const setRows = (next) => onChange && onChange(next);
@@ -3101,7 +3349,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                 }
                 min={0}
                 max={100}
-                disabled={isDeleted}
+                disabled={isDeleted || disabled}
               />
             </div>
 
@@ -3118,7 +3366,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                     comment: nextType === "credit" ? "" : (row.comment ?? ""),
                   });
                 }}
-                disabled={isDeleted}
+                disabled={isDeleted || disabled}
               >
                 <option value="advance">Advance</option>
                 <option value="credit">Credit</option>
@@ -3140,7 +3388,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                     })
                   }
                   min={1}
-                disabled={ isDeleted}
+                disabled={isDeleted || disabled}
                 />
               </div>
             ) : (
@@ -3154,13 +3402,13 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                   placeholder={row.type === "other" ? "Describe payment term" : "Note (optional)"}
                   value={row.comment || ""}
                   onChange={(e) => updateRow(index, { comment: e.target.value })}
-               disabled={ isDeleted}
+               disabled={isDeleted || disabled}
                 />
               </div>
             )}
 
             <div className="col-2 d-flex mb-1">
-              {!isDeleted ? (
+              {!disabled && (!isDeleted ? (
                 <SmartButton
                   onClick={() => markDeleted(index)}
                   theme={"red"}
@@ -3174,7 +3422,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                   style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
                   label="Restore"
                 />
-              )}
+              ))}
             </div>
 
             {/* Small status line below inputs when deleted */}

@@ -252,11 +252,8 @@ const NegotiationCompactBanner = ({
   // Button is disabled only when every vendor on every product is already in an active/pending round.
   // in_active_round is the per-vendor flag that correctly handles parallel rounds and reflects
   // rejected vendors (set to false by backend so they're eligible for a new round).
-  const allVendorsInRounds = products.length > 0 && products.every(product => {
-    const productVendors = product.product_vendors || [];
-    if (productVendors.length === 0) return true; // nothing to negotiate for this product
-    return productVendors.every(v => v.in_active_round === true);
-  });
+  // Per-field negotiation: vendors can be in a round for some fields but still eligible for others
+  const allVendorsInRounds = false;
 
   // Check if ARC is approved (hide ended rounds when ARC is approved)
   const isArcApproved = arcApprovalData?.status === 'APPROVED';

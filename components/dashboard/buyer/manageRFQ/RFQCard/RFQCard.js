@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, UserCheck, Users, Folder, FileText, Gavel, AlertTriangle, Zap, Send } from 'lucide-react';
+import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, UserCheck, Users, Folder, FileText, Gavel, AlertTriangle, Zap, Send, UserX } from 'lucide-react';
 import Link from 'next/link';
 import { useSelector } from 'react-redux';
 import moment from 'moment';
@@ -37,7 +37,8 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
 
   const totalVendors = data.vendors?.[0]?.total_vendors || 0;
   const quotesReceived = data.vendors?.[0]?.quote_received || 0;
-  const allQuotesReceived = totalVendors > 0 && quotesReceived === totalVendors;
+  const quotesRegretted = data.vendors?.[0]?.quote_regretted || 0;
+  const allQuotesReceived = totalVendors > 0 && (quotesReceived + quotesRegretted) === totalVendors;
 
   const lifecycleConfig = data.lifecycle_stage ? getLifecycleConfig(data.lifecycle_stage) : null;
   const currentStageIndex = data.lifecycle_stage ? LIFECYCLE_STAGES_ORDERED.indexOf(data.lifecycle_stage) : -1;
@@ -190,6 +191,15 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                 <Send size={12} className={allQuotesReceived ? styles.vendorIconGreen : styles.vendorIconOrange} />
                 <span>{quotesReceived} Participated</span>
               </span>
+              {quotesRegretted > 0 && (
+                <>
+                  <span className={styles.metaSep} />
+                  <span className={styles.metaChip}>
+                    <UserX size={12} className={styles.vendorIconRed} />
+                    <span>{quotesRegretted} Regretted</span>
+                  </span>
+                </>
+              )}
             </>
           )}
 

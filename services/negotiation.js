@@ -3,17 +3,55 @@ import axiosInstance from "@/lib/axios";
 /**
  * Create a new negotiation round (product-specific)
  */
-export const createNegotiationRound = ({ rfq_id, rfq_product_id, target_price, end_date, vendor_ids }) => {
+export const createNegotiationRound = ({
+  rfq_id, rfq_product_id, target_price, end_date, vendor_ids,
+  negotiation_fields, target_base_price,
+  target_freight, target_freight_mode,
+  target_packaging, target_packaging_mode,
+  target_delivery_date,
+  target_payment_terms, target_vendor_tc, target_comments,
+  vendor_targets,
+}) => {
   return new Promise(async (resolve, reject) => {
     try {
       const payload = {
         rfq_id,
         rfq_product_id,
-        target_price,
+        // Backward compat: send target_price as base price target
+        target_price: target_base_price || target_price || null,
         end_date
       };
       if (vendor_ids && vendor_ids.length > 0) {
         payload.vendor_ids = vendor_ids;
+      }
+      if (negotiation_fields && negotiation_fields.length > 0) {
+        payload.negotiation_fields = negotiation_fields;
+      }
+      if (target_base_price != null && target_base_price !== '') {
+        payload.target_base_price = parseFloat(target_base_price);
+      }
+      if (target_freight != null && target_freight !== '') {
+        payload.target_freight = parseFloat(target_freight);
+        payload.target_freight_mode = target_freight_mode || 'percentage';
+      }
+      if (target_packaging != null && target_packaging !== '') {
+        payload.target_packaging = parseFloat(target_packaging);
+        payload.target_packaging_mode = target_packaging_mode || 'percentage';
+      }
+      if (target_delivery_date) {
+        payload.target_delivery_date = target_delivery_date;
+      }
+      if (target_payment_terms) {
+        payload.target_payment_terms = target_payment_terms;
+      }
+      if (target_vendor_tc) {
+        payload.target_vendor_tc = target_vendor_tc;
+      }
+      if (target_comments) {
+        payload.target_comments = target_comments;
+      }
+      if (vendor_targets) {
+        payload.vendor_targets = vendor_targets;
       }
       const response = await axiosInstance.post('/negotiation/rounds', payload);
       resolve(response);

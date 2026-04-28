@@ -1,5 +1,49 @@
 import { useState, useEffect } from 'react';
 
+const ROLE_DASHBOARD_SEGMENTS = new Set([
+  'buyer', 'vendor', 'admin', 'management', 'engineering', 'finance'
+]);
+
+const DEFAULT_DASHBOARD_BY_USER_TYPE = {
+  buyer: '/dashboard/buyer',
+  vendor: '/dashboard/vendor',
+  admin: '/dashboard/admin',
+  management: '/dashboard/management',
+  engineering: '/dashboard/engineering',
+  finance: '/dashboard/finance',
+};
+
+/**
+ * Resolves a post-login redirect target so users are never sent to a dashboard
+ * that belongs to a different role. If the requested redirect points at
+ * /dashboard/<otherRole>/... it's swapped for the user's own /dashboard/<userType>.
+ * Same-role and non-dashboard paths pass through unchanged.
+ *
+ * Pre-login the original URL is captured by axios.js / authGuard.js with
+ * encodeURIComponent, and Next.js auto-decodes router.query, so `redirect` here
+ * is already a plain path like "/dashboard/vendor/inquiries-details?id=5".
+ *
+ * @param {string|undefined|null} redirect - Raw redirect path from router.query.
+ * @param {string} userType - User type that just authenticated.
+ * @returns {string} A path that's safe to navigate the user to.
+ */
+export const resolvePostLoginRedirect = (redirect, userType) => {
+  const fallback = DEFAULT_DASHBOARD_BY_USER_TYPE[userType] || '/';
+  if (!redirect || typeof redirect !== 'string') return fallback;
+  // Reject anything that isn't a same-origin absolute path (defends against
+  // protocol-relative URLs like "//evil.com" being used as an open redirect).
+  if (!redirect.startsWith('/') || redirect.startsWith('//')) return fallback;
+  const path = redirect.split('?')[0].split('#')[0];
+  const match = path.match(/^\/dashboard\/([^/]+)/);
+  if (match) {
+    const segment = match[1];
+    if (ROLE_DASHBOARD_SEGMENTS.has(segment) && segment !== userType) {
+      return fallback;
+    }
+  }
+  return redirect;
+};
+
 /**
  * Executes an asynchronous data-fetching function while managing a loading state.
  * @async
@@ -427,20 +471,22 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
 // return 0
   let total_qty = parseFloat(quantity) || 0;
   let unit_price = item.unit_price || 0;
-  
-  // Handle null values by defaulting to 0
-  let freight_price = item.freight_price !== null ? parseFloat(item.freight_price) : 0;
-  let package_price = item.package_price !== null ? parseFloat(item.package_price) : 0;
   let tax = item.tax !== null ? parseFloat(item.tax) : 0;
 
-  let total_without_fpt = unit_price * total_qty;
-  let FP = (item.freight_mode ?? "percentage") == 'percentage' ? (total_without_fpt * freight_price) / 100 : freight_price;
-  let PP = (item.package_mode ?? "percentage") == 'percentage' ? (total_without_fpt * package_price) / 100 : package_price;
+  let base = unit_price * total_qty;
+  if (base <= 0) return 0;
 
-  let total_with_fpt = total_without_fpt + FP + PP;
-  let T = (item.tax_mode ?? "percentage") == 'percentage' ? (total_with_fpt * tax) / 100 : tax;
+  let T = (item.tax_mode ?? "percentage") == 'percentage' ? (base * tax) / 100 : tax;
 
-  let TotalPrice = total_with_fpt + T;
+  // Other charges
+  let otherChargesTotal = 0;
+  (item.other_charges || []).forEach(c => {
+    let cAmt = (c.amount_mode ?? "percentage") == 'percentage' ? (base * (parseFloat(c.amount) || 0)) / 100 : (parseFloat(c.amount) || 0);
+    let cTax = (c.tax_mode ?? "percentage") == 'percentage' ? (cAmt * (parseFloat(c.tax) || 0)) / 100 : (parseFloat(c.tax) || 0);
+    otherChargesTotal += cAmt + cTax;
+  });
+
+  let TotalPrice = base + T + otherChargesTotal;
 
 const DELIVERY_DAYS = parseInt(item.delivery_period || 0);
 
@@ -847,7 +893,7 @@ export const getRFQPublishState = (data) => {
     //   - withdrawn (status 5)
     // Permission/owner checks live in canEditRfq() — this flag only encodes
     // the *status-based* slice that the existing UI was already gating on.
-    canEdit: !isClosed && !!data && !isBidEnded(data),
+    canEdit: !isClosed && !!data && (!isBidEnded(data) || data.has_dead_end_product || data.has_tech_stuck_product),
     // Helper for edit URL determination (only used when canEdit === true)
     editUrl: (id) => `/dashboard/buyer/rfq-management-edit?id=${id}`,
     // Helper for queries/reminder visibility
@@ -900,7 +946,11 @@ export const canEditRfq = (rfq, currentUser) => {
   }
   // Bid window passed — but allow edit if no vendors submitted quotes,
   // so the creator can extend the deadline.
-  if (isBidEnded(rfq) && rfq.is_quotes_present) {
+  // Also allow editing when a product is dead-ended (all eligible vendors'
+  // POs were rejected and no other vendor available) or tech-stuck (all vendors
+  // failed tech eval), matching backend assertEditAllowed() bypass.
+  if (isBidEnded(rfq) && rfq.is_quotes_present
+      && !rfq.has_dead_end_product && !rfq.has_tech_stuck_product) {
     return {
       allowed: false,
       reason: 'The submission deadline has passed; this RFQ can no longer be edited.'
@@ -911,6 +961,20 @@ export const canEditRfq = (rfq, currentUser) => {
     return {
       allowed: false,
       reason: 'Only the user who created this RFQ can edit it.'
+    };
+  }
+  if (rfq.has_dead_end_product) {
+    return {
+      allowed: true,
+      deadEndEdit: true,
+      reason: 'Editing is enabled because one or more products have all vendor POs rejected.'
+    };
+  }
+  if (rfq.has_tech_stuck_product) {
+    return {
+      allowed: true,
+      restrictedEdit: true,
+      reason: 'Restricted editing: only bid end date extension and vendor refresh are available because all vendors failed technical evaluation.'
     };
   }
   return { allowed: true };
