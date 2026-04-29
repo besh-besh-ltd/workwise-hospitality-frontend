@@ -105,6 +105,17 @@ const DynamicProductPage = ({ pageTitle }) => {
   const router = useRouter();
   const { slug } = router.query;
 
+  // Redirect /vendor/all → /dashboard/buyer/start-rfq (with query params preserved)
+  // for backward compatibility with old links/emails.
+  React.useEffect(() => {
+    if (!router.isReady) return;
+    const slugStr = Array.isArray(slug) ? slug.join("/") : slug;
+    if (slugStr === "all") {
+      const { slug: _s, ...restQuery } = router.query;
+      router.replace({ pathname: "/dashboard/buyer/start-rfq", query: restQuery });
+    }
+  }, [router.isReady, slug]);
+
   // Handle fallback loading state
   if (router.isFallback) {
     return <div>Loading...</div>;

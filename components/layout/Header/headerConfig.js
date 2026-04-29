@@ -50,7 +50,7 @@ export const roleMenus = {
   ],
   buyer: [
     { href: "/dashboard/buyer", label: "Dashboard", targetMenu: "nav", section: "Main" },
-    { href: "/vendor/all", label: "Create RFQ", targetMenu: "nav", section: "Main" },
+    { href: "/dashboard/buyer/start-rfq", label: "Create RFQ", targetMenu: "nav", section: "Main" },
     { href: "/dashboard/buyer/rfq-management", label: "RFQ Management", targetMenu: "nav", section: "Procurement" },
     { href: "/dashboard/buyer/technical-evaluation", label: "Tech Evaluation", targetMenu: "nav", section: "Procurement" },
     { href: "/dashboard/buyer/quote-compare", label: "Quote Compare", targetMenu: "nav", section: "Procurement" },
@@ -59,7 +59,7 @@ export const roleMenus = {
   ],
   management: [
     { href: "/dashboard/management", label: "Dashboard", targetMenu: "nav", section: "Main" },
-    { href: "/vendor/all", label: "Create RFQ", targetMenu: "nav", section: "Main" },
+    { href: "/dashboard/buyer/start-rfq", label: "Create RFQ", targetMenu: "nav", section: "Main" },
     { href: "/dashboard/buyer/rfq-management", label: "RFQ Management", targetMenu: "nav", section: "Procurement" },
     { href: "/dashboard/buyer/technical-evaluation", label: "Tech Evaluation", targetMenu: "nav", section: "Procurement" },
     { href: "/dashboard/buyer/quote-compare", label: "Quote Compare", targetMenu: "nav", section: "Procurement" },

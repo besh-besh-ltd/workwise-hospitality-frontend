@@ -2344,7 +2344,7 @@ useEffect(() => {
               {!loading && rfqProducts.length == 0 ? (
                 <div className="text-center">
                   <Link
-                    href={`/vendor/all${
+                    href={`/dashboard/buyer/start-rfq${
                       rfqDetails !== -1 ? `?rfq_id=${rfqDetails}` : ""
                     }`}
                     className="btn btn-primary"
@@ -2484,7 +2484,7 @@ useEffect(() => {
 
                   <div className="float-end addmore mt-4 ">
                     <Link
-                      href={`/vendor/all${
+                      href={`/dashboard/buyer/start-rfq${
                         rfqDetails !== -1
                           ? `?rfq_id=${rfqDetails}${
                               selectedSheet

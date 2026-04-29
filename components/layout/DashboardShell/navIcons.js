@@ -27,6 +27,7 @@ export const NAV_ICONS = {
   "/dashboard/vendor": LayoutDashboard,
 
   // Buyer / Management workflow
+  "/dashboard/buyer/start-rfq": FileText,
   "/vendor/all": FileText,
   "/dashboard/buyer/rfq-management": FolderKanban,
   "/dashboard/buyer/technical-evaluation": Scale,

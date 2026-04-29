@@ -1,0 +1,1471 @@
+// StartRFQ — Modern wizard for creating new RFQ/Tender
+
+.page {
+  max-width: 1280px;
+  // Left-align with the rest of the dashboard pages (no auto-centering)
+  margin: 0;
+}
+
+// ── Top header — back button left + title block ──
+.pageHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+
+.pageTitleBlock {
+  flex: 1;
+  min-width: 0;
+}
+
+.pageTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+
+.pageSubtitle {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+// Prominent left-side back button
+.backBtnLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-color, #2E5BA8);
+  background: #f0f4ff;
+  border: 1.5px solid #dbe4f3;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+
+  &:hover {
+    background: #e0eaff;
+    border-color: var(--primary-color, #2E5BA8);
+  }
+}
+
+// Legacy class kept (unused in new layout)
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475569;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #1e293b;
+  }
+}
+
+// ── Progress indicator ──
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 32px;
+  padding: 0 8px;
+}
+
+.progressStep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.progressCircle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #94a3b8;
+  border: 2px solid #f1f5f9;
+  transition: all 0.25s;
+}
+
+.progressStepActive .progressCircle {
+  background: var(--primary-color, #2E5BA8);
+  border-color: var(--primary-color, #2E5BA8);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(46, 91, 168, 0.12);
+}
+
+.progressStepDone .progressCircle {
+  background: var(--primary-color, #2E5BA8);
+  border-color: var(--primary-color, #2E5BA8);
+  color: #fff;
+}
+
+.progressLabel {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.progressStepActive .progressLabel,
+.progressStepDone .progressLabel {
+  color: #1e293b;
+}
+
+.progressBar {
+  flex: 1;
+  height: 2px;
+  background: #f1f5f9;
+  margin: 0 4px;
+  margin-bottom: 24px;
+  position: relative;
+  min-width: 24px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--primary-color, #2E5BA8);
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 0.4s ease;
+  }
+}
+
+.progressBarFilled::after {
+  transform: scaleX(1);
+}
+
+// ── Step containers ──
+.step {
+  animation: fadeSlide 0.3s ease;
+}
+
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stepHeader {
+  margin-bottom: 12px;
+}
+
+.stepTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px;
+}
+
+.stepDesc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+// ── Step 1: Type cards ──
+.typeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.typeCard {
+  position: relative;
+  padding: 28px 24px;
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent 0%, var(--primary-color, #2E5BA8) 50%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  &:hover {
+    border-color: var(--primary-color, #2E5BA8);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(46, 91, 168, 0.12);
+
+    &::before { opacity: 1; }
+
+    .typeCardArrow {
+      background: var(--primary-color, #2E5BA8);
+      color: #fff;
+      transform: translateX(2px);
+    }
+  }
+}
+
+.typeCardIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #eff4ff;
+  color: var(--primary-color, #2E5BA8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.typeCardName {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.typeCardDesc {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.55;
+  margin: 0 0 20px;
+}
+
+.typeCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.typeCardTag {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.typeCardArrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+// Helpful hint below cards
+.guide {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.guideTitle {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  margin: 0 0 14px;
+}
+
+.guideList {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.guideItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-radius: 10px;
+}
+
+.guideNum {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--primary-color, #2E5BA8);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guideText {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.loginHint {
+  margin-top: 20px;
+  padding: 12px 16px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: #92400e;
+  text-align: center;
+}
+
+.loginLink {
+  font-weight: 700;
+  color: #b45309;
+  cursor: pointer;
+  text-decoration: underline;
+
+  &:hover { color: #92400e; }
+}
+
+// ── Step 2: Business Units ──
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f0f4ff;
+  border: 1px solid #dbe4f3;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+  color: #1e3a6e;
+}
+
+.summaryDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-color, #2E5BA8);
+}
+
+.summaryLabel { font-weight: 600; }
+.summaryValue { font-weight: 700; }
+
+.huList {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.huItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: #cbd5e1;
+    background: #fafbfd;
+  }
+}
+
+.huItemActive {
+  border-color: var(--primary-color, #2E5BA8);
+  background: #eff4ff;
+  box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.08);
+}
+
+.huCheck {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  transition: all 0.15s;
+}
+
+.huItemActive .huCheck {
+  background: var(--primary-color, #2E5BA8);
+  border-color: var(--primary-color, #2E5BA8);
+  color: #fff;
+}
+
+.huInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.huName {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.huMeta {
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.huEmpty {
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+}
+
+// ── Step 3: Product search ──
+.searchBox {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.searchInputWrap {
+  position: relative;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 14px 16px 14px 44px;
+  font-size: 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #1e293b;
+  outline: none;
+  transition: all 0.15s;
+
+  &:focus {
+    border-color: var(--primary-color, #2E5BA8);
+    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.1);
+  }
+
+  &::placeholder { color: #a0aec0; }
+
+  &:disabled {
+    background: #f5f5f5;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+}
+
+.searchHint {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+// Suggestions dropdown
+.suggestions {
+  position: absolute;
+  top: calc(100% - 18px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  max-height: 360px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.suggestionsHeader {
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.suggestionItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.12s;
+  border-bottom: 1px solid #f5f5f5;
+
+  &:last-child { border-bottom: none; }
+
+  &:hover { background: #f8fafc; }
+}
+
+// Highlight products with no eligible vendors — left amber accent + tinted bg
+.suggestionItemNoVendors {
+  background: #fffbeb;
+  border-left: 3px solid #f59e0b;
+  padding-left: 11px;
+
+  &:hover { background: #fef3c7; }
+
+  .suggestionName { color: #92400e; }
+}
+
+.noVendorsBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.suggestionMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.suggestionName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestionMeta {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.suggestionEmpty {
+  padding: 24px 14px;
+  text-align: center;
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.suggestionLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+// Added items list
+.added {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.addedHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.addedTitle {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+  margin: 0;
+}
+
+.addedCount {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: #eff4ff;
+  color: var(--primary-color, #2E5BA8);
+}
+
+.addedItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+
+  &:last-child { border-bottom: none; }
+}
+
+.addedDot {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.addedName {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.addedEmpty {
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+}
+
+.addedSubtext {
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+// ── Step actions / footer ──
+.stepActions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #1e293b;
+  }
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 22px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary-color, #2E5BA8);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 1px 3px rgba(46, 91, 168, 0.2);
+
+  &:hover:not(:disabled) {
+    background: #1e4a8a;
+    box-shadow: 0 4px 12px rgba(46, 91, 168, 0.3);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    background: #cbd5e1;
+    color: #fff;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
+// ── Type badge in header (procurement mode) ──
+.typeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #eff4ff;
+  color: var(--primary-color, #2E5BA8);
+  border-radius: 6px;
+}
+
+// ── Banners ──
+.banner {
+  padding: 12px 16px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+  color: #92400e;
+}
+
+// Wrapper for permission banners (AccessDeniedPage / ReadOnlyBanner) so they
+// have proper spacing before the search bar.
+.bannerWrap {
+  margin-bottom: 20px;
+}
+
+.bannerInfo {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+// ════════════════════════════════════════════════
+// STEP 3 — Product picker 70/30 layout
+// ════════════════════════════════════════════════
+
+.productLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+  gap: 20px;
+  // Both panes stretch to the height of the tallest sibling — no forced
+  // viewport height, so panels collapse to content when content is short.
+  align-items: stretch;
+}
+
+.productLeft {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+// ── Search bar ──
+.searchClear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: none;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s;
+
+  &:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+  }
+}
+
+// ── Inline results panel (replaces dropdown) ──
+.resultsPanel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.resultsPanelHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+
+  > svg { color: #64748b; }
+}
+
+// Golden tone — signals "special / curated" without looking like a warning
+.recIcon {
+  color: #d97706 !important;
+}
+
+.recHint {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+  white-space: nowrap;
+  text-transform: none;
+}
+
+.resultsLoading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 16px;
+  font-size: 12.5px;
+  color: #64748b;
+  flex: 1;
+}
+
+.spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2.5px solid #e2e8f0;
+  border-top-color: var(--primary-color, #2E5BA8);
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.resultsEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  flex: 1;
+}
+
+.resultsEmptyHint {
+  margin-top: 6px;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: #94a3b8;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.resultsList {
+  overflow-y: auto;
+  // ~5 rows visible — each row ≈ 60px (12+12 padding + 32 icon + 4 gap),
+  // anything beyond scrolls inside the list.
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+.resultItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+  transition: background 0.12s;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: #f8fafc; }
+}
+
+// Recommendation rows — clean white background (no left accent bg).
+// The "special" feel comes from the golden icon + header, not row tinting.
+.resultItemRec {
+  background: transparent;
+  &:hover { background: #f8fafc; }
+}
+
+.resultItemNoVendors {
+  background: #fffbeb;
+  border-left: 3px solid #f59e0b;
+  padding-left: 11px;
+  &:hover { background: #fef3c7; }
+
+  .resultName { color: #92400e; }
+}
+
+.resultIcon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// Golden icon badge — premium "curated for you" feel
+.resultIconRec {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #b45309;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(217, 119, 6, 0.15);
+}
+
+.resultMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.resultName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resultMeta {
+  font-size: 11.5px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.addPillBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--primary-color, #2E5BA8);
+  background: #eff4ff;
+  border: 1px solid #dbe4f3;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.12s;
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--primary-color, #2E5BA8);
+    color: #fff;
+    border-color: var(--primary-color, #2E5BA8);
+  }
+}
+
+// Row hover pre-applies the button's hover state for visual consistency —
+// hovering the row implies clicking it adds the product, so the button
+// should already look "active" (filled) before the click.
+.resultItem:hover .addPillBtn:not(.addPillBtnAdded) {
+  background: var(--primary-color, #2E5BA8);
+  color: #fff;
+  border-color: var(--primary-color, #2E5BA8);
+}
+
+// "Added" success state — green, persists for ~2s
+.addPillBtnAdded {
+  background: #ecfdf5 !important;
+  color: #16a34a !important;
+  border-color: #bbf7d0 !important;
+  animation: addedPop 0.25s ease;
+}
+
+@keyframes addedPop {
+  0% { transform: scale(0.85); }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+// Subtle row tint while "Added" feedback is showing
+.resultItemAdded {
+  background: linear-gradient(90deg, rgba(236, 253, 245, 0.6) 0%, transparent 100%) !important;
+}
+
+// ── Right pane: staged products — stretches to layout height ──
+.productRight {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  padding: 0 !important;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.stagedHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+
+  > svg { color: var(--primary-color, #2E5BA8); }
+}
+
+.stagedTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  flex: 1;
+}
+
+.stagedCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  background: var(--primary-color, #2E5BA8);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 11px;
+}
+
+.stagedBody {
+  overflow-y: auto;
+  // Right pane stays a fixed height regardless of how many products are
+  // staged. List scrolls beyond ~5 rows. Matches left list cap.
+  height: 320px;
+}
+
+.stagedList {
+  display: flex;
+  flex-direction: column;
+}
+
+.stagedItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid #f5f5f5;
+  transition: background 0.15s;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: #fafbfd; }
+}
+
+// Pulse animation when item is just added — instant feedback
+.stagedItemAdded {
+  animation: stagedPulse 0.8s ease;
+}
+
+@keyframes stagedPulse {
+  0% { background: #ecfdf5; transform: translateX(-4px); opacity: 0; }
+  30% { background: #ecfdf5; transform: translateX(0); opacity: 1; }
+  100% { background: transparent; }
+}
+
+.stagedDot {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stagedItemInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.stagedItemName {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stagedItemCat {
+  font-size: 10.5px;
+  color: #94a3b8;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stagedEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.stagedEmptyTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.stagedEmptyDesc {
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.5;
+  max-width: 240px;
+}
+
+.stagedFooter {
+  padding: 14px 16px;
+  border-top: 1px solid #f1f5f9;
+  background: #fff;
+}
+
+// Stack the layout vertically on smaller screens
+@media (max-width: 991px) {
+  .productLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .productRight {
+    position: static;
+    max-height: none;
+  }
+}
+
+// ── Active dot for RFQ single-select cards ──
+.huActiveDot {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--primary-color, #2E5BA8);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+
+// ── Remove button for staged products ──
+.removeBtn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s;
+
+  &:hover {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+}
+
+// ── Success modal — clean, minimal, modern ──
+.successOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: successFade 0.18s ease;
+  padding: 16px;
+}
+
+@keyframes successFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.successCard {
+  position: relative;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.08);
+  max-width: 420px;
+  width: 100%;
+  padding: 24px 24px 20px;
+  animation: successSlide 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
+  overflow: hidden;
+}
+
+@keyframes successSlide {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+// Top accent bar — subtle green-to-blue gradient signaling success
+.successAccent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 50%, var(--primary-color, #2E5BA8) 100%);
+}
+
+.successClose {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s;
+
+  &:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+  }
+}
+
+// Header row: icon + title block side-by-side (left-aligned, not centered)
+.successHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 4px;
+  margin-bottom: 18px;
+}
+
+.successIcon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: successIconPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes successIconPop {
+  from { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.1); }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.successHeaderText {
+  flex: 1;
+  min-width: 0;
+}
+
+.successTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 3px;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.successDesc {
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.successDivider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 0 -24px 16px;
+}
+
+.successPrompt {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 12px;
+}
+
+.successActions {
+  display: flex;
+  gap: 8px;
+}
+
+.successBtnSecondary {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475569;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.12s;
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #1e293b;
+  }
+}
+
+.successBtnPrimary {
+  flex: 1.4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary-color, #2E5BA8);
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.12s;
+  box-shadow: 0 1px 3px rgba(46, 91, 168, 0.25);
+
+  &:hover {
+    background: #1e4a8a;
+    box-shadow: 0 4px 12px rgba(46, 91, 168, 0.35);
+    transform: translateY(-1px);
+  }
+}
+
+// ── Responsive ──
+@media (max-width: 767px) {
+  .typeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .huList {
+    grid-template-columns: 1fr;
+  }
+
+  .guideList {
+    grid-template-columns: 1fr;
+  }
+
+  .progressLabel {
+    display: none;
+  }
+
+  .pageTitle { font-size: 18px; }
+
+  .successActions {
+    flex-direction: column-reverse;
+    > button { width: 100%; }
+  }
+}
