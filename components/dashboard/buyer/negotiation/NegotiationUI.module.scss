@@ -2777,8 +2777,29 @@ $status-colors: (
 /* ── Negotiation Field Cards (selectable cards with global target inputs) ── */
 
 .negotiationFieldsDisabled {
-  opacity: 0.5;
   pointer-events: none;
+}
+
+.negFieldsOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.75);
+  z-index: 2;
+  border-radius: 8px;
+}
+
+.negFieldsOverlayText {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7d93;
+  margin: 0;
+  padding: 8px 16px;
+  background: #f0f4ff;
+  border: 1px solid #d4dff0;
+  border-radius: 6px;
 }
 
 .negFieldCardsGrid {
@@ -2950,6 +2971,23 @@ $status-colors: (
   &::placeholder {
     color: #b0bfcf;
     font-size: 10px;
+  }
+}
+
+.vendorTextFieldBtn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary-color);
+  background: #edf2ff;
+  border: 1px solid var(--primary-color);
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+
+  &:hover {
+    background: #dce5ff;
   }
 }
 

@@ -116,6 +116,9 @@ const NegotiationModal = ({
   const [roundsHistory, setRoundsHistory] = useState(initialRoundsHistory);
   const userProfile = useSelector((state) => state.userProfile);
   const [currentUserId, setCurrentUserId] = useState(null);
+  // Text field sub-modal state (for payment_terms, comments, vendor_tc)
+  const [textFieldModal, setTextFieldModal] = useState(null); // { vendorId, fieldKey, fieldLabel }
+  const [tempTextTarget, setTempTextTarget] = useState('');
   // Workflow modal state
   const [showWorkflowModal, setShowWorkflowModal] = useState(false);
   const [selectedRoundForWorkflow, setSelectedRoundForWorkflow] = useState(null);
@@ -427,18 +430,15 @@ const NegotiationModal = ({
         setSelectedVendors(sv => { const next = { ...sv }; delete next[productId]; return next; });
         return [];
       } else {
-        // Auto-select available vendors (not in round, or rejected)
+        // Auto-select available vendors (exclude regretted)
         const product = products.find(p => p.id === productId);
         if (product) {
           const allVendorIds = Array.from(getVendorIdsForProduct(product));
-          const activeRound = product.active_round;
-          const vendorApprovals = activeRound?.vendor_approvals || [];
-          const roundVendorIds = new Set((activeRound?.vendor_ids || []).map(Number));
+          const priceData = getVendorPriceData(product);
 
           const availableIds = allVendorIds.filter(vid => {
-            if (!roundVendorIds.has(vid)) return true;
-            const approval = vendorApprovals.find(va => Number(va.vendor_id) === vid);
-            return approval && approval.status === 'REJECTED';
+            const priceInfo = priceData.vendors.find(vp => vp.vendorId === vid);
+            return !priceInfo?.isRegret;
           });
           setSelectedVendors(sv => ({ ...sv, [productId]: availableIds }));
         }
@@ -520,22 +520,25 @@ const NegotiationModal = ({
       return { isDisabled: false, statusLabel: 'Available', statusClass: '' };
     }
 
-    // Show informational status but never disable — buyer can create rounds for other fields
-    const vendorApprovals = activeRound.vendor_approvals || [];
-    const allApproved = vendorApprovals.length > 0 && vendorApprovals.every(va => va.status === 'APPROVED');
-    const hasRejected = vendorApprovals.some(va => va.status === 'REJECTED');
-
-    if (allApproved) {
-      return { isDisabled: false, statusLabel: 'Approved', statusClass: styles.createStatusApproved };
+    const roundStatus = (activeRound.status || '').toUpperCase();
+    if (roundStatus === 'PENDING_APPROVAL') {
+      return { isDisabled: true, statusLabel: 'Pending Approval', statusClass: styles.createStatusPartial };
     }
-    if (hasRejected) {
-      return { isDisabled: false, statusLabel: 'Rejected', statusClass: styles.createStatusRejected };
+    if (roundStatus === 'ACTIVE') {
+      return { isDisabled: true, statusLabel: 'In Negotiation', statusClass: styles.createStatusPartial };
     }
-    return { isDisabled: false, statusLabel: 'In Negotiation', statusClass: styles.createStatusPartial };
+    return { isDisabled: false, statusLabel: 'Available', statusClass: '' };
   };
 
   // Vendor toggle handler for negotiation round creation
   const handleVendorToggle = (productId, vendorId) => {
+    // Prevent selecting regretted vendors
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      const priceData = getVendorPriceData(product);
+      const priceInfo = priceData.vendors.find(vp => vp.vendorId === vendorId);
+      if (priceInfo?.isRegret) return;
+    }
     setSelectedVendors(prev => {
       const current = [...(prev[productId] || [])];
       const idx = current.indexOf(vendorId);
@@ -589,11 +592,12 @@ const NegotiationModal = ({
       return;
     }
 
-    // Validate that at least one target is set (global or per-vendor) for the selected fields
+    // Validate that at least one target is set (global or per-vendor)
     const productVendorIds = selectedVendors[selectedProducts[0]] || [];
     const hasAnyLocalTarget = productVendorIds.some(vid => {
       const vt = vendorTargets[vid] || {};
-      return effectiveFields.some(f => vt[f]);
+      // Check targets matching global fields OR any local field target
+      return Object.keys(vt).some(k => k !== '_localFields' && !k.endsWith('_mode') && vt[k]);
     });
     const hasAnyGlobalTarget = effectiveFields.some(f => {
       const targetKey = getChargeTargetKey(f);
@@ -616,11 +620,32 @@ const NegotiationModal = ({
         const vendorTargetsArray = productVendorIds.map(vid => {
           const vt = vendorTargets[vid] || {};
           const fields = [];
-          const nonModeKeys = ['base_price', 'payment_terms', 'comments'];
+          const nonModeKeys = ['base_price', 'payment_terms', 'comments', 'vendor_tc', 'documents'];
           // Include per-vendor local targets
           Object.keys(vt).forEach(k => {
             if (k === '_localFields' || k.endsWith('_mode')) return;
             if (vt[k]) {
+              // Documents: convert JSON string to array of { document_index, file_url, comment }
+              if (k === 'documents') {
+                try {
+                  const docComments = typeof vt[k] === 'string' ? JSON.parse(vt[k]) : vt[k];
+                  const product = products.find(p => String(p.id) === String(pid));
+                  const priceData = product ? getVendorPriceData(product) : { vendors: [] };
+                  const vendorData = priceData.vendors.find(v => v.vendorId === vid);
+                  const docFiles = vendorData?.documentFiles || [];
+                  const docTargets = Object.entries(docComments)
+                    .filter(([, comment]) => comment && comment.trim())
+                    .map(([idx, comment]) => ({
+                      document_index: parseInt(idx),
+                      file_url: docFiles[parseInt(idx)]?.file_url || null,
+                      comment: comment,
+                    }));
+                  if (docTargets.length > 0) {
+                    fields.push({ name: 'documents', target: docTargets });
+                  }
+                } catch { /* skip malformed */ }
+                return;
+              }
               const fieldObj = { name: k, target: vt[k] };
               if (!nonModeKeys.includes(k)) {
                 const modeVal = vt[`${k}_mode`] || 'percentage';
@@ -663,6 +688,113 @@ const NegotiationModal = ({
       toast.error(error.message || 'Failed to create negotiation round');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Text field sub-modal handlers (payment_terms, comments, vendor_tc)
+  const handleOpenTextFieldModal = (vendorId, fieldKey, fieldLabel) => {
+    if (fieldKey === 'documents') {
+      // For documents, tempTextTarget is a JSON object { "0": "comment", "1": "comment", ... }
+      const existing = vendorTargets[vendorId]?.[fieldKey];
+      try {
+        setTempTextTarget(typeof existing === 'string' ? JSON.parse(existing) : (existing || {}));
+      } catch { setTempTextTarget({}); }
+    } else {
+      setTempTextTarget(vendorTargets[vendorId]?.[fieldKey] || '');
+    }
+    setTextFieldModal({ vendorId, fieldKey, fieldLabel });
+  };
+
+  const handleCloseTextFieldModal = () => {
+    // If no target was set, deselect the field
+    if (textFieldModal) {
+      const { vendorId, fieldKey } = textFieldModal;
+      const hasTarget = vendorTargets[vendorId]?.[fieldKey];
+      if (!hasTarget) {
+        setVendorTargets(prev => {
+          const vendorData = prev[vendorId] || {};
+          const localFields = (vendorData._localFields || []).filter(f => f !== fieldKey);
+          return { ...prev, [vendorId]: { ...vendorData, _localFields: localFields } };
+        });
+      }
+    }
+    setTextFieldModal(null);
+    setTempTextTarget('');
+  };
+
+  const handleSaveTextFieldTarget = () => {
+    if (textFieldModal) {
+      const { vendorId, fieldKey } = textFieldModal;
+      if (fieldKey === 'documents') {
+        // For documents, check if any comment is non-empty
+        const docComments = typeof tempTextTarget === 'object' ? tempTextTarget : {};
+        const hasAny = Object.values(docComments).some(v => v && v.trim());
+        if (hasAny) {
+          setVendorTargets(prev => ({
+            ...prev,
+            [vendorId]: { ...(prev[vendorId] || {}), [fieldKey]: JSON.stringify(docComments) }
+          }));
+        } else {
+          setVendorTargets(prev => {
+            const vendorData = { ...(prev[vendorId] || {}) };
+            delete vendorData[fieldKey];
+            const localFields = (vendorData._localFields || []).filter(f => f !== fieldKey);
+            return { ...prev, [vendorId]: { ...vendorData, _localFields: localFields } };
+          });
+        }
+        setTextFieldModal(null);
+        setTempTextTarget('');
+      } else if (typeof tempTextTarget === 'string' && tempTextTarget.trim()) {
+        setVendorTargets(prev => ({
+          ...prev,
+          [vendorId]: { ...(prev[vendorId] || {}), [fieldKey]: tempTextTarget }
+        }));
+        setTextFieldModal(null);
+        setTempTextTarget('');
+      } else {
+        setVendorTargets(prev => {
+          const vendorData = { ...(prev[vendorId] || {}) };
+          delete vendorData[fieldKey];
+          const localFields = (vendorData._localFields || []).filter(f => f !== fieldKey);
+          return { ...prev, [vendorId]: { ...vendorData, _localFields: localFields } };
+        });
+        setTextFieldModal(null);
+        setTempTextTarget('');
+      }
+    }
+  };
+
+  // Get vendor's current value for a text field
+  const getVendorTextFieldValue = (vendorId, fieldKey) => {
+    if (!selectedProducts[0]) return '--';
+    const product = products.find(p => String(p.id) === String(selectedProducts[0]));
+    if (!product) return '--';
+    const priceData = getVendorPriceData(product);
+    const vendorData = priceData.vendors.find(v => v.vendorId === vendorId);
+    if (!vendorData) return '--';
+    switch (fieldKey) {
+      case 'payment_terms':
+        if (!vendorData.paymentTerms) return '--';
+        if (typeof vendorData.paymentTerms === 'string') return vendorData.paymentTerms;
+        if (Array.isArray(vendorData.paymentTerms)) {
+          return vendorData.paymentTerms.map(t => {
+            const parts = [];
+            if (t.value) parts.push(`${t.value}%`);
+            if (t.type) parts.push(t.type);
+            if (t.days) parts.push(`${t.days} days`);
+            if (t.comment) parts.push(t.comment);
+            return parts.join(' ');
+          }).filter(Boolean).join(', ');
+        }
+        return '--';
+      case 'comments':
+        return vendorData.comment || '--';
+      case 'vendor_tc':
+        return vendorData.vendorTC || '--';
+      case 'documents':
+        return vendorData.documentFiles || [];
+      default:
+        return '--';
     }
   };
 
@@ -982,6 +1114,7 @@ const NegotiationModal = ({
         return Array.isArray(gpt) ? (gpt[0]?.details || '') : (typeof gpt === 'string' ? gpt : '');
       })();
       const comment = src.comment || src.global_comment || null;
+      const documentFiles = src.document_files || [];
       const vendorId = (() => {
         const vd = getVendorDetailsFromQuote(q);
         return Number(vd?.id || vd?.user_id || q.vendor_id || q.created_by || 0);
@@ -990,7 +1123,7 @@ const NegotiationModal = ({
       return {
         vendorName, totalPrice, unitPrice, quantity,
         otherCharges, tax, taxMode,
-        deliveryPeriod, paymentTerms, vendorTC, comment, vendorId,
+        deliveryPeriod, paymentTerms, vendorTC, comment, documentFiles, vendorId,
         isRegret,
       };
     }).filter(v => v.totalPrice > 0 || v.isRegret);
@@ -1332,7 +1465,7 @@ const NegotiationModal = ({
                 onVendorToggle={(vid) => handleVendorToggle(selectedProduct.id, vid)}
                 onSelectAll={() => handleSelectAllVendors(selectedProduct.id)}
                 getVendorDisplayName={getVendorDisplayName}
-                selectedFields={getEffectiveFields()}
+                selectedFields={formData.negotiation_fields}
                 vendorPriceData={priceData}
                 chargeNamesList={chargeNamesList}
                 vendorTargets={vendorTargets}
@@ -1353,6 +1486,7 @@ const NegotiationModal = ({
                   });
                 }}
                 globalFormData={formData}
+                onOpenTextFieldModal={handleOpenTextFieldModal}
               />
 
             </>
@@ -1523,9 +1657,16 @@ const NegotiationModal = ({
                                   ? `₹${parseFloat(round.target_price).toLocaleString()}`
                                   : (() => {
                                       const fields = round.vendor_approvals?.flatMap(va => va.negotiation_fields || []) || [];
+                                      const textNames = new Set(['payment_terms', 'comments', 'vendor_tc', 'documents']);
                                       return fields.length > 0 ? fields.map(f => {
-                                        const label = f.name === 'base_price' ? 'Base Price' : f.name === 'payment_terms' ? 'Payment Terms' : (f.label || f.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+                                        const label = f.name === 'base_price' ? 'Base Price' : f.name === 'payment_terms' ? 'Payment Terms' : f.name === 'documents' ? 'Documents' : f.name === 'comments' ? 'Comments' : (f.label || f.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
                                         const val = f.target || f.target_price;
+                                        if (f.name === 'documents' && Array.isArray(val)) {
+                                          return `${label}: ${val.length} comment(s)`;
+                                        }
+                                        if (textNames.has(f.name)) {
+                                          return `${label}: ${typeof val === 'string' ? val : String(val)}`;
+                                        }
                                         const formatted = f.mode === 'percentage' ? `${val}%` : `₹${val}`;
                                         return `${label}: ${formatted}`;
                                       }).join(', ') : '--';
@@ -1826,6 +1967,7 @@ const NegotiationModal = ({
                               // Build all fields: base_price, payment_terms, + other_charges from quote
                               const src = matchedQuote || {};
                               const otherCharges = src.other_charges || [];
+                              const textFieldNames = new Set(['payment_terms', 'comments', 'vendor_tc', 'documents']);
                               const allFields = [
                                 { slug: 'base_price', label: 'Base Price', quoted: src.unit_price ? `₹${Number(src.unit_price).toLocaleString('en-IN')}` : '--' },
                                 { slug: 'payment_terms', label: 'Payment Terms', quoted: (() => {
@@ -1835,6 +1977,8 @@ const NegotiationModal = ({
                                   if (Array.isArray(pt)) return pt.map(t => `${t.value || ''}% ${t.type || ''}`).filter(Boolean).join(', ') || '--';
                                   return '--';
                                 })() },
+                                { slug: 'comments', label: 'Comments', quoted: src.comment || src.global_comment || '--' },
+                                { slug: 'documents', label: 'Documents', quoted: `${(src.document_files || []).length} document(s)` },
                                 ...otherCharges.map(c => ({
                                   slug: c.slug || c.name,
                                   label: c.name,
@@ -1863,7 +2007,17 @@ const NegotiationModal = ({
                                           <div className={styles.wfNegFieldValue}>
                                             {quoted}
                                             {target && (
-                                              <span className={styles.wfNegFieldTarget}>→ {nf.mode === 'percentage' ? `${target}%` : `₹${target}`}</span>
+                                              <span className={styles.wfNegFieldTarget}>→ {(() => {
+                                                if (nf.name === 'documents' && Array.isArray(target)) {
+                                                  return target.map(d => (
+                                                    <div key={d.document_index} style={{ fontSize: '0.72rem' }}>Doc {(d.document_index || 0) + 1}: {d.comment}</div>
+                                                  ));
+                                                }
+                                                if (textFieldNames.has(nf.name)) {
+                                                  return typeof target === 'string' ? target : String(target);
+                                                }
+                                                return nf.mode === 'percentage' ? `${target}%` : `₹${target}`;
+                                              })()}</span>
                                             )}
                                           </div>
                                         </div>
@@ -2001,7 +2155,17 @@ const NegotiationModal = ({
                                           <div className={styles.wfNegFieldLabel}>{field.label}</div>
                                           <div className={styles.wfNegFieldValue}>
                                             {field.quoted}
-                                            {isNeg && target && <span className={styles.wfNegFieldTarget}>→ {negField?.mode === 'percentage' ? `${target}%` : `₹${target}`}</span>}
+                                            {isNeg && target && <span className={styles.wfNegFieldTarget}>→ {(() => {
+                                              if (field.name === 'documents' && Array.isArray(target)) {
+                                                return target.map(d => (
+                                                  <div key={d.document_index} style={{ fontSize: '0.72rem' }}>Doc {(d.document_index || 0) + 1}: {d.comment}</div>
+                                                ));
+                                              }
+                                              if (['payment_terms', 'comments', 'vendor_tc', 'documents'].includes(field.name)) {
+                                                return typeof target === 'string' ? target : String(target);
+                                              }
+                                              return negField?.mode === 'percentage' ? `${target}%` : `₹${target}`;
+                                            })()}</span>}
                                           </div>
                                         </div>
                                       );
@@ -2026,7 +2190,7 @@ const NegotiationModal = ({
 
   return (
     <>
-    <Modal show={show} onHide={onHide} size="lg" centered dialogClassName={styles.negotiationModalDialog}>
+    <Modal show={show && !textFieldModal} onHide={onHide} size="lg" centered dialogClassName={styles.negotiationModalDialog}>
       <Modal.Header className={styles.modalHeader}>
         <div className={styles.modalTitleWrap}>
           <Modal.Title className={styles.modalTitle}>{getModalTitle()}</Modal.Title>
@@ -2127,6 +2291,80 @@ const NegotiationModal = ({
         loading={submitting}
         entityLabel={`Negotiation Round ${selectedRoundForAction?.round_number || ''}`}
       />
+
+      {/* Text Field Target Modal (payment_terms, comments, vendor_tc) */}
+      <Modal show={!!textFieldModal} onHide={handleCloseTextFieldModal} size="md" centered>
+        <Modal.Header className={styles.modalHeader}>
+          <div className={styles.modalTitleWrap}>
+            <Modal.Title className={styles.modalTitle}>
+              {textFieldModal?.fieldLabel || 'Set Target'}
+            </Modal.Title>
+            <p className={styles.modalSubtitle}>
+              {textFieldModal ? `Set your target for ${textFieldModal.fieldLabel.toLowerCase()}` : ''}
+            </p>
+          </div>
+          <button type="button" className={styles.modalCloseBtn} onClick={handleCloseTextFieldModal} aria-label="Close">✕</button>
+        </Modal.Header>
+        <Modal.Body className={styles.modalBody}>
+          {textFieldModal && textFieldModal.fieldKey !== 'documents' && (
+            <>
+              <div className="mb-3">
+                <label className="fw-semibold mb-1 d-block" style={{ fontSize: '0.85rem' }}>Current Vendor Value</label>
+                <div className="border rounded p-3" style={{ whiteSpace: 'pre-wrap', fontSize: '0.85rem', background: '#f8f9fa', maxHeight: '200px', overflowY: 'auto' }}>
+                  {getVendorTextFieldValue(textFieldModal.vendorId, textFieldModal.fieldKey)}
+                </div>
+              </div>
+              <div>
+                <label className="fw-semibold mb-1 d-block" style={{ fontSize: '0.85rem' }}>Your Target</label>
+                <textarea
+                  className="form-control"
+                  rows={4}
+                  value={tempTextTarget}
+                  onChange={(e) => setTempTextTarget(e.target.value)}
+                  placeholder={`Enter your target ${textFieldModal.fieldLabel.toLowerCase()}...`}
+                  style={{ fontSize: '0.85rem' }}
+                />
+              </div>
+            </>
+          )}
+          {textFieldModal && textFieldModal.fieldKey === 'documents' && (() => {
+            const docs = getVendorTextFieldValue(textFieldModal.vendorId, 'documents');
+            const docComments = typeof tempTextTarget === 'object' ? tempTextTarget : {};
+            if (!Array.isArray(docs) || docs.length === 0) {
+              return <p className="text-muted text-center py-3">No documents uploaded by this vendor.</p>;
+            }
+            return (
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {docs.map((doc, idx) => {
+                  return (
+                    <div key={idx} className="border rounded p-2 mb-2">
+                      <div className="d-flex align-items-center justify-content-between mb-1">
+                        <span className="fw-semibold" style={{ fontSize: '0.82rem' }}>Document {idx + 1}</span>
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 600 }}>
+                          View Doc
+                        </a>
+                      </div>
+                      <textarea
+                        className="form-control"
+                        rows={2}
+                        value={docComments[String(idx)] || ''}
+                        onChange={(e) => {
+                          setTempTextTarget(prev => ({ ...(typeof prev === 'object' ? prev : {}), [String(idx)]: e.target.value }));
+                        }}
+                        placeholder="Enter your comment for this document..."
+                        style={{ fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </Modal.Body>
+        <div style={{ padding: '10px 16px', borderTop: '1px solid #dee2e6', display: 'flex', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '4px 16px' }} onClick={handleSaveTextFieldTarget}>Set Target</button>
+        </div>
+      </Modal>
     </>
   );
 };

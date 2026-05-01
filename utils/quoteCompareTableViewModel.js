@@ -103,19 +103,8 @@ export const getQuoteTotal = (product, quote, normalizeFilter = false) => {
   return toNumber(pick(calcBase.total_price, quote?.total_price));
 };
 
-export const getMissingCostParts = (quote, freightFilter = false) => {
-  const details = getQuoteDetails(quote) || {};
-  const parts = [];
-  const otherCharges = details.other_charges || quote?.other_charges || [];
-
-  // Check if packaging exists in other_charges or legacy fields
-  const hasPackaging = otherCharges.some(c => c.name === "Packaging" && toNumber(c.amount) > 0) || toNumber(pick(details.package_price, quote?.package_price)) > 0;
-  const hasFreight = otherCharges.some(c => c.name === "Freight" && toNumber(c.amount) > 0) || toNumber(pick(details.freight_price, quote?.freight_price)) > 0;
-
-  if (!hasPackaging) parts.push("Package");
-  if (!freightFilter && !hasFreight) parts.push("Freight");
-
-  return parts;
+export const getMissingCostParts = () => {
+  return [];
 };
 
 export const getPaymentTermsText = (quote) => {

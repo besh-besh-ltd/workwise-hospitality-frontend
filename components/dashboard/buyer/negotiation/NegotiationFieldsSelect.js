@@ -24,7 +24,7 @@ export const buildChargeFieldOption = (charge) => {
 };
 
 export const NUMERIC_FIELDS = ['base_price', 'delivery_period'];
-export const TEXT_FIELDS = ['payment_terms', 'vendor_tc', 'comments'];
+export const TEXT_FIELDS = ['payment_terms', 'vendor_tc', 'comments', 'documents'];
 
 // Map field value to its formData target key
 export const FIELD_TARGET_KEYS = {
@@ -47,7 +47,7 @@ const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData,
   const allFieldOptions = React.useMemo(() => {
     const fields = [...NEGOTIATION_FIELD_OPTIONS];
     const existingSlugs = new Set(fields.map(f => f.value));
-    defaultCharges.forEach(charge => {
+    defaultCharges.filter(c => !c.is_global).forEach(charge => {
       const slug = charge.slug || charge.name;
       if (!existingSlugs.has(slug)) {
         existingSlugs.add(slug);
@@ -83,7 +83,13 @@ const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData,
           </p>
         </div>
       </div>
-      <div className={styles.negFieldCardsGrid}>
+      <div style={{ position: 'relative' }}>
+        {disabled && (
+          <div className={styles.negFieldsOverlay}>
+            <p className={styles.negFieldsOverlayText}>Please select at least one vendor to start negotiation</p>
+          </div>
+        )}
+        <div className={styles.negFieldCardsGrid}>
         {allFieldOptions.map(field => {
           const isSelected = selectedFields.includes(field.value);
           const targetKey = getChargeTargetKey(field.value);
@@ -150,6 +156,7 @@ const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData,
             </div>
           );
         })}
+      </div>
       </div>
     </section>
   );
