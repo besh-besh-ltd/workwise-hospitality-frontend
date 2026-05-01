@@ -11,6 +11,7 @@ import LoginWithOtherDeviceModal from '../modal/LoginWithOtherDeviceModal';
 import storageInstance from '@/utils/storageInstance';
 import { usePathname } from 'next/navigation';
 import posthog from 'posthog-js';
+import { resolvePostLoginRedirect } from '@/utils/sharedFunctions';
 
 const LoginContainer = (props) => {
     const router = useRouter();
@@ -189,7 +190,7 @@ const LoginContainer = (props) => {
                 } catch (err) {}
 
                 if (redirect && redirect != "") {
-                    router.push(window.atob(redirect));
+                    router.push(resolvePostLoginRedirect(redirect, userType));
                     return;
                 } else {
                     let prod_name = storageInstance.getStorage('product_name');
