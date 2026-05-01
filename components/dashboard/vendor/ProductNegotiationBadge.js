@@ -97,7 +97,7 @@ const ProductNegotiationBadge = ({ rfq_id, rfq_product_id, token }) => {
       ) : isActive ? (
         <>
           <Badge bg="info" style={{ fontSize: '0.7rem' }}>
-            R{round.round_number} - Target: ₹{parseFloat(round.target_price).toLocaleString()}
+            Negotiation R{round.round_number}
           </Badge>
           {timeRemaining && (
             <Badge bg="warning" text="dark" style={{ fontSize: '0.7rem' }}>

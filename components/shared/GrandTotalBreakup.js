@@ -7,6 +7,8 @@ const GrandTotalBreakup = ({
   grandTotal = 0,
   formatPrice,
   align = "end",
+  chargeBreakdown = [],
+  globalChargeBreakdown = [],
 }) => {
   const fmt = (val) => (formatPrice ? formatPrice(val) : `₹${val.toFixed(2)}`);
 
@@ -15,7 +17,10 @@ const GrandTotalBreakup = ({
     { label: "Freight", value: totalFreight },
     { label: "Packaging", value: totalPackaging },
     { label: "Tax (GST)", value: totalTax },
-    { label: "Other Charges", value: totalOtherCharges },
+    ...(chargeBreakdown.length > 0
+      ? chargeBreakdown
+      : [{ label: "Other Charges", value: totalOtherCharges }]),
+    ...globalChargeBreakdown,
   ].filter((item) => item.value > 0);
 
   const hasBreakup = lineItems.length > 0;

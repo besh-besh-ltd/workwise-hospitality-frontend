@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { extractQuotation, fetchQuoteHistory, getRFQById, sendQuotation, updateQuotation, createTenderPaymentOrder, verifyTenderPayment, getChargeNames, createChargeName, updateChargeName, deleteChargeName } from "@/services/rfq";
+import { extractQuotation, fetchQuoteHistory, getRFQById, sendQuotation, updateQuotation, createTenderPaymentOrder, verifyTenderPayment, getChargeNames, createChargeName, updateChargeName, deleteChargeName, deleteQuoteFile } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
 import Loader from "@/components/shared/Loader";
 import { toast } from "react-toastify";
@@ -25,7 +25,7 @@ import Modal from "react-modal";
 import { checkOpenClarification } from "@/services/clarification";
 import { getAllVendorNegotiationStatus, getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { checkBidExpired } from "@/utils/sharedFunctions";
-import { Alert } from "react-bootstrap";
+import { Alert, OverlayTrigger, Tooltip as BsTooltip } from "react-bootstrap";
 import { Tooltip } from "react-tooltip";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
 
@@ -88,6 +88,7 @@ const SendQuotePageComp = () => {
   const [globalOtherCharges, setGlobalOtherCharges] = useState([]);
   const [chargesModalOpen, setChargesModalOpen] = useState(null);
   const [chargesSummaryOpen, setChargesSummaryOpen] = useState(true);
+  const [invalidCommentChargeId, setInvalidCommentChargeId] = useState(null);
   const [chargeNamesList, setChargeNamesList] = useState([]);
   const [addingCustomCharge, setAddingCustomCharge] = useState(false);
   const [editingCustomCharge, setEditingCustomCharge] = useState(null);
@@ -130,6 +131,10 @@ const [hasActiveNegotiationRounds, setHasActiveNegotiationRounds] = useState(fal
 // Changes by Agnij [Preserve form state when Razorpay modal opens]
 const formStateRef = useRef(null);
 const shouldAutoSendQuoteRef = useRef(false);
+const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+const negotiationChargesAddedRef = useRef(false);
+const [showBuyerCommentModal, setShowBuyerCommentModal] = useState(null); // null or { field: 'payment_terms'|'comments'|'documents', productId }
+const [showPrevDocsModal, setShowPrevDocsModal] = useState(null); // null or array of file URLs
 
 // Clarification period window for tenders (IST-based)
 // We treat vendor_clarification_date as an IST datetime and convert it to a UTC Date,
@@ -242,6 +247,7 @@ const originalPaymentTermsListRef = useRef(null);
 
   const quoteBreakup = useMemo(() => {
     let totalBase = 0, totalTax = 0, totalOtherCharges = 0;
+    const chargesByName = {};
     quoteProducts.forEach(item => {
       const prod = rfqDetails?.products?.find(pi => pi.id == item.id);
       const qtySpec = prod?.product_specs?.find(s => s.title === "Quantity");
@@ -257,14 +263,20 @@ const originalPaymentTermsListRef = useRef(null);
       (item.other_charges || []).forEach(charge => {
         const cAmt = resolveChargeValue(charge.amount, charge.amount_mode, base);
         const cTax = resolveChargeValue(charge.tax, charge.tax_mode, cAmt);
-        itemOtherCharges += cAmt + cTax;
+        const chargeTotal = cAmt + cTax;
+        itemOtherCharges += chargeTotal;
+        if (chargeTotal > 0) {
+          const name = charge.name || 'Other';
+          chargesByName[name] = (chargesByName[name] || 0) + chargeTotal;
+        }
       });
 
       totalBase += base;
       totalTax += tax;
       totalOtherCharges += itemOtherCharges;
     });
-    return { totalBase, totalTax, totalOtherCharges };
+    const chargeBreakdown = Object.entries(chargesByName).map(([label, value]) => ({ label, value }));
+    return { totalBase, totalTax, totalOtherCharges, chargeBreakdown };
   }, [quoteProducts, rfqDetails, chargesMode]);
 
   // Check if any quoteable product has pending/incomplete tech eval
@@ -385,6 +397,39 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
     setShowTechEvalRestrictions(restrictionsEnabled);
   }, [router.isReady, id, router.query.showTechEvalRestrictions]);
 
+  // Fetch charge names list
+  useEffect(() => {
+    if (!router.isReady) return;
+    getChargeNames().then(res => {
+      const data = res?.data || res || [];
+      if (Array.isArray(data)) setChargeNamesList(data);
+    }).catch(err => console.error('Failed to fetch charge names:', err));
+  }, [router.isReady]);
+
+  // Warn user about unsaved changes when leaving the page
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Leaving the site will discard all changes.';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    const handleRouteChange = () => {
+      if (hasUnsavedChanges && !window.confirm('You have unsaved changes. Leaving will discard all changes. Are you sure?')) {
+        router.events.emit('routeChangeError');
+        throw 'Route change aborted due to unsaved changes';
+      }
+    };
+    router.events.on('routeChangeStart', handleRouteChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      router.events.off('routeChangeStart', handleRouteChange);
+    };
+  }, [hasUnsavedChanges, router]);
+
   // Check for open clarifications (for tenders only)
   useEffect(() => {
     const checkClarifications = async () => {
@@ -472,6 +517,7 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
             fieldsByProduct[r.rfq_product_id] = myApproval.negotiation_fields.map(f => ({
               name: f.name,
               targetPrice: f.target || f.target_price,
+              mode: f.mode || null,
             }));
           });
           setActiveNegotiationFields(fieldsByProduct);
@@ -487,6 +533,54 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
       setHasActiveNegotiationRounds(false);
     }
   }, [rfqDetails?.bid_end_date, id]);
+
+  // Auto-add missing negotiated charges and filter out fields where target >= quoted value
+  useEffect(() => {
+    if (negotiationChargesAddedRef.current) return;
+    const fields = activeNegotiationFields;
+    if (!fields || Object.keys(fields).length === 0 || quoteProducts.length === 0) return;
+    negotiationChargesAddedRef.current = true;
+
+    // Filter out negotiation fields where target >= vendor's quoted value
+    const filteredFields = {};
+    Object.keys(fields).forEach(productId => {
+      const product = quoteProducts.find(p => String(p.id) === String(productId));
+      if (!product) { filteredFields[productId] = fields[productId]; return; }
+      filteredFields[productId] = fields[productId].filter(f => {
+        const target = parseFloat(f.targetPrice);
+        if (isNaN(target)) return true; // keep non-numeric fields like payment_terms
+        if (f.name === 'base_price') {
+          const quoted = parseFloat(product.unit_price || 0);
+          return quoted > 0 && target < quoted;
+        }
+        // For charges, find the matching charge in other_charges
+        const charge = (product.other_charges || []).find(c => (c.slug || c.name) === f.name);
+        if (!charge || parseFloat(charge.amount || 0) <= 0) return true; // new charge, always show
+        const quotedAmt = parseFloat(charge.amount || 0);
+        return target < quotedAmt;
+      });
+    });
+    setActiveNegotiationFields(filteredFields);
+
+    // Auto-add missing negotiated charges
+    setquoteProducts(prev => prev.map(product => {
+      const negFields = filteredFields[product.id] || [];
+      const existingChargeNames = new Set((product.other_charges || []).map(c => c.slug || c.name));
+      const missingCharges = negFields
+        .filter(f => !['base_price', 'payment_terms', 'comments', 'vendor_tc', 'documents'].includes(f.name) && !existingChargeNames.has(f.name))
+        .map(f => ({
+          _id: generateChargeId(),
+          name: f.name,
+          slug: f.name,
+          amount: 0,
+          amount_mode: f.mode === 'percentage' ? 'percentage' : 'absolute',
+          tax: 0,
+          tax_mode: 'percentage',
+        }));
+      if (missingCharges.length === 0) return product;
+      return { ...product, other_charges: [...(product.other_charges || []), ...missingCharges] };
+    }));
+  }, [activeNegotiationFields, quoteProducts]);
 
   // Changes by Agnij <2024-07-30> [Add debug logging for reverse auction status]
   useEffect(() => {
@@ -730,14 +824,15 @@ const loadRazorpayScript = () => {
     return lines;
   };
 
-  const handleAddOtherCharge = (productIndex, chargeName = "") => {
+  const handleAddOtherCharge = (productIndex, chargeName = "", chargeSlug = "") => {
+    const slug = chargeSlug || chargeName.toLowerCase().replace(/\s+/g, '_');
     setquoteProducts(prev => prev.map((item, idx) => {
       if (idx === productIndex) {
         return {
           ...item,
           other_charges: [
             ...(item.other_charges || []),
-            { _id: generateChargeId(), name: chargeName, amount: 0, amount_mode: "percentage", tax: 0, tax_mode: "percentage" }
+            { _id: generateChargeId(), name: chargeName, slug, amount: 0, amount_mode: "percentage", tax: 0, tax_mode: "percentage" }
           ]
         };
       }
@@ -783,6 +878,7 @@ const loadRazorpayScript = () => {
       return item;
     });
     setquoteProducts(updated);
+    setHasUnsavedChanges(true);
   };
 
   const handleChargeFieldUpdate = (productIndex, field, value, modeOverrides) => {
@@ -855,6 +951,7 @@ const loadRazorpayScript = () => {
       return item;
     });
     setquoteProducts(d);
+    setHasUnsavedChanges(true);
   };
 
   const calculateTotal = (products) => {
@@ -1140,6 +1237,7 @@ return { deletedTerms, createdTerms, updatedTerms };
         .filter(c => c.name && c.name.trim() !== "")
         .map(({ _id, amount, amount_mode, ...rest }) => ({
           name: rest.name,
+          slug: rest.slug || rest.name.toLowerCase().replace(/\s+/g, '_'),
           tax: parseFloat(amount) || 0,
           tax_mode: amount_mode || "percentage",
           is_global: true,
@@ -1211,6 +1309,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           setsubmitLoading(false);
           // Clear form state only after successful quote update
           formStateRef.current = null;
+          setHasUnsavedChanges(false);
           toast.success("Quote updated Successfully...!");
           // setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
@@ -1911,16 +2010,30 @@ return { deletedTerms, createdTerms, updatedTerms };
                     <div className="row align-items-stretch mb-4">
                       {/* ========== COLUMN 1: Global Costing + Quote Document + Global Comment ========== */}
                       <div className="col-lg-4 col-12 d-flex">
-                        <div className="card border shadow-sm rounded-3 w-100" style={{ maxHeight: "400px" }}>
+                        <div className="card border shadow-sm rounded-3 w-100" style={{ maxHeight: "400px", position: "relative" }}>
+                          {isBidExpired && (
+                            <div style={{
+                              position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                              background: "rgba(255,255,255,0.85)", zIndex: 2,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              borderRadius: "0.5rem",
+                            }}>
+                              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#6c757d" }}>You can&apos;t add or edit these charges</span>
+                            </div>
+                          )}
                           <div className="card-body d-flex flex-column" style={{ overflow: "hidden" }}>
-                            <h3 className="fs-6 fw-semibold mb-3" style={{ flexShrink: 0 }}>
-                              Global Taxing
-                            </h3>
+                            <div className="d-flex align-items-center gap-2 mb-3" style={{ flexShrink: 0 }}>
+                              <h3 className="fs-6 fw-semibold mb-0">
+                                Global Charges
+                              </h3>
+                              <OverlayTrigger placement="right" overlay={<BsTooltip>This charge will be added to your total amount</BsTooltip>}>
+                                <span style={{ cursor: 'pointer', color: '#6c757d' }}><IoMdInformationCircleOutline size={16} /></span>
+                              </OverlayTrigger>
+                            </div>
 
 
                             {/* Global Charges Dropdown - fixed above scroll */}
                             <div style={{ flexShrink: 0 }}>
-                            <h6 className="fw-semibold mb-2 text-muted" style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>Taxes</h6>
 
                             {!isBidExpired && (() => {
                               const selectedNames = globalOtherCharges.map(c => c.name);
@@ -2256,7 +2369,13 @@ return { deletedTerms, createdTerms, updatedTerms };
                           </div>
                           </div>
 
-                          <div className="border rounded-3 p-3 pb-2" >
+                          {(() => {
+                            const paymentTermsNegField = Object.values(activeNegotiationFields).flat().find(f => f.name === 'payment_terms');
+                            const isPaymentTermsNegotiated = !!paymentTermsNegField;
+                            const paymentTermsEnabled = !isBidExpired || isPaymentTermsNegotiated;
+                            const buyerPaymentComment = paymentTermsNegField?.targetPrice || '';
+                            return (
+                          <div className={`rounded-3 p-3 pb-2 ${isPaymentTermsNegotiated ? '' : 'border'}`} style={isPaymentTermsNegotiated ? { border: '2px solid #f0ad4e' } : {}}>
                               <div className="d-flex align-items-center justify-content-between mb-2">
                               <div>
                               <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
@@ -2275,27 +2394,150 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 )}
                                 </div>
 
-                            {!isBidExpired && (
+                            {paymentTermsEnabled && (
                             <SmartButton
                                   onClick={() =>
                                     setPaymentTermsRows((prev) => [ ...(prev || []), { id:null,  value: "", type: "advance", days: "", comment:'' } ])
                                   }
                             theme={'primary'}
-                            style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
-                            label="Add Term"
-                            icon={<FontAwesomeIcon icon={faPlus} className="me-1" />}
+                            style={{ paddingLeft: "0.5rem", paddingRight: "0.5rem", fontSize: "0.75rem" }}
+                            label="+ Add"
                           />
                             )}
-
 
                               </div>
 
                               <PaymentTermsEditor
                                 value={paymentTermsRows}
                                 onChange={setPaymentTermsRows}
-                                disabled={isBidExpired}
+                                disabled={!paymentTermsEnabled}
                               />
+                              {isPaymentTermsNegotiated && (
+                                <div className="text-end mt-1">
+                                  <span
+                                    style={{ fontSize: '0.72rem', color: '#856404', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline' }}
+                                    onClick={() => setShowBuyerCommentModal({ field: 'payment_terms' })}
+                                  >
+                                    View Buyer Comment
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Buyer Comment Modal for text fields */}
+                              {showBuyerCommentModal && (
+                                <Modal
+                                  isOpen={true}
+                                  onRequestClose={() => setShowBuyerCommentModal(null)}
+                                  ariaHideApp={false}
+                                  contentLabel="Buyer Comment"
+                                  className="contact-modal contact-modal-new"
+                                  style={{
+                                    overlay: { backgroundColor: "rgba(0, 0, 0, 0.75)", zIndex: 9999 },
+                                    content: {
+                                      position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+                                      maxWidth: "550px", width: "90%", border: "none", background: "#fff",
+                                      borderRadius: "8px", padding: "24px", maxHeight: "60vh", overflow: "auto",
+                                    },
+                                  }}
+                                >
+                                  <div className="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 className="fw-bold mb-0" style={{ fontSize: "1rem" }}>
+                                      {showBuyerCommentModal.field === 'payment_terms' && "Buyer's Comment on Payment Terms"}
+                                      {showBuyerCommentModal.field === 'comments' && "Buyer's Comment"}
+                                      {showBuyerCommentModal.field === 'documents' && "Buyer's Comments on Documents"}
+                                    </h5>
+                                    <button onClick={() => setShowBuyerCommentModal(null)} className="btn-close" aria-label="Close" style={{ fontSize: "0.7rem" }}></button>
+                                  </div>
+                                  {(() => {
+                                    const allNegFields = Object.values(activeNegotiationFields).flat();
+                                    const negField = allNegFields.find(f => f.name === showBuyerCommentModal.field);
+                                    const target = negField?.targetPrice;
+                                    if (showBuyerCommentModal.field === 'documents' && Array.isArray(target)) {
+                                      return (
+                                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                          {target.map((doc, idx) => (
+                                            <div key={idx} className="border rounded p-2 mb-2">
+                                              <div className="d-flex justify-content-between align-items-center mb-1">
+                                                <span className="fw-semibold" style={{ fontSize: '0.85rem' }}>Document {(doc.document_index || 0) + 1}</span>
+                                                {doc.file_url && (
+                                                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 600 }}>View Doc</a>
+                                                )}
+                                              </div>
+                                              <div style={{ fontSize: '0.85rem', background: '#fff8e1', border: '1px solid #f0ad4e', borderRadius: '6px', padding: '8px 12px' }}>
+                                                {doc.comment || 'No comment'}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      );
+                                    }
+                                    return (
+                                      <div style={{ fontSize: "0.9rem", lineHeight: 1.6, color: "#333", background: "#fff8e1", border: "1px solid #f0ad4e", borderRadius: "6px", padding: "12px 16px", whiteSpace: 'pre-wrap' }}>
+                                        {(typeof target === 'string' ? target : '') || 'No comment provided.'}
+                                      </div>
+                                    );
+                                  })()}
+                                </Modal>
+                              )}
+                              {/* Previous Documents Modal */}
+                              {showPrevDocsModal && (
+                                <Modal
+                                  isOpen={true}
+                                  onRequestClose={() => setShowPrevDocsModal(null)}
+                                  ariaHideApp={false}
+                                  contentLabel="Previous Documents"
+                                  className="contact-modal contact-modal-new"
+                                  style={{
+                                    overlay: { backgroundColor: "rgba(0, 0, 0, 0.75)", zIndex: 9999 },
+                                    content: {
+                                      position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+                                      maxWidth: "450px", width: "90%", border: "none", background: "#fff",
+                                      borderRadius: "8px", padding: "24px", maxHeight: "60vh", overflow: "auto",
+                                    },
+                                  }}
+                                >
+                                  <div className="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 className="fw-bold mb-0" style={{ fontSize: "1rem" }}>Previous Documents</h5>
+                                    <button onClick={() => setShowPrevDocsModal(null)} className="btn-close" aria-label="Close" style={{ fontSize: "0.7rem" }}></button>
+                                  </div>
+                                  <div>
+                                    {(showPrevDocsModal.files || []).map((fileUrl, idx) => (
+                                      <div key={idx} className="d-flex align-items-center justify-content-between border rounded p-2 mb-2">
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Document {idx + 1}</span>
+                                        <div className="d-flex align-items-center gap-2">
+                                          <a href={fileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 600 }}>
+                                            View Doc
+                                          </a>
+                                          <FiTrash2 size={13} color="#dc3545" style={{ cursor: "pointer", flexShrink: 0 }} title="Delete"
+                                            onClick={async () => {
+                                              try {
+                                                await deleteQuoteFile(fileUrl);
+                                                const pIdx = showPrevDocsModal.productIndex;
+                                                setquoteProducts(prev => prev.map((p, i) => {
+                                                  if (i !== pIdx) return p;
+                                                  return { ...p, previous_document_files: p.previous_document_files.filter(f => f !== fileUrl) };
+                                                }));
+                                                const updatedFiles = showPrevDocsModal.files.filter(f => f !== fileUrl);
+                                                if (updatedFiles.length === 0) {
+                                                  setShowPrevDocsModal(null);
+                                                } else {
+                                                  setShowPrevDocsModal({ ...showPrevDocsModal, files: updatedFiles });
+                                                }
+                                                toast.success("File deleted successfully");
+                                              } catch (err) {
+                                                toast.error("Failed to delete file");
+                                              }
+                                            }}
+                                          />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </Modal>
+                              )}
                             </div>
+                          )
+                          })()}
                       </div>
                   </div>
                   </div>
@@ -2337,11 +2579,33 @@ return { deletedTerms, createdTerms, updatedTerms };
                       const field = modalNegotiatedFields.find(f => f.name === chargeNameOrSlug);
                       return field?.targetPrice ?? null;
                     };
+                    const getChargeTargetMode = (chargeNameOrSlug) => {
+                      const field = modalNegotiatedFields.find(f => f.name === chargeNameOrSlug);
+                      return field?.mode || null;
+                    };
+                    const formatChargeTarget = (chargeNameOrSlug) => {
+                      const tp = getChargeTargetPrice(chargeNameOrSlug);
+                      if (tp == null) return null;
+                      const mode = getChargeTargetMode(chargeNameOrSlug);
+                      return mode === 'percentage' ? `${tp}%` : `₹${tp}`;
+                    };
+                    const isBidExpiredWithNegotiation = isBidExpired && !isBidExpiredForProduct;
+
+                    const handleChargesModalClose = () => {
+                      const missing = (modalProduct.other_charges || []).find(c => parseFloat(c.tax || 0) > 0 && !c.comment?.trim());
+                      if (missing) {
+                        setInvalidCommentChargeId(missing._id);
+                        toast.error('Please add a comment for the added tax');
+                        return;
+                      }
+                      setInvalidCommentChargeId(null);
+                      setChargesModalOpen(null);
+                    };
 
                     return (
                       <Modal
                         isOpen={true}
-                        onRequestClose={() => setChargesModalOpen(null)}
+                        onRequestClose={handleChargesModalClose}
                         ariaHideApp={false}
                         contentLabel="Charges Modal"
                         className="contact-modal contact-modal-new"
@@ -2367,7 +2631,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                           {/* Fixed Header */}
                           <div className="d-flex justify-content-between align-items-center" style={{ padding: "16px 20px", borderBottom: "1px solid #dee2e6", flexShrink: 0 }}>
                             <h5 className="fw-bold mb-0" style={{ fontSize: "1rem" }}>Charges — {productName} <small className="text-muted">(Qty: {qty} {unit})</small></h5>
-                            <button onClick={() => setChargesModalOpen(null)} className="btn-close" aria-label="Close" style={{ fontSize: "0.7rem" }}></button>
+                            <button onClick={handleChargesModalClose} className="btn-close" aria-label="Close" style={{ fontSize: "0.7rem" }}></button>
                           </div>
 
                           {/* Scrollable Body */}
@@ -2458,8 +2722,9 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       onClick={() => setChargeDropdownOpen(false)}
                                     />
                                   )}
-                                  <div className="form-select form-select-sm" style={{ cursor: "pointer" }}
-                                    onClick={() => setChargeDropdownOpen(prev => !prev)}
+                                  <div className="form-select form-select-sm"
+                                    style={{ cursor: isBidExpiredWithNegotiation ? "not-allowed" : "pointer", opacity: isBidExpiredWithNegotiation ? 0.6 : 1 }}
+                                    onClick={() => { if (!isBidExpiredWithNegotiation) setChargeDropdownOpen(prev => !prev); }}
                                   >
                                     Select charge type...
                                   </div>
@@ -2518,24 +2783,26 @@ return { deletedTerms, createdTerms, updatedTerms };
                             {(modalProduct.other_charges || []).map((charge) => {
                               const chargeDisabled = !isChargeNegotiable(charge.name, charge.slug);
                               const chargeTarget = getChargeTargetPrice(charge.slug || charge.name);
+                              const chargeTargetFormatted = formatChargeTarget(charge.slug || charge.name);
+                              const isNegotiatedCharge = chargeTarget != null;
                               return (
-                              <div key={charge._id} className="border rounded p-2 mb-2">
+                              <div key={charge._id} className="border rounded p-2 mb-2" style={isNegotiatedCharge ? { border: '2px solid #f0ad4e' } : {}}>
                                 <div className="d-flex justify-content-between align-items-center mb-2">
                                   <span className="fw-semibold" style={{ fontSize: "0.85rem" }}>
                                     {charge.name}
-                                    {chargeTarget != null && <small className="text-muted ms-2">(Target: ₹{chargeTarget})</small>}
+                                    {isNegotiatedCharge && <small className="ms-2" style={{ color: '#856404', fontWeight: 600 }}>(Target: {chargeTargetFormatted})</small>}
                                   </span>
-                                  {!chargeDisabled && (
+                                  {!chargeDisabled && !isNegotiatedCharge && (
                                     <FiTrash2 size={14} color="#dc3545" style={{ cursor: "pointer", flexShrink: 0 }}
                                       onClick={() => handleRemoveOtherCharge(modalIndex, charge._id)}
                                     />
                                   )}
                                 </div>
                                 <div className="row g-4 align-items-start">
-                                  <div className="col-sm-6">
+                                  <div className="col-sm-4">
                                     <small className="text-muted d-block mb-1">Amount</small>
                                     <div className="d-flex align-items-center gap-1">
-                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0, ...(isNegotiatedCharge ? { border: '2px solid #f0ad4e' } : {}) }}
                                         placeholder={charge.amount_mode === "percentage" ? "%" : "₹"}
                                         value={charge.amount || ""}
                                         onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "amount", parseFloat(e.target.value) || 0)}
@@ -2546,21 +2813,46 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "amount_mode", value)}
                                       />
                                     </div>
+                                    {isNegotiatedCharge && (
+                                      <div style={{ background: '#333', color: '#fff', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', marginTop: '3px', display: 'inline-block' }}>
+                                        Target: {chargeTargetFormatted}
+                                      </div>
+                                    )}
                                   </div>
-                                  <div className="col-sm-6">
+                                  <div className="col-sm-4">
                                     <small className="text-muted d-block mb-1">Tax</small>
                                     <div className="d-flex align-items-center gap-1">
                                       <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
                                         placeholder={charge.tax_mode === "percentage" ? "%" : "₹"}
                                         value={charge.tax || ""}
                                         onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "tax", parseFloat(e.target.value) || 0)}
-                                        onWheel={(e) => e.target.blur()} disabled={chargeDisabled}
+                                        onWheel={(e) => e.target.blur()} disabled={chargeDisabled || isNegotiatedCharge}
                                       />
                                       <PercentageAbsoluteToggle currentMode={charge.tax_mode}
-                                        disabled={chargeDisabled}
+                                        disabled={chargeDisabled || isNegotiatedCharge}
                                         onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "tax_mode", value)}
                                       />
                                     </div>
+                                  </div>
+                                  <div className="col-sm-4">
+                                    {(() => {
+                                      const hasValue = parseFloat(charge.tax || 0) > 0;
+                                      return (
+                                        <>
+                                          <small className="text-muted d-block mb-1">Comment {hasValue && <span className="text-danger">*</span>}</small>
+                                          <input type="text" className="form-control form-control-sm"
+                                            style={{ minWidth: 0, border: invalidCommentChargeId === charge._id ? '2px solid #dc3545' : undefined }}
+                                            placeholder="What is this tax for?"
+                                            value={charge.comment || ""}
+                                            onChange={(e) => {
+                                              if (invalidCommentChargeId === charge._id) setInvalidCommentChargeId(null);
+                                              handleUpdateOtherCharge(modalIndex, charge._id, "comment", e.target.value);
+                                            }}
+                                            disabled={chargeDisabled || !hasValue}
+                                          />
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               </div>
@@ -2601,11 +2893,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                                   </div>
                                 </div>
                               )}
-                            </div>
-                            <div className="d-flex justify-content-end" style={{ padding: "10px 20px", background: "#fff" }}>
-                              <button className="btn btn-secondary btn-sm" onClick={() => setChargesModalOpen(null)}>
-                                Save & Close
-                              </button>
                             </div>
                           </div>
                         </div>
@@ -2689,6 +2976,17 @@ return { deletedTerms, createdTerms, updatedTerms };
                                   const field = negotiatedFields.find(f => f.name === fieldName);
                                   return field?.targetPrice ?? null;
                                 };
+                                const getTargetMode = (fieldName) => {
+                                  const field = negotiatedFields.find(f => f.name === fieldName);
+                                  return field?.mode || null;
+                                };
+                                const formatTarget = (fieldName) => {
+                                  const tp = getTargetPrice(fieldName);
+                                  if (tp == null) return null;
+                                  const mode = getTargetMode(fieldName);
+                                  return mode === 'percentage' ? `${tp}%` : `₹${tp}`;
+                                };
+                                const hasBasePriceTarget = getTargetPrice('base_price') != null && isFieldNegotiable('base_price');
 
                                 return (
                                   <React.Fragment key={`q_${item.id}_${item.product_id}_${item.variant}`}>
@@ -2757,7 +3055,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           name=""
                                           id=""
                                           placeholder="₹"
-                                          style={{ width: "100%" }}
+                                          style={{ width: "100%", ...(hasBasePriceTarget ? { border: '2px solid #f0ad4e', borderRadius: '4px' } : {}) }}
                                           value={
                                             quoteProducts[index].unit_price
                                           }
@@ -2778,8 +3076,12 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           }
                                           onWheel={(e) => e.target.blur()}
                                           disabled={!isFieldNegotiable('base_price')}
-                                          title={getTargetPrice('base_price') != null ? `Target: ₹${getTargetPrice('base_price')}` : ''}
                                         />
+                                        {hasBasePriceTarget && (
+                                          <div style={{ background: '#333', color: '#fff', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', marginTop: '2px', display: 'inline-block' }}>
+                                            Target: {formatTarget('base_price')}
+                                          </div>
+                                        )}
 
                                         {isTechEvalPendingOrRejected && (
                                           <small
@@ -2923,7 +3225,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       )
                                     ) : null}
                                     <td>
-                                      <div className="comment">
+                                      <div className="comment" style={{display:'flex', flexDirection:"column"}}>
                                         <div className="comment-group">
                                           <textarea
                                             name="comment"
@@ -2954,6 +3256,16 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           ></textarea>
                                           <span htmlFor="comment">0/300</span>
                                         </div>
+                                        {isFieldNegotiable('comments') && isBidExpired && (
+                                            <div className="text-end" style={{alignSelf:'flex-end'}}>
+                                              <span
+                                                style={{ fontSize: '0.68rem', color: '#856404', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline' }}
+                                                onClick={() => setShowBuyerCommentModal({ field: 'comments', productId: item.id })}
+                                              >
+                                                View Buyer Comment
+                                              </span>
+                                            </div>
+                                          )}
                                         {isTechEvalPendingOrRejected && (
                                           <small
                                             className="d-block text-danger mt-1"
@@ -3026,7 +3338,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             uploadQuoteItemFiles(e, item)
                                           }
                                           multiple={true}
-                                          disabled={isProductDisabled || isBidExpiredNonNegotiable}
+                                          disabled={isProductDisabled || (isBidExpiredNonNegotiable && !isFieldNegotiable('documents'))}
                                         />
                                       </label>
                                       {alreadyQuoted && (
@@ -3038,25 +3350,13 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               fontSize: "0.85rem",
                                             }}
                                           >
-                                            <span
-                                              style={{
-                                                fontWeight: 600,
-                                                color: "#333",
-                                              }}
-                                            >
-                                              Previous Documents:
-                                            </span>
-                                            {quoteProducts[index]
-                                              ?.previous_document_files
-                                              ?.length > 0 ? (
-                                              renderFileLink(
-                                                quoteProducts[index]
-                                                  .previous_document_files
-                                              )
+                                            {quoteProducts[index]?.previous_document_files?.length > 0 ? (
+                                              <button type="button" className="btn btn-sm btn-primary" style={{ fontSize: '0.72rem', padding: '2px 10px', marginTop: '6px' }}
+                                                onClick={() => setShowPrevDocsModal({ files: quoteProducts[index].previous_document_files, productIndex: index })}>
+                                                Show Files ({quoteProducts[index].previous_document_files.length})
+                                              </button>
                                             ) : (
-                                              <span style={{ color: "#888" }}>
-                                                No Files
-                                              </span>
+                                              <span style={{ color: "#888" }}>No Files</span>
                                             )}
                                           </div>
                                       )}
@@ -3068,6 +3368,16 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           Upload disabled (Not technically
                                           accepted)
                                         </small>
+                                      )}
+                                      {isFieldNegotiable('documents') && isBidExpired && (
+                                        <div className="mt-1" style={{textAlign:"end"}}>
+                                          <span
+                                            style={{ fontSize: '0.7rem', color: '#856404', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline' }}
+                                            onClick={() => setShowBuyerCommentModal({ field: 'documents', productId: item.id })}
+                                          >
+                                            View Buyer Comments
+                                          </span>
+                                        </div>
                                       )}
                                       {quoteProducts[index].document_files &&
                                         quoteProducts[index].document_files
@@ -3181,11 +3491,22 @@ return { deletedTerms, createdTerms, updatedTerms };
                         <div className="d-flex justify-content-end mb-2">
                           <GrandTotalBreakup
                             totalBase={quoteBreakup.totalBase}
-                            totalTax={quoteBreakup.totalTax + globalChargesTotal}
+                            totalTax={quoteBreakup.totalTax}
                             totalOtherCharges={quoteBreakup.totalOtherCharges}
                             grandTotal={grandTotalIncludingGST}
                             formatPrice={formatPrice}
                             align="end"
+                            chargeBreakdown={quoteBreakup.chargeBreakdown}
+                            globalChargeBreakdown={globalOtherCharges
+                              .filter(c => c.name && c.name.trim())
+                              .map(c => {
+                                const val = c.amount_mode === 'percentage'
+                                  ? (grandTotalBeforeGlobalCharges * (parseFloat(c.amount) || 0)) / 100
+                                  : (parseFloat(c.amount) || 0);
+                                return { label: c.name, value: val };
+                              })
+                              .filter(c => c.value > 0)
+                            }
                           />
                         </div>
                         {/* End Grand Total Breakup */}

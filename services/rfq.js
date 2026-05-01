@@ -1470,7 +1470,18 @@ export const submitRFQApprovalAction = (rfqId, payload) => {
 export const getChargeNames = () => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/charge-names/all`);
+      let response = await axiosInstance.get(`/rfq/charge-names`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const deleteQuoteFile = (file_url) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/users/delete-file`, { file_urls: [file_url] });
       resolve(response);
     } catch (error) {
       reject({ message: error });

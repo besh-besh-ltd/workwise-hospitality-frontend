@@ -438,7 +438,9 @@ const ProductComparisonMatrix = ({
           const amountVal = Number(charge.amount || 0);
           const taxVal = Number(charge.tax || 0);
           const amountDisplay = charge.amount_mode === "percentage" ? `${amountVal}%` : formatCurrency(amountVal);
-          const taxDisplay = taxVal > 0 ? (charge.tax_mode === "percentage" ? ` (+${taxVal}% tax)` : ` (+${formatCurrency(taxVal)} tax)`) : "";
+          const taxUnit = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
+          const commentText = charge.comment ? ` (${charge.comment})` : "";
+          const taxDisplay = taxVal > 0 ? ` + ${taxUnit} tax${commentText}` : "";
           return <span className={styles.value}>{amountDisplay}<small className="text-muted">{taxDisplay}</small></span>;
         }
         if (rowMeta.type === "globalCharge") {
