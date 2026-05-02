@@ -11,12 +11,9 @@ const toNumber = (value) => {
 
 const formatCurrency = (value) => `Rs. ${addCommasToNumber(Math.round(toNumber(value)))}`;
 
-const getChargeValue = (subtotal, amount, mode) => {
-  const raw = toNumber(amount);
-  if (mode === "percentage") return (subtotal * raw) / 100;
-  return raw;
-};
-
+// Peer-comparison narrative: how this quote stacks up against averages and the
+// lowest priced quote (display-only — no money math, just simple ratios on
+// already-engine-computed totals).
 const getVsPeers = (current, peers = []) => {
   const valid = peers.filter((value) => toNumber(value) > 0).map((value) => toNumber(value));
   if (!valid.length || toNumber(current) <= 0) {
@@ -65,19 +62,28 @@ const BreakupInsightModal = ({
 }) => {
   const qty = toNumber(quantity || details.quantity || 0);
   const unitPrice = toNumber(details.unit_price);
-  const subtotal = qty * unitPrice;
-  const packaging = getChargeValue(subtotal, details.package_price, details.package_mode);
-  const freight = getChargeValue(subtotal, details.freight_price, details.freight_mode);
-  const gst = getChargeValue(subtotal, details.tax, details.tax_mode);
+  const engine = details.engine || {};
+  const subtotal = toNumber(engine.base) || unitPrice * qty;
+  const baseTax = toNumber(engine.base_tax);
   const peerSignal = useMemo(() => getVsPeers(total, peerTotals), [total, peerTotals]);
 
+  // Build dynamic rows from the engine's per-charge breakdown. Vendor-defined
+  // charge names (Freight, Packaging, Insurance, Setup, anything) appear in
+  // the same shape, with their amount + tax already included in `subtotal`.
+  // The sum of these rows + Base + Base GST exactly reconciles to Total.
+  const chargeRows = (engine.charges || [])
+    .filter((c) => toNumber(c.subtotal) > 0)
+    .map((charge) => ({
+      label: charge.name || "Other Charge",
+      value: formatCurrency(charge.subtotal),
+    }));
+
   const rows = [
-    { label: "Base Price", value: formatCurrency(unitPrice), highlight: false },
-    { label: "Quantity", value: qty || "--", highlight: false },
-    { label: "Subtotal", value: formatCurrency(subtotal), highlight: false },
-    { label: "Packaging", value: formatCurrency(packaging), highlight: false },
-    { label: "Freight", value: formatCurrency(freight), highlight: false },
-    { label: "GST", value: formatCurrency(gst), highlight: false },
+    { label: "Base Price", value: formatCurrency(unitPrice) },
+    { label: "Quantity", value: qty || "--" },
+    { label: "Subtotal", value: formatCurrency(subtotal) },
+    ...chargeRows,
+    { label: "GST (on base)", value: formatCurrency(baseTax) },
     { label: "Delivery", value: details.delivery_period ? `${details.delivery_period} day(s)` : "--", highlight: true },
     { label: "Total", value: formatCurrency(total), highlight: true },
   ];

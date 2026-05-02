@@ -40,6 +40,7 @@ import { getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { Badge, Button, Alert, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill } from "react-icons/bs";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
+import usePreviewTotals from "@/hooks/usePreviewTotals";
 import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import {
   buildBuyerTechEvalProductSummary,
@@ -173,6 +174,31 @@ const RfqManagementPreview = () => {
   const { id, type, token } = router.query;
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
+
+  // Engine-driven breakup for the vendor's previously-submitted quote. The
+  // hook hits /pricing/preview once per render of this page, which the
+  // backend computes statelessly. Falls back to an empty draft when no
+  // quote is present, so the hook is a no-op for fresh inquiries.
+  const submittedPreviewDraft = React.useMemo(() => {
+    const submitted = rfqDetails?.quotations?.[0];
+    if (!submitted || submitted.is_regret !== 0) return null;
+    const products = submitted?.products || [];
+    if (products.length === 0) return null;
+    return {
+      items: products.map((p) => {
+        const rfqProduct = rfqDetails.products?.find((rp) => rp.product_id === p.product_id);
+        const qty = parseFloat(rfqProduct?.product_specs?.find((s) => s?.title === "Quantity")?.value) || 0;
+        return {
+          unit_price: p.unit_price,
+          quantity: qty,
+          tax: p.tax,
+          tax_mode: p.tax_mode || "percentage",
+          other_charges: Array.isArray(p.other_charges) ? p.other_charges : [],
+        };
+      }),
+    };
+  }, [rfqDetails]);
+  const { totals: submittedQuoteTotals } = usePreviewTotals(submittedPreviewDraft);
   const [enableBuyerView, setEnableBuyerView] = useState(false);
   // WH-69: Edit history modal open/close state
   const [showEditHistoryModal, setShowEditHistoryModal] = useState(false);
@@ -2606,31 +2632,23 @@ const RfqManagementPreview = () => {
                                             .format("hh:mm A - DD/MM/YYYY")}
                                         </h4>
 
-                                        {rfqDetails.quotations[0]?.products?.length > 0 && (() => {
-                                          const products = rfqDetails.quotations[0].products;
-                                          let totalBase = 0, totalFreight = 0, totalPackaging = 0, totalTax = 0, grandTotal = 0;
-                                          products.forEach(p => {
-                                            // Quantity is stored in RFQ product specs, not in quotation products
-                                            const rfqProduct = rfqDetails.products?.find(rp => rp.product_id === p.product_id);
-                                            const qty = parseFloat(rfqProduct?.product_specs?.find(spec => spec?.title === 'Quantity')?.value) || 0;
-                                            const unitPrice = parseFloat(p.unit_price) || 0;
-                                            const base = unitPrice * qty;
-                                            const freight = (p.freight_mode || "percentage") === "percentage"
-                                              ? (base * (parseFloat(p.freight_price) || 0)) / 100
-                                              : parseFloat(p.freight_price) || 0;
-                                            const packaging = (p.package_mode || "percentage") === "percentage"
-                                              ? (base * (parseFloat(p.package_price) || 0)) / 100
-                                              : parseFloat(p.package_price) || 0;
-                                            const subtotal = base + freight + packaging;
-                                            const tax = (p.tax_mode || "percentage") === "percentage"
-                                              ? (subtotal * (parseFloat(p.tax) || 0)) / 100
-                                              : parseFloat(p.tax) || 0;
-                                            totalBase += base;
-                                            totalFreight += freight;
-                                            totalPackaging += packaging;
-                                            totalTax += tax;
-                                            grandTotal += Number(p.total_price) || 0;
+                                        {rfqDetails.quotations[0]?.products?.length > 0 && submittedQuoteTotals && (() => {
+                                          // Sum the engine-output breakdown across line items. Charges
+                                          // named "Freight" / "Packaging" populate their respective
+                                          // breakup rows; everything else flows through the engine totals.
+                                          let totalBase = 0, totalFreight = 0, totalPackaging = 0, totalTax = 0;
+                                          (submittedQuoteTotals.lines || []).forEach(line => {
+                                            totalBase += Number(line.base) || 0;
+                                            totalTax += Number(line.base_tax) || 0;
+                                            (line.charges || []).forEach(c => {
+                                              const name = (c.name || "").toLowerCase();
+                                              const subtotal = Number(c.subtotal) || 0;
+                                              if (name === "freight") totalFreight += subtotal;
+                                              else if (name === "packaging") totalPackaging += subtotal;
+                                              else totalTax += 0; // other named charges are folded into the engine total
+                                            });
                                           });
+                                          const grandTotal = Number(submittedQuoteTotals.grand_total) || 0;
                                           return (
                                             <div className="mb-2">
                                               <GrandTotalBreakup

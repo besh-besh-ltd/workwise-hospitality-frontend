@@ -459,7 +459,7 @@ export const getQuotes = (id, TA_Filter, freightFilter, rfq_product_id, source, 
 //   })
 // }
 
-export const downloadQuotesDetails = (id, TA_Filter, freightFilter, rfq_product_id, source) => {
+export const downloadQuotesDetails = (id, TA_Filter, freightFilter, rfq_product_id, source, normalize = false) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.get(
@@ -472,6 +472,7 @@ export const downloadQuotesDetails = (id, TA_Filter, freightFilter, rfq_product_
           params: {
             rfq_product_id,
             source,
+            normalize: normalize ? "1" : undefined,
           },
         }
       );
