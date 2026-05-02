@@ -63,7 +63,7 @@ const POStatusBadge = ({ status }) => {
   };
   return (
     <Badge bg={statusColors[status] || 'secondary'} className="fs-6 px-3 py-2 float-end text-uppercase">
-      {labels[status] || status.replace(/_/g, ' ')}
+      {labels[status] || (status || '').replace(/_/g, ' ')}
     </Badge>
   );
 };
@@ -403,7 +403,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               <span>Purchase Order</span>
               <span className={styles.detailsHeroPONum}>#{po_number}</span>
               <Badge bg={statusColors[status] || 'secondary'} className={styles.heroStatusBadge}>
-                {status === 'acceptance_pending' ? 'Awaiting' : status === 'rejected_by_vendor' ? 'Rejected' : status === 'approved' ? 'Accepted' : status.replace(/_/g, ' ')}
+                {status === 'acceptance_pending' ? 'Awaiting' : status === 'rejected_by_vendor' ? 'Rejected' : status === 'approved' ? 'Accepted' : (status || '').replace(/_/g, ' ')}
               </Badge>
             </div>
             <p className={styles.detailsHeroSub}>
@@ -517,7 +517,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               <div className={styles.detailsMetaIcon}><BsShieldCheck size={15} /></div>
               <div>
                 <div className={styles.detailsMetaLabel}>Status</div>
-                <div className={styles.detailsMetaValue} style={{ textTransform: 'capitalize' }}>{status === 'approved' ? 'Accepted' : status === 'acceptance_pending' ? 'Awaiting Vendor' : status === 'rejected_by_vendor' ? 'Vendor Rejected' : status.replace(/_/g, ' ')}</div>
+                <div className={styles.detailsMetaValue} style={{ textTransform: 'capitalize' }}>{status === 'approved' ? 'Accepted' : status === 'acceptance_pending' ? 'Awaiting Vendor' : status === 'rejected_by_vendor' ? 'Vendor Rejected' : (status || '').replace(/_/g, ' ')}</div>
               </div>
             </div>
             {budgetInfo && (
@@ -694,54 +694,82 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                             </div>
                           </div>
   
-                          {/* Charges summary */}
-                          {prod.charges_meta && (
-                            <>
-                              <div className="small text-muted mb-1">Charges</div>
-                              <div className="d-flex flex-wrap gap-2">
-                                {/* Freight */}
-                                {prod.charges_meta.freight_price != null && (
-                                  <span className="badge bg-light text-dark border">
-                                    Freight:{" "}
-                                    <strong>
-                                      {prod.charges_meta.freight_price}
-                                      {prod.charges_meta.freight_mode ===
-                                      "percentage"
-                                        ? "%"
-                                        : " ₹"}
-                                    </strong>
-                                  </span>
-                                )}
-  
-                                {/* Packing */}
-                                {prod.charges_meta.package_price != null && (
-                                  <span className="badge bg-light text-dark border">
-                                    Packing:{" "}
-                                    <strong>
-                                      {prod.charges_meta.package_price}
-                                      {prod.charges_meta.package_mode ===
-                                      "percentage"
-                                        ? "%"
-                                        : " ₹"}
-                                    </strong>
-                                  </span>
-                                )}
-  
-                                {/* Tax */}
-                                {prod.charges_meta.tax != null && (
-                                  <span className="badge bg-light text-dark border">
-                                    Tax:{" "}
-                                    <strong>
-                                      {prod.charges_meta.tax}
-                                      {prod.charges_meta.tax_mode === "percentage"
-                                        ? "%"
-                                        : " ₹"}
-                                    </strong>
-                                  </span>
-                                )}
-                              </div>
-                            </>
-                          )}
+                          {/* Charges summary — dynamic over the canonical
+                              other_charges[] shape, with a fallback to legacy
+                              flat fields for old POs that pre-date the
+                              migration. */}
+                          {(() => {
+                            const cm = prod.charges_meta || {};
+                            const dynamic = Array.isArray(cm.other_charges) ? cm.other_charges : [];
+                            const legacyFreight = parseFloat(cm.freight_price);
+                            const legacyPackage = parseFloat(cm.package_price);
+                            const synthetic = [];
+                            if (dynamic.length === 0) {
+                              if (Number.isFinite(legacyFreight) && legacyFreight > 0) {
+                                synthetic.push({ name: "Freight", amount: legacyFreight, amount_mode: cm.freight_mode || "percentage" });
+                              }
+                              if (Number.isFinite(legacyPackage) && legacyPackage > 0) {
+                                synthetic.push({ name: "Packaging", amount: legacyPackage, amount_mode: cm.package_mode || "percentage" });
+                              }
+                            }
+                            const charges = dynamic.length ? dynamic : synthetic;
+                            const baseTaxValue = parseFloat(cm.tax);
+                            const baseTaxMode = cm.tax_mode || "percentage";
+                            const hasBaseTax = Number.isFinite(baseTaxValue) && baseTaxValue > 0;
+                            // Inheritance rule mirrors the pricing engine: a
+                            // charge inherits the base tax rate when it has
+                            // no explicit own tax AND the base tax_mode is a
+                            // percentage with a non-zero rate.
+                            const baseTaxRateForInherit = baseTaxMode === "percentage" && hasBaseTax ? baseTaxValue : 0;
+                            if (charges.length === 0 && !hasBaseTax) return null;
+
+                            const formatChargeAmount = (charge) => {
+                              const amount = parseFloat(charge.amount) || 0;
+                              const mode = charge.amount_mode || "percentage";
+                              return mode === "percentage" ? `${amount}%` : `₹ ${addCommasToNumber(amount)}`;
+                            };
+                            const formatChargeTax = (charge) => {
+                              const ownTax = parseFloat(charge.tax);
+                              if (Number.isFinite(ownTax) && ownTax > 0) {
+                                const mode = charge.tax_mode || "percentage";
+                                return mode === "percentage" ? `${ownTax}%` : `₹ ${addCommasToNumber(ownTax)}`;
+                              }
+                              if (baseTaxRateForInherit > 0) {
+                                return `${baseTaxRateForInherit}% (base)`;
+                              }
+                              return null;
+                            };
+
+                            return (
+                              <>
+                                <div className="small text-muted mb-1">Charges</div>
+                                <div className="d-flex flex-wrap gap-2">
+                                  {charges.map((charge, i) => {
+                                    const taxDisplay = formatChargeTax(charge);
+                                    return (
+                                      <span key={`${charge.name || i}_${i}`} className="badge bg-light text-dark border">
+                                        {charge.name || "Other"}: <strong>{formatChargeAmount(charge)}</strong>
+                                        {taxDisplay && (
+                                          <span style={{ color: "#888", fontWeight: 400, marginLeft: 4 }}>
+                                            + {taxDisplay} tax
+                                          </span>
+                                        )}
+                                      </span>
+                                    );
+                                  })}
+                                  {hasBaseTax && (
+                                    <span className="badge bg-light text-dark border">
+                                      Tax:{" "}
+                                      <strong>
+                                        {baseTaxValue}
+                                        {baseTaxMode === "percentage" ? "%" : " ₹"}
+                                      </strong>
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </Accordion.Body>
                       </Accordion.Item>
                     );

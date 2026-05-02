@@ -20,7 +20,7 @@ import {
   approveNegotiationQuotes,
   rejectNegotiationQuotes,
 } from "@/services/negotiation";
-import { addCommasToNumber, calculateTotal } from "@/utils/sharedFunctions";
+import { addCommasToNumber } from "@/utils/sharedFunctions";
 import {
   buildProductComparisonModel,
   getPaymentTermsText,
@@ -404,19 +404,13 @@ const ProductComparisonMatrix = ({
         return renderPaymentPills(content);
       }
       default: {
-        // Accordion summary rows
+        // Accordion summary rows — read from engine output. The engine
+        // applied the correct tax-inheritance rule, so this matches what
+        // the line `total` reflects (and what gets persisted on save).
         if (rowMeta.type === "otherChargesSummary") {
           const otherCharges = details.other_charges || [];
           if (otherCharges.length === 0) return <span className={styles.value}>--</span>;
-          const unitPrice = Number(details.unit_price || 0);
-          const qty = Number(column.quantity || 0);
-          const subtotal = unitPrice * qty;
-          let total = 0;
-          otherCharges.forEach(c => {
-            const amt = c.amount_mode === "percentage" ? (subtotal * Number(c.amount || 0)) / 100 : Number(c.amount || 0);
-            const tax = c.tax_mode === "percentage" ? (amt * Number(c.tax || 0)) / 100 : Number(c.tax || 0);
-            total += amt + tax;
-          });
+          const total = Number(details.engine?.charges_total || 0);
           return <span className={styles.value}>{formatCurrency(total)} <small className="text-muted">({otherCharges.length} charge{otherCharges.length > 1 ? "s" : ""})</small></span>;
         }
         if (rowMeta.type === "globalTaxesSummary") {
@@ -438,9 +432,18 @@ const ProductComparisonMatrix = ({
           const amountVal = Number(charge.amount || 0);
           const taxVal = Number(charge.tax || 0);
           const amountDisplay = charge.amount_mode === "percentage" ? `${amountVal}%` : formatCurrency(amountVal);
-          const taxUnit = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
           const commentText = charge.comment ? ` (${charge.comment})` : "";
-          const taxDisplay = taxVal > 0 ? ` + ${taxUnit} tax${commentText}` : "";
+          let taxDisplay = "";
+          if (taxVal > 0) {
+            const taxUnit = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
+            taxDisplay = ` + ${taxUnit} tax${commentText}`;
+          } else if (amountVal > 0) {
+            // Check if base tax is auto-applied
+            const baseTaxRate = (details.tax_mode ?? "percentage") === "percentage" ? (parseFloat(details.tax) || 0) : 0;
+            if (baseTaxRate > 0) {
+              taxDisplay = ` + ${baseTaxRate}% tax (auto-applied)`;
+            }
+          }
           return <span className={styles.value}>{amountDisplay}<small className="text-muted">{taxDisplay}</small></span>;
         }
         if (rowMeta.type === "globalCharge") {
@@ -1031,7 +1034,6 @@ const ProductComparisonMatrix = ({
           proditem?.product_details?.[0]?.rfq_details?.find((spec) => spec.title === "Quantity")
             ?.value
         }
-        calculateTotal={calculateTotal}
       />
     </>
   );

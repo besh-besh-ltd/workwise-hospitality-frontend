@@ -26,7 +26,15 @@ import {
   Filler,
   Tooltip as ChartTooltip,
 } from 'chart.js';
-import { calculateTotal } from '@/utils/sharedFunctions';
+// Engine total reader: any quote_details row enriched by the quote-compare
+// service carries `engine.total`; legacy stored `total_price` is the
+// authoritative fallback.
+const lineEngineTotal = (info) => {
+  if (!info) return 0;
+  const fromEngine = Number(info.engine?.total);
+  if (Number.isFinite(fromEngine) && fromEngine > 0) return fromEngine;
+  return Number(info.total_price) || 0;
+};
 import { getChargeNames } from '@/services/rfq';
 import VendorAccordionPanel from './VendorAccordionPanel';
 import NegotiationFieldsSelect, { getChargeTargetKey } from './NegotiationFieldsSelect';
@@ -1081,21 +1089,12 @@ const NegotiationModal = ({
       const vendorDetails = getVendorDetailsFromQuote(q);
       const vendorName = vendorDetails ? getVendorDisplayName(vendorDetails) : 'Unknown';
 
-      // Pricing fields are flat on the quotation object (q.unit_price, q.total_price, etc.)
-      // Use pre-computed total_price first (most reliable), then try calculateTotal on flat fields
-      let totalPrice = parseFloat(q.total_price || 0);
-      if (totalPrice === 0) {
-        const quantity = q.quantity || product?.quantity || 0;
-        totalPrice = parseFloat(calculateTotal(q, quantity, false)) || 0;
-      }
-      // Alternate data shape: quote_details is an array with pricing nested inside
+      // Source of truth: server-engine output if present on the quotation,
+      // else the persisted total_price. Falls through to the nested
+      // quote_details[0] shape some negotiation responses use.
+      let totalPrice = lineEngineTotal(q);
       if (totalPrice === 0 && Array.isArray(q.quote_details) && q.quote_details[0]) {
-        const qd = q.quote_details[0];
-        totalPrice = parseFloat(qd.total_price || 0);
-        if (totalPrice === 0) {
-          const qty = qd?.rfq_details?.find(s => s.title === 'Quantity')?.value || qd?.quantity || 0;
-          totalPrice = parseFloat(calculateTotal(qd, qty, false)) || 0;
-        }
+        totalPrice = lineEngineTotal(q.quote_details[0]);
       }
 
       // Extract flat pricing fields for tooltip breakdown

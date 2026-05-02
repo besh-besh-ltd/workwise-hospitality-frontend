@@ -13,7 +13,6 @@ import { extractfileName, extractParsedNumber, formatDisplayDate, formatPrice, h
 import { faDeleteLeft, faDownload, faMinus, faPlus, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { renderFileLink } from "@/utils/elementFunctions";
 import SmartButton from "@/components/shared/SmartButton";
-import { calculateTotal as sharedCalculateTotal } from "@/utils/sharedFunctions";
 import { QuotesOverrideModal } from "@/components/modal/ExtractedQuotesModal";
 import { IoMdInformationCircleOutline } from "react-icons/io";
 import { FiTrash2, FiChevronDown, FiChevronUp, FiCheck, FiX, FiEdit2 } from "react-icons/fi";
@@ -28,6 +27,7 @@ import { checkBidExpired } from "@/utils/sharedFunctions";
 import { Alert, OverlayTrigger, Tooltip as BsTooltip } from "react-bootstrap";
 import { Tooltip } from "react-tooltip";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
+import usePreviewTotals from "@/hooks/usePreviewTotals";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm", disabled = false }) => {
   const baseStyle = {
@@ -227,57 +227,77 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
 // Save the initial payment terms list from backend
 const originalPaymentTermsListRef = useRef(null);
 
-  const grandTotalBeforeGlobalCharges = quoteProducts.reduce(
-    (sum, product) => sum + (Number(product?.total_price) || 0),
-    0
-  );
-  let globalChargesTotal = 0;
-  if (grandTotalBeforeGlobalCharges > 0) {
-    globalOtherCharges.forEach(c => {
-      globalChargesTotal += (c.amount_mode === "percentage") ? (grandTotalBeforeGlobalCharges * (parseFloat(c.amount) || 0)) / 100 : (parseFloat(c.amount) || 0);
+  // Build the canonical pricing payload from the form state. The backend's
+  // /pricing/preview endpoint runs the same engine that recomputes on save,
+  // so the totals shown here are guaranteed to match what gets persisted.
+  const previewDraft = useMemo(() => {
+    return {
+      items: quoteProducts.map((item) => {
+        const prod = rfqDetails?.products?.find((pi) => pi.id == item.id);
+        const qtySpec = prod?.product_specs?.find((s) => s.title === "Quantity");
+        const qty = parseFloat(qtySpec?.value ?? item.quantity) || 0;
+        return {
+          unit_price: item.unit_price,
+          quantity: qty,
+          tax: item.tax,
+          tax_mode: chargesMode?.tax?.[item.id] || item.tax_mode || "percentage",
+          other_charges: item.other_charges || [],
+        };
+      }),
+      global_charges: globalOtherCharges.map((c) => ({
+        name: c.name,
+        amount: c.amount,
+        amount_mode: c.amount_mode,
+      })),
+    };
+  }, [quoteProducts, rfqDetails, chargesMode, globalOtherCharges]);
+
+  const { totals: pricingTotals, isLoading: pricingLoading } = usePreviewTotals(previewDraft);
+
+  // Sync engine-computed line totals back into quoteProducts.total_price so
+  // existing render code (cell totals, summary text, submit payload) keeps
+  // working. We compare before writing to avoid render loops.
+  useEffect(() => {
+    if (!pricingTotals?.lines) return;
+    setquoteProducts((prev) => {
+      let changed = false;
+      const next = prev.map((item, idx) => {
+        const line = pricingTotals.lines[idx];
+        const newTotal = line?.total ?? 0;
+        if (Number(item.total_price) === newTotal) return item;
+        changed = true;
+        return { ...item, total_price: newTotal };
+      });
+      return changed ? next : prev;
     });
-  }
-  const grandTotalIncludingGST = grandTotalBeforeGlobalCharges + globalChargesTotal;
+  }, [pricingTotals]);
+
+  const grandTotalBeforeGlobalCharges = pricingTotals?.grand_subtotal ?? 0;
+  const globalChargesTotal = pricingTotals?.global_charges_total ?? 0;
+  const grandTotalIncludingGST = pricingTotals?.grand_total ?? 0;
   const grandTotalIncludingGSTText = formatPrice(grandTotalIncludingGST);
 
-  const resolveChargeValue = (value, mode, base) => {
-    const v = parseFloat(value) || 0;
-    return mode === "percentage" ? (base * v) / 100 : v;
-  };
-
   const quoteBreakup = useMemo(() => {
+    if (!pricingTotals?.lines) {
+      return { totalBase: 0, totalTax: 0, totalOtherCharges: 0, chargeBreakdown: [] };
+    }
     let totalBase = 0, totalTax = 0, totalOtherCharges = 0;
     const chargesByName = {};
-    quoteProducts.forEach(item => {
-      const prod = rfqDetails?.products?.find(pi => pi.id == item.id);
-      const qtySpec = prod?.product_specs?.find(s => s.title === "Quantity");
-      const qty = parseFloat(qtySpec?.value || item.quantity) || 0;
-      const unitPrice = parseFloat(item.unit_price) || 0;
-      const base = unitPrice * qty;
-      if (base <= 0) return;
-
-      const taxMode = chargesMode?.tax?.[item.id] || "percentage";
-      const tax = resolveChargeValue(item.tax, taxMode, base);
-
-      let itemOtherCharges = 0;
-      (item.other_charges || []).forEach(charge => {
-        const cAmt = resolveChargeValue(charge.amount, charge.amount_mode, base);
-        const cTax = resolveChargeValue(charge.tax, charge.tax_mode, cAmt);
-        const chargeTotal = cAmt + cTax;
-        itemOtherCharges += chargeTotal;
-        if (chargeTotal > 0) {
-          const name = charge.name || 'Other';
-          chargesByName[name] = (chargesByName[name] || 0) + chargeTotal;
+    pricingTotals.lines.forEach((line) => {
+      totalBase += Number(line.base) || 0;
+      totalTax += Number(line.base_tax) || 0;
+      (line.charges || []).forEach((charge) => {
+        const subtotal = Number(charge.subtotal) || 0;
+        totalOtherCharges += subtotal;
+        if (subtotal > 0) {
+          const name = charge.name || "Other";
+          chargesByName[name] = (chargesByName[name] || 0) + subtotal;
         }
       });
-
-      totalBase += base;
-      totalTax += tax;
-      totalOtherCharges += itemOtherCharges;
     });
     const chargeBreakdown = Object.entries(chargesByName).map(([label, value]) => ({ label, value }));
     return { totalBase, totalTax, totalOtherCharges, chargeBreakdown };
-  }, [quoteProducts, rfqDetails, chargesMode]);
+  }, [pricingTotals]);
 
   // Check if any quoteable product has pending/incomplete tech eval
   const hasPendingTechEval = rfqDetails?.products?.some(p => {
@@ -750,13 +770,10 @@ const loadRazorpayScript = () => {
               unit_price: quoteItem.unit_price || "",
               tax: quoteItem.tax || null,
               tax_mode: quoteItem?.tax_mode || "percentage",
-              total_price: sharedCalculateTotal(
-                quoteItem,
-                getProductSpecValueByTitle(
-                  productItem?.product_specs,
-                  "Quantity"
-                )
-              ),
+              // Stored value is the engine-computed total from the last save;
+              // the live-preview hook will refresh it on the first render
+              // cycle if any input drifts.
+              total_price: parseFloat(quoteItem.total_price) || 0,
               comment: quoteItem.comment || "",
               delivery_period: quoteItem.delivery_period || "",
               previous_document_files:
@@ -797,23 +814,6 @@ const loadRazorpayScript = () => {
 
   const generateChargeId = () => `oc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
-  const computeItemTotal = (item, qty, modes) => {
-    const base = (parseFloat(item.unit_price) || 0) * qty;
-    if (base <= 0) return 0;
-
-    const taxMode = modes?.tax || chargesMode.tax[item.id] || "percentage";
-    const mainTax = resolveChargeValue(item.tax, taxMode, base);
-
-    let otherChargesTotal = 0;
-    (item.other_charges || []).forEach(charge => {
-      const cAmt = resolveChargeValue(charge.amount, charge.amount_mode, base);
-      const cTax = resolveChargeValue(charge.tax, charge.tax_mode, cAmt);
-      otherChargesTotal += cAmt + cTax;
-    });
-
-    return Math.round(base + mainTax + otherChargesTotal) || 0;
-  };
-
   const getChargesSummary = (product) => {
     const lines = [];
     (product.other_charges || []).forEach(c => {
@@ -841,58 +841,34 @@ const loadRazorpayScript = () => {
   };
 
   const handleRemoveOtherCharge = (productIndex, chargeId) => {
-    const updated = quoteProducts.map((item, idx) => {
-      if (idx === productIndex) {
-        return {
-          ...item,
-          other_charges: item.other_charges.filter(c => c._id !== chargeId)
-        };
-      }
-      return item;
-    });
-    // Recalculate totals
-    const recalculated = updated.map((item) => {
-      const prod = rfqDetails?.products?.find((pi) => pi.id == item.id);
-      const qty = parseFloat(getProductSpecValueByTitle(prod?.product_specs, "Quantity")) || 0;
-      item.total_price = computeItemTotal(item, qty);
-      return item;
-    });
-    setquoteProducts(recalculated);
+    setquoteProducts((prev) =>
+      prev.map((item, idx) =>
+        idx === productIndex
+          ? { ...item, other_charges: item.other_charges.filter((c) => c._id !== chargeId) }
+          : item
+      )
+    );
   };
 
   const handleUpdateOtherCharge = (productIndex, chargeId, field, value) => {
-    const updated = quoteProducts.map((item, idx) => {
-      if (idx === productIndex) {
-        const updatedCharges = item.other_charges.map(c => {
-          if (c._id === chargeId) {
-            return { ...c, [field]: value };
-          }
-          return c;
-        });
-        const updatedItem = { ...item, other_charges: updatedCharges };
-        const prod = rfqDetails?.products?.find((pi) => pi.id == item.id);
-        const qty = parseFloat(getProductSpecValueByTitle(prod?.product_specs, "Quantity")) || 0;
-        updatedItem.total_price = computeItemTotal(updatedItem, qty);
-        return updatedItem;
-      }
-      return item;
-    });
-    setquoteProducts(updated);
+    setquoteProducts((prev) =>
+      prev.map((item, idx) => {
+        if (idx !== productIndex) return item;
+        return {
+          ...item,
+          other_charges: item.other_charges.map((c) =>
+            c._id === chargeId ? { ...c, [field]: value } : c
+          ),
+        };
+      })
+    );
     setHasUnsavedChanges(true);
   };
 
-  const handleChargeFieldUpdate = (productIndex, field, value, modeOverrides) => {
-    const updated = quoteProducts.map((item, idx) => {
-      if (idx === productIndex) {
-        const updatedItem = { ...item, [field]: value };
-        const prod = rfqDetails?.products?.find((pi) => pi.id == item.id);
-        const qty = parseFloat(getProductSpecValueByTitle(prod?.product_specs, "Quantity")) || 0;
-        updatedItem.total_price = computeItemTotal(updatedItem, qty, modeOverrides);
-        return updatedItem;
-      }
-      return item;
-    });
-    setquoteProducts(updated);
+  const handleChargeFieldUpdate = (productIndex, field, value, _modeOverrides) => {
+    setquoteProducts((prev) =>
+      prev.map((item, idx) => (idx === productIndex ? { ...item, [field]: value } : item))
+    );
   };
 
 
@@ -931,22 +907,8 @@ const loadRazorpayScript = () => {
           item.tax = 0;
           item.other_charges = [];
         }
-
-        const base = (parseFloat(item.unit_price) || 0) * total_qty;
-        if (base <= 0) {
-          item.total_price = 0;
-        } else {
-          const tax = taxMode == "percentage" ? ((base * parseFloat(item.tax || 0)) / 100) : parseFloat(item.tax || 0);
-
-          let otherChargesTotal = 0;
-          (item.other_charges || []).forEach(charge => {
-            const cAmt = resolveChargeValue(charge.amount, charge.amount_mode, base);
-            const cTax = resolveChargeValue(charge.tax, charge.tax_mode, cAmt);
-            otherChargesTotal += cAmt + cTax;
-          });
-
-          item.total_price = Math.round(base + tax + otherChargesTotal) || 0;
-        }
+        // total_price is computed by the backend preview hook and synced
+        // back into state via the effect below the previewDraft useMemo.
       }
       return item;
     });
@@ -954,15 +916,12 @@ const loadRazorpayScript = () => {
     setHasUnsavedChanges(true);
   };
 
-  const calculateTotal = (products) => {
-    const d = products.map((item) => {
-      const prod = rfqDetails.products.find((pi) => pi.id == item.id);
-      const total_qty = parseFloat(getProductSpecValueByTitle(prod.product_specs, "Quantity")) || 0;
-      item.total_price = computeItemTotal(item, total_qty);
-      return item;
-    });
-    setquoteProducts(d);
-  }
+  // Apply a fresh products array to state. Totals are no longer computed
+  // here — the live-preview hook recomputes via the backend engine and syncs
+  // line.total back into each item's total_price.
+  const applyProducts = (products) => {
+    setquoteProducts(products);
+  };
 
 
 
@@ -1544,7 +1503,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           return product;
         });
 
-      calculateTotal(updatedProduts);
+      applyProducts(updatedProduts);
 
       setExtractedQuotes(prev => ({...prev, show: false}));
       toast.info("Quoted has been overrided to respective products")
@@ -2508,7 +2467,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           <a href={fileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 600 }}>
                                             View Doc
                                           </a>
-                                          <FiTrash2 size={13} color="#dc3545" style={{ cursor: "pointer", flexShrink: 0 }} title="Delete"
+                                          {!isBidExpired && <FiTrash2 size={13} color="#dc3545" style={{ cursor: "pointer", flexShrink: 0 }} title="Delete"
                                             onClick={async () => {
                                               try {
                                                 await deleteQuoteFile(fileUrl);
@@ -2528,7 +2487,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                                 toast.error("Failed to delete file");
                                               }
                                             }}
-                                          />
+                                          />}
                                         </div>
                                       </div>
                                     ))}
@@ -2552,13 +2511,9 @@ return { deletedTerms, createdTerms, updatedTerms };
                     const unit = getProductSpecValueByTitle(rfqProduct?.product_specs, "Unit") || "";
                     const base = (parseFloat(modalProduct.unit_price) || 0) * qty;
 
-                    // Calculate summary values from other_charges
-                    let allChargesTotal = 0;
-                    (modalProduct.other_charges || []).forEach(c => {
-                      const cAmt = resolveChargeValue(c.amount, c.amount_mode, base);
-                      const cTax = resolveChargeValue(c.tax, c.tax_mode, cAmt);
-                      allChargesTotal += cAmt + cTax;
-                    });
+                    // Charges total comes from the engine output for this line.
+                    const modalLine = pricingTotals?.lines?.[modalIndex];
+                    const allChargesTotal = Number(modalLine?.charges_total) || 0;
 
                     const isProductFinalized = rfqProduct.finalization_status === "Another vendor is finalized" || rfqProduct.finalization_status === "You are finalized";
                     const techStatus = techEvalStatuses[rfqProduct.id];
@@ -2875,9 +2830,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                               </div>
                               {chargesSummaryOpen && (
                                 <div style={{ fontSize: "0.82rem", marginTop: "8px" }}>
-                                  {(modalProduct.other_charges || []).map((charge) => {
-                                    const cAmt = resolveChargeValue(charge.amount, charge.amount_mode, base);
-                                    const cTax = resolveChargeValue(charge.tax, charge.tax_mode, cAmt);
+                                  {(modalProduct.other_charges || []).map((charge, chargeIdx) => {
+                                    const engineCharge = modalLine?.charges?.[chargeIdx];
+                                    const cAmt = Number(engineCharge?.amount) || 0;
+                                    const cTax = Number(engineCharge?.tax) || 0;
                                     if (cAmt <= 0 && cTax <= 0) return null;
                                     return (
                                       <div key={charge._id} className="d-flex justify-content-between">
@@ -3315,15 +3271,18 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       )}
                                     </td>
                                     <td style={{ maxWidth: 200 }}>
+                                      {(() => {
+                                        const uploadDisabled = isProductDisabled || (isBidExpiredNonNegotiable && !isFieldNegotiable('documents'));
+                                        return (
                                       <label
                                         className={`upload uploadInlineFile d-flex align-items-center justify-content-center ${
-                                          isTechEvalPendingOrRejected
+                                          isTechEvalPendingOrRejected || uploadDisabled
                                             ? "disabled"
                                             : ""
                                         }`}
-                                        style={{ padding: "5px 8px", fontSize: "0.78rem", transition: "opacity 0.2s ease" }}
-                                        onMouseEnter={(e) => e.currentTarget.style.opacity = "0.75"}
-                                        onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
+                                        style={{ padding: "5px 8px", fontSize: "0.78rem", transition: "opacity 0.2s ease", ...(uploadDisabled ? { cursor: "not-allowed", opacity: 0.5 } : {}) }}
+                                        onMouseEnter={(e) => { if (!uploadDisabled) e.currentTarget.style.opacity = "0.75"; }}
+                                        onMouseLeave={(e) => { if (!uploadDisabled) e.currentTarget.style.opacity = "1"; }}
                                       >
                                         <FontAwesomeIcon
                                           icon={faFile}
@@ -3341,6 +3300,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           disabled={isProductDisabled || (isBidExpiredNonNegotiable && !isFieldNegotiable('documents'))}
                                         />
                                       </label>
+                                        );
+                                      })()}
                                       {alreadyQuoted && (
                                         <div
                                             style={{

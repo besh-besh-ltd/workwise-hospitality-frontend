@@ -2,12 +2,20 @@ import React from 'react';
 import { Modal, Button, Table } from 'react-bootstrap';
 import { formatDisplayDate } from "@/utils/sharedFunctions";
 
+// History entries carry engine output on quote_info.engine when the page hit
+// /rfq/quote-compare/:id; otherwise fall back to the persisted total_price.
+const lineEngineTotal = (info) => {
+  if (!info) return 0;
+  const fromEngine = Number(info.engine?.total);
+  if (Number.isFinite(fromEngine) && fromEngine > 0) return fromEngine;
+  return Number(info.total_price) || 0;
+};
+
 const FinalizeHistoryModal = ({
   show,
   onHide,
   history,
   quantity,
-  calculateTotal,
 }) => {
 
     const getFormattedDate = (date) => {
@@ -51,7 +59,7 @@ const FinalizeHistoryModal = ({
                   <tr key={index}>
                     <td>{entry.vendor_id}</td>
                     <td>{entry.vendor_name}</td>
-                    <td>₹{calculateTotal(entry.quote_info, quantity) || '—'}</td>
+                    <td>₹{lineEngineTotal(entry.quote_info) || '—'}</td>
                     <td>{getFormattedDate(entry.finalized_at)}</td>
                     <td>{getFormattedDate(entry.changed_at)}</td>
                     <td>{entry.changed_by}</td>

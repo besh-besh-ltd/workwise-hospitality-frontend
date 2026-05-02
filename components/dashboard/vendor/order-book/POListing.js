@@ -57,7 +57,6 @@ const POListing = ({
   handleProgressStatus,
   handleInitiatePO,
   onSelect,
-  onEdit,
   companyUsers,
   approvalLevel,
   onAcceptPO,
