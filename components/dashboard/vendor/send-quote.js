@@ -66,6 +66,53 @@ const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm", disabled
   );
 };
 
+// Hover-driven info tooltip with explicit high z-index so it renders above
+// the surrounding modal (Bootstrap modal stacking sits around 1050; the
+// floating bubble forces 99999 so it never gets covered). Pure JS state
+// instead of react-bootstrap's OverlayTrigger to side-step portal/z-index
+// quirks observed inside Modal contexts.
+const CustomInfoTooltip = ({ text, size = 14, placement = "top" }) => {
+  const [show, setShow] = useState(false);
+  const verticalProps = placement === "bottom"
+    ? { top: "100%", marginTop: 6 }
+    : { bottom: "100%", marginBottom: 6 };
+  return (
+    <span
+      style={{ position: "relative", display: "inline-flex", alignItems: "center", cursor: "help", color: "#6c757d" }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <IoMdInformationCircleOutline size={size} />
+      {show && (
+        <span
+          role="tooltip"
+          style={{
+            position: "absolute",
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "#212529",
+            color: "#fff",
+            padding: "6px 10px",
+            borderRadius: 4,
+            fontSize: "0.72rem",
+            lineHeight: 1.35,
+            width: "max-content",
+            maxWidth: 240,
+            whiteSpace: "normal",
+            textAlign: "center",
+            zIndex: 99999,
+            pointerEvents: "none",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+            ...verticalProps,
+          }}
+        >
+          {text}
+        </span>
+      )}
+    </span>
+  );
+};
+
 
 const SendQuotePageComp = () => {
   const router = useRouter();
@@ -594,7 +641,9 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
           slug: f.name,
           amount: 0,
           amount_mode: f.mode === 'percentage' ? 'percentage' : 'absolute',
-          tax: 0,
+          // tax: null = inherit base rate. Vendors must explicitly type 0
+          // to express "no tax on this charge" (tri-state semantics).
+          tax: null,
           tax_mode: 'percentage',
         }));
       if (missingCharges.length === 0) return product;
@@ -785,11 +834,15 @@ const loadRazorpayScript = () => {
                 const existing = (quoteItem?.other_charges || []).map(c => ({ ...c, _id: generateChargeId() }));
                 const existingNames = existing.map(c => c.name);
                 const migrated = [];
+                // Legacy freight_tax / package_tax → null when absent so the
+                // synthetic charge inherits base rate (tri-state semantics).
+                const legacyTaxOrNull = (raw) =>
+                  raw === null || raw === undefined || raw === "" ? null : (parseFloat(raw) || 0);
                 if (parseFloat(quoteItem.freight_price) > 0 && !existingNames.includes("Freight")) {
-                  migrated.push({ _id: generateChargeId(), name: "Freight", amount: parseFloat(quoteItem.freight_price) || 0, amount_mode: quoteItem?.freight_mode || "percentage", tax: parseFloat(quoteItem?.freight_tax) || 0, tax_mode: quoteItem?.freight_tax_mode || "percentage" });
+                  migrated.push({ _id: generateChargeId(), name: "Freight", amount: parseFloat(quoteItem.freight_price) || 0, amount_mode: quoteItem?.freight_mode || "percentage", tax: legacyTaxOrNull(quoteItem?.freight_tax), tax_mode: quoteItem?.freight_tax_mode || "percentage" });
                 }
                 if (parseFloat(quoteItem.package_price) > 0 && !existingNames.includes("Packaging")) {
-                  migrated.push({ _id: generateChargeId(), name: "Packaging", amount: parseFloat(quoteItem.package_price) || 0, amount_mode: quoteItem?.package_mode || "percentage", tax: parseFloat(quoteItem?.package_tax) || 0, tax_mode: quoteItem?.package_tax_mode || "percentage" });
+                  migrated.push({ _id: generateChargeId(), name: "Packaging", amount: parseFloat(quoteItem.package_price) || 0, amount_mode: quoteItem?.package_mode || "percentage", tax: legacyTaxOrNull(quoteItem?.package_tax), tax_mode: quoteItem?.package_tax_mode || "percentage" });
                 }
                 return [...migrated, ...existing];
               })(),
@@ -832,7 +885,9 @@ const loadRazorpayScript = () => {
           ...item,
           other_charges: [
             ...(item.other_charges || []),
-            { _id: generateChargeId(), name: chargeName, slug, amount: 0, amount_mode: "percentage", tax: 0, tax_mode: "percentage" }
+            // tax: null = inherit base rate (tri-state). Vendor must
+            // explicitly type 0 in the tax field to mean "no tax on this charge".
+            { _id: generateChargeId(), name: chargeName, slug, amount: 0, amount_mode: "percentage", tax: null, tax_mode: "percentage" }
           ]
         };
       }
@@ -2547,10 +2602,12 @@ return { deletedTerms, createdTerms, updatedTerms };
                     const isBidExpiredWithNegotiation = isBidExpired && !isBidExpiredForProduct;
 
                     const handleChargesModalClose = () => {
-                      const missing = (modalProduct.other_charges || []).find(c => parseFloat(c.tax || 0) > 0 && !c.comment?.trim());
+                      // Comment is mandatory for every charge — vendors must
+                      // describe the tax type / remarks for the buyer.
+                      const missing = (modalProduct.other_charges || []).find(c => !c.comment?.trim());
                       if (missing) {
                         setInvalidCommentChargeId(missing._id);
-                        toast.error('Please add a comment for the added tax');
+                        toast.error('Please add a comment for every charge');
                         return;
                       }
                       setInvalidCommentChargeId(null);
@@ -2777,34 +2834,64 @@ return { deletedTerms, createdTerms, updatedTerms };
                                   <div className="col-sm-4">
                                     <small className="text-muted d-block mb-1">Tax</small>
                                     <div className="d-flex align-items-center gap-1">
+                                      {/*
+                                        Tri-state tax input:
+                                          blank  → tax: null (inherit base rate)
+                                          0      → explicit no tax on this charge
+                                          n > 0  → explicit rate
+                                        Render the actual value (so 0 shows as "0", not blank), and
+                                        only blank for null/undefined so the placeholder is visible.
+                                      */}
                                       <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
-                                        placeholder={charge.tax_mode === "percentage" ? "%" : "₹"}
-                                        value={charge.tax || ""}
-                                        onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "tax", parseFloat(e.target.value) || 0)}
+                                        placeholder={`Uses base tax (${quoteProducts[modalIndex]?.tax || 0}${chargesMode.tax[rfqProduct.id] === 'absolute' ? '₹' : '%'})`}                                        value={charge.tax === null || charge.tax === undefined || charge.tax === "" ? "" : charge.tax}
+                                        onChange={(e) => {
+                                          const raw = e.target.value;
+                                          const next = raw === "" ? null : (Number.isFinite(parseFloat(raw)) ? parseFloat(raw) : null);
+                                          handleUpdateOtherCharge(modalIndex, charge._id, "tax", next);
+                                        }}
                                         onWheel={(e) => e.target.blur()} disabled={chargeDisabled || isNegotiatedCharge}
-                                      />
-                                      <PercentageAbsoluteToggle currentMode={charge.tax_mode}
+                                        />
+                                        <PercentageAbsoluteToggle currentMode={charge.tax_mode}
                                         disabled={chargeDisabled || isNegotiatedCharge}
                                         onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "tax_mode", value)}
-                                      />
-                                    </div>
-                                  </div>
-                                  <div className="col-sm-4">
+                                        />
+                                        </div>
+                                        {(charge.tax === undefined || charge.tax === "" || charge.tax === null) && (
+                                        <div style={{ color: '#856404', fontSize: '0.7rem', lineHeight: 1.3, marginTop: '4px', backgroundColor: '#fff8e1', marginTop: 6, padding: '2px 6px', borderRadius: '3px', border: '1px solid #f0ad4e' }}>
+                                        Enter 0 for non-taxable charge.
+                                        </div>
+                                        )}
+                                        </div>
+                                        <div className="col-sm-4">
                                     {(() => {
-                                      const hasValue = parseFloat(charge.tax || 0) > 0;
+                                      const COMMENT_MAX = 30;
+                                      const commentLen = (charge.comment || "").length;
+                                      const atLimit = commentLen >= COMMENT_MAX;
                                       return (
                                         <>
-                                          <small className="text-muted d-block mb-1">Comment {hasValue && <span className="text-danger">*</span>}</small>
+                                          <div className="d-flex align-items-center gap-1 mb-1">
+                                            <small className="text-muted">Comment <span className="text-danger">*</span></small>
+                                            <CustomInfoTooltip text="Enter tax type, remarks or comments for the buyer" />
+                                          </div>
                                           <input type="text" className="form-control form-control-sm"
                                             style={{ minWidth: 0, border: invalidCommentChargeId === charge._id ? '2px solid #dc3545' : undefined }}
                                             placeholder="What is this tax for?"
                                             value={charge.comment || ""}
+                                            maxLength={COMMENT_MAX}
                                             onChange={(e) => {
                                               if (invalidCommentChargeId === charge._id) setInvalidCommentChargeId(null);
                                               handleUpdateOtherCharge(modalIndex, charge._id, "comment", e.target.value);
                                             }}
-                                            disabled={chargeDisabled || !hasValue}
+                                            disabled={chargeDisabled}
                                           />
+                                          <div style={{
+                                            fontSize: '0.7rem',
+                                            color: atLimit ? '#dc3545' : '#6c757d',
+                                            textAlign: 'right',
+                                            marginTop: '2px',
+                                          }}>
+                                            {commentLen}/{COMMENT_MAX}
+                                          </div>
                                         </>
                                       );
                                     })()}
