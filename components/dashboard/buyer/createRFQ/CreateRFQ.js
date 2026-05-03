@@ -782,8 +782,8 @@ useEffect(() => {
       return false;
     }
 
-    // Process is required when processes are available
-    if (processes.length > 0 && !formDataCopy.process_id) {
+    // Process is required for RFQ creation
+    if (!formDataCopy.process_id) {
       toast.error("Please select a process");
       setMainLoading(false);
       return false;
@@ -2482,23 +2482,25 @@ useEffect(() => {
                     </Accordion>
                   </div>
 
-                  <div className="float-end addmore mt-4 ">
-                    <Link
-                      href={`/vendor/all${
-                        rfqDetails !== -1
-                          ? `?rfq_id=${rfqDetails}${
-                              selectedSheet
-                                ? `&sheet_id=${selectedSheet.value}`
-                                : ``
-                            }`
-                          : ""
-                      }`}
-                      className="me-2"
-                      id="add_more_products-create_rfq_page"
-                    >
-                      Add More Products
-                    </Link>
-                  </div>
+                  {!isViewOnlyDraft && (
+                    <div className="float-end addmore mt-4 ">
+                      <Link
+                        href={`/vendor/all${
+                          rfqDetails !== -1
+                            ? `?rfq_id=${rfqDetails}${
+                                selectedSheet
+                                  ? `&sheet_id=${selectedSheet.value}`
+                                  : ``
+                              }`
+                            : ""
+                        }`}
+                        className="me-2"
+                        id="add_more_products-create_rfq_page"
+                      >
+                        Add More Products
+                      </Link>
+                    </div>
+                  )}
 
                   {loading && <Loader />}
 
@@ -2540,6 +2542,7 @@ useEffect(() => {
                                       className="form-check-input"
                                       id={`term-${item.id}`}
                                       checked={isSelected}
+                                      disabled={isViewOnlyDraft}
                                       onChange={(e) =>
                                         handleTermChange(e, item)
                                       }
@@ -2606,7 +2609,7 @@ useEffect(() => {
                         >
                           {({ errors, touched, isValid }) => (
                             <Form className="add-your-term-form">
-                              <fieldset disabled={selectedHotelIds.length > 0 && !hasPermission}>
+                              <fieldset disabled={(selectedHotelIds.length > 0 && !hasPermission) || isViewOnlyDraft}>
                               <FormikField
                                 label="Add your own terms"
                                 placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
@@ -2621,6 +2624,7 @@ useEffect(() => {
                                   setHasUnsavedChanges(true);
                                 }}
                                 showOptionalLabel={false}
+                                isDisabled={isViewOnlyDraft}
                               />
                               <div className="row mt-2">
                                 <div className="custom-file">
@@ -2761,6 +2765,7 @@ useEffect(() => {
                                       placeholder="Select Department"
                                       classNamePrefix="react-select"
                                       isClearable
+                                      isDisabled={isViewOnlyDraft}
                                     />
                                     {rfqFormDataFromStore.department_id && (
                                       <small className="d-block mt-1 text-muted" style={{ fontSize: "11px" }}>
@@ -2786,6 +2791,7 @@ useEffect(() => {
                                       }}
                                       placeholder="Select Process"
                                       classNamePrefix="react-select"
+                                      isDisabled={isViewOnlyDraft}
                                     />
                                   </div>
                                 )}
