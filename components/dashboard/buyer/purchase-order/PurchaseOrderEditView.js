@@ -27,6 +27,12 @@ const buildEngineLineFromProduct = (product) => {
     : [];
 
   // Legacy flat freight/packaging → engine other_charges entries.
+  // Synthetic charges set tax: null (inherit base rate) when the legacy
+  // freight_tax / package_tax field is absent. Under tri-state semantics,
+  // tax: 0 would mean "explicit no tax" — silently dropping the inherited
+  // base tax these legacy POs were saved with.
+  const legacyTaxOrNull = (raw) =>
+    raw === null || raw === undefined || raw === "" ? null : (parseFloat(raw) || 0);
   const synthetic = [];
   const fp = parseFloat(charges.freight_price);
   if (Number.isFinite(fp) && fp > 0) {
@@ -34,7 +40,7 @@ const buildEngineLineFromProduct = (product) => {
       name: "Freight",
       amount: fp,
       amount_mode: charges.freight_mode || "percentage",
-      tax: 0,
+      tax: legacyTaxOrNull(charges.freight_tax),
       tax_mode: charges.freight_tax_mode || "percentage",
     });
   }
@@ -44,7 +50,7 @@ const buildEngineLineFromProduct = (product) => {
       name: "Packaging",
       amount: pp,
       amount_mode: charges.package_mode || "percentage",
-      tax: 0,
+      tax: legacyTaxOrNull(charges.package_tax),
       tax_mode: charges.package_tax_mode || "percentage",
     });
   }
