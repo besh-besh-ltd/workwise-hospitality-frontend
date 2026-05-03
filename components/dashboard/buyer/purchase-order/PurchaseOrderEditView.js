@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Card,
   Button,
@@ -15,6 +15,54 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { addCommasToNumber } from "@/utils/sharedFunctions";
 import CommonFormInput from "@/components/shared/CommonFormInput";
+import usePreviewTotals from "@/hooks/usePreviewTotals";
+
+// Map a PO product's legacy charges_meta shape into the engine's canonical
+// input. Mirrors backend pricingEngine.normalizeChargesMeta so the live
+// preview matches what the server will recompute on save.
+const buildEngineLineFromProduct = (product) => {
+  const charges = product?.charges_meta || {};
+  const otherCharges = Array.isArray(charges.other_charges)
+    ? charges.other_charges
+    : [];
+
+  // Legacy flat freight/packaging → engine other_charges entries.
+  // Synthetic charges set tax: null (inherit base rate) when the legacy
+  // freight_tax / package_tax field is absent. Under tri-state semantics,
+  // tax: 0 would mean "explicit no tax" — silently dropping the inherited
+  // base tax these legacy POs were saved with.
+  const legacyTaxOrNull = (raw) =>
+    raw === null || raw === undefined || raw === "" ? null : (parseFloat(raw) || 0);
+  const synthetic = [];
+  const fp = parseFloat(charges.freight_price);
+  if (Number.isFinite(fp) && fp > 0) {
+    synthetic.push({
+      name: "Freight",
+      amount: fp,
+      amount_mode: charges.freight_mode || "percentage",
+      tax: legacyTaxOrNull(charges.freight_tax),
+      tax_mode: charges.freight_tax_mode || "percentage",
+    });
+  }
+  const pp = parseFloat(charges.package_price);
+  if (Number.isFinite(pp) && pp > 0) {
+    synthetic.push({
+      name: "Packaging",
+      amount: pp,
+      amount_mode: charges.package_mode || "percentage",
+      tax: legacyTaxOrNull(charges.package_tax),
+      tax_mode: charges.package_tax_mode || "percentage",
+    });
+  }
+
+  return {
+    unit_price: product?.unit_price,
+    quantity: product?.quantity,
+    tax: charges.tax,
+    tax_mode: charges.tax_mode || "percentage",
+    other_charges: otherCharges.length ? otherCharges : synthetic,
+  };
+};
 
 const PurchaseOrderEditView = ({
   data,
@@ -49,39 +97,34 @@ const PurchaseOrderEditView = ({
     return Number.isNaN(n) ? 0 : n;
   };
 
-  const calculateProductTotal = (product) => {
-    const qty = parseNumber(product.quantity);
-    const unitPrice = parseNumber(product.unit_price);
+  // Live preview: backend engine recomputes per-line totals as the user
+  // edits unit_price, quantity, or any charges_meta field. The same engine
+  // recomputes on save (handleUpdatePO model fn), so what the user sees is
+  // exactly what the server will persist.
+  const previewDraft = useMemo(() => {
+    return {
+      items: (editablePO.product_details || []).map(buildEngineLineFromProduct),
+    };
+  }, [editablePO.product_details]);
 
-    const charges = product.charges_meta || {};
-    const freightPrice = parseNumber(charges.freight_price);
-    const packagePrice = parseNumber(charges.package_price);
-    const tax = parseNumber(charges.tax);
+  const { totals: pricingTotals } = usePreviewTotals(previewDraft);
 
-    const freightMode = charges.freight_mode || "percentage";
-    const packageMode = charges.package_mode || "percentage";
-    const taxMode = charges.tax_mode || "percentage";
-
-    const base = unitPrice * qty;
-
-    const freightAmount =
-      freightMode === "percentage"
-        ? (base * freightPrice) / 100
-        : freightPrice;
-
-    const packageAmount =
-      packageMode === "percentage"
-        ? (base * packagePrice) / 100
-        : packagePrice;
-
-    const combined = base + freightAmount + packageAmount;
-
-    const taxAmount =
-      taxMode === "percentage" ? (combined * tax) / 100 : tax;
-
-    const total = combined + taxAmount;
-    return Math.round(total);
-  };
+  // Sync engine totals back into editablePO.product_details[i].total_price
+  // so existing render code (per-row totals, accumulator) keeps working.
+  useEffect(() => {
+    if (!pricingTotals?.lines) return;
+    setEditablePO((prev) => {
+      const products = prev.product_details || [];
+      let changed = false;
+      const next = products.map((p, idx) => {
+        const newTotal = pricingTotals.lines[idx]?.total ?? 0;
+        if (Number(p.total_price) === newTotal) return p;
+        changed = true;
+        return { ...p, total_price: newTotal };
+      });
+      return changed ? { ...prev, product_details: next } : prev;
+    });
+  }, [pricingTotals]);
 
   const handleResetChanges = () => {
     setEditablePO(originalPO);
@@ -147,15 +190,9 @@ const PurchaseOrderEditView = ({
         updatedProduct[field] = value;
       }
 
-      const needsRecalc =
-        field === "quantity" ||
-        field === "unit_price" ||
-        field.startsWith("charges_meta.");
-
-      if (needsRecalc) {
-        updatedProduct.total_price = calculateProductTotal(updatedProduct);
-      }
-
+      // total_price recompute is handled by the live-preview hook + sync
+      // effect; we only record the input change here. The backend engine
+      // recomputes total_price authoritatively on save.
       products[index] = updatedProduct;
       const updatedPO = { ...prev, product_details: products };
 
@@ -168,17 +205,6 @@ const PurchaseOrderEditView = ({
         : origProduct[field];
 
       recordChange(path, oldVal, value);
-
-      if (needsRecalc) {
-        const oldTotal =
-          originalPO.product_details?.[index]?.total_price ||
-          oldProduct.total_price;
-        recordChange(
-          `product[${updatedProduct.rfq_item_id || index}].total_price`,
-          oldTotal,
-          updatedProduct.total_price
-        );
-      }
 
       return updatedPO;
     });

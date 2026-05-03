@@ -20,7 +20,7 @@ import {
   approveNegotiationQuotes,
   rejectNegotiationQuotes,
 } from "@/services/negotiation";
-import { addCommasToNumber, calculateTotal } from "@/utils/sharedFunctions";
+import { addCommasToNumber } from "@/utils/sharedFunctions";
 import {
   buildProductComparisonModel,
   getPaymentTermsText,
@@ -35,14 +35,14 @@ import RegretStateCell from "./RegretStateCell";
 import EmptyValue from "./EmptyValue";
 import styles from "./QuoteCompareTables.module.scss";
 
-const metricRows = [
+const baseMetricRows = [
   { key: "quantity", label: "Quantity" },
   { key: "basePrice", label: "Base Price" },
   { key: "subtotal", label: "Sub Total" },
-  { key: "packaging", label: "Packaging" },
-  { key: "freight", label: "Freight" },
-  { key: "gst", label: "GST" },
-  { key: "total", label: "Total" },
+  { key: "gst", label: "Tax (GST)" },
+];
+
+const afterTotalMetricRows = [
   { key: "delivery", label: "Delivery" },
   { key: "comment", label: "Comment" },
   { key: "documents", label: "Vendor Documents" },
@@ -50,7 +50,7 @@ const metricRows = [
   { key: "payment", label: "Payment Terms" },
 ];
 
-const highlightedMetricKeys = new Set(["total", "delivery", "comment", "terms", "payment"]);
+const highlightedMetricKeys = new Set(["total", "grandTotal", "delivery", "comment", "terms", "payment"]);
 
 const formatCurrency = (value) => {
   const num = Number(value || 0);
@@ -220,6 +220,8 @@ const ProductComparisonMatrix = ({
   const [existingPOId, setExistingPOId] = useState(null);
   const [selectedRouteType, setSelectedRouteType] = useState(null);
   const [quoteApprovalStatus, setQuoteApprovalStatus] = useState(preloadedQuoteApprovalStatus);
+  const [otherChargesExpanded, setOtherChargesExpanded] = useState(false);
+  const [globalTaxesExpanded, setGlobalTaxesExpanded] = useState(false);
 
   // Sync quoteApprovalStatus when parent refetches quotes (preloaded prop updates)
   useEffect(() => { setQuoteApprovalStatus(preloadedQuoteApprovalStatus); }, [preloadedQuoteApprovalStatus]);
@@ -309,7 +311,7 @@ const ProductComparisonMatrix = ({
     return { quotes: [], source: "none" };
   }, [negotiationRoundQuotes, quotations, proditem]);
 
-  const getCellContent = (column, rowKey) => {
+  const getCellContent = (column, rowKey, rowMeta = {}) => {
     const details = column.details || {};
 
     if (column.isRegret) {
@@ -343,45 +345,6 @@ const ProductComparisonMatrix = ({
         const unitPrice = getNumericValue(details.unit_price, column.quote?.unit_price, column.price);
         const subtotal = getNumericValue(quantity, column.quantity, 0) * unitPrice;
         return <span className={styles.value}>{formatCurrency(subtotal)}</span>;
-      }
-      case "packaging": {
-        const currentMode = details.package_mode;
-        const currentValue = Number(details.package_price || 0);
-        const prevQuote = findPreviousDifferent(
-          previousQuotes,
-          (prev) => Number(prev.package_price || 0) !== currentValue || prev.package_mode !== currentMode
-        );
-        return (
-          <PriceWithPrevious
-            currentDisplay={formatModeValue(currentValue, currentMode)}
-            previousDisplay={prevQuote ? formatModeValue(prevQuote.package_price || 0, prevQuote.package_mode) : ""}
-            previousExists={!!prevQuote}
-            hasChanged={!!prevQuote}
-          />
-        );
-      }
-      case "freight": {
-        const currentMode = details.freight_mode;
-        const currentValue = Number(details.freight_price || 0);
-        const prevQuote = findPreviousDifferent(
-          previousQuotes,
-          (prev) => Number(prev.freight_price || 0) !== currentValue || prev.freight_mode !== currentMode
-        );
-        return (
-          <>
-            <PriceWithPrevious
-              currentDisplay={formatModeValue(currentValue, currentMode)}
-              previousDisplay={prevQuote ? formatModeValue(prevQuote.freight_price || 0, prevQuote.freight_mode) : ""}
-              previousExists={!!prevQuote}
-              hasChanged={!!prevQuote}
-            />
-            {model.freightAdvantageVendorIds.includes(column.vendorId) ? (
-              <div className={styles.statusRow}>
-                <span className={`${styles.statusChip} ${styles.statusInfo}`}>Freight Advantage</span>
-              </div>
-            ) : null}
-          </>
-        );
       }
       case "gst": {
         const currentMode = details.tax_mode;
@@ -440,8 +403,68 @@ const ProductComparisonMatrix = ({
         const content = getPaymentTermsText({ ...column.quote, ...details });
         return renderPaymentPills(content);
       }
-      default:
+      default: {
+        // Accordion summary rows — read from engine output. The engine
+        // applied the correct tax-inheritance rule, so this matches what
+        // the line `total` reflects (and what gets persisted on save).
+        if (rowMeta.type === "otherChargesSummary") {
+          const otherCharges = details.other_charges || [];
+          if (otherCharges.length === 0) return <span className={styles.value}>--</span>;
+          const total = Number(details.engine?.charges_total || 0);
+          return <span className={styles.value}>{formatCurrency(total)} <small className="text-muted">({otherCharges.length} charge{otherCharges.length > 1 ? "s" : ""})</small></span>;
+        }
+        if (rowMeta.type === "globalTaxesSummary") {
+          const globalCharges = details.global_charges || column.quote?.global_charges || [];
+          if (globalCharges.length === 0) return <span className={styles.value}>--</span>;
+          const productTotal = Math.round(column.total);
+          let total = 0;
+          globalCharges.forEach(c => {
+            const tax = Number(c.tax || 0);
+            total += c.tax_mode === "percentage" ? (productTotal * tax) / 100 : tax;
+          });
+          return <span className={styles.value}>{formatCurrency(total)} <small className="text-muted">({globalCharges.length} tax{globalCharges.length > 1 ? "es" : ""})</small></span>;
+        }
+        // Handle dynamic other_charges and global_charges detail rows
+        if (rowMeta.type === "otherCharge") {
+          const otherCharges = details.other_charges || [];
+          const charge = otherCharges.find(c => c.name === rowMeta.chargeName);
+          if (!charge) return <span className={styles.value}>--</span>;
+          const amountVal = Number(charge.amount || 0);
+          const taxVal = Number(charge.tax || 0);
+          const amountDisplay = charge.amount_mode === "percentage" ? `${amountVal}%` : formatCurrency(amountVal);
+          const commentText = charge.comment ? ` (${charge.comment})` : "";
+          let taxDisplay = "";
+          if (taxVal > 0) {
+            const taxUnit = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
+            taxDisplay = ` + ${taxUnit} tax${commentText}`;
+          } else if (amountVal > 0) {
+            // Check if base tax is auto-applied
+            const baseTaxRate = (details.tax_mode ?? "percentage") === "percentage" ? (parseFloat(details.tax) || 0) : 0;
+            if (baseTaxRate > 0) {
+              taxDisplay = ` + ${baseTaxRate}% tax (auto-applied)`;
+            }
+          }
+          return <span className={styles.value}>{amountDisplay}<small className="text-muted">{taxDisplay}</small></span>;
+        }
+        if (rowMeta.type === "globalCharge") {
+          const globalCharges = details.global_charges || column.quote?.global_charges || [];
+          const charge = globalCharges.find(c => c.name === rowMeta.chargeName);
+          if (!charge) return <span className={styles.value}>--</span>;
+          const taxVal = Number(charge.tax || 0);
+          return <span className={styles.value}>{charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal)}</span>;
+        }
+        if (rowKey === "grandTotal") {
+          const globalCharges = details.global_charges || column.quote?.global_charges || [];
+          const productTotal = Math.round(column.total);
+          let globalTotal = 0;
+          globalCharges.forEach(c => {
+            const tax = Number(c.tax || 0);
+            globalTotal += c.tax_mode === "percentage" ? (productTotal * tax) / 100 : tax;
+          });
+          return <span className={`${styles.value} fw-bold`}>{formatCurrency(productTotal + globalTotal)}</span>;
+        }
         return <EmptyValue />;
+      }
     }
   };
 
@@ -663,23 +686,68 @@ const ProductComparisonMatrix = ({
               </tr>
             </thead>
             <tbody>
-              {metricRows.map((row) => (
-                <tr key={`${proditem?.id}_${row.key}`} className={styles.productMetricRow}>
-                  <th
-                    className={`${styles.metricCell} ${styles.metricCellCompact} ${styles.stickyLeft} ${styles.productMetricLabelCell} ${highlightedMetricKeys.has(row.key) ? styles.highlightMetricLabel : ""}`}
-                  >
-                    {row.label}
-                  </th>
-                  {model.columns.map((column) => (
-                    <td
-                      className={getCellClassName(column, row.key)}
-                      key={`${proditem?.id}_${row.key}_${column.vendorId}_${column.quote?.quote_id || "x"}`}
+              {(() => {
+                const hasOtherCharges = (model.otherChargeNames || []).length > 0;
+                const hasGlobalCharges = (model.globalChargeNames || []).length > 0;
+                const otherChargeDetailRows = (model.otherChargeNames || []).map(name => ({ key: `otherCharge__${name}`, label: name, type: "otherCharge", chargeName: name }));
+                const globalChargeDetailRows = (model.globalChargeNames || []).map(name => ({ key: `globalCharge__${name}`, label: name, type: "globalCharge", chargeName: name }));
+
+                const renderRow = (row) => (
+                  <tr key={`${proditem?.id}_${row.key}`} className={styles.productMetricRow}>
+                    <th
+                      className={`${styles.metricCell} ${styles.metricCellCompact} ${styles.stickyLeft} ${styles.productMetricLabelCell} ${highlightedMetricKeys.has(row.key) ? styles.highlightMetricLabel : ""}`}
                     >
-                      {getCellContent(column, row.key)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+                      {row.label}
+                    </th>
+                    {model.columns.map((column) => (
+                      <td
+                        className={getCellClassName(column, row.key)}
+                        key={`${proditem?.id}_${row.key}_${column.vendorId}_${column.quote?.quote_id || "x"}`}
+                      >
+                        {getCellContent(column, row.key, row)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+
+                const renderAccordionRow = (label, isExpanded, onToggle, summaryKey) => (
+                  <tr key={`${proditem?.id}_${summaryKey}`} className={styles.productMetricRow} style={{ cursor: "pointer" }} onClick={onToggle}>
+                    <th
+                      className={`${styles.metricCell} ${styles.metricCellCompact} ${styles.stickyLeft} ${styles.productMetricLabelCell}`}
+                      style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                    >
+                      {label}
+                      <span style={{ fontSize: "0.7rem", color: "#6c757d" }}>{isExpanded ? "▲" : "▼"}</span>
+                    </th>
+                    {model.columns.map((column) => (
+                      <td
+                        className={getCellClassName(column, summaryKey)}
+                        key={`${proditem?.id}_${summaryKey}_${column.vendorId}_${column.quote?.quote_id || "x"}`}
+                      >
+                        {getCellContent(column, summaryKey, { type: summaryKey })}
+                      </td>
+                    ))}
+                  </tr>
+                );
+
+                return (
+                  <>
+                    {baseMetricRows.map(renderRow)}
+
+                    {hasOtherCharges && renderAccordionRow("Other Charges", otherChargesExpanded, () => setOtherChargesExpanded(p => !p), "otherChargesSummary")}
+                    {hasOtherCharges && otherChargesExpanded && otherChargeDetailRows.map(renderRow)}
+
+                    {renderRow({ key: "total", label: "Total" })}
+
+                    {hasGlobalCharges && renderAccordionRow("Global Taxes", globalTaxesExpanded, () => setGlobalTaxesExpanded(p => !p), "globalTaxesSummary")}
+                    {hasGlobalCharges && globalTaxesExpanded && globalChargeDetailRows.map(renderRow)}
+
+                    {hasGlobalCharges && renderRow({ key: "grandTotal", label: "Grand Total" })}
+
+                    {afterTotalMetricRows.map(renderRow)}
+                  </>
+                );
+              })()}
             </tbody>
           </table>
         </div>
@@ -966,7 +1034,6 @@ const ProductComparisonMatrix = ({
           proditem?.product_details?.[0]?.rfq_details?.find((spec) => spec.title === "Quantity")
             ?.value
         }
-        calculateTotal={calculateTotal}
       />
     </>
   );

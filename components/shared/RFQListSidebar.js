@@ -11,7 +11,7 @@ const DEFAULT_TAB_ICONS = {
   all: BsInboxFill,
 };
 
-const MIN_WIDTH = 220;
+const MIN_WIDTH = 250;
 const MAX_WIDTH = 480;
 const DEFAULT_WIDTH = 280;
 const STORAGE_KEY = 'rfqSidebarWidth';

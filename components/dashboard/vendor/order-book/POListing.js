@@ -6,8 +6,8 @@ import { Badge, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { IoMdEye } from "react-icons/io";
 import { FiSend } from "react-icons/fi";
 import { FaTruckRampBox } from "react-icons/fa6";
-import { BsFilePdf, BsCheck } from "react-icons/bs";
-import { MdClose } from "react-icons/md";
+import { BsFilePdf } from "react-icons/bs";
+import { MdCheck, MdClose } from "react-icons/md";
 import { toast } from "react-toastify";
 import cardStyles from "@/components/dashboard/buyer/purchase-order/POCard.module.scss";
 import styles from "@/components/dashboard/buyer/purchase-order/PurchaseOrder.module.scss";
@@ -57,7 +57,6 @@ const POListing = ({
   handleProgressStatus,
   handleInitiatePO,
   onSelect,
-  onEdit,
   companyUsers,
   approvalLevel,
   onAcceptPO,
@@ -161,11 +160,11 @@ const POListing = ({
         <div className={cardStyles.headerRow}>
           <div className={cardStyles.colStatus}>Status</div>
           <div className={cardStyles.colPoNumber}>PO #</div>
-          <div className={cardStyles.colVendor}>Buyer</div>
+          <div className={cardStyles.colVendor} style={{ flex: 1 }}>Buyer</div>
           <div className={cardStyles.colProducts}>Items</div>
           <div className={cardStyles.colQuantity}>Qty</div>
           <div className={cardStyles.colValue}>Value</div>
-          <div className={cardStyles.colDate}>Created</div>
+          <div className={cardStyles.colDate} style={{ width: 90 }}>Created</div>
           <div className={cardStyles.colActions}>Actions</div>
         </div>
 
@@ -200,8 +199,11 @@ const POListing = ({
                 <div className={cardStyles.colPoNumber}>
                   <span className={cardStyles.poNum}>{po.po_number}</span>
                 </div>
-                <div className={cardStyles.colVendor}>
-                  {po.initiated_by || '-'}
+                <div className={cardStyles.colVendor} style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.8rem' }}>
+                  <span style={{ fontWeight: 700, color: '#212529' }}>{po.initiated_by || '-'}</span>
+                  {po.buyer_company_name && (
+                    <span style={{ color: '#6c757d' }}> on behalf of <span style={{ fontWeight: 600, color: '#495057' }}>{po.buyer_company_name}</span></span>
+                  )}
                 </div>
                 <div className={cardStyles.colProducts}>
                   <OverlayTrigger
@@ -222,7 +224,7 @@ const POListing = ({
                 <div className={cardStyles.colValue}>
                   ₹{addCommasToNumber(po.total_value)}
                 </div>
-                <div className={cardStyles.colDate}>
+                <div className={cardStyles.colDate} style={{ width: 90 }}>
                   <OverlayTrigger placement="top" overlay={<Tooltip>{formatISTDate(po.created_at)}</Tooltip>}>
                     <span>{getRelativeTime(po.created_at)}</span>
                   </OverlayTrigger>
@@ -230,37 +232,49 @@ const POListing = ({
                 <div className={cardStyles.colActions}>
                   {isAcceptancePending ? (
                     <>
-                      <button className={cardStyles.approveBtn} title="Accept PO"
-                        onClick={(e) => { e.stopPropagation(); onAcceptPO(po); }}>
-                        <BsCheck size={16} /> <span>Accept</span>
-                      </button>
-                      <button className={cardStyles.rejectBtn} title="Reject PO"
-                        onClick={(e) => { e.stopPropagation(); onRejectPO(po); }}>
-                        <MdClose size={14} /> <span>Reject</span>
-                      </button>
+                      <OverlayTrigger placement="top" overlay={<Tooltip id={`accept-tip-${po.id}`}>Accept PO</Tooltip>}>
+                        <button className={`${cardStyles.iconBtn} ${cardStyles.iconBtnSuccess}`}
+                          onClick={(e) => { e.stopPropagation(); onAcceptPO(po); }}>
+                          <MdCheck size={18} />
+                        </button>
+                      </OverlayTrigger>
+                      <OverlayTrigger placement="top" overlay={<Tooltip id={`reject-tip-${po.id}`}>Reject PO</Tooltip>}>
+                        <button className={`${cardStyles.iconBtn} ${cardStyles.iconBtnDanger}`}
+                          onClick={(e) => { e.stopPropagation(); onRejectPO(po); }}>
+                          <MdClose size={18} />
+                        </button>
+                      </OverlayTrigger>
                     </>
                   ) : showRaiseInvoice ? (
-                    <button className={cardStyles.approveBtn} title="Raise Invoice"
-                      onClick={(e) => { e.stopPropagation(); handleRaiseInvoiceClick(po); }}>
-                      <FiSend size={13} /> <span>Invoice</span>
-                    </button>
+                    <OverlayTrigger placement="top" overlay={<Tooltip id={`invoice-tip-${po.id}`}>Raise Invoice</Tooltip>}>
+                      <button className={`${cardStyles.iconBtn} ${cardStyles.iconBtnSuccess}`}
+                        onClick={(e) => { e.stopPropagation(); handleRaiseInvoiceClick(po); }}>
+                        <FiSend size={16} />
+                      </button>
+                    </OverlayTrigger>
                   ) : showDispatch ? (
-                    <button className={cardStyles.approveBtn} title="Mark Dispatched"
-                      onClick={(e) => { e.stopPropagation(); handleMarkDispatchClick(po); }}>
-                      <FaTruckRampBox size={13} /> <span>Dispatch</span>
-                    </button>
+                    <OverlayTrigger placement="top" overlay={<Tooltip id={`dispatch-tip-${po.id}`}>Mark Dispatched</Tooltip>}>
+                      <button className={`${cardStyles.iconBtn} ${cardStyles.iconBtnSuccess}`}
+                        onClick={(e) => { e.stopPropagation(); handleMarkDispatchClick(po); }}>
+                        <FaTruckRampBox size={16} />
+                      </button>
+                    </OverlayTrigger>
                   ) : (
-                    <button className={cardStyles.viewBtn} title="View PO"
-                      onClick={(e) => { e.stopPropagation(); onSelect(po.id); }}>
-                      <IoMdEye size={14} /> <span>View PO</span>
-                    </button>
+                    <OverlayTrigger placement="top" overlay={<Tooltip id={`view-tip-${po.id}`}>View PO</Tooltip>}>
+                      <button className={cardStyles.iconBtn}
+                        onClick={(e) => { e.stopPropagation(); onSelect(po.id); }}>
+                        <IoMdEye size={18} />
+                      </button>
+                    </OverlayTrigger>
                   )}
                   {po.poPdfUrl && (
-                    <a href={po.poPdfUrl} target="_blank" rel="noopener noreferrer"
-                      className={cardStyles.pdfBtn}
-                      onClick={(e) => e.stopPropagation()}>
-                      <BsFilePdf size={13} /> <span>View PDF</span>
-                    </a>
+                    <OverlayTrigger placement="top" overlay={<Tooltip id={`pdf-tip-${po.id}`}>View PDF</Tooltip>}>
+                      <a href={po.poPdfUrl} target="_blank" rel="noopener noreferrer"
+                        className={`${cardStyles.iconBtn} ${cardStyles.iconBtnDanger}`}
+                        onClick={(e) => e.stopPropagation()}>
+                        <BsFilePdf size={16} />
+                      </a>
+                    </OverlayTrigger>
                   )}
                 </div>
               </div>
@@ -269,15 +283,17 @@ const POListing = ({
         )}
       </div>
 
-      {poList.length > 0 && (
-        <Pagination
-          page={filters.page}
-          setPage={(page) => setFilters((prev) => ({ ...prev, page }))}
-          limit={filters.limit}
-          setLimit={(limit) => setFilters((prev) => ({ ...prev, limit }))}
-          totalData={totalData}
-        />
-      )}
+      <div className="mt-3">
+        {poList.length > 0 && (
+          <Pagination
+            page={filters.page}
+            setPage={(page) => setFilters((prev) => ({ ...prev, page }))}
+            limit={filters.limit}
+            setLimit={(limit) => setFilters((prev) => ({ ...prev, limit }))}
+            totalData={totalData}
+          />
+        )}
+      </div>
 
       {/* Raise Invoice Confirmation */}
       <ConfirmationModal

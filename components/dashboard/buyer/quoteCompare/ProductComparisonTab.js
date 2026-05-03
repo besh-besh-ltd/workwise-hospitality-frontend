@@ -5,7 +5,6 @@ import ProductComparisonMatrix from "@/components/dashboard/buyer/quoteCompare/t
 import QuoteVisibilityLockPanel from "@/components/dashboard/buyer/quoteCompare/QuoteVisibilityLockPanel";
 import {
   addCommasToNumber,
-  calculateTotal,
   formatPrice,
 } from "@/utils/sharedFunctions";
 import styles from "./QuoteCompareRevamp.module.scss";
@@ -34,23 +33,15 @@ const getSpec = (item) => {
   );
 };
 
-const getHistoricalTotal = (item, normalizeFilter) => {
-  const quantity = getQuantityValue(item);
-  if (item?.last_purchase_rate) {
-    return {
-      type: "Last Purchase",
-      value: calculateTotal(item.last_purchase_rate, quantity, normalizeFilter),
-    };
-  }
-
-  if (item?.last_quote_rate) {
-    return {
-      type: "Last Quote",
-      value: calculateTotal(item.last_quote_rate, quantity, normalizeFilter),
-    };
-  }
-
-  return null;
+// Server-computed baseline (last_purchase_rate or last_quote_rate, whichever
+// is present). The aggregates.baseline_total field is set by the quote-compare
+// enricher; we tag the source by checking which raw rate is present.
+const getHistoricalTotal = (item) => {
+  const value = Number(item?.aggregates?.baseline_total) || 0;
+  if (value <= 0) return null;
+  if (item?.last_purchase_rate) return { type: "Last Purchase", value };
+  if (item?.last_quote_rate) return { type: "Last Quote", value };
+  return { type: "Baseline", value };
 };
 
 const ProductComparisonTab = ({
@@ -103,7 +94,7 @@ const ProductComparisonTab = ({
         const quantity = getQuantityValue(item);
         const unit = getQuantityUnit(item);
         const sellingPrice = getSellingPrice(item);
-        const historicalTotal = getHistoricalTotal(item, normalizeFilter);
+        const historicalTotal = getHistoricalTotal(item);
         const summary = productSummaryMap?.[item.id] || { topVendors: [] };
 
         return (

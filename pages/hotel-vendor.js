@@ -13,6 +13,7 @@ import {
   hospitalitySubscriptionPayment
 } from '../services/subscription';
 import storageInstance from '../utils/storageInstance';
+import { resolvePostLoginRedirect } from '../utils/sharedFunctions';
 import { LoginService, SWSubscribe, handleSocialLogin, getProfile } from '../services/Auth';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useSelector, useDispatch } from 'react-redux';
@@ -360,7 +361,9 @@ const HotelVendor = () => {
         window.dispatchEvent(new Event('loginStatusChanged'));
 
         setTimeout(() => {
-          window.location.href = redirectParam || `/dashboard/${userType}`;
+          window.location.href = redirectParam
+            ? resolvePostLoginRedirect(redirectParam, userType)
+            : `/dashboard/${userType}`;
         }, 300);
       })
       .catch((error) => {
@@ -436,7 +439,9 @@ const HotelVendor = () => {
           window.dispatchEvent(new Event('loginStatusChanged'));
 
           setTimeout(() => {
-            window.location.href = redirectParam || `/dashboard/${userType}`;
+            window.location.href = redirectParam
+              ? resolvePostLoginRedirect(redirectParam, userType)
+              : `/dashboard/${userType}`;
           }, 300);
         })
         .catch((error) => {

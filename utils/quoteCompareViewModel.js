@@ -1,4 +1,6 @@
-import { calculateTotal } from "@/utils/sharedFunctions";
+// All money math now comes from the backend engine via the
+// GET /rfq/quote-compare/:id endpoint. This module reads engine output
+// from the API response — it does no arithmetic of its own.
 
 const parseNumber = (value) => {
   const num = Number(value);
@@ -49,14 +51,14 @@ const getQuantity = (product, details) => {
   return 0;
 };
 
-const getQuoteTotal = (product, quote, normalizeFilter) => {
+// `normalizeFilter` is preserved in the signature for back-compat but unused —
+// the API response already reflects normalisation when the caller hit the
+// endpoint with normalize=1.
+const getQuoteTotal = (product, quote, _normalizeFilter) => {
   const details = getQuoteDetails(quote);
   if (!details) return 0;
-
-  const quantity = getQuantity(product, details);
-  const computedTotal = parseNumber(calculateTotal(details, quantity, normalizeFilter));
-  if (computedTotal > 0) return computedTotal;
-
+  const fromEngine = parseNumber(details.engine?.total ?? quote?.engine_total);
+  if (fromEngine > 0) return fromEngine;
   return parseNumber(details.total_price || quote?.total_price);
 };
 
@@ -84,11 +86,9 @@ const isFinalizedQuote = (product, quote) => {
   return !!vendor?.is_finalized;
 };
 
-const getBaselineTotal = (product, normalizeFilter) => {
-  const baseline = product?.last_purchase_rate || product?.last_quote_rate;
-  if (!baseline) return 0;
-  return parseNumber(calculateTotal(baseline, getQuantity(product, baseline), normalizeFilter));
-};
+// Server pre-computes baseline_total from last_purchase_rate / last_quote_rate.
+const getBaselineTotal = (product) =>
+  parseNumber(product?.aggregates?.baseline_total);
 
 const getProductCategory = (product) => {
   const details = product?.product_details?.[0] || {};
@@ -158,7 +158,7 @@ export const buildQuoteCompareViewModel = (quotes = [], normalizeFilter = false)
       finalizedTotal += finalizedQuote.total;
     }
 
-    baselineTotal += getBaselineTotal(product, normalizeFilter);
+    baselineTotal += getBaselineTotal(product);
 
     const category = getProductCategory(product);
     if (!categories[category]) categories[category] = [];

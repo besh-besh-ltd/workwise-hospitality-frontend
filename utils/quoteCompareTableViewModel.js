@@ -1,4 +1,8 @@
-import { calculateTotal } from "@/utils/sharedFunctions";
+// All money math is now sourced from the backend engine. The API response
+// (GET /rfq/quote-compare/:id) attaches `engine` to each quote_details row
+// and `comparison` + `aggregates` to each product. This module is now a
+// thin selector layer — it shapes the engine output into rows/columns the
+// matrices render, but does no arithmetic of its own.
 
 const toNumber = (value) => {
   if (value === null || value === undefined || value === "") return 0;
@@ -93,27 +97,17 @@ export const getQuotePrice = (quote) => {
   return toNumber(pick(quote?.unit_price, details?.unit_price));
 };
 
-export const getQuoteTotal = (product, quote, normalizeFilter = false) => {
+// `normalizeFilter` is accepted for back-compat but unused — the API already
+// reflects normalisation when the caller passed normalize=1.
+export const getQuoteTotal = (product, quote, _normalizeFilter = false) => {
   const details = getQuoteDetails(quote) || {};
-  const calcBase = { ...details, ...quote };
-  const quantity = getQuantityFromProduct(product, details) || toNumber(calcBase.quantity) || 1;
-  const total = toNumber(calculateTotal(calcBase, quantity, normalizeFilter));
-
-  if (total > 0) return total;
-  return toNumber(pick(calcBase.total_price, quote?.total_price));
+  const fromEngine = toNumber(details.engine?.total ?? quote?.engine_total);
+  if (fromEngine > 0) return fromEngine;
+  return toNumber(pick(details.total_price, quote?.total_price));
 };
 
-export const getMissingCostParts = (quote, freightFilter = false) => {
-  const details = getQuoteDetails(quote) || {};
-  const parts = [];
-
-  const packageValue = toNumber(pick(details.package_price, quote?.package_price));
-  const freightValue = toNumber(pick(details.freight_price, quote?.freight_price));
-
-  if (packageValue === 0) parts.push("Package");
-  if (!freightFilter && freightValue === 0) parts.push("Freight");
-
-  return parts;
+export const getMissingCostParts = () => {
+  return [];
 };
 
 export const getPaymentTermsText = (quote) => {
@@ -168,114 +162,57 @@ export const sortProductQuotes = (product, quotations = [], normalizeFilter = fa
   });
 };
 
-const getChargeEffectiveValue = (details = {}, chargeType = "freight", quantity = 1) => {
-  const unitPrice = toNumber(details.unit_price);
-  const subtotal = unitPrice * toNumber(quantity || 1);
-
-  if (chargeType === "freight") {
-    const value = toNumber(details.freight_price);
-    return details.freight_mode === "percentage" ? (subtotal * value) / 100 : value;
-  }
-
-  if (chargeType === "packaging") {
-    const value = toNumber(details.package_price);
-    return details.package_mode === "percentage" ? (subtotal * value) / 100 : value;
-  }
+// Pull the engine-computed subtotal for a named charge on this line. Falls
+// back to 0 if the charge isn't present in the engine breakdown — never
+// recomputes locally.
+const getChargeEffectiveValue = (details = {}, chargeType = "freight", _quantity = 1) => {
+  const charges = details.engine?.charges || [];
 
   if (chargeType === "gst") {
-    const value = toNumber(details.tax);
-    return details.tax_mode === "percentage" ? (subtotal * value) / 100 : value;
+    return toNumber(details.engine?.base_tax);
   }
 
-  return toNumber(details[chargeType]);
+  // Match by canonical name. "freight" / "packaging" map to "Freight" /
+  // "Packaging" entries the engine produced (either explicit other_charges
+  // or synthesised from legacy flat fields by quoteCompareService).
+  const wantedName = chargeType === "freight"
+    ? "freight"
+    : chargeType === "packaging"
+    ? "packaging"
+    : String(chargeType).toLowerCase();
+
+  const match = charges.find((c) => (c.name || "").toLowerCase() === wantedName);
+  return toNumber(match?.subtotal);
 };
 
-const metricValueResolvers = {
-  basePrice: (column) => toNumber(column.details?.unit_price),
-  subtotal: (column) => toNumber(column.details?.unit_price) * toNumber(column.quantity),
-  packaging: (column) => getChargeEffectiveValue(column.details, "packaging", column.quantity),
-  freight: (column) => getChargeEffectiveValue(column.details, "freight", column.quantity),
-  gst: (column) => getChargeEffectiveValue(column.details, "gst", column.quantity),
-  total: (column) => toNumber(column.total),
-  delivery: (column) => toNumber(column.delivery),
-};
-
-const buildRowComparativeStats = (columns = [], metricKeys = []) => {
-  const stats = {};
-
-  metricKeys.forEach((metricKey) => {
-    const resolver = metricValueResolvers[metricKey];
-    if (!resolver) return;
-
-    const candidates = columns
-      .filter((column) => !column.isRegret && column.price > 0)
-      .map((column) => ({
-        vendorId: column.vendorId,
-        value: toNumber(resolver(column)),
-      }))
-      .filter((entry) => entry.value > 0);
-
-    if (candidates.length === 0) {
-      stats[metricKey] = {
-        min: 0,
-        max: 0,
-        bands: {},
-        normalizedScores: {},
-      };
-      return;
-    }
-
-    const min = Math.min(...candidates.map((entry) => entry.value));
-    const max = Math.max(...candidates.map((entry) => entry.value));
-    const spread = Math.max(max - min, 1);
-
-    const bands = {};
-    const normalizedScores = {};
-
-    candidates.forEach((entry) => {
-      const normalized = clamp((entry.value - min) / spread, 0, 1);
-      normalizedScores[entry.vendorId] = normalized;
-
-      if (entry.value <= min * 1.01) {
-        bands[entry.vendorId] = "best";
-      } else if (normalized <= 0.4) {
-        bands[entry.vendorId] = "competitive";
-      } else if (normalized >= 0.8) {
-        bands[entry.vendorId] = "high";
-      } else {
-        bands[entry.vendorId] = "neutral";
-      }
-    });
-
-    stats[metricKey] = {
-      min,
-      max,
-      bands,
-      normalizedScores,
-    };
+// Collect unique charge names across all quotations
+export const collectChargeNames = (columns) => {
+  const otherChargeNames = new Set();
+  const globalChargeNames = new Set();
+  columns.forEach(col => {
+    const otherCharges = col.details?.other_charges || [];
+    otherCharges.forEach(c => { if (c.name) otherChargeNames.add(c.name); });
+    const globalCharges = col.details?.global_charges || col.quote?.global_charges || [];
+    globalCharges.forEach(c => { if (c.name) globalChargeNames.add(c.name); });
   });
+  return { otherChargeNames: [...otherChargeNames], globalChargeNames: [...globalChargeNames] };
+};
 
+// Selector: pulls the server-computed comparison bands for this product.
+// `metricKeys` filters which metrics to return (basePrice/subtotal/gst/total/delivery).
+const buildRowComparativeStats = (product, metricKeys = []) => {
+  const apiBands = product?.comparison?.bands || {};
+  const stats = {};
+  metricKeys.forEach((metricKey) => {
+    const fromApi = apiBands[metricKey];
+    stats[metricKey] = fromApi || { min: 0, max: 0, bands: {}, normalizedScores: {} };
+  });
   return stats;
 };
 
-const getFreightAdvantageVendorIds = (columns = []) => {
-  const eligible = columns
-    .filter((column) => !column.isRegret && column.price > 0 && column.missingParts.length === 0)
-    .map((column) => ({
-      vendorId: column.vendorId,
-      freightCost: getChargeEffectiveValue(column.details, "freight", column.quantity),
-    }))
-    .filter((entry) => entry.freightCost > 0);
-
-  if (eligible.length === 0) return [];
-
-  const minFreight = Math.min(...eligible.map((entry) => entry.freightCost));
-  const tolerance = minFreight * 1.01;
-
-  return eligible
-    .filter((entry) => entry.freightCost <= tolerance)
-    .map((entry) => entry.vendorId);
-};
+// Selector: server already tie-tolerance-flagged the freight-advantage vendors.
+const getFreightAdvantageVendorIds = (product) =>
+  product?.comparison?.freight_advantage_vendor_ids || [];
 
 const getRiskFlagsByVendor = (columns = []) => {
   const flags = {};
@@ -391,18 +328,18 @@ export const buildProductComparisonModel = ({
   const eligible = columns.filter((column) => !column.isRegret && column.price > 0);
   const lowestQuote = eligible.length > 0 ? eligible[0].quote : null;
 
+  const { otherChargeNames, globalChargeNames } = collectChargeNames(columns);
+
   const metricKeys = [
     "basePrice",
     "subtotal",
-    "packaging",
-    "freight",
     "gst",
     "total",
     "delivery",
   ];
 
-  const rowComparativeStats = buildRowComparativeStats(columns, metricKeys);
-  const freightAdvantageVendorIds = getFreightAdvantageVendorIds(columns);
+  const rowComparativeStats = buildRowComparativeStats(product, metricKeys);
+  const freightAdvantageVendorIds = getFreightAdvantageVendorIds(product);
   const riskFlags = getRiskFlagsByVendor(columns);
 
   return {
@@ -412,6 +349,8 @@ export const buildProductComparisonModel = ({
     rowComparativeStats,
     freightAdvantageVendorIds,
     riskFlags,
+    otherChargeNames,
+    globalChargeNames,
   };
 };
 
@@ -546,14 +485,7 @@ export const buildCategoryComparisonModel = (
     if (finalizedCell) finalizedTotal += finalizedCell.total;
 
     const rowComparativeStats = {
-      total: buildRowComparativeStats(
-        vendorCells.map((cell) => ({
-          ...cell,
-          price: cell.total > 0 ? 1 : 0,
-          vendorId: cell.vendor.id,
-        })),
-        ["total"]
-      ).total,
+      total: buildRowComparativeStats(product, ["total"]).total,
     };
 
     return {
@@ -646,13 +578,7 @@ export const buildOverallCostModel = (
     maxRanks = Math.max(maxRanks, eligible.length);
 
     const rowComparativeStats = {
-      total: buildRowComparativeStats(
-        eligible.map((entry) => ({
-          ...entry,
-          price: 1,
-        })),
-        ["total"]
-      ).total,
+      total: buildRowComparativeStats(product, ["total"]).total,
     };
 
     return {

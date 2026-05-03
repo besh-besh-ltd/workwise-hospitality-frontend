@@ -6,28 +6,35 @@ import {
   downloadQuotesDetails,
   finalizeQuotation,
   getAllClauses,
-  getQuotes,
   getRFQById,
   getRfqs,
   handleUploadFileInFormData,
   saveExcelInDB,
   updateTargetPrice,
 } from "@/services/rfq";
+import { getQuoteComparison } from "@/services/pricing";
 import { useRouter } from "next/router";
 import * as XLSX from "xlsx-js-style";
 import Loader from "@/components/shared/Loader";
 import {
   addCommasToNumber,
-  calculateTotal,
   checkBidExpired,
   formatDisplayDate,
   formatRemainingDuration,
   parseIstWallTimeToEpoch,
-  handleNormalize,
-  normalizeFlatQuotationData,
   formatRFQNumber,
   getEntityLabel,
 } from "@/utils/sharedFunctions";
+
+// Engine-output reader: every quote_details row carries `engine.total` after
+// the backend's quote-compare enrichment runs. Falls back to the legacy
+// total_price column for rows that pre-date the migration.
+const lineEngineTotal = (detail) => {
+  if (!detail) return 0;
+  const fromEngine = Number(detail.engine?.total);
+  if (Number.isFinite(fromEngine) && fromEngine > 0) return fromEngine;
+  return Number(detail.total_price) || 0;
+};
 import { toast } from "react-toastify";
 import { getProjectAvailableBudget } from "@/services/project";
 import { useSelector } from "react-redux";
@@ -387,16 +394,25 @@ const QuoteCompare = () => {
         setTA_Filter(true);
       }
 
-      // Step 2: Fetch quotes with embedded negotiation data (include_negotiation=true)
-      const quotesRes = await getQuotes(rfq, hasTechEval, freightFilter, rfq_product_id, source, 'quote_compare', true);
+      // Step 2: Fetch the server-computed quote-compare view model.
+      // Engine output is attached per quote_details row; normalisation is
+      // applied server-side when normalize=1 (no local handleNormalize needed).
+      const quotesRes = await getQuoteComparison(rfq, {
+        normalize: !!normalizeFilter,
+        freightFilter: !!freightFilter,
+        rfq_product_id,
+        pageSource: 'quote_compare',
+        include_negotiation: true,
+      });
       if (latestRfqRef.current !== fetchRfq) return;
 
       const visibility = quotesRes?.meta?.quoteVisibility || null;
       setQuoteVisibilityMeta(visibility);
       setQuoteVisibilityClock(Date.now());
-      setOriginalQuotes(quotesRes.data);
-      const data = normalizeFilter ? normalizeFlatQuotationData(quotesRes.data) : quotesRes.data;
-      setquotes(data);
+      const products = quotesRes?.data?.products || [];
+      setOriginalQuotes(products);
+      setquotes(products);
+      const data = products;
 
       // Build vendorCodeMap
       const codeMap = {};
@@ -649,7 +665,13 @@ const handleCloseNormalizeModal = () => {
     setTEavailable(false);
 
     let loadedData = [];
-    getQuotes(rfq, TA_Filter, freightFilter, rfq_product_id, source, 'quote_compare', true)
+    getQuoteComparison(rfq, {
+      normalize: !!normalizeFilter,
+      freightFilter: !!freightFilter,
+      rfq_product_id,
+      pageSource: 'quote_compare',
+      include_negotiation: true,
+    })
       .then((res) => {
         // Ignore stale response if user has already switched to a different RFQ
         if (latestRfqRef.current !== fetchRfq) return;
@@ -658,13 +680,11 @@ const handleCloseNormalizeModal = () => {
         setQuoteVisibilityMeta(visibility);
         setQuoteVisibilityClock(Date.now());
 
-        // Store original data before normalization for highlighting logic
-        setOriginalQuotes(res.data);
-
-        const data = normalizeFilter ? normalizeFlatQuotationData(res.data) : res.data;
-        loadedData = data;
-
-        setquotes(data);
+        const products = res?.data?.products || [];
+        setOriginalQuotes(products);
+        loadedData = products;
+        setquotes(products);
+        const data = products;
 
         // Build vendorCodeMap from all_vendors and vendor_details
         const codeMap = {};
@@ -786,9 +806,10 @@ const handleCloseNormalizeModal = () => {
     setDownloadLoading(true);
 
     try {
-      const res = await downloadQuotesDetails(rfq, TA_Filter, freightFilter);
-
-      const quoteData = normalizeFilter ? handleNormalize(res.data) : res.data;
+      // Pass normalize flag so the backend applies the same peer-fill +
+      // engine pass that the on-screen view uses.
+      const res = await downloadQuotesDetails(rfq, TA_Filter, freightFilter, undefined, undefined, !!normalizeFilter);
+      const quoteData = res.data;
 
       const [excelBuffer, fileName] = generateExcelFile(quoteData);
 
@@ -892,7 +913,7 @@ const generateExcelFile = (api_data) => {
       );
       if (q.length > 0) {
         vq.push(parseFloat(q[0].quote_details[0].delivery_period));
-        total = total + calculateTotal(q[0].quote_details[0], quantity.value, normalizeFilter);
+        total = total + lineEngineTotal(q[0].quote_details[0]);
       }
     });
     vendor.total = total;
@@ -941,11 +962,8 @@ const generateExcelFile = (api_data) => {
         const lowestQuoteDetails = lowest.quote_details[0];
         const lowestVendorDetails = lowest.vendor_details[0];
 
-        const curQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity;
-        const lowQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
-
-        const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity, normalizeFilter);
-        const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity, normalizeFilter);
+        const currentTotal = lineEngineTotal(curItemQuoteDetails);
+        const lowestTotal = lineEngineTotal(lowestQuoteDetails);
 
         if (curItemQuoteDetails.unit_price > 0) {
           let curLowest = lowest;
@@ -974,9 +992,7 @@ const generateExcelFile = (api_data) => {
 
     if (lowest) {
       const lowestQuoteDetails = lowest.quote_details[0];
-      const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
-
-      l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity, normalizeFilter);
+      l1totaltemp = l1totaltemp + lineEngineTotal(lowestQuoteDetails);
       setl1total(l1totaltemp);
 
       item.quotations.map((q) => {
@@ -1002,7 +1018,6 @@ const generateExcelFile = (api_data) => {
         temp_arr.push("0");
       } else {
         const temp_quote_details = q.quote_details[0];
-        const temp_quantity = temp_quote_details?.rfq_details?.find(spec => spec?.title == 'Quantity')?.value || temp_quote_details.quantity;
 
         temp_arr.push(
           q.quote_details.length > 0 && q?.quote_details[0]?.unit_price
@@ -1032,22 +1047,12 @@ const generateExcelFile = (api_data) => {
         temp_arr.push(target_price); // Use vendor-specific target_price
         temp_arr.push(
           q.quote_details.length > 0
-            ? `${calculateTotal(temp_quote_details, temp_quantity, normalizeFilter)} ${q.is_lowest ? "(Lowest)" : ""}`
+            ? `${lineEngineTotal(temp_quote_details)} ${q.is_lowest ? "(Lowest)" : ""}`
             : "-"
         );
       }
     });
-    temp_arr.push(
-      lowest
-        ? calculateTotal(
-            lowest.quote_details[0],
-            lowest.quote_details[0].rfq_details.find(
-              (spec) => spec.title == "Quantity"
-            )?.value,
-            normalizeFilter
-          )
-        : "-"
-    );
+    temp_arr.push(lowest ? lineEngineTotal(lowest.quote_details[0]) : "-");
     temp_arr.push(
       addCommasToNumber(
         item.product_specs.find((specItem) => specItem.title == "total_price")
@@ -1061,27 +1066,10 @@ const generateExcelFile = (api_data) => {
         : "-"
     );
 
+    // Server-computed baseline (last_purchase_rate or last_quote_rate, whichever is present).
     temp_arr.push(
-      item.last_purchase_rate
-        ? addCommasToNumber(
-            calculateTotal(
-              item.last_purchase_rate,
-              item.product_specs.find(
-                (specItem) => specItem.title == "Quantity"
-              )?.value,
-              normalizeFilter
-            )
-          )
-        : item.last_quote_rate
-        ? addCommasToNumber(
-            calculateTotal(
-              item.last_quote_rate,
-              item.product_specs.find(
-                (specItem) => specItem.title == "Quantity"
-              )?.value,
-              normalizeFilter
-            )
-          )
+      item.aggregates?.baseline_total > 0
+        ? addCommasToNumber(item.aggregates.baseline_total)
         : "-"
     );
     data.push(temp_arr);
@@ -1797,10 +1785,14 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     filter: (item) => {
                       // Closed RFQs are read-only — only show in All tab
                       if (String(item.status) === '2') return false;
+                      // PO rejected with no replacement — needs attention
+                      if (item.has_po_rejection) return true;
                       // Pre-deadline RFQs should not appear as action-required yet.
                       if (item.bid_end_date && !checkBidExpired(item.bid_end_date)) return false;
                       // User is current approver
                       if (item.approval_required) return true;
+                      // PO rejected by vendor — needs re-finalization
+                      if (item.has_po_rejection) return true;
                       // Already fully done or all finalized (in approval) or partially approved
                       if (item.finalization_approval_completed === true) return false;
                       if (item.is_finalized === true) return false;
@@ -1836,6 +1828,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 }}
                 getItemTags={(item) => {
                   if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
+                  if (item.has_po_rejection) return [{ label: 'PO Rejected', variant: 'danger' }];
                   if (item.finalization_approval_completed) return [{ label: 'Finalized', variant: 'success' }];
                   if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
                   if (item.is_finalized || item.finalization_partially_approved) return [{ label: 'Awaiting Approval', variant: 'info' }];

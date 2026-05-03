@@ -322,7 +322,7 @@ $status-colors: (
   :global(.modal-content) {
     border: none;
     border-radius: 14px;
-    overflow: hidden;
+    overflow: visible;
     box-shadow: 0 20px 44px rgba(23, 44, 73, 0.18);
   }
 }
@@ -1845,8 +1845,6 @@ $status-colors: (
   margin-top: 6px;
   display: grid;
   gap: 6px;
-  max-height: 220px;
-  overflow-y: auto;
 }
 
 .vendorRow {
@@ -2094,15 +2092,60 @@ $status-colors: (
 }
 
 .wfVendorRow {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.wfVendorRow summary {
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  list-style: none;
+  user-select: none;
+}
+
+.wfVendorRow summary::-webkit-details-marker {
+  display: none;
+}
+
+.wfVendorSummaryLeft {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 14px;
-  border-bottom: 1px solid #f0f2f5;
+  gap: 8px;
+}
+
+.wfVendorChevron {
+  font-size: 0.6rem;
+  color: #6c757d;
+  transition: transform 0.2s;
+}
+
+.wfVendorRow[open] .wfVendorChevron {
+  transform: rotate(90deg);
+}
+
+.wfVendorTotalPrice {
+  font-weight: 700;
+  color: var(--primary-color);
+  white-space: nowrap;
+}
+
+.wfVendorBody {
+  padding: 8px 14px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid #e9ecef;
 }
 
 .wfVendorRow:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .wfLoadMoreBtn {
@@ -2128,6 +2171,42 @@ $status-colors: (
 
 .wfVendorRow:nth-child(even) {
   background: #fafbfc;
+}
+
+.wfNegFieldCard {
+  flex: 1 0 140px;
+  max-width: 200px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.wfNegFieldCardActive {
+  border: 1.5px solid var(--primary-color);
+  background: #f0f4ff;
+}
+
+.wfNegFieldCardInactive {
+  border: 1px solid #e9ecef;
+  background: #f8f9fa;
+  opacity: 0.7;
+}
+
+.wfNegFieldLabel {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  color: #6c757d;
+  margin-bottom: 4px;
+}
+
+.wfNegFieldValue {
+  font-weight: 500;
+}
+
+.wfNegFieldTarget {
+  color: var(--primary-color);
+  margin-left: 4px;
 }
 
 .wfVendorName {
@@ -2470,4 +2549,525 @@ $status-colors: (
   align-items: center;
   justify-content: center;
   padding: 16px;
+}
+
+/* ── Negotiation Fields Select (Create Mode) ── */
+
+.negotiationFieldsSection {
+  @include subtle-card();
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.negotiationFieldsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 2px 10px;
+  border-bottom: 1px solid #e5edf7;
+  margin-bottom: 10px;
+}
+
+.negotiationFieldsTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f3d63;
+}
+
+.negotiationFieldsHint {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: #6f849d;
+}
+
+/* ── Vendor Accordion Panel (Create Mode) ── */
+
+.vendorAccordionRow {
+  border: 1px solid #e1e9f3;
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+}
+
+.vendorAccordionRow:hover {
+  border-color: #cfddee;
+  box-shadow: 0 1px 3px rgba(30, 61, 99, 0.06);
+}
+
+.vendorAccordionRowExpanded {
+  border-color: #bcd0ea;
+  box-shadow: 0 2px 8px rgba(30, 61, 99, 0.08);
+}
+
+.vendorAccordionHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.vendorAccordionBody {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  padding: 0 10px;
+  border-top: 0px solid transparent;
+}
+
+.vendorAccordionBodyOpen {
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 8px 10px 10px;
+  border-top: 1px solid #e5edf7;
+}
+
+.vendorQuoteCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 6px;
+}
+
+// First 4 cards: span 3 columns each (3×4 = 12)
+.vendorQuoteCardsGrid > :nth-child(-n+4) {
+  grid-column: span 3;
+}
+
+// Last 3 cards: span 4 columns each (4×3 = 12)
+.vendorQuoteCardsGrid > :nth-child(n+5) {
+  grid-column: span 4;
+}
+
+.vendorQuoteCard {
+  border-radius: 8px;
+  padding: 6px 8px;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.vendorQuoteCardSelected {
+  background: #eef4fb;
+  border: 1px solid #c8d8ef;
+}
+
+.vendorQuoteCardDanger {
+  background: #fef2f2 !important;
+  border-color: #f0c0c0 !important;
+}
+
+.vendorQuoteCardWarning {
+  background: #fefce8 !important;
+  border-color: #e5d5a0 !important;
+}
+
+.vendorQuoteCardMuted {
+  background: #f9fbff;
+  border: 1px solid #e1e9f3;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #cfddee;
+    box-shadow: 0 1px 4px rgba(30, 61, 99, 0.08);
+  }
+}
+
+.vendorQuoteCardLabel {
+  margin: 0;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  font-weight: 700;
+  color: #6d829a;
+  line-height: 1.2;
+}
+
+.vendorQuoteCardValue {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f3f66;
+  line-height: 1.3;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.vendorQuoteCardMissing {
+  color: #a0b0c4;
+  font-weight: 600;
+}
+
+/* ── Target Inputs Panel (Create Mode) ── */
+
+.targetInputsSection {
+  margin-top: 12px;
+}
+
+.targetInputsDisabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.targetInputsGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.targetInputCard {
+  @include subtle-card();
+  padding: 10px 12px;
+}
+
+.targetInputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.targetInputRow .fieldInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.modeLabelHint {
+  font-size: 10px;
+  color: $primary;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.modeToggle {
+  display: flex;
+  border: 1px solid #d3e1f2;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.modeToggleBtn {
+  border: none;
+  background: #fff;
+  color: #6d829a;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:not(:last-child) {
+    border-right: 1px solid #d3e1f2;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.modeToggleBtnActive {
+  background: $primary;
+  color: #fff;
+}
+
+/* ── Negotiation Field Cards (selectable cards with global target inputs) ── */
+
+.negotiationFieldsDisabled {
+  pointer-events: none;
+}
+
+.negFieldsOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.75);
+  z-index: 2;
+  border-radius: 8px;
+}
+
+.negFieldsOverlayText {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7d93;
+  margin: 0;
+  padding: 8px 16px;
+  background: #f0f4ff;
+  border: 1px solid #d4dff0;
+  border-radius: 6px;
+}
+
+.negFieldCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 8px;
+}
+
+// First 4 cards: span 3 columns each (3×4 = 12)
+.negFieldCardsGrid > :nth-child(-n+4) {
+  grid-column: span 3;
+}
+
+// Last 3 cards: span 4 columns each (4×3 = 12)
+.negFieldCardsGrid > :nth-child(n+5) {
+  grid-column: span 4;
+}
+
+.negFieldCard {
+  @include subtle-card(#f9fbff, #e1e9f3);
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+
+  &:hover {
+    border-color: #cfddee;
+    box-shadow: 0 1px 4px rgba(30, 61, 99, 0.08);
+  }
+}
+
+.negFieldCardSelected {
+  background: #eef4fb;
+  border-color: #b0c8e8;
+  box-shadow: 0 0 0 1px rgba(46, 91, 168, 0.14);
+}
+
+.negFieldCardDisabled {
+  cursor: not-allowed;
+  &:hover {
+    border-color: #e1e9f3;
+    box-shadow: none;
+  }
+}
+
+.negFieldCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.negFieldCardLabel {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f3d63;
+}
+
+.negFieldCardCheck {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid #cfddee;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: transparent;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.negFieldCardCheckActive {
+  background: $primary;
+  border-color: $primary;
+  color: #fff;
+}
+
+.negFieldCardInputArea {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #dde7f3;
+  cursor: default;
+}
+
+.negFieldInputLabel {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  font-weight: 700;
+  color: #6d829a;
+  margin-bottom: 4px;
+}
+
+.negFieldInputRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.negFieldInput {
+  width: 100%;
+  border: 1px solid #cfddee;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: #1b395f;
+  background: #fff;
+  flex: 1;
+  min-width: 0;
+
+  &:focus {
+    outline: none;
+    border-color: #8eb1de;
+    box-shadow: 0 0 0 2px rgba(46, 91, 168, 0.14);
+  }
+}
+
+/* ── Vendor Card Value + Target Inline Row ── */
+
+.vendorCardValueRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+  padding-top: 4px;
+  min-height: 24px;
+  cursor: default;
+}
+
+// Compact mode toggle inside vendor accordion cards
+.vendorQuoteCard {
+  .modeToggle {
+    border-radius: 4px;
+  }
+
+  .modeToggleBtn {
+    font-size: 10px;
+    padding: 3px 7px;
+  }
+}
+
+.vendorCardArrow {
+  color: #a0b0c4;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.vendorLocalTargetInput {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #d5e0ee;
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 11px;
+  color: #1b395f;
+  background: #fff;
+
+  &:focus {
+    outline: none;
+    border-color: #8eb1de;
+    box-shadow: 0 0 0 1px rgba(46, 91, 168, 0.12);
+  }
+
+  &::placeholder {
+    color: #b0bfcf;
+    font-size: 10px;
+  }
+}
+
+.vendorTextFieldBtn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary-color);
+  background: #edf2ff;
+  border: 1px solid var(--primary-color);
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+
+  &:hover {
+    background: #dce5ff;
+  }
+}
+
+/* ── Create Mode Sticky Footer ── */
+
+.createStickyFooter {
+  border-top: 1px solid #dfe8f4;
+  background: #f9fbff;
+  padding: 10px 16px 12px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.endDateInline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+
+  .formLabel {
+    margin-bottom: 0;
+  }
+
+  .fieldInput {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 991px) {
+  .targetInputsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .vendorQuoteCardsGrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .vendorQuoteCardsGrid > :nth-child(-n+4),
+  .vendorQuoteCardsGrid > :nth-child(n+5) {
+    grid-column: span 3;
+  }
+
+  .negFieldCardsGrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .negFieldCardsGrid > :nth-child(-n+4),
+  .negFieldCardsGrid > :nth-child(n+5) {
+    grid-column: span 3;
+  }
+}
+
+@media (max-width: 576px) {
+  .vendorQuoteCardsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .vendorQuoteCardsGrid > :nth-child(-n+4),
+  .vendorQuoteCardsGrid > :nth-child(n+5) {
+    grid-column: span 1;
+  }
+
+  .negFieldCardsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .negFieldCardsGrid > :nth-child(-n+4),
+  .negFieldCardsGrid > :nth-child(n+5) {
+    grid-column: span 1;
+  }
+
+  .createStickyFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .endDateInline {
+    min-width: 0;
+  }
 }

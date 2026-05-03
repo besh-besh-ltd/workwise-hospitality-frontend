@@ -8,7 +8,17 @@ import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "react-bootstrap/Dropdown";
 import CommonModal from "@/components/modal/CommonModal";
 import ReadMore from "@/components/shared/ReadMore";
-import { calculateTotal, extractfileName } from "@/utils/sharedFunctions";
+import { extractfileName } from "@/utils/sharedFunctions";
+
+// Engine-output reader: server attaches `engine.total` to each quote_details
+// row when the page hits /rfq/quote-compare/:id. Falls back to legacy
+// total_price for rows that pre-date the migration.
+const lineEngineTotal = (detail) => {
+  if (!detail) return 0;
+  const fromEngine = Number(detail.engine?.total);
+  if (Number.isFinite(fromEngine) && fromEngine > 0) return fromEngine;
+  return Number(detail.total_price) || 0;
+};
 import { useRouter } from "next/router";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import FinalizeVendorModal from "./FinalizeVendorModal";
@@ -81,9 +91,7 @@ const QuoteCompareTable = ({
       if (aPrice <= 0 && bPrice > 0) return 1;
       if (aPrice <= 0 && bPrice <= 0) return 0;
 
-      const aQty = qty || a.quantity;
-      const bQty = qty || b.quantity;
-      return calculateTotal(a, aQty, normalizeFilter) - calculateTotal(b, bQty, normalizeFilter);
+      return lineEngineTotal(a) - lineEngineTotal(b);
     });
   }, [quotations, proditem, normalizeFilter]);
 
@@ -192,11 +200,8 @@ const QuoteCompareTable = ({
           const lowestQuoteDetails = lowest;
           const lowestVendorDetails = lowestQuoteDetails.quote_details.vendor_details;
 
-          const curQuantity = proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity
-          const lowQuantity = proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity
-
-          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity, normalizeFilter)
-          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity, normalizeFilter)
+          const currentTotal = lineEngineTotal(curItemQuoteDetails)
+          const lowestTotal = lineEngineTotal(lowestQuoteDetails)
 
           if (curItemQuoteDetails.unit_price > 0) {
             let curLowest = lowest;
@@ -681,12 +686,12 @@ const QuoteCompareTable = ({
                           : "table-grey-row"
                       }`}
                     >
-                     {calculateTotal(item, quantity, normalizeFilter)}
+                     {lineEngineTotal(item)}
                        {itemUpdated &&
-                        calculateTotal(itemUpdated, quantity) !=
-                          calculateTotal(item, quantity) && (
+                        lineEngineTotal(itemUpdated) !=
+                          lineEngineTotal(item) && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
-                            {calculateTotal(itemUpdated, quantity)}
+                            {lineEngineTotal(itemUpdated)}
                           </span>
                         )}
                       {roundQuote && roundQuote.previous_price && (
@@ -1021,7 +1026,6 @@ const QuoteCompareTable = ({
         onHide={() => setActiveModal(null)}
         history={proditem.finalization_history}
         quantity={proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value}
-        calculateTotal={calculateTotal}
       />
     </>
   );
