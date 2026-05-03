@@ -24,20 +24,35 @@ const ConfirmationModal = ({
     showCloseButton = false,
     customFooter = null,
     hideCancelButton = false,
+    requireComment = false,
+    commentLabel = "Comment",
+    commentPlaceholder = "Enter your comment...",
 }) => {
     const [isProcessing, setIsProcessing] = useState(false);
+    const [comment, setComment] = useState("");
+    const [commentTouched, setCommentTouched] = useState(false);
     const v = VARIANTS[confirmButtonColor] || VARIANTS.danger;
     const Icon = v.icon;
 
     useEffect(() => {
-        if (!isOpen) setIsProcessing(false);
+        if (!isOpen) {
+            setIsProcessing(false);
+            setComment("");
+            setCommentTouched(false);
+        }
     }, [isOpen]);
+
+    const isCommentValid = !requireComment || comment.trim().length > 0;
 
     const handleConfirmClick = async () => {
         if (isProcessing) return;
+        if (requireComment) {
+            setCommentTouched(true);
+            if (!comment.trim()) return;
+        }
         setIsProcessing(true);
         try {
-            await onConfirm?.();
+            await onConfirm?.(requireComment ? comment.trim() : undefined);
         } finally {
             setIsProcessing(false);
         }
@@ -91,6 +106,24 @@ const ConfirmationModal = ({
                         </div>
                     </div>
 
+                    {requireComment && (
+                        <div className={styles.commentGroup}>
+                            <label className={styles.commentLabel}>{commentLabel} <span style={{ color: '#ef4444' }}>*</span></label>
+                            <textarea
+                                className={styles.commentTextarea}
+                                placeholder={commentPlaceholder}
+                                value={comment}
+                                onChange={(e) => setComment(e.target.value)}
+                                onBlur={() => setCommentTouched(true)}
+                                rows={3}
+                                disabled={isProcessing}
+                            />
+                            {commentTouched && !comment.trim() && (
+                                <span className={styles.commentError}>Comment is required</span>
+                            )}
+                        </div>
+                    )}
+
                     {customFooter && (
                         <div className={styles.footer}>{customFooter}</div>
                     )}
@@ -110,7 +143,7 @@ const ConfirmationModal = ({
                             onClick={handleConfirmClick}
                             className={`${styles.btn} ${v.btnCls}`}
                             id="confirm_confirmation_modal-modal_body-confirmation_modal"
-                            disabled={isProcessing}
+                            disabled={isProcessing || !isCommentValid}
                         >
                             {isProcessing && <span className={styles.spinner} role="status" aria-hidden="true" />}
                             {confirmButtonText}
