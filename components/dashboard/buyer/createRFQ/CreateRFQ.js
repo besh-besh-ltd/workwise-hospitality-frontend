@@ -551,16 +551,16 @@ const CreateRFQ = () => {
         const publishDate = currentFormData.tender_publish_date
           ? new Date(currentFormData.tender_publish_date) : null;
 
-        // Rule 1: Must be after tender publish date
-        if (publishDate && clarificationDate <= publishDate) {
-          error = 'Clarification End Date must be after the tender publish date.';
+        // Rule 1: Must be at least 5 minutes after tender publish date
+        if (publishDate && (clarificationDate - publishDate) < 5 * 60 * 1000) {
+          error = 'Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.';
         }
 
-        // Rule 2: Must be at least 5 days before bid end date
+        // Rule 2: Quote Submission End Date must be at least 24 hours after Clarification
         if (!error && bidEndDate) {
-          const diffInDays = (bidEndDate - clarificationDate) / (1000 * 60 * 60 * 24);
-          if (diffInDays < 5) {
-            error = 'Clarification End Date must be at least 5 days before the quote submission End Date.';
+          const diffInHours = (bidEndDate - clarificationDate) / (1000 * 60 * 60);
+          if (diffInHours < 24) {
+            error = 'Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.';
           }
         }
     } else if (name === 'reverse_auction' && !value) {
@@ -586,9 +586,25 @@ const CreateRFQ = () => {
       if (value && rfqFormDataFromStore.vendor_clarification_date) {
         const bidEndDate = new Date(value);
         const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
-        const diffInDays = (bidEndDate - clarificationDate) / (1000 * 60 * 60 * 24);
-        if (diffInDays < 5) {
-          toast.warning("Clarification End Date is now less than 5 days before the quote submission End Date. Please update it.");
+        const diffInHours = (bidEndDate - clarificationDate) / (1000 * 60 * 60);
+        if (diffInHours < 24) {
+          toast.warning("Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date. Please update one of them.");
+        }
+      }
+    }
+
+    // Tender Publish Date validation
+    if (name === "tender_publish_date" && value) {
+      const publishDate = new Date(value);
+      if ((publishDate - new Date()) < 5 * 60 * 1000) {
+        toast.error("Publish Date & Time must be at least 5 minutes from now.");
+        return;
+      }
+      // Warn if clarification date becomes invalid when tender publish date changes
+      if (rfqFormDataFromStore.vendor_clarification_date) {
+        const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
+        if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
+          toast.warning("Vendor Clarification End Date is now invalid. Please update it.");
         }
       }
     }
@@ -597,32 +613,23 @@ const CreateRFQ = () => {
     if (name === "vendor_clarification_date" && value) {
       const clarificationDate = new Date(value);
 
-      // Rule 1: Must be after tender publish date
+      // Rule 1: Must be at least 5 minutes after tender publish date
       if (rfqFormDataFromStore.tender_publish_date) {
         const publishDate = new Date(rfqFormDataFromStore.tender_publish_date);
-        if (clarificationDate <= publishDate) {
-          toast.error("Clarification End Date must be after the tender publish date.");
+        if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
+          toast.error("Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.");
           return;
         }
       }
 
-      // Rule 2: Must be at least 5 days before bid end date
+      // Rule 2: Quote Submission End Date must be at least 24 hours after Clarification
       if (rfqFormDataFromStore.bid_end_date) {
         const bidEndDate = new Date(rfqFormDataFromStore.bid_end_date);
-        const diffInDays = (bidEndDate - clarificationDate) / (1000 * 60 * 60 * 24);
-        if (diffInDays < 5) {
-          toast.error("Clarification End Date must be at least 5 days before the quote submission End Date.");
+        const diffInHours = (bidEndDate - clarificationDate) / (1000 * 60 * 60);
+        if (diffInHours < 24) {
+          toast.error("Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.");
           return;
         }
-      }
-    }
-
-    // Warn if clarification date becomes invalid when tender publish date changes
-    if (name === "tender_publish_date" && value && rfqFormDataFromStore.vendor_clarification_date) {
-      const publishDate = new Date(value);
-      const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
-      if (clarificationDate <= publishDate) {
-        toast.warning("Clarification End Date is now invalid. Please update it.");
       }
     }
 
@@ -787,6 +794,39 @@ useEffect(() => {
       toast.error("Please select a process");
       setMainLoading(false);
       return false;
+    }
+
+    // Publish Date & Time is required and must be at least 5 minutes from now
+    if (!formDataCopy.tender_publish_date) {
+      toast.error("Please select Publish Date & Time");
+      setMainLoading(false);
+      return false;
+    }
+    const publishDate = new Date(formDataCopy.tender_publish_date);
+    if ((publishDate - new Date()) < 5 * 60 * 1000) {
+      toast.error("Publish Date & Time must be at least 5 minutes from now.");
+      setMainLoading(false);
+      return false;
+    }
+
+    // Vendor Clarification End Date (if set) must be at least 5 minutes after publish
+    if (formDataCopy.vendor_clarification_date) {
+      const clarificationDate = new Date(formDataCopy.vendor_clarification_date);
+      if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
+        toast.error("Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.");
+        setMainLoading(false);
+        return false;
+      }
+
+      // Quote Submission End Date must be at least 24 hours after clarification
+      if (formDataCopy.bid_end_date) {
+        const bidEndDate = new Date(formDataCopy.bid_end_date);
+        if ((bidEndDate - clarificationDate) < 24 * 60 * 60 * 1000) {
+          toast.error("Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.");
+          setMainLoading(false);
+          return false;
+        }
+      }
     }
 
     return true
@@ -2316,6 +2356,18 @@ useEffect(() => {
     );
   }
 
+  const formatLocalDateTime = (d) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const minPublishDate = formatLocalDateTime(new Date(Date.now() + 5 * 60 * 1000));
+  const minClarificationDate = rfqFormDataFromStore.tender_publish_date
+    ? formatLocalDateTime(new Date(new Date(rfqFormDataFromStore.tender_publish_date).getTime() + 5 * 60 * 1000))
+    : minPublishDate;
+  const minBidEndDate = rfqFormDataFromStore.vendor_clarification_date
+    ? formatLocalDateTime(new Date(new Date(rfqFormDataFromStore.vendor_clarification_date).getTime() + 24 * 60 * 60 * 1000))
+    : minPublishDate;
+
   return (
     <>
       {(mainLoading || storeLoading) && <Loader />}
@@ -2930,13 +2982,14 @@ useEffect(() => {
 
                                     <div className="col-md-4">
                                       <label className="form-label">
-                                        Publish Date & Time
+                                        Publish Date & Time <span className="text-danger">*</span>
                                       </label>
                                       <input
                                         id="tender_publish_date-rfq_details-create_rfq_page"
                                         type="datetime-local"
                                         name="tender_publish_date"
                                         className="form-control"
+                                        min={minPublishDate}
                                         value={
                                           rfqFormDataFromStore.tender_publish_date
                                             ? formatISOToDateTimeLocal(rfqFormDataFromStore.tender_publish_date)
@@ -2955,6 +3008,7 @@ useEffect(() => {
                                         type="datetime-local"
                                         name="bid_end_date"
                                         className="form-control"
+                                        min={minBidEndDate}
                                         value={
                                           rfqFormDataFromStore.bid_end_date
                                             ? formatISOToDateTimeLocal(rfqFormDataFromStore.bid_end_date)
@@ -2973,6 +3027,7 @@ useEffect(() => {
                                         type="datetime-local"
                                         name="vendor_clarification_date"
                                         className="form-control"
+                                        min={minClarificationDate}
                                         value={
                                           rfqFormDataFromStore.vendor_clarification_date
                                             ? formatISOToDateTimeLocal(rfqFormDataFromStore.vendor_clarification_date)
