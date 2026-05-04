@@ -229,7 +229,7 @@ $badge-tones: (
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 4px;
 }
 
 .kpiCard {
@@ -320,8 +320,12 @@ $badge-tones: (
 
 .productCard {
   @include panel(#e6ecf5, $radius-md);
-  padding: 14px;
   margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.productBody {
+  padding: 14px;
 }
 
 .productHead {

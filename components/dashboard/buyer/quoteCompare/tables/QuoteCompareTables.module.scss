@@ -139,7 +139,7 @@ $breakup-insight-tones: (
 
 .matrixSurface {
   border: 1px solid #dfe7f2;
-  border-radius: $qc-radius-lg;
+  border-radius: $qc-radius-sm;
   background: $qc-surface;
   overflow: hidden;
 }
@@ -367,6 +367,7 @@ $breakup-insight-tones: (
   overflow-wrap: anywhere;
   line-height: 1.35;
   padding-inline: 12px;
+  vertical-align: middle !important;
 }
 
 .productMetricHead {

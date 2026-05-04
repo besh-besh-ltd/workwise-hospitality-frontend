@@ -321,6 +321,8 @@ const ApprovalWorkflowSection = ({
     isAutoApproved,
     autoApprovedReason,
     handleApprovalAction,
+    applyOptimisticAction,
+    rollbackOptimisticAction,
     refetch,
   } = useApprovalWorkflow({ entityType, entityId, allEntityIds, enabled: !!entityId, refreshTrigger, preloadedInstances });
 
@@ -361,12 +363,25 @@ const ApprovalWorkflowSection = ({
       existing_po_id: existingPoId,
     };
 
+    // For custom handlers (NEGOTIATION_QUOTE), apply optimistic local update
+    // here. handleApprovalAction does its own optimistic + rollback internally.
+    const usingCustomHandler =
+      (actionType === "APPROVE" && onCustomApprove) ||
+      (actionType === "REJECT" && onCustomReject);
+    const optimisticSnapshot = usingCustomHandler
+      ? applyOptimisticAction(actionType)
+      : null;
+
     if (actionType === "APPROVE" && onCustomApprove) {
       result = await onCustomApprove(comment, handlerContext);
     } else if (actionType === "REJECT" && onCustomReject) {
       result = await onCustomReject(comment, handlerContext);
     } else {
       result = await handleApprovalAction(actionType, comment);
+    }
+
+    if (!result.success && usingCustomHandler) {
+      rollbackOptimisticAction(optimisticSnapshot);
     }
 
     if (result.success) {

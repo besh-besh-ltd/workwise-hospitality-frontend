@@ -101,7 +101,7 @@ const getProductCategory = (product) => {
   );
 };
 
-export const buildQuoteCompareViewModel = (quotes = [], normalizeFilter = false) => {
+export const buildQuoteCompareViewModel = (quotes = [], normalizeFilter = false, vendorRejections = []) => {
   const vendorSet = new Set();
   let l1Total = 0;
   let finalizedTotal = 0;
@@ -178,6 +178,62 @@ export const buildQuoteCompareViewModel = (quotes = [], normalizeFilter = false)
 
   const savings = baselineTotal > 0 ? baselineTotal - l1Total : 0;
 
+  // Approval-progress counters. Derived per-product from QC payload + the
+  // PO-rejection list passed in by the page. The four states are mutually
+  // exclusive — a product belongs to exactly one bucket so the counts add up
+  // to productsCount and the progress bar renders cleanly.
+  //
+  //   finalized        any vendor in `all_vendors` has is_finalized === true,
+  //                    OR any quotation has a finalization record.
+  //   po_rejected      product appears in `vendorRejections` (covers both
+  //                    PO-rejected-by-vendor and PO-rejected-by-internal-
+  //                    approver — backend already ships both via this list).
+  //   neg_rejected     vendor-finalization (NEGOTIATION_QUOTE) instance is
+  //                    REJECTED or CANCELLED — buyer needs to pick again.
+  //   approved         finalized AND (no approval instance OR instance is
+  //                    APPROVED).
+  //   pending          finalized AND approval instance is PENDING.
+  //   remaining        none of the above — vendor not yet picked.
+  const isProductFinalized = (p) => {
+    if (!p) return false;
+    if (Array.isArray(p.all_vendors) && p.all_vendors.some((v) => v && v.is_finalized === true)) {
+      return true;
+    }
+    if (Array.isArray(p.quotations) && p.quotations.some((q) => q && q.finalization != null)) {
+      return true;
+    }
+    return false;
+  };
+  const productHasPoRejection = (p) => {
+    if (!p || !Array.isArray(vendorRejections) || vendorRejections.length === 0) return false;
+    return vendorRejections.some((r) =>
+      String(r.product_variant_id) === String(p.product_variant_id)
+      && String(r.variant) === String(p.variant)
+    );
+  };
+  const productHasNegotiationRejection = (p) => {
+    const status = p?.quote_approval_status?.approval_instance?.status;
+    return status === 'REJECTED' || status === 'CANCELLED';
+  };
+  const isProductRejected = (p) => productHasPoRejection(p) || productHasNegotiationRejection(p);
+  const isProductApproved = (p) => {
+    if (isProductRejected(p)) return false;
+    if (!isProductFinalized(p)) return false;
+    const status = p?.quote_approval_status?.approval_instance?.status;
+    if (!status) return true; // no approval needed
+    return status === 'APPROVED';
+  };
+  const isProductPending = (p) => {
+    if (isProductRejected(p)) return false;
+    if (!isProductFinalized(p)) return false;
+    const status = p?.quote_approval_status?.approval_instance?.status;
+    return status === 'PENDING';
+  };
+  const finalizedProducts = quotes.filter(isProductFinalized).length;
+  const approvedProducts = quotes.filter(isProductApproved).length;
+  const pendingProducts = quotes.filter(isProductPending).length;
+  const rejectedProducts = quotes.filter(isProductRejected).length;
+
   return {
     metrics: {
       productsCount: quotes.length,
@@ -188,6 +244,10 @@ export const buildQuoteCompareViewModel = (quotes = [], normalizeFilter = false)
       savings,
       regretsCount,
       missingCostQuotes,
+      finalizedProducts,
+      approvedProducts,
+      pendingProducts,
+      rejectedProducts,
     },
     categoryGroups: categories,
     productSummaries,
