@@ -1649,7 +1649,23 @@ const EditRFQ = () => {
   };
 
   const entityLabel = getEntityLabel(rfqData?.is_tender);
-  const isRestrictedEdit = rfqData?.has_tech_stuck_product && !rfqData?.has_dead_end_product;
+  // Restricted-edit triggers — must mirror backend rfqController.update:
+  //   • has_dead_end_product   — all eligible vendors' POs rejected, no replacement
+  //   • has_tech_stuck_product — all vendors failed tech eval
+  //   • has_received_quotes    — at least one non-regret quote already submitted
+  // Any of these collapses the form to "extend Quote Submission Deadline +
+  // Refresh Vendors only".
+  const isRestrictedEdit =
+    !!rfqData?.has_dead_end_product ||
+    !!rfqData?.has_tech_stuck_product ||
+    !!rfqData?.has_received_quotes;
+  const restrictedReason = rfqData?.has_dead_end_product
+    ? 'one or more products have all vendor POs rejected and no other vendor is finalisable'
+    : rfqData?.has_tech_stuck_product
+      ? 'all vendors failed technical evaluation for one or more products'
+      : rfqData?.has_received_quotes
+        ? 'vendors have started submitting quotes — to stay fair to participants the RFQ specs are now locked'
+        : null;
 
   return (
     <>
@@ -1667,12 +1683,12 @@ const EditRFQ = () => {
         />
       )}
 
-      {/* Restricted edit banner - tech eval stuck */}
+      {/* Restricted edit banner — covers tech-stuck, dead-end, and "real quote received" cases */}
       {isRestrictedEdit && (
         <div className="container-fluid">
           <ReadOnlyBanner
             title="Restricted Edit Mode"
-            message="All vendors failed technical evaluation for one or more products. You can only extend the bid submission deadline and refresh vendors."
+            message={`Restricted edit: ${restrictedReason}. You can only extend the Quote Submission Deadline and refresh vendors.`}
             variant="warning"
             noMarginTop
           />
