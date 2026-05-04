@@ -651,18 +651,29 @@ export const canEditRfq = (rfq, currentUser) => {
       reason: 'Only the user who created this RFQ can edit it.'
     };
   }
+  // Restricted-edit triggers (most-specific reason wins). All three collapse to
+  // the same enforcement: only bid_end_date + Refresh Vendors. Mirrors the
+  // backend computation of `isRestrictedEdit` in rfqController.update so the FE
+  // shouldn't author changes the BE will reject.
   if (rfq.has_dead_end_product) {
     return {
       allowed: true,
-      deadEndEdit: true,
-      reason: 'Editing is enabled because one or more products have all vendor POs rejected.'
+      restrictedEdit: true,
+      reason: 'Restricted editing: vendors have rejected the PO and no other vendor is finalisable. You can only extend the Quote Submission Deadline and refresh vendors.'
     };
   }
   if (rfq.has_tech_stuck_product) {
     return {
       allowed: true,
       restrictedEdit: true,
-      reason: 'Restricted editing: only bid end date extension and vendor refresh are available because all vendors failed technical evaluation.'
+      reason: 'Restricted editing: all vendors failed technical evaluation. You can only extend the Quote Submission Deadline and refresh vendors.'
+    };
+  }
+  if (rfq.has_received_quotes) {
+    return {
+      allowed: true,
+      restrictedEdit: true,
+      reason: 'Restricted editing: vendors have started submitting quotes. To stay fair to participants you can only extend the Quote Submission Deadline and refresh vendors.'
     };
   }
   return { allowed: true };

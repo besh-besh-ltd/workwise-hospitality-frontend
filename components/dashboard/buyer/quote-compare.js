@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import useModulePermissions from "@/hooks/useModulePermissions";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
@@ -53,6 +53,7 @@ import { buildComparisonContextTables } from "@/utils/quoteCompareTableViewModel
 import QuoteCompareHeaderCard from "@/components/dashboard/buyer/quoteCompare/QuoteCompareHeaderCard";
 import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import QuoteCompareKpiStrip from "@/components/dashboard/buyer/quoteCompare/QuoteCompareKpiStrip";
+import ApprovalProgressCard from "@/components/dashboard/buyer/quoteCompare/ApprovalProgressCard";
 import ComparisonTabs from "@/components/dashboard/buyer/quoteCompare/ComparisonTabs";
 import ProductComparisonTab from "@/components/dashboard/buyer/quoteCompare/ProductComparisonTab";
 import CategoryComparisonTab from "@/components/dashboard/buyer/quoteCompare/CategoryComparisonTab";
@@ -474,6 +475,24 @@ const QuoteCompare = () => {
     }
   };
 
+  // Standalone vendor-rejections refresh. Lifted out so it can be called after
+  // a successful finalize — the rejection alerts and product highlights need
+  // to disappear once the buyer re-finalizes (which clears the underlying
+  // rejection record server-side).
+  const loadVendorRejections = async () => {
+    if (!rfq) return;
+    const fetchRfq = String(rfq);
+    try {
+      const rfqDetailRes = await getRFQById(fetchRfq);
+      const rfqDetail = rfqDetailRes?.data || rfqDetailRes;
+      if (latestRfqRef.current !== fetchRfq) return;
+      setVendorRejections(rfqDetail?.vendor_rejections || []);
+    } catch (e) {
+      if (latestRfqRef.current !== fetchRfq) return;
+      console.error('Error refreshing vendor rejections:', e);
+    }
+  };
+
   // Initial load: fetch sidebar RFQs, hotel mappings (once)
   useEffect(() => {
     getAllRFQs();
@@ -514,9 +533,57 @@ const QuoteCompare = () => {
 
 
   // Unified refresh after user actions (create/approve/reject round, approve/reject quote)
-  const refreshNegotiationAndQuotes = async () => {
+  // If a rfqProductId is supplied, scope the refresh to just that row to keep
+  // scroll position and avoid re-rendering the whole comparison grid. Without
+  // an id (e.g. round-level changes) we fall back to the full refresh.
+  const refreshNegotiationAndQuotes = async (rfqProductId) => {
+    if (rfqProductId) {
+      await Promise.all([
+        refreshProduct(rfqProductId),
+        loadNegotiationData(),
+      ]);
+      return;
+    }
     await Promise.all([getRespectiveQuotes(), loadNegotiationData()]);
   };
+
+  // In-place patcher: update a single product entry in both `quotes` and
+  // `originalQuotes` without clearing arrays. Preserves scroll position and
+  // avoids re-rendering siblings. `patcher` may return a partial object.
+  const patchProduct = useCallback((rfqProductId, patcher) => {
+    const apply = (list) => {
+      if (!Array.isArray(list)) return list;
+      return list.map((p) =>
+        p && p.id === rfqProductId ? { ...p, ...(patcher(p) || {}) } : p
+      );
+    };
+    setquotes((prev) => apply(prev));
+    setOriginalQuotes((prev) => apply(prev));
+  }, []);
+
+  // Quietly fetch a single product's quote-compare row and merge it back via
+  // patchProduct. Used after finalize/approve/merge to reconcile only the
+  // affected row instead of refetching the entire RFQ.
+  const refreshProduct = useCallback(async (rfqProductId) => {
+    if (!rfq || !rfqProductId) return;
+    try {
+      const res = await getQuoteComparison(rfq, {
+        normalize: !!normalizeFilter,
+        freightFilter: !!freightFilter,
+        rfq_product_id: rfqProductId,
+        pageSource: 'quote_compare',
+        include_negotiation: true,
+      });
+      const products = res?.data?.products || [];
+      const updated = products.find((p) => p && p.id === rfqProductId);
+      if (updated) {
+        patchProduct(rfqProductId, () => updated);
+      }
+    } catch (err) {
+      // Non-fatal: leave optimistic state in place; user can refresh manually.
+      console.warn('refreshProduct failed', err);
+    }
+  }, [rfq, normalizeFilter, freightFilter, patchProduct]);
 
   const closeModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: false }));
@@ -1549,7 +1616,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
   const handleFinalize = (item, proditem, existingPOId, selectedHierarchy, routeType = 'PO') => {
     if (isRfqClosed) {
       toast.error(`This ${getEntityLabel(currentRFQ?.is_tender)} is closed. Finalization is not permitted.`);
-      return;
+      return Promise.resolve({ success: false });
     }
     setfinalizeLoading(true);
     const specs = proditem.product_details[0].rfq_details;
@@ -1605,9 +1672,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       ...poRequiredPayload
     };
 
-    finalizeQuotation(payload)
-      .then((res) => {
-        setfinalizeLoading(false);
+    return finalizeQuotation(payload)
+      .then(async (res) => {
         const data = res?.data || res;
         const defaultMsg = routeType === 'ARC'
           ? "Vendor finalized! ARC approval will be triggered when all products are finalized."
@@ -1615,11 +1681,27 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
             ? "Vendor finalized! Approval is required before Purchase Order can be created."
             : "Vendor finalized! Purchase Order created.";
         toast.success(res.message ?? defaultMsg);
-        getRespectiveQuotes();
+        // Optimistic in-place update: mark this product as finalized so the UI
+        // reflects the change immediately. Then reconcile from the backend —
+        // the row, the approval bundle (so the new NEGOTIATION_QUOTE instance
+        // shows up), and the rejection list (so any prior PO-rejection
+        // banner/highlight clears now that the buyer re-picked).
+        patchProduct(proditem.id, () => ({
+          is_finalized: true,
+          finalization_approval_completed: !data?.approvalPending,
+        }));
+        await Promise.all([
+          refreshProduct(proditem.id),
+          loadNegotiationData(),
+          loadVendorRejections(),
+        ]);
+        setfinalizeLoading(false);
+        return { success: true };
       })
       .catch((err) => {
         setfinalizeLoading(false);
-        toast.error(err?.message?.response?.data?.message ?? err.message ?? "Something went wrong in finalizing a vendor!")
+        toast.error(err?.message?.response?.data?.message ?? err.message ?? "Something went wrong in finalizing a vendor!");
+        return { success: false };
       });
   };
 
@@ -1643,6 +1725,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
   const { metrics, categoryGroups, productSummaries } = useQuoteCompareViewModel({
     quotes,
     normalizeFilter,
+    vendorRejections,
   });
 
   const productSummaryMap = useMemo(() => {
@@ -1750,7 +1833,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
   return (
     <>
-      {finalizeLoading && <Loader />}
       <section className="quote-common-header compare-received-quote sc-pt-80">
         <div className="container-fluid">
           <div className="d-flex justify-content-between align-items-center">
@@ -2007,7 +2089,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     )}
                     <div className={revampStyles.compareControls}>
                       {!effectiveQuoteVisibility.locked && (
-                        <QuoteCompareKpiStrip metrics={metrics} />
+                        <>
+                          <QuoteCompareKpiStrip metrics={metrics} />
+                          <ApprovalProgressCard metrics={metrics} />
+                        </>
                       )}
                       <ComparisonTabs activeTab={activeTab} onChange={handleTabChange} />
                       {!normalizeFilter && !effectiveQuoteVisibility.locked && (
@@ -2046,6 +2131,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                               openModalForVariant={openModalForVariant}
                               closeModalForVariant={closeModalForVariant}
                               handleFinalize={handleFinalize}
+                              finalizeLoading={finalizeLoading}
                               originalQuotes={originalQuotes}
                               availableBudget={availableBudget}
                               normalizeFilter={normalizeFilter}
