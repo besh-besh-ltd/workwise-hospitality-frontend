@@ -714,10 +714,11 @@ const ProductComparisonMatrix = ({
                   <tr key={`${proditem?.id}_${summaryKey}`} className={styles.productMetricRow} style={{ cursor: "pointer" }} onClick={onToggle}>
                     <th
                       className={`${styles.metricCell} ${styles.metricCellCompact} ${styles.stickyLeft} ${styles.productMetricLabelCell}`}
-                      style={{ display: "flex", alignItems: "center", gap: "6px" }}
                     >
-                      {label}
-                      <span style={{ fontSize: "0.7rem", color: "#6c757d" }}>{isExpanded ? "▲" : "▼"}</span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        {label}
+                        <span style={{ fontSize: "0.7rem", color: "#6c757d" }}>{isExpanded ? "▲" : "▼"}</span>
+                      </span>
                     </th>
                     {model.columns.map((column) => (
                       <td
