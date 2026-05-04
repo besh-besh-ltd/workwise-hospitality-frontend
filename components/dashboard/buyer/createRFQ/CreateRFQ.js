@@ -41,6 +41,7 @@ import { BusinessTypes } from "@/utils/constants";
 
 import CreateRFQModal from "./CreateRFQModal";
 import ValidationErrorsDisplay from "./ValidationErrorsDisplay";
+import tenderStyles from "./TenderSection.module.scss";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { IoIosCloseCircleOutline } from "react-icons/io";
 import { BsArrowRepeat } from "react-icons/bs";
@@ -329,9 +330,10 @@ const CreateRFQ = () => {
     }
   };
 
-  const fetchProcesses = async () => {
+  const fetchProcesses = async (processType = null) => {
     try {
-      const response = await getApprovalProcesses();
+      const params = processType ? { process_type: processType } : {};
+      const response = await getApprovalProcesses(params);
       const procs = (response?.data?.data || response?.data || []).map((p) => ({
         value: p.id,
         label: p.name,
@@ -2082,12 +2084,27 @@ useEffect(() => {
       getVendorApproveList();
       fetchCountryCodes();
       fetchHospitalityContexts();
-      fetchProcesses();
+      // Initial fetch — RFQ-side processes by default. The is_tender effect
+      // below re-fetches with process_type='TENDER' if the user toggles
+      // tender mode on (or the draft was loaded with is_tender=1 already).
+      fetchProcesses(rfqFormDataFromStore?.is_tender === 1 ? 'TENDER' : 'RFQ');
     } catch (error) {
       console.log("SOMETHING WENT WRONG DURING INITIAL FETCHING");
       toast.error(error.message)
     }
   }, []);
+
+  // Re-fetch processes whenever is_tender flips so the dropdown only shows
+  // the relevant set. We also clear any previously-selected process_id since
+  // it would otherwise belong to the wrong process_type.
+  useEffect(() => {
+    const isTender = rfqFormDataFromStore?.is_tender === 1;
+    fetchProcesses(isTender ? 'TENDER' : 'RFQ');
+    if (rfqFormDataFromStore?.process_id) {
+      dispatch(setOtherFormFields({ field_name: 'process_id', value: null }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rfqFormDataFromStore?.is_tender]);
 
   // Fetch departments scoped to the selected hotel (covers manual selection, draft loading, auto-selection)
   // Skip when no hotel is selected — department dropdown won't show until hotel is chosen anyway
@@ -2984,6 +3001,112 @@ useEffect(() => {
 
                                 {rfqFormDataFromStore.is_tender === 1 && (
                                   <>
+                                    {/* Tender / ARC config block — bespoke styling, no Bootstrap.
+                                        Single ARC: covers exactly one hotel.
+                                        Group ARC: ≥2 hotels under the same hospitality_company_id. */}
+                                    <div className="col-md-12">
+                                      <div className={tenderStyles.tenderSection}>
+                                        <div className={tenderStyles.sectionHeader}>
+                                          <p className={tenderStyles.sectionTitle}>Tender Configuration</p>
+                                          <p className={tenderStyles.sectionHint}>
+                                            Determines committee, hotel coverage, and ARC validity.
+                                          </p>
+                                        </div>
+
+                                        <div className={tenderStyles.scopeGroup}>
+                                          {[
+                                            {
+                                              value: 'SINGLE',
+                                              label: 'Single ARC',
+                                              description: 'One hotel. Approval chain configured per hotel.'
+                                            },
+                                            {
+                                              value: 'GROUP',
+                                              label: 'Group ARC',
+                                              description: 'Multiple hotels under the same hospitality company. Group-level committee.'
+                                            }
+                                          ].map((opt) => {
+                                            const selected = rfqFormDataFromStore.tender_scope === opt.value;
+                                            return (
+                                              <label
+                                                key={opt.value}
+                                                className={`${tenderStyles.scopeOption} ${selected ? tenderStyles.scopeOptionSelected : ''}`}
+                                              >
+                                                <input
+                                                  type="radio"
+                                                  name="tender_scope"
+                                                  value={opt.value}
+                                                  checked={selected}
+                                                  onChange={() => {
+                                                    dispatch(setOtherFormFields({ field_name: 'tender_scope', value: opt.value }));
+                                                    setHasUnsavedChanges(true);
+                                                  }}
+                                                />
+                                                <span>
+                                                  <p className={tenderStyles.scopeOptionLabel}>{opt.label}</p>
+                                                  <p className={tenderStyles.scopeOptionDescription}>{opt.description}</p>
+                                                </span>
+                                              </label>
+                                            );
+                                          })}
+                                        </div>
+
+                                        <div className={tenderStyles.periodRow}>
+                                          <div className={tenderStyles.field}>
+                                            <label htmlFor="arc_period_from-create_rfq_page" className={tenderStyles.fieldLabel}>
+                                              ARC Period — From
+                                              <span className={tenderStyles.fieldRequired}>*</span>
+                                            </label>
+                                            <input
+                                              id="arc_period_from-create_rfq_page"
+                                              type="date"
+                                              className={tenderStyles.fieldInput}
+                                              value={rfqFormDataFromStore.arc_period_from || ''}
+                                              onChange={(e) => {
+                                                dispatch(setOtherFormFields({ field_name: 'arc_period_from', value: e.target.value || null }));
+                                                setHasUnsavedChanges(true);
+                                              }}
+                                            />
+                                            <span className={tenderStyles.fieldHint}>
+                                              Effective start date of the rate contract.
+                                            </span>
+                                          </div>
+
+                                          <div className={tenderStyles.field}>
+                                            <label htmlFor="arc_period_to-create_rfq_page" className={tenderStyles.fieldLabel}>
+                                              ARC Period — To
+                                              <span className={tenderStyles.fieldRequired}>*</span>
+                                            </label>
+                                            <input
+                                              id="arc_period_to-create_rfq_page"
+                                              type="date"
+                                              className={tenderStyles.fieldInput}
+                                              value={rfqFormDataFromStore.arc_period_to || ''}
+                                              min={rfqFormDataFromStore.arc_period_from || undefined}
+                                              onChange={(e) => {
+                                                dispatch(setOtherFormFields({ field_name: 'arc_period_to', value: e.target.value || null }));
+                                                setHasUnsavedChanges(true);
+                                              }}
+                                            />
+                                            <span className={tenderStyles.fieldHint}>
+                                              Contract validity end date. Used for contracted-item lookup.
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {rfqFormDataFromStore.tender_scope === 'GROUP' && selectedHotelIds.length > 0 && selectedHotelIds.length < 2 && (
+                                          <div className={tenderStyles.hotelHelp}>
+                                            Group ARC requires at least two hotels — pick more above.
+                                          </div>
+                                        )}
+                                        {rfqFormDataFromStore.tender_scope === 'SINGLE' && selectedHotelIds.length > 1 && (
+                                          <div className={tenderStyles.hotelHelp}>
+                                            Single ARC accepts exactly one hotel — switch to Group ARC or unpick others.
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+
                                     <div className="col-md-4">
                                       <label className="form-label fw-medium">Tender Fees (INR)</label>
                                       <input

@@ -1,0 +1,146 @@
+// TenderSection.module.scss
+// Bespoke, Bootstrap-free styling for the tender-specific block in the
+// Create RFQ wizard (scope selector + ARC period). Matches the app theme
+// via the CSS variables in styles/scss/_variable.scss; uses generous
+// whitespace, soft borders, subtle shadow.
+
+.tenderSection {
+  border: 1px solid var(--light-grey-border, #e9ecef);
+  border-left: 3px solid var(--primary-color, #2E5BA8);
+  background: var(--white-color, #fff);
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin: 6px 0 14px 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--primary-color, #2E5BA8);
+  margin: 0;
+}
+
+.sectionHint {
+  font-size: 12px;
+  color: var(--muted-text, #6c757d);
+  margin: 0;
+}
+
+.scopeGroup {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.scopeOption {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--light-grey-border, #e9ecef);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--primary-transition, all ease-in-out 0.2s);
+  background: var(--white-color, #fff);
+
+  &:hover {
+    border-color: var(--primary-color, #2E5BA8);
+    background: rgba(46, 91, 168, 0.03);
+  }
+
+  input[type="radio"] {
+    margin-top: 3px;
+    accent-color: var(--primary-color, #2E5BA8);
+    cursor: pointer;
+  }
+}
+
+.scopeOptionSelected {
+  border-color: var(--primary-color, #2E5BA8);
+  background: rgba(46, 91, 168, 0.06);
+  box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.08);
+}
+
+.scopeOptionLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dark-color, #1a2730);
+  margin: 0 0 2px 0;
+}
+
+.scopeOptionDescription {
+  font-size: 12px;
+  color: var(--muted-text, #6c757d);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.periodRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dark-color, #1a2730);
+}
+
+.fieldRequired {
+  color: var(--red-color, #db0a0a);
+  margin-left: 2px;
+}
+
+.fieldInput {
+  padding: 9px 12px;
+  border: 1px solid var(--light-grey-border, #e9ecef);
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--white-color, #fff);
+  color: var(--dark-color, #1a2730);
+  transition: var(--primary-transition, all ease-in-out 0.2s);
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-color, #2E5BA8);
+    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.12);
+  }
+}
+
+.fieldHint {
+  font-size: 11px;
+  color: var(--muted-text, #6c757d);
+}
+
+.fieldError {
+  font-size: 12px;
+  color: var(--red-color, #db0a0a);
+  margin-top: 2px;
+}
+
+.hotelHelp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted-text, #6c757d);
+  margin-top: 4px;
+}
