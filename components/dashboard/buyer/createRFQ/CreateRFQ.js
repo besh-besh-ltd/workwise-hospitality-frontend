@@ -809,24 +809,30 @@ useEffect(() => {
       return false;
     }
 
-    // Vendor Clarification End Date (if set) must be at least 5 minutes after publish
-    if (formDataCopy.vendor_clarification_date) {
-      const clarificationDate = new Date(formDataCopy.vendor_clarification_date);
-      if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
-        toast.error("Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.");
-        setMainLoading(false);
-        return false;
-      }
+    // Vendor Clarification End Date is required and must be at least 5 minutes after publish
+    if (!formDataCopy.vendor_clarification_date) {
+      toast.error("Please select Vendor Clarification End Date");
+      setMainLoading(false);
+      return false;
+    }
+    const clarificationDate = new Date(formDataCopy.vendor_clarification_date);
+    if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
+      toast.error("Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.");
+      setMainLoading(false);
+      return false;
+    }
 
-      // Quote Submission End Date must be at least 24 hours after clarification
-      if (formDataCopy.bid_end_date) {
-        const bidEndDate = new Date(formDataCopy.bid_end_date);
-        if ((bidEndDate - clarificationDate) < 24 * 60 * 60 * 1000) {
-          toast.error("Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.");
-          setMainLoading(false);
-          return false;
-        }
-      }
+    // Quote Submission End Date is required and must be at least 24 hours after clarification
+    if (!formDataCopy.bid_end_date) {
+      toast.error("Please select Quote Submission End Date");
+      setMainLoading(false);
+      return false;
+    }
+    const bidEndDate = new Date(formDataCopy.bid_end_date);
+    if ((bidEndDate - clarificationDate) < 24 * 60 * 60 * 1000) {
+      toast.error("Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.");
+      setMainLoading(false);
+      return false;
     }
 
     return true
@@ -3020,7 +3026,7 @@ useEffect(() => {
 
                                     <div className="col-md-4">
                                       <label className="form-label">
-                                        Vendor Clarification End Date
+                                        Vendor Clarification End Date <span className="text-danger">*</span>
                                       </label>
                                       <input
                                         id="vendor_clarification_date-rfq_details-create_rfq_page"
