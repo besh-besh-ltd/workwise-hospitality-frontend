@@ -1213,8 +1213,8 @@ const ClauseProductItem = ({
           </div>
         </Modal>
 
-        {/* Fully Approved Banner - shown when workflow is complete */}
-        {workflowComplete && (
+        {/* Fully Approved Banner - shown when workflow is complete AND vendors actually passed */}
+        {workflowComplete && !(blockedInsufficientVendors && totalPassedVerified === 0) && (
           <div className={styles.approvedBanner}>
             <div className={styles.approvedBannerIcon}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1231,6 +1231,39 @@ const ClauseProductItem = ({
             </div>
             <div className={styles.approvedBannerBadge}>
               COMPLETED
+            </div>
+          </div>
+        )}
+
+        {/* Tech Stuck Banner - all vendors failed, no replacements available */}
+        {blockedInsufficientVendors && totalPassedVerified === 0 && (
+          <div className={styles.approvedBanner} style={{
+            background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+            borderColor: '#fca5a5',
+          }}>
+            <div className={styles.approvedBannerIcon} style={{
+              background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+            }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <div className={styles.approvedBannerContent}>
+              <div className={styles.approvedBannerTitle} style={{ color: '#991b1b' }}>
+                All Eligible Vendors Failed Technical Evaluation
+              </div>
+              <div className={styles.approvedBannerSubtitle} style={{ color: '#b91c1c' }}>
+                0 of {requiredPassedVendors} required vendors passed across {currentRound} {currentRound === 1 ? 'round' : 'rounds'}. Extend the bid submission deadline and refresh vendors to proceed.
+              </div>
+            </div>
+            <div className={styles.approvedBannerBadge} style={{
+              background: 'rgba(220, 38, 38, 0.12)',
+              color: '#991b1b',
+              borderColor: '#fca5a5',
+            }}>
+              STUCK
             </div>
           </div>
         )}

@@ -131,6 +131,7 @@ export const LIFECYCLE_STAGES_ORDERED = [
   'NEGOTIATION_ONGOING',
   'QUOTATION_APPROVAL',
   'AWAITING_PO',
+  'PO_VENDOR_REJECTED',
   'PO_APPROVAL',
   'APPROVED_COMPLETED',
 ];
@@ -171,9 +172,9 @@ export const LIFECYCLE_CONFIG = {
   },
   RFQ_STUCK_TECHNICAL: {
     step: 2,
-    label: 'No Vendors Participated',
-    shortLabel: 'No Vendors',
-    description: 'Submission deadline has passed without any eligible vendor participation, so technical evaluation cannot begin.',
+    label: 'Technical Evaluation Stuck',
+    shortLabel: 'TE Stuck',
+    description: 'All eligible vendors failed technical evaluation. Extend the bid deadline and refresh vendors to proceed.',
     color: '#ef4444',
     gradient: 'linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)',
     background: '#fef2f2',
@@ -267,6 +268,17 @@ export const LIFECYCLE_CONFIG = {
     background: '#f0fdfa',
     textColor: '#134e4a',
     dotColor: '#14b8a6',
+  },
+  PO_VENDOR_REJECTED: {
+    step: 7,
+    label: 'PO Rejected by Vendor',
+    shortLabel: 'PO Rejected',
+    description: 'The vendor has rejected the Purchase Order. Re-finalize with another vendor or edit the RFQ to add new vendors.',
+    color: '#ef4444',
+    gradient: 'linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)',
+    background: '#fef2f2',
+    textColor: '#991b1b',
+    dotColor: '#ef4444',
   },
   PO_APPROVAL: {
     step: 8,

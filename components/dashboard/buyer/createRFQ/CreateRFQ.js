@@ -105,7 +105,7 @@ export function cleanUpdatableData(updatableData) {
 
 const CreateRFQ = () => {
   const router = useRouter();
-  const { draft_id } = router.query;
+  const { draft_id, view_only } = router.query;
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [mainLoading, setMainLoading] = useState(false);
@@ -135,6 +135,10 @@ const CreateRFQ = () => {
   const allTerms = useSelector((data) => data.allTerms);
   const selectedTerms = useSelector((data) => data.rfqFormData.terms);
   const termFiles = useSelector((state) => state.rfqFormData.term_and_condition_files || []);
+  // View-only mode: when viewing someone else's draft (linked via view_only=true)
+  // Also verified against created_by once draft loads
+  const isViewOnlyDraft = view_only === 'true' && draft_id && userProfile &&
+    rfqFormDataFromStore?.created_by && String(rfqFormDataFromStore.created_by) !== String(userProfile.id);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [countryCode , setCountryCode] = useState ([]);
   const [ onecountrycode ,setonecountrycode] = useState("");
@@ -310,13 +314,14 @@ const CreateRFQ = () => {
     }
   }
 
-  const fetchDepartments = async () => {
+  const fetchDepartments = async (hotelId = null) => {
     try {
-      const response = await getDepartments();
+      const resource = rfqFormDataFromStore?.is_tender === 1 ? 'boq' : 'rfq';
+      const params = hotelId ? { hotel_id: hotelId, resource } : {};
+      const response = await getDepartments(params);
       const depts = (response?.data?.data || response?.data || []).map((d) => ({
         value: d.id,
-        label: d.title || d.name,
-        accessType: d.access_type || 'INDIVIDUAL'
+        label: d.title || d.name
       }));
       setDepartments(depts);
     } catch (error) {
@@ -354,6 +359,9 @@ const CreateRFQ = () => {
       }
     }
 
+    // Clear department selection when hotel changes since available departments may differ
+    // (departments are re-fetched by the selectedHotelIds useEffect)
+    dispatch(setOtherFormFields({ field_name: "department_id", value: null }));
     dispatch(setOtherFormFields({ field_name: "project_id", value: -1 }));
     setHasUnsavedChanges(true);
   }
@@ -543,16 +551,16 @@ const CreateRFQ = () => {
         const publishDate = currentFormData.tender_publish_date
           ? new Date(currentFormData.tender_publish_date) : null;
 
-        // Rule 1: Must be after tender publish date
-        if (publishDate && clarificationDate <= publishDate) {
-          error = 'Clarification End Date must be after the tender publish date.';
+        // Rule 1: Must be at least 5 minutes after tender publish date
+        if (publishDate && (clarificationDate - publishDate) < 5 * 60 * 1000) {
+          error = 'Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.';
         }
 
-        // Rule 2: Must be at least 5 days before bid end date
+        // Rule 2: Quote Submission End Date must be at least 24 hours after Clarification
         if (!error && bidEndDate) {
-          const diffInDays = (bidEndDate - clarificationDate) / (1000 * 60 * 60 * 24);
-          if (diffInDays < 5) {
-            error = 'Clarification End Date must be at least 5 days before the quote submission End Date.';
+          const diffInHours = (bidEndDate - clarificationDate) / (1000 * 60 * 60);
+          if (diffInHours < 24) {
+            error = 'Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.';
           }
         }
     } else if (name === 'reverse_auction' && !value) {
@@ -578,9 +586,25 @@ const CreateRFQ = () => {
       if (value && rfqFormDataFromStore.vendor_clarification_date) {
         const bidEndDate = new Date(value);
         const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
-        const diffInDays = (bidEndDate - clarificationDate) / (1000 * 60 * 60 * 24);
-        if (diffInDays < 5) {
-          toast.warning("Clarification End Date is now less than 5 days before the quote submission End Date. Please update it.");
+        const diffInHours = (bidEndDate - clarificationDate) / (1000 * 60 * 60);
+        if (diffInHours < 24) {
+          toast.warning("Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date. Please update one of them.");
+        }
+      }
+    }
+
+    // Tender Publish Date validation
+    if (name === "tender_publish_date" && value) {
+      const publishDate = new Date(value);
+      if ((publishDate - new Date()) < 5 * 60 * 1000) {
+        toast.error("Publish Date & Time must be at least 5 minutes from now.");
+        return;
+      }
+      // Warn if clarification date becomes invalid when tender publish date changes
+      if (rfqFormDataFromStore.vendor_clarification_date) {
+        const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
+        if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
+          toast.warning("Vendor Clarification End Date is now invalid. Please update it.");
         }
       }
     }
@@ -589,32 +613,23 @@ const CreateRFQ = () => {
     if (name === "vendor_clarification_date" && value) {
       const clarificationDate = new Date(value);
 
-      // Rule 1: Must be after tender publish date
+      // Rule 1: Must be at least 5 minutes after tender publish date
       if (rfqFormDataFromStore.tender_publish_date) {
         const publishDate = new Date(rfqFormDataFromStore.tender_publish_date);
-        if (clarificationDate <= publishDate) {
-          toast.error("Clarification End Date must be after the tender publish date.");
+        if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
+          toast.error("Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.");
           return;
         }
       }
 
-      // Rule 2: Must be at least 5 days before bid end date
+      // Rule 2: Quote Submission End Date must be at least 24 hours after Clarification
       if (rfqFormDataFromStore.bid_end_date) {
         const bidEndDate = new Date(rfqFormDataFromStore.bid_end_date);
-        const diffInDays = (bidEndDate - clarificationDate) / (1000 * 60 * 60 * 24);
-        if (diffInDays < 5) {
-          toast.error("Clarification End Date must be at least 5 days before the quote submission End Date.");
+        const diffInHours = (bidEndDate - clarificationDate) / (1000 * 60 * 60);
+        if (diffInHours < 24) {
+          toast.error("Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.");
           return;
         }
-      }
-    }
-
-    // Warn if clarification date becomes invalid when tender publish date changes
-    if (name === "tender_publish_date" && value && rfqFormDataFromStore.vendor_clarification_date) {
-      const publishDate = new Date(value);
-      const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
-      if (clarificationDate <= publishDate) {
-        toast.warning("Clarification End Date is now invalid. Please update it.");
       }
     }
 
@@ -774,9 +789,48 @@ useEffect(() => {
       return false;
     }
 
-    // Process is required when processes are available
-    if (processes.length > 0 && !formDataCopy.process_id) {
+    // Process is required for RFQ creation
+    if (!formDataCopy.process_id) {
       toast.error("Please select a process");
+      setMainLoading(false);
+      return false;
+    }
+
+    // Publish Date & Time is required and must be at least 5 minutes from now
+    if (!formDataCopy.tender_publish_date) {
+      toast.error("Please select Publish Date & Time");
+      setMainLoading(false);
+      return false;
+    }
+    const publishDate = new Date(formDataCopy.tender_publish_date);
+    if ((publishDate - new Date()) < 5 * 60 * 1000) {
+      toast.error("Publish Date & Time must be at least 5 minutes from now.");
+      setMainLoading(false);
+      return false;
+    }
+
+    // Vendor Clarification End Date is required and must be at least 5 minutes after publish
+    if (!formDataCopy.vendor_clarification_date) {
+      toast.error("Please select Vendor Clarification End Date");
+      setMainLoading(false);
+      return false;
+    }
+    const clarificationDate = new Date(formDataCopy.vendor_clarification_date);
+    if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
+      toast.error("Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.");
+      setMainLoading(false);
+      return false;
+    }
+
+    // Quote Submission End Date is required and must be at least 24 hours after clarification
+    if (!formDataCopy.bid_end_date) {
+      toast.error("Please select Quote Submission End Date");
+      setMainLoading(false);
+      return false;
+    }
+    const bidEndDate = new Date(formDataCopy.bid_end_date);
+    if ((bidEndDate - clarificationDate) < 24 * 60 * 60 * 1000) {
+      toast.error("Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.");
       setMainLoading(false);
       return false;
     }
@@ -796,8 +850,9 @@ useEffect(() => {
     // Deep clone the form data to avoid direct mutation
     const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
 
-    // Remove spurious 'value' key that is not expected by the backend
+    // Remove spurious keys that are not expected by the backend
     delete formDataCopy.value;
+    delete formDataCopy.created_by;
 
     // Ensure company_name is included from either form values, Redux store, or user profile
     formDataCopy.company_name = values.company_name || formDataCopy.company_name || userProfile?.company_name || "";
@@ -2073,13 +2128,20 @@ useEffect(() => {
       getVendorApproveList();
       fetchCountryCodes();
       fetchHospitalityContexts();
-      fetchDepartments();
       fetchProcesses();
     } catch (error) {
       console.log("SOMETHING WENT WRONG DURING INITIAL FETCHING");
       toast.error(error.message)
     }
   }, []);
+
+  // Fetch departments scoped to the selected hotel (covers manual selection, draft loading, auto-selection)
+  // Skip when no hotel is selected — department dropdown won't show until hotel is chosen anyway
+  useEffect(() => {
+    if (selectedHotelIds && selectedHotelIds.length > 0) {
+      fetchDepartments(selectedHotelIds[0]);
+    }
+  }, [selectedHotelIds]);
   // Watch for changes in the draft_id from URL
   useEffect(() => {
     // Changes by Agnij 2025-06-17 [Reset state when draft_id changes]
@@ -2287,8 +2349,9 @@ useEffect(() => {
 
   // Handle access denied (no create/update permission for drafts)
   // For new RFQs we check canCreate, for existing drafts we check canUpdate
-  const hasPermission = draft_id ? (canUpdate || canCreate) : canCreate;
-  if (selectedHotelIds.length > 0 && !permissionsLoading && !hasPermission && !canRead) {
+  // View-only drafts (someone else's) are always read-only regardless of RBAC permissions
+  const hasPermission = isViewOnlyDraft ? false : (draft_id ? (canUpdate || canCreate) : canCreate);
+  if (!isViewOnlyDraft && selectedHotelIds.length > 0 && !permissionsLoading && !hasPermission && !canRead) {
     return (
       <AccessDeniedPage
         title="Access Denied"
@@ -2299,20 +2362,41 @@ useEffect(() => {
     );
   }
 
+  const formatLocalDateTime = (d) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const minPublishDate = formatLocalDateTime(new Date(Date.now() + 5 * 60 * 1000));
+  const minClarificationDate = rfqFormDataFromStore.tender_publish_date
+    ? formatLocalDateTime(new Date(new Date(rfqFormDataFromStore.tender_publish_date).getTime() + 5 * 60 * 1000))
+    : minPublishDate;
+  const minBidEndDate = rfqFormDataFromStore.vendor_clarification_date
+    ? formatLocalDateTime(new Date(new Date(rfqFormDataFromStore.vendor_clarification_date).getTime() + 24 * 60 * 60 * 1000))
+    : minPublishDate;
+
   return (
     <>
       {(mainLoading || storeLoading) && <Loader />}
 
-      {/* Read-only banner - Show when user has read but not create/update permission */}
-      {selectedHotelIds.length > 0 && !hasPermission && canRead && (
-        <ReadOnlyBanner
-          title="View Only Mode"
-          message="You don't have create/edit permissions for the selected business units. Contact your administrator to request access."
-        />
-      )}
-
       <div className="create-rfq-con">
           <>
+            {/* Read-only banner - viewing someone else's draft */}
+            {isViewOnlyDraft && (
+              <ReadOnlyBanner
+                title="View Only Mode"
+                message="This draft was created by another user. You can view it but cannot make changes."
+                noMarginTop
+              />
+            )}
+
+            {/* Read-only banner - Show when user has read but not create/update permission */}
+            {!isViewOnlyDraft && selectedHotelIds.length > 0 && !hasPermission && canRead && (
+              <ReadOnlyBanner
+                title="View Only Mode"
+                message="You don't have create/edit permissions for the selected business units. Contact your administrator to request access."
+                noMarginTop
+              />
+            )}
             {/* Add Products Button */}
             <div className="details-table mt-0">
               {!loading && rfqProducts.length == 0 ? (
@@ -2456,23 +2540,25 @@ useEffect(() => {
                     </Accordion>
                   </div>
 
-                  <div className="float-end addmore mt-4 ">
-                    <Link
-                      href={`/vendor/all${
-                        rfqDetails !== -1
-                          ? `?rfq_id=${rfqDetails}${
-                              selectedSheet
-                                ? `&sheet_id=${selectedSheet.value}`
-                                : ``
-                            }`
-                          : ""
-                      }`}
-                      className="me-2"
-                      id="add_more_products-create_rfq_page"
-                    >
-                      Add More Products
-                    </Link>
-                  </div>
+                  {!isViewOnlyDraft && (
+                    <div className="float-end addmore mt-4 ">
+                      <Link
+                        href={`/vendor/all${
+                          rfqDetails !== -1
+                            ? `?rfq_id=${rfqDetails}${
+                                selectedSheet
+                                  ? `&sheet_id=${selectedSheet.value}`
+                                  : ``
+                              }`
+                            : ""
+                        }`}
+                        className="me-2"
+                        id="add_more_products-create_rfq_page"
+                      >
+                        Add More Products
+                      </Link>
+                    </div>
+                  )}
 
                   {loading && <Loader />}
 
@@ -2514,6 +2600,7 @@ useEffect(() => {
                                       className="form-check-input"
                                       id={`term-${item.id}`}
                                       checked={isSelected}
+                                      disabled={isViewOnlyDraft}
                                       onChange={(e) =>
                                         handleTermChange(e, item)
                                       }
@@ -2580,7 +2667,7 @@ useEffect(() => {
                         >
                           {({ errors, touched, isValid }) => (
                             <Form className="add-your-term-form">
-                              <fieldset disabled={selectedHotelIds.length > 0 && !hasPermission}>
+                              <fieldset disabled={(selectedHotelIds.length > 0 && !hasPermission) || isViewOnlyDraft}>
                               <FormikField
                                 label="Add your own terms"
                                 placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
@@ -2595,6 +2682,7 @@ useEffect(() => {
                                   setHasUnsavedChanges(true);
                                 }}
                                 showOptionalLabel={false}
+                                isDisabled={isViewOnlyDraft}
                               />
                               <div className="row mt-2">
                                 <div className="custom-file">
@@ -2735,32 +2823,13 @@ useEffect(() => {
                                       placeholder="Select Department"
                                       classNamePrefix="react-select"
                                       isClearable
+                                      isDisabled={isViewOnlyDraft}
                                     />
-                                    {rfqFormDataFromStore.department_id && (() => {
-                                      const selectedDept = departments.find(d => d.value === rfqFormDataFromStore.department_id);
-                                      if (!selectedDept) return null;
-                                      return (
-                                        <small className="d-block mt-1" style={{ fontSize: "11px" }}>
-                                          <span
-                                            style={{
-                                              padding: "1px 8px",
-                                              borderRadius: "10px",
-                                              fontSize: "10px",
-                                              fontWeight: 600,
-                                              backgroundColor: selectedDept.accessType === "ALL" ? "#dcfce7" : "#dbeafe",
-                                              color: selectedDept.accessType === "ALL" ? "#166534" : "#1e40af",
-                                            }}
-                                          >
-                                            {selectedDept.accessType}
-                                          </span>
-                                          <span className="text-muted ms-1">
-                                            {selectedDept.accessType === "ALL"
-                                              ? "Approvers from any department can approve"
-                                              : "Only department members can approve"}
-                                          </span>
-                                        </small>
-                                      );
-                                    })()}
+                                    {rfqFormDataFromStore.department_id && (
+                                      <small className="d-block mt-1 text-muted" style={{ fontSize: "11px" }}>
+                                        Approvers with this department scope or All Departments can approve
+                                      </small>
+                                    )}
                                   </div>
                                 )}
 
@@ -2780,6 +2849,7 @@ useEffect(() => {
                                       }}
                                       placeholder="Select Process"
                                       classNamePrefix="react-select"
+                                      isDisabled={isViewOnlyDraft}
                                     />
                                   </div>
                                 )}
@@ -2918,13 +2988,14 @@ useEffect(() => {
 
                                     <div className="col-md-4">
                                       <label className="form-label">
-                                        Publish Date & Time
+                                        Publish Date & Time <span className="text-danger">*</span>
                                       </label>
                                       <input
                                         id="tender_publish_date-rfq_details-create_rfq_page"
                                         type="datetime-local"
                                         name="tender_publish_date"
                                         className="form-control"
+                                        min={minPublishDate}
                                         value={
                                           rfqFormDataFromStore.tender_publish_date
                                             ? formatISOToDateTimeLocal(rfqFormDataFromStore.tender_publish_date)
@@ -2943,6 +3014,7 @@ useEffect(() => {
                                         type="datetime-local"
                                         name="bid_end_date"
                                         className="form-control"
+                                        min={minBidEndDate}
                                         value={
                                           rfqFormDataFromStore.bid_end_date
                                             ? formatISOToDateTimeLocal(rfqFormDataFromStore.bid_end_date)
@@ -2954,13 +3026,14 @@ useEffect(() => {
 
                                     <div className="col-md-4">
                                       <label className="form-label">
-                                        Vendor Clarification End Date
+                                        Vendor Clarification End Date <span className="text-danger">*</span>
                                       </label>
                                       <input
                                         id="vendor_clarification_date-rfq_details-create_rfq_page"
                                         type="datetime-local"
                                         name="vendor_clarification_date"
                                         className="form-control"
+                                        min={minClarificationDate}
                                         value={
                                           rfqFormDataFromStore.vendor_clarification_date
                                             ? formatISOToDateTimeLocal(rfqFormDataFromStore.vendor_clarification_date)

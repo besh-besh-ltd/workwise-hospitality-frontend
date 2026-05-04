@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { getRfqs } from "@/services/rfq";
-import { getPoData, getPoDetails, handleMarkDispatched, handlePOApproval, handlePOInitialization, handleRaiseInvoice, updatePODetails, handleAcceptPO, handleRejectPO } from "@/services/po";
+import { getPoData, getPoDetails, handleMarkDispatched, handlePOApproval, handlePOInitialization, handleRaiseInvoice, handleAcceptPO, handleRejectPO } from "@/services/po";
 import { useRouter } from "next/router";
 import POListing from "./POListing";
 import PurchaseOrderDetails from "./PODetails";
@@ -15,7 +15,8 @@ import styles from "@/components/dashboard/buyer/purchase-order/PurchaseOrder.mo
 const OrderBook = () => {
   const router = useRouter();
 
-  const { rfq, po, edit } = router.query;
+  // Vendors can view but not edit POs — no `edit` param is consumed here.
+  const { rfq, po } = router.query;
   const [loading, setloading] = useState(false);
   const [rfqLoading, setRFQLoading] = useState(false);
   const [myRFQs, setmyRFQs] = useState([]);
@@ -39,7 +40,6 @@ const OrderBook = () => {
 
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(100);
-  const [isEditing, setIsEditing] = useState(edit == 'true')
 
   const [poMeta, setPOMeta] = useState({
     page: 1,
@@ -244,32 +244,15 @@ const OrderBook = () => {
     }).finally(() => setloading(false));
   }
 
-  const handlePOEdit = async (payload) => {
-    if(!po) return;
-
-    try {
-      setloading(true);
-      const response = await updatePODetails(po, payload)
-      console.log("PO UPDATE RESPONSE:", response);
-    } finally {
-      setloading(false);
-    }
-  }
-
   useEffect(() => {
     getPOData();
   }, [rfq]);
 
   useEffect(() => { fetchCompanyUsers(); }, [])
-  
+
   useEffect(() => {
     getPODetails();
   }, [po]);
-
-  useEffect(() => {
-    console.log("EDIT:", edit)
-    setIsEditing(edit == 'true')
-  }, [edit])
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -356,11 +339,6 @@ const OrderBook = () => {
                       `/dashboard/vendor/order-book/?rfq=${rfq}&po=${po_id}`
                     )
                   }
-                  onEdit={(po_id) =>
-                    router.push(
-                      `/dashboard/vendor/order-book/?rfq=${rfq}&po=${po_id}&edit=true`
-                    )
-                  }
                   companyUsers={companyUsers}
                   approvalLevel={approvalLevel}
                   onAcceptPO={onAcceptPO}
@@ -382,12 +360,6 @@ const OrderBook = () => {
                     );
                   }}
                   companyUsers={companyUsers}
-                  isEditing={isEditing}
-                  setIsEditing={setIsEditing}
-                  handleUpdatePO={async (payload) => {
-                    console.log("PO EDIT PAYLOAD:", payload)
-                    await handlePOEdit(payload);
-                  }}
                   onAcceptPO={onAcceptPO}
                   onRejectPO={onRejectPO}
                 />

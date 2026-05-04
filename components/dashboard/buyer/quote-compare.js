@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import useModulePermissions from "@/hooks/useModulePermissions";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
@@ -6,28 +6,35 @@ import {
   downloadQuotesDetails,
   finalizeQuotation,
   getAllClauses,
-  getQuotes,
   getRFQById,
   getRfqs,
   handleUploadFileInFormData,
   saveExcelInDB,
   updateTargetPrice,
 } from "@/services/rfq";
+import { getQuoteComparison } from "@/services/pricing";
 import { useRouter } from "next/router";
 import * as XLSX from "xlsx-js-style";
 import Loader from "@/components/shared/Loader";
 import {
   addCommasToNumber,
-  calculateTotal,
   checkBidExpired,
   formatDisplayDate,
   formatRemainingDuration,
   parseIstWallTimeToEpoch,
-  handleNormalize,
-  normalizeFlatQuotationData,
   formatRFQNumber,
   getEntityLabel,
 } from "@/utils/sharedFunctions";
+
+// Engine-output reader: every quote_details row carries `engine.total` after
+// the backend's quote-compare enrichment runs. Falls back to the legacy
+// total_price column for rows that pre-date the migration.
+const lineEngineTotal = (detail) => {
+  if (!detail) return 0;
+  const fromEngine = Number(detail.engine?.total);
+  if (Number.isFinite(fromEngine) && fromEngine > 0) return fromEngine;
+  return Number(detail.total_price) || 0;
+};
 import { toast } from "react-toastify";
 import { getProjectAvailableBudget } from "@/services/project";
 import { useSelector } from "react-redux";
@@ -46,6 +53,7 @@ import { buildComparisonContextTables } from "@/utils/quoteCompareTableViewModel
 import QuoteCompareHeaderCard from "@/components/dashboard/buyer/quoteCompare/QuoteCompareHeaderCard";
 import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import QuoteCompareKpiStrip from "@/components/dashboard/buyer/quoteCompare/QuoteCompareKpiStrip";
+import ApprovalProgressCard from "@/components/dashboard/buyer/quoteCompare/ApprovalProgressCard";
 import ComparisonTabs from "@/components/dashboard/buyer/quoteCompare/ComparisonTabs";
 import ProductComparisonTab from "@/components/dashboard/buyer/quoteCompare/ProductComparisonTab";
 import CategoryComparisonTab from "@/components/dashboard/buyer/quoteCompare/CategoryComparisonTab";
@@ -341,6 +349,15 @@ const QuoteCompare = () => {
     }
   }, [rfq, rfqMetadataReady, permissionsLoading, canReadNegotiation, canReadQuoteCompare]);
 
+  // Reset quotesLoading when access is denied so the AccessDenied banner can render.
+  // Without this, quotesLoading stays true (set during Stage 1 metadata) because
+  // initializeRfqData() is never called when both permissions are false.
+  useEffect(() => {
+    if (rfq && rfqMetadataReady && !permissionsLoading && !canReadNegotiation && !canReadQuoteCompare) {
+      setquotesLoading(false);
+    }
+  }, [rfq, rfqMetadataReady, permissionsLoading, canReadNegotiation, canReadQuoteCompare]);
+
   // Re-fetch quotes on filter change (TA, freight, normalize) — only for already-initialized RFQ
   const filterInitialized = useRef(false);
   useEffect(() => {
@@ -378,16 +395,25 @@ const QuoteCompare = () => {
         setTA_Filter(true);
       }
 
-      // Step 2: Fetch quotes with embedded negotiation data (include_negotiation=true)
-      const quotesRes = await getQuotes(rfq, hasTechEval, freightFilter, rfq_product_id, source, 'quote_compare', true);
+      // Step 2: Fetch the server-computed quote-compare view model.
+      // Engine output is attached per quote_details row; normalisation is
+      // applied server-side when normalize=1 (no local handleNormalize needed).
+      const quotesRes = await getQuoteComparison(rfq, {
+        normalize: !!normalizeFilter,
+        freightFilter: !!freightFilter,
+        rfq_product_id,
+        pageSource: 'quote_compare',
+        include_negotiation: true,
+      });
       if (latestRfqRef.current !== fetchRfq) return;
 
       const visibility = quotesRes?.meta?.quoteVisibility || null;
       setQuoteVisibilityMeta(visibility);
       setQuoteVisibilityClock(Date.now());
-      setOriginalQuotes(quotesRes.data);
-      const data = normalizeFilter ? normalizeFlatQuotationData(quotesRes.data) : quotesRes.data;
-      setquotes(data);
+      const products = quotesRes?.data?.products || [];
+      setOriginalQuotes(products);
+      setquotes(products);
+      const data = products;
 
       // Build vendorCodeMap
       const codeMap = {};
@@ -449,6 +475,24 @@ const QuoteCompare = () => {
     }
   };
 
+  // Standalone vendor-rejections refresh. Lifted out so it can be called after
+  // a successful finalize — the rejection alerts and product highlights need
+  // to disappear once the buyer re-finalizes (which clears the underlying
+  // rejection record server-side).
+  const loadVendorRejections = async () => {
+    if (!rfq) return;
+    const fetchRfq = String(rfq);
+    try {
+      const rfqDetailRes = await getRFQById(fetchRfq);
+      const rfqDetail = rfqDetailRes?.data || rfqDetailRes;
+      if (latestRfqRef.current !== fetchRfq) return;
+      setVendorRejections(rfqDetail?.vendor_rejections || []);
+    } catch (e) {
+      if (latestRfqRef.current !== fetchRfq) return;
+      console.error('Error refreshing vendor rejections:', e);
+    }
+  };
+
   // Initial load: fetch sidebar RFQs, hotel mappings (once)
   useEffect(() => {
     getAllRFQs();
@@ -489,9 +533,57 @@ const QuoteCompare = () => {
 
 
   // Unified refresh after user actions (create/approve/reject round, approve/reject quote)
-  const refreshNegotiationAndQuotes = async () => {
+  // If a rfqProductId is supplied, scope the refresh to just that row to keep
+  // scroll position and avoid re-rendering the whole comparison grid. Without
+  // an id (e.g. round-level changes) we fall back to the full refresh.
+  const refreshNegotiationAndQuotes = async (rfqProductId) => {
+    if (rfqProductId) {
+      await Promise.all([
+        refreshProduct(rfqProductId),
+        loadNegotiationData(),
+      ]);
+      return;
+    }
     await Promise.all([getRespectiveQuotes(), loadNegotiationData()]);
   };
+
+  // In-place patcher: update a single product entry in both `quotes` and
+  // `originalQuotes` without clearing arrays. Preserves scroll position and
+  // avoids re-rendering siblings. `patcher` may return a partial object.
+  const patchProduct = useCallback((rfqProductId, patcher) => {
+    const apply = (list) => {
+      if (!Array.isArray(list)) return list;
+      return list.map((p) =>
+        p && p.id === rfqProductId ? { ...p, ...(patcher(p) || {}) } : p
+      );
+    };
+    setquotes((prev) => apply(prev));
+    setOriginalQuotes((prev) => apply(prev));
+  }, []);
+
+  // Quietly fetch a single product's quote-compare row and merge it back via
+  // patchProduct. Used after finalize/approve/merge to reconcile only the
+  // affected row instead of refetching the entire RFQ.
+  const refreshProduct = useCallback(async (rfqProductId) => {
+    if (!rfq || !rfqProductId) return;
+    try {
+      const res = await getQuoteComparison(rfq, {
+        normalize: !!normalizeFilter,
+        freightFilter: !!freightFilter,
+        rfq_product_id: rfqProductId,
+        pageSource: 'quote_compare',
+        include_negotiation: true,
+      });
+      const products = res?.data?.products || [];
+      const updated = products.find((p) => p && p.id === rfqProductId);
+      if (updated) {
+        patchProduct(rfqProductId, () => updated);
+      }
+    } catch (err) {
+      // Non-fatal: leave optimistic state in place; user can refresh manually.
+      console.warn('refreshProduct failed', err);
+    }
+  }, [rfq, normalizeFilter, freightFilter, patchProduct]);
 
   const closeModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: false }));
@@ -589,7 +681,7 @@ const handleCloseNormalizeModal = () => {
  
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
-    getRfqs({ tech_eval: false, page, limit, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote", hotel_id: selectedHotelIds && selectedHotelIds.length > 0 ? selectedHotelIds[0] : null })
+    getRfqs({ tech_eval: false, quote_compare: true, page, limit, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote", hotel_id: selectedHotelIds && selectedHotelIds.length > 0 ? selectedHotelIds[0] : null })
       .then((res) => {
         setloading(false);
         const newData = Array.isArray(res) ? res : [];
@@ -640,7 +732,13 @@ const handleCloseNormalizeModal = () => {
     setTEavailable(false);
 
     let loadedData = [];
-    getQuotes(rfq, TA_Filter, freightFilter, rfq_product_id, source, 'quote_compare', true)
+    getQuoteComparison(rfq, {
+      normalize: !!normalizeFilter,
+      freightFilter: !!freightFilter,
+      rfq_product_id,
+      pageSource: 'quote_compare',
+      include_negotiation: true,
+    })
       .then((res) => {
         // Ignore stale response if user has already switched to a different RFQ
         if (latestRfqRef.current !== fetchRfq) return;
@@ -649,13 +747,11 @@ const handleCloseNormalizeModal = () => {
         setQuoteVisibilityMeta(visibility);
         setQuoteVisibilityClock(Date.now());
 
-        // Store original data before normalization for highlighting logic
-        setOriginalQuotes(res.data);
-
-        const data = normalizeFilter ? normalizeFlatQuotationData(res.data) : res.data;
-        loadedData = data;
-
-        setquotes(data);
+        const products = res?.data?.products || [];
+        setOriginalQuotes(products);
+        loadedData = products;
+        setquotes(products);
+        const data = products;
 
         // Build vendorCodeMap from all_vendors and vendor_details
         const codeMap = {};
@@ -777,9 +873,10 @@ const handleCloseNormalizeModal = () => {
     setDownloadLoading(true);
 
     try {
-      const res = await downloadQuotesDetails(rfq, TA_Filter, freightFilter);
-
-      const quoteData = normalizeFilter ? handleNormalize(res.data) : res.data;
+      // Pass normalize flag so the backend applies the same peer-fill +
+      // engine pass that the on-screen view uses.
+      const res = await downloadQuotesDetails(rfq, TA_Filter, freightFilter, undefined, undefined, !!normalizeFilter);
+      const quoteData = res.data;
 
       const [excelBuffer, fileName] = generateExcelFile(quoteData);
 
@@ -883,7 +980,7 @@ const generateExcelFile = (api_data) => {
       );
       if (q.length > 0) {
         vq.push(parseFloat(q[0].quote_details[0].delivery_period));
-        total = total + calculateTotal(q[0].quote_details[0], quantity.value, normalizeFilter);
+        total = total + lineEngineTotal(q[0].quote_details[0]);
       }
     });
     vendor.total = total;
@@ -932,11 +1029,8 @@ const generateExcelFile = (api_data) => {
         const lowestQuoteDetails = lowest.quote_details[0];
         const lowestVendorDetails = lowest.vendor_details[0];
 
-        const curQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity;
-        const lowQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
-
-        const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity, normalizeFilter);
-        const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity, normalizeFilter);
+        const currentTotal = lineEngineTotal(curItemQuoteDetails);
+        const lowestTotal = lineEngineTotal(lowestQuoteDetails);
 
         if (curItemQuoteDetails.unit_price > 0) {
           let curLowest = lowest;
@@ -965,9 +1059,7 @@ const generateExcelFile = (api_data) => {
 
     if (lowest) {
       const lowestQuoteDetails = lowest.quote_details[0];
-      const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
-
-      l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity, normalizeFilter);
+      l1totaltemp = l1totaltemp + lineEngineTotal(lowestQuoteDetails);
       setl1total(l1totaltemp);
 
       item.quotations.map((q) => {
@@ -993,7 +1085,6 @@ const generateExcelFile = (api_data) => {
         temp_arr.push("0");
       } else {
         const temp_quote_details = q.quote_details[0];
-        const temp_quantity = temp_quote_details?.rfq_details?.find(spec => spec?.title == 'Quantity')?.value || temp_quote_details.quantity;
 
         temp_arr.push(
           q.quote_details.length > 0 && q?.quote_details[0]?.unit_price
@@ -1023,22 +1114,12 @@ const generateExcelFile = (api_data) => {
         temp_arr.push(target_price); // Use vendor-specific target_price
         temp_arr.push(
           q.quote_details.length > 0
-            ? `${calculateTotal(temp_quote_details, temp_quantity, normalizeFilter)} ${q.is_lowest ? "(Lowest)" : ""}`
+            ? `${lineEngineTotal(temp_quote_details)} ${q.is_lowest ? "(Lowest)" : ""}`
             : "-"
         );
       }
     });
-    temp_arr.push(
-      lowest
-        ? calculateTotal(
-            lowest.quote_details[0],
-            lowest.quote_details[0].rfq_details.find(
-              (spec) => spec.title == "Quantity"
-            )?.value,
-            normalizeFilter
-          )
-        : "-"
-    );
+    temp_arr.push(lowest ? lineEngineTotal(lowest.quote_details[0]) : "-");
     temp_arr.push(
       addCommasToNumber(
         item.product_specs.find((specItem) => specItem.title == "total_price")
@@ -1052,27 +1133,10 @@ const generateExcelFile = (api_data) => {
         : "-"
     );
 
+    // Server-computed baseline (last_purchase_rate or last_quote_rate, whichever is present).
     temp_arr.push(
-      item.last_purchase_rate
-        ? addCommasToNumber(
-            calculateTotal(
-              item.last_purchase_rate,
-              item.product_specs.find(
-                (specItem) => specItem.title == "Quantity"
-              )?.value,
-              normalizeFilter
-            )
-          )
-        : item.last_quote_rate
-        ? addCommasToNumber(
-            calculateTotal(
-              item.last_quote_rate,
-              item.product_specs.find(
-                (specItem) => specItem.title == "Quantity"
-              )?.value,
-              normalizeFilter
-            )
-          )
+      item.aggregates?.baseline_total > 0
+        ? addCommasToNumber(item.aggregates.baseline_total)
         : "-"
     );
     data.push(temp_arr);
@@ -1552,7 +1616,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
   const handleFinalize = (item, proditem, existingPOId, selectedHierarchy, routeType = 'PO') => {
     if (isRfqClosed) {
       toast.error(`This ${getEntityLabel(currentRFQ?.is_tender)} is closed. Finalization is not permitted.`);
-      return;
+      return Promise.resolve({ success: false });
     }
     setfinalizeLoading(true);
     const specs = proditem.product_details[0].rfq_details;
@@ -1608,9 +1672,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       ...poRequiredPayload
     };
 
-    finalizeQuotation(payload)
-      .then((res) => {
-        setfinalizeLoading(false);
+    return finalizeQuotation(payload)
+      .then(async (res) => {
         const data = res?.data || res;
         const defaultMsg = routeType === 'ARC'
           ? "Vendor finalized! ARC approval will be triggered when all products are finalized."
@@ -1618,11 +1681,27 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
             ? "Vendor finalized! Approval is required before Purchase Order can be created."
             : "Vendor finalized! Purchase Order created.";
         toast.success(res.message ?? defaultMsg);
-        getRespectiveQuotes();
+        // Optimistic in-place update: mark this product as finalized so the UI
+        // reflects the change immediately. Then reconcile from the backend —
+        // the row, the approval bundle (so the new NEGOTIATION_QUOTE instance
+        // shows up), and the rejection list (so any prior PO-rejection
+        // banner/highlight clears now that the buyer re-picked).
+        patchProduct(proditem.id, () => ({
+          is_finalized: true,
+          finalization_approval_completed: !data?.approvalPending,
+        }));
+        await Promise.all([
+          refreshProduct(proditem.id),
+          loadNegotiationData(),
+          loadVendorRejections(),
+        ]);
+        setfinalizeLoading(false);
+        return { success: true };
       })
       .catch((err) => {
         setfinalizeLoading(false);
-        toast.error(err?.message?.response?.data?.message ?? err.message ?? "Something went wrong in finalizing a vendor!")
+        toast.error(err?.message?.response?.data?.message ?? err.message ?? "Something went wrong in finalizing a vendor!");
+        return { success: false };
       });
   };
 
@@ -1646,6 +1725,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
   const { metrics, categoryGroups, productSummaries } = useQuoteCompareViewModel({
     quotes,
     normalizeFilter,
+    vendorRejections,
   });
 
   const productSummaryMap = useMemo(() => {
@@ -1748,11 +1828,11 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
   const isAccessDenied = currentRFQ && !permissionsLoading && !canReadNegotiation && !canReadQuoteCompare;
 
   // Inline loading — single loader for the entire right section
-  const isContentLoading = !!rfq && (permissionsLoading || !rfqMetadataReady || quotesLoading);
+  // When access is denied, stop showing the spinner so the AccessDenied banner can render
+  const isContentLoading = !!rfq && !isAccessDenied && (permissionsLoading || !rfqMetadataReady || quotesLoading);
 
   return (
     <>
-      {finalizeLoading && <Loader />}
       <section className="quote-common-header compare-received-quote sc-pt-80">
         <div className="container-fluid">
           <div className="d-flex justify-content-between align-items-center">
@@ -1787,10 +1867,14 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     filter: (item) => {
                       // Closed RFQs are read-only — only show in All tab
                       if (String(item.status) === '2') return false;
+                      // PO rejected with no replacement — needs attention
+                      if (item.has_po_rejection) return true;
                       // Pre-deadline RFQs should not appear as action-required yet.
                       if (item.bid_end_date && !checkBidExpired(item.bid_end_date)) return false;
                       // User is current approver
                       if (item.approval_required) return true;
+                      // PO rejected by vendor — needs re-finalization
+                      if (item.has_po_rejection) return true;
                       // Already fully done or all finalized (in approval) or partially approved
                       if (item.finalization_approval_completed === true) return false;
                       if (item.is_finalized === true) return false;
@@ -1826,6 +1910,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 }}
                 getItemTags={(item) => {
                   if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
+                  if (item.has_po_rejection) return [{ label: 'PO Rejected', variant: 'danger' }];
                   if (item.finalization_approval_completed) return [{ label: 'Finalized', variant: 'success' }];
                   if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
                   if (item.is_finalized || item.finalization_partially_approved) return [{ label: 'Awaiting Approval', variant: 'info' }];
@@ -2004,7 +2089,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     )}
                     <div className={revampStyles.compareControls}>
                       {!effectiveQuoteVisibility.locked && (
-                        <QuoteCompareKpiStrip metrics={metrics} />
+                        <>
+                          <QuoteCompareKpiStrip metrics={metrics} />
+                          <ApprovalProgressCard metrics={metrics} />
+                        </>
                       )}
                       <ComparisonTabs activeTab={activeTab} onChange={handleTabChange} />
                       {!normalizeFilter && !effectiveQuoteVisibility.locked && (
@@ -2043,6 +2131,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                               openModalForVariant={openModalForVariant}
                               closeModalForVariant={closeModalForVariant}
                               handleFinalize={handleFinalize}
+                              finalizeLoading={finalizeLoading}
                               originalQuotes={originalQuotes}
                               availableBudget={availableBudget}
                               normalizeFilter={normalizeFilter}

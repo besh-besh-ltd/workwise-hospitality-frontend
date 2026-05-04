@@ -1,9 +1,9 @@
 import axiosInstance from "@/lib/axios";
 
-export const getDepartments = () =>
+export const getDepartments = (params = {}) =>
   new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.get(`/rbac/departments`);
+      const response = await axiosInstance.get(`/rbac/departments`, { params });
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -131,23 +131,5 @@ export const getBulkPermissions = (moduleKey, hotelIds = [], departmentId = null
     }
   });
 
-export const getDepartmentAccessMatrix = () =>
-  new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get(`/rbac/departments/access-matrix`);
-      resolve(response);
-    } catch (error) {
-      reject({ message: error });
-    }
-  });
 
-export const updateDepartmentAccessMatrix = (departments) =>
-  new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.put(`/rbac/departments/access-matrix`, { departments });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error });
-    }
-  });
 

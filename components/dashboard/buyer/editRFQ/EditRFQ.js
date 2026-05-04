@@ -1649,6 +1649,23 @@ const EditRFQ = () => {
   };
 
   const entityLabel = getEntityLabel(rfqData?.is_tender);
+  // Restricted-edit triggers — must mirror backend rfqController.update:
+  //   • has_dead_end_product   — all eligible vendors' POs rejected, no replacement
+  //   • has_tech_stuck_product — all vendors failed tech eval
+  //   • has_received_quotes    — at least one non-regret quote already submitted
+  // Any of these collapses the form to "extend Quote Submission Deadline +
+  // Refresh Vendors only".
+  const isRestrictedEdit =
+    !!rfqData?.has_dead_end_product ||
+    !!rfqData?.has_tech_stuck_product ||
+    !!rfqData?.has_received_quotes;
+  const restrictedReason = rfqData?.has_dead_end_product
+    ? 'one or more products have all vendor POs rejected and no other vendor is finalisable'
+    : rfqData?.has_tech_stuck_product
+      ? 'all vendors failed technical evaluation for one or more products'
+      : rfqData?.has_received_quotes
+        ? 'vendors have started submitting quotes — to stay fair to participants the RFQ specs are now locked'
+        : null;
 
   return (
     <>
@@ -1664,6 +1681,18 @@ const EditRFQ = () => {
           title="View Only Mode"
           message={`You don't have edit permissions for this ${getEntityLabel(rfqData?.is_tender).toLowerCase()}. Contact your administrator to request access.`}
         />
+      )}
+
+      {/* Restricted edit banner — covers tech-stuck, dead-end, and "real quote received" cases */}
+      {isRestrictedEdit && (
+        <div className="container-fluid">
+          <ReadOnlyBanner
+            title="Restricted Edit Mode"
+            message={`Restricted edit: ${restrictedReason}. You can only extend the Quote Submission Deadline and refresh vendors.`}
+            variant="warning"
+            noMarginTop
+          />
+        </div>
       )}
 
       <div className="container-fluid mb-4">
@@ -1730,6 +1759,16 @@ const EditRFQ = () => {
                     {product.has_approved_po && (
                       <div className="alert alert-warning mb-1 mt-2 py-1 px-2" style={{ fontSize: '0.85rem' }}>
                         <strong>PO has been approved — editing is restricted for this product</strong>
+                      </div>
+                    )}
+                    {product.is_dead_end && (
+                      <div className="alert alert-danger mb-1 mt-2 py-1 px-2" style={{ fontSize: '0.85rem' }}>
+                        <strong>All vendor POs were rejected for this product.</strong> You can add new vendors or modify specs.
+                      </div>
+                    )}
+                    {product.is_tech_stuck && (
+                      <div className="alert alert-warning mb-1 mt-2 py-1 px-2" style={{ fontSize: '0.85rem' }}>
+                        <strong>All vendors failed technical evaluation for this product.</strong> Extend the bid deadline and refresh vendors to proceed.
                       </div>
                     )}
                     {productsWithNoVendors.has(product.id) && (
@@ -1923,7 +1962,7 @@ const EditRFQ = () => {
                         setHasUnsavedChanges(true);
                       }}
                       type="edit"
-                      readOnly={(hotelIds.length > 0 && !canUpdate) || product.has_approved_po === true}
+                      readOnly={(hotelIds.length > 0 && !canUpdate) || product.has_approved_po === true || isRestrictedEdit}
                     />
                     </React.Fragment>
                   );
@@ -1938,8 +1977,8 @@ const EditRFQ = () => {
             onClick={() => setShowAddProductModal(true)}
             className="btn btn-primary btn-sm"
             id="add_product-product_actions-edit_rfq_page"
-            disabled={hotelIds.length > 0 && !canUpdate}
-            title={hotelIds.length > 0 && !canUpdate ? "You don't have permission to add products" : ""}
+            disabled={(hotelIds.length > 0 && !canUpdate) || isRestrictedEdit}
+            title={(hotelIds.length > 0 && !canUpdate) ? "You don't have permission to add products" : isRestrictedEdit ? "Cannot add products in restricted edit mode" : ""}
           >
             Add A Product
           </button>
@@ -2016,6 +2055,7 @@ const EditRFQ = () => {
                               handleFormFieldChange(e);
                             }}
                             onBlur={handleBlur}
+                            disabled={isRestrictedEdit}
                           />
                           {touched.contact_name && errors.contact_name && (
                             <div className="invalid-feedback d-block">
@@ -2040,6 +2080,7 @@ const EditRFQ = () => {
                               handleFormFieldChange(e);
                             }}
                             placeholder={`Enter ${rfqFormDataFromStore.is_tender === 1 ? 'Tender' : 'RFQ'} Title`}
+                            disabled={isRestrictedEdit}
                           />
                           {touched.title && errors.title && (
                             <div className="invalid-feedback d-block">
@@ -2133,6 +2174,7 @@ const EditRFQ = () => {
                                 setonecountrycode(e.target.value);
                                 setHasUnsavedChanges(true);
                               }}
+                              disabled={isRestrictedEdit}
                             >
                               {countryCode.map((country) => (
                                 <option
@@ -2164,6 +2206,7 @@ const EditRFQ = () => {
                                 setHasUnsavedChanges(true);
                               }}
                               onBlur={handleBlur}
+                              disabled={isRestrictedEdit}
                             />
                           </div>
                           {touched.contact_number && errors.contact_number && (
@@ -2189,6 +2232,7 @@ const EditRFQ = () => {
                               handleFormFieldChange(e);
                             }}
                             onBlur={handleBlur}
+                            disabled={isRestrictedEdit}
                           />
                           {touched.response_email && errors.response_email && (
                             <div className="invalid-feedback d-block">
@@ -2250,6 +2294,7 @@ const EditRFQ = () => {
                             className="basic-select"
                             classNamePrefix="select"
                             isClearable={true}
+                            isDisabled={isRestrictedEdit}
                           />
                         </div>
                       </div>
@@ -2275,6 +2320,7 @@ const EditRFQ = () => {
                             className="basic-select"
                             classNamePrefix="select"
                             isClearable={true}
+                            isDisabled={isRestrictedEdit}
                           />
                         </div>
                       </div>
@@ -2334,6 +2380,7 @@ const EditRFQ = () => {
                             dispatch(setOtherFormFields({ vendor_clarification_date: formatted || null }));
                             setHasUnsavedChanges(true);
                           }}
+                          disabled={isRestrictedEdit}
                         />
                       </div>
 
@@ -2371,6 +2418,7 @@ const EditRFQ = () => {
                                     ? formatISOToDateTimeLocal(rfqFormDataFromStore.bid_end_date)
                                     : new Date().toISOString().slice(0, 16)
                                   }
+                                  disabled={isRestrictedEdit}
                                 />
                               </div>
                             </div>  
@@ -2386,7 +2434,7 @@ const EditRFQ = () => {
                                   min={rfqFormDataFromStore.ra_start_date
                                     ? formatISOToDateTimeLocal(rfqFormDataFromStore.ra_start_date)
                                   : ""}
-                                  disabled={!rfqFormDataFromStore.ra_start_date}
+                                  disabled={!rfqFormDataFromStore.ra_start_date || isRestrictedEdit}
                                 />
                               </div>
                             </div>  
@@ -2404,6 +2452,7 @@ const EditRFQ = () => {
                             className="form-control"
                             value={rfqFormDataFromStore.location}
                             onChange={handleFormFieldChange}
+                            disabled={isRestrictedEdit}
                           />
                           <PrevHint keyName="rfq:location" currentValue={rfqFormDataFromStore.location} previousValues={previousValues} />
                         </div>
@@ -2461,6 +2510,7 @@ const EditRFQ = () => {
                                       onChange={(e) =>
                                         handleTermChange(e, item)
                                       }
+                                      disabled={isRestrictedEdit}
                                     />
                                     <label
                                       className="form-check-label"
@@ -2492,6 +2542,7 @@ const EditRFQ = () => {
                         errors={errors}
                         value={values.comment ?? ""}
                         enableHandleChange={true}
+                        isDisabled={isRestrictedEdit}
                         handleChange={(html) => {
                           dispatch(
                             setOtherFormFields({

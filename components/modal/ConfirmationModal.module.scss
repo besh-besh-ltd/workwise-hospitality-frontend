@@ -70,18 +70,26 @@
   padding: 22px 24px 20px;
 }
 
-// --- Header: icon + title side by side ---
+// --- Header: icon left, title + description stacked to its right ---
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+.headerText {
+  flex: 1;
+  min-width: 0;
+  // Pull the text column up slightly so the title's optical baseline lines
+  // up better with the icon tile (which is taller than the title text).
+  padding-top: 4px;
 }
 
 .iconWrap {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -97,28 +105,75 @@
 .iconSecondary { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
 
 .title {
-  margin: 0;
-  font-size: 15.5px;
-  font-weight: 600;
+  // Tight margin-bottom is the ONLY gap between title and description now —
+  // no more wasted vertical space from icon-vs-title height mismatch.
+  margin: 0 0 6px 0;
+  font-size: 17px;
+  font-weight: 650;
   color: #0f172a;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
 }
 
 // --- Description ---
 .desc {
   margin: 0;
   font-size: 13.5px;
-  color: #94a3b8;
-  line-height: 1.6;
-  padding-left: 54px;
-  letter-spacing: 0.01em;
+  color: #475569;
+  line-height: 1.55;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+// --- Comment textarea ---
+.commentGroup {
+  margin-top: 14px;
+  padding-left: 56px;
+}
+
+.commentLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.commentTextarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+
+  &:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background: #fff;
+  }
+}
+
+.commentError {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 4px;
 }
 
 // --- Custom footer ---
 .footer {
-  margin-top: 8px;
-  padding-left: 54px;
+  margin-top: 10px;
+  padding-left: 56px;
 }
 
 // --- Buttons ---
@@ -259,6 +314,7 @@
 @media (max-width: 480px) {
   .inner { padding: 18px 20px 16px; }
   .desc { padding-left: 0; }
+  .commentGroup { padding-left: 0; }
   .footer { padding-left: 0; }
   .actions { flex-direction: column-reverse; gap: 6px; }
   .btn { width: 100%; justify-content: center; }

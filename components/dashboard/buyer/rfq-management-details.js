@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { getRFQById, closeRFQ, withdrawPublish } from "@/services/rfq";
@@ -6,6 +6,8 @@ import ViewRFQ from "./manageRFQ/ViewRFQ";
 import { toast } from "react-toastify";
 import { getEntityLabel } from "@/utils/sharedFunctions";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import { useModulePermissions } from "@/hooks/useModulePermissions";
+import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 
 const RfqManagementDetails = () => {
   const router = useRouter();
@@ -20,20 +22,39 @@ const RfqManagementDetails = () => {
 
   const isCreator = rfqDetails && userProfile && String(rfqDetails.created_by) === String(userProfile.id);
 
+  // Permission check for viewing this RFQ
+  const moduleKey = rfqDetails?.is_tender == 1 ? 'boq' : 'rfq';
+  const hotelIds = useMemo(() => {
+    return rfqDetails?.hotel_id ? [rfqDetails.hotel_id] : [];
+  }, [rfqDetails?.hotel_id]);
+  const { canRead, loading: permLoading } = useModulePermissions({
+    moduleKey,
+    hotelIds,
+    departmentId: rfqDetails?.department_id || null,
+    enabled: !!rfqDetails,
+  });
+  const [apiForbidden, setApiForbidden] = useState(false);
+  const isAccessDenied = apiForbidden || (rfqDetails && !permLoading && !canRead);
+
   useEffect(() => {
     if(id && id !== '') {
       getRFQById(id).then(res => {
         setrfqDetails(res.data)
       }).catch((err) => {
+        const status = err?.response?.status || err?.message?.response?.status;
+        if (status === 403) {
+          setApiForbidden(true);
+          return;
+        }
         console.error("Error fetching RFQ:", err);
       })
     }
   }, [router])
 
-  const handleCloseRFQ = async () => {
+  const handleCloseRFQ = async (comment) => {
     setCloseLoading(true);
     try {
-      const response = await closeRFQ(id);
+      const response = await closeRFQ(id, comment);
       if (response && response.status === 1) {
         toast.success(`${getEntityLabel(rfqDetails?.is_tender)} closed successfully`);
         // Refresh RFQ data to show updated status
@@ -81,6 +102,10 @@ const RfqManagementDetails = () => {
     }
   };
 
+  if (isAccessDenied) {
+    return <AccessDeniedPage />;
+  }
+
   return (
     <>
       <ViewRFQ
@@ -102,6 +127,9 @@ const RfqManagementDetails = () => {
         confirmButtonColor="warning"
         confirmButtonText="Close RFQ"
         cancelButtonText="Cancel"
+        requireComment
+        commentLabel="Reason for closing"
+        commentPlaceholder="Please provide a reason for closing this RFQ..."
       />
 
       {/* Withdraw Publish Request Confirmation Modal */}
