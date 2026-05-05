@@ -196,6 +196,11 @@ const RfqManagementPreview = () => {
           other_charges: Array.isArray(p.other_charges) ? p.other_charges : [],
         };
       }),
+      global_charges: (Array.isArray(submitted.global_charges) ? submitted.global_charges : []).map((c) => ({
+        name: c.name,
+        amount: c.tax,
+        amount_mode: c.tax_mode || "percentage",
+      })),
     };
   }, [rfqDetails]);
   const { totals: submittedQuoteTotals } = usePreviewTotals(submittedPreviewDraft);
@@ -2667,6 +2672,10 @@ const RfqManagementPreview = () => {
                                             });
                                           });
                                           const grandTotal = Number(submittedQuoteTotals.grand_total) || 0;
+                                          const globalChargeBreakdown = (submittedQuoteTotals.global_charges || []).map((c) => ({
+                                            label: c.name,
+                                            value: Number(c.amount) || 0,
+                                          }));
                                           return (
                                             <div className="mb-2">
                                               <GrandTotalBreakup
@@ -2675,6 +2684,7 @@ const RfqManagementPreview = () => {
                                                 totalPackaging={totalPackaging}
                                                 totalTax={totalTax}
                                                 grandTotal={grandTotal}
+                                                globalChargeBreakdown={globalChargeBreakdown}
                                                 formatPrice={formatPrice}
                                                 align="start"
                                               />

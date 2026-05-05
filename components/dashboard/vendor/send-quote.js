@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { extractQuotation, fetchQuoteHistory, getRFQById, sendQuotation, updateQuotation, createTenderPaymentOrder, verifyTenderPayment, getChargeNames, createChargeName, updateChargeName, deleteChargeName, deleteQuoteFile } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
@@ -136,12 +137,32 @@ const SendQuotePageComp = () => {
   const [chargesModalOpen, setChargesModalOpen] = useState(null);
   const [chargesSummaryOpen, setChargesSummaryOpen] = useState(true);
   const [invalidCommentChargeId, setInvalidCommentChargeId] = useState(null);
+  const [invalidGlobalCommentId, setInvalidGlobalCommentId] = useState(null);
   const [chargeNamesList, setChargeNamesList] = useState([]);
   const [addingCustomCharge, setAddingCustomCharge] = useState(false);
   const [editingCustomCharge, setEditingCustomCharge] = useState(null);
   const [customChargeInput, setCustomChargeInput] = useState("");
   const [chargeDropdownOpen, setChargeDropdownOpen] = useState(false);
   const [globalChargeDropdownOpen, setGlobalChargeDropdownOpen] = useState(false);
+  const globalChargeTriggerRef = useRef(null);
+  const [globalChargeMenuPos, setGlobalChargeMenuPos] = useState({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    if (!globalChargeDropdownOpen) return;
+    const updatePos = () => {
+      const el = globalChargeTriggerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setGlobalChargeMenuPos({ top: rect.bottom, left: rect.left, width: rect.width });
+    };
+    updatePos();
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [globalChargeDropdownOpen]);
   const [addingGlobalCustomCharge, setAddingGlobalCustomCharge] = useState(false);
   const [editingGlobalCustomCharge, setEditingGlobalCustomCharge] = useState(null);
   const [globalCustomChargeInput, setGlobalCustomChargeInput] = useState("");
@@ -182,6 +203,7 @@ const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 const negotiationChargesAddedRef = useRef(false);
 const [showBuyerCommentModal, setShowBuyerCommentModal] = useState(null); // null or { field: 'payment_terms'|'comments'|'documents', productId }
 const [showPrevDocsModal, setShowPrevDocsModal] = useState(null); // null or array of file URLs
+const [showGlobalPrevDocsModal, setShowGlobalPrevDocsModal] = useState(false);
 
 // Clarification period window for tenders (IST-based)
 // We treat vendor_clarification_date as an IST datetime and convert it to a UTC Date,
@@ -775,7 +797,7 @@ const loadRazorpayScript = () => {
         if (res.data.quote_details) {
           setglobalComment(res.data.quote_details.global_comment || ""); // Set globalComment from API or fallback to empty string
           setglobalPaymentTerms(res.data.quote_details.global_payment_term || ""); // Set globalPaymentTerms from API or fallback to empty string
-          setGlobalOtherCharges((res.data.quote_details.global_charges || []).map(c => ({ _id: generateChargeId(), name: c.name, amount: c.tax || 0, amount_mode: c.tax_mode || "percentage" })));
+          setGlobalOtherCharges((res.data.quote_details.global_charges || []).map(c => ({ _id: generateChargeId(), name: c.name, amount: c.tax || 0, amount_mode: c.tax_mode || "percentage", comment: c.comment || "" })));
 
           //  one state and useRef for payment terms to track newly added, updated, and deleted terms
           const paymetTermData = res.data.quotations[0]?.payment_terms || []
@@ -1236,6 +1258,16 @@ return { deletedTerms, createdTerms, updatedTerms };
       return toast.error("Please enter a valid 15-character GSTIN or leave blank.")
     }
 
+    // Mirror backend rule: when a global charge has tax > 0, a comment is required.
+    const missingGlobalComment = globalOtherCharges.find(
+      c => c.name && c.name.trim() !== "" && (parseFloat(c.amount) || 0) > 0 && !(c.comment || "").trim()
+    );
+    if (missingGlobalComment) {
+      setInvalidGlobalCommentId(missingGlobalComment._id);
+      return toast.error(`Please add a comment for "${missingGlobalComment.name}"`);
+    }
+    setInvalidGlobalCommentId(null);
+
     // return 0
     let payload = {
       rfq_id: rfqDetails.id,
@@ -1249,11 +1281,12 @@ return { deletedTerms, createdTerms, updatedTerms };
       vendorGSTIN,
       global_charges: globalOtherCharges
         .filter(c => c.name && c.name.trim() !== "")
-        .map(({ _id, amount, amount_mode, ...rest }) => ({
+        .map(({ _id, amount, amount_mode, comment, ...rest }) => ({
           name: rest.name,
           slug: rest.slug || rest.name.toLowerCase().replace(/\s+/g, '_'),
           tax: parseFloat(amount) || 0,
           tax_mode: amount_mode || "percentage",
+          comment: (comment || "").trim(),
           is_global: true,
         })),
     };
@@ -2029,10 +2062,28 @@ return { deletedTerms, createdTerms, updatedTerms };
                             <div style={{
                               position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
                               background: "rgba(255,255,255,0.85)", zIndex: 2,
-                              display: "flex", alignItems: "center", justifyContent: "center",
+                              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "10px",
                               borderRadius: "0.5rem",
                             }}>
                               <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#6c757d" }}>You can&apos;t add or edit these charges</span>
+                              {previousGlobalFiles?.length > 0 && (
+                                <button
+                                  type="button"
+                                  style={{
+                                    fontSize: "0.72rem",
+                                    fontWeight: 600,
+                                    padding: "3px 10px",
+                                    borderRadius: "4px",
+                                    border: "1px solid #0d6efd",
+                                    color: "#0d6efd",
+                                    background: "transparent",
+                                    cursor: "pointer",
+                                  }}
+                                  onClick={() => setShowGlobalPrevDocsModal(true)}
+                                >
+                                  Show Files ({previousGlobalFiles.length})
+                                </button>
+                              )}
                             </div>
                           )}
                           <div className="card-body d-flex flex-column" style={{ overflow: "hidden" }}>
@@ -2065,7 +2116,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           try {
                                             const res = await createChargeName({ name: globalCustomChargeInput.trim(), is_global: true });
                                             setChargeNamesList(prev => [...prev, { id: res?.data?.id || res?.id, name: globalCustomChargeInput.trim(), is_global: true }]);
-                                            setGlobalOtherCharges(prev => [...prev, { _id: generateChargeId(), name: globalCustomChargeInput.trim(), amount: 0, amount_mode: "percentage" }]);
+                                            setGlobalOtherCharges(prev => [...prev, { _id: generateChargeId(), name: globalCustomChargeInput.trim(), amount: 0, amount_mode: "percentage", comment: "" }]);
                                             toast.success("Charge added successfully");
                                           } catch (err) { toast.error("Failed to create charge"); }
                                           setAddingGlobalCustomCharge(false); setGlobalCustomChargeInput("");
@@ -2078,7 +2129,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         try {
                                           const res = await createChargeName({ name: globalCustomChargeInput.trim(), is_global: true });
                                           setChargeNamesList(prev => [...prev, { id: res?.data?.id || res?.id, name: globalCustomChargeInput.trim(), is_global: true }]);
-                                          setGlobalOtherCharges(prev => [...prev, { _id: generateChargeId(), name: globalCustomChargeInput.trim(), amount: 0, amount_mode: "percentage" }]);
+                                          setGlobalOtherCharges(prev => [...prev, { _id: generateChargeId(), name: globalCustomChargeInput.trim(), amount: 0, amount_mode: "percentage", comment: "" }]);
                                           toast.success("Charge added successfully");
                                         } catch (err) { toast.error("Failed to create charge"); }
                                         setAddingGlobalCustomCharge(false); setGlobalCustomChargeInput("");
@@ -2129,57 +2180,58 @@ return { deletedTerms, createdTerms, updatedTerms };
 
                               return (
                                 <div className="position-relative mb-3">
-                                  {globalChargeDropdownOpen && (
-                                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }}
-                                      onClick={() => setGlobalChargeDropdownOpen(false)}
-                                    />
-                                  )}
-                                  <div className="form-select form-select-sm" style={{ cursor: "pointer" }}
+                                  <div ref={globalChargeTriggerRef} className="form-select form-select-sm" style={{ cursor: "pointer" }}
                                     onClick={() => setGlobalChargeDropdownOpen(prev => !prev)}
                                   >
                                     Select tax type...
                                   </div>
-                                  {globalChargeDropdownOpen && (
-                                    <div className="position-absolute w-100 bg-white border rounded shadow-sm d-flex flex-column" style={{ zIndex: 10, top: "100%", left: 0, maxHeight: "200px" }}>
-                                      <div style={{ flex: 1, overflowY: "auto" }}>
-                                      {availableCharges.map(charge => (
-                                        <div key={charge.id} className="d-flex align-items-center justify-content-between px-3 py-2" style={{ cursor: "pointer", fontSize: "0.85rem" }}
+                                  {globalChargeDropdownOpen && typeof window !== "undefined" && createPortal(
+                                    <>
+                                      <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 1050 }}
+                                        onClick={() => setGlobalChargeDropdownOpen(false)}
+                                      />
+                                      <div className="bg-white border rounded shadow-sm d-flex flex-column" style={{ position: "fixed", zIndex: 1051, top: globalChargeMenuPos.top, left: globalChargeMenuPos.left, width: globalChargeMenuPos.width, maxHeight: "200px" }}>
+                                        <div style={{ flex: 1, overflowY: "auto" }}>
+                                        {availableCharges.map(charge => (
+                                          <div key={charge.id} className="d-flex align-items-center justify-content-between px-3 py-2" style={{ cursor: "pointer", fontSize: "0.85rem" }}
+                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
+                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                          >
+                                            <span style={{ flex: 1 }} onClick={() => {
+                                              setGlobalOtherCharges(prev => [...prev, { _id: generateChargeId(), name: charge.name, amount: 0, amount_mode: "percentage", comment: "" }]);
+                                              setGlobalChargeDropdownOpen(false);
+                                            }}>{charge.name}</span>
+                                            {charge.created_by !== null && (
+                                              <span className="d-flex gap-2 ms-2" style={{ flexShrink: 0 }}>
+                                                <FiEdit2 size={13} color="#198754" style={{ cursor: "pointer" }} title="Edit"
+                                                  onClick={(e) => { e.stopPropagation(); setEditingGlobalCustomCharge(charge); setGlobalCustomChargeInput(charge.name); setGlobalChargeDropdownOpen(false); }}
+                                                />
+                                                <FiTrash2 size={13} color="#dc3545" style={{ cursor: "pointer" }} title="Delete"
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    try {
+                                                      await deleteChargeName(charge.id);
+                                                      setChargeNamesList(prev => prev.filter(c => c.id !== charge.id));
+                                                      toast.success("Charge deleted successfully");
+                                                    } catch (err) { toast.error("Failed to delete charge"); }
+                                                    setGlobalChargeDropdownOpen(false);
+                                                  }}
+                                                />
+                                              </span>
+                                            )}
+                                          </div>
+                                        ))}
+                                        </div>
+                                        <div className="px-3 py-2 text-primary fw-semibold" style={{ cursor: "pointer", fontSize: "0.85rem", borderTop: "1px solid #eee", flexShrink: 0 }}
                                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
                                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                          onClick={() => { setAddingGlobalCustomCharge(true); setGlobalChargeDropdownOpen(false); }}
                                         >
-                                          <span style={{ flex: 1 }} onClick={() => {
-                                            setGlobalOtherCharges(prev => [...prev, { _id: generateChargeId(), name: charge.name, amount: 0, amount_mode: "percentage" }]);
-                                            setGlobalChargeDropdownOpen(false);
-                                          }}>{charge.name}</span>
-                                          {charge.created_by !== null && (
-                                            <span className="d-flex gap-2 ms-2" style={{ flexShrink: 0 }}>
-                                              <FiEdit2 size={13} color="#198754" style={{ cursor: "pointer" }} title="Edit"
-                                                onClick={(e) => { e.stopPropagation(); setEditingGlobalCustomCharge(charge); setGlobalCustomChargeInput(charge.name); setGlobalChargeDropdownOpen(false); }}
-                                              />
-                                              <FiTrash2 size={13} color="#dc3545" style={{ cursor: "pointer" }} title="Delete"
-                                                onClick={async (e) => {
-                                                  e.stopPropagation();
-                                                  try {
-                                                    await deleteChargeName(charge.id);
-                                                    setChargeNamesList(prev => prev.filter(c => c.id !== charge.id));
-                                                    toast.success("Charge deleted successfully");
-                                                  } catch (err) { toast.error("Failed to delete charge"); }
-                                                  setGlobalChargeDropdownOpen(false);
-                                                }}
-                                              />
-                                            </span>
-                                          )}
+                                          + Add custom charge
                                         </div>
-                                      ))}
                                       </div>
-                                      <div className="px-3 py-2 text-primary fw-semibold" style={{ cursor: "pointer", fontSize: "0.85rem", borderTop: "1px solid #eee", flexShrink: 0 }}
-                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
-                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                                        onClick={() => { setAddingGlobalCustomCharge(true); setGlobalChargeDropdownOpen(false); }}
-                                      >
-                                        + Add custom charge
-                                      </div>
-                                    </div>
+                                    </>,
+                                    document.body
                                   )}
                                 </div>
                               );
@@ -2188,7 +2240,12 @@ return { deletedTerms, createdTerms, updatedTerms };
 
                             {/* Scrollable charge cards */}
                             <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-                            {globalOtherCharges.map((charge, idx) => (
+                            {globalOtherCharges.map((charge, idx) => {
+                              const COMMENT_MAX = 30;
+                              const commentLen = (charge.comment || "").length;
+                              const atLimit = commentLen >= COMMENT_MAX;
+                              const commentRequired = (parseFloat(charge.amount) || 0) > 0;
+                              return (
                               <div key={charge._id} className="border rounded p-2 mb-2" style={{ fontSize: "0.85rem" }}>
                                 <div className="d-flex align-items-center justify-content-between mb-1">
                                   <span className="fw-semibold" style={{ fontSize: "0.85rem" }}>{charge.name}</span>
@@ -2219,8 +2276,36 @@ return { deletedTerms, createdTerms, updatedTerms };
                                     }}
                                   />
                                 </div>
+                                <div className="mt-2">
+                                  <div className="d-flex align-items-center gap-1 mb-1">
+                                    <small className="text-muted">Comment{commentRequired && <span className="text-danger"> *</span>}</small>
+                                    <CustomInfoTooltip text="Enter tax type, remarks or comments for the buyer" />
+                                  </div>
+                                  <input type="text" className="form-control form-control-sm"
+                                    style={{ minWidth: 0, border: invalidGlobalCommentId === charge._id ? '2px solid #dc3545' : undefined }}
+                                    placeholder="What is this tax for?"
+                                    value={charge.comment || ""}
+                                    maxLength={COMMENT_MAX}
+                                    disabled={isBidExpired}
+                                    onChange={(e) => {
+                                      if (invalidGlobalCommentId === charge._id) setInvalidGlobalCommentId(null);
+                                      const updated = [...globalOtherCharges];
+                                      updated[idx] = { ...updated[idx], comment: e.target.value };
+                                      setGlobalOtherCharges(updated);
+                                    }}
+                                  />
+                                  <div style={{
+                                    fontSize: '0.7rem',
+                                    color: atLimit ? '#dc3545' : '#6c757d',
+                                    textAlign: 'right',
+                                    marginTop: '2px',
+                                  }}>
+                                    {commentLen}/{COMMENT_MAX}
+                                  </div>
+                                </div>
                               </div>
-                            ))}
+                              );
+                            })}
                             </div>
 
                             {/* Upload Quotation Document */}
@@ -2284,36 +2369,22 @@ return { deletedTerms, createdTerms, updatedTerms };
 
                             {previousGlobalFiles?.length > 0 && (
                               <div className="mb-3">
-                                <p className="fw-medium mb-1">
-                                  Previously Uploaded Files:
-                                </p>
-                                <div className="d-flex gap-4">
-                                  {previousGlobalFiles.map((prev_file) => (
-                                    <a
-                                      key={prev_file}
-                                      href={prev_file}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="badge bg-light border text-primary text-truncate"
-                                      style={{ maxWidth: 280 }}
-                                      title="Click here to download the file"
-                                    >
-                                      <FontAwesomeIcon
-                                        icon={faDownload}
-                                        className="text-primary"
-                                      />
-                                      <span
-                                        className="text-truncate"
-                                        style={{
-                                          maxWidth: 200,
-                                          marginLeft: "10px",
-                                        }}
-                                      >
-                                        {extractfileName(prev_file)}
-                                      </span>
-                                    </a>
-                                  ))}
-                                </div>
+                                <button
+                                  type="button"
+                                  style={{
+                                    fontSize: "0.72rem",
+                                    fontWeight: 600,
+                                    padding: "3px 10px",
+                                    borderRadius: "4px",
+                                    border: "1px solid #0d6efd",
+                                    color: "#0d6efd",
+                                    background: "transparent",
+                                    cursor: "pointer",
+                                  }}
+                                  onClick={() => setShowGlobalPrevDocsModal(true)}
+                                >
+                                  Show Files ({previousGlobalFiles.length})
+                                </button>
                               </div>
                             )}
 
@@ -2331,6 +2402,40 @@ return { deletedTerms, createdTerms, updatedTerms };
                           </div>
                         </div>
                       </div>
+
+                      {/* Global Previous Documents Modal */}
+                      {showGlobalPrevDocsModal && (
+                        <Modal
+                          isOpen={true}
+                          onRequestClose={() => setShowGlobalPrevDocsModal(false)}
+                          ariaHideApp={false}
+                          contentLabel="Previous Documents"
+                          className="contact-modal contact-modal-new"
+                          style={{
+                            overlay: { backgroundColor: "rgba(0, 0, 0, 0.75)", zIndex: 9999 },
+                            content: {
+                              position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+                              maxWidth: "450px", width: "90%", border: "none", background: "#fff",
+                              borderRadius: "8px", padding: "24px", maxHeight: "60vh", overflow: "auto",
+                            },
+                          }}
+                        >
+                          <div className="d-flex justify-content-between align-items-center mb-3">
+                            <h5 className="fw-bold mb-0" style={{ fontSize: "1rem" }}>Previous Documents</h5>
+                            <button onClick={() => setShowGlobalPrevDocsModal(false)} className="btn-close" aria-label="Close" style={{ fontSize: "0.7rem" }}></button>
+                          </div>
+                          <div>
+                            {(previousGlobalFiles || []).map((fileUrl, idx) => (
+                              <div key={idx} className="d-flex align-items-center justify-content-between border rounded p-2 mb-2">
+                                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Document {idx + 1}</span>
+                                <a href={fileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 600 }}>
+                                  View Doc
+                                </a>
+                              </div>
+                            ))}
+                          </div>
+                        </Modal>
+                      )}
 
                       {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
                       <div className="col-lg-3 col-12 d-flex">
