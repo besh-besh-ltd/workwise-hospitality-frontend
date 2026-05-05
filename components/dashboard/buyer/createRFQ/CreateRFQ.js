@@ -2153,35 +2153,10 @@ useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfqFormDataFromStore?.is_tender]);
 
-  // Phase 8: lift any ARC-override reasons stashed in sessionStorage by
-  // the contracted-item modal flow into the RFQ form data. The first
-  // matching reason wins — the legal record is one reason per RFQ
-  // regardless of how many contracted items were added with overrides.
-  useEffect(() => {
-    if (rfqFormDataFromStore?.bypass_arc_reason) return; // already set
-    if (typeof window === "undefined") return;
-    let pickedReason = null;
-    try {
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key && key.startsWith("bypass_arc_reason__")) {
-          const val = sessionStorage.getItem(key);
-          if (val && val.trim().length >= 30) {
-            pickedReason = val.trim();
-            break;
-          }
-        }
-      }
-    } catch (_) { /* sessionStorage unavailable */ }
-    if (pickedReason) {
-      dispatch(setOtherFormFields({ field_name: "bypass_arc", value: 1 }));
-      dispatch(setOtherFormFields({ field_name: "bypass_arc_reason", value: pickedReason }));
-      // We intentionally leave the sessionStorage entries in place; if
-      // the user navigates away mid-draft and returns, the reason re-lifts.
-      // Cleared once on a successful submit (see handleCreateRFQ).
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rfqFormDataFromStore?.bypass_arc_reason]);
+  // Bypass-ARC reason is now stored per-product on tbl_rfq_products
+  // (set server-side at add-product-to-draft time). The ribbon below
+  // sources its data from the rfqProducts list in Redux — no
+  // sessionStorage roundtrip needed.
 
   // Fetch departments scoped to the selected hotel (covers manual selection, draft loading, auto-selection)
   // Skip when no hotel is selected — department dropdown won't show until hotel is chosen anyway
@@ -2428,16 +2403,27 @@ useEffect(() => {
 
       <div className="create-rfq-con">
           <>
-            {/* Phase 8: striking ARC-override ribbon when this RFQ was
-                floated despite an active rate contract. The reason was
-                captured by BypassArcReasonModal upstream. */}
-            {rfqFormDataFromStore?.bypass_arc_reason && (
-              <BypassArcRibbon
-                reason={rfqFormDataFromStore.bypass_arc_reason}
-                recordedBy={null}
-                recordedAt={null}
-              />
-            )}
+            {/* Phase 8: striking ARC-override ribbon listing every
+                contracted product the buyer floated despite an active
+                rate contract. Reasons live on rfqProducts (set server-
+                side at add-product-to-draft time); we surface the first
+                non-null reason here as the headline + show a count
+                when more than one product was bypassed. */}
+            {(() => {
+              const bypassed = (rfqProducts || []).filter((p) => p?.bypass_arc_reason);
+              if (bypassed.length === 0) return null;
+              const headline = bypassed[0].bypass_arc_reason;
+              const composedReason = bypassed.length === 1
+                ? headline
+                : `${headline}\n\n— Plus ${bypassed.length - 1} more contracted product${bypassed.length - 1 === 1 ? '' : 's'} bypassed on this RFQ.`;
+              return (
+                <BypassArcRibbon
+                  reason={composedReason}
+                  recordedBy={null}
+                  recordedAt={bypassed[0].bypass_arc_recorded_at}
+                />
+              );
+            })()}
 
             {/* Read-only banner - viewing someone else's draft */}
             {isViewOnlyDraft && (

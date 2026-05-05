@@ -29,6 +29,14 @@ const AddTenderItemModal = ({
         vendors: [], // auto-add all vendors
       };
 
+      // Phase 8 (refactor): bypass-ARC reason rides INLINE on the
+      // add-product-to-draft call. The server persists it onto the
+      // tbl_rfq_products row at the same time the row is inserted —
+      // no sessionStorage trip, no parent-RFQ rollup write needed.
+      if (product.__bypass_arc_reason) {
+        payload.bypass_arc_reason = product.__bypass_arc_reason;
+      }
+
       if (rfqId) payload.rfq_id = parseInt(rfqId);
 
       const response = await addProductToDraft(payload);

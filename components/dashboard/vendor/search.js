@@ -320,20 +320,12 @@ const Search = ({ title, type }) => {
     if (!bypassReasonItem) return;
     const item = bypassReasonItem;
     setBypassReasonItem(null);
-    // Stash the reason on the addTenderItem payload + a sessionStorage
-    // record so the downstream Add Tender / RFQ save flow can lift it
-    // into the create payload. AddTenderItemModal in turn passes this
-    // through when it triggers RFQ creation/save-draft.
-    try {
-      sessionStorage.setItem(
-        `bypass_arc_reason__${item.variant_id}`,
-        reason
-      );
-    } catch (_) { /* sessionStorage may be unavailable in incognito */ }
+    // The reason rides INLINE on the AddTenderItem payload. The server
+    // writes it onto tbl_rfq_products at the same time the row is
+    // inserted — no client-side state hops, no sessionStorage.
     setTenderProduct({
       name: item.variant_name || item.product_name,
       variant_id: item.variant_id,
-      __bypass_arc_pending: true,
       __bypass_arc_reason: reason,
     });
     setOpenTenderItemModal(true);
