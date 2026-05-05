@@ -11,6 +11,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-toastify";
 import { searchProductsV2 } from "@/services/products";
+import ContractedItemModal from "./ContractedItemModal";
 
 const AddProductModal = ({
   rfqData,
@@ -23,6 +24,10 @@ const AddProductModal = ({
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  // Phase 6: when the buyer tries to add a product that is already
+  // covered by an active ARC, intercept and show ContractedItemModal so
+  // they can route to the release-PO flow or explicitly bypass.
+  const [contractedItem, setContractedItem] = useState(null);
 
   const fetchProducts = async () => {
     // Use selected hotel IDs from the edit page (reflects user changes),
@@ -196,6 +201,27 @@ const AddProductModal = ({
                                   style={{ maxWidth: "300px" }}
                                 >
                                   {item.product_name}
+                                  {item.arc_info?.is_under_arc && (
+                                    <span
+                                      title={`Already under an active rate contract — ${item.arc_info.arcs.length} vendor${item.arc_info.arcs.length === 1 ? '' : 's'}`}
+                                      style={{
+                                        marginLeft: 8,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        padding: '2px 8px',
+                                        borderRadius: 999,
+                                        fontSize: 10,
+                                        fontWeight: 700,
+                                        letterSpacing: 0.4,
+                                        textTransform: 'uppercase',
+                                        background: 'linear-gradient(90deg, #2E5BA8 0%, #3b82f6 100%)',
+                                        color: '#fff',
+                                        verticalAlign: 'middle',
+                                      }}
+                                    >
+                                      Contracted
+                                    </span>
+                                  )}
                                 </td>
                                 <td>{item.category_name}</td>
                                 <td>
@@ -245,6 +271,14 @@ const AddProductModal = ({
                                         );
                                         return;
                                       }
+                                      // Contracted item: divert through the
+                                      // dedicated modal so the buyer makes an
+                                      // explicit choice — release PO or
+                                      // bypass-and-RFQ.
+                                      if (item.arc_info?.is_under_arc) {
+                                        setContractedItem(item);
+                                        return;
+                                      }
                                       onAdd(item);
                                     }}
                                     title={
@@ -268,6 +302,35 @@ const AddProductModal = ({
               </div>
             </div>
           </div>
+
+          <ContractedItemModal
+            isOpen={!!contractedItem}
+            onClose={() => setContractedItem(null)}
+            product={contractedItem}
+            arcs={contractedItem?.arc_info?.arcs || []}
+            onCreatePoDirectly={() => {
+              if (!contractedItem) return;
+              const arc = contractedItem.arc_info?.arcs?.[0];
+              if (!arc) {
+                toast.warn("No active contract found for this item.");
+                setContractedItem(null);
+                return;
+              }
+              // Edit-flow placeholder: signal the Phase 7 release flow.
+              // The page that hosts AddProductModal will pick this up
+              // via the existing onAdd callback once Phase 7 lands.
+              toast.info("Release-PO flow will be available once Phase 7 ships. The product has not been added.");
+              setContractedItem(null);
+            }}
+            onContinueWithRfq={() => {
+              if (!contractedItem) return;
+              const item = contractedItem;
+              setContractedItem(null);
+              // Tag the product so downstream save can prompt for the
+              // bypass-ARC reason (Phase 8).
+              onAdd({ ...item, __bypass_arc_pending: true });
+            }}
+          />
         </>
       )}
     </>

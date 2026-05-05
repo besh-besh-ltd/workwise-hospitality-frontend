@@ -118,6 +118,27 @@ const ProductSearch = ({
                             <div className={styles.suggestionContent}>
                               <div className={styles.suggestionName}>
                                 {item.variant_name ?? item.product_name}
+                                {item.arc_info?.is_under_arc && (
+                                  <span
+                                    title={`Already under an active rate contract (${item.arc_info.arcs.length} vendor${item.arc_info.arcs.length === 1 ? '' : 's'})`}
+                                    style={{
+                                      marginLeft: 8,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      padding: '2px 8px',
+                                      borderRadius: 999,
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      letterSpacing: 0.4,
+                                      textTransform: 'uppercase',
+                                      background: 'linear-gradient(90deg, #2E5BA8 0%, #3b82f6 100%)',
+                                      color: '#fff',
+                                      verticalAlign: 'middle',
+                                    }}
+                                  >
+                                    Contracted
+                                  </span>
+                                )}
                               </div>
                               <div className={styles.suggestionMeta}>
                                 {item.category_name}

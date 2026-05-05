@@ -14,6 +14,7 @@ import { debounce } from "lodash";
 import { getRFQHotels } from "@/services/hospitality";
 import { useSelector } from "react-redux";
 import AddTenderItemModal from "@/components/modal/AddTenderItemModal";
+import ContractedItemModal from "@/components/dashboard/buyer/editRFQ/ContractedItemModal";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
@@ -66,6 +67,10 @@ const Search = ({ title, type }) => {
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [openTenderItemModal, setOpenTenderItemModal] = useState(false);
   const [tenderProduct, setTenderProduct] = useState(null);
+  // Phase 6: when the buyer clicks a suggestion that is already covered
+  // by an active ARC, open the ContractedItemModal first so they can
+  // route to the release-PO flow or explicitly bypass via RFQ override.
+  const [contractedItem, setContractedItem] = useState(null);
 
   // ── Refs ────────────────────────────────────
   const searchRef = useRef(null);
@@ -258,12 +263,59 @@ const Search = ({ title, type }) => {
       return;
     }
 
+    // Phase 6: contracted item — route through the dedicated modal so
+    // the buyer makes an explicit choice (release PO vs bypass-and-RFQ)
+    // instead of silently adding it to the draft.
+    if (item.arc_info?.is_under_arc) {
+      setContractedItem(item);
+      setOpen((prev) => ({ ...prev, input: false }));
+      return;
+    }
+
     setTenderProduct({
       name: item.variant_name || item.product_name,
       variant_id: item.variant_id,
     });
     setOpenTenderItemModal(true);
     setOpen((prev) => ({ ...prev, input: false }));
+  };
+
+  // Branch 1 of ContractedItemModal: jump to the ARC release flow.
+  // Phase 7 will land the actual release wizard route; for now we route
+  // the user to the ARC release entry point with the contracted item
+  // pre-selected. The release page will gracefully degrade if that
+  // route isn't deployed yet.
+  const handleCreatePoFromContract = () => {
+    if (!contractedItem) return;
+    const arc = contractedItem.arc_info?.arcs?.[0];
+    if (!arc) {
+      toast.warn("No active contract found for this item.");
+      setContractedItem(null);
+      return;
+    }
+    const params = new URLSearchParams({
+      arc_id: String(arc.arc_id),
+      arc_item_id: String(arc.arc_item_id),
+      hotel_id: String(arc.hotel_id),
+    });
+    setContractedItem(null);
+    router.push(`/dashboard/buyer/arc-release/new?${params.toString()}`);
+  };
+
+  // Branch 2 of ContractedItemModal: continue with an open-market RFQ.
+  // Phase 8 will capture the bypass-ARC reason; for now we proceed to
+  // the existing add-tender-item flow but tag the product so the
+  // downstream save can prompt for the reason.
+  const handleContinueWithRfq = () => {
+    if (!contractedItem) return;
+    const item = contractedItem;
+    setContractedItem(null);
+    setTenderProduct({
+      name: item.variant_name || item.product_name,
+      variant_id: item.variant_id,
+      __bypass_arc_pending: true,
+    });
+    setOpenTenderItemModal(true);
   };
 
   // ── Render ──────────────────────────────────
@@ -411,6 +463,15 @@ const Search = ({ title, type }) => {
         addRfqIdParam={addRfqIdParam}
         hotelIds={selectedHotelIds}
         isTender={queryMeta.orderType === "tender"}
+      />
+
+      <ContractedItemModal
+        isOpen={!!contractedItem}
+        onClose={() => setContractedItem(null)}
+        product={contractedItem}
+        arcs={contractedItem?.arc_info?.arcs || []}
+        onCreatePoDirectly={handleCreatePoFromContract}
+        onContinueWithRfq={handleContinueWithRfq}
       />
 
       <LoginContainer
