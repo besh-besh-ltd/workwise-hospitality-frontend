@@ -112,3 +112,9 @@ export const handleRejectPO = async (po_id, reason) => {
   const res = await axiosInstance.post(`/po/reject/${po_id}`, { reason });
   return res;
 };
+// Phase 7 — Contracted POs (drafted from an ARC release).
+// Server scopes by req.user.company_id; FE just passes filters.
+export const getContractedPOs = async (params = {}) => {
+  const res = await axiosInstance.get(`/po/contracted`, { params });
+  return res.data;
+};

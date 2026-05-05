@@ -1,0 +1,275 @@
+// Phase 7 follow-up — Contracted POs listing tab.
+// Bespoke, Bootstrap-free; consistent with the vendor-arcs and
+// arc-release surfaces (brand-blue accents, soft shadows).
+
+.page {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 32px 28px 80px;
+  font-family: inherit;
+  color: var(--dark-color, #1a2730);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.title {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted-text, #6c757d);
+  line-height: 1.5;
+  max-width: 640px;
+}
+
+.inlineLink {
+  color: var(--primary-color, #2e5ba8);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tabBar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--light-grey-bg, #f8f9fa);
+  border: 1px solid var(--light-grey-border, #e9ecef);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.tabLink {
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--muted-text, #6c757d);
+  transition: var(--primary-transition, all 0.15s ease-in-out);
+
+  &:hover:not(.tabActive) {
+    background: rgba(46, 91, 168, 0.06);
+    color: var(--primary-color, #2e5ba8);
+  }
+}
+
+.tabActive {
+  background: #fff;
+  color: var(--primary-color, #2e5ba8);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.input {
+  padding: 9px 12px;
+  border: 1px solid var(--light-grey-border, #e9ecef);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  outline: none;
+
+  &:focus {
+    border-color: var(--primary-color, #2e5ba8);
+    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.12);
+  }
+
+  &:disabled {
+    background: var(--light-grey-bg, #f8f9fa);
+    cursor: not-allowed;
+  }
+
+  &[type="search"] {
+    flex: 1 1 240px;
+    max-width: 320px;
+  }
+
+  &[type="date"] {
+    min-width: 150px;
+  }
+}
+
+.totalBadge {
+  margin-left: auto;
+  padding: 6px 12px;
+  background: var(--light-grey-bg, #f8f9fa);
+  border: 1px solid var(--light-grey-border, #e9ecef);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--muted-text, #6c757d);
+  font-weight: 600;
+}
+
+.loadingState,
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 60px 28px;
+  text-align: center;
+  color: var(--muted-text, #6c757d);
+  background: #fff;
+  border: 1px dashed var(--light-grey-border, #e9ecef);
+  border-radius: 10px;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--dark-color, #1a2730);
+  }
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 480px;
+  }
+}
+
+.tableWrap {
+  background: #fff;
+  border: 1px solid var(--light-grey-border, #e9ecef);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  thead th {
+    background: var(--light-grey-bg, #f8f9fa);
+    color: #475569;
+    font-weight: 600;
+    text-align: left;
+    padding: 11px 14px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border-bottom: 1px solid var(--light-grey-border, #e9ecef);
+  }
+
+  tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--light-grey-border, #e9ecef);
+    vertical-align: top;
+  }
+
+  tbody tr:hover {
+    background: rgba(46, 91, 168, 0.02);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+.poNumber {
+  font-weight: 600;
+  color: var(--dark-color, #1a2730);
+}
+
+.poDate {
+  font-size: 11px;
+  color: var(--muted-text, #6c757d);
+  margin-top: 2px;
+}
+
+.tenderRef {
+  display: inline-block;
+  padding: 3px 8px;
+  background: var(--blue-light, #f0f4ff);
+  color: var(--primary-color, #2e5ba8);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.subtle {
+  font-size: 11px;
+  color: var(--muted-text, #6c757d);
+  margin-top: 2px;
+}
+
+.total {
+  font-weight: 700;
+  color: var(--primary-color, #2e5ba8);
+  white-space: nowrap;
+}
+
+.statusPill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.viewLink {
+  color: var(--primary-color, #2e5ba8);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.pageBtn {
+  padding: 7px 14px;
+  border: 1px solid var(--border-color, #d3d3d3);
+  background: #fff;
+  color: var(--muted-text, #6c757d);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary-color, #2e5ba8);
+    color: var(--primary-color, #2e5ba8);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.pageInfo {
+  font-size: 12px;
+  color: var(--muted-text, #6c757d);
+}
