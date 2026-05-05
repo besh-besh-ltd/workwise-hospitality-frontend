@@ -373,9 +373,54 @@ const PurchaseOrders = () => {
     <>
       <section className="quote-common-header compare-received-quote sc-pt-80">
         <div className="container-fluid">
-          <div className="row">
+          <div className="row align-items-center">
             <div className="col-md-6">
               <h3 className="heading">Purchase Order Management</h3>
+            </div>
+            <div className="col-md-6 text-md-end">
+              {/* Phase 7: tab segmentation. Open-market POs (this page,
+                  per-RFQ) and Contracted POs (drafted from ARC releases,
+                  no parent RFQ). Both use the same PO data model and
+                  approval flow; the listing surface differs because
+                  contracted POs have rfq_id IS NULL. */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  background: '#f8f9fa',
+                  border: '1px solid #e9ecef',
+                  borderRadius: 8,
+                  padding: 4,
+                }}
+              >
+                <span
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    borderRadius: 6,
+                    background: '#fff',
+                    color: '#2e5ba8',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                  }}
+                >
+                  Open Market POs
+                </span>
+                <Link
+                  href="/dashboard/buyer/purchase-order/contracted"
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    borderRadius: 6,
+                    color: '#6c757d',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Contracted POs
+                </Link>
+              </div>
             </div>
           </div>
         </div>
