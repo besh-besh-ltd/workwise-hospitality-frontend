@@ -13,6 +13,7 @@ import { toast } from "react-toastify";
 import { useRouter } from "next/router";
 import { searchProductsV2 } from "@/services/products";
 import ContractedItemModal from "./ContractedItemModal";
+import BypassArcReasonModal from "./BypassArcReasonModal";
 
 const AddProductModal = ({
   rfqData,
@@ -30,6 +31,9 @@ const AddProductModal = ({
   // covered by an active ARC, intercept and show ContractedItemModal so
   // they can route to the release-PO flow or explicitly bypass.
   const [contractedItem, setContractedItem] = useState(null);
+  // Phase 8: ARC-override reason capture, presented after the buyer
+  // chose "Continue with RFQ" on the ContractedItemModal.
+  const [bypassReasonItem, setBypassReasonItem] = useState(null);
 
   const fetchProducts = async () => {
     // Use selected hotel IDs from the edit page (reflects user changes),
@@ -332,11 +336,20 @@ const AddProductModal = ({
             }}
             onContinueWithRfq={() => {
               if (!contractedItem) return;
-              const item = contractedItem;
+              setBypassReasonItem(contractedItem);
               setContractedItem(null);
-              // Tag the product so downstream save can prompt for the
-              // bypass-ARC reason (Phase 8).
-              onAdd({ ...item, __bypass_arc_pending: true });
+            }}
+          />
+
+          <BypassArcReasonModal
+            isOpen={!!bypassReasonItem}
+            productName={bypassReasonItem?.variant_name || bypassReasonItem?.product_name}
+            onClose={() => setBypassReasonItem(null)}
+            onConfirm={(reason) => {
+              if (!bypassReasonItem) return;
+              const item = bypassReasonItem;
+              setBypassReasonItem(null);
+              onAdd({ ...item, __bypass_arc_pending: true, __bypass_arc_reason: reason });
             }}
           />
         </>

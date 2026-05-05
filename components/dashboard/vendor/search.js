@@ -15,6 +15,7 @@ import { getRFQHotels } from "@/services/hospitality";
 import { useSelector } from "react-redux";
 import AddTenderItemModal from "@/components/modal/AddTenderItemModal";
 import ContractedItemModal from "@/components/dashboard/buyer/editRFQ/ContractedItemModal";
+import BypassArcReasonModal from "@/components/dashboard/buyer/editRFQ/BypassArcReasonModal";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
@@ -71,6 +72,9 @@ const Search = ({ title, type }) => {
   // by an active ARC, open the ContractedItemModal first so they can
   // route to the release-PO flow or explicitly bypass via RFQ override.
   const [contractedItem, setContractedItem] = useState(null);
+  // Phase 8: ARC-override reason capture, presented after the buyer
+  // chose "Continue with RFQ" on the ContractedItemModal.
+  const [bypassReasonItem, setBypassReasonItem] = useState(null);
 
   // ── Refs ────────────────────────────────────
   const searchRef = useRef(null);
@@ -303,17 +307,34 @@ const Search = ({ title, type }) => {
   };
 
   // Branch 2 of ContractedItemModal: continue with an open-market RFQ.
-  // Phase 8 will capture the bypass-ARC reason; for now we proceed to
-  // the existing add-tender-item flow but tag the product so the
-  // downstream save can prompt for the reason.
+  // Phase 8: capture the override reason before letting the buyer
+  // proceed. Persist into AddTenderItemModal flow with the reason
+  // attached so the downstream save can write it onto tbl_rfq.
   const handleContinueWithRfq = () => {
     if (!contractedItem) return;
-    const item = contractedItem;
+    setBypassReasonItem(contractedItem);
     setContractedItem(null);
+  };
+
+  const handleBypassConfirm = (reason) => {
+    if (!bypassReasonItem) return;
+    const item = bypassReasonItem;
+    setBypassReasonItem(null);
+    // Stash the reason on the addTenderItem payload + a sessionStorage
+    // record so the downstream Add Tender / RFQ save flow can lift it
+    // into the create payload. AddTenderItemModal in turn passes this
+    // through when it triggers RFQ creation/save-draft.
+    try {
+      sessionStorage.setItem(
+        `bypass_arc_reason__${item.variant_id}`,
+        reason
+      );
+    } catch (_) { /* sessionStorage may be unavailable in incognito */ }
     setTenderProduct({
       name: item.variant_name || item.product_name,
       variant_id: item.variant_id,
       __bypass_arc_pending: true,
+      __bypass_arc_reason: reason,
     });
     setOpenTenderItemModal(true);
   };
@@ -472,6 +493,13 @@ const Search = ({ title, type }) => {
         arcs={contractedItem?.arc_info?.arcs || []}
         onCreatePoDirectly={handleCreatePoFromContract}
         onContinueWithRfq={handleContinueWithRfq}
+      />
+
+      <BypassArcReasonModal
+        isOpen={!!bypassReasonItem}
+        productName={bypassReasonItem?.variant_name || bypassReasonItem?.product_name}
+        onClose={() => setBypassReasonItem(null)}
+        onConfirm={handleBypassConfirm}
       />
 
       <LoginContainer
