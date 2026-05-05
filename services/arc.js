@@ -137,3 +137,46 @@ export const getArcRelease = (id) =>
       reject({ message: error });
     }
   });
+
+// Phase 5 — Vendor-side ARC dashboard
+
+/**
+ * List the authenticated vendor's rate contracts.
+ * Filters: status (comma-separated), search (rfq_no), page, limit.
+ */
+export const getVendorArcList = (params = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const qp = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== null && v !== undefined && v !== "") qp.append(k, v);
+      });
+      const url = `/arc/vendor/list${qp.toString() ? `?${qp.toString()}` : ""}`;
+      const response = await axiosInstance.get(url);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+/** Read a single ARC envelope (vendor-scoped). */
+export const getVendorArcDetail = (arcId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/arc/vendor/${arcId}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+/** Fetch the document URL for a single ARC envelope (vendor-scoped). */
+export const getVendorArcDocument = (arcId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/arc/vendor/${arcId}/document`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });

@@ -84,6 +84,7 @@ export const roleMenus = {
     { href: "/dashboard/vendor/inquiries-received", label: "Received Inquiries", targetMenu: "nav", requiresSubscription: true },
     { href: "/dashboard/vendor/subscription", label: "Subscription", targetMenu: "nav" },
     { href: "/dashboard/vendor/order-book", label: "Order Book", targetMenu: "nav", requiresSubscription: true },
+    { href: "/dashboard/vendor/arcs", label: "Rate Contracts", targetMenu: "nav", requiresSubscription: true },
   ],
 };
 
