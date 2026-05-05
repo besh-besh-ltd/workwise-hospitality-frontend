@@ -10,6 +10,7 @@ import {
   faTrashRestore,
 } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-toastify";
+import { useRouter } from "next/router";
 import { searchProductsV2 } from "@/services/products";
 import ContractedItemModal from "./ContractedItemModal";
 
@@ -21,6 +22,7 @@ const AddProductModal = ({
   existingProducts = [],
   selectedHotelIds = [],
 }) => {
+  const router = useRouter();
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -316,11 +318,17 @@ const AddProductModal = ({
                 setContractedItem(null);
                 return;
               }
-              // Edit-flow placeholder: signal the Phase 7 release flow.
-              // The page that hosts AddProductModal will pick this up
-              // via the existing onAdd callback once Phase 7 lands.
-              toast.info("Release-PO flow will be available once Phase 7 ships. The product has not been added.");
+              // Phase 7: route to the release wizard with the seed
+              // contract id, item id, and hotel id pre-filled. The
+              // wizard re-fetches every eligible vendor for the
+              // (hotel, product_variant) pair so the buyer can compare.
+              const params = new URLSearchParams({
+                arc_id: String(arc.arc_id),
+                arc_item_id: String(arc.arc_item_id),
+                hotel_id: String(arc.hotel_id),
+              });
               setContractedItem(null);
+              router.push(`/dashboard/buyer/arc-release/new?${params.toString()}`);
             }}
             onContinueWithRfq={() => {
               if (!contractedItem) return;
