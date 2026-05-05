@@ -1089,10 +1089,14 @@ const NegotiationModal = ({
       const vendorDetails = getVendorDetailsFromQuote(q);
       const vendorName = vendorDetails ? getVendorDisplayName(vendorDetails) : 'Unknown';
 
-      // Source of truth: server-engine output if present on the quotation,
-      // else the persisted total_price. Falls through to the nested
-      // quote_details[0] shape some negotiation responses use.
-      let totalPrice = lineEngineTotal(q);
+      // Source of truth: prefer the quote-level grand total (per-line sum +
+      // global charges like TCS), so L1 box and chart match the vendor-row
+      // header. Fall back to engine line total / persisted total_price for
+      // legacy responses without engine_grand_total.
+      const grandFromQuote = Number(q.engine_grand_total);
+      let totalPrice = Number.isFinite(grandFromQuote) && grandFromQuote > 0
+        ? grandFromQuote
+        : lineEngineTotal(q);
       if (totalPrice === 0 && Array.isArray(q.quote_details) && q.quote_details[0]) {
         totalPrice = lineEngineTotal(q.quote_details[0]);
       }
@@ -1101,6 +1105,8 @@ const NegotiationModal = ({
       const src = (Array.isArray(q.quote_details) && q.quote_details[0]) || q;
       const unitPrice = parseFloat(src.unit_price || 0);
       const otherCharges = src.other_charges || [];
+      // Global charges (e.g. TCS) live at the quote level, not on quote_details.
+      const globalCharges = q.global_charges || [];
       const tax = parseFloat(src.tax || 0);
       const taxMode = src.tax_mode || 'percentage';
       const quantity = parseFloat(src.quantity || q.quantity || product?.quantity || 0);
@@ -1121,7 +1127,7 @@ const NegotiationModal = ({
 
       return {
         vendorName, totalPrice, unitPrice, quantity,
-        otherCharges, tax, taxMode,
+        otherCharges, globalCharges, tax, taxMode,
         deliveryPeriod, paymentTerms, vendorTC, comment, documentFiles, vendorId,
         isRegret,
       };
@@ -1200,9 +1206,23 @@ const NegotiationModal = ({
                 `Qty: ${v.quantity || '-'}`,
               ];
               (v.otherCharges || []).forEach(c => {
-                if (c.amount) lines.push(`${c.name}: ${fmtCharge(c.amount, c.amount_mode)}`);
+                const amt = Number(c.amount || 0);
+                const tax = Number(c.tax || 0);
+                if (amt <= 0 && tax <= 0) return;
+                const parts = [];
+                if (amt > 0) parts.push(fmtCharge(amt, c.amount_mode));
+                if (tax > 0) parts.push(`+ ${fmtCharge(tax, c.tax_mode)} tax`);
+                if (c.comment) parts.push(`(${c.comment})`);
+                lines.push(`${c.name || 'Charge'}: ${parts.join(' ')}`);
               });
               if (v.tax) lines.push(`GST: ${fmtCharge(v.tax, v.taxMode)}`);
+              (v.globalCharges || []).forEach(c => {
+                const tax = Number(c.tax || 0);
+                if (tax <= 0) return;
+                const parts = [fmtCharge(tax, c.tax_mode)];
+                if (c.comment) parts.push(`(${c.comment})`);
+                lines.push(`${c.name || 'Global Charge'}: ${parts.join(' ')}`);
+              });
               lines.push(`Total: ${fmt(v.totalPrice)}`);
               if (v.isL1) lines.push('★ L1 (Lowest)');
               return lines;

@@ -35,6 +35,31 @@ const POCard = ({
   const isApproved = po.status === 'approved';
   const isPendingApproval = po.status === 'pending_approval';
 
+  // Display total = line subtotal + document-level global charges. The
+  // backend stores the grand total on po.total_value at draft, but legacy
+  // POs drafted before pricingEngine.normalizeGlobalCharge existed have a
+  // stale stored value. Recomputing from po.line_subtotal + po.global_charges
+  // here makes the listing display correct for both new and legacy POs and
+  // is a no-op when the stored total already includes globals.
+  const displayedTotal = useMemo(() => {
+    const gcArr = Array.isArray(po.global_charges)
+      ? po.global_charges
+      : (typeof po.global_charges === 'string' && po.global_charges.trim()
+          ? (() => { try { return JSON.parse(po.global_charges); } catch (_e) { return []; } })()
+          : []);
+    if (!gcArr.length) return Number(po.total_value) || 0;
+    const subtotal = Number(po.line_subtotal ?? po.total_value) || 0;
+    let gcTotal = 0;
+    for (const gc of gcArr) {
+      if (!gc || typeof gc !== 'object') continue;
+      const value = Number(gc.amount ?? gc.tax) || 0;
+      const mode = gc.amount_mode ?? gc.tax_mode ?? 'percentage';
+      if (!(value > 0)) continue;
+      gcTotal += mode === 'percentage' ? (subtotal * value) / 100 : value;
+    }
+    return Math.round((subtotal + gcTotal) * 100) / 100;
+  }, [po.total_value, po.line_subtotal, po.global_charges]);
+
   const waitInfo = useMemo(() => {
     if (!isPendingApproval) return null;
     const lastApproval = po.approval_history
@@ -122,7 +147,7 @@ const POCard = ({
         <div className={styles.mobileCardMiddle}>
           <div className={styles.mobileVendor}>{po.finalized_vendor_name || 'No vendor'}</div>
           <div className={styles.mobileValueRow}>
-            <span className={styles.mobileValue}>₹{addCommasToNumber(po.total_value)}</span>
+            <span className={styles.mobileValue}>₹{addCommasToNumber(displayedTotal)}</span>
             {totalQuantity > 0 && <span className={styles.mobileQty}>{parseFloat(Number(totalQuantity).toFixed(2))} {unit}</span>}
           </div>
         </div>
@@ -204,7 +229,7 @@ const POCard = ({
         {totalQuantity > 0 ? (<><span className={styles.qtyNumber}>{parseFloat(Number(totalQuantity).toFixed(2))}</span><span className={styles.qtyUnit}>{unit}</span></>) : '—'}
       </div>
 
-      <div className={styles.colValue}>₹{addCommasToNumber(po.total_value)}</div>
+      <div className={styles.colValue}>₹{addCommasToNumber(displayedTotal)}</div>
 
       <OverlayTrigger placement="top" overlay={<Tooltip id={`initiator-${po.id}`}>{po.initiated_by || 'Unknown'}</Tooltip>}>
         <div className={styles.colInitiator}><FiUser size={14} /></div>
