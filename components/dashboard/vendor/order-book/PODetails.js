@@ -17,6 +17,7 @@ import { getProjectAvailableBudget } from '@/services/project';
 import { addCommasToNumber, formatDisplayDate, formatToINRShort } from '@/utils/sharedFunctions';
 import Link from 'next/link';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
+import useIsMobile from '@/hooks/useIsMobile';
 import styles from "@/components/dashboard/buyer/purchase-order/PurchaseOrder.module.scss";
 
 const statusColors = {
@@ -100,6 +101,9 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   const [tasks, setTasks] = useState(null);
   const [filters, setFilters] = useState({ page: 1, limit: 10 });
 
+  const isMobile = useIsMobile();
+  const showMobileAcceptanceBar = isMobile && status === 'acceptance_pending';
+
   const handleFetchTasks = async () => {
     try {
       const res = await handleGetTasks(id, filters);
@@ -123,7 +127,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   useEffect(() => { handleFetchBudget(); }, []);
 
   return (
-    <div>
+    <div style={showMobileAcceptanceBar ? { paddingBottom: 96 } : undefined}>
       {/* ── Hero Header Card ── */}
       <div className={styles.detailsHeader}>
         <div className={styles.detailsHero}>
@@ -475,6 +479,24 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
         confirmButtonText="Yes, Mark Dispatched"
         cancelButtonText="Cancel"
       />
+
+      {/* Sticky mobile acceptance bar (vendor) */}
+      {showMobileAcceptanceBar && (
+        <div className={styles.mobileApprovalBar}>
+          <button
+            className={styles.mobileApproveBtn}
+            onClick={() => onAcceptPO && onAcceptPO(data)}
+          >
+            Accept PO
+          </button>
+          <button
+            className={styles.mobileRejectBtn}
+            onClick={() => onRejectPO && onRejectPO(data)}
+          >
+            Reject PO
+          </button>
+        </div>
+      )}
     </div>
   );
 };

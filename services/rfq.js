@@ -361,10 +361,11 @@ export const getVendorsForProduct = async (values) => {
   }
 };
 
-export const getVendorDetailsByID = (id) => {
+export const getVendorDetailsByID = (id, { showContact = false } = {}) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/users/vendor-profile/${id}`);
+      const url = `/users/vendor-profile/${id}${showContact ? '?showContact=true' : ''}`;
+      let response = await axiosInstance.get(url);
       resolve(response);
     } catch (error) {
       reject({ message: error });

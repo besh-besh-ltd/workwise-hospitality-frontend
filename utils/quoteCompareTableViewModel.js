@@ -99,8 +99,17 @@ export const getQuotePrice = (quote) => {
 
 // `normalizeFilter` is accepted for back-compat but unused — the API already
 // reflects normalisation when the caller passed normalize=1.
+//
+// Prefers `engine_grand_total` (per-line subtotal + quote-level global charges
+// like TCS), so every comparison view — per-product matrix, category-wise
+// matrix, overall cost matrix, vendor totals, L1/finalized totals — stays
+// consistent and matches the per-vendor row header on the negotiation modal
+// and the Vendor Quote Breakup modal. Falls back to the engine line total
+// (no globals) and finally to the persisted total_price for legacy responses.
 export const getQuoteTotal = (product, quote, _normalizeFilter = false) => {
   const details = getQuoteDetails(quote) || {};
+  const fromGrand = toNumber(details.engine_grand_total ?? quote?.engine_grand_total);
+  if (fromGrand > 0) return fromGrand;
   const fromEngine = toNumber(details.engine?.total ?? quote?.engine_total);
   if (fromEngine > 0) return fromEngine;
   return toNumber(pick(details.total_price, quote?.total_price));
