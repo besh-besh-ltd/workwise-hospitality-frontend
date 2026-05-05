@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   getEntityApprovalInstances,
   getApprovalInstanceDetails,
@@ -22,27 +22,17 @@ export const useApprovalWorkflow = ({ entityType, entityId, allEntityIds, enable
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const preloadConsumedRef = useRef(false);
 
-  // Fetch approval instance for the entity
-  const fetchApprovalInstance = useCallback(async (forceNetwork = false) => {
+  // Fetch approval instance(s) for the entity from the network. This is used
+  // when there's no preload from the parent and after action submission to
+  // reconcile local state.
+  const fetchApprovalInstance = useCallback(async () => {
     if (!enabled || !entityType || !entityId) {
       setLoading(false);
       setInstance(null);
       setAllInstances([]);
       return;
     }
-
-    // Use preloaded data on first mount if available (skip network)
-    if (!forceNetwork && !preloadConsumedRef.current && Array.isArray(preloadedInstances)) {
-      preloadConsumedRef.current = true;
-      const sorted = [...preloadedInstances].sort((a, b) => (a.id || 0) - (b.id || 0));
-      setAllInstances(sorted);
-      setInstance(sorted.length > 0 ? sorted[sorted.length - 1] : null);
-      setLoading(false);
-      return;
-    }
-    preloadConsumedRef.current = true;
 
     setLoading(true);
     setError(null);
@@ -106,10 +96,55 @@ export const useApprovalWorkflow = ({ entityType, entityId, allEntityIds, enable
     }
   }, [entityType, entityId, allEntityIds?.join(','), enabled, refreshTrigger]);
 
-  // Fetch on mount and when dependencies change
+  // Unified loader: preloadedInstances is the authoritative source whenever
+  // the parent provides it (so post-finalize bundle refreshes propagate
+  // immediately). When no preload is supplied, fall back to network fetch.
+  // This effect re-runs whenever preloadedInstances changes by reference, so
+  // a fresh array from the parent picks up new approval instances created by
+  // a re-finalization without the hook needing its own round-trip.
   useEffect(() => {
+    if (!enabled || !entityType || !entityId) {
+      setInstance(null);
+      setAllInstances([]);
+      setLoading(false);
+      return;
+    }
+    if (Array.isArray(preloadedInstances)) {
+      const sorted = [...preloadedInstances].sort((a, b) => (a.id || 0) - (b.id || 0));
+      setAllInstances(sorted);
+      setInstance(sorted.length > 0 ? sorted[sorted.length - 1] : null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     fetchApprovalInstance();
-  }, [fetchApprovalInstance]);
+  }, [enabled, entityType, entityId, preloadedInstances, refreshTrigger, fetchApprovalInstance]);
+
+  // Optimistically patch the local instance so the UI reflects the action
+  // before the backend round-trip completes. Returns a snapshot of the
+  // pre-patch state so callers can roll back on failure.
+  const applyOptimisticAction = useCallback((action) => {
+    let snapshot = null;
+    setInstance((prev) => {
+      if (!prev) return prev;
+      snapshot = prev;
+      const normalized = String(action || '').toUpperCase();
+      const isFinalStep = (prev.current_step || 0) >= (prev.total_steps || 0);
+      const nextStatus = normalized === 'REJECT'
+        ? 'REJECTED'
+        : (isFinalStep ? 'APPROVED' : prev.status);
+      return {
+        ...prev,
+        can_user_approve: false,
+        status: nextStatus,
+      };
+    });
+    return snapshot;
+  }, []);
+
+  const rollbackOptimisticAction = useCallback((snapshot) => {
+    if (snapshot) setInstance(snapshot);
+  }, []);
 
   // Submit approve/reject action
   const handleApprovalAction = useCallback(
@@ -119,6 +154,7 @@ export const useApprovalWorkflow = ({ entityType, entityId, allEntityIds, enable
       }
 
       setActionLoading(true);
+      const snapshot = applyOptimisticAction(action);
       try {
         const payload = {
           approval_instance_id: instance.id,
@@ -136,10 +172,11 @@ export const useApprovalWorkflow = ({ entityType, entityId, allEntityIds, enable
         }
 
         await submitApprovalAction(payload);
-        await fetchApprovalInstance(); // Refresh data
+        await fetchApprovalInstance(true); // Force network refresh to reconcile
         return { success: true };
       } catch (err) {
         console.error("Approval action failed:", err);
+        rollbackOptimisticAction(snapshot);
         return {
           success: false,
           error: err?.message || `Failed to ${action.toLowerCase()}`,
@@ -148,7 +185,7 @@ export const useApprovalWorkflow = ({ entityType, entityId, allEntityIds, enable
         setActionLoading(false);
       }
     },
-    [instance, fetchApprovalInstance]
+    [instance, fetchApprovalInstance, applyOptimisticAction, rollbackOptimisticAction]
   );
 
   // Cancel approval instance
@@ -216,6 +253,8 @@ export const useApprovalWorkflow = ({ entityType, entityId, allEntityIds, enable
     autoApprovedReason,
     handleApprovalAction,
     handleCancelApproval,
+    applyOptimisticAction,
+    rollbackOptimisticAction,
     refetch: () => fetchApprovalInstance(true),
   };
 };

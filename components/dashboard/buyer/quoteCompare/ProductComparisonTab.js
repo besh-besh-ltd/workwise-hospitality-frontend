@@ -53,6 +53,7 @@ const ProductComparisonTab = ({
   openModalForVariant,
   closeModalForVariant,
   handleFinalize,
+  finalizeLoading = false,
   originalQuotes,
   availableBudget,
   normalizeFilter,
@@ -97,8 +98,61 @@ const ProductComparisonTab = ({
         const historicalTotal = getHistoricalTotal(item);
         const summary = productSummaryMap?.[item.id] || { topVendors: [] };
 
+        // PO rejection state for this product — drives the prominent card
+        // highlight (red/amber border + attention ribbon at the top) so the
+        // evaluator can spot at a glance which products need a second look.
+        // The ribbon copy and color follow the LATEST rejection so the user
+        // sees what most recently went wrong, not a mix from earlier events.
+        // Backend orders rejections by rejected_at DESC, so index 0 is latest.
+        const productRejections = vendorRejections.filter(
+          (r) => String(r.product_variant_id) === String(item.product_variant_id)
+            && String(r.variant) === String(item.variant)
+        );
+        const hasRejection = productRejections.length > 0;
+        const latestProductRejection = productRejections[0] || null;
+        const latestRejectionIsApprover = latestProductRejection?.rejection_type === 'approver';
+        const latestRejectionVendorName = latestProductRejection
+          ? (latestProductRejection.vendor_organization || latestProductRejection.vendor_name)
+          : '';
+        const cardHighlightStyle = hasRejection
+          ? {
+              borderColor: latestRejectionIsApprover ? '#FB923C' : '#F87171',
+              borderWidth: 2,
+              boxShadow: latestRejectionIsApprover
+                ? '0 0 0 4px rgba(251, 146, 60, 0.12)'
+                : '0 0 0 4px rgba(248, 113, 113, 0.12)',
+            }
+          : undefined;
+
         return (
-          <div className={styles.productCard} key={`qq_${index}`}>
+          <div
+            className={styles.productCard}
+            key={`qq_${index}`}
+            style={cardHighlightStyle}
+          >
+            {hasRejection && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: latestRejectionIsApprover ? '#FFF7ED' : '#FEF2F2',
+                  color: latestRejectionIsApprover ? '#9A3412' : '#991B1B',
+                  borderBottom: `1px solid ${latestRejectionIsApprover ? '#FED7AA' : '#FECACA'}`,
+                  padding: '10px 16px',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                }}
+              >
+                <span aria-hidden="true">⚠</span>
+                <span>
+                  {latestRejectionIsApprover
+                    ? `Action needed: latest PO drafted for ${latestRejectionVendorName} was rejected by an internal approver. Review and pick the next vendor.`
+                    : `Action needed: ${latestRejectionVendorName} rejected the PO. Review and pick the next vendor.`}
+                </span>
+              </div>
+            )}
+            <div className={styles.productBody}>
             <div className={styles.productHead}>
               <div>
                 <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -161,7 +215,9 @@ const ProductComparisonTab = ({
               </div>
             ) : null}
 
-            {/* Vendor Rejection Badge — brief indicator at product level */}
+            {/* PO Rejection Badge — brief product-level indicator. Distinct
+                copy + color for vendor rejection vs internal approver
+                rejection so the buyer immediately understands the source. */}
             {(() => {
               const rejections = vendorRejections.filter(
                 r => String(r.product_variant_id) === String(item.product_variant_id) && String(r.variant) === String(item.variant)
@@ -169,16 +225,48 @@ const ProductComparisonTab = ({
               if (rejections.length === 0) return null;
               return (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '14px 0 10px' }}>
-                  {rejections.map((rej, i) => (
-                    <span key={i} style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                      fontSize: 11.5, fontWeight: 600, color: '#991B1B',
-                      background: '#FEE2E2', border: '1px solid #FECACA',
-                      padding: '3px 10px', borderRadius: 6,
-                    }}>
-                      PO Rejected by {rej.vendor_organization || rej.vendor_name}
-                    </span>
-                  ))}
+                  {rejections.map((rej, i) => {
+                    const vendorName = rej.vendor_organization || rej.vendor_name;
+                    const isApprover = rej.rejection_type === 'approver';
+                    const isLatest = i === 0; // backend sends DESC by rejected_at
+                    const palette = isApprover
+                      ? { color: '#7C2D12', bg: '#FFF7ED', border: '#FED7AA' }
+                      : { color: '#991B1B', bg: '#FEE2E2', border: '#FECACA' };
+                    const text = isApprover
+                      ? `Internal approver rejected the PO drafted for ${vendorName}`
+                      : `${vendorName} rejected the PO`;
+                    return (
+                      <span
+                        key={`${rej.vendor_id}_${rej.po_number || i}`}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          fontSize: 11.5, fontWeight: 600, color: palette.color,
+                          background: palette.bg, border: `1px solid ${palette.border}`,
+                          padding: '3px 10px', borderRadius: 6,
+                        }}
+                      >
+                        <span aria-hidden="true">⚠</span>
+                        {text}
+                        {isLatest && rejections.length > 1 && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: 0.4,
+                              textTransform: 'uppercase',
+                              background: 'rgba(0,0,0,0.08)',
+                              color: 'inherit',
+                              padding: '1px 6px',
+                              borderRadius: 999,
+                              marginLeft: 2,
+                            }}
+                          >
+                            Latest
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
                 </div>
               );
             })()}
@@ -206,6 +294,7 @@ const ProductComparisonTab = ({
                 rfqId={currentRfqId}
                 proditem={item}
                 handleFinalize={handleFinalize}
+                finalizeLoading={finalizeLoading}
                 quotations={item?.quotations}
                 originalQuotations={
                   originalQuotes.find((origItem) => origItem.id === item.id)?.quotations || item?.quotations
@@ -234,6 +323,7 @@ const ProductComparisonTab = ({
                 )}
               />
             )}
+            </div>
           </div>
         );
       })}

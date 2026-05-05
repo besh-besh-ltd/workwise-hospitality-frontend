@@ -31,7 +31,8 @@ import { PiCrownSimpleFill } from "react-icons/pi";
 const VendorProfile = () => {
   const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
-  const { id } = router.query;
+  const { id, showContact } = router.query;
+  const showContactDetails = showContact === 'true';
   const [loading, setloading] = useState(false);
   const [reviewLoading, setreviewLoading] = useState(false);
   const [vendorDetails, setVendorDetails] = useState(null);
@@ -139,7 +140,7 @@ useEffect(() => {
   const getVendorProfile = () => {
     if (id) {
       setloading(true);
-      getVendorDetailsByID(id)
+      getVendorDetailsByID(id, { showContact: showContactDetails })
         .then((res) => {
           setloading(false);
           setVendorDetails({...res.data, subscription: res.subscription});
@@ -582,12 +583,12 @@ useEffect(() => {
                             {vendorDetails?.import_export_code}
                           </p>
                         )}
-                        {vendorDetails?.mobile && (
+                        {showContactDetails && vendorDetails?.mobile && (
                           <p className="mb-1">
                             <b>Contact Number</b> : {vendorDetails?.mobile}
                           </p>
                         )}
-                        {vendorDetails?.email && (
+                        {showContactDetails && vendorDetails?.email && (
                           <p className="mb-1">
                             <b>Contact Email</b> : {vendorDetails?.email}
                           </p>
