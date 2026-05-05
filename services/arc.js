@@ -88,3 +88,52 @@ export const getArcDocument = (approval_instance_id) => {
   });
 };
 
+
+// Phase 7 — ARC Release / Direct-PO
+
+/**
+ * Fetch vendors holding active rate contracts for a (hotel, product) pair.
+ * Used by the release wizard's vendor-pick step.
+ */
+export const getEligibleArcVendors = ({ arc_id, hotel_id, product_variant_id }) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const params = new URLSearchParams();
+      if (arc_id) params.append('arc_id', arc_id);
+      if (hotel_id) params.append('hotel_id', hotel_id);
+      if (product_variant_id) params.append('product_variant_id', product_variant_id);
+      const response = await axiosInstance.get(`/arc/release/eligible-vendors?${params.toString()}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+/**
+ * Create a release against an ARC. Body shape:
+ *   { arc_id, hotel_id, items: [{ arc_item_id, quantity }] }
+ * Server validates eligibility, snapshots prices, drafts a Contracted PO
+ * and returns { release_id, po_id, vendor_id, hotel_id, total_value }.
+ */
+export const createArcRelease = (payload) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(`/arc/release`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+/**
+ * Read a single release with items + drafted PO id (if any).
+ */
+export const getArcRelease = (id) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/arc/release/${id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
