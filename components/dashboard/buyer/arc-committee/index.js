@@ -689,10 +689,15 @@ const ArcCommittee = () => {
         isOpen={sendBackOpen}
         fromStage="ARC"
         targetOptions={[
-          { value: 'TENDER_NEGOTIATION',     label: 'Negotiation' },
-          { value: 'TENDER_TECHNICAL_EVAL',  label: 'Technical Evaluation' },
-          { value: 'TENDER_QUOTING',         label: 'Quoting (re-open bids)' },
-          { value: 'DRAFT',                  label: 'Draft (full reset)' },
+          // Per product team: only two business-sensible targets.
+          // VENDOR_FINALIZATION clears the ARC envelope + finalization
+          // rows so the buyer re-picks vendors against the existing
+          // negotiation/quote data. TECHNICAL_EVALUATION additionally
+          // wipes negotiation rounds + tech-eval marks so the
+          // evaluator re-runs everything. Vendor quotes are kept in
+          // both cases — vendors don't re-submit.
+          { value: 'VENDOR_FINALIZATION',  label: 'Vendor Finalization (de-finalize vendors)' },
+          { value: 'TECHNICAL_EVALUATION', label: 'Technical Evaluation (clear evaluation, then re-finalize)' },
         ]}
         onClose={() => setSendBackOpen(false)}
         onSubmit={async (target_stage, reason) => {
