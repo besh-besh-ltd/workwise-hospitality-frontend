@@ -117,7 +117,7 @@ const CommonFormInput = ({
       onChange && onChange(e);
     }
     return (
-      <div className="form-group mb-3">
+      <div className="form-group mb-1">
         <label htmlFor={name} className="form-label">
           {label} {required && <span className="text-danger">*</span>}
         </label>

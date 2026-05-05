@@ -13,7 +13,7 @@ import {
 } from "@/redux/slice";
 import { extractfileName, handleFileUpload, getEntityLabel } from "@/utils/sharedFunctions";
 import { faEye, faFile, faEdit } from "@fortawesome/free-regular-svg-icons";
-import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faPlusCircle, faTrash, faClone } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useDispatch } from "react-redux";
 import AddClause from "./AddClause";
@@ -431,469 +431,307 @@ const Item = ({
     }
   }, [data]);
 
+  // Vendor + spec validation pills shown in the collapsed row.
+  // Reads exactly the same sources as the previous IIFE — keep behaviour identical.
+  const validationPills = (() => {
+    let isError = false;
+    if (vendors?.length == 0) {
+      isError = rfqProduct?.vendor_count == 0;
+    } else {
+      const currentVendorIds = vendors?.map(v => v.user_id || v.id) || [];
+      const deletableVendors = (updatableData?.vendors?.[data.id]?.deletable ?? []).filter(
+        deletableId => currentVendorIds.includes(deletableId)
+      );
+      const selectedVendorCount =
+        (vendors?.length || 0) +
+        ((updatableData?.vendors?.[data.id]?.addable?.length ?? 0) -
+          deletableVendors.length);
+      isError = selectedVendorCount === 0;
+    }
+
+    const getSpecValue = (fieldName) => {
+      const specsUp = updatableData?.products?.updatable?.specs?.[data.id];
+      if (specsUp) {
+        const candidates = [
+          fieldName,
+          fieldName.toLowerCase(),
+          fieldName.charAt(0).toUpperCase() + fieldName.slice(1),
+        ];
+        for (const k of candidates) {
+          if (Object.prototype.hasOwnProperty.call(specsUp, k)) return specsUp[k];
+        }
+        for (const k of Object.keys(specsUp)) {
+          if (k.toLowerCase() === fieldName.toLowerCase()) return specsUp[k];
+        }
+      }
+      if (specs && Object.prototype.hasOwnProperty.call(specs, fieldName)) return specs[fieldName];
+      const pSpecs = rfqProduct?.spec || rfqProduct?.specs;
+      if (Array.isArray(pSpecs)) {
+        const found = pSpecs.find((s) => ((s.title || s.label || "").toLowerCase() === fieldName.toLowerCase()));
+        if (found) return found.value ?? found.val ?? "";
+      }
+      if (Object.prototype.hasOwnProperty.call(rfqProduct, fieldName)) return rfqProduct[fieldName];
+      return undefined;
+    };
+
+    const missing = [];
+    const qVal = getSpecValue("quantity");
+    const uVal = getSpecValue("unit");
+    if (qVal === undefined || qVal === null || qVal === "" || qVal <= 0 || qVal === '0') missing.push("Quantity");
+    if (uVal === undefined || uVal === null || uVal === "" || uVal === "N/A") missing.push("Unit");
+    return { isError, missing };
+  })();
+
+  const renderFileCard = (label, fileType, files) => (
+    <div className="rfq-file-card">
+      <label
+        id={`upload_${fileType === "datasheet_file" ? "tds" : fileType === "qap_file" ? "qap" : "spec"}_${rfqProduct?.id}-file_uploads-${pageRoute}`}
+        className={`rfq-file-drop ${readOnly ? "rfq-file-drop--disabled" : ""}`}
+        aria-disabled={readOnly}
+      >
+        <span className="rfq-file-drop__label">{label}</span>
+        <span className="rfq-file-drop__hint">Click to browse</span>
+        <input
+          type="file"
+          accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+          onChange={(e) => uploadToServer(e, fileType)}
+          multiple={true}
+          disabled={readOnly}
+        />
+      </label>
+      {files && files.length > 0 && (
+        <div className="rfq-file-list">
+          {files.map((fileUrl) => (
+            <div key={fileUrl} className="rfq-file-row">
+              <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="rfq-file-row__name">
+                {extractfileName(fileUrl)}
+              </a>
+              {!readOnly && (
+                <button
+                  type="button"
+                  className="rfq-file-row__remove"
+                  aria-label="Remove file"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleRemoveFile(fileUrl, fileType);
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <Accordion.Item
       key={`rfqp_${rfqProduct.product_id}_${rfqProduct.variant}`}
       eventKey={eventKey}
+      className="rfq-products-item"
     >
       <Accordion.Header>
-        {/* start: Accrodian header */}
-      <div
-        className="d-flex justify-content-between w-100 align-items-center"
-  //       style={{
-  //      backgroundColor: (() => {
-  //       // if vendors not loaded yet, fallback to rfqProduct.vendor_count
-  //       if (vendors?.length == 0) {
-  //         return rfqProduct?.vendor_count == 0 ? "#ffe6e6" : "transparent";
-  //       }
-      
-  //       // vendors are loaded -> calculate effective selected vendor count
-  //       const selectedVendorCount =
-  //         (vendors?.length || 0) +
-  //         ((updatableData?.vendors?.[data.id]?.addable?.length ?? 0) -
-  //           (updatableData?.vendors?.[data.id]?.deletable?.length ?? 0));
-      
-  //       return selectedVendorCount === 0 ? "#e6e6fe" : "transparent";
-  //     })(),
-  // }}
->
-
-
-
-<div>
-          <h2 className="h6 mb-0"> {rfqProduct?.name}</h2>
-
-    {(() => {
-        // ✅ same logic reused exactly for error condition
-        let isError = false;
-
-        if (vendors?.length == 0) {
-          isError = rfqProduct?.vendor_count == 0;
-        } else {
-          // Get current vendor IDs (after filtering)
-          const currentVendorIds = vendors?.map(v => v.user_id || v.id) || [];
-          // Only count deletable vendors that are still present in current vendors
-          const deletableVendors = (updatableData?.vendors?.[data.id]?.deletable ?? []).filter(
-            deletableId => currentVendorIds.includes(deletableId)
-          );
-          
-          const selectedVendorCount =
-            (vendors?.length || 0) +
-            ((updatableData?.vendors?.[data.id]?.addable?.length ?? 0) -
-              deletableVendors.length);
-          isError = selectedVendorCount === 0;
-        }
-
-        // helper: read a spec field (check updatableData first, then local specs, then rfqProduct.spec array)
-        const getSpecValue = (fieldName) => {
-          const specsUp = updatableData?.products?.updatable?.specs?.[data.id];
-          if (specsUp) {
-            const candidates = [
-              fieldName,
-              fieldName.toLowerCase(),
-              fieldName.charAt(0).toUpperCase() + fieldName.slice(1),
-            ];
-            for (const k of candidates) {
-              if (Object.prototype.hasOwnProperty.call(specsUp, k)) return specsUp[k];
-            }
-            // case-insensitive fallback
-            for (const k of Object.keys(specsUp)) {
-              if (k.toLowerCase() === fieldName.toLowerCase()) return specsUp[k];
-            }
-          }
-
-          if (specs && Object.prototype.hasOwnProperty.call(specs, fieldName)) return specs[fieldName];
-
-          const pSpecs = rfqProduct?.spec || rfqProduct?.specs;
-          if (Array.isArray(pSpecs)) {
-            const found = pSpecs.find((s) => ((s.title || s.label || "").toLowerCase() === fieldName.toLowerCase()));
-            if (found) return found.value ?? found.val ?? "";
-          }
-
-          if (Object.prototype.hasOwnProperty.call(rfqProduct, fieldName)) return rfqProduct[fieldName];
-
-          return undefined;
-        };
-
-        const missing = [];
-        const qVal = getSpecValue("quantity");
-        const uVal = getSpecValue("unit");
-        if (qVal === undefined || qVal === null || qVal === "" || qVal <= 0 || qVal === '0') missing.push("Quantity");
-        if (uVal === undefined || uVal === null || uVal === "" || uVal === "N/A") missing.push("Unit");
-
-        return (
-          <>
-            {(hasVendorError || isError) && (
-              <small className="text-danger fw-bold">
-                Select atleast one vendor
-              </small>
+        <div className="rfq-products-row">
+          <div className="rfq-products-row__main">
+            <span className="rfq-products-row__name">{rfqProduct?.name}</span>
+            {(validationPills.isError || hasVendorError || validationPills.missing.length > 0) && (
+              <div className="rfq-products-row__badges">
+                {(hasVendorError || validationPills.isError) && (
+                  <span className="rfq-tag rfq-tag--red">Select at least one vendor</span>
+                )}
+                {validationPills.missing.includes("Quantity") && (
+                  <span className="rfq-tag rfq-tag--red">Quantity required</span>
+                )}
+                {validationPills.missing.includes("Unit") && (
+                  <span className="rfq-tag rfq-tag--red">Unit required</span>
+                )}
+              </div>
             )}
-
-            {missing.length > 0 && (
-              <small className="text-danger fw-bold d-block">
-                {missing.length === 1
-                  ? `${missing[0]} is required`
-                  : `${missing.join(" and ")} are required`}
-              </small>
-            )}
-          </>
-        );
-      })()}
-
-    </div>
-
-          {/* start: remove and add variant button container */}
-          <div className="d-flex gap-3 mr-4 ">
-            {/* start: remove button container */}
-            <button
-              id={`remove_product_${rfqProduct?.id}-product_actions-${pageRoute}`}
-              className="upload btn btn-danger pt-2 btn-sm"
-              style={{ height: "40px", width: "120px" }}
-              onClick={handleRemoveProduct}
-              disabled={readOnly}
-              title={readOnly ? "You don't have permission to remove products" : ""}
-            >
-              <FontAwesomeIcon icon={faTrash} /> Remove
-            </button>
-            {/* end: remove button container */}
-
-            {/* start: add variant button container */}
-            <button
-              id={`add_variant_${rfqProduct?.id}-product_actions-${pageRoute}`}
-              className="upload  btn btn-primary  pt-2 btn-sm"
-              style={{ height: "40px", width: "150px" }}
-              onClick={handleAddVarient}
-              disabled={loading || readOnly}
-              title={readOnly ? "You don't have permission to add variants" : ""}
-            >
-              {loading ? (
-                "Adding..."
-              ) : (
-                <>
-                  <FontAwesomeIcon icon={faPlusCircle} /> Add variant
-                </>
-              )}
-            </button>
-            
-            {/* end: remove button container */}
           </div>
-
-          {/* end: remove and add variant button container */}
+          <div className="rfq-products-row__cell">
+            <span className="rfq-products-row__overline">Qty</span>
+            <span className="rfq-products-row__value">{specs?.quantity || "—"}</span>
+          </div>
+          <div className="rfq-products-row__cell">
+            <span className="rfq-products-row__overline">Unit</span>
+            <span className="rfq-products-row__value">{specs?.unit || "—"}</span>
+          </div>
+          <div className="rfq-products-row__actions" onClick={(e) => e.stopPropagation()}>
+            <OverlayTrigger
+              placement="top"
+              overlay={<Tooltip id={`add-variant-tip-${rfqProduct?.id}`}>Add variant</Tooltip>}
+            >
+              <span className="d-inline-block">
+                <button
+                  type="button"
+                  id={`add_variant_${rfqProduct?.id}-product_actions-${pageRoute}`}
+                  className="rfq-products-row__icon-btn rfq-products-row__icon-btn--primary"
+                  onClick={handleAddVarient}
+                  disabled={loading || readOnly}
+                  title={readOnly ? "You don't have permission to add variants" : "Add variant"}
+                  aria-label="Add variant"
+                >
+                  <FontAwesomeIcon icon={faClone} />
+                </button>
+              </span>
+            </OverlayTrigger>
+            <OverlayTrigger
+              placement="top"
+              overlay={<Tooltip id={`remove-product-tip-${rfqProduct?.id}`}>Remove product</Tooltip>}
+            >
+              <span className="d-inline-block">
+                <button
+                  type="button"
+                  id={`remove_product_${rfqProduct?.id}-product_actions-${pageRoute}`}
+                  className="rfq-products-row__icon-btn rfq-products-row__icon-btn--danger"
+                  onClick={handleRemoveProduct}
+                  disabled={readOnly}
+                  title={readOnly ? "You don't have permission to remove products" : "Remove product"}
+                  aria-label="Remove product"
+                >
+                  <FontAwesomeIcon icon={faTrash} />
+                </button>
+              </span>
+            </OverlayTrigger>
+          </div>
         </div>
-        {/* end: Accrodian header */}
       </Accordion.Header>
 
       <Accordion.Body>
-        { is_tender && header ? (
-          <div
-            className="d-flex flex-wrap justify-content-between align-items-start"
-            style={{ height: "fit-content" }}
-          >
-            {header(data)}
-          </div>
-        ):""}
-        <div
-          className="d-flex flex-wrap   justify-content-between align-items-start "
-          style={{ height: "fit-content" }}
-        >
-          {/*start: spec, files conteiner  */}
-          <div className="d-flex flex-column justify-content-center align-items-center  gap-2">
-            {/*start: prodiuct spec */}
-            <div style={{ width: "100%" }}>
-              <CommonFormInput
-                type="textarea"
-                name={"product_size"}
-                label={"Product Size"}
-                values={specs?.size || ""}
-                onChange={(e) => handleSpecValue("size", e.target.value)}
-                placeholder="Size"
-                className=" form-control"
-                style={{ height: "40px" }}
-                disabled={readOnly}
-              />
-              {/* WH-69: Previously hint for Size spec — compact mode pulls
-                  the chip up against CommonFormInput's built-in mb-3. */}
-              <PrevHint
-                keyName={`spec:${data?.id}:Size`}
-                previousValues={previousValues}
-                currentValue={specs?.size}
-                compact
-              />
+        <div className="rfq-product-body">
+          {is_tender === 1 && typeof header === "function" && (
+            <div className="rfq-product-section rfq-product-section--filter">
+              {header(data)}
             </div>
-            {/*end: prodiuct spec */}
+          )}
 
-            {/* start: qap, tds, spec container */}
-            <div style={{ width: "100%" }}>
-              <span> Files </span>
-              <div
-                className=" d-flex gap-2 justify-content-between px-2 pt-2"
-                style={{
-                  border: "1px solid #dcdbeb",
-                  borderRadius: "5px",
-                  height: "100px",
-                  overflow: "auto",
-                }}
-              >
-                {/*start: tds  */}
-                <div
-                  // className=" col-4"
-                  style={{
-                    height: "auto",
-                    width: "130px",
-                  }}
-                >
-                  {
-                    <label
-                      id={`upload_tds_${rfqProduct?.id}-file_uploads-${pageRoute}`}
-                      className={`upload uploadInlineFile d-flex align-items-center ${readOnly ? 'disabled' : ''}`}
-                      style={{ maxWidth: "100%", opacity: readOnly ? 0.6 : 1, pointerEvents: readOnly ? 'none' : 'auto' }}
-                    >
-                      {/* <FontAwesomeIcon icon={faFile} className="me-2" />  */}
-                      Upload TDS
-                      <input
-                        type="file"
-                        accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                        onChange={(e) => uploadToServer(e, "datasheet_file")}
-                        multiple={true}
+          {/* Specifications */}
+          <div className="rfq-product-section">
+            <h5 className="rfq-product-section__title">Specifications</h5>
+            <div className="rfq-spec-rows">
+              {/* Row 1 — prominent: Size + Spec */}
+              <div className="rfq-spec-row rfq-spec-row--prominent">
+                <div className="rfq-spec-field">
+                  <CommonFormInput
+                    type="textarea"
+                    name={"product_size"}
+                    label={"Product Size"}
+                    values={specs?.size || ""}
+                    onChange={(e) => handleSpecValue("size", e.target.value)}
+                    placeholder="Size"
+                    className="form-control"
+                    disabled={readOnly}
+                  />
+                  <PrevHint
+                    keyName={`spec:${data?.id}:Size`}
+                    previousValues={previousValues}
+                    currentValue={specs?.size}
+                    compact
+                  />
+                </div>
+                <div className="rfq-spec-field">
+                  <CommonFormInput
+                    type="textarea"
+                    name={"product_specification"}
+                    label={"Product Specification"}
+                    values={specs.spec || ""}
+                    onChange={(e) => handleSpecValue("spec", e.target.value)}
+                    placeholder="Grade, Material and other Specs"
+                    className="form-control"
+                    disabled={readOnly}
+                  />
+                  <PrevHint
+                    keyName={`spec:${data?.id}:Spec`}
+                    previousValues={previousValues}
+                    currentValue={specs.spec}
+                    compact
+                  />
+                </div>
+              </div>
+
+              {/* Row 2 — compact: [Qty | Unit] + Comments */}
+              <div className="rfq-spec-row rfq-spec-row--secondary">
+                <div className="rfq-spec-combo">
+                  <label className="rfq-spec-combo__label">
+                    Quantity &amp; Unit <span className="rfq-required">*</span>
+                  </label>
+                  <div className="rfq-spec-combo__field">
+                    <div className="rfq-spec-combo__quantity">
+                      <CommonFormInput
+                        required
+                        type="simple-text"
+                        name={"quantity"}
+                        label={"Quantity"}
+                        values={specs.quantity}
+                        onChange={handleQuantityChange}
+                        placeholder="Quantity"
+                        className="form-control"
+                        validation="float_number"
                         disabled={readOnly}
                       />
-                    </label>
-                  }
-                  {uploadedDatasheetFile &&
-                    uploadedDatasheetFile.length > 0 &&
-                    uploadedDatasheetFile.map((datasheet_file) => {
-                      return (
-                        <div
-                          key={datasheet_file}
-                          className="d-flex justify-content-between"
-                        >
-                          <a
-                            href={datasheet_file}
-                            className="page-link text-truncate"
-                            target="_blank"
-                            style={{ width: "100%" }}
-                          >
-                            {extractfileName(datasheet_file)}
-                          </a>
-                          {!readOnly && (
-                            <span
-                              className="btn-close btn-close-sm"
-                              aria-label="Close"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleRemoveFile(
-                                  datasheet_file,
-                                  "datasheet_file"
-                                );
-                              }}
-                            ></span>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-                {/*end: tds  */}
-
-                {/*start: qap  */}
-                <div
-                  // className=" col-4"
-                  style={{
-                    height: "auto",
-                    width: "130px",
-                  }}
-                >
-                  {
-                                                            <label
-                        id={`upload_qap_${rfqProduct?.id}-file_uploads-${pageRoute}`}
-                        className={`upload uploadInlineFile ${readOnly ? 'disabled' : ''}`}
-                        style={{ maxWidth: "100%", opacity: readOnly ? 0.6 : 1, pointerEvents: readOnly ? 'none' : 'auto' }}
-                        // style={{ borderBottom: "1px solid rgba(45, 92, 167, 0.59)" }}
-                      >
-                        {/* <FontAwesomeIcon icon={faQAP" */}
-                        Upload QAP
-                        <input
-                          type="file"
-                          accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                          onChange={(e) => uploadToServer(e, "qap_file")}
-                          multiple={true}
-                          disabled={readOnly}
-                        />
-                      </label>
-                  }
-                  {uploadedQapFile &&
-                    uploadedQapFile.length > 0 &&
-                    uploadedQapFile.map((qap_file) => {
-                      return (
-                        <div
-                          key={qap_file}
-                          className="d-flex justify-content-between m-2"
-                        >
-                          <a
-                            href={qap_file}
-                            className="page-link text-truncate"
-                            target="_blank"
-                            style={{ width: "100%" }}
-                          >
-                            {extractfileName(qap_file)}
-                          </a>
-                          {!readOnly && (
-                            <span
-                              className="btn-close btn-close-sm"
-                              aria-label="Close"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleRemoveFile(qap_file, "qap_file");
-                              }}
-                            ></span>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-                {/*end: qap  */}
-
-                {/* start: spec file */}
-                <div
-                  // className=" col-4"
-                  style={{
-                    height: "auto",
-                    width: "130px",
-                  }}
-                >
-                                      <label
-                      id={`upload_spec_${rfqProduct?.id}-file_uploads-${pageRoute}`}
-                      className={`upload uploadInlineFile ${readOnly ? 'disabled' : ''}`}
-                      style={{ maxWidth: "100%", opacity: readOnly ? 0.6 : 1, pointerEvents: readOnly ? 'none' : 'auto' }}
-                    >
-                      {/* <FontAwesomeIcon icon={faFile} className="me-2" /> */}
-                      Upload Spec
-                      <input
-                        type="file"
-                        accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                        onChange={(e) => uploadToServer(e, "spec_file")}
-                        multiple={true}
+                    </div>
+                    <span className="rfq-spec-combo__sep" aria-hidden="true" />
+                    <div className="rfq-spec-combo__unit">
+                      <CommonFormInput
+                        type="simple-text"
+                        name={"unit"}
+                        label={"Unit"}
+                        required={true}
+                        values={specs.unit}
+                        onChange={(e) => handleSpecValue("unit", e.target.value)}
+                        placeholder="Unit"
+                        className="form-control"
                         disabled={readOnly}
                       />
-                    </label>
-
-                  {uploadedSpecFile &&
-                    uploadedSpecFile.length > 0 &&
-                    uploadedSpecFile.map((spec_file) => {
-                      return (
-                        <div
-                          key={spec_file}
-                          className="d-flex justify-content-between"
-                        >
-                          <a
-                            href={spec_file}
-                            className="page-link text-truncate"
-                            target="_blank"
-                            style={{ width: "100%" }}
-                          >
-                            {extractfileName(spec_file)}
-                          </a>
-                          {!readOnly && (
-                            <span
-                              className="btn-close btn-close-sm"
-                              aria-label="Close"
-                              onClick={() =>
-                                handleRemoveFile(spec_file, "spec_file")
-                              }
-                            ></span>
-                          )}
-                        </div>
-                      );
-                    })}
+                    </div>
+                  </div>
+                  <div className="rfq-spec-combo__hints">
+                    <PrevHint
+                      keyName={`spec:${data?.id}:Quantity`}
+                      previousValues={previousValues}
+                      currentValue={specs.quantity}
+                      compact
+                    />
+                    <PrevHint
+                      keyName={`spec:${data?.id}:Unit`}
+                      previousValues={previousValues}
+                      currentValue={specs.unit}
+                      compact
+                    />
+                  </div>
                 </div>
-                {/* end: spec file */}
+                <div className="rfq-spec-field rfq-spec-field--single">
+                  <CommonFormInput
+                    type="simple-text"
+                    name={"comment"}
+                    label={"Comments"}
+                    values={comment}
+                    onChange={handleaddProductComment}
+                    placeholder="Add comments..."
+                    className="form-control"
+                    disabled={readOnly}
+                  />
+                </div>
               </div>
             </div>
-            {/*end: spec, files conteiner  */}
           </div>
-          {/*end: spec, files conteiner  */}
 
-          {/*start: product spec qty and unit  */}
-          <div className=" px-2">
-            {/*start: product spec */}
-            <div style={{ width: "100%" }} className="mb-2">
-              <CommonFormInput
-                type="textarea"
-                name={"product_specification"}
-                label={"Product Specification"}
-                values={specs.spec || ""}
-                onChange={(e) => handleSpecValue("spec", e.target.value)}
-                placeholder="Grade, Material and other Specs"
-                className=" form-control"
-                style={{ height: "100px" }}
-                disabled={readOnly}
-              />
-              {/* WH-69: Previously hint for Spec field — compact mode */}
-              <PrevHint
-                keyName={`spec:${data?.id}:Spec`}
-                previousValues={previousValues}
-                currentValue={specs.spec}
-                compact
-              />
+          {/* Files */}
+          <div className="rfq-product-section">
+            <h5 className="rfq-product-section__title">Files</h5>
+            <div className="rfq-file-grid">
+              {renderFileCard("Upload TDS", "datasheet_file", uploadedDatasheetFile)}
+              {renderFileCard("Upload QAP", "qap_file", uploadedQapFile)}
+              {renderFileCard("Upload Spec", "spec_file", uploadedSpecFile)}
             </div>
-            {/*end: product spec */}
-
-            {/* start: qty and unit container */}
-            <div className="d-flex  justify-content-start align-items-start gap-2">
-              <div className="" style={{ width: "200px" }}>
-                <CommonFormInput
-                  required
-                  type="simple-text"
-                  name={"quantity"}
-                  label={"Quantity"}
-                  values={specs.quantity}
-                  onChange={handleQuantityChange}
-                  placeholder="Quantity"
-                  className=" form-control"
-                  validation="float_number"
-                  disabled={readOnly}
-                />
-                {/* WH-69: Previously hint for Quantity — compact mode */}
-                <PrevHint
-                  keyName={`spec:${data?.id}:Quantity`}
-                  previousValues={previousValues}
-                  currentValue={specs.quantity}
-                  compact
-                />
-              </div>
-
-              <div style={{ width: "210px" }}>
-                <CommonFormInput
-                  type="simple-text"
-                  name={"unit"}
-                  label={"Unit"}
-                  required={true}
-                  values={specs.unit}
-                  onChange={(e) => handleSpecValue("unit", e.target.value)}
-                  placeholder="Unit"
-                  className=" form-control"
-                  disabled={readOnly}
-                />
-                {/* WH-69: Previously hint for Unit — compact mode */}
-                <PrevHint
-                  keyName={`spec:${data?.id}:Unit`}
-                  previousValues={previousValues}
-                  currentValue={specs.unit}
-                  compact
-                />
-              </div>
-            </div>
-            {/* end: qty and unit ocntainer */}
           </div>
-          {/*end: product spec qty and unit  */}
 
-          {/* Tech Evaluation & Comments */}
-          <div className="mt-3">
-            <h6 className="text-dark fw-semibold mb-2">Tech Evaluation</h6>
-            {/* WH-69: Tech eval buttons are disabled for newly-added products
-                until they're persisted via Update RFQ. Without a real
-                rfq_product_id the backend would reject the clause request.
-                The tooltip explains why so the user knows what to do. */}
-            <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+          {/* Tech Evaluation */}
+          <div className="rfq-product-section">
+            <h5 className="rfq-product-section__title">Tech Evaluation</h5>
+            <div className="rfq-techeval-row">
               <OverlayTrigger
                 placement="top"
                 overlay={
@@ -906,19 +744,19 @@ const Item = ({
               >
                 <span className="d-inline-block">
                   <button
+                    type="button"
                     id={buyerClauses?.length > 0 ? `view_clauses_${rfqProduct?.id}-tech_evaluation-${pageRoute}` : `add_clauses_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
-                    className="btn btn-outline-warning btn-sm d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap text-dark w-auto"
-                    style={{
-                      minWidth: "180px",
-                      pointerEvents: isUnsavedNewProduct ? 'none' : 'auto',
-                      opacity: isUnsavedNewProduct ? 0.55 : 1,
-                    }}
+                    className="rfq-techeval-btn"
                     onClick={handleOpenModal}
                     disabled={readOnly || isUnsavedNewProduct}
                     title={readOnly ? "You don't have permission to add clauses" : ""}
+                    style={{
+                      pointerEvents: isUnsavedNewProduct ? 'none' : 'auto',
+                      opacity: isUnsavedNewProduct ? 0.55 : 1,
+                    }}
                   >
                     <FontAwesomeIcon icon={faEye} />
-                    {buyerClauses?.length > 0 ? `View and Edit (${buyerClauses.length} clauses)` : "View and Edit"}
+                    <span>{buyerClauses?.length > 0 ? `View and Edit (${buyerClauses.length} clauses)` : "View and Edit"}</span>
                   </button>
                 </span>
               </OverlayTrigger>
@@ -937,90 +775,68 @@ const Item = ({
                   {minimumPassingScore !== null && minimumPassingScore !== undefined ? (
                     <button
                       type="button"
-                      className="btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap w-auto"
+                      id={`edit_min_score_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
+                      className="rfq-techeval-btn rfq-techeval-btn--score"
+                      onClick={handleOpenModalToMinimumScore}
+                      disabled={readOnly || isUnsavedNewProduct}
                       style={{
-                        minWidth: "180px",
                         pointerEvents: isUnsavedNewProduct ? 'none' : 'auto',
                         opacity: isUnsavedNewProduct ? 0.55 : 1,
                       }}
-                      onClick={handleOpenModalToMinimumScore}
-                      disabled={readOnly || isUnsavedNewProduct}
-                      id={`edit_min_score_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
                     >
-                      <FontAwesomeIcon icon={faEdit} className="opacity-75" />
+                      <FontAwesomeIcon icon={faEdit} />
                       <span>Minimum score</span>
-                      <span className="badge bg-primary rounded-pill px-2">{minimumPassingScore}%</span>
+                      <span className="rfq-techeval-btn__pill">{minimumPassingScore}%</span>
                     </button>
                   ) : (
                     <button
                       type="button"
-                      className="btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap w-auto"
+                      id={`set_min_score_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
+                      className="rfq-techeval-btn rfq-techeval-btn--score"
+                      onClick={handleOpenModalToMinimumScore}
+                      disabled={readOnly || isUnsavedNewProduct}
                       style={{
-                        minWidth: "180px",
                         pointerEvents: isUnsavedNewProduct ? 'none' : 'auto',
                         opacity: isUnsavedNewProduct ? 0.55 : 1,
                       }}
-                      onClick={handleOpenModalToMinimumScore}
-                      disabled={readOnly || isUnsavedNewProduct}
-                      id={`set_min_score_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
                     >
-                      <FontAwesomeIcon icon={faEdit} className="opacity-75" />
-                      Set minimum score
+                      <FontAwesomeIcon icon={faEdit} />
+                      <span>Set minimum score</span>
                     </button>
                   )}
                 </span>
               </OverlayTrigger>
             </div>
+          </div>
 
-            <div>
-              <CommonFormInput
-                type="simple-text"
-                name={"comment"}
-                label={"Add Comments"}
-                values={comment}
-                onChange={handleaddProductComment}
-                placeholder="Add Comments..."
-                className="form-control me-0 mb-0"
-                disabled={readOnly}
-              />
+          {isModelOpen && (
+            <AddClause
+              show={isModelOpen}
+              onClose={handleCloseModal}
+              product={data}
+              rfq_id={rfq_id}
+              onClauseChange={onClauseChange}
+              openToMinimumScore={openToMinimumScore}
+            />
+          )}
+
+          {footer && (
+            <div className="rfq-product-section rfq-product-section--footer">
+              {footer(data)}
             </div>
+          )}
 
-            {/* </div> */}
-          </div>
-          {/* </tr> */}
-          <div>
-            {isModelOpen && (
-              <AddClause
-                show={isModelOpen}
-                onClose={handleCloseModal}
-                product={data}
-                rfq_id={rfq_id}
-                onClauseChange={onClauseChange}
-                openToMinimumScore={openToMinimumScore}
-              />
-            )}
-          </div>
+          <ConfirmationModal
+            isOpen={showRemoveConfirmModal}
+            onClose={handleRemoveCancel}
+            onConfirm={handleRemoveConfirm}
+            title="Remove Product"
+            description={`Are you sure you want to remove this product from the RFQ?\nThis action will remove the product and all its associated data.`}
+            confirmButtonColor="danger"
+            confirmButtonText="Remove"
+            cancelButtonText="Cancel"
+          />
         </div>
-        {footer && (
-          <div
-            className="d-flex flex-wrap justify-content-between align-items-start"
-            style={{ height: "fit-content" }}
-          >
-            {footer(data)}
-          </div>
-        )}
-
-        {/* Remove Product Confirmation Modal */}
-        <ConfirmationModal
-          isOpen={showRemoveConfirmModal}
-          onClose={handleRemoveCancel}
-          onConfirm={handleRemoveConfirm}
-          title="Remove Product"
-          description={`Are you sure you want to remove this product from the RFQ?\nThis action will remove the product and all its associated data.`}
-          confirmButtonColor="danger"
-          confirmButtonText="Remove"
-          cancelButtonText="Cancel"
-        />
       </Accordion.Body>
     </Accordion.Item>
   );
