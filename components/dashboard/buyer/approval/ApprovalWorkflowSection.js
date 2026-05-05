@@ -480,6 +480,12 @@ const ApprovalWorkflowSection = ({
   const isActionRequired = canUserApprove && status === "PENDING" && !effectiveBacklog && !isAutoApproved && !isPublished;
   const shouldUseMobileStickyActions = showMobileStickyActions && isMobile && isActionRequired && !effectiveBacklog;
 
+  // Group ARC tender stages run against the single global hierarchy in the
+  // Hospitality Network — not a per-hotel/per-process matrix. Surface this
+  // explicitly so approvers and observers know the source of authority.
+  const isGroupArcApproval = instance?.metadata?.tender_scope === 'GROUP'
+    && ['TENDER', 'TECHNICAL', 'NEGOTIATION', 'NEGOTIATION_QUOTE', 'ARC'].includes(entityType);
+
   return (
     <>
       <style jsx>{`
@@ -820,6 +826,26 @@ const ApprovalWorkflowSection = ({
             <div className="aws-header-main">
               <div className="aws-title-row">
                 <span className="aws-title">Approval Workflow</span>
+                {isGroupArcApproval && (
+                  <span
+                    title="This approval runs against the global Group ARC hierarchy configured in the Hospitality Network admin"
+                    style={{
+                      fontSize: '0.66rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.4px',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      background: 'linear-gradient(90deg, #2E5BA8 0%, #3b82f6 100%)',
+                      color: '#fff',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Group ARC · Global
+                  </span>
+                )}
                 {isActionRequired ? (
                   <span style={{
                     fontSize: '0.68rem',
@@ -901,6 +927,53 @@ const ApprovalWorkflowSection = ({
           <div>
             <div className="aws-body">
               <div className="aws-body-inner">
+                {/* Group ARC governance banner — explains why this approval
+                    bypasses per-hotel/per-process matrices and points
+                    admins/approvers to the single global hierarchy. */}
+                {isGroupArcApproval && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '12px',
+                      padding: '12px 14px',
+                      marginBottom: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid #c7d2fe',
+                      background: 'linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%)',
+                    }}
+                  >
+                    <div
+                      aria-hidden
+                      style={{
+                        flex: '0 0 auto',
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        background: '#2E5BA8',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                      }}
+                    >
+                      G
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#1e3a8a', marginBottom: '2px' }}>
+                        Governed by the Group ARC global hierarchy
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#475569', lineHeight: 1.5 }}>
+                        This is a Group ARC tender covering multiple hotels and possibly multiple companies. Per-hotel and per-process approval matrices do not apply.
+                        The approvers and decision rules below come from the single global hierarchy configured for this stage in the
+                        <strong> Hospitality Network → Approval Hierarchy</strong> admin.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Metadata displays */}
                 {instance?.metadata?.selected_quotes?.length > 0 && (
                   <SelectedQuotesDisplay
