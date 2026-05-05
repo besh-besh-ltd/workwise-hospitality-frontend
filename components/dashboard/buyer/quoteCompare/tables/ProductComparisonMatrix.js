@@ -462,7 +462,9 @@ const ProductComparisonMatrix = ({
           const charge = globalCharges.find(c => c.name === rowMeta.chargeName);
           if (!charge) return <span className={styles.value}>--</span>;
           const taxVal = Number(charge.tax || 0);
-          return <span className={styles.value}>{charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal)}</span>;
+          const taxDisplay = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
+          const commentText = charge.comment ? ` (${charge.comment})` : "";
+          return <span className={styles.value}>{taxDisplay}{commentText && <small className="text-muted">{commentText}</small>}</span>;
         }
         if (rowKey === "grandTotal") {
           const globalCharges = details.global_charges || column.quote?.global_charges || [];

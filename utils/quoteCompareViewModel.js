@@ -54,9 +54,17 @@ const getQuantity = (product, details) => {
 // `normalizeFilter` is preserved in the signature for back-compat but unused —
 // the API response already reflects normalisation when the caller hit the
 // endpoint with normalize=1.
+//
+// Prefers `engine_grand_total` (line subtotal + quote-level global charges
+// like TCS) so KPI strip metrics — l1Total, finalizedTotal, savings —
+// stay consistent with the per-vendor totals shown in every comparison
+// matrix and the Vendor Quote Breakup modal. Falls back to engine line
+// total, then persisted total_price for legacy responses.
 const getQuoteTotal = (product, quote, _normalizeFilter) => {
   const details = getQuoteDetails(quote);
   if (!details) return 0;
+  const fromGrand = parseNumber(details.engine_grand_total ?? quote?.engine_grand_total);
+  if (fromGrand > 0) return fromGrand;
   const fromEngine = parseNumber(details.engine?.total ?? quote?.engine_total);
   if (fromEngine > 0) return fromEngine;
   return parseNumber(details.total_price || quote?.total_price);

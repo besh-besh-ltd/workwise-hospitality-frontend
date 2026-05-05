@@ -1645,7 +1645,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
           package_price: chargeSource.package_price,
           package_mode: chargeSource.package_mode,
           tax: chargeSource.tax,
-          tax_mode: chargeSource.tax_mode
+          tax_mode: chargeSource.tax_mode,
+          other_charges: chargeSource.other_charges || []
         },
         finalized_vendor_id: item.quote_details.created_by
       },

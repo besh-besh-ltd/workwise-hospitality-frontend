@@ -135,6 +135,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     quantity,
     unit_price,
     total_value,
+    line_subtotal,
+    global_charges = [],
     initiated_by_name,
     created_at,
     project_id,
@@ -390,6 +392,78 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   const handleWorkflowApprove = async (comment) => handleWorkflowDecision("approved", comment);
   const handleWorkflowReject = async (comment) => handleWorkflowDecision("rejected", comment);
 
+  // ── Global-charge allocation per product line ────────────────────────────
+  // Document-level global charges (TCS, document fee, convenience charge…)
+  // live on the PO header (po.global_charges). For the per-product display
+  // to reconcile to the grand total, allocate each global charge to product
+  // lines proportionally to that line's contribution to the line subtotal:
+  //
+  //   percentage charge → exact: chargeRate% × line_subtotal_i
+  //   absolute charge   → proportional: (line_i / Σline) × charge.amount
+  //
+  // Both schemes preserve Σ(allocated_share) === total global charge, so the
+  // per-product totals always sum to the grand total even when applied as
+  // a single document-level cost in the data model.
+  const globalChargesNormalized = (() => {
+    const arr = Array.isArray(global_charges)
+      ? global_charges
+      : (typeof global_charges === "string" && global_charges.trim()
+          ? (() => { try { return JSON.parse(global_charges); } catch (_e) { return []; } })()
+          : []);
+    return arr
+      .map((gc) => {
+        if (!gc || typeof gc !== "object") return null;
+        const value = Number(gc.amount ?? gc.tax) || 0;
+        const mode = gc.amount_mode ?? gc.tax_mode ?? "percentage";
+        if (!(value > 0)) return null;
+        return {
+          name: gc.name || gc.slug || "Global Charge",
+          value,
+          mode,
+        };
+      })
+      .filter(Boolean);
+  })();
+  const productLineSubtotalSum = (Array.isArray(product_details) ? product_details : [])
+    .reduce((acc, p) => acc + (Number(p?.total_price) || 0), 0);
+  const allocateGlobalChargesToLine = (lineSubtotal) => {
+    if (!globalChargesNormalized.length) return { breakdown: [], total: 0 };
+    const subForRate = Number(lineSubtotal) || 0;
+    const shareRatio = productLineSubtotalSum > 0
+      ? (subForRate / productLineSubtotalSum)
+      : 0;
+    const breakdown = globalChargesNormalized.map((gc) => {
+      const allocated = gc.mode === "percentage"
+        ? (subForRate * gc.value) / 100
+        : gc.value * shareRatio;
+      return {
+        name: gc.name,
+        rate: gc.value,
+        mode: gc.mode,
+        allocated: Math.round(allocated * 100) / 100,
+      };
+    });
+    const total = breakdown.reduce((s, b) => s + b.allocated, 0);
+    return { breakdown, total };
+  };
+
+  // Recompute the headline grand total from line subtotal + document-level
+  // global charges. The backend stores this on po.total_value at draft time,
+  // but legacy POs drafted before pricingEngine.normalizeGlobalCharge existed
+  // have a stale stored value that excludes global charges. Recomputing in
+  // the FE makes the displayed total correct without requiring a one-time
+  // DB backfill, and is a no-op for new POs where the stored value already
+  // matches.
+  const totalGlobalChargesAcrossAllLines = globalChargesNormalized.reduce((sum, gc) => {
+    const applied = gc.mode === "percentage"
+      ? (productLineSubtotalSum * gc.value) / 100
+      : gc.value;
+    return sum + applied;
+  }, 0);
+  const displayedTotalValue = globalChargesNormalized.length > 0
+    ? Math.round((productLineSubtotalSum + totalGlobalChargesAcrossAllLines) * 100) / 100
+    : Number(total_value) || 0;
+
   if(!isEditing) {
     return (
       <div style={showMobileApprovalBar ? { paddingBottom: 120 } : undefined}>
@@ -480,7 +554,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               <div className={styles.detailsMetaIcon}><BsCurrencyRupee size={15} /></div>
               <div>
                 <div className={styles.detailsMetaLabel}>Total Value</div>
-                <div className={styles.detailsMetaValue}>₹{addCommasToNumber(total_value)}</div>
+                <div className={styles.detailsMetaValue}>₹{addCommasToNumber(displayedTotalValue)}</div>
               </div>
             </div>
             <div className={styles.detailsMetaItem}>
@@ -540,7 +614,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                   <div className={styles.detailsMetaIcon}><BsCurrencyRupee size={15} /></div>
                   <div>
                     <div className={styles.detailsMetaLabel}>After Approval</div>
-                    <div className={styles.detailsMetaValue}>₹{formatToINRShort(budgetInfo.available_budget - total_value)}</div>
+                    <div className={styles.detailsMetaValue}>₹{formatToINRShort(budgetInfo.available_budget - displayedTotalValue)}</div>
                   </div>
                 </div>
               </>
@@ -625,7 +699,15 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                   {product_details.map((prod, idx) => {
                     const baseValue =
                       Number(prod.unit_price || 0) * Number(prod.quantity || 0);
-  
+                    const lineSubtotal = Number(prod.total_price || 0);
+                    const { breakdown: lineGlobalCharges, total: lineGlobalChargesTotal } =
+                      allocateGlobalChargesToLine(lineSubtotal);
+                    // Product total surfaced to the user includes this line's
+                    // proportional share of document-level global charges, so
+                    // ΣproductTotal === po.total_value (grand total).
+                    const productTotalIncludingGlobals =
+                      Math.round((lineSubtotal + lineGlobalChargesTotal) * 100) / 100;
+
                     return (
                       <Accordion.Item
                         eventKey={String(idx)}
@@ -655,9 +737,14 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                               <div className="fw-semibold" style={{ fontSize: '0.95rem' }}>
                                 ₹
                                 {typeof addCommasToNumber === "function"
-                                  ? addCommasToNumber(prod.total_price)
-                                  : prod.total_price}
+                                  ? addCommasToNumber(productTotalIncludingGlobals)
+                                  : productTotalIncludingGlobals}
                               </div>
+                              {lineGlobalChargesTotal > 0 && (
+                                <div className="small text-muted" style={{ fontSize: 11 }}>
+                                  incl. ₹{addCommasToNumber(Math.round(lineGlobalChargesTotal * 100) / 100)} global
+                                </div>
+                              )}
                             </div>
                           </div>
                         </Accordion.Header>
@@ -770,6 +857,47 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                               </>
                             );
                           })()}
+
+                          {/* Document-level global charges allocated to this line.
+                              Shown per-product so the displayed Total Amount matches
+                              line subtotal + line's share of global charges. */}
+                          {lineGlobalCharges.length > 0 && (
+                            <div className="mt-3">
+                              <div className="small text-muted mb-1">Global Charges (allocated to this line)</div>
+                              <div className="d-flex flex-wrap gap-2">
+                                {lineGlobalCharges.map((gc, i) => (
+                                  <span key={`${gc.name}_${i}`} className="badge bg-light text-dark border">
+                                    {gc.name}
+                                    {gc.mode === "percentage" && (
+                                      <span style={{ color: "#888", fontWeight: 400, marginLeft: 4 }}>
+                                        ({gc.rate}%)
+                                      </span>
+                                    )}
+                                    : <strong> ₹{addCommasToNumber(gc.allocated)}</strong>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Per-product cost breakdown — line subtotal + allocated
+                              globals = displayed Total Amount above. */}
+                          {lineGlobalChargesTotal > 0 && (
+                            <div className="mt-3 p-2" style={{ background: "#f9fafb", borderRadius: 6 }}>
+                              <div className="d-flex justify-content-between small">
+                                <span className="text-muted">Line Subtotal</span>
+                                <span>₹{addCommasToNumber(lineSubtotal)}</span>
+                              </div>
+                              <div className="d-flex justify-content-between small">
+                                <span className="text-muted">Global Charges (this line's share)</span>
+                                <span>₹{addCommasToNumber(Math.round(lineGlobalChargesTotal * 100) / 100)}</span>
+                              </div>
+                              <div className="d-flex justify-content-between small fw-semibold mt-1">
+                                <span>Product Total</span>
+                                <span>₹{addCommasToNumber(productTotalIncludingGlobals)}</span>
+                              </div>
+                            </div>
+                          )}
                         </Accordion.Body>
                       </Accordion.Item>
                     );
