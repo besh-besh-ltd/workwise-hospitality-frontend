@@ -327,7 +327,31 @@ const ArcCommittee = () => {
       } catch (error) {
         return { success: false, error: error.message || 'Failed to reject ARC' };
       }
-    }
+    },
+    // Phase 3 matrix UI — per-cell action keyed on arc_item_id.
+    // Calls the same /arc/tender/:rfq_id/action endpoint but pinpoints
+    // the exact (product, vendor) cell rather than the whole product.
+    onCellAction: async (arcItemId, action, comment) => {
+      try {
+        const response = await performArcAction(
+          rfq_id,
+          action.toLowerCase(), // BE expects 'approve' / 'reject'
+          null,                  // target_stage
+          comment,                // remarks
+          null,                   // rfq_product_id (legacy, unused for cell action)
+          null,                   // approval_instance_id (BE resolves from arc_item)
+          null,                   // approval_instance_step_id
+          lifecycleData?.rfq?.department_id || null,
+          arcItemId,
+        );
+        if (response.status === 1) {
+          return { success: true };
+        }
+        return { success: false, error: response.message || 'Action failed' };
+      } catch (error) {
+        return { success: false, error: error.message || 'Action failed' };
+      }
+    },
   };
 
   // Handle stepper stage click

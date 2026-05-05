@@ -2,6 +2,7 @@ import React from 'react';
 import { Badge, Alert } from 'react-bootstrap';
 import { BsShieldCheck, BsFileBreak, BsArrowCounterclockwise } from 'react-icons/bs';
 import ProductArcCard from '../ProductArcCard';
+import ProductArcMatrix from '../ProductArcMatrix';
 import StageEventHistory from '../StageEventHistory';
 
 const StageArcReview = ({ stage, rfq, lifecycleData, onRefresh, arcHandlers }) => {
@@ -9,6 +10,13 @@ const StageArcReview = ({ stage, rfq, lifecycleData, onRefresh, arcHandlers }) =
   const instances = details.instances || lifecycleData?.arcApproval?.instances || [];
   const products = details.products || rfq?.products || [];
   const sentBackTo = details.sentBackTo;
+
+  // Phase 3 matrix view: when the BE returns arcApproval.items (one
+  // row per product × vendor cell, post-Phase-2 model), render the
+  // per-cell matrix UI. Falls back to the legacy product-level cards
+  // for tenders that haven't been re-finalised under the new model.
+  const arcItems = lifecycleData?.arcApproval?.items || [];
+  const useMatrix = arcItems.length > 0;
 
   // Get products that have ARC instances
   const productsWithArc = products.filter(product => {
@@ -73,7 +81,19 @@ const StageArcReview = ({ stage, rfq, lifecycleData, onRefresh, arcHandlers }) =
         )}
       </div>
 
-      {productsWithArc.length === 0 ? (
+      {useMatrix ? (
+        <ProductArcMatrix
+          items={arcItems}
+          rfq={rfq}
+          onAction={async (arcItemId, action, comment) => {
+            if (arcHandlers?.onCellAction) {
+              return arcHandlers.onCellAction(arcItemId, action, comment);
+            }
+            return { success: false, error: 'No cell handler provided' };
+          }}
+          onRefresh={onRefresh}
+        />
+      ) : productsWithArc.length === 0 ? (
         <Alert variant="info" className="mb-0">
           <BsShieldCheck className="me-2" />
           No products are awaiting ARC review.

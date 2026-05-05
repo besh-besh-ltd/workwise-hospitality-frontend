@@ -53,7 +53,7 @@ export const getTenderLifecycle = (rfq_id, rfq_product_id = null) => {
  * @param {number} approval_instance_id - Optional approval instance ID
  * @param {number} approval_instance_step_id - Optional approval instance step ID
  */
-export const performArcAction = (rfq_id, action, target_stage = null, remarks = null, rfq_product_id = null, approval_instance_id = null, approval_instance_step_id = null, department_id = null) => {
+export const performArcAction = (rfq_id, action, target_stage = null, remarks = null, rfq_product_id = null, approval_instance_id = null, approval_instance_step_id = null, department_id = null, arc_item_id = null) => {
   return new Promise(async (resolve, reject) => {
     try {
       const payload = {
@@ -62,8 +62,12 @@ export const performArcAction = (rfq_id, action, target_stage = null, remarks = 
         remarks,
         rfq_product_id,
         approval_instance_id,
-        approval_instance_step_id
+        approval_instance_step_id,
       };
+      // Phase 3: arc_item_id selects the per-(product, vendor) cell the
+      // committee is acting on. Optional for back-compat with the
+      // legacy product-level path.
+      if (arc_item_id) payload.arc_item_id = arc_item_id;
       if (department_id) payload.department_id = department_id;
       const response = await axiosInstance.post(`/arc/tender/${rfq_id}/action`, payload);
       resolve(response);
