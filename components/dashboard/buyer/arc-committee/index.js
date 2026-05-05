@@ -16,6 +16,8 @@ import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 
 // New flow-based components
 import TenderJourneyStepper from "./TenderJourneyStepper";
+import IterationHistoryPanel from "@/components/dashboard/buyer/tender/IterationHistoryPanel";
+import SendBackModal from "@/components/dashboard/buyer/tender/SendBackModal";
 import CurrentStageSection from "./CurrentStageSection";
 import StageTimeline from "./StageTimeline";
 import { mapLifecycleToStages, STAGE_DEFINITIONS } from "./utils/stageMapper";
@@ -33,6 +35,7 @@ const ArcCommittee = () => {
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [showActionModal, setShowActionModal] = useState(false);
+  const [sendBackOpen, setSendBackOpen] = useState(false);
   const [remarks, setRemarks] = useState('');
   const [targetStage, setTargetStage] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -557,6 +560,15 @@ const ArcCommittee = () => {
                   {/* 1. Compact Tender Summary */}
                   {renderTenderSummary()}
 
+                  {/* Phase 3.5: Iteration history. Renders only when
+                      this tender has been sent back at least once. */}
+                  {lifecycleData?.rfq?.is_tender === 1 && (
+                    <IterationHistoryPanel
+                      rfqId={lifecycleData?.rfq?.id || rfq_id}
+                      currentIteration={lifecycleData?.rfq?.iteration_number}
+                    />
+                  )}
+
                   {/* 2. Journey Stepper - Visual Progress */}
                   <TenderJourneyStepper
                     stages={stageData.stages}
@@ -595,15 +607,27 @@ const ArcCommittee = () => {
                   {lifecycleData?.arcApproval?.pending && (
                     <div className="mt-4 pt-4 border-top">
                       <h6 className="text-muted mb-2">Advanced Actions</h6>
-                      <Button
-                        variant="outline-secondary"
-                        className="p-2"
-                        onClick={handleAction}
+                      <button
+                        type="button"
+                        onClick={() => setSendBackOpen(true)}
                         disabled={submitting}
+                        style={{
+                          background: 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)',
+                          border: 'none',
+                          color: '#fff',
+                          padding: '9px 18px',
+                          borderRadius: 6,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: submitting ? 'not-allowed' : 'pointer',
+                          opacity: submitting ? 0.6 : 1,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
                       >
-                        <BsArrowRight className="me-2" />
-                        Send To Stage
-                      </Button>
+                        ↺ Send tender back
+                      </button>
                     </div>
                   )}
                 </div>
@@ -655,6 +679,46 @@ const ArcCommittee = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Phase 3.5: bespoke send-back modal that calls the new
+          tenderSendbackService via the existing performArcAction
+          (action='send_to'). Captures the required ≥30-char reason
+          and the target stage. On success, refreshes the lifecycle
+          so the IterationHistoryPanel picks up the new entry. */}
+      <SendBackModal
+        isOpen={sendBackOpen}
+        fromStage="ARC"
+        targetOptions={[
+          { value: 'TENDER_NEGOTIATION',     label: 'Negotiation' },
+          { value: 'TENDER_TECHNICAL_EVAL',  label: 'Technical Evaluation' },
+          { value: 'TENDER_QUOTING',         label: 'Quoting (re-open bids)' },
+          { value: 'DRAFT',                  label: 'Draft (full reset)' },
+        ]}
+        onClose={() => setSendBackOpen(false)}
+        onSubmit={async (target_stage, reason) => {
+          try {
+            const response = await performArcAction(
+              rfq_id,
+              'send_to',
+              target_stage,
+              reason,
+              null,
+              null,
+              null,
+              lifecycleData?.rfq?.department_id || null
+            );
+            if (response.status === 1) {
+              toast.success(response.message || 'Tender sent back successfully.');
+              setSendBackOpen(false);
+              loadLifecycleData(true);
+            } else {
+              toast.error(response.message || 'Failed to send tender back');
+            }
+          } catch (error) {
+            toast.error(error.message || 'Failed to send tender back');
+          }
+        }}
+      />
     </>
   );
 };

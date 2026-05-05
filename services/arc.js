@@ -184,3 +184,14 @@ export const getVendorArcDocument = (arcId) =>
       reject({ message: error });
     }
   });
+
+// Phase 3.5 — tender iteration history (send-back snapshots).
+export const getTenderIterationHistory = (rfq_id) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/arc/tender/${rfq_id}/iteration-history`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
