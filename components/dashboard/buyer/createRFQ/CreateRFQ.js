@@ -2850,7 +2850,13 @@ useEffect(() => {
                                   </div>
                                 )}
 
-                                {processes.length > 0 && (
+                                {/* Process dropdown:
+                                    - RFQ + Single ARC: per-process selection drives the
+                                      hotel-scoped approval matrix.
+                                    - Group ARC: hidden — the single global Group ARC
+                                      hierarchy in the Hospitality Network is used; no
+                                      per-process selection is meaningful. */}
+                                {processes.length > 0 && !(rfqFormDataFromStore.is_tender === 1 && rfqFormDataFromStore.tender_scope === 'GROUP') && (
                                   <div className="col-md-4">
                                     <label className="form-label fw-medium">Process <span className="text-danger">*</span></label>
                                     <Select
@@ -3070,7 +3076,9 @@ useEffect(() => {
                                   <>
                                     {/* Tender / ARC config block — bespoke styling, no Bootstrap.
                                         Single ARC: covers exactly one hotel.
-                                        Group ARC: ≥2 hotels under the same hospitality_company_id. */}
+                                        Group ARC: ≥2 hotels — may span any companies. The single
+                                        global Group ARC hierarchy from the Hospitality Network
+                                        admin handles approval. */}
                                     <div className="col-md-12">
                                       <div className={tenderStyles.tenderSection}>
                                         <div className={tenderStyles.sectionHeader}>
@@ -3090,7 +3098,7 @@ useEffect(() => {
                                             {
                                               value: 'GROUP',
                                               label: 'Group ARC',
-                                              description: 'Multiple hotels under the same hospitality company. Group-level committee.'
+                                              description: 'Two or more hotels — may span different companies. Approved by the global ARC hierarchy.'
                                             }
                                           ].map((opt) => {
                                             const selected = rfqFormDataFromStore.tender_scope === opt.value;
@@ -3106,6 +3114,12 @@ useEffect(() => {
                                                   checked={selected}
                                                   onChange={() => {
                                                     dispatch(setOtherFormFields({ field_name: 'tender_scope', value: opt.value }));
+                                                    // Group ARC uses the global hierarchy, not a per-process matrix.
+                                                    // Clear any stale process_id picked while on Single ARC so the
+                                                    // payload doesn't reference a process that won't be honored.
+                                                    if (opt.value === 'GROUP') {
+                                                      dispatch(setOtherFormFields({ field_name: 'process_id', value: null }));
+                                                    }
                                                     setHasUnsavedChanges(true);
                                                   }}
                                                 />
