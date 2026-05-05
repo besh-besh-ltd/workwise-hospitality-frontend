@@ -225,7 +225,7 @@ const VendorAccordionPanel = ({
       return {
         id: vendorId,
         name: getVendorDisplayName(v),
-        totalPrice: parseFloat(matchedQuote?.total_price || 0),
+        totalPrice: parseFloat(matchedQuote?.engine_grand_total ?? matchedQuote?.total_price ?? 0),
         activeRoundInfo: v.active_round_info || null,
         approvalStatus,
         isDisabled,

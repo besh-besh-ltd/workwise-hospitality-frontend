@@ -1006,7 +1006,7 @@ const QuoteCompareTable = ({
         }
         vendorDetails={currentItem?.quote_details?.vendor_details}
         rfqId={rfq}
-        quotedPrice={currentItem?.total_price}
+        quotedPrice={currentItem?.engine_grand_total ?? currentItem?.total_price}
         productDetails={proditem?.product_details}
         alreadyFinalized={alreadyFinalized}
         availableBudget={availableBudget}

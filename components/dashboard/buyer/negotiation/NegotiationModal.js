@@ -1089,10 +1089,14 @@ const NegotiationModal = ({
       const vendorDetails = getVendorDetailsFromQuote(q);
       const vendorName = vendorDetails ? getVendorDisplayName(vendorDetails) : 'Unknown';
 
-      // Source of truth: server-engine output if present on the quotation,
-      // else the persisted total_price. Falls through to the nested
-      // quote_details[0] shape some negotiation responses use.
-      let totalPrice = lineEngineTotal(q);
+      // Source of truth: prefer the quote-level grand total (per-line sum +
+      // global charges like TCS), so L1 box and chart match the vendor-row
+      // header. Fall back to engine line total / persisted total_price for
+      // legacy responses without engine_grand_total.
+      const grandFromQuote = Number(q.engine_grand_total);
+      let totalPrice = Number.isFinite(grandFromQuote) && grandFromQuote > 0
+        ? grandFromQuote
+        : lineEngineTotal(q);
       if (totalPrice === 0 && Array.isArray(q.quote_details) && q.quote_details[0]) {
         totalPrice = lineEngineTotal(q.quote_details[0]);
       }
@@ -1101,6 +1105,8 @@ const NegotiationModal = ({
       const src = (Array.isArray(q.quote_details) && q.quote_details[0]) || q;
       const unitPrice = parseFloat(src.unit_price || 0);
       const otherCharges = src.other_charges || [];
+      // Global charges (e.g. TCS) live at the quote level, not on quote_details.
+      const globalCharges = q.global_charges || [];
       const tax = parseFloat(src.tax || 0);
       const taxMode = src.tax_mode || 'percentage';
       const quantity = parseFloat(src.quantity || q.quantity || product?.quantity || 0);
@@ -1121,7 +1127,7 @@ const NegotiationModal = ({
 
       return {
         vendorName, totalPrice, unitPrice, quantity,
-        otherCharges, tax, taxMode,
+        otherCharges, globalCharges, tax, taxMode,
         deliveryPeriod, paymentTerms, vendorTC, comment, documentFiles, vendorId,
         isRegret,
       };
@@ -1200,9 +1206,23 @@ const NegotiationModal = ({
                 `Qty: ${v.quantity || '-'}`,
               ];
               (v.otherCharges || []).forEach(c => {
-                if (c.amount) lines.push(`${c.name}: ${fmtCharge(c.amount, c.amount_mode)}`);
+                const amt = Number(c.amount || 0);
+                const tax = Number(c.tax || 0);
+                if (amt <= 0 && tax <= 0) return;
+                const parts = [];
+                if (amt > 0) parts.push(fmtCharge(amt, c.amount_mode));
+                if (tax > 0) parts.push(`+ ${fmtCharge(tax, c.tax_mode)} tax`);
+                if (c.comment) parts.push(`(${c.comment})`);
+                lines.push(`${c.name || 'Charge'}: ${parts.join(' ')}`);
               });
               if (v.tax) lines.push(`GST: ${fmtCharge(v.tax, v.taxMode)}`);
+              (v.globalCharges || []).forEach(c => {
+                const tax = Number(c.tax || 0);
+                if (tax <= 0) return;
+                const parts = [fmtCharge(tax, c.tax_mode)];
+                if (c.comment) parts.push(`(${c.comment})`);
+                lines.push(`${c.name || 'Global Charge'}: ${parts.join(' ')}`);
+              });
               lines.push(`Total: ${fmt(v.totalPrice)}`);
               if (v.isL1) lines.push('★ L1 (Lowest)');
               return lines;
@@ -1958,7 +1978,9 @@ const NegotiationModal = ({
                                 const vd = q.quote_details?.vendor_details;
                                 return Number(vd?.id || vd?.user_id || q.vendor_id || q.created_by) === vid;
                               });
-                              const totalPrice = parseFloat(matchedQuote?.total_price || 0);
+                              // Use engine-resolved grand total (per-line sum + global charges)
+                              // when available, falling back to saved total_price (subtotal only).
+                              const totalPrice = parseFloat(matchedQuote?.engine_grand_total ?? matchedQuote?.total_price ?? 0);
                               const va = vendorApprovals.find(a => Number(a.vendor_id) === vid);
                               const negFields = va?.negotiation_fields || [];
                               const negFieldNames = new Set(negFields.map(f => f.name));
@@ -1966,6 +1988,7 @@ const NegotiationModal = ({
                               // Build all fields: base_price, payment_terms, + other_charges from quote
                               const src = matchedQuote || {};
                               const otherCharges = src.other_charges || [];
+                              const globalCharges = src.global_charges || [];
                               const textFieldNames = new Set(['payment_terms', 'comments', 'vendor_tc', 'documents']);
                               const allFields = [
                                 { slug: 'base_price', label: 'Base Price', quoted: src.unit_price ? `₹${Number(src.unit_price).toLocaleString('en-IN')}` : '--' },
@@ -1982,6 +2005,14 @@ const NegotiationModal = ({
                                   slug: c.slug || c.name,
                                   label: c.name,
                                   quoted: c.amount_mode === 'percentage' ? `${c.amount}%` : `₹${Number(c.amount).toLocaleString('en-IN')}`,
+                                })),
+                                // Quote-level global charges (e.g. TCS). Saved shape uses
+                                // tax/tax_mode for the rate; show that consistently with
+                                // how per-product charges display their amount/amount_mode.
+                                ...globalCharges.map(c => ({
+                                  slug: c.slug || c.name,
+                                  label: c.name,
+                                  quoted: c.tax_mode === 'percentage' ? `${c.tax}%` : `₹${Number(c.tax).toLocaleString('en-IN')}`,
                                 })),
                               ];
 
@@ -2113,13 +2144,16 @@ const NegotiationModal = ({
                                 const vd = q.quote_details?.vendor_details;
                                 return Number(vd?.id || vd?.user_id || q.vendor_id || q.created_by) === vid;
                               });
-                              const totalPrice = parseFloat(matchedQuote?.total_price || 0);
+                              // Use engine-resolved grand total (per-line sum + global charges)
+                              // when available, falling back to saved total_price (subtotal only).
+                              const totalPrice = parseFloat(matchedQuote?.engine_grand_total ?? matchedQuote?.total_price ?? 0);
                               const va = vendorApprovals.find(a => Number(a.vendor_id) === vid);
                               const negFields = va?.negotiation_fields || [];
                               const negFieldNames = new Set(negFields.map(f => f.name));
 
                               const src = matchedQuote || {};
                               const otherCharges = src.other_charges || [];
+                              const globalCharges = src.global_charges || [];
                               const allFields = [
                                 { name: 'base_price', label: 'Base Price', quoted: src.unit_price ? `₹${Number(src.unit_price).toLocaleString('en-IN')}` : '--' },
                                 { name: 'payment_terms', label: 'Payment Terms', quoted: (() => {
@@ -2132,6 +2166,12 @@ const NegotiationModal = ({
                                 ...otherCharges.map(c => ({
                                   name: c.name, label: c.name,
                                   quoted: c.amount_mode === 'percentage' ? `${c.amount}%` : `₹${Number(c.amount).toLocaleString('en-IN')}`,
+                                })),
+                                // Quote-level global charges (e.g. TCS). Saved shape stores
+                                // the rate in tax/tax_mode.
+                                ...globalCharges.map(c => ({
+                                  name: c.slug || c.name, label: c.name,
+                                  quoted: c.tax_mode === 'percentage' ? `${c.tax}%` : `₹${Number(c.tax).toLocaleString('en-IN')}`,
                                 })),
                               ];
 
