@@ -20,6 +20,9 @@ const PHASE_ICONS = {
   technical: BsClipboardCheck,
   commercial: BsGraphUpArrow,
   purchase_order: BsBoxSeam,
+  // Tender Phase 4 reuses the box icon for now — visually distinct
+  // from PO via the amber pill in the row, not the icon.
+  arc_approval: BsBoxSeam,
 };
 
 const fmt = (d) => d ? moment.utc(d).utcOffset('+05:30').format('DD MMM YYYY') : null;
@@ -582,6 +585,72 @@ const PhaseContent = ({ phase, isExpired, onApprove, onReject }) => {
             })}
           </Accordion>
         ) : null}
+      </>
+    );
+  }
+
+  // ARC Approval (tender Phase 4). Renders one row per vendor envelope
+  // with status, period, document link, and per-item decision counts.
+  // Approval instances list is shown below by the generic InstanceList
+  // (each instance is per-cell so the buyer can see the matrix progress).
+  if (phase.key === 'arc_approval') {
+    const envelopes = phase.arc_envelopes || [];
+
+    const envSummary = envelopes.length > 0 ? (
+      <div style={{ marginBottom: 10 }}>
+        <div className={styles.secLabel}>ARC Envelopes</div>
+        {envelopes.map((env, i) => {
+          const isActive = env.status === 'ACTIVE' || env.status === 'DOC_GENERATED';
+          const isVoid = env.status === 'VOID';
+          const statusVariant = isActive ? 'success' : isVoid ? 'danger' : env.status === 'PARTIALLY_DECIDED' ? 'warning' : 'secondary';
+          const periodLabel = env.period_from && env.period_to
+            ? `${fmt(env.period_from)} → ${fmt(env.period_to)}`
+            : null;
+          const decisionParts = [];
+          if (env.items_approved) decisionParts.push(`${env.items_approved} approved`);
+          if (env.items_rejected) decisionParts.push(`${env.items_rejected} rejected`);
+          if (env.items_pending) decisionParts.push(`${env.items_pending} pending`);
+          return (
+            <div key={i} className={styles.poRow}>
+              <strong>{env.vendor_company || env.vendor_name || `Vendor #${env.vendor_id}`}</strong>
+              {env.tender_scope === 'GROUP' && (
+                <span
+                  style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: '#A86A00', background: '#FFF3DD', border: '1px solid #FFA500', borderRadius: 4, padding: '2px 6px' }}
+                  title="Group ARC — covers multiple BUs"
+                >
+                  Group
+                </span>
+              )}
+              {periodLabel && <span className={styles.poGroupProducts}>{periodLabel}</span>}
+              {decisionParts.length > 0 && <span className={styles.poVendor}>{decisionParts.join(' · ')}</span>}
+              <Badge bg={statusVariant} style={{ fontSize: '0.6rem' }}>
+                {env.status?.replace(/_/g, ' ')}
+              </Badge>
+              {env.document_url && (
+                <a
+                  href={env.document_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={styles.poBold}
+                  style={{ marginLeft: 'auto', fontSize: 11, textDecoration: 'underline' }}
+                >
+                  Download contract
+                </a>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    ) : null;
+
+    // The per-cell ARC approval instances render generically. Buyer sees
+    // each (product × vendor) approval flow inline.
+    return (
+      <>
+        {envSummary}
+        {instances.length > 0 && (
+          <InstanceList instances={instances} isExpired={isExpired} onApprove={onApprove} onReject={onReject} />
+        )}
       </>
     );
   }
