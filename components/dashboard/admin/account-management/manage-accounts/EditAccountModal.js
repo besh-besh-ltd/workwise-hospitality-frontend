@@ -134,17 +134,27 @@ const EditAccountModal = ({
       statusVal = 1;
     }
 
-    // Auto-add pending role scope if the user filled the form but didn't click Add
+    // Auto-add pending role scope if the user filled the form but didn't click Add.
+    // Network-scope rows have no company_id; we accept them on the
+    // is_network_scope flag instead so they aren't silently dropped on save.
     let finalRoleScopes = [...(roleScopes || [])];
     const pending = pendingScopeRef.current;
-    if (pending && pending.role_id && pending.company_id) {
-      const isDuplicate = finalRoleScopes.some(
-        (r) =>
+    const pendingIsNetwork = pending?.is_network_scope === 1 || pending?.is_network_scope === true;
+    if (pending && pending.role_id && (pending.company_id || pendingIsNetwork)) {
+      const isDuplicate = finalRoleScopes.some((r) => {
+        const rNetwork = r.is_network_scope === 1 || r.is_network_scope === true;
+        if (pendingIsNetwork) {
+          // Network-scope rows dedup on (role_id, is_network_scope) only.
+          return r.role_id === pending.role_id && rNetwork;
+        }
+        return (
           r.role_id === pending.role_id &&
+          !rNetwork &&
           r.company_id === pending.company_id &&
           (r.hotel_id || null) === (pending.hotel_id || null) &&
           (r.department_id || null) === (pending.department_id || null)
-      );
+        );
+      });
       if (!isDuplicate) {
         finalRoleScopes.push(pending);
       }
@@ -166,14 +176,28 @@ const EditAccountModal = ({
     );
     departmentIds = Array.from(new Set([...departmentIds, ...roleScopeDeptIds]));
 
-    const filteredRoles = finalRoleScopes.map((role) => ({
-      role_id: role.role_id,
-      role_title: role.role_title || null,
-      company_id: role.company_id || null,
-      hotel_id: role.hotel_id || null,
-      department_id: role.department_id || null,
-      permissions: role.permissions || {},
-    }));
+    // Network-scope grants must NOT carry company/hotel/department —
+    // the server-side rbacModel.assignUserRoleScopes also sanitises but
+    // we emit the canonical shape here so the audit log is clean.
+    const filteredRoles = finalRoleScopes.map((role) => {
+      const isNetwork = role.is_network_scope === 1 || role.is_network_scope === true;
+      if (isNetwork) {
+        return {
+          role_id: role.role_id,
+          role_title: role.role_title || null,
+          is_network_scope: 1,
+          permissions: role.permissions || {},
+        };
+      }
+      return {
+        role_id: role.role_id,
+        role_title: role.role_title || null,
+        company_id: role.company_id || null,
+        hotel_id: role.hotel_id || null,
+        department_id: role.department_id || null,
+        permissions: role.permissions || {},
+      };
+    });
 
     onSave({
       id: values.id,

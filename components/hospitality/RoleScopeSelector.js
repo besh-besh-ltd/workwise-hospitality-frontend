@@ -763,7 +763,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
               <button
                 type="button"
                 className={styles.primaryBtn}
-                disabled={!selectedRole || !selectedCompany}
+                disabled={!selectedRole || (!isNetworkScope && !selectedCompany)}
                 onClick={handleAddRole}
               >
                 {isEditing ? "Save Changes" : "Add Role"}

@@ -164,14 +164,23 @@ const CreateAccountPage = () => {
         }
       }
 
-      // Include roles and mappings directly in the create payload
+      // Include roles and mappings directly in the create payload.
+      // Network-scope grants (is_network_scope=1) emit a slim payload
+      // with no BU columns — the server-side rbacModel sanitises but
+      // we send the canonical shape so the audit trail is clean.
       if (isHospitality && pendingRoleScopes.length > 0) {
-        apiData.roles = pendingRoleScopes.map((role) => ({
-          role_id: role.role_id,
-          company_id: role.company_id || null,
-          hotel_id: role.hotel_id || null,
-          department_id: role.department_id || null,
-        }));
+        apiData.roles = pendingRoleScopes.map((role) => {
+          const isNetwork = role.is_network_scope === 1 || role.is_network_scope === true;
+          if (isNetwork) {
+            return { role_id: role.role_id, is_network_scope: 1 };
+          }
+          return {
+            role_id: role.role_id,
+            company_id: role.company_id || null,
+            hotel_id: role.hotel_id || null,
+            department_id: role.department_id || null,
+          };
+        });
       }
 
       if (isHospitality && pendingMappings.length > 0) {

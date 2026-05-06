@@ -63,7 +63,18 @@ const GlobalArcHierarchyPage = () => {
         stageEntityTypes.forEach((et, idx) => {
           const data = stageRes[idx]?.data?.data || stageRes[idx]?.data || {};
           map[et] = {
-            roles: (data.roles || []).map((r) => ({ id: r.id, title: r.title || r.name })),
+            // Roles carry per-role network-scope users (the wizard renders
+            // "ARC Approver — 3 users eligible" using this) so we preserve
+            // the inner users[] shape end-to-end.
+            roles: (data.roles || []).map((r) => ({
+              id: r.id,
+              title: r.title || r.name,
+              users: (r.users || []).map((u) => ({
+                user_id: u.id || u.user_id,
+                name: u.name,
+                email: u.email,
+              })),
+            })),
             users: (data.users || []).map((u) => ({
               user_id: u.id || u.user_id,
               name: u.name,
@@ -144,12 +155,17 @@ const GlobalArcHierarchyPage = () => {
       }
       if (step.approver_source_type === "ROLE") {
         const r = lookupRole(step.approver_source_id);
+        // Surface the role's eligible network-scope users so the
+        // wizard can render the live committee preview AND the
+        // ApprovalStepCard's "No users available" warning fires
+        // accurately (only when nobody actually holds the role at
+        // network scope inside this tenant).
         return {
           name: r?.title || "Unknown Role",
           email: "",
           type: "Role",
           typeLabel: "User Role",
-          users: [],
+          users: r?.users || [],
         };
       }
       return { name: "Unknown", email: "", type: "", typeLabel: "", users: [] };
