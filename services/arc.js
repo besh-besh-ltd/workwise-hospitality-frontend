@@ -114,6 +114,25 @@ export const getEligibleArcVendors = ({ arc_id, hotel_id, product_variant_id }) 
   });
 
 /**
+ * Live pricing for the release wizard. Returns the engine grand total +
+ * full breakdown (base, base_tax, charges, charges_total, total) for a
+ * contracted line at a given quantity. Server is the single source of
+ * truth — wizard renders verbatim, no client-side math.
+ */
+export const getArcReleasePricing = ({ arc_item_id, quantity }) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const params = new URLSearchParams();
+      if (arc_item_id) params.append('arc_item_id', arc_item_id);
+      if (quantity) params.append('quantity', quantity);
+      const response = await axiosInstance.get(`/arc/release/quote?${params.toString()}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+/**
  * Create a release against an ARC. Body shape:
  *   { arc_id, hotel_id, items: [{ arc_item_id, quantity }] }
  * Server validates eligibility, snapshots prices, drafts a Contracted PO

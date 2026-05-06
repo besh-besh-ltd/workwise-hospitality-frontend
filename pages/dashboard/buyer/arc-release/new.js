@@ -1,9 +1,9 @@
 import Head from "next/head";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { AuthGuard } from "@/utils/authGuard";
-import { getEligibleArcVendors, createArcRelease } from "@/services/arc";
+import { getEligibleArcVendors, createArcRelease, getArcReleasePricing } from "@/services/arc";
 import s from "./new.module.scss";
 
 // Phase 7 FE — ARC Release wizard.
@@ -114,12 +114,51 @@ const ArcReleaseNewPage = () => {
     [eligible, selectedArcId, selectedArcItemId]
   );
 
-  const lineTotal = useMemo(() => {
-    if (!selected) return 0;
+  // Engine-computed pricing from the BE. Authoritative source of truth
+  // for the wizard's review step — same path the persisted PO will
+  // follow. Debounced on quantity change so we don't flood the API with
+  // every keystroke.
+  const [pricing, setPricing] = useState(null);
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingError, setPricingError] = useState(null);
+
+  useEffect(() => {
+    setPricing(null);
+    setPricingError(null);
+    if (!selectedArcItemId) return;
     const q = Number(quantity);
-    if (!Number.isFinite(q) || q <= 0) return 0;
-    return Number(selected.unit_price) * q;
-  }, [selected, quantity]);
+    if (!Number.isFinite(q) || q <= 0) return;
+
+    let cancelled = false;
+    setPricingLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await getArcReleasePricing({
+          arc_item_id: Number(selectedArcItemId),
+          quantity: q,
+        });
+        if (cancelled) return;
+        setPricing(res?.data?.data || res?.data || null);
+      } catch (err) {
+        if (cancelled) return;
+        setPricingError(
+          err?.message?.response?.data?.message ||
+            err?.response?.data?.message ||
+            "Failed to fetch pricing"
+        );
+      } finally {
+        if (!cancelled) setPricingLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectedArcItemId, quantity]);
+
+  const breakdown = pricing?.breakdown || null;
+  const lineTotal = breakdown?.total ?? 0;
 
   const handleSubmit = async () => {
     if (!selectedArcId || !selectedArcItemId) {
@@ -143,7 +182,10 @@ const ArcReleaseNewPage = () => {
         throw new Error("Server did not return a PO id");
       }
       toast.success("Release created — Contracted PO drafted.");
-      router.replace(`/dashboard/buyer/purchase-order/${data.po_id}`);
+      // The standard PO details surface is keyed on rfq_id, which a
+      // contracted PO doesn't have. Land the buyer on the Contracted
+      // POs listing instead — the new draft sits at the top.
+      router.replace("/dashboard/buyer/purchase-order/contracted");
     } catch (err) {
       toast.error(err?.message?.response?.data?.message || err?.response?.data?.message || "Failed to create release");
       setSubmitting(false);
@@ -277,13 +319,50 @@ const ArcReleaseNewPage = () => {
                 <span>Quantity</span>
                 <span>{Number(quantity) > 0 ? quantity : "—"}</span>
               </div>
-              <div className={`${s.summaryRow} ${s.summaryTotal}`}>
-                <span>Line total</span>
-                <span>₹{lineTotal.toFixed(2)}</span>
-              </div>
-              <p className={s.summaryNote}>
-                Final tax / charges are recomputed by the server using the contract's pricing snapshot — the figure above is indicative.
-              </p>
+              {breakdown ? (
+                <>
+                  <div className={s.summaryRow}>
+                    <span>Subtotal</span>
+                    <span>₹{Number(breakdown.base).toFixed(2)}</span>
+                  </div>
+                  {Number(breakdown.base_tax) > 0 && (
+                    <div className={s.summaryRow}>
+                      <span>
+                        GST
+                        {breakdown.base_tax_mode === "percentage" && Number(breakdown.base_tax_rate) > 0
+                          ? ` (${Number(breakdown.base_tax_rate)}%)`
+                          : ""}
+                      </span>
+                      <span>₹{Number(breakdown.base_tax).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {Array.isArray(breakdown.charges) &&
+                    breakdown.charges.map((c, idx) => (
+                      <div key={`${c.name || c.slug || "charge"}-${idx}`} className={s.summaryRow}>
+                        <span>{c.name || c.slug || "Charge"}</span>
+                        <span>₹{Number(c.subtotal ?? c.amount + (c.tax || 0)).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  <div className={`${s.summaryRow} ${s.summaryTotal}`}>
+                    <span>Grand total</span>
+                    <span>₹{Number(breakdown.total).toFixed(2)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className={`${s.summaryRow} ${s.summaryTotal}`}>
+                  <span>Grand total</span>
+                  <span>
+                    {pricingLoading
+                      ? "Calculating…"
+                      : pricingError
+                      ? "—"
+                      : Number(quantity) > 0
+                      ? "Calculating…"
+                      : "—"}
+                  </span>
+                </div>
+              )}
+              {pricingError && <p className={s.summaryError}>{pricingError}</p>}
             </div>
             <div className={s.actions}>
               {eligible.length > 1 && (
@@ -291,7 +370,12 @@ const ArcReleaseNewPage = () => {
                   Back
                 </button>
               )}
-              <button type="button" className={s.btnPrimary} onClick={() => setStep(3)} disabled={!(Number(quantity) > 0)}>
+              <button
+                type="button"
+                className={s.btnPrimary}
+                onClick={() => setStep(3)}
+                disabled={!(Number(quantity) > 0) || pricingLoading || !breakdown}
+              >
                 Continue
               </button>
             </div>
@@ -314,8 +398,29 @@ const ArcReleaseNewPage = () => {
               <dd>{quantity}</dd>
               <dt>Unit price</dt>
               <dd>₹{Number(selected.unit_price).toFixed(2)}</dd>
-              <dt>Indicative line total</dt>
-              <dd>₹{lineTotal.toFixed(2)}</dd>
+              {breakdown && Number(breakdown.base_tax) > 0 && (
+                <>
+                  <dt>Subtotal</dt>
+                  <dd>₹{Number(breakdown.base).toFixed(2)}</dd>
+                  <dt>
+                    GST
+                    {breakdown.base_tax_mode === "percentage" && Number(breakdown.base_tax_rate) > 0
+                      ? ` (${Number(breakdown.base_tax_rate)}%)`
+                      : ""}
+                  </dt>
+                  <dd>₹{Number(breakdown.base_tax).toFixed(2)}</dd>
+                </>
+              )}
+              {breakdown &&
+                Array.isArray(breakdown.charges) &&
+                breakdown.charges.map((c, idx) => (
+                  <Fragment key={`${c.name || c.slug || "charge"}-${idx}`}>
+                    <dt>{c.name || c.slug || "Charge"}</dt>
+                    <dd>₹{Number(c.subtotal ?? c.amount + (c.tax || 0)).toFixed(2)}</dd>
+                  </Fragment>
+                ))}
+              <dt className={s.reviewGrandLabel}>Grand total</dt>
+              <dd className={s.reviewGrandValue}>₹{Number(lineTotal).toFixed(2)}</dd>
             </dl>
             <p className={s.confirmCopy}>
               Submitting will create a release against this contract and immediately draft a Contracted PO. The PO will follow the standard PO approval flow before it's sent to the vendor.

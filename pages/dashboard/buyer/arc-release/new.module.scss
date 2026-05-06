@@ -3,8 +3,9 @@
 // "GROUP ARC · GLOBAL" indicator and the Contracted-Item modal.
 
 .page {
-  max-width: 880px;
+  max-width: 1280px;
   margin: 0 auto;
+  margin-top: 48px;
   padding: 32px 28px 80px;
   font-family: inherit;
   color: var(--dark-color, #1a2730);
@@ -54,6 +55,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  margin-left: 12px;
   padding: 4px 10px;
   border-radius: 999px;
   background: linear-gradient(90deg, #2e5ba8 0%, #3b82f6 100%);
@@ -285,6 +287,27 @@
   color: var(--muted-text, #6c757d);
   margin: 8px 0 0 0;
   font-style: italic;
+}
+
+.summaryError {
+  font-size: 12px;
+  color: #b91c1c;
+  margin: 8px 0 0 0;
+}
+
+.reviewGrandLabel {
+  border-top: 1px solid var(--light-grey-border, #e9ecef);
+  padding-top: 10px;
+  margin-top: 4px;
+  color: var(--dark-color, #1a2730) !important;
+}
+
+.reviewGrandValue {
+  border-top: 1px solid var(--light-grey-border, #e9ecef);
+  padding-top: 10px;
+  margin-top: 4px;
+  font-weight: 700 !important;
+  color: var(--primary-color, #2e5ba8) !important;
 }
 
 .reviewGrid {

@@ -114,7 +114,10 @@ export const handleRejectPO = async (po_id, reason) => {
 };
 // Phase 7 — Contracted POs (drafted from an ARC release).
 // Server scopes by req.user.company_id; FE just passes filters.
+// The axios response interceptor already unwraps to the JSON body, so
+// `res` here is `{ status, data, total, page, limit }`. Return the whole
+// envelope so the listing page can read both rows and pagination meta.
 export const getContractedPOs = async (params = {}) => {
   const res = await axiosInstance.get(`/po/contracted`, { params });
-  return res.data;
+  return res;
 };

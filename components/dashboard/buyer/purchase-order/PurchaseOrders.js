@@ -95,17 +95,26 @@ const PurchaseOrders = () => {
   const canWrite = rawCanWrite && !isRfqClosed;
   const canRegenerate = rawCanRegenerate && !isRfqClosed;
 
-  // Fetch RFQ metadata when rfq changes (for permission context)
+  // Direct PO mode: ?po=<id> without an ?rfq= — i.e. opening a PO
+  // standalone (typical for contracted POs that have no parent RFQ).
+  // The page bootstraps from the PO record itself instead of an RFQ.
+  const directPoMode = !rfq && !!po;
+
+  // Fetch RFQ metadata when rfq changes (for permission context). In
+  // direct-PO mode we skip this and derive currentRfqData from the PO
+  // response after it loads (see getPODetails below).
   useEffect(() => {
     if (!rfq) {
-      setCurrentRfqData(null);
+      // Don't clobber currentRfqData when in direct-PO mode — that
+      // state is hydrated from getPODetails for standalone PO views.
+      if (!directPoMode) setCurrentRfqData(null);
       return;
     }
     getRFQById(rfq).then(res => {
       const data = Array.isArray(res.data) ? res.data[0] : res.data;
       setCurrentRfqData(data || null);
     }).catch(() => setCurrentRfqData(null));
-  }, [rfq]);
+  }, [rfq, directPoMode]);
 
   const fetchCompanyUsers = async () => {
     try {
@@ -309,7 +318,30 @@ const PurchaseOrders = () => {
     setloading(true);
     try {
       const value = await getPoDetails(po);
-      if(value) setPODetails(value);
+      if(value) {
+        setPODetails(value);
+        // Direct-PO mode: there's no rfq query param to drive
+        // currentRfqData. Synthesise the minimal shape that
+        // useModulePermissions + the rest of the gating reads from
+        // the PO response itself (BE returns effective_* fields that
+        // resolve via the arc_release chain for contracted POs).
+        if (!rfq) {
+          setCurrentRfqData({
+            id: value.effective_rfq_id || null,
+            hotel_id: value.effective_hotel_id || null,
+            hospitality_company_id: value.effective_hospitality_company_id || null,
+            hospitality_hotel_id: value.effective_hotel_id || null,
+            department_id: value.department_id || null,
+            status: value.rfq_status || null,
+            is_tender: value.is_tender ?? null,
+            is_contracted_po: !!value.is_contracted_po,
+            arc_release_id: value.arc_release_id || null,
+            arc_id: value.arc_id || null,
+            rfq_no: value.rfq_no || null,
+            title: value.rfq_title || null,
+          });
+        }
+      }
     } finally {
       setloading(false);
     }
@@ -356,6 +388,7 @@ const PurchaseOrders = () => {
   }, [edit])
 
   useEffect(() => {
+    if (directPoMode) return; // No sidebar in direct-PO mode — skip the fetch.
     const handler = setTimeout(() => {
       getAllRFQs(true);
     }, 1000);
@@ -363,7 +396,7 @@ const PurchaseOrders = () => {
     return () => {
       clearTimeout(handler);
     };
-  }, [rfqNo, selectedHotelIds]);
+  }, [rfqNo, selectedHotelIds, directPoMode]);
 
   useEffect(() => {
       fetchUserHotelMappings();
@@ -429,12 +462,12 @@ const PurchaseOrders = () => {
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
           <div className={styles.layoutRow}>
-              {isMobile && (
+              {isMobile && !directPoMode && (
                 <button className={styles.mobileSidebarToggle} onClick={() => setSidebarOpen(true)}>
                   <BsList size={18} /> Select RFQ
                 </button>
               )}
-              <RFQListSidebar
+              {!directPoMode && <RFQListSidebar
                 title="Purchase Orders"
                 mobileOpen={isMobile ? sidebarOpen : undefined}
                 onMobileClose={() => setSidebarOpen(false)}
@@ -484,10 +517,10 @@ const PurchaseOrders = () => {
                   return [{ label: 'In Progress', variant: 'info' }];
                 }}
                 pageId="purchase_order"
-              />
+              />}
             <div className={styles.contentColumn}>
-              {/* Empty state - no RFQ selected */}
-              {!rfq && !permissionsLoading && (
+              {/* Empty state - no RFQ selected (and not direct-PO) */}
+              {!rfq && !directPoMode && !permissionsLoading && (
                 <div className={styles.emptyState}>
                   <div className={styles.emptyStateIcon}>
                     <BsFileEarmarkText size={24} />
@@ -500,7 +533,7 @@ const PurchaseOrders = () => {
               )}
 
               {/* Unified loader for permissions check + data fetch */}
-              {rfq && (permissionsLoading || (!permissionsLoading && canRead && loading && !poData && !poDetails)) && (
+              {(rfq || directPoMode) && (permissionsLoading || (!permissionsLoading && canRead && loading && !poData && !poDetails)) && (
                 <div className={styles.emptyState} style={{ minHeight: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <div style={{ textAlign: 'center' }}>
                     <div className={styles.emptyStateIcon} style={{ background: 'rgba(46, 91, 168, 0.08)', margin: '0 auto 12px' }}>
@@ -517,16 +550,16 @@ const PurchaseOrders = () => {
               )}
 
               {/* Access Denied */}
-              {rfq && !permissionsLoading && currentRfqData && !canRead && (
+              {(rfq || directPoMode) && !permissionsLoading && currentRfqData && !canRead && (
                 <AccessDeniedPage
                   title="Access Denied"
-                  message="You do not have permission to view Purchase Orders for this RFQ. Contact your administrator to request access."
+                  message="You do not have permission to view this Purchase Order. Contact your administrator to request access."
                   showBackButton={false}
                 />
               )}
 
               {/* Content area */}
-              {rfq && !permissionsLoading && canRead && (
+              {(rfq || directPoMode) && !permissionsLoading && canRead && (
                 <>
 
                   {/* Closed-RFQ Lock Banner — supersedes the read-only banner. Wait for content to load. */}
@@ -603,8 +636,13 @@ const PurchaseOrders = () => {
                       handleInitiatePO={canWrite ? handleInitiatePO : undefined}
                       handleBack={() => {
                         setPODetails(null);
+                        // Direct-PO (contracted) view has no RFQ to fall
+                        // back to — return to the contracted listing
+                        // instead so the buyer keeps their context.
                         router.push(
-                          `/dashboard/buyer/purchase-order/?rfq=${rfq}`,
+                          directPoMode
+                            ? `/dashboard/buyer/purchase-order/contracted`
+                            : `/dashboard/buyer/purchase-order/?rfq=${rfq}`,
                           null,
                           { shallow: true }
                         );

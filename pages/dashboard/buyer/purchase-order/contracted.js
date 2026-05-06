@@ -83,7 +83,7 @@ const ContractedPOsPage = () => {
           <div>
             <h1 className={s.title}>Contracted POs</h1>
             <p className={s.subtitle}>
-              Purchase orders drafted from active rate contracts. Open-market POs still live on the
+              Purchase orders drafted from active rate contracts.<br/>Open-market POs still live on the
               {" "}<Link href="/dashboard/buyer/purchase-order" className={s.inlineLink}>standard PO listing</Link>.
             </p>
           </div>
@@ -163,7 +163,24 @@ const ContractedPOsPage = () => {
                     return (
                       <tr key={po.id}>
                         <td>
-                          <span className={s.poNumber}>#{po.po_number}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span className={s.poNumber}>#{po.po_number}</span>
+                            <span
+                              title="Drafted from an active rate contract"
+                              style={{
+                                padding: "2px 8px",
+                                borderRadius: 999,
+                                background: "linear-gradient(90deg, #2E5BA8 0%, #3b82f6 100%)",
+                                color: "#fff",
+                                fontSize: 9,
+                                fontWeight: 700,
+                                letterSpacing: 0.4,
+                                textTransform: "uppercase",
+                              }}
+                            >
+                              Contracted
+                            </span>
+                          </div>
                           <div className={s.poDate}>{formatDate(po.created_at)}</div>
                         </td>
                         <td>{po.vendor_name || `Vendor #${po.finalized_vendor_id}`}</td>

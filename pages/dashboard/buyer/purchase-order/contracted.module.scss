@@ -3,8 +3,8 @@
 // arc-release surfaces (brand-blue accents, soft shadows).
 
 .page {
-  max-width: 1240px;
-  margin: 0 auto;
+  max-width: 1800px;
+  margin: 40px 0 auto;
   padding: 32px 28px 80px;
   font-family: inherit;
   color: var(--dark-color, #1a2730);
@@ -171,14 +171,26 @@
     border-bottom: 1px solid var(--light-grey-border, #e9ecef);
   }
 
+  // Every row on the contracted listing is a contracted PO — paint
+  // the row with a subtle brand-blue tint + left accent so it reads
+  // as "this is not an open-market PO at a glance".
   tbody td {
     padding: 12px 14px;
     border-bottom: 1px solid var(--light-grey-border, #e9ecef);
     vertical-align: top;
+    background: linear-gradient(180deg, #f5f8ff 0%, #f8faff 100%);
   }
 
-  tbody tr:hover {
-    background: rgba(46, 91, 168, 0.02);
+  tbody tr {
+    position: relative;
+  }
+
+  tbody tr td:first-child {
+    border-left: 3px solid var(--primary-color, #2e5ba8);
+  }
+
+  tbody tr:hover td {
+    background: linear-gradient(180deg, #eef4ff 0%, #f0f4ff 100%);
   }
 
   tbody tr:last-child td {

@@ -52,7 +52,10 @@ const ContractedItemModal = ({
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: "min(640px, calc(100vw - 32px))",
+          // 760px gives the 4-column table room to breathe — date
+          // ranges ("06 May 2026 → 31 Mar 2027") and vendor names no
+          // longer wrap mid-cell at 640px.
+          width: "min(760px, calc(100vw - 32px))",
           maxHeight: "calc(100vh - 64px)",
           overflowY: "auto",
           background: "#ffffff",
@@ -101,32 +104,62 @@ const ContractedItemModal = ({
             overflow: "hidden",
           }}
         >
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          {/* Fixed-layout table: column widths set explicitly so the
+              browser doesn't redistribute when one cell has long
+              content. Validity + Unit Price stay nowrap (their content
+              is naturally one line); Tender + Vendor get the breathing
+              room. <colgroup> drives widths so headers and rows align. */}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: "26%" }} />
+              <col style={{ width: "30%" }} />
+              <col style={{ width: "30%" }} />
+              <col style={{ width: "14%" }} />
+            </colgroup>
             <thead>
               <tr style={{ background: "#eef2f7" }}>
-                <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "#334155" }}>Vendor</th>
-                <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "#334155" }}>Tender</th>
-                <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "#334155" }}>Validity</th>
-                <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#334155" }}>Unit Price</th>
+                <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#334155", whiteSpace: "nowrap" }}>Vendor</th>
+                <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#334155", whiteSpace: "nowrap" }}>Tender</th>
+                <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#334155", whiteSpace: "nowrap" }}>Validity</th>
+                <th style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600, color: "#334155", whiteSpace: "nowrap" }}>Unit&nbsp;Price</th>
               </tr>
             </thead>
             <tbody>
               {arcs.map((arc) => (
                 <tr key={`${arc.arc_id}-${arc.hotel_id}`} style={{ borderTop: "1px solid #e2e8f0" }}>
-                  <td style={{ padding: "8px 10px", color: "#0f172a" }}>{arc.vendor_name || `Vendor #${arc.vendor_id}`}</td>
-                  <td style={{ padding: "8px 10px", color: "#475569" }}>
+                  <td style={{ padding: "12px 12px", color: "#0f172a", verticalAlign: "top" }}>
+                    {arc.vendor_name || `Vendor #${arc.vendor_id}`}
+                  </td>
+                  <td style={{ padding: "12px 12px", color: "#475569", verticalAlign: "top" }}>
                     #{arc.source_rfq_no}
                     {arc.source_rfq_title ? (
-                      <span style={{ display: "block", fontSize: 11, color: "#94a3b8" }}>{arc.source_rfq_title}</span>
+                      <span style={{
+                        display: "block",
+                        fontSize: 11,
+                        color: "#94a3b8",
+                        marginTop: 2,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }} title={arc.source_rfq_title}>
+                        {arc.source_rfq_title}
+                      </span>
                     ) : null}
                   </td>
-                  <td style={{ padding: "8px 10px", color: "#475569" }}>
+                  <td style={{ padding: "12px 12px", color: "#475569", verticalAlign: "top", whiteSpace: "nowrap" }}>
                     {formatDate(arc.period_from)} → {formatDate(arc.period_to)}
-                    <span style={{ display: "block", fontSize: 11, color: "#94a3b8" }}>
+                    <span style={{ display: "block", fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
                       {arc.tender_scope === "GROUP" ? "Group ARC" : "Single ARC"}
                     </span>
                   </td>
-                  <td style={{ padding: "8px 10px", textAlign: "right", color: "#0f172a", fontWeight: 600 }}>
+                  <td style={{
+                    padding: "12px 12px",
+                    textAlign: "right",
+                    color: "#0f172a",
+                    fontWeight: 600,
+                    verticalAlign: "top",
+                    whiteSpace: "nowrap",
+                  }}>
                     ₹{Number(arc.unit_price || 0).toFixed(2)}
                   </td>
                 </tr>

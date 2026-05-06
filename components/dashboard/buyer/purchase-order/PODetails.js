@@ -160,7 +160,16 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     initiated_by_email,
     initiated_by_phone,
     rfq_no,
-    rfq_title
+    rfq_title,
+    // Contracted-PO context (Phase 7). All NULL for open-market POs.
+    is_contracted_po,
+    arc_id,
+    arc_release_id,
+    arc_tender_scope,
+    arc_period_from,
+    arc_period_to,
+    arc_document_url,
+    effective_rfq_id,
   } = data;
 
   const [selectedMilestone, setSelectedMilestone] = useState(null);
@@ -462,6 +471,27 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               <Badge bg={statusColors[status] || 'secondary'} className={styles.heroStatusBadge}>
                 {status === 'acceptance_pending' ? 'Awaiting' : status === 'rejected_by_vendor' ? 'Rejected' : status === 'approved' ? 'Accepted' : (status || '').replace(/_/g, ' ')}
               </Badge>
+              {!!is_contracted_po && (
+                <span
+                  title="Drafted from an active rate contract — not an open-market RFQ"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    marginLeft: 8,
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    background: 'linear-gradient(90deg, #2E5BA8 0%, #3b82f6 100%)',
+                    color: '#fff',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: 0.4,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Contracted PO
+                </span>
+              )}
             </div>
             <p className={styles.detailsHeroSub}>
               <BsPersonPlus size={12} style={{ opacity: 0.7, marginRight: 4 }} />
@@ -530,6 +560,107 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               )}
             </div>
           </div>
+
+          {/* ── Contracted PO banner — only when this PO was drafted
+                from an ARC release. Surfaces the source tender link
+                and the signed ARC document so a buyer can audit the
+                contract terms without leaving the PO surface. ── */}
+          {!!is_contracted_po && (
+            <div
+              style={{
+                margin: '14px 20px 0',
+                border: '1px solid #c7d2fe',
+                background: 'linear-gradient(180deg, #eef4ff 0%, #f5f8ff 100%)',
+                borderLeft: '4px solid #2E5BA8',
+                borderRadius: 10,
+                padding: '14px 20px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: 16,
+                fontSize: 13,
+                color: '#1e293b',
+              }}
+            >
+              <div style={{ flex: '1 1 320px', minWidth: 280 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#2E5BA8', letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: 4 }}>
+                  Released against an active rate contract
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center', fontSize: 13 }}>
+                  {effective_rfq_id && rfq_no ? (
+                    <a
+                      href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${effective_rfq_id}`}
+                      style={{ color: '#2E5BA8', fontWeight: 600, textDecoration: 'none' }}
+                      title="Open the source tender"
+                    >
+                      Tender #{rfq_no}{rfq_title ? ` — ${rfq_title}` : ''} ↗
+                    </a>
+                  ) : null}
+                  {arc_id && (
+                    <span style={{ color: '#475569' }}>
+                      ARC #{arc_id}
+                      {arc_tender_scope ? (
+                        <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: '#2E5BA8', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                          · {arc_tender_scope === 'GROUP' ? 'Group ARC' : 'Single ARC'}
+                        </span>
+                      ) : null}
+                    </span>
+                  )}
+                  {(arc_period_from || arc_period_to) && (
+                    <span style={{ color: '#475569' }}>
+                      Valid {formatIST(arc_period_from)} → {formatIST(arc_period_to)}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {arc_document_url ? (
+                  <a
+                    href={arc_document_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '8px 14px',
+                      borderRadius: 6,
+                      border: 'none',
+                      background: 'linear-gradient(90deg, #2E5BA8 0%, #3b82f6 100%)',
+                      color: '#fff',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <BsFileEarmarkText size={14} /> View ARC Document
+                  </a>
+                ) : (
+                  <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>
+                    ARC document is being generated…
+                  </span>
+                )}
+                <a
+                  href="/dashboard/buyer/purchase-order/contracted"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '8px 14px',
+                    borderRadius: 6,
+                    border: '1px solid #c7d2fe',
+                    background: '#fff',
+                    color: '#2E5BA8',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                  }}
+                >
+                  All Contracted POs
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* ── Meta Grid ── */}
           <div className={styles.detailsMetaGrid}>
