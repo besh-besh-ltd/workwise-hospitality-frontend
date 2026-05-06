@@ -1,31 +1,34 @@
 import React, { useEffect, useState, useMemo } from "react";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { getArcRfqList, getTenderLifecycle, performArcAction } from "@/services/arc";
 import { getRFQById } from "@/services/rfq";
 import { useSelector } from 'react-redux';
-import { formatRFQNumber } from "@/utils/sharedFunctions";
 import { toast } from "react-toastify";
-import FullLoader from "@/components/shared/FullLoader";
 import Select from 'react-select';
-import moment from 'moment';
-import { Badge, Button, Modal, Form, Alert } from 'react-bootstrap';
-import { BsArrowRight } from "react-icons/bs";
+import { Button, Modal, Form, Alert } from 'react-bootstrap';
+import { BsList } from "react-icons/bs";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
+import RFQListSidebar from "@/components/shared/RFQListSidebar";
+import useIsMobile from "@/hooks/useIsMobile";
 
-// New flow-based components
-import TenderJourneyStepper from "./TenderJourneyStepper";
+// Decision-first redesigned components (replaces the old stepper +
+// current-stage card + per-stage Stage* components). See
+// docs/superpowers/specs/2026-05-07-arc-committee-review-redesign-design.md
+import DecisionBrief from "./DecisionBrief";
+import DecisionMatrix from "./DecisionMatrix";
+import LifecycleAccordion from "./LifecycleAccordion";
 import IterationHistoryPanel from "@/components/dashboard/buyer/tender/IterationHistoryPanel";
 import SendBackModal from "@/components/dashboard/buyer/tender/SendBackModal";
-import CurrentStageSection from "./CurrentStageSection";
-import StageTimeline from "./StageTimeline";
 import { mapLifecycleToStages, STAGE_DEFINITIONS } from "./utils/stageMapper";
+import styles from "./ArcCommittee.module.scss";
 
 const ArcCommittee = () => {
   const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const { rfq_id } = router.query;
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [rfqList, setRfqList] = useState([]);
   const [currentRfq, setCurrentRfq] = useState(null);
@@ -39,26 +42,140 @@ const ArcCommittee = () => {
   const [remarks, setRemarks] = useState('');
   const [targetStage, setTargetStage] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [activeStageKey, setActiveStageKey] = useState(null);
+  // (activeStageKey removed — the new layout has no per-stage drill-in;
+  // the lifecycle accordion renders all stages flat.)
   const [refreshing, setRefreshing] = useState(false);
-  const [showAll, setShowAll] = useState(false);
+
+  // Click handler for the shared sidebar — push the rfq_id into the
+  // route so the existing useEffect chain (rfq_id → fetchRFQMetadata →
+  // permissions verify → loadLifecycleData) fires the same way it did
+  // with the old <Link>-based custom sidebar.
+  const handleRfqSelect = (id) => {
+    router.push(`/dashboard/buyer/arc-committee?rfq_id=${id}`, undefined, { shallow: true });
+  };
 
   // Mapped stage data
   const stageData = useMemo(() => {
     return mapLifecycleToStages(lifecycleData);
   }, [lifecycleData]);
 
-  // Deduplicate sidebar list - group by rfq_id so each tender appears once
+  // Derive Decision Brief inputs from lifecycleData. Pure aggregation,
+  // no side effects: total commitment, total saved, count of products
+  // priced above last purchase (risk flag), recommendation verdict.
+  //
+  // BE response nests these under arcApproval (see arcController
+  // getTenderLifecycle response shape). Reading them at the top level
+  // returned undefined and silently produced an empty matrix.
+  const arcEnvelopes = lifecycleData?.arcApproval?.envelopes || [];
+  const arcItems = lifecycleData?.arcApproval?.items || [];
+  const rfqProducts = lifecycleData?.rfq?.products || [];
+
+  const briefMetrics = useMemo(() => {
+    // Quantity lives in product_specs ([{title:'Quantity', value:'150'}, ...])
+    // for the productQuery shape that getRfqById returns. Reading
+    // rfqProduct.quantity directly is always 0 here, which made the
+    // total commitment KPI render as ₹0 even with finalized vendors.
+    const qtyOf = (rfqProduct) => {
+      const specs = rfqProduct?.product_specs || rfqProduct?.specifications || [];
+      if (Array.isArray(specs)) {
+        const hit = specs.find((s) => /^quantity$/i.test(String(s?.title || "")));
+        if (hit?.value != null) return Number(hit.value) || 0;
+      }
+      return Number(rfqProduct?.quantity) || 0;
+    };
+    let totalCommitment = 0;
+    let totalLastValue = 0;
+    let aboveBaselineCount = 0;
+    const productSet = new Set();
+    const vendorSet = new Set();
+    for (const item of arcItems) {
+      const rfqProduct = rfqProducts.find(
+        (p) => p.id === item.rfq_product_id || String(p.id) === String(item.rfq_product_id)
+      );
+      const qty = qtyOf(rfqProduct);
+      const unit = Number(item.unit_price) || 0;
+      const last = Number(rfqProduct?.last_purchase_price) || 0;
+      totalCommitment += unit * qty;
+      totalLastValue += last * qty;
+      if (last > 0 && unit > last) aboveBaselineCount += 1;
+      productSet.add(item.rfq_product_id);
+      vendorSet.add(item.vendor_id);
+    }
+    const totalSaved = totalLastValue - totalCommitment;
+    const savingsPercent = totalLastValue > 0 ? (totalSaved / totalLastValue) * 100 : 0;
+    return {
+      totalCommitment,
+      totalSaved,
+      savingsPercent,
+      productCount: productSet.size,
+      vendorCount: vendorSet.size,
+      riskFlagCount: aboveBaselineCount,
+    };
+  }, [arcItems, rfqProducts]);
+
+  const recommendation = useMemo(() => {
+    if (arcItems.length === 0) {
+      return {
+        verdict: "review",
+        summary: "No vendors are finalized yet. The committee acts once at least one (product × vendor) line item is in the envelope.",
+      };
+    }
+    if (briefMetrics.riskFlagCount > 0) {
+      return {
+        verdict: "review",
+        summary: `${briefMetrics.riskFlagCount} ${briefMetrics.riskFlagCount === 1 ? "product is" : "products are"} priced above the last purchase. Review the matrix below before approving — consider whether the vendor's terms (lead time, payment) justify the price.`,
+      };
+    }
+    if (briefMetrics.totalSaved > 0) {
+      return {
+        verdict: "approve",
+        summary: `Every finalized line shows savings against the last purchase. No prior PO rejections detected on the chosen vendors. Safe to approve.`,
+      };
+    }
+    return {
+      verdict: "review",
+      summary: `No clear savings vs the last purchase. Review the matrix line items to confirm pricing, lead time, and payment terms before approving.`,
+    };
+  }, [arcItems.length, briefMetrics]);
+
+  // Lifecycle stage list for the bottom accordion. Maps the existing
+  // stageData into a compact { key, state, performed_by_name, performed_at }
+  // shape the LifecycleAccordion expects.
+  const lifecycleAccordionStages = useMemo(() => {
+    const stages = stageData?.stages || [];
+    const normalize = (raw) => {
+      const s = (raw || "").toString().toLowerCase();
+      if (["completed", "approved", "done"].includes(s)) return "done";
+      if (["in_progress", "current", "active"].includes(s)) return "current";
+      if (["skipped", "not_configured", "not_applicable"].includes(s)) return "skipped";
+      return "pending";
+    };
+    return stages.map((stage) => ({
+      key: stage.key,
+      state: stage.key === stageData?.currentStage ? "current" : normalize(stage.status),
+      performed_by_name: stage.performedBy || stage.performer_name || null,
+      performed_at: stage.performedAt || stage.completedAt || null,
+    }));
+  }, [stageData]);
+
+  // Deduplicate sidebar list - group by rfq_id so each tender appears
+  // once. Also normalises every entry so the shared RFQListSidebar can
+  // consume it: items must carry `id` (sidebar keys + selectedRfqId
+  // both match on this) and a stable `title`.
   const deduplicatedRfqList = useMemo(() => {
     const seen = new Map();
     for (const item of rfqList) {
       const rfqId = item.rfq_id || item.id;
       if (!seen.has(rfqId)) {
-        seen.set(rfqId, { ...item, _productCount: 1 });
+        seen.set(rfqId, {
+          ...item,
+          id: rfqId,                       // sidebar key
+          title: item.project_name || '',  // sidebar's optional second-line title
+          _productCount: 1,
+        });
       } else {
         const existing = seen.get(rfqId);
         existing._productCount += 1;
-        // Keep the most urgent status (PENDING > APPROVED > CANCELLED)
         if (item.approval_required && !existing.approval_required) {
           existing.approval_required = true;
         }
@@ -123,7 +240,7 @@ const ArcCommittee = () => {
     return () => {
       clearTimeout(handler);
     };
-  }, [isTenderFilter, rfqNo, selectedHotelIds, showAll]);
+  }, [isTenderFilter, rfqNo, selectedHotelIds]);
 
   // Stage 1: Fetch RFQ metadata for permission context when rfq_id changes
   useEffect(() => {
@@ -169,13 +286,6 @@ const ArcCommittee = () => {
     }
   }, [rfq_id, currentRfq, permissionsLoading, canRead, permissionsVerified]);
 
-  // Set initial active stage when lifecycle data loads
-  useEffect(() => {
-    if (stageData.currentStage) {
-      setActiveStageKey(stageData.currentStage);
-    }
-  }, [stageData.currentStage]);
-
   const fetchUserHotelMappings = () => {
     const mappings = (userProfile?.hospitality_mappings || []).filter(m => m.hospitality_hotel_id != null);
     setUserHotelMappings(mappings);
@@ -188,13 +298,17 @@ const ArcCommittee = () => {
   const loadRfqList = async () => {
     try {
       setLoading(true);
+      // Always pull "all" — the shared sidebar's tab system (Action
+      // Required / In Progress / All) replaces the old `showAll`
+      // toggle by client-side filtering on `approval_required` +
+      // `pending_arc_count`.
       const params = {
         page: 1,
         limit: 100,
         is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null,
         rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
         module_keys: "arc",
-        show_all: showAll ? 1 : 0
+        show_all: 1,
       };
       const response = await getArcRfqList(params);
       if (response.status === 1) {
@@ -357,30 +471,6 @@ const ArcCommittee = () => {
     },
   };
 
-  // Handle stepper stage click
-  const handleStageClick = (stageKey) => {
-    setActiveStageKey(stageKey);
-  };
-
-  // Compact tender summary at top
-  const renderTenderSummary = () => {
-    const rfq = lifecycleData?.rfq;
-    if (!rfq) return null;
-
-    return (
-      <div className="d-flex flex-wrap gap-3 mb-4 p-3 bg-light rounded align-items-center">
-        <span><strong>Tender:</strong> #{rfq.rfq_no}</span>
-        <span className="text-muted">|</span>
-        <span><strong>Company:</strong> {rfq.company_name}</span>
-        <span className="text-muted">|</span>
-        <span><strong>Bid End:</strong> {moment(rfq.bid_end_date).format('DD-MM-YYYY hh:mm A')}</span>
-        <Badge bg={rfq.status === 1 ? 'success' : 'secondary'} className="ms-auto">
-          {rfq.status === 1 ? 'Open' : 'Closed'}
-        </Badge>
-      </div>
-    );
-  };
-
   // Check permissions
   const hasPermissionContext = hotelIds.length > 0 && !!rfq_id;
 
@@ -419,133 +509,81 @@ const ArcCommittee = () => {
 
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
-          <div className="row">
-            {/* Tender List - Sidebar */}
-            <div className="col-md-2">
-              <div className="hasFullLoader">
-                <h5 className="title">List Of Tenders</h5>
-
-                {loading && <FullLoader />}
-
-                <div className="py-1">
-                    <label>Search Tender No.</label>
-                    <input
-                        className="form-control react-select"
-                        style={{ borderRadius: '0.25rem', borderColor: '#ced4da', boxShadow: 'none' }}
-                        value={rfqNo || ''}
-                        onChange={(e)=> setRfqNo(e.target.value)}
-                        name="rfq_type"
-                        placeholder="Ex. 123456"
-                        id="search_rfq_no-rfq_list-arc_committee_page"
-                    />
-                </div>
-                {userHotelMappings.length > 0 && (
-                  <div className="py-2">
-                    <label>Select Business Units</label>
-                    <Select
-                      isMulti
-                      options={userHotelMappings}
-                      value={userHotelMappings.filter(opt =>
-                        selectedHotelIds.includes(opt.hospitality_hotel_id)
-                      )}
-                      onChange={(selectedOptions) => {
-                        const ids = selectedOptions
-                          ? selectedOptions.map(opt => opt.hospitality_hotel_id)
-                          : [];
-                        handleHotelSelectionChange(ids);
-                      }}
-                      placeholder="Select Business Units..."
-                      closeMenuOnSelect={false}
-                      classNamePrefix="react-select"
-                      isClearable
-                      formatOptionLabel={(option) => (
-                        <div>
-                          <span>{option.hotel_name}</span>
-                        </div>
-                      )}
-                      getOptionValue={(option) => option.hospitality_hotel_id}
-                      id="select_hotels_filter-rfq_list-arc_committee_page"
-                    />
-                  </div>
-                )}
-                <div className="py-2">
-                  <Form.Check
-                    type="switch"
-                    id="show-all-tenders-toggle"
-                    label={<span style={{ fontSize: "13px" }}>{showAll ? 'All Tenders' : 'Pending Actions Only'}</span>}
-                    checked={showAll}
-                    onChange={(e) => setShowAll(e.target.checked)}
-                  />
-                </div>
-                <Alert variant="info" className="mt-2" style={{ fontSize: "12px" }}>
-                  <strong>Note:</strong> ARC approvals are only applicable for tenders.
-                </Alert>
-
-                {!loading && deduplicatedRfqList.length === 0 ? (
-                  <p style={{ textAlign: "center" }}>No Tenders yet!</p>
-                ) : (
-                  <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
-                    {deduplicatedRfqList.map((item) => {
-                      const rfqId = item.rfq_id || item.id;
-                      const isSelected = rfqId === currentRfq?.id;
-                      return (
-                      <li
-                        className={isSelected ? "active" : ""}
-                        key={`rfq_no_${item.rfq_no}`}
-                        style={!isSelected && item.approval_required ? { backgroundColor: '#fff3f3', borderLeft: '3px solid #dc3545' } : {}}
-                      >
-                        <Link
-                          href={`/dashboard/buyer/arc-committee?rfq_id=${rfqId}`}
-                          className={
-                            isSelected ? "text-white" : "text-dark"
-                          }
-                          id={`rfq_${item.rfq_no}-rfq_list-arc_committee_page`}
-                        >
-                          <span className="d-flex align-items-center gap-1 flex-wrap">
-                            {formatRFQNumber(item.rfq_no, item.is_tender)}
-                            {!isSelected && item.approval_required && (
-                              <Badge bg="danger" style={{ fontSize: '0.6rem', padding: '2px 5px' }}>Your Approval Required</Badge>
-                            )}
-                          </span>
-                          {item.project_name && item.project_name != "" &&
-                            <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
-                              {item.project_name}
-                            </b>}
-                          <div className="mt-1 d-flex align-items-center gap-1 flex-wrap" style={{ fontSize: "12px", opacity: 0.9 }}>
-                            {item._productCount > 0 && (
-                              <Badge bg="info" style={{ fontSize: "10px" }}>
-                                {item._productCount} {item._productCount === 1 ? 'Product' : 'Products'}
-                              </Badge>
-                            )}
-                            {item.pending_arc_count > 0 && (
-                              <Badge bg="warning" text="dark" style={{ fontSize: "10px" }}>
-                                {item.pending_arc_count} Pending
-                              </Badge>
-                            )}
-                            {item.approval_status && item.pending_arc_count === 0 && (
-                              <Badge
-                                bg={
-                                  item.approval_status === 'APPROVED' ? 'success' :
-                                  item.approval_status === 'CANCELLED' ? 'secondary' :
-                                  'secondary'
-                                }
-                                style={{ fontSize: "10px" }}
-                              >
-                                {item.approval_status === 'CANCELLED' ? 'SENT BACK' : item.approval_status}
-                              </Badge>
-                            )}
-                          </div>
-                        </Link>
-                      </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            </div>
+          <div className={styles.layoutRow}>
+            {/* Tender List — shared sidebar (matches Tech Eval / QC / PO) */}
+            {isMobile && (
+              <button
+                type="button"
+                className={styles.mobileSidebarToggle}
+                onClick={() => setSidebarOpen(true)}
+              >
+                <BsList size={18} /> Select Tender
+              </button>
+            )}
+            <RFQListSidebar
+              title="ARC Committee"
+              mobileOpen={isMobile ? sidebarOpen : undefined}
+              onMobileClose={() => setSidebarOpen(false)}
+              rfqList={deduplicatedRfqList}
+              loading={loading}
+              selectedRfqId={rfq_id || currentRfq?.id}
+              onItemClick={handleRfqSelect}
+              linkPrefix="/dashboard/buyer/arc-committee"
+              linkQueryKey="rfq_id"
+              tabs={[
+                {
+                  key: 'action_required',
+                  label: 'Action Required',
+                  // Approver is the current user OR there's a pending
+                  // committee decision for this tender.
+                  filter: (item) => !!item.approval_required || (item.pending_arc_count || 0) > 0,
+                },
+                {
+                  key: 'in_progress',
+                  label: 'In Progress',
+                  // Pending committee decision but not on this user's plate.
+                  filter: (item) => !item.approval_required && (item.pending_arc_count || 0) > 0,
+                },
+                { key: 'all', label: 'All', filter: null },
+              ]}
+              defaultTab="action_required"
+              rfqNo={rfqNo}
+              onRfqNoChange={(val) => setRfqNo(val)}
+              searchPlaceholder="Search by tender number..."
+              userHotelMappings={userHotelMappings}
+              selectedHotelIds={selectedHotelIds}
+              onHotelSelectionChange={handleHotelSelectionChange}
+              showTypeFilter={false}  // ARC committee is tenders-only by definition.
+              getItemTags={(item, isSelected) => {
+                const tags = [];
+                if (!isSelected && item.approval_required) {
+                  tags.push({ label: 'Your Approval Required', variant: 'danger' });
+                }
+                if ((item._productCount || 0) > 0) {
+                  tags.push({
+                    label: `${item._productCount} ${item._productCount === 1 ? 'Product' : 'Products'}`,
+                    variant: 'info',
+                  });
+                }
+                if ((item.pending_arc_count || 0) > 0) {
+                  tags.push({ label: `${item.pending_arc_count} Pending`, variant: 'warning' });
+                }
+                if (item.approval_status && (item.pending_arc_count || 0) === 0) {
+                  if (item.approval_status === 'APPROVED') {
+                    tags.push({ label: 'Approved', variant: 'success' });
+                  } else if (item.approval_status === 'CANCELLED') {
+                    tags.push({ label: 'Sent Back', variant: 'neutral' });
+                  } else {
+                    tags.push({ label: item.approval_status, variant: 'neutral' });
+                  }
+                }
+                return tags;
+              }}
+              pageId="arc_committee"
+            />
 
             {/* Main Content */}
-            <div className="col-md-10">
+            <div className={styles.contentColumn}>
               <div className="quote-sec-table quote-sec-tab">
               {isAccessDenied ? (
                 <AccessDeniedPage
@@ -557,11 +595,17 @@ const ArcCommittee = () => {
                 <Alert variant="info">Please select a Tender from the list to view details</Alert>
               ) : lifecycleData ? (
                 <div>
-                  {/* 1. Compact Tender Summary */}
-                  {renderTenderSummary()}
+                  {/* Page heading — name of the page + status chip on the right */}
+                  <div className={styles.pageHead}>
+                    {lifecycleData?.arcApproval?.pending && (
+                      <span className={styles.pageStatusChip}>Awaiting your decision</span>
+                    )}
+                  </div>
 
-                  {/* Phase 3.5: Iteration history. Renders only when
-                      this tender has been sent back at least once. */}
+                  {/* Iteration history — only when this tender has
+                      been sent back at least once. Renders above the
+                      brief so the CXO sees prior decisions before
+                      committing to a fresh one. */}
                   {lifecycleData?.rfq?.is_tender === 1 && (
                     <IterationHistoryPanel
                       rfqId={lifecycleData?.rfq?.id || rfq_id}
@@ -569,64 +613,65 @@ const ArcCommittee = () => {
                     />
                   )}
 
-                  {/* 2. Journey Stepper - Visual Progress */}
-                  <TenderJourneyStepper
-                    stages={stageData.stages}
-                    currentStage={stageData.currentStage}
-                    onStageClick={handleStageClick}
-                    revertHistory={stageData.revertHistory || []}
-                    refreshing={refreshing}
+                  {/* 1. Decision Brief — verdict + savings + scope */}
+                  <DecisionBrief
+                    rfq={lifecycleData?.rfq}
+                    metrics={briefMetrics}
+                    recommendation={recommendation}
+                    hotelCount={
+                      // Group ARC tenders carry the full coverage list
+                      // in rfq.hotels (added by the lifecycle endpoint
+                      // from tbl_rfq_hotel_mappings). For Single ARC
+                      // tenders rfq.hotel_id is the only hotel. The
+                      // legacy `hotel_id ? 1 : 0` fallback misreported
+                      // Group ARC as 1 hotel even when 3 were mapped.
+                      Number(lifecycleData?.rfq?.hotel_count) ||
+                      (Array.isArray(lifecycleData?.rfq?.hotels) ? lifecycleData.rfq.hotels.length : 0) ||
+                      (lifecycleData?.rfq?.tender_scope === 'GROUP' ? 0 : (lifecycleData?.rfq?.hotel_id ? 1 : 0))
+                    }
                   />
 
-                  {/* 3. Current Stage Section - Prominent Action Area */}
-                  <CurrentStageSection
-                    currentStage={stageData.currentStage}
-                    stages={stageData.stages}
-                    rfq={stageData.rfq}
-                    lifecycleData={lifecycleData}
-                    onRefresh={handleRefresh}
+                  {/* 2. Decision Matrix — products × vendors with
+                      per-cell approve/reject. Bulk Approve all in
+                      the matrix header. */}
+                  <DecisionMatrix
+                    rfq={lifecycleData?.rfq}
+                    arcEnvelopes={arcEnvelopes}
+                    arcItems={arcItems}
+                    rfqProducts={rfqProducts}
                     arcHandlers={arcHandlers}
-                    refreshing={refreshing}
+                    onAfterAction={handleRefresh}
                   />
 
-                  {/* 4. Stage Timeline - Full History */}
-                  <StageTimeline
-                    stages={stageData.stages}
-                    currentStage={stageData.currentStage}
-                    rfq={stageData.rfq}
-                    lifecycleData={lifecycleData}
-                    activeStageKey={activeStageKey}
-                    onStageToggle={setActiveStageKey}
-                    onRefresh={handleRefresh}
-                    arcHandlers={arcHandlers}
-                    revertHistory={stageData.revertHistory || []}
-                    refreshing={refreshing}
+                  {/* 3. Lifecycle accordion — collapsed audit trail */}
+                  <LifecycleAccordion
+                    stages={lifecycleAccordionStages}
+                    rfq={lifecycleData?.rfq}
                   />
 
-                  {/* 5. Advanced Actions */}
+                  {/* Advanced Actions — send-back when an approval is
+                      genuinely pending. Kept simple so the primary
+                      "approve / reject in matrix" stays the dominant
+                      affordance. */}
                   {lifecycleData?.arcApproval?.pending && (
-                    <div className="mt-4 pt-4 border-top">
-                      <h6 className="text-muted mb-2">Advanced Actions</h6>
+                    <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #e5e7eb' }}>
                       <button
                         type="button"
                         onClick={() => setSendBackOpen(true)}
                         disabled={submitting}
                         style={{
-                          background: 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)',
-                          border: 'none',
-                          color: '#fff',
-                          padding: '9px 18px',
+                          background: 'transparent',
+                          border: '1px solid #f59e0b',
+                          color: '#92400e',
+                          padding: '8px 16px',
                           borderRadius: 6,
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: 600,
                           cursor: submitting ? 'not-allowed' : 'pointer',
                           opacity: submitting ? 0.6 : 1,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
                         }}
                       >
-                        ↺ Send tender back
+                        ↺ Send tender back to an earlier stage
                       </button>
                     </div>
                   )}

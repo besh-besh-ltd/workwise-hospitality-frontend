@@ -1,0 +1,634 @@
+// Layout shell + design system for the redesigned ARC Committee
+// Review page. Drives a "decision brief on top → matrix → collapsed
+// lifecycle" reading order so a CXO can decide in 90 seconds.
+//
+// Colour palette is intentionally narrow: green = good (savings,
+// L1, approved), amber = review (above baseline, L2, pending),
+// red = bad (rejected, prior PO rejection, blocked vendor).
+// Uses the existing theme tokens declared in styles/scss/_variable.scss.
+
+// ── Page shell ─────────────────────────────────────────────────────
+.layoutRow {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.contentColumn {
+  flex: 1 1 0%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mobileSidebarToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a2730;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  cursor: pointer;
+  &:hover { background: #f8fafc; }
+}
+
+@media (max-width: 768px) {
+  .layoutRow { flex-wrap: wrap; gap: 0; }
+  .contentColumn { flex: 1 1 100%; width: 100%; }
+}
+
+// ── Page heading strip ────────────────────────────────────────────
+.pageHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.pageTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a2730;
+  letter-spacing: -0.01em;
+}
+.pageStatusChip {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 4px 12px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+
+// ── Reusable card shell (matches RFQCard radius/shadow conventions) ─
+.card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.cardBody { padding: 16px; }
+
+// ── Decision Brief ─────────────────────────────────────────────────
+.briefHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.briefMeta { flex: 1 1 60%; min-width: 240px; }
+.briefKicker {
+  font-size: 11px;
+  color: #6b7280;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.briefScope {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+.briefScopeSingle {
+  background: #e0f2fe;
+  color: #075985;
+  border-color: #bae6fd;
+}
+.briefTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a2730;
+  margin: 4px 0 4px 0;
+}
+.briefSub {
+  font-size: 12px;
+  color: #6b7280;
+}
+.briefMoney { text-align: right; min-width: 160px; }
+.briefMoneyLabel {
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+.briefMoneyValue {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a2730;
+  margin-top: 2px;
+  line-height: 1.1;
+}
+.briefMoneyDelta {
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.deltaPositive { color: #15803d; }
+.deltaNegative { color: #b91c1c; }
+.deltaNeutral { color: #6b7280; }
+
+// Recommendation banner — three flavours
+.banner {
+  border-left: 3px solid;
+  padding: 10px 14px;
+  border-radius: 4px;
+  margin-bottom: 14px;
+}
+.bannerApprove {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+.bannerReview {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+.bannerCaution {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+.bannerTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.bannerApprove .bannerTitle { color: #15803d; }
+.bannerReview .bannerTitle { color: #92400e; }
+.bannerCaution .bannerTitle { color: #b91c1c; }
+.bannerBody { font-size: 12px; color: #374151; line-height: 1.45; }
+
+// KPI strip
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+@media (max-width: 720px) {
+  .kpiGrid { grid-template-columns: repeat(2, 1fr); }
+}
+.kpiTile {
+  background: #f9fafb;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.kpiTileHi { background: #ecfdf5; }
+.kpiTileWarn { background: #fffbeb; }
+.kpiTileBad { background: #fef2f2; }
+.kpiLabel {
+  font-size: 10px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  font-weight: 600;
+}
+.kpiTileHi .kpiLabel { color: #15803d; }
+.kpiTileWarn .kpiLabel { color: #92400e; }
+.kpiTileBad .kpiLabel { color: #b91c1c; }
+.kpiValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a2730;
+  margin-top: 2px;
+  line-height: 1.1;
+}
+.kpiTileHi .kpiValue { color: #15803d; }
+.kpiTileWarn .kpiValue { color: #92400e; }
+.kpiTileBad .kpiValue { color: #b91c1c; }
+.kpiSub {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 1px;
+}
+
+// ── Decision Matrix ───────────────────────────────────────────────
+.matrixHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.matrixHeading {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a2730;
+}
+.matrixSub {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+.matrixApproveAll {
+  background: #2E5BA8;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease;
+  &:hover { background: #1e3a5f; }
+  &:disabled {
+    background: #d1d5db;
+    color: #6b7280;
+    cursor: not-allowed;
+  }
+}
+
+// Grid: dynamic columns set inline (140px products + 1fr per vendor)
+.matrixGrid {
+  display: grid;
+  gap: 6px;
+}
+.matrixHeaderCell,
+.matrixProductCell,
+.matrixDataCell,
+.matrixEmptyCell {
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.matrixHeaderCell {
+  background: #f3f4f6;
+  font-weight: 600;
+  color: #374151;
+  font-size: 11px;
+  letter-spacing: .2px;
+}
+.matrixProductCell {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+}
+.matrixProductName { font-weight: 600; color: #1a2730; }
+.matrixProductSub {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+.matrixEmptyCell {
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
+  color: #9ca3af;
+  text-align: center;
+  font-size: 11px;
+  align-self: center;
+  font-style: italic;
+}
+
+// Cell variants by status / pricing
+.matrixDataCell { border: 1px solid; }
+.cellApproved {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+.cellRejected {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+.cellPendingGood {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+.cellPendingWarn {
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+
+.cellTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.cellPrice {
+  font-weight: 700;
+  font-size: 14px;
+}
+.cellPendingGood .cellPrice,
+.cellApproved .cellPrice { color: #15803d; }
+.cellPendingWarn .cellPrice { color: #92400e; }
+.cellRejected .cellPrice { color: #b91c1c; }
+
+.rankChip {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: #fff;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  letter-spacing: .3px;
+}
+.rankL1 {
+  background: #10b981;
+  color: #fff;
+  border-color: #10b981;
+}
+.rankL2Plus {
+  background: #f59e0b;
+  color: #fff;
+  border-color: #f59e0b;
+}
+
+.cellSavings {
+  font-size: 11px;
+  margin: 2px 0 4px;
+}
+.cellPendingGood .cellSavings,
+.cellApproved .cellSavings { color: #15803d; }
+.cellPendingWarn .cellSavings { color: #92400e; }
+.cellRejected .cellSavings { color: #b91c1c; }
+
+.cellTerms {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+// Hover tooltip on the Total line — shows engine_breakdown
+// (base + base GST + every other_charge with its own tax) so the
+// approver can audit exactly what makes up the grand total. All math
+// comes from pricingEngine.calculateLineTotal on the BE; this is
+// purely presentational.
+.totalWithTooltip {
+  position: relative;
+  cursor: help;
+  display: inline-block;
+}
+.totalTooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  min-width: 240px;
+  background: #1a2730;
+  color: #fff;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity .12s ease, transform .12s ease, visibility 0s linear .12s;
+  pointer-events: none;
+
+  &::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 16px;
+    border: 6px solid transparent;
+    border-bottom-color: #1a2730;
+  }
+}
+.totalWithTooltip:hover .totalTooltip,
+.totalWithTooltip:focus-within .totalTooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition-delay: 0s;
+}
+.totalTooltipRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+  color: rgba(255, 255, 255, 0.85);
+}
+.totalTooltipGrand {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-weight: 700;
+}
+
+// Decision-grade detail strip on each cell — last purchase, lead
+// time, payment terms, vendor track record. Rendered as a label/value
+// list with a thin divider so the cell stays scannable but every line
+// the approver might use is right there in one card.
+.cellTotalRow {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.4;
+  margin-top: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cellTotalLabel { color: #6b7280; margin-right: 6px; }
+.cellTotalValue { color: #1a2730; }
+.cellPendingGood .cellTotalValue,
+.cellApproved .cellTotalValue { color: #15803d; }
+.cellPendingWarn .cellTotalValue { color: #92400e; }
+.cellRejected .cellTotalValue { color: #b91c1c; }
+.cellTotalInfo { color: #6b7280; font-size: 10px; margin-left: 4px; }
+
+.cellDetails {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(107, 114, 128, 0.25);
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+}
+.cellDetailRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+.cellDetailLabel {
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: .2px;
+  font-size: 10px;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+.cellDetailValue {
+  color: #1a2730;
+  text-align: right;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
+.trackRecordGood { color: #15803d; }
+.trackRecordWarn { color: #b45309; }
+
+.cellComment {
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 4px;
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  color: #374151;
+  line-height: 1.4;
+  font-style: italic;
+}
+.cellCommentIcon {
+  font-size: 16px;
+  line-height: 0.5;
+  color: #9ca3af;
+  flex: 0 0 auto;
+  margin-top: 6px;
+}
+.cellCommentText { flex: 1; }
+
+.cellActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.cellBtn {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid;
+  transition: opacity .15s ease, transform .05s ease;
+  &:active { transform: scale(0.98); }
+  &:disabled { opacity: .5; cursor: not-allowed; }
+}
+.cellBtnApprove {
+  background: #10b981;
+  color: #fff;
+  border-color: #10b981;
+  &:hover:not(:disabled) { background: #059669; border-color: #059669; }
+}
+.cellBtnReject {
+  background: #fff;
+  color: #b91c1c;
+  border-color: #ef4444;
+  &:hover:not(:disabled) { background: #fef2f2; }
+}
+
+.cellAwaitingNote {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.cellResolvedNote {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+// Inline reject remarks
+.rejectRemarksRow {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: stretch;
+}
+.rejectRemarksInput {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 11px;
+  background: #fff;
+  &:focus {
+    outline: none;
+    border-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+  }
+}
+
+// ── Lifecycle accordion ───────────────────────────────────────────
+.lifecycleSummary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a2730;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+details[open] .lifecycleSummary::after { transform: rotate(180deg); }
+.lifecycleSummarySub {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.timeline {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+}
+.timelineItem {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  gap: 10px;
+  align-items: start;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+  &:last-child { border-bottom: none; }
+}
+.timelineDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 4px;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.05);
+}
+.dotDone { background: #10b981; }
+.dotCurrent { background: #2E5BA8; box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.2); }
+.dotSkipped { background: #d1d5db; }
+.dotPending { background: #fff; border-color: #d1d5db; }
+
+.timelineLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a2730;
+}
+.timelineLabelSkipped { color: #9ca3af; font-weight: 500; font-style: italic; }
+.timelineMeta {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 1px;
+}
+.timelineState {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 8px;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+.stateDone { background: #ecfdf5; color: #15803d; }
+.stateCurrent { background: #dbeafe; color: #1e40af; }
+.stateSkipped { background: #f3f4f6; color: #6b7280; }
+.statePending { background: #fff; color: #6b7280; border: 1px solid #e5e7eb; }
