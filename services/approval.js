@@ -236,3 +236,24 @@ export const willBeFinalApprover = (params = {}) =>
     }
   });
 
+// Group ARC Hierarchy approver-options. Returns roles + users filtered to
+// holders of the matching <entity>.approve permission. Users are
+// network-scope-filtered (only is_network_scope=1 grants count).
+//
+// Use this in the Global ARC wizard instead of fetching ALL company
+// users + ALL roles — it ensures the picker only shows valid candidates
+// per stage (TENDER / TECHNICAL / NEGOTIATION / NEGOTIATION_QUOTE / ARC).
+//
+// Returns: { entity_type, permission, roles: [{id, title}], users: [{id, name, email}] }
+export const getGlobalArcApproverOptions = (entityType) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/general/hospitality/approval/global-arc/approver-options/${entityType}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+

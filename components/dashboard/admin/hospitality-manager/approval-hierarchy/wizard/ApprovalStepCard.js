@@ -17,8 +17,11 @@ const selectStyles = {
   menuPortal: (base) => ({ ...base, zIndex: 9999 }),
 };
 
-const ApprovalStepCard = ({ step, index, totalSteps, selectedDepartmentId, getApproverOptions, getApproverDisplayInfo, onChange, onRemove, onDragStart, onDragOver, onDragEnd, onDrop }) => {
-  const approverInfo = getApproverDisplayInfo(step, selectedDepartmentId);
+// stageEntityType: optional. Passed by the Global ARC wizard so the picker
+// can fetch stage-filtered candidates (only roles/users holding the
+// matching <entity>.approve permission). The non-global wizard ignores it.
+const ApprovalStepCard = ({ step, index, totalSteps, selectedDepartmentId, stageEntityType, getApproverOptions, getApproverDisplayInfo, onChange, onRemove, onDragStart, onDragOver, onDragEnd, onDrop }) => {
+  const approverInfo = getApproverDisplayInfo(step, stageEntityType || selectedDepartmentId);
 
   return (
     <div draggable onDragStart={(e) => onDragStart(e, index)} onDragOver={onDragOver} onDragEnd={onDragEnd} onDrop={(e) => onDrop(e, index)} className={st.card}>
@@ -46,7 +49,7 @@ const ApprovalStepCard = ({ step, index, totalSteps, selectedDepartmentId, getAp
         </div>
         <div className={st.field}>
           <div className={st.label}>{step.approver_source_type === "USER" ? "Select User" : step.approver_source_type === "ROLE" ? "Select Role" : "Select Approver"}</div>
-          <Select key={`approver-${index}-${step.approver_source_type}`} options={getApproverOptions(step.approver_source_type, selectedDepartmentId)} value={step.approver_source_id ? getApproverOptions(step.approver_source_type, selectedDepartmentId).find((o) => o.value === step.approver_source_id) || null : null} onChange={(option) => onChange(index, "approver_source_id", option?.value || null)} isDisabled={!step.approver_source_type} placeholder={!step.approver_source_type ? "Select type first..." : "Search..."} isClearable={false} menuPlacement="auto" menuPortalTarget={typeof document !== "undefined" ? document.body : null} menuPosition="fixed" maxMenuHeight={280} styles={selectStyles} />
+          <Select key={`approver-${index}-${step.approver_source_type}`} options={getApproverOptions(step.approver_source_type, stageEntityType || selectedDepartmentId)} value={step.approver_source_id ? getApproverOptions(step.approver_source_type, stageEntityType || selectedDepartmentId).find((o) => o.value === step.approver_source_id) || null : null} onChange={(option) => onChange(index, "approver_source_id", option?.value || null)} isDisabled={!step.approver_source_type} placeholder={!step.approver_source_type ? "Select type first..." : "Search..."} isClearable={false} menuPlacement="auto" menuPortalTarget={typeof document !== "undefined" ? document.body : null} menuPosition="fixed" maxMenuHeight={280} styles={selectStyles} />
           {step.approver_source_id && approverInfo.email && <small className="d-block mt-1" style={{ fontSize: 11, color: DS.muted, fontFamily: "'Poppins', sans-serif" }}>{approverInfo.email}</small>}
           {!selectedDepartmentId && step.approver_source_type && step.approver_source_id && <small className="d-block mt-1" style={{ fontSize: 11, fontStyle: "italic", color: DS.muted, fontFamily: "'Poppins', sans-serif" }}>Approvers filtered by department at runtime</small>}
           {step.approver_source_type === "ROLE" && step.approver_source_id && approverInfo.users.length === 0 && (

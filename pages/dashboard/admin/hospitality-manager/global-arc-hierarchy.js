@@ -4,9 +4,7 @@ import { useSelector } from "react-redux";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { AdminGuard } from "@/utils/authGuard";
-import { getApprovalPolicies } from "@/services/approval";
-import { getCompanyUsers } from "@/services/Auth";
-import { getRoles } from "@/services/rbac";
+import { getApprovalPolicies, getGlobalArcApproverOptions } from "@/services/approval";
 import GlobalArcWizard from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy/wizard/GlobalArcWizard";
 import { TENDER_PROCESS_STAGES } from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy/constants";
 
@@ -14,6 +12,13 @@ import { TENDER_PROCESS_STAGES } from "@/components/dashboard/admin/hospitality-
 // network-wide Group ARC hierarchy. SECURITY: this page sends NO company_id
 // to the backend — the server pins everything to req.user.company_id and
 // scopes reads/writes to that tenant only.
+//
+// PICKER OPTIONS: per-stage. We fetch one approver-options endpoint per
+// tender-chain entity_type (TENDER / TECHNICAL / NEGOTIATION /
+// NEGOTIATION_QUOTE / ARC) — each returns ONLY roles + users that hold
+// the matching <entity>.approve permission. The previous implementation
+// pulled ALL company users + ALL roles, which let admins assign
+// approvers who couldn't actually act on the entity.
 
 const GlobalArcHierarchyPage = () => {
   const router = useRouter();
@@ -23,8 +28,10 @@ const GlobalArcHierarchyPage = () => {
 
   const [loading, setLoading] = useState(true);
   const [policies, setPolicies] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [roles, setRoles] = useState([]);
+  // Map of entity_type → { roles: [{id, title}], users: [{id, name, email}] }.
+  // Each entry is the slice of approver candidates for that stage —
+  // pre-filtered server-side to those holding <entity>.approve.
+  const [approverOptionsByEntity, setApproverOptionsByEntity] = useState({});
 
   const refreshPolicies = useCallback(async () => {
     try {
@@ -40,23 +47,31 @@ const GlobalArcHierarchyPage = () => {
     (async () => {
       setLoading(true);
       try {
-        const [policiesRes, usersRes, rolesRes] = await Promise.all([
+        // Fan out: one policies fetch + one approver-options fetch per
+        // tender-chain stage. The 5 stage fetches run in parallel; total
+        // round-trip cost is dominated by the slowest.
+        const stageEntityTypes = TENDER_PROCESS_STAGES.map((st) => st.value);
+        const [policiesRes, ...stageRes] = await Promise.all([
           getApprovalPolicies({ is_global: 1, include: "steps" }),
-          getCompanyUsers(),
-          getRoles(),
+          ...stageEntityTypes.map((et) => getGlobalArcApproverOptions(et)),
         ]);
         if (cancelled) return;
+
         setPolicies(policiesRes?.data?.data || policiesRes?.data || []);
-        const rawUsers = usersRes?.data?.data || usersRes?.data || [];
-        setUsers(
-          rawUsers.map((u) => ({
-            user_id: u.id || u.user_id,
-            name: u.name,
-            email: u.email,
-          })).filter((u) => u.user_id)
-        );
-        const rawRoles = rolesRes?.data?.data || rolesRes?.data || [];
-        setRoles(rawRoles.map((r) => ({ id: r.id, title: r.title || r.name })));
+
+        const map = {};
+        stageEntityTypes.forEach((et, idx) => {
+          const data = stageRes[idx]?.data?.data || stageRes[idx]?.data || {};
+          map[et] = {
+            roles: (data.roles || []).map((r) => ({ id: r.id, title: r.title || r.name })),
+            users: (data.users || []).map((u) => ({
+              user_id: u.id || u.user_id,
+              name: u.name,
+              email: u.email,
+            })),
+          };
+        });
+        setApproverOptionsByEntity(map);
       } catch (err) {
         if (!cancelled) {
           toast.error("Failed to load admin data for the global hierarchy");
@@ -70,26 +85,55 @@ const GlobalArcHierarchyPage = () => {
     };
   }, []);
 
+  // The wizard's StepConfigureStages calls getApproverOptions(sourceType,
+  // entity_type). The per-stage map narrows the pool to candidates that
+  // actually hold the matching approve permission for that entity.
   const getApproverOptions = useCallback(
-    (sourceType) => {
+    (sourceType, entityType) => {
+      const slice = approverOptionsByEntity[entityType] || { roles: [], users: [] };
       if (sourceType === "USER") {
-        return users.map((u) => ({
+        return slice.users.map((u) => ({
           value: u.user_id,
           label: `${u.name}${u.email ? ` (${u.email})` : ""}`,
         }));
       }
       if (sourceType === "ROLE") {
-        return roles.map((r) => ({ value: r.id, label: r.title }));
+        return slice.roles.map((r) => ({ value: r.id, label: r.title }));
       }
       return [];
     },
-    [users, roles]
+    [approverOptionsByEntity]
   );
 
+  // Display info for an already-saved step. We may not have a slice for
+  // the step's entity_type if the user navigated directly (defensive
+  // fallback to scanning every slice for the id).
   const getApproverDisplayInfo = useCallback(
-    (step) => {
+    (step, entityType) => {
+      const lookupUser = (id) => {
+        const slices = entityType
+          ? [approverOptionsByEntity[entityType]]
+          : Object.values(approverOptionsByEntity);
+        for (const s of slices) {
+          if (!s) continue;
+          const u = s.users.find((x) => x.user_id === id);
+          if (u) return u;
+        }
+        return null;
+      };
+      const lookupRole = (id) => {
+        const slices = entityType
+          ? [approverOptionsByEntity[entityType]]
+          : Object.values(approverOptionsByEntity);
+        for (const s of slices) {
+          if (!s) continue;
+          const r = s.roles.find((x) => x.id === id);
+          if (r) return r;
+        }
+        return null;
+      };
       if (step.approver_source_type === "USER") {
-        const u = users.find((x) => x.user_id === step.approver_source_id);
+        const u = lookupUser(step.approver_source_id);
         return {
           name: u?.name || "Unknown User",
           email: u?.email || "",
@@ -99,7 +143,7 @@ const GlobalArcHierarchyPage = () => {
         };
       }
       if (step.approver_source_type === "ROLE") {
-        const r = roles.find((x) => x.id === step.approver_source_id);
+        const r = lookupRole(step.approver_source_id);
         return {
           name: r?.title || "Unknown Role",
           email: "",
@@ -110,7 +154,7 @@ const GlobalArcHierarchyPage = () => {
       }
       return { name: "Unknown", email: "", type: "", typeLabel: "", users: [] };
     },
-    [users, roles]
+    [approverOptionsByEntity]
   );
 
   if (!hasAccess) {
@@ -145,8 +189,8 @@ const GlobalArcHierarchyPage = () => {
       <Head>
         <title>Group ARC Global Hierarchy | Hospitality Manager</title>
       </Head>
-      <section className="buyer-sec-1">
-        <div className="container-fluid" style={{ maxWidth: 1200 }}>
+      <section className="mb-4" style={{ marginTop: 64 }}>
+        <div className="container-fluid" style={{ maxWidth: 1800 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div>
               <button

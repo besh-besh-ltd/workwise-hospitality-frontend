@@ -94,7 +94,7 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
                         ) : (
                           <>
                             {steps.map((step, stepIdx) => (
-                              <ApprovalStepCard key={stepIdx} step={step} index={stepIdx} totalSteps={steps.length} selectedDepartmentId={null} getApproverOptions={getApproverOptions} getApproverDisplayInfo={getApproverDisplayInfo} onChange={(idx, field, value) => handleStepChange(si, idx, field, value)} onRemove={() => handleRemoveStep(si, stepIdx)} onDragStart={(e) => handleDragStart(e, si, stepIdx)} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDrop={(e) => handleDrop(e, si, stepIdx)} />
+                              <ApprovalStepCard key={stepIdx} step={step} index={stepIdx} totalSteps={steps.length} selectedDepartmentId={null} stageEntityType={stage.entity_type} getApproverOptions={getApproverOptions} getApproverDisplayInfo={getApproverDisplayInfo} onChange={(idx, field, value) => handleStepChange(si, idx, field, value)} onRemove={() => handleRemoveStep(si, stepIdx)} onDragStart={(e) => handleDragStart(e, si, stepIdx)} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDrop={(e) => handleDrop(e, si, stepIdx)} />
                             ))}
                             <button type="button" className={s.addFull} onClick={() => handleAddStep(si)}><BsPlus size={16} /> Add Next Approval Level</button>
                           </>
