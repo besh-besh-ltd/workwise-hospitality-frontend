@@ -792,8 +792,11 @@ useEffect(() => {
       return false;
     }
 
-    // Process is required for RFQ creation
-    if (!formDataCopy.process_id) {
+    // Process is required for RFQ + Single ARC tenders.
+    // Group ARC tenders (is_tender=1 with ≥2 hotels) use the network-wide
+    // global hierarchy and DO NOT bind to a process — process_id stays null.
+    const isGroupArc = formDataCopy.is_tender === 1 && (selectedHotelIds || []).length > 1;
+    if (!isGroupArc && !formDataCopy.process_id) {
       toast.error("Please select a process");
       setMainLoading(false);
       return false;

@@ -144,6 +144,29 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
           {lifecycleConfig && !isDraft && statusConfig.key !== 'terminated' && (() => {
             const stagesFiltered = LIFECYCLE_STAGES_ORDERED.filter(k => k !== 'TECHNICAL_REJECTED');
             const stepNum = stagesFiltered.indexOf(data.lifecycle_stage) + 1;
+            // Tender-aware label: the lifecycle config is shared between RFQ and
+            // tender flows, so for tenders we substitute "Tender" anywhere the
+            // base label says "RFQ" (e.g. "RFQ Approval" → "Tender Approval").
+            // Group-ARC tenders also get an explicit "Group ARC" descriptor on
+            // approval-stage labels so the pill makes the approver source clear
+            // (the hierarchy comes from the network-wide global policy).
+            const isTender = data.is_tender === 1;
+            const isGroupArc = isTender && data.tender_scope === 'GROUP';
+            const baseLabel = lifecycleConfig.label || '';
+            const lifecycleLabel = isTender
+              ? baseLabel.replace(/\bRFQ\b/g, 'Tender')
+              : baseLabel;
+            const baseDesc = lifecycleConfig.description || '';
+            const lifecycleDescription = isTender
+              ? baseDesc.replace(/\bRFQ\b/g, 'tender')
+              : baseDesc;
+            const isApprovalStage = ['RFQ_APPROVAL', 'TECHNICAL_APPROVING', 'QUOTATION_APPROVAL', 'PO_APPROVAL']
+              .includes(data.lifecycle_stage);
+            const groupArcSubtitle = isGroupArc && isApprovalStage
+              ? 'Approvers resolved from the network-wide Group ARC hierarchy (BU-agnostic).'
+              : isGroupArc
+              ? 'Action holders resolved at network scope across all covered hotels.'
+              : null;
             return (
               <div
                 className={styles.lifecycleWrap}
@@ -153,7 +176,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               >
                 <div className={styles.lifecyclePill}>
                   <span className={styles.lcDot} style={{ backgroundColor: lifecycleConfig.dotColor }} />
-                  <span className={styles.lcLabel}>{lifecycleConfig.label}</span>
+                  <span className={styles.lcLabel}>{lifecycleLabel}</span>
                   {data.action_holders?.users?.length > 0 && (
                     <>
                       <span className={styles.lcSep} />
@@ -171,8 +194,23 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                     <div className={styles.lcTTTop}>
                       <span className={styles.lcTTDot} style={{ backgroundColor: lifecycleConfig.dotColor }} />
                       <div className={styles.lcTTInfo}>
-                        <span className={styles.lcTTLabel}>{lifecycleConfig.label}</span>
-                        <span className={styles.lcTTDesc}>{lifecycleConfig.description}</span>
+                        <span className={styles.lcTTLabel}>
+                          {lifecycleLabel}
+                          {isGroupArc && (
+                            <span style={{
+                              marginLeft: 6, fontSize: 10, fontWeight: 600,
+                              padding: '1px 6px', borderRadius: 8,
+                              background: '#fef3c7', color: '#92400e',
+                              border: '1px solid #fcd34d',
+                            }}>Group ARC</span>
+                          )}
+                        </span>
+                        <span className={styles.lcTTDesc}>{lifecycleDescription}</span>
+                        {groupArcSubtitle && (
+                          <span className={styles.lcTTDesc} style={{ fontStyle: 'italic', marginTop: 2 }}>
+                            {groupArcSubtitle}
+                          </span>
+                        )}
                       </div>
                     </div>
 

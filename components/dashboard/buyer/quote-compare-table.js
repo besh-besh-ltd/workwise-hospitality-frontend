@@ -53,6 +53,11 @@ const QuoteCompareTable = ({
   canWrite = true,
   permissionsLoading = false,
   is_tender = false, // Whether this is a tender
+  // Threaded from contextRFQ.tender_scope ('SINGLE' / 'GROUP' / null).
+  // The modal needs this to swap copy ("Single ARC" vs "Group ARC")
+  // and the per-vendor flow distinguishes the two paths downstream.
+  // Don't derive from proditem nested fields — they aren't reliable.
+  tender_scope = null,
   hospitalityCompanyId = null, // For approval workflow
   hotelId = null, // For approval workflow
   departmentId = null, // For approval workflow
@@ -974,10 +979,14 @@ const QuoteCompareTable = ({
       <FinalizeVendorModal
         show={activeModal == 'finalize'}
         onHide={() => setActiveModal(null)}
+        isTender={is_tender}
+        tenderScope={tender_scope}
         onConfirm={(selectedPOId) => {
           setExistingPOId(selectedPOId);
-          // Automatically determine route based on is_tender
-          const isTender = proditem?.rfq?.[0]?.is_tender === 1 || proditem?.rfq?.[0]?.is_tender === true;
+          // Use the prop (threaded from contextRFQ.is_tender). The
+          // nested proditem?.rfq?.[0]?.is_tender path was unreliable
+          // and silently fell through to PO route on tenders.
+          const isTender = !!is_tender;
           const routeType = isTender ? 'ARC' : 'PO';
           setSelectedRouteType(routeType);
           

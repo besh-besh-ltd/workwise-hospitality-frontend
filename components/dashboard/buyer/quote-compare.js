@@ -274,6 +274,13 @@ const QuoteCompare = () => {
       hotel_id: rfqData.hotel_id,
       hotel_ids: rfqData.hotel_ids,
       is_tender: rfqData.is_tender,
+      // Group/Single ARC distinguisher — drives the FinalizeVendorModal
+      // copy and the per-vendor card finalize-button label. Was being
+      // dropped here previously, so even after the BE returned it the
+      // modal still rendered "Single ARC" for Group ARC tenders.
+      tender_scope: rfqData.tender_scope || null,
+      arc_period_from: rfqData.arc_period_from || null,
+      arc_period_to: rfqData.arc_period_to || null,
       hospitality_company_id: rfqData.hospitality_company_id,
       department_id: rfqData.department_id,
       department_name: rfqData.department_name,

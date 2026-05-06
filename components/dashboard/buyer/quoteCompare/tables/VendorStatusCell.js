@@ -15,6 +15,11 @@ const VendorStatusCell = ({
   vendorSubText = "",
   statuses = [],
   actionSlot = null,
+  // Optional slot rendered directly under the vendor name + subtext,
+  // ABOVE the status chip row. Used by the tender Quote Compare path
+  // to surface a prominent Finalize button per vendor card without
+  // burying it inside the 3-dots dropdown.
+  belowNameSlot = null,
   centered = false,
   emphasizeName = false,
 }) => {
@@ -30,6 +35,9 @@ const VendorStatusCell = ({
             <p className={`${styles.vendorSub} ${centered ? styles.vendorSubCentered : ""}`}>
               {vendorSubText}
             </p>
+          ) : null}
+          {belowNameSlot ? (
+            <div style={{ marginTop: 6 }}>{belowNameSlot}</div>
           ) : null}
         </div>
         {actionSlot ? (

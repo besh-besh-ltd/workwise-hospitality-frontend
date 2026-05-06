@@ -33,6 +33,12 @@ const FinalizeVendorModal = ({
   loading = false,
   vendorRejections = [],
   finalizationHistory = [],
+  // Tender mode swaps the workflow copy + step list. For tenders the
+  // post-finalize path is ARC committee approval (per-vendor envelope,
+  // per-item approval instance) — NOT a PO. tenderScope='GROUP' adds
+  // a sub-line about the network-wide global hierarchy.
+  isTender = false,
+  tenderScope = null,
 }) => {
   const isReFinalize = Array.isArray(alreadyFinalized) && alreadyFinalized.length > 0;
   const productName = productDetails?.[0]?.product_name || '—';
@@ -62,32 +68,55 @@ const FinalizeVendorModal = ({
     .slice(0, 3);
 
   const isWarning = isRejectedVendor;
+  const isGroupArc = isTender && tenderScope === 'GROUP';
 
-  const steps = [
-    { label: 'Vendor finalized', hint: 'Selected for this product' },
-    { label: 'Approval routing', hint: 'Goes through configured approvers' },
-    { label: 'Purchase Order', hint: 'PO drafted on full approval' },
-  ];
+  // Steps differ by route. PO route ends in a Purchase Order; ARC
+  // route ends in an Annual Rate Contract once the committee acts on
+  // every (product × vendor) cell of the vendor's envelope.
+  const steps = isTender
+    ? [
+        { label: 'Vendor finalized', hint: 'Added to this tender\'s ARC envelope' },
+        {
+          label: 'ARC committee approval',
+          hint: isGroupArc
+            ? 'Routed via the network-wide Group ARC global hierarchy'
+            : 'Routed via the configured Single ARC committee for this hotel',
+        },
+        { label: 'ARC document', hint: 'Generated + emailed once all items are decided' },
+      ]
+    : [
+        { label: 'Vendor finalized', hint: 'Selected for this product' },
+        { label: 'Approval routing', hint: 'Goes through configured approvers' },
+        { label: 'Purchase Order', hint: 'PO drafted on full approval' },
+      ];
 
   const titleText = isWarning
     ? 'Re-finalize a previously-rejected vendor?'
     : isReFinalize
-      ? 'Re-finalize this vendor?'
-      : 'Confirm finalization';
+      ? (isTender ? 'Re-finalize this vendor on the tender?' : 'Re-finalize this vendor?')
+      : (isTender ? 'Send this vendor to ARC committee?' : 'Confirm finalization');
 
   const subtitleText = isWarning
     ? `This vendor's last Purchase Order ${wasApproverRejection ? 'was rejected by an internal approver' : 'was rejected by the vendor'}. Picking them again will start a fresh approval cycle that could fail the same way unless the underlying reason has been addressed.`
-    : isReFinalize
-      ? 'Changing the finalized vendor will discard the current draft Purchase Order and restart approvals from the first step.'
-      : 'This locks the selected vendor for this product and starts the Purchase Order approval workflow.';
+    : isTender
+      ? (isReFinalize
+          ? 'This re-spawns the ARC committee approval for this (product × vendor) line item. Tenders allow multiple finalized vendors per product — finalising a different one does NOT replace existing finalizations.'
+          : isGroupArc
+            ? 'This adds the vendor + product to a per-vendor ARC envelope and creates an ARC committee approval routed through the network-wide Group ARC global hierarchy. The PDF contract is generated once every line in the envelope is approved.'
+            : 'This adds the vendor + product to a per-vendor ARC envelope and creates an ARC committee approval routed through the configured committee for this hotel. The PDF contract is generated once every line in the envelope is approved.')
+      : isReFinalize
+        ? 'Changing the finalized vendor will discard the current draft Purchase Order and restart approvals from the first step.'
+        : 'This locks the selected vendor for this product and starts the Purchase Order approval workflow.';
 
   const ctaText = loading
     ? null
     : isWarning
       ? 'Yes, re-finalize anyway'
-      : isReFinalize
-        ? 'Re-finalize vendor'
-        : 'Confirm finalization';
+      : isTender
+        ? (isReFinalize ? 'Re-spawn ARC approval' : 'Send to ARC committee')
+        : isReFinalize
+          ? 'Re-finalize vendor'
+          : 'Confirm finalization';
 
   return (
     <Modal
@@ -103,7 +132,11 @@ const FinalizeVendorModal = ({
       <div className={`${styles.head} ${isWarning ? styles.headWarning : ''}`}>
         <div className={styles.headTopRow}>
           <span className={`${styles.kicker} ${isWarning ? styles.kickerWarning : ''}`}>
-            {isWarning ? 'Caution · Previously rejected' : 'Finalize Vendor'}
+            {isWarning
+              ? 'Caution · Previously rejected'
+              : isTender
+                ? (isGroupArc ? 'Tender → ARC · Group ARC' : 'Tender → ARC · Single ARC')
+                : 'Finalize Vendor'}
           </span>
           <button
             type="button"
@@ -181,12 +214,25 @@ const FinalizeVendorModal = ({
           </div>
         )}
 
-        {isReFinalize && !isWarning && (
+        {isReFinalize && !isWarning && !isTender && (
           <div className={styles.warn}>
             <span className={styles.warnIcon}>⚠️</span>
             <span>
               <b>Heads up:</b> the existing draft PO for this product will be
               cancelled and a new approval cycle will begin.
+            </span>
+          </div>
+        )}
+
+        {isTender && isReFinalize && !isWarning && (
+          <div className={styles.warn}>
+            <span className={styles.warnIcon}>⚠️</span>
+            <span>
+              <b>Heads up:</b> this same (product × vendor) line item already
+              exists in the tender's ARC envelope. Re-finalizing re-spawns
+              its committee approval — the snapshot price and quote will be
+              refreshed from the latest quote, but earlier committee
+              decisions on this line are preserved in the audit trail.
             </span>
           </div>
         )}
@@ -220,7 +266,7 @@ const FinalizeVendorModal = ({
           </div>
         )}
 
-        {showBudget && (
+        {showBudget && !isTender && (
           <div className={styles.budget}>
             <p className={styles.budgetTitle}>Budget check</p>
             <div className={styles.budgetGrid}>

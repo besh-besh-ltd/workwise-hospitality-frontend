@@ -151,6 +151,18 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
                         <strong>{moment(data.vendor_clarification_date).format('DD MMM YYYY, hh:mm A')}</strong>
                       </div>
                     )}
+                    {data.is_tender === 1 && (data.arc_period_from || data.arc_period_to) && (
+                      <div>
+                        <small className="text-muted d-block">
+                          ARC Period{data.tender_scope ? ` · ${data.tender_scope === 'GROUP' ? 'Group ARC' : 'Single ARC'}` : ''}
+                        </small>
+                        <strong>
+                          {data.arc_period_from ? moment(data.arc_period_from).format('DD MMM YYYY') : '—'}
+                          {' → '}
+                          {data.arc_period_to ? moment(data.arc_period_to).format('DD MMM YYYY') : '—'}
+                        </strong>
+                      </div>
+                    )}
                     <div>
                       <small className="text-muted d-block">Created On</small>
                       <strong>{moment(data.timestamp).format('DD MMM YYYY')}</strong>

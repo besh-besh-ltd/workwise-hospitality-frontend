@@ -26,6 +26,15 @@ const ProcurementHeader = ({
   onHotelChange,
   isLoading,
   disableHotelSelect = false,
+  // Per-hotel permission resolver from usePerHotelModulePermissions.
+  // When provided, the picker:
+  //   - HIDES options where the user has no `<moduleKey>.read` perm,
+  //   - DISABLES options where the user has read but not create,
+  //   - keeps the option selectable when the user has read+create.
+  // If absent (legacy callers), behaviour falls back to the previous
+  // mapping-based listing.
+  getHotelPerm = null,
+  perHotelPermsLoading = false,
 }) => {
   const draftHref =
     queryMeta.rfq_id != null
@@ -150,7 +159,20 @@ const ProcurementHeader = ({
               <>
                 <Select
                   isMulti={!isRfq}
-                  options={userHotelMappings.filter((opt) => opt.hotel_name)}
+                  isLoading={perHotelPermsLoading}
+                  options={
+                    // Filter out hotels the user has no read access on.
+                    // Read-only hotels stay (rendered as disabled options
+                    // with a hint badge) so the user understands why the
+                    // BU exists in their mappings but isn't selectable.
+                    userHotelMappings
+                      .filter((opt) => opt.hotel_name)
+                      .filter((opt) => {
+                        if (!getHotelPerm) return true; // legacy: no filtering
+                        const perm = getHotelPerm(opt.hospitality_hotel_id);
+                        return perm.canRead;
+                      })
+                  }
                   value={
                     isRfq
                       ? userHotelMappings.find(
@@ -185,6 +207,48 @@ const ProcurementHeader = ({
                   classNamePrefix="rs"
                   getOptionValue={(option) => option.hospitality_hotel_id}
                   getOptionLabel={(option) => option.hotel_name}
+                  // Disable options where the user has read but no create
+                  // for this module — they can SEE the BU in lists but
+                  // can't author here, so we prevent selection and show
+                  // a "View only" hint inline.
+                  isOptionDisabled={(option) => {
+                    if (!getHotelPerm) return false;
+                    const perm = getHotelPerm(option.hospitality_hotel_id);
+                    return !perm.canCreate;
+                  }}
+                  formatOptionLabel={(option, { context }) => {
+                    if (context === "value") return option.hotel_name;
+                    if (!getHotelPerm) return option.hotel_name;
+                    const perm = getHotelPerm(option.hospitality_hotel_id);
+                    const isViewOnly = perm.canRead && !perm.canCreate;
+                    return (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, width: "100%" }}>
+                        <span>{option.hotel_name}</span>
+                        {isViewOnly && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              padding: "1px 6px",
+                              borderRadius: 8,
+                              background: "#fef3c7",
+                              color: "#92400e",
+                              border: "1px solid #fcd34d",
+                              marginLeft: "auto",
+                            }}
+                            title="You have read access but cannot create here"
+                          >
+                            View only
+                          </span>
+                        )}
+                      </span>
+                    );
+                  }}
+                  noOptionsMessage={() =>
+                    perHotelPermsLoading
+                      ? "Checking permissions…"
+                      : "No business units available — you don't have read access to any of your mapped units for this module."
+                  }
                 />
                 {selectedHotelIds.length === 0 && (
                   <div className={styles.hotelWarning}>

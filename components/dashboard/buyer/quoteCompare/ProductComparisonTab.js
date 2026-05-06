@@ -312,6 +312,7 @@ const ProductComparisonTab = ({
                 canWrite={canWriteQuoteCompare}
                 permissionsLoading={quoteComparePermissionsLoading}
                 is_tender={contextRFQ?.is_tender == 1 || contextRFQ?.is_tender === true}
+                tender_scope={contextRFQ?.tender_scope || null}
                 hospitalityCompanyId={contextRFQ?.hospitality_company_id}
                 hotelId={contextRFQ?.hotel_id}
                 departmentId={contextRFQ?.department_id}

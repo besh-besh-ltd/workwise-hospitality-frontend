@@ -204,6 +204,11 @@ const ProductComparisonMatrix = ({
   canWrite = true,
   permissionsLoading = false,
   is_tender = false,
+  // Threaded from contextRFQ.tender_scope so the modal + per-vendor
+  // chip read the correct scope ('SINGLE' / 'GROUP' / null). Don't
+  // re-derive from proditem?.rfq?.[0]?.tender_scope — that nested
+  // path is unreliable (same class of bug as is_tender).
+  tender_scope = null,
   hospitalityCompanyId = null,
   hotelId = null,
   departmentId = null,
@@ -682,6 +687,80 @@ const ProductComparisonMatrix = ({
                         centered
                         emphasizeName
                         statuses={statuses}
+                        // Per-vendor inline Finalize button (tenders only).
+                        // Tenders allow multi-vendor finalization — each
+                        // vendor card gets its own Finalize that triggers an
+                        // ARC committee approval for the (product × vendor)
+                        // line item. Rendered below the vendor name + total
+                        // so the action is one click from the card itself,
+                        // not buried in the 3-dots menu.
+                        belowNameSlot={(() => {
+                          if (!is_tender) return null;
+                          if (column.isRegret) return null;
+                          if (rejectedVendorIdSet.has(String(column.vendorId))) return null;
+                          const finalizedVendorIds = new Set(
+                            (alreadyFinalized || [])
+                              .map((f) => String(
+                                // Quotation rows expose the finalized vendor as
+                                // .finalization.winning_vendor.id; the row itself
+                                // also has .quote_details.created_by which is the
+                                // vendor user id. Fall back through both shapes
+                                // so the badge fires regardless of which the
+                                // BE response uses.
+                                f?.finalization?.winning_vendor?.id
+                                  || f?.finalization?.winning_vendor?.user_id
+                                  || f?.quote_details?.created_by
+                                  || f?.vendor_id
+                                  || ""
+                              ))
+                              .filter(Boolean)
+                          );
+                          const isAlreadyFinalized = finalizedVendorIds.has(String(column.vendorId));
+                          if (isAlreadyFinalized) {
+                            return (
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                fontSize: 11, fontWeight: 600,
+                                padding: '3px 8px', borderRadius: 12,
+                                background: '#dcfce7', color: '#15803d', border: '1px solid #86efac',
+                              }}>
+                                ✓ Finalized
+                              </span>
+                            );
+                          }
+                          if (isRfqClosed) return null;
+                          const isActiveRoundBlocking = activeRound && activeRound.status === 'ACTIVE';
+                          const noPermission = !canWrite || permissionsLoading;
+                          const isDisabled = isActiveRoundBlocking || noPermission || !column.quote || !(column.total > 0);
+                          const tooltipText = isActiveRoundBlocking
+                            ? 'Negotiation round is ongoing, vendor finalization is restricted'
+                            : noPermission
+                            ? 'Required permission is missing'
+                            : !column.quote || !(column.total > 0)
+                            ? 'No valid quote to finalize'
+                            : null;
+                          const btn = (
+                            <button
+                              type="button"
+                              className={`${styles.footerBtn} ${styles.footerBtnPrimary}`}
+                              style={{ fontSize: 12, padding: '4px 10px', ...(isDisabled ? { pointerEvents: 'none', opacity: 0.6 } : {}) }}
+                              disabled={isDisabled}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCurrentItem(column.quote);
+                                setActiveModal("finalize");
+                              }}
+                              id={`finalize_vendor_inline_${column.vendorId}-vendor_card-quote_compare_table`}
+                            >
+                              Finalize
+                            </button>
+                          );
+                          return tooltipText ? (
+                            <OverlayTrigger placement="top" overlay={<Tooltip>{tooltipText}</Tooltip>}>
+                              <span style={{ display: 'inline-block' }}>{btn}</span>
+                            </OverlayTrigger>
+                          ) : btn;
+                        })()}
                         actionSlot={
                           <Dropdown className="dots-nav-anchor" align="end">
                             <Dropdown.Toggle as="button" className="dots-nav p-0 border-0 bg-transparent" style={{ cursor: "pointer" }}>
@@ -1109,7 +1188,31 @@ const ProductComparisonMatrix = ({
                 </>
               )
             ) : (
-              <p className={styles.footerValueMuted}>Vendor finalization is handled via the tender workflow.</p>
+              // Tender path — multi-vendor finalization is driven from
+              // the per-vendor Finalize button in each vendor card
+              // header (see VendorStatusCell.belowNameSlot above). The
+              // footer here just summarises status — buyer can finalize
+              // any number of vendors for this product; each spawns its
+              // own ARC committee approval.
+              (() => {
+                const finalizedVendorIds = new Set(
+                  (alreadyFinalized || [])
+                    .map((f) => String(f?.finalization?.winning_vendor?.user_id || f?.vendor_id || ""))
+                    .filter(Boolean)
+                );
+                if (finalizedVendorIds.size === 0) {
+                  return (
+                    <p className={styles.footerValueMuted}>
+                      Tap <strong>Finalize</strong> on any vendor card above. Tenders support multi-vendor finalization — each finalized vendor is sent to the ARC committee independently.
+                    </p>
+                  );
+                }
+                return (
+                  <p className={styles.footerValueMuted}>
+                    {finalizedVendorIds.size} vendor{finalizedVendorIds.size === 1 ? '' : 's'} finalized for this product — each routed to the ARC committee. Finalize additional vendors from the cards above as needed.
+                  </p>
+                );
+              })()
             )}
           </div>
         </div>
@@ -1163,8 +1266,16 @@ const ProductComparisonMatrix = ({
         show={activeModal === "finalize"}
         onHide={() => { if (!finalizeLoading && !mergeProbeLoading) setActiveModal(null); }}
         loading={finalizeLoading || mergeProbeLoading}
+        isTender={!!is_tender}
+        tenderScope={tender_scope}
         onConfirm={async () => {
-          const isTender = proditem?.rfq?.[0]?.is_tender === 1 || proditem?.rfq?.[0]?.is_tender === true;
+          // is_tender comes from the parent prop (threaded from
+          // contextRFQ.is_tender in ProductComparisonTab) — DO NOT
+          // re-derive it from proditem?.rfq?.[0]?.is_tender. That nested
+          // path is not always populated on this row shape, so it
+          // silently returned false and forced route_type='PO' even on
+          // tenders, producing draft POs against tender RFQs.
+          const isTender = !!is_tender;
           const routeType = isTender ? "ARC" : "PO";
           setSelectedRouteType(routeType);
 

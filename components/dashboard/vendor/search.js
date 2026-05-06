@@ -17,6 +17,7 @@ import AddTenderItemModal from "@/components/modal/AddTenderItemModal";
 import ContractedItemModal from "@/components/dashboard/buyer/editRFQ/ContractedItemModal";
 import BypassArcReasonModal from "@/components/dashboard/buyer/editRFQ/BypassArcReasonModal";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
+import { usePerHotelModulePermissions } from "@/hooks/usePerHotelModulePermissions";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ProcurementHeader from "./ProcurementHeader";
@@ -110,6 +111,24 @@ const Search = ({ title, type }) => {
     moduleKey,
     hotelIds: selectedHotelIds,
     enabled: selectedHotelIds.length > 0 && isProcurementMode,
+  });
+
+  // Per-hotel permission breakdown for the picker dropdown. We pull this
+  // for EVERY hotel the user is mapped to (not just the selected ones)
+  // so the dropdown can filter (no read → hidden) and disable (read but
+  // not create → disabled). The bulk endpoint above gives the union
+  // across selectedHotelIds, useful AFTER selection — this hook gives
+  // per-hotel granularity, useful BEFORE selection.
+  const allMappedHotelIds = useMemo(
+    () => (userHotelMappings || [])
+      .map((m) => m.hospitality_hotel_id)
+      .filter((id) => Number.isFinite(id)),
+    [userHotelMappings]
+  );
+  const { getPerm: getHotelPerm, loading: perHotelPermsLoading } = usePerHotelModulePermissions({
+    moduleKey,
+    hotelIds: allMappedHotelIds,
+    enabled: isProcurementMode && allMappedHotelIds.length > 0,
   });
 
   const hasWriteAccess = selectedHotelIds.length === 0 || permissionsLoading || canCreate;
@@ -428,6 +447,8 @@ const Search = ({ title, type }) => {
             onHotelChange={setSelectedHotelIds}
             isLoading={isLoading}
             disableHotelSelect={!!queryMeta.rfq_id}
+            getHotelPerm={getHotelPerm}
+            perHotelPermsLoading={perHotelPermsLoading}
           />
 
           {isAccessDenied && (
