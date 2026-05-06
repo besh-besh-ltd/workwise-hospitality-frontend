@@ -31,8 +31,16 @@ const WorkflowWizard = ({
   const isEditing = !!editingProcess;
 
   const initialStages = useMemo(() => {
-    if (isEditing && editingPolicies?.length && editingProcess?.process_type != null) {
-      return buildStagesFromPolicies(editingPolicies, editingProcess.process_type);
+    // When editing, the stage list is driven by the editing process's
+    // process_type — even if no policies have been configured yet. This
+    // is the "Configure" path: a buyer admin clicks Configure on a TENDER
+    // process that has zero policies, the wizard should still seed a
+    // TENDER stage list (Tender → Technical → Negotiation → Negotiation
+    // Quote → ARC), not the RFQ default. The previous fallback gated on
+    // editingPolicies.length > 0, so configuring an empty TENDER process
+    // showed RFQ stages.
+    if (isEditing && editingProcess?.process_type != null) {
+      return buildStagesFromPolicies(editingPolicies || [], editingProcess.process_type);
     }
     return getStagesForProcessType("RFQ").map((st) => ({ entity_type: st.value, steps: [] }));
   }, [isEditing, editingPolicies, editingProcess?.process_type]);
@@ -49,10 +57,16 @@ const WorkflowWizard = ({
   const stageConfig = getStagesForProcessType(selectedProcess?.process_type);
 
   React.useEffect(() => {
-    if (isEditing && editingProcess && editingPolicies?.length) {
-      setWizardForm({ process_id: editingProcess.id, stages: buildStagesFromPolicies(editingPolicies, editingProcess.process_type) });
+    // Same fix as initialStages above: rebuild stages from process_type
+    // even when policies are empty (Configure on a brand-new TENDER
+    // process). Without this, the wizard hangs on RFQ stages.
+    if (isEditing && editingProcess) {
+      setWizardForm({
+        process_id: editingProcess.id,
+        stages: buildStagesFromPolicies(editingPolicies || [], editingProcess.process_type),
+      });
     }
-  }, [isEditing, editingProcess?.id, editingPolicies?.length]);
+  }, [isEditing, editingProcess?.id, editingProcess?.process_type, editingPolicies?.length]);
 
   React.useEffect(() => {
     if (isEditing || !wizardForm.process_id) return;

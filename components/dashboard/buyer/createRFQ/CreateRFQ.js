@@ -2165,6 +2165,22 @@ useEffect(() => {
       fetchDepartments(selectedHotelIds[0]);
     }
   }, [selectedHotelIds]);
+
+  // Auto-derive tender_scope from the hotel selection. One hotel → SINGLE,
+  // two or more → GROUP. The buyer never picks scope manually — it's
+  // implied by their business unit selection. Group ARC routes to the
+  // global hierarchy (so process_id is also cleared for GROUP).
+  useEffect(() => {
+    if (rfqFormDataFromStore.is_tender !== 1) return;
+    if (!selectedHotelIds || selectedHotelIds.length === 0) return;
+    const derivedScope = selectedHotelIds.length >= 2 ? 'GROUP' : 'SINGLE';
+    if (rfqFormDataFromStore.tender_scope !== derivedScope) {
+      dispatch(setOtherFormFields({ field_name: 'tender_scope', value: derivedScope }));
+    }
+    if (derivedScope === 'GROUP' && rfqFormDataFromStore.process_id) {
+      dispatch(setOtherFormFields({ field_name: 'process_id', value: null }));
+    }
+  }, [selectedHotelIds, rfqFormDataFromStore.is_tender]);
   // Watch for changes in the draft_id from URL
   useEffect(() => {
     // Changes by Agnij 2025-06-17 [Reset state when draft_id changes]
@@ -3102,62 +3118,21 @@ useEffect(() => {
 
                                 {rfqFormDataFromStore.is_tender === 1 && (
                                   <>
-                                    {/* Tender / ARC config block — bespoke styling, no Bootstrap.
-                                        Single ARC: covers exactly one hotel.
-                                        Group ARC: ≥2 hotels — may span any companies. The single
-                                        global Group ARC hierarchy from the Hospitality Network
-                                        admin handles approval. */}
+                                    {/* Tender / ARC config block. tender_scope is auto-derived
+                                        from the hotel selection above: 1 hotel → Single ARC,
+                                        ≥2 hotels → Group ARC. The buyer never picks scope
+                                        manually. Group ARC routes to the global hierarchy. */}
                                     <div className="col-md-12">
                                       <div className={tenderStyles.tenderSection}>
                                         <div className={tenderStyles.sectionHeader}>
                                           <p className={tenderStyles.sectionTitle}>Tender Configuration</p>
                                           <p className={tenderStyles.sectionHint}>
-                                            Determines committee, hotel coverage, and ARC validity.
+                                            {selectedHotelIds.length >= 2
+                                              ? `Group ARC — covers ${selectedHotelIds.length} business units. Approved by the network's global ARC hierarchy.`
+                                              : selectedHotelIds.length === 1
+                                                ? 'Single ARC — covers one business unit. Approved by the per-hotel ARC committee.'
+                                                : 'Pick one or more business units above to proceed. Single ARC = 1 BU, Group ARC = 2+ BUs.'}
                                           </p>
-                                        </div>
-
-                                        <div className={tenderStyles.scopeGroup}>
-                                          {[
-                                            {
-                                              value: 'SINGLE',
-                                              label: 'Single ARC',
-                                              description: 'One hotel. Approval chain configured per hotel.'
-                                            },
-                                            {
-                                              value: 'GROUP',
-                                              label: 'Group ARC',
-                                              description: 'Two or more hotels — may span different companies. Approved by the global ARC hierarchy.'
-                                            }
-                                          ].map((opt) => {
-                                            const selected = rfqFormDataFromStore.tender_scope === opt.value;
-                                            return (
-                                              <label
-                                                key={opt.value}
-                                                className={`${tenderStyles.scopeOption} ${selected ? tenderStyles.scopeOptionSelected : ''}`}
-                                              >
-                                                <input
-                                                  type="radio"
-                                                  name="tender_scope"
-                                                  value={opt.value}
-                                                  checked={selected}
-                                                  onChange={() => {
-                                                    dispatch(setOtherFormFields({ field_name: 'tender_scope', value: opt.value }));
-                                                    // Group ARC uses the global hierarchy, not a per-process matrix.
-                                                    // Clear any stale process_id picked while on Single ARC so the
-                                                    // payload doesn't reference a process that won't be honored.
-                                                    if (opt.value === 'GROUP') {
-                                                      dispatch(setOtherFormFields({ field_name: 'process_id', value: null }));
-                                                    }
-                                                    setHasUnsavedChanges(true);
-                                                  }}
-                                                />
-                                                <span>
-                                                  <p className={tenderStyles.scopeOptionLabel}>{opt.label}</p>
-                                                  <p className={tenderStyles.scopeOptionDescription}>{opt.description}</p>
-                                                </span>
-                                              </label>
-                                            );
-                                          })}
                                         </div>
 
                                         <div className={tenderStyles.periodRow}>
@@ -3203,16 +3178,6 @@ useEffect(() => {
                                           </div>
                                         </div>
 
-                                        {rfqFormDataFromStore.tender_scope === 'GROUP' && selectedHotelIds.length > 0 && selectedHotelIds.length < 2 && (
-                                          <div className={tenderStyles.hotelHelp}>
-                                            Group ARC requires at least two hotels — pick more above.
-                                          </div>
-                                        )}
-                                        {rfqFormDataFromStore.tender_scope === 'SINGLE' && selectedHotelIds.length > 1 && (
-                                          <div className={tenderStyles.hotelHelp}>
-                                            Single ARC accepts exactly one hotel — switch to Group ARC or unpick others.
-                                          </div>
-                                        )}
                                       </div>
                                     </div>
 

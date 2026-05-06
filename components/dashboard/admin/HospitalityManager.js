@@ -464,13 +464,39 @@ const HospitalityManager = () => {
               <h1 className={styles.pageTitle}>Hospitality Network</h1>
               <div className={styles.pageSubtitle}>Manage your companies, business units and teams</div>
             </div>
-            <CompanySwitcher
-              companies={companies}
-              selectedCompanyId={selectedCompanyId}
-              onSelect={setSelectedCompanyId}
-              onAddCompany={() => setShowCompanyModal(true)}
-              isLoading={isLoadingCompanies}
-            />
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              {/* Network-wide Group ARC hierarchy lives here. Group ARC tenders
+                  cover hotels across companies and route to a single global
+                  approval chain (Hospitality Network admin owns it). */}
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard/admin/hospitality-manager/global-arc-hierarchy")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "9px 14px",
+                  borderRadius: 8,
+                  border: "1px solid #FFA500",
+                  background: "#fff",
+                  color: "#A86A00",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+                title="Configure the network-wide Group ARC approval hierarchy"
+              >
+                Group ARC Hierarchy
+              </button>
+              <CompanySwitcher
+                companies={companies}
+                selectedCompanyId={selectedCompanyId}
+                onSelect={setSelectedCompanyId}
+                onAddCompany={() => setShowCompanyModal(true)}
+                isLoading={isLoadingCompanies}
+              />
+            </div>
           </div>
         </div>
       </section>
