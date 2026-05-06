@@ -131,5 +131,21 @@ export const getBulkPermissions = (moduleKey, hotelIds = [], departmentId = null
     }
   });
 
+// Per-hotel permission breakdown — used by hotel pickers that need
+// to filter (no read → hide) or disable (read-only → disabled) options
+// individually. Differs from getBulkPermissions which returns the union.
+//
+// Returns: { permissions_by_hotel: { "<hotel_id>": { "<resource>": ["read","create",...] } } }
+export const getPerHotelPermissions = (moduleKey, hotelIds = []) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const payload = { key: moduleKey, hotel_ids: hotelIds };
+      const response = await axiosInstance.post(`/rbac/me/permissions/per-hotel`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 
 

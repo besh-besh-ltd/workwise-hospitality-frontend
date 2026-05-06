@@ -133,7 +133,18 @@ const GlobalArcWizard = ({
         const r = await saveStagePayload(payload);
         if (r.kind === "warning") pending.push({ payload, warning: r.warning });
       }
-      if (pending.length === 0) { toast.success("Group ARC hierarchy saved"); onSave(); return; }
+      if (pending.length === 0) {
+        // Happy path: await the parent refresh so any error is caught
+        // here, then explicitly clear the spinner. Without this reset
+        // the "Saving…" state was sticky and the button never re-enabled.
+        toast.success("Group ARC hierarchy saved");
+        try { await onSave?.(); } catch (_) { /* parent refresh failures shouldn't block UI */ }
+        setSaving(false);
+        return;
+      }
+      // Warning path: keep saving=true so the button stays disabled
+      // while the impact modal is open. handleConfirmImpact /
+      // handleCancelImpact own the reset from there.
       setImpactWarning({ pending });
     } catch (error) {
       toast.error(error?.response?.data?.message || error?.message?.response?.data?.message || error?.message || "Failed to save Group ARC hierarchy");

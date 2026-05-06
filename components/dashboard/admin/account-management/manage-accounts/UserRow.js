@@ -77,7 +77,20 @@ const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, on
   const initials = getInitials(account.name);
   const avatarColor = getAvatarColor(account.name);
   const dedupedMappings = dedupeHospitalityMappings(mappings || []);
-  const uniqueRoles = Array.from(new Set((roleScopes || []).map((s) => s.role_title).filter(Boolean)));
+  // Dedup on (title, is_network_scope) so a role granted both BU-scoped
+  // and network-wide renders as two chips with distinct colours — admins
+  // can tell at a glance which holders have the wider Group-ARC reach.
+  const seenRoleKeys = new Set();
+  const uniqueRoles = (roleScopes || [])
+    .filter((s) => s.role_title)
+    .reduce((acc, s) => {
+      const isNetwork = s.is_network_scope === 1 || s.is_network_scope === true;
+      const key = `${s.role_title}|${isNetwork ? 1 : 0}`;
+      if (seenRoleKeys.has(key)) return acc;
+      seenRoleKeys.add(key);
+      acc.push({ title: s.role_title, isNetwork });
+      return acc;
+    }, []);
   const depts = departments || [];
 
   return (
@@ -105,9 +118,15 @@ const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, on
           <TruncatedBadges
             items={uniqueRoles}
             maxVisible={2}
-            getLabel={(title) => title}
-            renderBadge={(title) => (
-              <span key={title} className={styles.roleBadge}>{title}</span>
+            getLabel={(r) => r.isNetwork ? `${r.title} · Network-Wide` : r.title}
+            renderBadge={(r) => (
+              <span
+                key={`${r.title}|${r.isNetwork ? 1 : 0}`}
+                className={r.isNetwork ? styles.roleBadgeNetwork : styles.roleBadge}
+                title={r.isNetwork ? "Network-wide grant — applies across all hotels" : undefined}
+              >
+                {r.title}{r.isNetwork ? " · Network" : ""}
+              </span>
             )}
           />
         </td>

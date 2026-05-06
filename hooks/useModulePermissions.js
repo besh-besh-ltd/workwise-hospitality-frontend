@@ -6,7 +6,7 @@ import { getBulkPermissions } from "@/services/rbac";
  * Fetches permissions fresh on every page load based on hotel context
  *
  * @param {Object} options
- * @param {string} options.moduleKey - The permission module key (e.g., "tender", "purchase_order")
+ * @param {string} options.moduleKey - The permission module key (e.g., "boq", "rfq", "purchase_order")
  * @param {number[]} options.hotelIds - Array of hotel IDs to check permissions for
  * @param {boolean} options.enabled - Whether to fetch permissions (default: true)
  * @returns {Object} Permission state and helper functions

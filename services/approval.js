@@ -257,3 +257,24 @@ export const getGlobalArcApproverOptions = (entityType) =>
     }
   });
 
+// BU-scope sister of getGlobalArcApproverOptions — used by the per-hotel
+// hierarchy wizard. Filters role/user pickers to those holding
+// <entity>.approve via BU-scope grants matching the supplied hotel.
+// Network-scope holders are excluded (they govern Group ARC only).
+//
+// Returns: { entity_type, permission, roles: [{id, title, users:[...]}], users: [{id, name, email}] }
+export const getBuApproverOptions = (entityType, { hotelId } = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const params = {};
+      if (hotelId != null) params.hotel_id = hotelId;
+      const response = await axiosInstance.get(
+        `/general/hospitality/approval/bu-approver-options/${entityType}`,
+        { params }
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+

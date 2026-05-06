@@ -480,6 +480,16 @@ $transition-fast: all 0.15s ease;
   color: #7c3aed;
 }
 
+// Network-wide grants are visually distinct from BU-scoped ones because
+// they govern Group-ARC entities across every hotel in the tenant — the
+// blast radius is larger so the badge calls it out in amber.
+.roleBadgeNetwork {
+  @include badge-base;
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+
 .deptBadge {
   @include badge-base;
   background: #e0f2fe;

@@ -48,7 +48,13 @@ const ApprovalFlowGraph = ({ stages = [], getApproverDisplayInfo, compact = fals
                   {steps.length > 0 && (
                     <div className={`${s.levels} ${compact ? s.levelsCompact : ""}`}>
                       {steps.map((step, stepIndex) => {
-                        const info = getApproverDisplayInfo(step, selectedDepartmentId);
+                        // Per-stage entity_type goes into displayInfo so the
+                        // BU wizard's preview reads the BU-scope-filtered slice
+                        // (matches the picker on the left). Without this the
+                        // legacy fallback runs and a network-scope holder
+                        // leaks into the live preview's user count even though
+                        // the picker correctly shows "No users available".
+                        const info = getApproverDisplayInfo(step, stage.value || selectedDepartmentId);
                         const hasUsers = info?.users && info.users.length > 0;
                         const isRole = info?.type === "Role";
                         const accKey = `afg-${index}-${stepIndex}`;

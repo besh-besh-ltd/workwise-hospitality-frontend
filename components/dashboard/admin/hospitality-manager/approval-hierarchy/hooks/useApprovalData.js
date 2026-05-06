@@ -4,9 +4,16 @@ import {
   getApprovalPolicies,
   deleteApprovalPolicy,
   getDepartmentSubGraphPreview as fetchDepartmentPreview,
+  getBuApproverOptions,
 } from "@/services/approval";
 import { getRoles, getBatchUserRoleScopes, getBatchUserDepartments, getDepartments } from "@/services/rbac";
 import { getCompanyUserMappings, getHospitalityHotels } from "@/services/hospitality";
+
+// Per-stage entity_types the BU wizard ever picks for. The hook fetches
+// approver options once per stage at load time so the wizard's role /
+// user pickers are pre-filtered to <entity>.approve holders for THIS
+// hotel — and network-scope grants stay out of BU pickers.
+const BU_STAGE_ENTITY_TYPES = ["RFQ", "TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "PO", "ARC"];
 
 const useApprovalData = (companyId, hotelId) => {
   const [loading, setLoading] = useState(true);
@@ -17,6 +24,35 @@ const useApprovalData = (companyId, hotelId) => {
   const [userRoleScopes, setUserRoleScopes] = useState({});
   const [userDepartmentsMap, setUserDepartmentsMap] = useState({});
   const [departments, setDepartments] = useState([]);
+  // entity_type → { roles: [{id,title,users:[...]}], users: [{id,name,email}] }
+  // Pre-filtered to <entity>.approve holders for THIS hotel. Used by
+  // the wizard's role/user pickers per stage.
+  const [approverOptionsByEntity, setApproverOptionsByEntity] = useState({});
+
+  const loadApproverOptionsByEntity = async () => {
+    try {
+      const responses = await Promise.all(
+        BU_STAGE_ENTITY_TYPES.map((et) =>
+          getBuApproverOptions(et, { hotelId: parseInt(hotelId) }).catch(() => null)
+        )
+      );
+      const map = {};
+      BU_STAGE_ENTITY_TYPES.forEach((et, idx) => {
+        const data = responses[idx]?.data?.data || responses[idx]?.data || {};
+        map[et] = {
+          roles: (data.roles || []).map((r) => ({
+            id: r.id,
+            title: r.title || r.name,
+            users: (r.users || []).map((u) => ({ user_id: u.id || u.user_id, name: u.name, email: u.email })),
+          })),
+          users: (data.users || []).map((u) => ({ user_id: u.id || u.user_id, name: u.name, email: u.email })),
+        };
+      });
+      setApproverOptionsByEntity(map);
+    } catch (error) {
+      console.error("Error loading per-stage approver options:", error);
+    }
+  };
 
   const loadHotel = async () => {
     try {
@@ -127,7 +163,14 @@ const useApprovalData = (companyId, hotelId) => {
   const loadAll = async () => {
     setLoading(true);
     try {
-      await Promise.all([loadHotel(), loadPolicies(), loadRoles(), loadUsers(), loadDepartments()]);
+      await Promise.all([
+        loadHotel(),
+        loadPolicies(),
+        loadRoles(),
+        loadUsers(),
+        loadDepartments(),
+        loadApproverOptionsByEntity(),
+      ]);
     } catch (error) {
       console.error("Error loading data:", error);
       toast.error("Failed to load data");
@@ -173,9 +216,28 @@ const useApprovalData = (companyId, hotelId) => {
   );
 
   const getApproverOptions = useCallback(
-    (sourceType, departmentId) => {
+    (sourceType, entityType) => {
+      // Picker uses the per-entity slice when one is available — i.e.
+      // the wizard supplies stage entity_type. This narrows the pool to
+      // <entity>.approve holders at THIS hotel's BU scope. Network-scope
+      // holders are excluded server-side so e.g. a Group-ARC tender
+      // approver can't bleed into a hotel's BU committee picker.
+      const slice = entityType ? approverOptionsByEntity[entityType] : null;
+      if (slice) {
+        if (sourceType === "USER") {
+          return slice.users.map((u) => ({
+            value: u.user_id,
+            label: `${u.name}${u.email ? ` (${u.email})` : ""}`,
+          }));
+        }
+        if (sourceType === "ROLE") {
+          return slice.roles.map((r) => ({ value: r.id, label: r.title }));
+        }
+        return [];
+      }
+      // Fallback (no entity_type passed — legacy callers / master policy
+      // context with no specific stage).
       if (sourceType === "USER") {
-        // Master policy context: show all users (no department filtering)
         return users.map((u) => ({
           value: u.user_id,
           label: `${u.name}${u.email ? ` (${u.email})` : ""}`,
@@ -185,7 +247,7 @@ const useApprovalData = (companyId, hotelId) => {
       }
       return [];
     },
-    [users, roles]
+    [users, roles, approverOptionsByEntity]
   );
 
   const getUserDeptNames = useCallback(
@@ -197,7 +259,33 @@ const useApprovalData = (companyId, hotelId) => {
   );
 
   const getApproverDisplayInfo = useCallback(
-    (step, departmentId) => {
+    (step, entityType) => {
+      // Prefer the per-entity slice — its users[] is BU-scope filtered
+      // to this hotel and matches what the picker now offers.
+      const slice = entityType ? approverOptionsByEntity[entityType] : null;
+      if (slice) {
+        if (step.approver_source_type === "USER") {
+          const u = slice.users.find((x) => x.user_id === step.approver_source_id);
+          return {
+            name: u?.name || "Unknown User",
+            email: u?.email || "",
+            type: "User",
+            typeLabel: "Specific User",
+            users: u ? [u] : [],
+          };
+        }
+        if (step.approver_source_type === "ROLE") {
+          const r = slice.roles.find((x) => x.id === step.approver_source_id);
+          return {
+            name: r?.title || "Unknown Role",
+            email: "",
+            type: "Role",
+            typeLabel: "User Role",
+            users: r?.users || [],
+          };
+        }
+      }
+      // Legacy fallback for callers that don't pass entity_type.
       if (step.approver_source_type === "USER") {
         const user = users.find((u) => u.user_id === step.approver_source_id);
         return {
@@ -209,7 +297,7 @@ const useApprovalData = (companyId, hotelId) => {
         };
       } else if (step.approver_source_type === "ROLE") {
         const role = roles.find((r) => r.id === step.approver_source_id);
-        const roleUsers = getUsersByRole(step.approver_source_id, departmentId);
+        const roleUsers = getUsersByRole(step.approver_source_id, null);
         const enrichedUsers = roleUsers.map((u) => ({
           ...u,
           departmentNames: getUserDeptNames(u.user_id),
@@ -224,7 +312,7 @@ const useApprovalData = (companyId, hotelId) => {
       }
       return { name: "Unknown", email: "", type: "", typeLabel: "", users: [] };
     },
-    [users, roles, getUsersByRole, getUserDeptNames]
+    [users, roles, getUsersByRole, getUserDeptNames, approverOptionsByEntity]
   );
 
   const handleDeletePolicy = useCallback(
