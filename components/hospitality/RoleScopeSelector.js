@@ -23,6 +23,12 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedHotel, setSelectedHotel] = useState(null);
   const [selectedDepartment, setSelectedDepartment] = useState(propSelectedDepartment || null);
+  // Network-scope toggle for Group ARC. When checked the row is granted
+  // with all-NULL BU columns and is_network_scope=1, making the user
+  // visible to Group ARC permission/approval resolution. The two scopes
+  // do NOT overlap — see migration 004. UI hides the BU pickers when
+  // checked since they're not part of a network-scope grant.
+  const [isNetworkScope, setIsNetworkScope] = useState(false);
 
   // null = create mode; number = index into existingRoles being edited.
   // When set, the bottom form pre-fills with that role's scope and the
@@ -33,19 +39,26 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   // Expose current form state to parent so it can auto-add on save
   useEffect(() => {
     if (!pendingScopeRef) return;
-    if (selectedRole && selectedCompany) {
-      pendingScopeRef.current = {
-        role_id: selectedRole.id,
-        role_title: selectedRole.title,
-        company_id: selectedCompany.id,
-        hotel_id: selectedHotel?.id || null,
-        department_id: selectedDepartment?.id || null,
-        permissions
-      };
+    if (selectedRole && (isNetworkScope || selectedCompany)) {
+      pendingScopeRef.current = isNetworkScope
+        ? {
+            role_id: selectedRole.id,
+            role_title: selectedRole.title,
+            is_network_scope: 1,
+            permissions,
+          }
+        : {
+            role_id: selectedRole.id,
+            role_title: selectedRole.title,
+            company_id: selectedCompany.id,
+            hotel_id: selectedHotel?.id || null,
+            department_id: selectedDepartment?.id || null,
+            permissions,
+          };
     } else {
       pendingScopeRef.current = null;
     }
-  }, [selectedRole, selectedCompany, selectedHotel, selectedDepartment, permissions, pendingScopeRef]);
+  }, [selectedRole, selectedCompany, selectedHotel, selectedDepartment, permissions, pendingScopeRef, isNetworkScope]);
 
   /* ---------------- Effects ---------------- */
 
@@ -251,6 +264,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     setSelectedHotel(null);
     setSelectedDepartment(null);
     setPermissions({});
+    setIsNetworkScope(false);
     setError(null);
   };
 
@@ -265,21 +279,37 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   };
 
   const handleAddRole = () => {
-    if (!selectedRole || !selectedCompany) return;
+    if (!selectedRole) return;
+    // Network-scope grants don't need a company; BU grants still do.
+    if (!isNetworkScope && !selectedCompany) return;
 
-    const newScope = {
-      role_id: selectedRole.id,
-      role_title: selectedRole.title,
-      company_id: selectedCompany.id,
-      hotel_id: selectedHotel?.id || null,
-      department_id: selectedDepartment?.id || null,
-      permissions
-    };
+    const newScope = isNetworkScope
+      ? {
+          role_id: selectedRole.id,
+          role_title: selectedRole.title,
+          is_network_scope: 1,
+          permissions,
+        }
+      : {
+          role_id: selectedRole.id,
+          role_title: selectedRole.title,
+          company_id: selectedCompany.id,
+          hotel_id: selectedHotel?.id || null,
+          department_id: selectedDepartment?.id || null,
+          permissions,
+        };
 
-    // Prevent exact duplicate role scope
+    // Prevent exact duplicate role scope. Network-scope rows are deduped
+    // on (role_id, is_network_scope=1); BU-scoped rows on the legacy
+    // (role_id, company_id, hotel_id, department_id) tuple.
     const isDuplicate = (existingRoles || []).some((r, i) => {
       if (editingIndex !== null && i === editingIndex) return false;
+      const rNetwork = r.is_network_scope === 1 || r.is_network_scope === true;
+      if (newScope.is_network_scope === 1) {
+        return r.role_id === newScope.role_id && rNetwork;
+      }
       return r.role_id === newScope.role_id &&
+        !rNetwork &&
         r.company_id === newScope.company_id &&
         (r.hotel_id || null) === newScope.hotel_id &&
         (r.department_id || null) === newScope.department_id;
@@ -289,12 +319,15 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       return;
     }
 
-    // If hotel or department is "All" (null), confirm with user
-    const allHotel = !newScope.hotel_id;
-    const allDept = !newScope.department_id;
-    if (allHotel || allDept) {
-      setAllAccessConfirm({ open: true, scope: newScope });
-      return;
+    // BU grants warn on "All Hotels" / "All Departments"; network grants
+    // are inherently network-wide so the warning doesn't apply.
+    if (!isNetworkScope) {
+      const allHotel = !newScope.hotel_id;
+      const allDept = !newScope.department_id;
+      if (allHotel || allDept) {
+        setAllAccessConfirm({ open: true, scope: newScope });
+        return;
+      }
     }
 
     commitScope(newScope);
@@ -317,9 +350,14 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       : null;
 
     setSelectedRole(matchedRole);
-    setSelectedCompany(matchedCompany || null);
-    setSelectedHotel(matchedHotel);
-    setSelectedDepartment(matchedDept);
+    // Seed network-scope state from the existing row so the toggle
+    // reflects reality on edit. When set, the BU pickers stay null
+    // (the form hides them anyway).
+    const wasNetworkScope = role.is_network_scope === 1 || role.is_network_scope === true;
+    setIsNetworkScope(wasNetworkScope);
+    setSelectedCompany(wasNetworkScope ? null : (matchedCompany || null));
+    setSelectedHotel(wasNetworkScope ? null : matchedHotel);
+    setSelectedDepartment(wasNetworkScope ? null : matchedDept);
     // Permissions will auto-load via the selectedRole effect, but seed with
     // the saved permissions immediately so there's no flash of empty state.
     setPermissions(role.permissions || {});
@@ -359,33 +397,49 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   // can scan their scope hierarchy directly instead of paging through a flat
   // list. Each leaf carries _index so edit/remove still target the correct
   // row in the original existingRoles array.
+  //
+  // Network-scope rows go into a synthetic "__network__" group with a
+  // friendlier label, since they don't carry a company/BU.
   const groupedRoles = useMemo(() => {
     const groups = new Map(); // companyId -> { name, hotels: Map<hotelId, [roles]> }
     (existingRoles || []).forEach((role, idx) => {
-      const cid = role.company_id ?? '__none__';
-      const hid = role.hotel_id ?? '__all__';
+      const isNetwork = role.is_network_scope === 1 || role.is_network_scope === true;
+      const cid = isNetwork ? '__network__' : (role.company_id ?? '__none__');
+      const hid = isNetwork ? '__network__' : (role.hotel_id ?? '__all__');
       if (!groups.has(cid)) {
-        groups.set(cid, { name: getCompanyName(role.company_id), hotels: new Map() });
+        groups.set(cid, {
+          name: isNetwork
+            ? 'Network-wide (Group ARC)'
+            : getCompanyName(role.company_id),
+          isNetwork,
+          hotels: new Map(),
+        });
       }
       const company = groups.get(cid);
       if (!company.hotels.has(hid)) {
         company.hotels.set(hid, {
-          name: getHotelName(role.company_id, role.hotel_id),
+          name: isNetwork
+            ? 'Applies network-wide — covers Group ARC entities only'
+            : getHotelName(role.company_id, role.hotel_id),
           roles: [],
         });
       }
       company.hotels.get(hid).roles.push({ ...role, _index: idx });
     });
-    // Materialise into arrays for stable rendering order.
-    return Array.from(groups.entries()).map(([cid, c]) => ({
-      companyId: cid,
-      companyName: c.name,
-      hotels: Array.from(c.hotels.entries()).map(([hid, h]) => ({
-        hotelId: hid,
-        hotelName: h.name,
-        roles: h.roles,
-      })),
-    }));
+    // Materialise into arrays for stable rendering order. Network group
+    // sorted to the top so admins see network grants first when present.
+    return Array.from(groups.entries())
+      .map(([cid, c]) => ({
+        companyId: cid,
+        companyName: c.name,
+        isNetwork: c.isNetwork,
+        hotels: Array.from(c.hotels.entries()).map(([hid, h]) => ({
+          hotelId: hid,
+          hotelName: h.name,
+          roles: h.roles,
+        })),
+      }))
+      .sort((a, b) => (a.isNetwork === b.isNetwork ? 0 : a.isNetwork ? -1 : 1));
   }, [existingRoles, allCompanies, allDepartments]);
 
   return (
@@ -432,6 +486,24 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                                   <span className={styles.scopeRoleTitle}>
                                     {role.role_title || role.title}
                                   </span>
+                                  {(role.is_network_scope === 1 || role.is_network_scope === true) && (
+                                    <span
+                                      style={{
+                                        fontSize: 10,
+                                        fontWeight: 700,
+                                        textTransform: "uppercase",
+                                        letterSpacing: 0.4,
+                                        color: "#A86A00",
+                                        background: "#FFF3DD",
+                                        border: "1px solid #FFA500",
+                                        borderRadius: 4,
+                                        padding: "2px 6px",
+                                      }}
+                                      title="Network-wide grant — covers Group ARC entities only"
+                                    >
+                                      Network
+                                    </span>
+                                  )}
                                   {role.department_id && (
                                     <span className={styles.scopeRoleDeptTag}>
                                       {getDeptName(role.department_id)}
@@ -516,7 +588,63 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                 </select>
               </div>
 
-              {/* Company */}
+              {/* Network-scope toggle (Group ARC). When checked, the
+                  grant applies network-wide (no BU scoping) and the
+                  user becomes eligible to act on Group ARC entities.
+                  Mutually exclusive with the BU pickers below — those
+                  hide when the toggle is on. */}
+              <div className={styles.addRoleField} style={{ gridColumn: "1 / -1" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    padding: "10px 12px",
+                    border: `1px solid ${isNetworkScope ? "#FFA500" : "#e5e7eb"}`,
+                    background: isNetworkScope ? "#FFF8EE" : "#fafafa",
+                    borderRadius: 8,
+                    cursor: selectedRole ? "pointer" : "not-allowed",
+                    opacity: selectedRole ? 1 : 0.6,
+                    transition: "background 120ms, border-color 120ms",
+                  }}
+                  title={!selectedRole ? "Select a role first" : ""}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isNetworkScope}
+                    disabled={!selectedRole}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setIsNetworkScope(next);
+                      if (next) {
+                        // Network-scope grants are tenant-wide, no BU
+                        // scoping. Drop any half-filled BU selections so
+                        // the duplicate check + payload stay clean.
+                        setSelectedCompany(null);
+                        setSelectedHotel(null);
+                        setSelectedDepartment(null);
+                      }
+                    }}
+                    style={{ marginTop: 3, accentColor: "#FFA500" }}
+                  />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#1A2730" }}>
+                      Network-wide grant (Group ARC)
+                    </div>
+                    <div style={{ fontSize: 11, color: "#6c757d", marginTop: 2, lineHeight: 1.4 }}>
+                      Required for users acting on Group ARC tenders (multi-BU
+                      contracts approved by the network-wide hierarchy). This
+                      grant does NOT cover RFQs or Single ARC tenders — those
+                      need separate per-BU grants.
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              {/* Company / BU / Department: shown only when this is a
+                  BU-scoped grant. Network-scope rows must have all three
+                  null per the CHECK constraint, so the pickers hide. */}
+              {!isNetworkScope && (
               <div className={styles.addRoleField}>
                 <label className={styles.addRoleFieldLabel}>
                   Company <span style={{ color: "#ef4444" }}>*</span>
@@ -539,8 +667,9 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                   ))}
                 </select>
               </div>
+              )}
 
-              {/* Business Unit */}
+              {!isNetworkScope && (
               <div className={styles.addRoleField}>
                 <label className={styles.addRoleFieldLabel}>
                   Business Unit
@@ -565,8 +694,9 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                   ))}
                 </select>
               </div>
+              )}
 
-              {/* Department */}
+              {!isNetworkScope && (
               <div className={styles.addRoleField}>
                 <label className={styles.addRoleFieldLabel}>
                   Department
@@ -590,6 +720,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                   ))}
                 </select>
               </div>
+              )}
             </div>
 
             {/* Permissions Preview */}
