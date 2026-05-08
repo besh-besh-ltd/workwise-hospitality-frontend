@@ -43,6 +43,7 @@ import CreateRFQModal from "./CreateRFQModal";
 import ValidationErrorsDisplay from "./ValidationErrorsDisplay";
 import tenderStyles from "./TenderSection.module.scss";
 import BypassArcRibbon from "@/components/shared/BypassArcRibbon";
+import BypassArcBanner from "@/components/dashboard/buyer/BypassArcBanner";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { IoIosCloseCircleOutline } from "react-icons/io";
 import { BsArrowRepeat } from "react-icons/bs";
@@ -2422,24 +2423,25 @@ useEffect(() => {
 
       <div className="create-rfq-con">
           <>
-            {/* Phase 8: striking ARC-override ribbon listing every
-                contracted product the buyer floated despite an active
-                rate contract. Reasons live on rfqProducts (set server-
-                side at add-product-to-draft time); we surface the first
-                non-null reason here as the headline + show a count
-                when more than one product was bypassed. */}
+            {/* Page-level bypass-ARC banner. Triggers on the BE
+                rollup (rfq_form_data.bypass_arc) OR a defensive scan
+                of rfqProducts for any line carrying a reason — so the
+                banner shows even before the rollup is refreshed (e.g.
+                immediately after the buyer adds a contracted item via
+                the wizard). Per-product compact pills next to each
+                product name are rendered by Item.js. */}
             {(() => {
-              const bypassed = (rfqProducts || []).filter((p) => p?.bypass_arc_reason);
-              if (bypassed.length === 0) return null;
-              const headline = bypassed[0].bypass_arc_reason;
-              const composedReason = bypassed.length === 1
-                ? headline
-                : `${headline}\n\n— Plus ${bypassed.length - 1} more contracted product${bypassed.length - 1 === 1 ? '' : 's'} bypassed on this RFQ.`;
+              const productsBypassed = (rfqProducts || []).filter(
+                (p) => p?.bypass_arc_reason && String(p.bypass_arc_reason).trim().length > 0
+              ).length;
+              const flag = rfqFormDataFromStore?.bypass_arc === 1 || rfqFormDataFromStore?.bypass_arc === '1';
+              const beCount = Number(rfqFormDataFromStore?.bypass_arc_product_count) || 0;
+              const count = Math.max(productsBypassed, beCount);
+              if (!flag && count === 0) return null;
               return (
-                <BypassArcRibbon
-                  reason={composedReason}
-                  recordedBy={null}
-                  recordedAt={bypassed[0].bypass_arc_recorded_at}
+                <BypassArcBanner
+                  count={count}
+                  entityLabel={getEntityLabel(rfqFormDataFromStore?.is_tender)}
                 />
               );
             })()}

@@ -11,6 +11,7 @@ import { getEntityLabel, canEditRfq, getRFQPublishState } from "@/utils/sharedFu
 import PublishDateTimer from "@/components/shared/PublishDateTimer";
 import ReadMore from "@/components/shared/ReadMore";
 import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
+import BypassArcBanner from "@/components/dashboard/buyer/BypassArcBanner";
 import useHasTechClauses from "@/hooks/useHasTechClauses";
 import RFQEditHistory from "./RFQEditHistory/RFQEditHistory";
 
@@ -124,6 +125,31 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
                 {!clauseLoading && hasClauses === false && data?.id && (
                   <NoTechClausesBanner entityLabel={getEntityLabel(data?.is_tender)} />
                 )}
+
+                {/* Bypass-ARC banner — surfaces when any product on
+                    the RFQ overrides an active rate contract. Triggers
+                    on the rollup, the count, OR a defensive scan of
+                    products[] for any line carrying a bypass reason —
+                    so the banner shows even if the BE rollup hasn't
+                    been backfilled. */}
+                {(() => {
+                  if (!data?.id) return null;
+                  const productsBypassed = Array.isArray(data?.products)
+                    ? data.products.filter(
+                        (p) => p?.bypass_arc_reason && String(p.bypass_arc_reason).trim().length > 0
+                      ).length
+                    : 0;
+                  const flag = data?.bypass_arc === 1 || data?.bypass_arc === '1';
+                  const beCount = Number(data?.bypass_arc_product_count) || 0;
+                  const count = Math.max(productsBypassed, beCount);
+                  if (!flag && count === 0) return null;
+                  return (
+                    <BypassArcBanner
+                      count={count}
+                      entityLabel={getEntityLabel(data?.is_tender)}
+                    />
+                  );
+                })()}
 
                 {/* Key dates info bar */}
                 {data?.id && (

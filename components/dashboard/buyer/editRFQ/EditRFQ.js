@@ -39,6 +39,7 @@ import { BsArrowRepeat, BsPeopleFill, BsCheckCircleFill } from "react-icons/bs";
 import useModulePermissions from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
+import BypassArcBanner from "@/components/dashboard/buyer/BypassArcBanner";
 import FormikField from "@/components/shared/FormikField";
 
 // Add validation schema
@@ -1705,6 +1706,25 @@ const EditRFQ = () => {
       </div>
 
       <div className="container-fluid">
+        {/* Bypass-ARC banner — surfaces in the editor too so a buyer
+            mid-edit can see they're working on a contract-override
+            RFQ. Counts come either from the BE (loaded RFQs) or from
+            scanning the in-memory product list (live edits before
+            save). */}
+        {(() => {
+          const liveCount = (rfqData?.products || [])
+            .filter((p) => p.bypass_arc_reason && String(p.bypass_arc_reason).trim().length > 0)
+            .length;
+          const beCount = Number(rfqData?.bypass_arc_product_count) || 0;
+          const count = Math.max(liveCount, beCount);
+          if (!(count > 0 || rfqData?.bypass_arc === 1)) return null;
+          return (
+            <BypassArcBanner
+              count={count}
+              entityLabel={getEntityLabel(rfqData?.is_tender)}
+            />
+          );
+        })()}
         {/* Products table */}
         <div style={{
           borderRadius: 0

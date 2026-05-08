@@ -12,6 +12,7 @@ import {
   setUserSelectedDefaultFile,
 } from "@/redux/slice";
 import { extractfileName, handleFileUpload, getEntityLabel } from "@/utils/sharedFunctions";
+import BypassArcRibbon from "@/components/shared/BypassArcRibbon";
 import { faEye, faFile, faEdit } from "@fortawesome/free-regular-svg-icons";
 import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -461,7 +462,20 @@ const Item = ({
 
 
 <div>
-          <h2 className="h6 mb-0"> {rfqProduct?.name}</h2>
+          <div className="d-flex align-items-center flex-wrap gap-2">
+            <h2 className="h6 mb-0"> {rfqProduct?.name}</h2>
+            {/* Per-product bypass-ARC pill — compact, click-to-reveal.
+                The chip stays minimal; clicking it pops the audit
+                reason inline. Keeps the row visually clean. */}
+            {(data?.bypass_arc_reason && String(data.bypass_arc_reason).trim().length > 0) ? (
+              <BypassArcRibbon
+                reason={data.bypass_arc_reason}
+                recordedBy={data.bypass_arc_recorded_by_name ? { name: data.bypass_arc_recorded_by_name } : null}
+                recordedAt={data.bypass_arc_recorded_at}
+                compact
+              />
+            ) : null}
+          </div>
 
     {(() => {
         // ✅ same logic reused exactly for error condition

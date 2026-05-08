@@ -42,6 +42,8 @@ import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill,
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
 import usePreviewTotals from "@/hooks/usePreviewTotals";
 import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
+import BypassArcBanner from "@/components/dashboard/buyer/BypassArcBanner";
+import BypassArcRibbon from "@/components/shared/BypassArcRibbon";
 import {
   buildBuyerTechEvalProductSummary,
   getBuyerTechEvalStatusConfig
@@ -2248,6 +2250,30 @@ const RfqManagementPreview = () => {
                       <NoTechClausesBanner entityLabel={getEntityLabel(rfqDetails?.is_tender)} />
                     )}
 
+                    {/* Bypass-ARC banner — surfaces when ANY product on
+                        this RFQ overrides an active rate contract.
+                        Triggers off the BE rollup OR a defensive scan
+                        of products[] so a stale rollup can't silence
+                        the warning. Only shown to the buyer view. */}
+                    {type == "buyer-view" && (() => {
+                      if (!rfqDetails?.id) return null;
+                      const productsBypassed = Array.isArray(rfqDetails?.products)
+                        ? rfqDetails.products.filter(
+                            (p) => p?.bypass_arc_reason && String(p.bypass_arc_reason).trim().length > 0
+                          ).length
+                        : 0;
+                      const flag = rfqDetails?.bypass_arc === 1 || rfqDetails?.bypass_arc === '1';
+                      const beCount = Number(rfqDetails?.bypass_arc_product_count) || 0;
+                      const count = Math.max(productsBypassed, beCount);
+                      if (!flag && count === 0) return null;
+                      return (
+                        <BypassArcBanner
+                          count={count}
+                          entityLabel={getEntityLabel(rfqDetails?.is_tender)}
+                        />
+                      );
+                    })()}
+
                     <div className="details-table">
                       {rfqDetails?.products?.length > 0 && (
                       <div className="table-responsive">
@@ -2308,7 +2334,21 @@ const RfqManagementPreview = () => {
                                   style={type === "buyer-view" ? undefined : getTechEvalRowStyle(productTechEvalDetails[item.id])}
                                 >
                                   <td>
-                                    {item?.product_details[0]?.name}
+                                    {/* inline-flex keeps the pill snug
+                                        next to the product name —
+                                        flex with wrap was stretching
+                                        across the full cell width. */}
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                      <span>{item?.product_details[0]?.name}</span>
+                                      {item?.bypass_arc_reason && String(item.bypass_arc_reason).trim().length > 0 ? (
+                                        <BypassArcRibbon
+                                          reason={item.bypass_arc_reason}
+                                          recordedBy={item.bypass_arc_recorded_by_name ? { name: item.bypass_arc_recorded_by_name } : null}
+                                          recordedAt={item.bypass_arc_recorded_at}
+                                          compact
+                                        />
+                                      ) : null}
+                                    </span>
                                   </td>
 
                                   {/* Technical Evaluation - 2nd column */}

@@ -92,6 +92,32 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
           <div className={styles.titleBlock}>
             <span className={styles.title} style={!data.title && isDraft ? { color: '#8c939a', fontStyle: 'italic' } : undefined} title={data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}>{data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}</span>
             <span className={styles.rfqNumber}>{formatRFQNumber(data.rfq_no, data.is_tender)}</span>
+            {(data.bypass_arc === 1 || (data.bypass_arc_product_count || 0) > 0) && (
+              <span
+                title={
+                  (data.bypass_arc_product_count || 0) > 0
+                    ? `${data.bypass_arc_product_count} product${data.bypass_arc_product_count === 1 ? '' : 's'} bypass an active rate contract`
+                    : 'Contains products that bypass an active rate contract'
+                }
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  background: '#fef3c7',
+                  color: '#92400e',
+                  border: '1px solid #fde68a',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 0.4,
+                  textTransform: 'uppercase',
+                  marginLeft: 8,
+                }}
+              >
+                ⚠ ARC Override
+              </span>
+            )}
           </div>
 
           {data.project_name && (
