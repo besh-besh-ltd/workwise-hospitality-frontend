@@ -333,8 +333,34 @@ const getQuoteStatus = async (rfq_id) => {
                                 return (
                                   <tr key={`rfq-item-${item.rfq_no}`}>
                                     <td>
-                                      #{item.rfq_no}
-                                      {getNegotiationBadge(item.id)}
+                                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                        <span>#{item.rfq_no}</span>
+                                        {item.is_tender === 1 && (
+                                          <span
+                                            title={
+                                              item.tender_scope === "GROUP"
+                                                ? "Group ARC tender — covers multiple hotels with one rate contract"
+                                                : "Single ARC tender — quote a long-term rate, not a spot rate"
+                                            }
+                                            style={{
+                                              display: "inline-flex",
+                                              alignItems: "center",
+                                              padding: "2px 8px",
+                                              borderRadius: 999,
+                                              background: "linear-gradient(90deg, #2E5BA8 0%, #3b82f6 100%)",
+                                              color: "#fff",
+                                              fontSize: 9,
+                                              fontWeight: 800,
+                                              letterSpacing: 0.5,
+                                              textTransform: "uppercase",
+                                              lineHeight: 1.3,
+                                            }}
+                                          >
+                                            {item.tender_scope === "GROUP" ? "Group ARC" : "Tender · ARC"}
+                                          </span>
+                                        )}
+                                        {getNegotiationBadge(item.id)}
+                                      </div>
                                     </td>
                                     <td>{getProductsList(item)}</td>
                                     <td>{item.company_name}</td>

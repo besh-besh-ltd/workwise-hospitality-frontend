@@ -44,6 +44,7 @@ import usePreviewTotals from "@/hooks/usePreviewTotals";
 import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import BypassArcBanner from "@/components/dashboard/buyer/BypassArcBanner";
 import BypassArcRibbon from "@/components/shared/BypassArcRibbon";
+import TenderInfoBanner from "@/components/dashboard/buyer/TenderInfoBanner";
 import {
   buildBuyerTechEvalProductSummary,
   getBuyerTechEvalStatusConfig
@@ -2246,6 +2247,19 @@ const RfqManagementPreview = () => {
                       </div>
                     )}
 
+                    {/* Tender / ARC info banner — sits above all
+                        other banners so the recipient (buyer or
+                        vendor) clocks immediately that this is a
+                        tender, the contract validity, and every
+                        business unit covered. Vendor copy nudges them
+                        to quote a long-term rate, not a spot rate. */}
+                    {rfqDetails?.is_tender === 1 && (
+                      <TenderInfoBanner
+                        data={rfqDetails}
+                        audience={type === "buyer-view" ? "buyer" : "vendor"}
+                      />
+                    )}
+
                     {type == "buyer-view" && rfqDetails?.products?.length > 0 && !rfqDetails.products.some(p => p.tech_evaluation_status?.has_tech_eval) && (
                       <NoTechClausesBanner entityLabel={getEntityLabel(rfqDetails?.is_tender)} />
                     )}
@@ -2285,7 +2299,12 @@ const RfqManagementPreview = () => {
                                 <th style={{ minWidth: "315px", maxWidth: "315px", width: "315px" }}>Technical Evaluation</th>
                               )}
                               <th style={{ minWidth: "160px", maxWidth: "280px", width: "auto" }}>Size & specifications</th>
-                              <th style={{ minWidth: "70px", maxWidth: "110px", width: "auto" }}>Quantity</th>
+                              <th
+                                style={{ minWidth: "70px", maxWidth: "150px", width: "auto" }}
+                                title={rfqDetails?.is_tender === 1 ? "Estimated annual consumption — the basis for a long-term rate contract." : undefined}
+                              >
+                                {rfqDetails?.is_tender === 1 ? "Consumption Quantity" : "Quantity"}
+                              </th>
                               {isReverseAuctionActive && (
                                 <th style={{ minWidth: "90px", maxWidth: "130px", width: "auto" }}>Current Lowest</th>
                               )}

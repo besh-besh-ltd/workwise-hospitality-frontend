@@ -21,6 +21,7 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal";
 import ProductNegotiationBadge from "./ProductNegotiationBadge";
+import TenderInfoBanner from "@/components/dashboard/buyer/TenderInfoBanner";
 import Modal from "react-modal";
 import { checkOpenClarification } from "@/services/clarification";
 import { getAllVendorNegotiationStatus, getAllActiveNegotiationRounds } from "@/services/negotiation";
@@ -1609,7 +1610,9 @@ return { deletedTerms, createdTerms, updatedTerms };
         <div className="container-fluid">
           <div className="row">
             <div className="col-md-6">
-              <h3 className="heading">Send Quotation</h3>
+              <h3 className="heading">
+                {rfqDetails?.is_tender === 1 ? "Send Tender Quotation" : "Send Quotation"}
+              </h3>
             </div>
             <div className="col-md-6"></div>
           </div>
@@ -1865,11 +1868,21 @@ return { deletedTerms, createdTerms, updatedTerms };
                 <div className="quote-sec-table">
                   <div className="quote-sec-table-top">
 
+                      {/* Tender / ARC info banner — sits ABOVE the
+                          RFQ details strip so the vendor cannot miss
+                          that this is a tender (long-term commitment,
+                          quote per-consumption-unit, multi-hotel
+                          scope) before they start filling line
+                          prices. */}
+                      {rfqDetails?.is_tender === 1 && (
+                        <TenderInfoBanner data={rfqDetails} audience="vendor" />
+                      )}
+
                       {/* RFQ Details Section */}
                                       <div className="d-flex flex-wrap justify-content-between gap-4 mb-3 bg-light p-3 rounded-2">
                     {rfqDetails?.company_name && (
                       <div className="text-start">
-                        <strong>RFQ No:</strong>
+                        <strong>{rfqDetails?.is_tender === 1 ? "Tender No:" : "RFQ No:"}</strong>
                         <div>#{rfqDetails.rfq_no}</div>
                       </div>
                     )}
@@ -3169,6 +3182,11 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         </p>
                                       )}
                                       <p className="text-sm mb-1 text-success fw-bold">
+                                        {rfqDetails?.is_tender === 1 && (
+                                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.4, color: "#2E5BA8", textTransform: "uppercase", display: "block" }}>
+                                            Consumption qty (annual estimate)
+                                          </span>
+                                        )}
                                         {`${getProductSpecValueByTitle(
                                           item?.product_specs,
                                           "Quantity"
