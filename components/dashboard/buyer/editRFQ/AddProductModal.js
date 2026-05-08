@@ -316,8 +316,13 @@ const AddProductModal = ({
             </div>
           </div>
 
+          {/* The ContractedItemModal stays mounted (with contractedItem
+              still set) while a child modal is open, but visually
+              hidden via the open-flag. This way, cancelling out of a
+              child returns the buyer to the original choice screen
+              instead of dropping them on the empty Add-Product surface. */}
           <ContractedItemModal
-            isOpen={!!contractedItem}
+            isOpen={!!contractedItem && !bypassReasonItem && !releaseWizardCtx}
             onClose={() => setContractedItem(null)}
             product={contractedItem}
             arcs={contractedItem?.arc_info?.arcs || []}
@@ -331,19 +336,17 @@ const AddProductModal = ({
               }
               // Open the release wizard inline as a modal so the buyer
               // never leaves the Add Product → Contracted Item flow.
-              // Closing the wizard returns to the RFQ editor in the
-              // same state it was in.
+              // The ContractedItemModal stays in state so cancelling
+              // returns the buyer to it.
               setReleaseWizardCtx({
                 arcId: arc.arc_id,
                 arcItemId: arc.arc_item_id,
                 hotelId: arc.hotel_id,
               });
-              setContractedItem(null);
             }}
             onContinueWithRfq={() => {
               if (!contractedItem) return;
               setBypassReasonItem(contractedItem);
-              setContractedItem(null);
             }}
           />
 
@@ -354,7 +357,11 @@ const AddProductModal = ({
             onConfirm={(reason) => {
               if (!bypassReasonItem) return;
               const item = bypassReasonItem;
+              // Successful confirmation: clear BOTH the bypass and the
+              // parent contracted-item state so we don't bounce back to
+              // the choice screen after the buyer already committed.
               setBypassReasonItem(null);
+              setContractedItem(null);
               onAdd({ ...item, __bypass_arc_pending: true, __bypass_arc_reason: reason });
             }}
           />
@@ -366,11 +373,13 @@ const AddProductModal = ({
             hotelId={releaseWizardCtx?.hotelId}
             onClose={() => setReleaseWizardCtx(null)}
             onSuccess={() => {
-              // Release succeeded → close the modal stack and route
-              // to the contracted POs listing where the new draft
-              // sits at the top. Also fold the parent Add Product
-              // modal so the buyer isn't sitting on a stale UI.
+              // Release succeeded → unmount the whole modal stack
+              // (parent contracted-item AND wizard) and route to the
+              // contracted POs listing where the new draft sits at
+              // the top. Also fold the parent Add Product modal so
+              // the buyer isn't sitting on a stale UI.
               setReleaseWizardCtx(null);
+              setContractedItem(null);
               if (typeof onClose === "function") onClose();
               router.push("/dashboard/buyer/purchase-order/contracted");
             }}

@@ -320,12 +320,14 @@ const Search = ({ title, type }) => {
       setContractedItem(null);
       return;
     }
+    // Keep contractedItem set so cancelling the wizard returns the
+    // buyer to the choice screen instead of dropping them on the
+    // empty search page.
     setReleaseWizardCtx({
       arcId: arc.arc_id,
       arcItemId: arc.arc_item_id,
       hotelId: arc.hotel_id,
     });
-    setContractedItem(null);
   };
 
   // Branch 2 of ContractedItemModal: continue with an open-market RFQ.
@@ -334,14 +336,19 @@ const Search = ({ title, type }) => {
   // attached so the downstream save can write it onto tbl_rfq.
   const handleContinueWithRfq = () => {
     if (!contractedItem) return;
+    // Same pattern: keep contractedItem set so cancelling the
+    // override-reason modal goes back to the choice screen.
     setBypassReasonItem(contractedItem);
-    setContractedItem(null);
   };
 
   const handleBypassConfirm = (reason) => {
     if (!bypassReasonItem) return;
     const item = bypassReasonItem;
+    // Buyer committed to overriding the contract → clear BOTH the
+    // bypass-reason state AND the parent contracted-item state so we
+    // don't bounce back to the choice screen.
     setBypassReasonItem(null);
+    setContractedItem(null);
     // The reason rides INLINE on the AddTenderItem payload. The server
     // writes it onto tbl_rfq_products at the same time the row is
     // inserted — no client-side state hops, no sessionStorage.
@@ -502,8 +509,12 @@ const Search = ({ title, type }) => {
         isTender={queryMeta.orderType === "tender"}
       />
 
+      {/* ContractedItemModal stays mounted (with contractedItem set)
+          while a child modal is open, but visually hidden via the
+          isOpen flag. Cancel/back on a child reopens this choice
+          screen instead of dropping the buyer onto the bare search. */}
       <ContractedItemModal
-        isOpen={!!contractedItem}
+        isOpen={!!contractedItem && !bypassReasonItem && !releaseWizardCtx}
         onClose={() => setContractedItem(null)}
         product={contractedItem}
         arcs={contractedItem?.arc_info?.arcs || []}
