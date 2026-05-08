@@ -168,56 +168,107 @@ const ContractedItemModal = ({
           </table>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 22, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              border: "1px solid #cbd5e1",
-              background: "#fff",
-              color: "#475569",
-              padding: "9px 16px",
-              borderRadius: 6,
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
+        {/* Action row split visually: the safe path (Create PO from
+            contract) is the primary blue CTA on the right. The
+            destructive path (override the contract and float a fresh
+            RFQ) sits on the LEFT, styled red with a warning glyph and
+            plain-language copy so a buyer never clicks it by reflex. */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            marginTop: 22,
+            flexWrap: "wrap",
+          }}
+        >
           <button
             type="button"
             onClick={onContinueWithRfq}
             style={{
-              border: "1px solid #f59e0b",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              border: "1px solid #fecaca",
               background: "#fff",
-              color: "#b45309",
-              padding: "9px 16px",
+              color: "#b91c1c",
+              padding: "9px 14px",
               borderRadius: 6,
-              fontSize: 13,
+              fontSize: 12.5,
               fontWeight: 600,
               cursor: "pointer",
+              transition: "background 120ms ease, border-color 120ms ease",
             }}
-            title="Continue with an open-market RFQ. Reason will be captured as a bypass-ARC override."
-          >
-            Continue with RFQ
-          </button>
-          <button
-            type="button"
-            onClick={onCreatePoDirectly}
-            style={{
-              border: "none",
-              background: "linear-gradient(90deg, #2E5BA8 0%, #3b82f6 100%)",
-              color: "#fff",
-              padding: "9px 18px",
-              borderRadius: 6,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#fef2f2";
+              e.currentTarget.style.borderColor = "#ef4444";
             }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#fff";
+              e.currentTarget.style.borderColor = "#fecaca";
+            }}
+            title="Skip the rate contract and ask other vendors for fresh quotes. Only use this in special situations — your reason will be recorded."
           >
-            Create PO directly
+            <span
+              aria-hidden
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 16,
+                height: 16,
+                borderRadius: 999,
+                background: "#dc2626",
+                color: "#fff",
+                fontSize: 10,
+                fontWeight: 800,
+              }}
+            >
+              !
+            </span>
+            <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+              <span>Skip the contract &amp; ask for fresh quotes</span>
+              <span style={{ fontSize: 10, fontWeight: 500, color: "#9f1239", marginTop: 2 }}>
+                Only do this when you really must — your reason will be saved
+              </span>
+            </span>
           </button>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                border: "1px solid #cbd5e1",
+                background: "#fff",
+                color: "#475569",
+                padding: "9px 16px",
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onCreatePoDirectly}
+              style={{
+                border: "none",
+                background: "linear-gradient(90deg, #2E5BA8 0%, #3b82f6 100%)",
+                color: "#fff",
+                padding: "9px 18px",
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Create PO directly
+            </button>
+          </div>
         </div>
       </div>
     </>
