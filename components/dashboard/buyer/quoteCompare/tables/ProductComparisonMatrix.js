@@ -57,7 +57,7 @@ const highlightedMetricKeys = new Set(["total", "grandTotal", "delivery", "comme
 
 const formatCurrency = (value) => {
   const num = Number(value || 0);
-  return `Rs. ${addCommasToNumber(Math.round(num))}`;
+  return `Rs. ${addCommasToNumber(num)}`;
 };
 
 const getNumericValue = (...values) => {
@@ -384,11 +384,11 @@ const ProductComparisonMatrix = ({
         const lineEngineTotal = Number(
           details?.engine?.total ?? column.quote?.engine_total ?? column.total
         );
-        const currentTotal = Math.round(lineEngineTotal);
+        const currentTotal = lineEngineTotal;
         const prevQuote = findPreviousDifferent(
           previousQuotes,
           (prev) => {
-            const prevTotal = Math.round(getNumericValue(prev.total_price));
+            const prevTotal = getNumericValue(prev.total_price);
             return prevTotal > 0 && prevTotal !== currentTotal;
           }
         );
@@ -437,20 +437,26 @@ const ProductComparisonMatrix = ({
         if (rowMeta.type === "globalTaxesSummary") {
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
           if (globalCharges.length === 0) return <span className={styles.value}>--</span>;
-          // Apply globals to the per-LINE engine total, not to column.total
-          // (which is the grand total — line + globals — used elsewhere for
-          // vendor headers). Using grand here would double-count: the row
-          // would show 5% of (line + 5%), drifting upward by the global
-          // amount applied to itself.
-          const lineEngineTotal = Number(
-            details?.engine?.total ?? column.quote?.engine_total ?? column.total
+          // Prefer the BE's authoritative engine_global_charges_total (rounded
+          // consistently with the rest of the app); compute locally only as a
+          // fallback for legacy responses without engine output.
+          const engineTotalFromApi = Number(
+            details?.engine_global_charges_total ?? column.quote?.engine_global_charges_total ?? 0
           );
-          let total = 0;
-          globalCharges.forEach(c => {
-            const tax = Number(c.tax ?? c.amount ?? 0);
-            const mode = c.tax_mode ?? c.amount_mode ?? "percentage";
-            total += mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
-          });
+          let total = engineTotalFromApi;
+          if (!(total > 0)) {
+            // Apply globals to the per-LINE engine total, not to column.total
+            // (which is the grand total — line + globals — used elsewhere for
+            // vendor headers). Using grand here would double-count.
+            const lineEngineTotal = Number(
+              details?.engine?.total ?? column.quote?.engine_total ?? column.total
+            );
+            globalCharges.forEach(c => {
+              const tax = Number(c.tax ?? c.amount ?? 0);
+              const mode = c.tax_mode ?? c.amount_mode ?? "percentage";
+              total += mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+            });
+          }
           return <span className={styles.value}>{formatCurrency(total)} <small className="text-muted">({globalCharges.length} tax{globalCharges.length > 1 ? "es" : ""})</small></span>;
         }
         // Handle dynamic other_charges and global_charges detail rows
@@ -506,7 +512,7 @@ const ProductComparisonMatrix = ({
           const grandFromApi = Number(
             details?.engine_grand_total ?? column.quote?.engine_grand_total ?? 0
           );
-          const grand = grandFromApi > 0 ? grandFromApi : Math.round(lineEngineTotal + globalTotal);
+          const grand = grandFromApi > 0 ? grandFromApi : lineEngineTotal + globalTotal;
           return <span className={`${styles.value} fw-bold`}>{formatCurrency(grand)}</span>;
         }
         return <EmptyValue />;

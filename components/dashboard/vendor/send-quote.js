@@ -1406,7 +1406,7 @@ return { deletedTerms, createdTerms, updatedTerms };
       if (
         updatedProducts.some(
           (product) =>
-            (!!product.unit_price && (parseInt(product.unit_price) || 0) <= 0) ||
+            (!!product.unit_price && (parseFloat(product.unit_price) || 0) <= 0) ||
             (!!product.delivery_period && (parseInt(product.delivery_period) || 0) <= 0)
         )
       ) {

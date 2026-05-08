@@ -5,7 +5,7 @@ import styles from './FinalizeVendorModal.module.scss';
 
 const formatCurrency = (n) => {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return '—';
-  return `Rs. ${addCommasToNumber(Math.round(Number(n)))}`;
+  return `Rs. ${addCommasToNumber(Number(n))}`;
 };
 
 const formatDateTime = (raw) => {

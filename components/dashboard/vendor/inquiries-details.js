@@ -2677,7 +2677,7 @@ const RfqManagementPreview = () => {
                                             value: Number(c.amount) || 0,
                                           }));
                                           return (
-                                            <div className="mb-2">
+                                            <div className="mb-2 d-flex justify-content-end">
                                               <GrandTotalBreakup
                                                 totalBase={totalBase}
                                                 totalFreight={totalFreight}
@@ -2686,7 +2686,7 @@ const RfqManagementPreview = () => {
                                                 grandTotal={grandTotal}
                                                 globalChargeBreakdown={globalChargeBreakdown}
                                                 formatPrice={formatPrice}
-                                                align="start"
+                                                align="end"
                                               />
                                             </div>
                                           );
@@ -2730,45 +2730,45 @@ const RfqManagementPreview = () => {
                                               item.finalization_status === "Another vendor is finalized" ||
                                               item.finalization_status === "You are finalized"
                                           )) ? (
-                                          <div className="d-flex flex-column align-items-center gap-2">
-                                            <span className={`badge ${
-                                              rfqDetails.products?.some(
-                                                (item) => item.finalization_status === "You are finalized"
-                                              )
-                                                ? "bg-success"
-                                                : "bg-warning text-dark"
-                                            } px-3 py-2`} style={{ fontSize: "0.85rem" }}>
-                                              {rfqDetails.products?.some(
-                                                (item) => item.finalization_status === "You are finalized"
-                                              )
-                                                ? "You are finalized"
-                                                : "Another vendor is finalized"}
-                                            </span>
-                                            <Link
-                                              className="mx-auto"
-                                              href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
-                                                token !== undefined ? `&token=${token}` : ""
-                                              }&showTechEvalRestrictions=${isReverseAuctionActive}`}
-                                              onClick={(e) => {
-                                                if (!localId && !id) {
-                                                  e.preventDefault();
-                                                  toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
-                                                }
-                                              }}
-                                            >
-                                              <button
-                                                type="button"
-                                                className="btn btn-secondary m-0"
-                                                style={{ width: "240px" }}
+                                          rfqDetails.products?.some(
+                                            (item) => item.finalization_status === "You are finalized"
+                                          ) ? (
+                                            <div className="d-flex justify-content-center mt-4">
+                                              <Alert variant="success" className="mb-0 py-2 px-3 d-inline-block" style={{ fontSize: "0.9rem", width: "auto" }}>
+                                                <strong>Congratulations</strong> you have been selected for this RFQ 🎉
+                                              </Alert>
+                                            </div>
+                                          ) : (
+                                            <div className="d-flex flex-column align-items-center gap-2">
+                                              <span className="badge bg-warning text-dark px-3 py-2" style={{ fontSize: "0.85rem" }}>
+                                                Another vendor is finalized
+                                              </span>
+                                              <Link
+                                                className="mx-auto"
+                                                href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
+                                                  token !== undefined ? `&token=${token}` : ""
+                                                }&showTechEvalRestrictions=${isReverseAuctionActive}`}
+                                                onClick={(e) => {
+                                                  if (!localId && !id) {
+                                                    e.preventDefault();
+                                                    toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
+                                                  }
+                                                }}
                                               >
-                                                <FontAwesomeIcon
-                                                  icon={faEye}
-                                                  className="me-2"
-                                                />
-                                                View Quote
-                                              </button>
-                                            </Link>
-                                          </div>
+                                                <button
+                                                  type="button"
+                                                  className="btn btn-secondary m-0"
+                                                  style={{ width: "240px" }}
+                                                >
+                                                  <FontAwesomeIcon
+                                                    icon={faEye}
+                                                    className="me-2"
+                                                  />
+                                                  View Quote
+                                                </button>
+                                              </Link>
+                                            </div>
+                                          )
                                         ) : hasPendingTechEval ? (
                                             <button
                                               type="button"
