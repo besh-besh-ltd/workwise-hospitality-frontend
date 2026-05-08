@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { AuthGuard } from "@/utils/authGuard";
 import { getEligibleArcVendors, createArcRelease, getArcReleasePricing } from "@/services/arc";
+import { getApprovalProcesses } from "@/services/process";
 import s from "./new.module.scss";
 
 // Phase 7 FE — ARC Release wizard.
@@ -41,6 +42,13 @@ const ArcReleaseNewPage = () => {
   const [selectedArcId, setSelectedArcId] = useState(null);
   const [selectedArcItemId, setSelectedArcItemId] = useState(null);
   const [quantity, setQuantity] = useState("");
+  // Approval-process picker state. Admin defines all PO policies under
+  // a process_id, so the wizard now asks the buyer which process this
+  // contracted PO falls under. Without it the BE can't resolve a policy
+  // at PO initiation. The selected id flows through createArcRelease.
+  const [processes, setProcesses] = useState([]);
+  const [processesLoading, setProcessesLoading] = useState(false);
+  const [selectedProcessId, setSelectedProcessId] = useState("");
 
   // Resolve the contract pointed at by the query params, then fetch
   // every vendor with an active contract for the same (hotel,
@@ -109,6 +117,36 @@ const ArcReleaseNewPage = () => {
     };
   }, [router.isReady, arc_id, arc_item_id, hotel_id]);
 
+  // Fetch active PO-type approval processes once the page mounts. The
+  // buyer picks one before submitting the release; the chosen
+  // process_id is what governs the contracted PO's approval policy
+  // resolution.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setProcessesLoading(true);
+      try {
+        const res = await getApprovalProcesses({ process_type: "PO" });
+        if (cancelled) return;
+        const list = Array.isArray(res?.data) ? res.data : (res?.data?.data || []);
+        setProcesses(list);
+        if (list.length === 1) setSelectedProcessId(String(list[0].id));
+      } catch (err) {
+        if (cancelled) return;
+        toast.error(
+          err?.message?.response?.data?.message ||
+            err?.response?.data?.message ||
+            "Failed to load approval processes"
+        );
+      } finally {
+        if (!cancelled) setProcessesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const selected = useMemo(
     () => eligible.find((r) => r.arc_id === selectedArcId && r.arc_item_id === selectedArcItemId),
     [eligible, selectedArcId, selectedArcItemId]
@@ -170,11 +208,16 @@ const ArcReleaseNewPage = () => {
       toast.error("Please enter a valid quantity.");
       return;
     }
+    if (!selectedProcessId) {
+      toast.error("Please pick an approval process for this PO.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await createArcRelease({
         arc_id: Number(selectedArcId),
         hotel_id: Number(hotel_id),
+        process_id: Number(selectedProcessId),
         items: [{ arc_item_id: Number(selectedArcItemId), quantity: q }],
       });
       const data = res?.data?.data || res?.data;
@@ -422,6 +465,45 @@ const ArcReleaseNewPage = () => {
               <dt className={s.reviewGrandLabel}>Grand total</dt>
               <dd className={s.reviewGrandValue}>₹{Number(lineTotal).toFixed(2)}</dd>
             </dl>
+
+            {/* Approval process picker. PO policies are configured per
+                process_id; without picking one the engine has nothing
+                to match a policy against. Auto-selects when only one
+                PO process exists for this tenant. */}
+            <div className={s.processPickerBlock}>
+              <label className={s.processPickerLabel} htmlFor="process-picker">
+                Approval process
+              </label>
+              <p className={s.processPickerHint}>
+                The chosen process governs which PO approval policy fires once this
+                Contracted PO is initiated. Pick the process that fits this spend
+                category, department, or hotel.
+              </p>
+              <select
+                id="process-picker"
+                className={s.processPickerSelect}
+                value={selectedProcessId}
+                disabled={processesLoading || submitting}
+                onChange={(e) => setSelectedProcessId(e.target.value)}
+              >
+                <option value="">
+                  {processesLoading ? "Loading processes…" : "Select an approval process…"}
+                </option>
+                {processes.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name || p.title || `Process #${p.id}`}
+                  </option>
+                ))}
+              </select>
+              {!processesLoading && processes.length === 0 && (
+                <p className={s.processPickerEmpty}>
+                  No PO approval processes configured. An admin must create at least
+                  one process under <em>Process Type = PO</em> before this PO can be
+                  drafted.
+                </p>
+              )}
+            </div>
+
             <p className={s.confirmCopy}>
               Submitting will create a release against this contract and immediately draft a Contracted PO. The PO will follow the standard PO approval flow before it's sent to the vendor.
             </p>
@@ -429,7 +511,12 @@ const ArcReleaseNewPage = () => {
               <button type="button" className={s.btnGhost} onClick={() => setStep(2)} disabled={submitting}>
                 Back
               </button>
-              <button type="button" className={s.btnPrimary} onClick={handleSubmit} disabled={submitting}>
+              <button
+                type="button"
+                className={s.btnPrimary}
+                onClick={handleSubmit}
+                disabled={submitting || !selectedProcessId || processes.length === 0}
+              >
                 {submitting ? "Drafting…" : "Draft Contracted PO"}
               </button>
             </div>

@@ -295,6 +295,58 @@
   margin: 8px 0 0 0;
 }
 
+.processPickerBlock {
+  margin: 18px 0 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--light-grey-border, #e9ecef);
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+.processPickerLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dark-color, #1a2730);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+
+.processPickerHint {
+  font-size: 12px;
+  color: var(--muted-text, #6c757d);
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.processPickerSelect {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--light-grey-border, #e9ecef);
+  border-radius: 6px;
+  font-size: 13px;
+  background: #fff;
+  outline: none;
+  font-family: inherit;
+
+  &:focus {
+    border-color: var(--primary-color, #2e5ba8);
+    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.12);
+  }
+
+  &:disabled {
+    background: var(--light-grey-bg, #f8f9fa);
+    cursor: not-allowed;
+  }
+}
+
+.processPickerEmpty {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  color: #b45309;
+}
+
 .reviewGrandLabel {
   border-top: 1px solid var(--light-grey-border, #e9ecef);
   padding-top: 10px;

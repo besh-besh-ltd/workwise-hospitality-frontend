@@ -42,9 +42,10 @@ const VendorArcsPage = () => {
       if (search.trim()) params.search = search.trim();
       if (statusFilter) params.status = statusFilter;
       const res = await getVendorArcList(params);
-      const payload = res?.data || {};
-      setRows(payload.data || []);
-      setTotal(payload.total || 0);
+      // axios interceptor already unwraps to the response body, so
+      // `res` is { status, data:[...rows], total, page, limit }.
+      setRows(res?.data || []);
+      setTotal(res?.total || 0);
     } catch (err) {
       toast.error(err?.message?.response?.data?.message || "Failed to load rate contracts");
       setRows([]);
