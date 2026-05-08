@@ -14,6 +14,7 @@ import { useRouter } from "next/router";
 import { searchProductsV2 } from "@/services/products";
 import ContractedItemModal from "./ContractedItemModal";
 import BypassArcReasonModal from "./BypassArcReasonModal";
+import ArcReleaseWizardModal from "./ArcReleaseWizardModal";
 
 const AddProductModal = ({
   rfqData,
@@ -34,6 +35,12 @@ const AddProductModal = ({
   // Phase 8: ARC-override reason capture, presented after the buyer
   // chose "Continue with RFQ" on the ContractedItemModal.
   const [bypassReasonItem, setBypassReasonItem] = useState(null);
+  // ARC release wizard — opened inline (no page navigation) when the
+  // buyer picks "Create PO directly" on the ContractedItemModal so the
+  // whole flow (vendor pick → quantity → review) lives inside this
+  // wizard. Keeps continuity: closing returns the buyer to the same
+  // RFQ context they came from.
+  const [releaseWizardCtx, setReleaseWizardCtx] = useState(null);
 
   const fetchProducts = async () => {
     // Use selected hotel IDs from the edit page (reflects user changes),
@@ -322,17 +329,16 @@ const AddProductModal = ({
                 setContractedItem(null);
                 return;
               }
-              // Phase 7: route to the release wizard with the seed
-              // contract id, item id, and hotel id pre-filled. The
-              // wizard re-fetches every eligible vendor for the
-              // (hotel, product_variant) pair so the buyer can compare.
-              const params = new URLSearchParams({
-                arc_id: String(arc.arc_id),
-                arc_item_id: String(arc.arc_item_id),
-                hotel_id: String(arc.hotel_id),
+              // Open the release wizard inline as a modal so the buyer
+              // never leaves the Add Product → Contracted Item flow.
+              // Closing the wizard returns to the RFQ editor in the
+              // same state it was in.
+              setReleaseWizardCtx({
+                arcId: arc.arc_id,
+                arcItemId: arc.arc_item_id,
+                hotelId: arc.hotel_id,
               });
               setContractedItem(null);
-              router.push(`/dashboard/buyer/arc-release/new?${params.toString()}`);
             }}
             onContinueWithRfq={() => {
               if (!contractedItem) return;
@@ -350,6 +356,23 @@ const AddProductModal = ({
               const item = bypassReasonItem;
               setBypassReasonItem(null);
               onAdd({ ...item, __bypass_arc_pending: true, __bypass_arc_reason: reason });
+            }}
+          />
+
+          <ArcReleaseWizardModal
+            isOpen={!!releaseWizardCtx}
+            arcId={releaseWizardCtx?.arcId}
+            arcItemId={releaseWizardCtx?.arcItemId}
+            hotelId={releaseWizardCtx?.hotelId}
+            onClose={() => setReleaseWizardCtx(null)}
+            onSuccess={() => {
+              // Release succeeded → close the modal stack and route
+              // to the contracted POs listing where the new draft
+              // sits at the top. Also fold the parent Add Product
+              // modal so the buyer isn't sitting on a stale UI.
+              setReleaseWizardCtx(null);
+              if (typeof onClose === "function") onClose();
+              router.push("/dashboard/buyer/purchase-order/contracted");
             }}
           />
         </>

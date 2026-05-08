@@ -15,6 +15,7 @@ import { getRFQHotels } from "@/services/hospitality";
 import { useSelector } from "react-redux";
 import AddTenderItemModal from "@/components/modal/AddTenderItemModal";
 import ContractedItemModal from "@/components/dashboard/buyer/editRFQ/ContractedItemModal";
+import ArcReleaseWizardModal from "@/components/dashboard/buyer/editRFQ/ArcReleaseWizardModal";
 import BypassArcReasonModal from "@/components/dashboard/buyer/editRFQ/BypassArcReasonModal";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import { usePerHotelModulePermissions } from "@/hooks/usePerHotelModulePermissions";
@@ -76,6 +77,10 @@ const Search = ({ title, type }) => {
   // Phase 8: ARC-override reason capture, presented after the buyer
   // chose "Continue with RFQ" on the ContractedItemModal.
   const [bypassReasonItem, setBypassReasonItem] = useState(null);
+  // ARC release wizard context — opens inline as a modal so the
+  // buyer never leaves the search flow when picking "Create PO
+  // directly".
+  const [releaseWizardCtx, setReleaseWizardCtx] = useState(null);
 
   // ── Refs ────────────────────────────────────
   const searchRef = useRef(null);
@@ -303,11 +308,10 @@ const Search = ({ title, type }) => {
     setOpen((prev) => ({ ...prev, input: false }));
   };
 
-  // Branch 1 of ContractedItemModal: jump to the ARC release flow.
-  // Phase 7 will land the actual release wizard route; for now we route
-  // the user to the ARC release entry point with the contracted item
-  // pre-selected. The release page will gracefully degrade if that
-  // route isn't deployed yet.
+  // Branch 1 of ContractedItemModal: open the ARC release wizard
+  // inline as a modal — same flow as before, but no page navigation,
+  // so the buyer stays in the search context and can dismiss back to
+  // it cleanly.
   const handleCreatePoFromContract = () => {
     if (!contractedItem) return;
     const arc = contractedItem.arc_info?.arcs?.[0];
@@ -316,13 +320,12 @@ const Search = ({ title, type }) => {
       setContractedItem(null);
       return;
     }
-    const params = new URLSearchParams({
-      arc_id: String(arc.arc_id),
-      arc_item_id: String(arc.arc_item_id),
-      hotel_id: String(arc.hotel_id),
+    setReleaseWizardCtx({
+      arcId: arc.arc_id,
+      arcItemId: arc.arc_item_id,
+      hotelId: arc.hotel_id,
     });
     setContractedItem(null);
-    router.push(`/dashboard/buyer/arc-release/new?${params.toString()}`);
   };
 
   // Branch 2 of ContractedItemModal: continue with an open-market RFQ.
@@ -513,6 +516,14 @@ const Search = ({ title, type }) => {
         productName={bypassReasonItem?.variant_name || bypassReasonItem?.product_name}
         onClose={() => setBypassReasonItem(null)}
         onConfirm={handleBypassConfirm}
+      />
+
+      <ArcReleaseWizardModal
+        isOpen={!!releaseWizardCtx}
+        arcId={releaseWizardCtx?.arcId}
+        arcItemId={releaseWizardCtx?.arcItemId}
+        hotelId={releaseWizardCtx?.hotelId}
+        onClose={() => setReleaseWizardCtx(null)}
       />
 
       <LoginContainer
