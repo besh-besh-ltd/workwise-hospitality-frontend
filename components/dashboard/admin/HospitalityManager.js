@@ -485,7 +485,7 @@ const HospitalityManager = () => {
                   cursor: "pointer",
                   whiteSpace: "nowrap",
                 }}
-                title="Configure the network-wide Group ARC approval hierarchy"
+                title="Configure the Group ARC approval hierarchy"
               >
                 Group ARC Hierarchy
               </button>

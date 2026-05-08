@@ -180,7 +180,7 @@ const GlobalArcWizard = ({
     id: null,
     name: "Group ARC Global Hierarchy",
     process_type: "TENDER",
-    description: companyName ? `Network-wide hierarchy for ${companyName}` : "Network-wide hierarchy",
+    description: companyName ? `Group ARC hierarchy for ${companyName}` : "Group ARC hierarchy",
   }), [companyName]);
 
   const renderStep = () => {
@@ -229,7 +229,7 @@ const GlobalArcWizard = ({
               Group ARC · Global
             </div>
             <h3 style={{ marginTop: 12, marginBottom: 4, fontSize: 20, fontWeight: 600 }}>
-              {isEditing ? "Edit" : "Configure"} the network-wide ARC hierarchy
+              {isEditing ? "Edit" : "Configure"} the Group ARC hierarchy
             </h3>
             <p style={{ color: DS.muted, fontSize: 13, margin: 0 }}>
               One hierarchy governs every Group ARC tender across all hotels and companies under

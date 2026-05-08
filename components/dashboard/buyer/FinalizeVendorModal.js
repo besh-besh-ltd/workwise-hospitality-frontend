@@ -79,7 +79,7 @@ const FinalizeVendorModal = ({
         {
           label: 'ARC committee approval',
           hint: isGroupArc
-            ? 'Routed via the network-wide Group ARC global hierarchy'
+            ? 'Routed via the Group ARC hierarchy'
             : 'Routed via the configured Single ARC committee for this hotel',
         },
         { label: 'ARC document', hint: 'Generated + emailed once all items are decided' },
@@ -102,7 +102,7 @@ const FinalizeVendorModal = ({
       ? (isReFinalize
           ? 'This re-spawns the ARC committee approval for this (product × vendor) line item. Tenders allow multiple finalized vendors per product — finalising a different one does NOT replace existing finalizations.'
           : isGroupArc
-            ? 'This adds the vendor + product to a per-vendor ARC envelope and creates an ARC committee approval routed through the network-wide Group ARC global hierarchy. The PDF contract is generated once every line in the envelope is approved.'
+            ? 'This adds the vendor + product to a per-vendor ARC envelope and creates an ARC committee approval routed through the Group ARC hierarchy. The PDF contract is generated once every line in the envelope is approved.'
             : 'This adds the vendor + product to a per-vendor ARC envelope and creates an ARC committee approval routed through the configured committee for this hotel. The PDF contract is generated once every line in the envelope is approved.')
       : isReFinalize
         ? 'Changing the finalized vendor will discard the current draft Purchase Order and restart approvals from the first step.'

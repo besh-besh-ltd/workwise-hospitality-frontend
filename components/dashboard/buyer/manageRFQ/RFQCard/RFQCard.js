@@ -189,9 +189,9 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
             const isApprovalStage = ['RFQ_APPROVAL', 'TECHNICAL_APPROVING', 'QUOTATION_APPROVAL', 'PO_APPROVAL']
               .includes(data.lifecycle_stage);
             const groupArcSubtitle = isGroupArc && isApprovalStage
-              ? 'Approvers resolved from the network-wide Group ARC hierarchy (BU-agnostic).'
+              ? 'Approvers resolved from the Group ARC hierarchy (covers all hotels under this contract).'
               : isGroupArc
-              ? 'Action holders resolved at network scope across all covered hotels.'
+              ? 'Action holders resolved across all hotels covered by this Group ARC.'
               : null;
             return (
               <div

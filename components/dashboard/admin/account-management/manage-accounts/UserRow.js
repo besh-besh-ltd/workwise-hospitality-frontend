@@ -118,14 +118,14 @@ const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, on
           <TruncatedBadges
             items={uniqueRoles}
             maxVisible={2}
-            getLabel={(r) => r.isNetwork ? `${r.title} · Network-Wide` : r.title}
+            getLabel={(r) => r.isNetwork ? `${r.title} · Group ARC` : r.title}
             renderBadge={(r) => (
               <span
                 key={`${r.title}|${r.isNetwork ? 1 : 0}`}
                 className={r.isNetwork ? styles.roleBadgeNetwork : styles.roleBadge}
-                title={r.isNetwork ? "Network-wide grant — applies across all hotels" : undefined}
+                title={r.isNetwork ? "Group ARC grant — applies across all hotels" : undefined}
               >
-                {r.title}{r.isNetwork ? " · Network" : ""}
+                {r.title}{r.isNetwork ? " · Group ARC" : ""}
               </span>
             )}
           />

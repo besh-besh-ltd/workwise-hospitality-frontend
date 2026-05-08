@@ -409,7 +409,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       if (!groups.has(cid)) {
         groups.set(cid, {
           name: isNetwork
-            ? 'Network-wide (Group ARC)'
+            ? 'Group ARC'
             : getCompanyName(role.company_id),
           isNetwork,
           hotels: new Map(),
@@ -419,7 +419,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       if (!company.hotels.has(hid)) {
         company.hotels.set(hid, {
           name: isNetwork
-            ? 'Applies network-wide — covers Group ARC entities only'
+            ? 'Applies to every Group ARC tender across all hotels'
             : getHotelName(role.company_id, role.hotel_id),
           roles: [],
         });
@@ -499,9 +499,9 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                                         borderRadius: 4,
                                         padding: "2px 6px",
                                       }}
-                                      title="Network-wide grant — covers Group ARC entities only"
+                                      title="Group ARC grant — applies to Group ARC tenders across all hotels"
                                     >
-                                      Network
+                                      Group ARC
                                     </span>
                                   )}
                                   {role.department_id && (
@@ -629,11 +629,11 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                   />
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#1A2730" }}>
-                      Network-wide grant (Group ARC)
+                      Group ARC grant
                     </div>
                     <div style={{ fontSize: 11, color: "#6c757d", marginTop: 2, lineHeight: 1.4 }}>
                       Required for users acting on Group ARC tenders (multi-BU
-                      contracts approved by the network-wide hierarchy). This
+                      contracts approved by the Group ARC hierarchy). This
                       grant does NOT cover RFQs or Single ARC tenders — those
                       need separate per-BU grants.
                     </div>
