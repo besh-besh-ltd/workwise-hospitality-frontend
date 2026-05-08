@@ -49,6 +49,11 @@ const ArcReleaseNewPage = () => {
   const [processes, setProcesses] = useState([]);
   const [processesLoading, setProcessesLoading] = useState(false);
   const [selectedProcessId, setSelectedProcessId] = useState("");
+  // Vendor-selection rationale. Required when multiple contracted
+  // vendors are eligible (the buyer is making a choice that should
+  // be auditable). Surfaces on the resulting PO so reviewers can see
+  // WHY this vendor was picked over the others.
+  const [vendorSelectionReason, setVendorSelectionReason] = useState("");
 
   // Resolve the contract pointed at by the query params, then fetch
   // every vendor with an active contract for the same (hotel,
@@ -117,18 +122,24 @@ const ArcReleaseNewPage = () => {
     };
   }, [router.isReady, arc_id, arc_item_id, hotel_id]);
 
-  // Fetch active PO-type approval processes once the page mounts. The
-  // buyer picks one before submitting the release; the chosen
+  // Fetch active RFQ-type Procurement Processes once the page mounts.
+  // The buyer picks one before submitting the release; the chosen
   // process_id is what governs the contracted PO's approval policy
-  // resolution.
+  // resolution. Admins configure approval policies under RFQ-type
+  // processes (one umbrella process covering the full RFQ → PO chain),
+  // so we read that bucket — not PO-type — to populate the picker.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setProcessesLoading(true);
       try {
-        const res = await getApprovalProcesses({ process_type: "PO" });
+        const res = await getApprovalProcesses({ process_type: "RFQ" });
         if (cancelled) return;
-        const list = Array.isArray(res?.data) ? res.data : (res?.data?.data || []);
+        // The endpoint returns the list directly (axios interceptor
+        // already unwraps response.data). Defensive fall-throughs in
+        // case wrapper shape changes later.
+        const raw = res?.data ?? res;
+        const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
         setProcesses(list);
         if (list.length === 1) setSelectedProcessId(String(list[0].id));
       } catch (err) {
@@ -136,7 +147,7 @@ const ArcReleaseNewPage = () => {
         toast.error(
           err?.message?.response?.data?.message ||
             err?.response?.data?.message ||
-            "Failed to load approval processes"
+            "Failed to load procurement processes"
         );
       } finally {
         if (!cancelled) setProcessesLoading(false);
@@ -209,7 +220,15 @@ const ArcReleaseNewPage = () => {
       return;
     }
     if (!selectedProcessId) {
-      toast.error("Please pick an approval process for this PO.");
+      toast.error("Please pick a procurement process for this PO.");
+      return;
+    }
+    // Vendor-selection rationale required when more than one
+    // contracted vendor is eligible. Mirrors the BE check.
+    const requireReason = eligible.length > 1;
+    const trimmedReason = (vendorSelectionReason || "").trim();
+    if (requireReason && trimmedReason.length < 30) {
+      toast.error("Please record at least 30 characters explaining why this vendor was selected.");
       return;
     }
     setSubmitting(true);
@@ -218,6 +237,7 @@ const ArcReleaseNewPage = () => {
         arc_id: Number(selectedArcId),
         hotel_id: Number(hotel_id),
         process_id: Number(selectedProcessId),
+        vendor_selection_reason: requireReason ? trimmedReason : undefined,
         items: [{ arc_item_id: Number(selectedArcItemId), quantity: q }],
       });
       const data = res?.data?.data || res?.data;
@@ -326,8 +346,47 @@ const ArcReleaseNewPage = () => {
                 );
               })}
             </div>
+
+            {/* Vendor-selection rationale — required when more than
+                one contracted vendor is eligible. Captured here so
+                the buyer doesn't lose state by going back to change
+                vendor. Surfaces on the resulting PO for audit. */}
+            <div className={s.vendorReasonBlock}>
+              <label className={s.vendorReasonLabel} htmlFor="vendor-reason">
+                Why are you picking this vendor? <span style={{ color: "#dc2626" }}>*</span>
+              </label>
+              <p className={s.vendorReasonHint}>
+                Multiple vendors hold contracts for this item. Auditors review these later — be
+                specific (e.g. lead time, prior performance, GST efficiency, payment terms).
+              </p>
+              <textarea
+                id="vendor-reason"
+                className={s.vendorReasonInput}
+                value={vendorSelectionReason}
+                onChange={(e) => setVendorSelectionReason(e.target.value)}
+                rows={3}
+                maxLength={2000}
+                placeholder="Minimum 30 characters."
+              />
+              <div className={s.vendorReasonMeta}>
+                <span style={{ color: vendorSelectionReason.trim().length >= 30 ? "#16a34a" : "#94a3b8" }}>
+                  {vendorSelectionReason.trim().length < 30
+                    ? `${30 - vendorSelectionReason.trim().length} more character${
+                        30 - vendorSelectionReason.trim().length === 1 ? "" : "s"
+                      } required`
+                    : "Looks good"}
+                </span>
+                <span style={{ color: "#94a3b8" }}>{vendorSelectionReason.trim().length} / 2000</span>
+              </div>
+            </div>
+
             <div className={s.actions}>
-              <button type="button" className={s.btnPrimary} onClick={() => setStep(2)} disabled={!selectedArcId || !selectedArcItemId}>
+              <button
+                type="button"
+                className={s.btnPrimary}
+                onClick={() => setStep(2)}
+                disabled={!selectedArcId || !selectedArcItemId || vendorSelectionReason.trim().length < 30}
+              >
                 Continue
               </button>
             </div>
@@ -338,10 +397,13 @@ const ArcReleaseNewPage = () => {
           <section className={s.card}>
             <h3 className={s.cardTitle}>How many do you need?</h3>
             <p className={s.cardHint}>
-              Unit price is fixed at the contracted rate of <strong>₹{Number(selected.unit_price).toFixed(2)}</strong>.
+              Unit price is fixed at the contracted rate of <strong>₹{Number(selected.unit_price).toFixed(2)}</strong>
+              {selected.unit ? <> per <strong>{selected.unit}</strong></> : null}.
             </p>
             <label className={s.field}>
-              <span className={s.fieldLabel}>Quantity</span>
+              <span className={s.fieldLabel}>
+                Quantity{selected.unit ? <span style={{ color: "#94a3b8", fontWeight: 500 }}> (in {selected.unit})</span> : null}
+              </span>
               <input
                 type="number"
                 min={1}
@@ -349,18 +411,18 @@ const ArcReleaseNewPage = () => {
                 className={s.fieldInput}
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                placeholder="e.g. 100"
+                placeholder={selected.unit ? `e.g. 100 ${selected.unit}` : "e.g. 100"}
                 autoFocus
               />
             </label>
             <div className={s.summary}>
               <div className={s.summaryRow}>
                 <span>Unit price</span>
-                <span>₹{Number(selected.unit_price).toFixed(2)}</span>
+                <span>₹{Number(selected.unit_price).toFixed(2)}{selected.unit ? ` / ${selected.unit}` : ""}</span>
               </div>
               <div className={s.summaryRow}>
                 <span>Quantity</span>
-                <span>{Number(quantity) > 0 ? quantity : "—"}</span>
+                <span>{Number(quantity) > 0 ? `${quantity}${selected.unit ? ` ${selected.unit}` : ""}` : "—"}</span>
               </div>
               {breakdown ? (
                 <>
@@ -438,9 +500,9 @@ const ArcReleaseNewPage = () => {
               <dt>Validity</dt>
               <dd>{formatDate(selected.period_from)} → {formatDate(selected.period_to)}</dd>
               <dt>Quantity</dt>
-              <dd>{quantity}</dd>
+              <dd>{quantity}{selected.unit ? ` ${selected.unit}` : ""}</dd>
               <dt>Unit price</dt>
-              <dd>₹{Number(selected.unit_price).toFixed(2)}</dd>
+              <dd>₹{Number(selected.unit_price).toFixed(2)}{selected.unit ? ` / ${selected.unit}` : ""}</dd>
               {breakdown && Number(breakdown.base_tax) > 0 && (
                 <>
                   <dt>Subtotal</dt>
@@ -466,18 +528,20 @@ const ArcReleaseNewPage = () => {
               <dd className={s.reviewGrandValue}>₹{Number(lineTotal).toFixed(2)}</dd>
             </dl>
 
-            {/* Approval process picker. PO policies are configured per
-                process_id; without picking one the engine has nothing
-                to match a policy against. Auto-selects when only one
-                PO process exists for this tenant. */}
+            {/* Procurement Process picker. Approval policies are
+                configured per process_id; without picking one the
+                engine has nothing to match a policy against. The
+                wizard reads RFQ-type processes (admins configure the
+                full RFQ → PO chain under one umbrella process), so
+                pick the same one used for the source tender's
+                category. Auto-selects when only one is available. */}
             <div className={s.processPickerBlock}>
               <label className={s.processPickerLabel} htmlFor="process-picker">
-                Approval process
+                Procurement Process
               </label>
               <p className={s.processPickerHint}>
-                The chosen process governs which PO approval policy fires once this
-                Contracted PO is initiated. Pick the process that fits this spend
-                category, department, or hotel.
+                The chosen process decides who reviews and approves this PO. Pick
+                the procurement process configured for this category, department, or hotel.
               </p>
               <select
                 id="process-picker"
@@ -487,7 +551,7 @@ const ArcReleaseNewPage = () => {
                 onChange={(e) => setSelectedProcessId(e.target.value)}
               >
                 <option value="">
-                  {processesLoading ? "Loading processes…" : "Select an approval process…"}
+                  {processesLoading ? "Loading processes…" : "Select a procurement process…"}
                 </option>
                 {processes.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -497,8 +561,8 @@ const ArcReleaseNewPage = () => {
               </select>
               {!processesLoading && processes.length === 0 && (
                 <p className={s.processPickerEmpty}>
-                  No PO approval processes configured. An admin must create at least
-                  one process under <em>Process Type = PO</em> before this PO can be
+                  No procurement processes configured. An admin must create at least
+                  one process under <em>Process Type = RFQ</em> before this PO can be
                   drafted.
                 </p>
               )}

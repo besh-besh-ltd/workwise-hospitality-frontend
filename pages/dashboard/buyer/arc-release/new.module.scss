@@ -149,7 +149,7 @@
 }
 
 .cardTitle {
-  margin: 0 0 4px;
+  margin: 0 0 16px;
   font-size: 16px;
   font-weight: 600;
 }
@@ -345,6 +345,55 @@
   margin: 8px 0 0 0;
   font-size: 12px;
   color: #b45309;
+}
+
+.vendorReasonBlock {
+  margin: 18px 0 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--light-grey-border, #e9ecef);
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+.vendorReasonLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dark-color, #1a2730);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+
+.vendorReasonHint {
+  font-size: 12px;
+  color: var(--muted-text, #6c757d);
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.vendorReasonInput {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--light-grey-border, #e9ecef);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  background: #fff;
+
+  &:focus {
+    border-color: var(--primary-color, #2e5ba8);
+    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.12);
+  }
+}
+
+.vendorReasonMeta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 11px;
 }
 
 .reviewGrandLabel {

@@ -169,6 +169,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     arc_period_from,
     arc_period_to,
     arc_document_url,
+    arc_vendor_selection_reason,
     effective_rfq_id,
   } = data;
 
@@ -659,6 +660,27 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                   All Contracted POs
                 </a>
               </div>
+              {arc_vendor_selection_reason && String(arc_vendor_selection_reason).trim().length > 0 && (
+                <div
+                  style={{
+                    flexBasis: "100%",
+                    marginTop: 4,
+                    padding: "10px 12px",
+                    background: "#fff",
+                    border: "1px solid #c7d2fe",
+                    borderLeft: "3px solid #2E5BA8",
+                    borderRadius: 8,
+                    fontSize: 12.5,
+                    color: "#1e293b",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#2E5BA8", letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 4 }}>
+                    Why this vendor was picked
+                  </div>
+                  {arc_vendor_selection_reason}
+                </div>
+              )}
             </div>
           )}
 
