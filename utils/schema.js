@@ -46,7 +46,7 @@ export const CreateRFQSchema = yup.object().shape({
     .min(7, "Min 10 digit is required")
     .max(15, "Mobile number not more than 11 digit long")
     .required("Mobile number is required"),
-  location: yup.string().optional(),
+  location: yup.string().max(300, "Delivery location can't exceed 300 characters").optional(),
   contact_name: yup.string().required("Contact name is required"),
   company_name: yup.string().required("Company name is required"),
   bid_end_date: yup.string().optional("Bid end date is required"),

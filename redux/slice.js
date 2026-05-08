@@ -21,9 +21,9 @@ const initialState = {
     company_name: "",
     terms: [],
     term_and_condition_files: [],
-    bid_end_date: getFuturedate() + " 23:59:00",
+    bid_end_date: "",
     rfq_type: "",
-    reverse_auction: 1,
+    reverse_auction: 0,
     ra_start_date: getTodayDate(), // Initialize with today's date
     ra_end_date: getFuturedate(), // Initialize with the same as bid_end_date
     project_id: -1,
@@ -284,12 +284,18 @@ export const rfqProductsSlice = createSlice({
     },
 
     setTermFiles: (state, action) => {
+      // Some load paths leave term_and_condition_files as null (e.g. when
+      // the API response uses a sibling key), which would crash the spread
+      // / filter below. Coerce to an array first so add/remove always work.
+      const current = Array.isArray(state.rfqFormData.term_and_condition_files)
+        ? state.rfqFormData.term_and_condition_files
+        : [];
       let updatedTermFiles = [];
       if (action.payload.type === "add") {
-        updatedTermFiles = [...state.rfqFormData.term_and_condition_files, action.payload.value]
+        updatedTermFiles = [...current, action.payload.value];
       }
       else {
-        updatedTermFiles = state.rfqFormData.term_and_condition_files.filter((file) => file != action.payload.value);
+        updatedTermFiles = current.filter((file) => file != action.payload.value);
       }
       state.rfqFormData.term_and_condition_files = updatedTermFiles;
     },

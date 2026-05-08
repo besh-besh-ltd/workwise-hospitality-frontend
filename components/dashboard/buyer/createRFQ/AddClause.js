@@ -9,6 +9,30 @@ import { faEdit } from "@fortawesome/free-regular-svg-icons";
 import { addClause, getClausesByRfqProductId, removeClause, updateClause, updateMinimumPassingScore } from "@/services/rfq";
 import FullLoader from "@/components/shared/FullLoader";
 
+// Inline read-more for clause text. Anything beyond 500 chars collapses by
+// default; clicking "Show more" expands inline (no modal). Lives outside the
+// AddClauseModal component so each card owns its own expanded/collapsed state.
+const CLAUSE_TEXT_TRUNCATE = 500;
+const ClauseText = ({ text }) => {
+    const [expanded, setExpanded] = useState(false);
+    const value = text || "";
+    if (value.length <= CLAUSE_TEXT_TRUNCATE) {
+        return <p className="rfq-clause-card__text">{value}</p>;
+    }
+    const display = expanded ? value : `${value.slice(0, CLAUSE_TEXT_TRUNCATE)}…`;
+    return (
+        <p className="rfq-clause-card__text">
+            {display}{" "}
+            <button
+                type="button"
+                className="rfq-clause-card__readmore"
+                onClick={() => setExpanded((v) => !v)}
+            >
+                {expanded ? "Show less" : "Show more"}
+            </button>
+        </p>
+    );
+};
 
 function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openToMinimumScore = false }) {
     const [message, setMessage] = useState("");
@@ -19,6 +43,10 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
     const [currentClause, setCurrentClause] = useState(null);
     const [update, setUpdate] = useState(false);
     const [previousClauses, setPreviousClauses] = useState(null);
+    // Clauses queued by Add Clause but not yet persisted to the backend.
+    // The footer Save button is the only place that flushes these via the
+    // API; everything in here is purely client-side until then.
+    const [pendingClauses, setPendingClauses] = useState([]);
     const [weightage, setWeightage] = useState("");
     const [minimumPassingScore, setMinimumPassingScore] = useState(null);
     const [minScoreInput, setMinScoreInput] = useState("");
@@ -39,7 +67,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
     const uploadToServer = async (e) => {
         setFileLoading(true)
         try {
-            const filePath = await handleFileUpload(e);
+            const filePath = await handleFileUpload(e, undefined, { allowAllTypes: true });
             const newList = [...files, filePath];
             setFiles(newList);
         } catch (error) {
@@ -91,9 +119,16 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
         }
     }
 
-    const handleAddClause = async () => {
+    // Add Clause — local only. Pushes the clause onto pendingClauses, clears
+    // the form. The footer Save button is what actually persists via the API.
+    const handleAddClause = () => {
         if (message.trim() === "") {
             toast.error("Message is required");
+            return;
+        }
+
+        if (message.length > 2000) {
+            toast.error("Clause text must be at most 2000 characters");
             return;
         }
 
@@ -102,39 +137,87 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
             return;
         }
 
-        const payload = {
-            rfq_id,
-            rfq_product_id: product.id,
+        const localClause = {
+            _localId: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            isPending: true,
             clause_text: message,
-            file_url: files,
+            files: [...files],
             clause_type: 'clause',
-            weightage: parseInt(weightage)
+            weightage: parseInt(weightage),
+        };
+        setPendingClauses((prev) => [...prev, localClause]);
+
+        setMessage("");
+        setFiles([]);
+        setWeightage("");
+    };
+
+    // Footer Save — commits every queued pending clause via the API in turn.
+    // If the user has typed into the form but not pressed Add Clause, that
+    // entry is included too so a single click finishes the job.
+    const handleSaveAll = async () => {
+        let toCommit = [...pendingClauses];
+
+        const formHasContent = message.trim() !== "" && weightage !== "";
+        if (formHasContent && !update) {
+            // Re-use validation from handleAddClause without pushing a toast
+            // for cases that pass; we just inline the same checks.
+            if (message.length > 2000) {
+                toast.error("Clause text must be at most 2000 characters");
+                return;
+            }
+            toCommit.push({
+                _localId: `local-${Date.now()}`,
+                clause_text: message,
+                files: [...files],
+                clause_type: 'clause',
+                weightage: parseInt(weightage),
+            });
+        }
+
+        if (update) {
+            // Existing in-flight edit of a persisted clause — fall through to
+            // the existing Update flow so a single Save commits it too.
+            await handleUpdateClause();
+            return;
+        }
+
+        if (toCommit.length === 0) {
+            toast.info("No changes to save.");
+            return;
         }
 
         setLoading(true);
         try {
-            const res = await addClause(payload);
-            toast.success(res.message || res.data?.message || "Clause added successfully");
-            // Wait a bit to ensure database has updated, then refresh clauses
-            setTimeout(() => {
-                getPreviousClauses();
-            }, 100);
-            onClauseChange && onClauseChange({
-                action: 'add',
-                payload: {
-                    ...payload,
-                    product_variant_id: product.product_id,
-                    variant: product.variant,
-                },
-            });
-
-        } catch (error) {
-            toast.error(error.message)
-        } finally {
-            setLoading(false);
+            for (const c of toCommit) {
+                const payload = {
+                    rfq_id,
+                    rfq_product_id: product.id,
+                    clause_text: c.clause_text,
+                    file_url: c.files || [],
+                    clause_type: 'clause',
+                    weightage: c.weightage,
+                };
+                await addClause(payload);
+                onClauseChange && onClauseChange({
+                    action: 'add',
+                    payload: {
+                        ...payload,
+                        product_variant_id: product.product_id,
+                        variant: product.variant,
+                    },
+                });
+            }
+            toast.success(`${toCommit.length} clause${toCommit.length === 1 ? '' : 's'} saved`);
+            setPendingClauses([]);
             setMessage("");
             setFiles([]);
             setWeightage("");
+            await getPreviousClauses();
+        } catch (error) {
+            toast.error(error.message || "Failed to save clauses");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -184,6 +267,11 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
     };
 
     const handleUpdateClause = async () => {
+        if (message && message.length > 2000) {
+            toast.error("Clause text must be at most 2000 characters");
+            return;
+        }
+
         if (!weightage || weightage === "") {
             toast.error("Marks is required");
             return;
@@ -245,11 +333,29 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
         }
     }
 
-    const openUpdateField = (clause, index) => {
-        const updatedClauses = previousClauses.filter((_, idx) => idx !== index);
+    // Pending (not-yet-saved) clauses live only on the client, so dropping
+    // one is a simple state filter — no API call.
+    const handleDeletePendingClause = (localId) => {
+        setPendingClauses((prev) => prev.filter((c) => c._localId !== localId));
+    };
+
+    const openUpdateField = (clause) => {
+        if (clause.isPending) {
+            // Editing a pending clause: pull it back into the form, drop from
+            // pendingClauses; pressing Add Clause again will re-queue it.
+            setPendingClauses((prev) => prev.filter((c) => c._localId !== clause._localId));
+            setMessage(clause.clause_text);
+            setFiles(clause.files || []);
+            setWeightage(clause.weightage || "");
+            setUpdate(false); // not a server-side update; behaves like a fresh add
+            setCurrentClause(null);
+            return;
+        }
+        // Editing a persisted clause: existing flow (hits API on Update).
+        const updatedClauses = previousClauses.filter((c) => c.clause_id !== clause.clause_id);
         setPreviousClauses(updatedClauses);
         setMessage(clause.clause_text);
-        setFiles(clause.files);
+        setFiles(clause.files || []);
         setWeightage(clause.weightage || "");
         setUpdate(true);
         setCurrentClause(clause);
@@ -315,7 +421,26 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
         }
     }, [minimumPassingScore]);
 
+    const hasUnsavedChanges = () => {
+        if (pendingClauses.length > 0) return true;
+        if (message.trim() !== "") return true;
+        if (files.length > 0) return true;
+        return false;
+    };
+
     const handleHide = () => {
+        if (hasUnsavedChanges()) {
+            const proceed = window.confirm(
+                "The unsaved changes will be lost if closing this modal without saving, are you sure to close the modal?"
+            );
+            if (!proceed) return;
+        }
+        setPendingClauses([]);
+        setMessage("");
+        setFiles([]);
+        setWeightage("");
+        setUpdate(false);
+        setCurrentClause(null);
         setShowSamplingForm(false);
         setSamplingWeightage("");
         onClose();
@@ -326,7 +451,31 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
         (minScoreNum < 0 || minScoreNum > 100);
     const minScoreUnchanged =
         minScoreInput !== "" && !isNaN(minScoreNum) && minScoreNum === minimumPassingScore;
-    const visibleClauses = (previousClauses || []).filter(c => c.clause_type !== 'sampling');
+    const visibleClauses = [
+        ...((previousClauses || []).filter(c => c.clause_type !== 'sampling')),
+        ...pendingClauses,
+    ];
+    // Clause-text soft cap. Native maxLength stops new typing past 2000;
+    // messageOverLimit catches legacy values already over and is what the
+    // counter / red-border / submit-side guard react to. messageNearLimit
+    // (yellow outline + yellow counter) only fires exactly at the cap so
+    // the warning clears as soon as the user deletes a character.
+    const CLAUSE_TEXT_MAX = 2000;
+    const messageLength = (message || "").length;
+    const messageOverLimit = messageLength > CLAUSE_TEXT_MAX;
+    const messageNearLimit = !messageOverLimit && messageLength === CLAUSE_TEXT_MAX;
+    // Numeric clamp for the min-passing-percentage input. Strips non-digits
+    // (the field is an integer), and bounds within 0-100.
+    const handleMinScoreChange = (e) => {
+        const raw = e.target.value;
+        if (raw === "") { setMinScoreInput(""); return; }
+        const digits = raw.replace(/[^0-9]/g, "");
+        if (digits === "") { setMinScoreInput(""); return; }
+        let n = parseInt(digits, 10);
+        if (n > 100) n = 100;
+        if (n < 0) n = 0;
+        setMinScoreInput(String(n));
+    };
 
     return (
         <Modal
@@ -361,7 +510,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
                             max="100"
                             className="rfq-clause-input rfq-clause-input--narrow"
                             value={minScoreInput}
-                            onChange={(e) => setMinScoreInput(e.target.value)}
+                            onChange={handleMinScoreChange}
                         />
                         <span className="rfq-clause-minscore-row__unit">%</span>
                     </div>
@@ -439,20 +588,9 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
                     </div>
                 </div>
 
-                {/* Add / Update clause form */}
-                <div className="rfq-clause-form">
-                    <div className="rfq-clause-form__field">
-                        <label className="rfq-clause-label">{update ? "Edit clause" : "Add a clause"} <span className="rfq-required">*</span></label>
-                        <Form.Control
-                            as="textarea"
-                            rows={3}
-                            placeholder="Full clause text — what the vendor must comply with"
-                            className="rfq-clause-input rfq-clause-input--textarea"
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                        />
-                    </div>
-                    <div className="rfq-clause-form__row">
+                {/* Add / Update clause form (accordion) */}
+                <div className={`rfq-clause-form rfq-clause-form--accordion${(update || message.length > 0) ? ' rfq-clause-form--open' : ''}`}>
+                    <div className="rfq-clause-form__header">
                         <div className="rfq-clause-form__marks">
                             <label className="rfq-clause-label">Marks <span className="rfq-required">*</span></label>
                             <Form.Control
@@ -499,21 +637,40 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
                             )}
                         </div>
                     </div>
-                    {files.length > 0 && (
-                        <div className="rfq-clause-attach-list">
-                            <FileLink
-                                Files={files}
-                                ColumnClass="col-md-6"
-                                Style={{ fontSize: "12px" }}
-                                showDownload={false}
-                                RemoveFile={handleRemoveFile}
+                    <div className="rfq-clause-form__accordion-body">
+                        <div className="rfq-clause-form__field">
+                            <label className="rfq-clause-label">{update ? "Edit clause" : "Add a clause"} <span className="rfq-required">*</span></label>
+                            <Form.Control
+                                as="textarea"
+                                rows={3}
+                                placeholder="Full clause text — what the vendor must comply with"
+                                className={`rfq-clause-input rfq-clause-input--textarea${messageOverLimit ? " rfq-clause-input--invalid" : messageNearLimit ? " rfq-clause-input--warn" : ""}`}
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                maxLength={CLAUSE_TEXT_MAX}
                             />
+                            <div
+                                className={`rfq-char-count${messageOverLimit ? " rfq-char-count--over" : messageNearLimit ? " rfq-char-count--warn" : ""}`}
+                                aria-live="polite"
+                            >
+                                {messageLength} / {CLAUSE_TEXT_MAX}
+                            </div>
                         </div>
-                    )}
+                        {files.length > 0 && (
+                            <div className="rfq-clause-attach-list">
+                                <FileLink
+                                    Files={files}
+                                    ColumnClass="col-md-6"
+                                    Style={{ fontSize: "12px" }}
+                                    showDownload={false}
+                                    RemoveFile={handleRemoveFile}
+                                />
+                            </div>
+                        )}
+                    </div>
                     <input
                         ref={fileInputRef}
                         type="file"
-                        accept=".pdf"
                         style={{ display: 'none' }}
                         onChange={(e) => uploadToServer(e)}
                     />
@@ -529,28 +686,31 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
                     {!loading && visibleClauses.length > 0 && (
                         <div className="rfq-clause-list">
                             {visibleClauses.map((clause, index) => (
-                                <div key={index} className="rfq-clause-card">
-                                    <div className="rfq-clause-card__body">
-                                        <p className="rfq-clause-card__text">{clause.clause_text}</p>
-                                        <div className="rfq-clause-card__meta">
-                                            <span className="rfq-tag rfq-tag--primary">Marks: {clause.weightage || 0}</span>
-                                            {clause.files && clause.files.length > 0 && (
-                                                <span className="rfq-clause-card__files">
-                                                    <FileLink
-                                                        Files={clause.files}
-                                                        ColumnClass="col-md-5"
-                                                        Style={{ fontSize: "11px" }}
-                                                        showDownload={true}
-                                                    />
-                                                </span>
-                                            )}
-                                        </div>
+                                <div key={clause._localId || clause.clause_id || index} className="rfq-clause-card">
+                                    <div className="rfq-clause-card__text-cell">
+                                        <ClauseText text={clause.clause_text} />
+                                        {clause.files && clause.files.length > 0 && (
+                                            <span className="rfq-clause-card__files">
+                                                <FileLink
+                                                    Files={clause.files}
+                                                    ColumnClass="col-md-5"
+                                                    Style={{ fontSize: "11px" }}
+                                                    showDownload={true}
+                                                />
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="rfq-clause-card__marks-cell">
+                                        <span className="rfq-tag rfq-tag--primary">Marks: {clause.weightage || 0}</span>
+                                        {clause.isPending && (
+                                            <span className="rfq-tag" style={{ marginLeft: 6, fontSize: 10, background: '#fef3c7', color: '#92400e' }}>Unsaved</span>
+                                        )}
                                     </div>
                                     <div className="rfq-clause-card__actions">
                                         <button
                                             type="button"
                                             className="rfq-clause-card__icon-btn"
-                                            onClick={() => openUpdateField(clause, index)}
+                                            onClick={() => openUpdateField(clause)}
                                             title="Edit clause"
                                             aria-label="Edit clause"
                                         >
@@ -559,7 +719,10 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
                                         <button
                                             type="button"
                                             className="rfq-clause-card__icon-btn rfq-clause-card__icon-btn--danger"
-                                            onClick={() => handleDeleteClause(clause.clause_id)}
+                                            onClick={() => clause.isPending
+                                                ? handleDeletePendingClause(clause._localId)
+                                                : handleDeleteClause(clause.clause_id)
+                                            }
                                             title="Remove clause"
                                             aria-label="Remove clause"
                                         >
@@ -574,23 +737,13 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
             </Modal.Body>
 
             <Modal.Footer className="rfq-clause-modal__footer">
-                <button type="button" className="rfq-btn rfq-btn--ghost" onClick={onClose}>
+                <button type="button" className="rfq-btn rfq-btn--ghost" onClick={handleHide}>
                     Close
                 </button>
                 <button
                     type="button"
                     className="rfq-btn rfq-btn--primary"
-                    onClick={() => {
-                        if (message.trim() !== "" || files.length > 0) {
-                            if (update) {
-                                handleUpdateClause();
-                            } else {
-                                handleAddClause();
-                            }
-                        } else {
-                            toast.info("No changes to save.");
-                        }
-                    }}
+                    onClick={handleSaveAll}
                     disabled={loading}
                 >
                     {loading

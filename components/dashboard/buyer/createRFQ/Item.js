@@ -13,16 +13,120 @@ import {
 } from "@/redux/slice";
 import { extractfileName, handleFileUpload, getEntityLabel } from "@/utils/sharedFunctions";
 import { faEye, faFile, faEdit } from "@fortawesome/free-regular-svg-icons";
-import { faPlusCircle, faTrash, faClone } from "@fortawesome/free-solid-svg-icons";
+import { faPlusCircle, faTrash, faClone, faCheck, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useDispatch } from "react-redux";
 import AddClause from "./AddClause";
 import { addProductToDraft, addProductToExistingRfq, getClausesByRfqProductId } from "@/services/rfq";
+import { addCustomUnit, deleteCustomUnit } from "@/services/units";
+import Select, { components as RSComponents } from "react-select";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 // WH-69: PrevHint chip — only renders something when this product field
 // has a recorded prior value in /rfq/:id/edit-history.
 import PrevHint from "@/components/shared/PrevHint";
+
+// Defined at module scope so react-select doesn't see a new component
+// reference on every Item render — that previously caused the menu to
+// remount and immediately fire onMenuClose, which reset the inline editor
+// before the click could take effect. State is threaded through
+// `selectProps` (any unknown props on <Select> land there).
+const UnitMenuList = (props) => {
+  const {
+    unitFooterEditing,
+    unitFooterValue,
+    unitFooterSaving,
+    setUnitFooterEditing,
+    setUnitFooterValue,
+    submitNewUnit,
+    closeUnitFooter,
+  } = props.selectProps;
+
+  return (
+    <RSComponents.MenuList {...props}>
+      {props.children}
+      {/*
+        Footer wrapper preventDefaults mousedown so clicking inside it
+        doesn't blur react-select's hidden search input — that blur is
+        what closes the menu. Each interactive child ALSO uses
+        onMouseDown for its action (instead of onClick) so the handler
+        runs in the same event that we just preventDefault'd, leaving
+        no window for react-select to close the menu between mousedown
+        and click. stopPropagation belt-and-braces against bubbling.
+      */}
+      <div
+        className="rfq-unit-add-footer"
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      >
+        {!unitFooterEditing ? (
+          <button
+            type="button"
+            className="rfq-unit-add-footer__trigger"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setUnitFooterEditing(true);
+            }}
+          >
+            + Add custom unit
+          </button>
+        ) : (
+          <div className="rfq-unit-add-footer__form">
+            <input
+              type="text"
+              autoFocus
+              className="rfq-unit-add-footer__input"
+              value={unitFooterValue}
+              maxLength={50}
+              placeholder="e.g. Carton"
+              // Native input gets focus from autoFocus; we DON'T preventDefault
+              // mousedown here because the user needs to be able to click into
+              // the input to focus it (preventDefault would block that).
+              onMouseDown={(e) => e.stopPropagation()}
+              onChange={(e) => setUnitFooterValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); submitNewUnit(); }
+                if (e.key === "Escape") { e.preventDefault(); closeUnitFooter(); }
+              }}
+            />
+            <button
+              type="button"
+              className="rfq-unit-add-footer__icon-btn rfq-unit-add-footer__icon-btn--save"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (unitFooterSaving || !unitFooterValue.trim()) return;
+                submitNewUnit();
+              }}
+              disabled={unitFooterSaving || !unitFooterValue.trim()}
+              aria-label="Save custom unit"
+              title="Save"
+            >
+              {unitFooterSaving
+                ? <span className="rfq-unit-add-footer__spinner" aria-hidden="true" />
+                : <FontAwesomeIcon icon={faCheck} />}
+            </button>
+            <button
+              type="button"
+              className="rfq-unit-add-footer__icon-btn rfq-unit-add-footer__icon-btn--cancel"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closeUnitFooter();
+              }}
+              aria-label="Cancel"
+              title="Cancel"
+            >
+              <FontAwesomeIcon icon={faXmark} />
+            </button>
+          </div>
+        )}
+      </div>
+    </RSComponents.MenuList>
+  );
+};
+
+const UNIT_SELECT_COMPONENTS = { MenuList: UnitMenuList, IndicatorSeparator: null };
 
 const Item = ({
   is_tender,
@@ -54,6 +158,8 @@ const Item = ({
   footer,
   hasVendorError,
   readOnly = false, // Permission-based read-only mode
+  units = [],          // Global defaults + this user's customs (passed from CreateRFQ.js)
+  refreshUnits,        // Callback to re-fetch the units list after add / delete
 }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
@@ -69,6 +175,23 @@ const Item = ({
   const [buyerClauses, setBuyerClauses] = useState(null);
   const [minimumPassingScore, setMinimumPassingScore] = useState(null);
   const [showRemoveConfirmModal, setShowRemoveConfirmModal] = useState(false);
+  // ---- Unit dropdown state ----
+  // The sticky footer toggles between an "+ Add custom unit" button (default)
+  // and an inline input + Save / Cancel pair (active). State lives at the Item
+  // level so each accordion row owns its own footer; opening one product's
+  // dropdown doesn't reset another's.
+  const [unitFooterEditing, setUnitFooterEditing] = useState(false);
+  const [unitFooterValue, setUnitFooterValue] = useState("");
+  const [unitFooterSaving, setUnitFooterSaving] = useState(false);
+  const [unitDeleteTarget, setUnitDeleteTarget] = useState(null); // { id, name } or null
+  // When non-null, the Documents modal is open for this uploader.
+  // Shape: { label, fileType, files }
+  const [fileModalState, setFileModalState] = useState(null);
+  // Controlled menu-open state. Lets us refuse to close the menu while the
+  // user is mid-edit on the "Add custom unit" inline form — react-select's
+  // own outside-click logic would otherwise close it as soon as the button
+  // is clicked.
+  const [unitMenuOpen, setUnitMenuOpen] = useState(false);
   const [specs, setSpecs] = useState({
     size: '',
     spec: '',
@@ -141,12 +264,23 @@ const Item = ({
           })
         );
       setHasUnsavedChanges(true);
+
+      // Persist the new file to the backend. In create flow we re-save the
+      // draft so the upload survives a refresh; edit flow lets the parent
+      // handle persistence via onFilesChange.
+      if (type !== "edit" && typeof saveDraft === "function") {
+        try {
+          await saveDraft();
+        } catch (err) {
+          toast.error("File uploaded but failed to save. Please try again.");
+        }
+      }
     } catch (error) {
       toast.error(error.message);
     }
   };
 
-  const handleRemoveFile = (fileUrl, fileType) => {
+  const handleRemoveFile = async (fileUrl, fileType) => {
     const updatedFiles = (
       fileType === "qap_file"
         ? uploadedQapFile
@@ -175,6 +309,16 @@ const Item = ({
       })
       );
     setHasUnsavedChanges(true);
+
+    // Persist removal to the backend. In create flow we re-save the draft;
+    // edit flow lets the parent handle persistence via onFilesChange.
+    if (type !== "edit" && typeof saveDraft === "function") {
+      try {
+        await saveDraft();
+      } catch (error) {
+        toast.error("Failed to remove file. Please try again.");
+      }
+    }
   };
 
   const handleaddProductComment = (e) => {
@@ -482,6 +626,133 @@ const Item = ({
     return { isError, missing };
   })();
 
+  // ---- Unit dropdown helpers ----
+  // Group the global defaults and this user's custom units into the two
+  // sections react-select expects. Custom units include their `id` so the
+  // delete affordance has a target.
+  const unitOptions = (() => {
+    const list = Array.isArray(units) ? units : [];
+    const defaults = list.filter((u) => u.is_default).map((u) => ({
+      value: u.name,
+      label: u.name,
+      id: u.id,
+      isCustom: false,
+    }));
+    const customs = list.filter((u) => !u.is_default).map((u) => ({
+      value: u.name,
+      label: u.name,
+      id: u.id,
+      isCustom: true,
+    }));
+    const groups = [];
+    if (defaults.length) groups.push({ label: "Common units", options: defaults });
+    if (customs.length) groups.push({ label: "Your units", options: customs });
+    return groups;
+  })();
+
+  // Resolve the current Unit specs value to a Select option, falling back
+  // to a synthetic "legacy" option when the saved unit isn't in the list
+  // (e.g. an edit-RFQ flow with a free-text value typed before this feature
+  // existed). Without this fallback react-select would render the field as
+  // empty and force the user to re-pick.
+  const unitSelectValue = (() => {
+    const v = specs?.unit;
+    if (!v) return null;
+    const flat = unitOptions.flatMap((g) => g.options);
+    const match = flat.find((o) => o.value === v);
+    if (match) return match;
+    return { value: v, label: v, isLegacy: true, isCustom: false };
+  })();
+
+  const handleUnitChange = (option) => {
+    handleSpecValue("unit", option?.value || "");
+  };
+
+  // Reset the footer editor whenever the menu re-opens so we don't show stale
+  // input the user typed last time. Wired via Select's onMenuClose / onMenuOpen.
+  const closeUnitFooter = () => {
+    setUnitFooterEditing(false);
+    setUnitFooterValue("");
+  };
+
+  const submitNewUnit = async () => {
+    const name = (unitFooterValue || "").trim();
+    if (!name) return;
+    setUnitFooterSaving(true);
+    try {
+      const res = await addCustomUnit({ name });
+      const created = res?.data?.data;
+      // refetch the page-level list so any other Item using the same prop
+      // sees the new option immediately.
+      if (refreshUnits) await refreshUnits();
+      handleSpecValue("unit", (created && created.name) || name);
+      toast.success("Custom unit added");
+      closeUnitFooter();
+      setUnitMenuOpen(false);
+    } catch (err) {
+      // axios interceptor surfaces conflicts as response.data; on 409 the
+      // backend returns the existing matching row so we just select it.
+      const status = err?.response?.status || err?.message?.response?.status;
+      const existing = err?.response?.data?.data || err?.message?.response?.data?.data;
+      if (status === 409) {
+        if (refreshUnits) await refreshUnits();
+        if (existing?.name) handleSpecValue("unit", existing.name);
+        closeUnitFooter();
+        setUnitMenuOpen(false);
+      } else {
+        toast.error(err?.message?.response?.data?.message || err?.message || "Failed to add unit");
+      }
+    } finally {
+      setUnitFooterSaving(false);
+    }
+  };
+
+  const confirmDeleteCustomUnit = async () => {
+    if (!unitDeleteTarget?.id) return;
+    try {
+      await deleteCustomUnit(unitDeleteTarget.id);
+      // If the unit being deleted was the one selected on this product,
+      // clear it so the field doesn't display a stale value.
+      if (specs?.unit && specs.unit === unitDeleteTarget.name) {
+        handleSpecValue("unit", "");
+      }
+      if (refreshUnits) await refreshUnits();
+      toast.success("Custom unit removed");
+    } catch (err) {
+      toast.error(err?.message?.response?.data?.message || err?.message || "Failed to delete unit");
+    } finally {
+      setUnitDeleteTarget(null);
+    }
+  };
+
+  // UnitMenuList lives at module scope and reads its state from selectProps
+  // below — see the top of this file for why.
+
+  // Custom Option renderer: shows the unit name plus a × delete affordance
+  // for user-owned customs. Stops propagation so clicking × doesn't also
+  // select the option.
+  const formatUnitOptionLabel = (option) => (
+    <div className="rfq-unit-option">
+      <span className="rfq-unit-option__name">{option.label}</span>
+      {option.isCustom && option.id && !readOnly && (
+        <button
+          type="button"
+          className="rfq-unit-option__delete"
+          aria-label={`Remove ${option.label}`}
+          title="Remove custom unit"
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setUnitDeleteTarget({ id: option.id, name: option.label });
+          }}
+        >
+          <FontAwesomeIcon icon={faTrash} />
+        </button>
+      )}
+    </div>
+  );
+
   const renderFileCard = (label, fileType, files) => (
     <div className="rfq-file-card">
       <label
@@ -500,28 +771,14 @@ const Item = ({
         />
       </label>
       {files && files.length > 0 && (
-        <div className="rfq-file-list">
-          {files.map((fileUrl) => (
-            <div key={fileUrl} className="rfq-file-row">
-              <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="rfq-file-row__name">
-                {extractfileName(fileUrl)}
-              </a>
-              {!readOnly && (
-                <button
-                  type="button"
-                  className="rfq-file-row__remove"
-                  aria-label="Remove file"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleRemoveFile(fileUrl, fileType);
-                  }}
-                >
-                  ×
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+        <button
+          type="button"
+          className="rfq-file-show-btn"
+          onClick={() => setFileModalState({ label, fileType, files })}
+        >
+          <FontAwesomeIcon icon={faEye} />
+          <span>Show file{files.length > 1 ? "s" : ""} ({files.length})</span>
+        </button>
       )}
     </div>
   );
@@ -623,6 +880,8 @@ const Item = ({
                     placeholder="Size"
                     className="form-control"
                     disabled={readOnly}
+                    maxLength={200}
+                    showCharCount
                   />
                   <PrevHint
                     keyName={`spec:${data?.id}:Size`}
@@ -641,6 +900,8 @@ const Item = ({
                     placeholder="Grade, Material and other Specs"
                     className="form-control"
                     disabled={readOnly}
+                    maxLength={2000}
+                    showCharCount
                   />
                   <PrevHint
                     keyName={`spec:${data?.id}:Spec`}
@@ -674,16 +935,53 @@ const Item = ({
                     </div>
                     <span className="rfq-spec-combo__sep" aria-hidden="true" />
                     <div className="rfq-spec-combo__unit">
-                      <CommonFormInput
-                        type="simple-text"
-                        name={"unit"}
-                        label={"Unit"}
-                        required={true}
-                        values={specs.unit}
-                        onChange={(e) => handleSpecValue("unit", e.target.value)}
+                      <Select
+                        inputId={`unit-${rfqProduct?.id || rfqProduct?.product_id}`}
+                        classNamePrefix="rfq-unit-select"
+                        className="rfq-unit-select"
+                        options={unitOptions}
+                        value={unitSelectValue}
+                        onChange={(option) => {
+                          handleUnitChange(option);
+                          setUnitMenuOpen(false);
+                        }}
+                        // Controlled open state — see unitMenuOpen.
+                        menuIsOpen={unitMenuOpen}
+                        onMenuOpen={() => {
+                          setUnitMenuOpen(true);
+                          // Fresh open should always start at the "+ Add custom unit"
+                          // trigger, never with stale typed input.
+                          closeUnitFooter();
+                        }}
+                        onMenuClose={() => {
+                          // Refuse to close while user is mid-edit; otherwise
+                          // react-select would clobber the inline form when its
+                          // own outside-click handler fires on the footer click.
+                          if (unitFooterEditing) return;
+                          setUnitMenuOpen(false);
+                        }}
                         placeholder="Unit"
-                        className="form-control"
-                        disabled={readOnly}
+                        isDisabled={readOnly}
+                        isSearchable
+                        isClearable={false}
+                        components={UNIT_SELECT_COMPONENTS}
+                        formatOptionLabel={formatUnitOptionLabel}
+                        unitFooterEditing={unitFooterEditing}
+                        unitFooterValue={unitFooterValue}
+                        unitFooterSaving={unitFooterSaving}
+                        setUnitFooterEditing={setUnitFooterEditing}
+                        setUnitFooterValue={setUnitFooterValue}
+                        submitNewUnit={submitNewUnit}
+                        closeUnitFooter={closeUnitFooter}
+                        // Render menu in a portal so it can spill outside the
+                        // bordered combo (which has overflow:hidden) and be
+                        // clipped only by the viewport.
+                        menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                        menuPlacement="auto"
+                        styles={{
+                          menuPortal: (base) => ({ ...base, zIndex: 1080 }),
+                        }}
+                        noOptionsMessage={() => "No units"}
                       />
                     </div>
                   </div>
@@ -712,6 +1010,8 @@ const Item = ({
                     placeholder="Add comments..."
                     className="form-control"
                     disabled={readOnly}
+                    maxLength={1000}
+                    showCharCount
                   />
                 </div>
               </div>
@@ -728,16 +1028,16 @@ const Item = ({
             </div>
           </div>
 
-          {/* Tech Evaluation */}
+          {/* Marks and Clauses */}
           <div className="rfq-product-section">
-            <h5 className="rfq-product-section__title">Tech Evaluation</h5>
+            <h5 className="rfq-product-section__title">Marks and Clauses</h5>
             <div className="rfq-techeval-row">
               <OverlayTrigger
                 placement="top"
                 overlay={
                   isUnsavedNewProduct ? (
                     <Tooltip id={`tech-eval-disabled-${rfqProduct?.clientId || rfqProduct?.id}`}>
-                      Click "Update RFQ" to save this product first, then you can add tech evaluation clauses.
+                      Click "Update RFQ" to save this product first, then you can add clauses.
                     </Tooltip>
                   ) : (<span />)
                 }
@@ -756,54 +1056,13 @@ const Item = ({
                     }}
                   >
                     <FontAwesomeIcon icon={faEye} />
-                    <span>{buyerClauses?.length > 0 ? `View and Edit (${buyerClauses.length} clauses)` : "View and Edit"}</span>
+                    {(() => {
+                      // Sampling clauses are managed separately in the modal,
+                      // so they shouldn't pad the "N clauses" count shown here.
+                      const visibleCount = (buyerClauses || []).filter((c) => c?.clause_type !== 'sampling').length;
+                      return <span>{visibleCount > 0 ? `View and Edit (${visibleCount} clauses)` : "View and Edit"}</span>;
+                    })()}
                   </button>
-                </span>
-              </OverlayTrigger>
-
-              <OverlayTrigger
-                placement="top"
-                overlay={
-                  isUnsavedNewProduct ? (
-                    <Tooltip id={`min-score-disabled-${rfqProduct?.clientId || rfqProduct?.id}`}>
-                      Click "Update RFQ" to save this product first, then you can set a minimum passing score.
-                    </Tooltip>
-                  ) : (<span />)
-                }
-              >
-                <span className="d-inline-block">
-                  {minimumPassingScore !== null && minimumPassingScore !== undefined ? (
-                    <button
-                      type="button"
-                      id={`edit_min_score_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
-                      className="rfq-techeval-btn rfq-techeval-btn--score"
-                      onClick={handleOpenModalToMinimumScore}
-                      disabled={readOnly || isUnsavedNewProduct}
-                      style={{
-                        pointerEvents: isUnsavedNewProduct ? 'none' : 'auto',
-                        opacity: isUnsavedNewProduct ? 0.55 : 1,
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faEdit} />
-                      <span>Minimum score</span>
-                      <span className="rfq-techeval-btn__pill">{minimumPassingScore}%</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      id={`set_min_score_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
-                      className="rfq-techeval-btn rfq-techeval-btn--score"
-                      onClick={handleOpenModalToMinimumScore}
-                      disabled={readOnly || isUnsavedNewProduct}
-                      style={{
-                        pointerEvents: isUnsavedNewProduct ? 'none' : 'auto',
-                        opacity: isUnsavedNewProduct ? 0.55 : 1,
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faEdit} />
-                      <span>Set minimum score</span>
-                    </button>
-                  )}
                 </span>
               </OverlayTrigger>
             </div>
@@ -836,6 +1095,103 @@ const Item = ({
             confirmButtonText="Remove"
             cancelButtonText="Cancel"
           />
+
+          {/* Delete-custom-unit confirmation. Triggered from the × icon on
+              a user's own unit option in the dropdown. Globals can't be
+              targeted because formatUnitOptionLabel only renders the × for
+              isCustom rows. */}
+          <ConfirmationModal
+            isOpen={!!unitDeleteTarget}
+            onClose={() => setUnitDeleteTarget(null)}
+            onConfirm={confirmDeleteCustomUnit}
+            title="Remove custom unit"
+            description={`Are you sure you want to remove "${unitDeleteTarget?.name || ''}" from your custom units? This won't change any RFQ that already uses it.`}
+            confirmButtonColor="danger"
+            confirmButtonText="Remove"
+            cancelButtonText="Cancel"
+          />
+
+          {/* Documents modal — opened from the "Show file" button under each
+              uploader. Lists uploaded files as Document 1, 2, ... with view
+              and remove actions. Custom SCSS overlay (no bootstrap). */}
+          {fileModalState && (() => {
+            const liveFiles = fileModalState.fileType === "datasheet_file"
+              ? uploadedDatasheetFile
+              : fileModalState.fileType === "qap_file"
+              ? uploadedQapFile
+              : uploadedSpecFile;
+            return (
+              <div
+                className="rfq-doc-modal__overlay"
+                role="dialog"
+                aria-modal="true"
+                onClick={() => setFileModalState(null)}
+              >
+                <div
+                  className="rfq-doc-modal"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="rfq-doc-modal__header">
+                    <h3 className="rfq-doc-modal__title">
+                      {fileModalState.label} — Documents
+                    </h3>
+                    <button
+                      type="button"
+                      className="rfq-doc-modal__close"
+                      aria-label="Close"
+                      onClick={() => setFileModalState(null)}
+                    >
+                      <FontAwesomeIcon icon={faXmark} />
+                    </button>
+                  </div>
+                  <div className="rfq-doc-modal__body">
+                    {(!liveFiles || liveFiles.length === 0) ? (
+                      <p className="rfq-doc-modal__empty">No documents uploaded.</p>
+                    ) : (
+                      <ul className="rfq-doc-list">
+                        {liveFiles.map((fileUrl, idx) => (
+                          <li key={fileUrl} className="rfq-doc-list__row">
+                            <span className="rfq-doc-list__label">Document {idx + 1}</span>
+                            <div className="rfq-doc-list__actions">
+                              <a
+                                href={fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="rfq-doc-list__view"
+                              >
+                                <FontAwesomeIcon icon={faEye} />
+                                <span>View doc</span>
+                              </a>
+                              {!readOnly && (
+                                <button
+                                  type="button"
+                                  className="rfq-doc-list__remove"
+                                  aria-label="Remove file"
+                                  title={extractfileName(fileUrl)}
+                                  onClick={() => handleRemoveFile(fileUrl, fileModalState.fileType)}
+                                >
+                                  <FontAwesomeIcon icon={faTrash} />
+                                </button>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="rfq-doc-modal__footer">
+                    <button
+                      type="button"
+                      className="rfq-doc-modal__btn"
+                      onClick={() => setFileModalState(null)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </Accordion.Body>
     </Accordion.Item>
