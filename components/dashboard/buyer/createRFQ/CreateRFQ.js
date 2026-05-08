@@ -3101,7 +3101,7 @@ useEffect(() => {
         {/* Page header — "Create RFQ for [hotels]" */}
         <header className="rfq-page-header">
           <h1 className="rfq-page-header__title">
-            Create {getEntityLabel(rfqFormDataFromStore.is_tender)}
+            {isEditMode ? "Update" : "Create"} {getEntityLabel(rfqFormDataFromStore.is_tender)}
             {selectedHotelIds.length > 0 && userHotelMappings.length > 0 && (
               <>
                 {" for "}

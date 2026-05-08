@@ -13,7 +13,9 @@ const RfqManagementEdit = () => {
         <Head>
             <title>Buyer | Edit RFQ</title>
         </Head>
+        <section className="sc-pt-80">
             <CreateRFQ />
+        </section>
         </>
     )
 }
