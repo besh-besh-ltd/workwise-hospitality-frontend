@@ -469,17 +469,30 @@ const ProductComparisonMatrix = ({
           const amountDisplay = charge.amount_mode === "percentage" ? `${amountVal}%` : formatCurrency(amountVal);
           const commentText = charge.comment ? ` (${charge.comment})` : "";
           let taxDisplay = "";
+          let taxIncludesComment = false;
           if (taxVal > 0) {
             const taxUnit = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
             taxDisplay = ` + ${taxUnit} tax${commentText}`;
+            taxIncludesComment = true;
           } else if (amountVal > 0) {
-            // Check if base tax is auto-applied
-            const baseTaxRate = (details.tax_mode ?? "percentage") === "percentage" ? (parseFloat(details.tax) || 0) : 0;
-            if (baseTaxRate > 0) {
-              taxDisplay = ` + ${baseTaxRate}% tax (auto-applied)`;
+            // Vendor entered no tax on the charge. Only show "(auto-applied)"
+            // when the engine actually computed a non-zero tax for this line —
+            // the engine is the source of truth (it may legitimately respect a
+            // vendor-entered 0% tax and not auto-apply the base GST).
+            const engineCharges = details?.engine?.charges || [];
+            const engineCharge = engineCharges.find(
+              ec => (ec.slug && charge.slug && ec.slug === charge.slug) || ec.name === charge.name
+            );
+            const engineTax = Number(engineCharge?.tax || 0);
+            if (engineTax > 0) {
+              const baseTaxRate = (details.tax_mode ?? "percentage") === "percentage" ? (parseFloat(details.tax) || 0) : 0;
+              if (baseTaxRate > 0) {
+                taxDisplay = ` + ${baseTaxRate}% tax (auto-applied)`;
+              }
             }
           }
-          return <span className={styles.value}>{amountDisplay}<small className="text-muted">{taxDisplay}</small></span>;
+          const trailingComment = !taxIncludesComment && commentText ? commentText : "";
+          return <span className={styles.value}>{amountDisplay}<small className="text-muted">{taxDisplay}{trailingComment}</small></span>;
         }
         if (rowMeta.type === "globalCharge") {
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
