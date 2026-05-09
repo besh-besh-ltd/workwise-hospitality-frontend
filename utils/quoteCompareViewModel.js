@@ -184,7 +184,7 @@ export const buildQuoteCompareViewModel = (quotes = [], normalizeFilter = false,
     });
   });
 
-  const savings = baselineTotal > 0 ? baselineTotal - l1Total : 0;
+  const savings = baselineTotal > 0 ? Math.round((baselineTotal - l1Total) * 100) / 100 : 0;
 
   // Approval-progress counters. Derived per-product from QC payload + the
   // PO-rejection list passed in by the page. The four states are mutually

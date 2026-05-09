@@ -9,7 +9,7 @@ const toNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const formatCurrency = (value) => `Rs. ${addCommasToNumber(Math.round(toNumber(value)))}`;
+const formatCurrency = (value) => `Rs. ${addCommasToNumber(toNumber(value))}`;
 
 // Peer-comparison narrative: how this quote stacks up against averages and the
 // lowest priced quote (display-only — no money math, just simple ratios on

@@ -17,7 +17,7 @@ import styles from "./QuoteCompareTables.module.scss";
 const formatCurrency = (value) => {
   const parsed = Number(String(value ?? 0).replace(/,/g, "").match(/-?\d+(\.\d+)?/)?.[0]);
   const safe = Number.isFinite(parsed) ? parsed : 0;
-  return `Rs. ${addCommasToNumber(Math.round(safe))}`;
+  return `Rs. ${addCommasToNumber(safe)}`;
 };
 
 const formatRoundStatus = (status) => {
