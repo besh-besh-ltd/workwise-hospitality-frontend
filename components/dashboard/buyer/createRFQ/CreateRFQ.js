@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useInsertionEffect, useRef, useState } from "react";
 import Item from "./Item";
 import Select from 'react-select';
-import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft, getVendorsForRFQProduct, vendorTypes, getVendorsForProduct, getTechEvalUsers, refreshVendors } from "@/services/rfq";
+import { createRfq, saveDraft, updateRfq, getRFQById, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft, getVendorsForRFQProduct, vendorTypes, getVendorsForProduct, getTechEvalUsers, refreshVendors, getClausesByRfqProductId } from "@/services/rfq";
 import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
@@ -24,9 +24,10 @@ import { getProjectTableDataById, getProjectsByHospitalityContext, getProjectHos
 import { getMyHospitalityContexts } from "@/services/hospitality";
 import { getDepartments } from "@/services/rbac";
 import { getApprovalProcesses } from "@/services/process";
+import { getUnits } from "@/services/units";
 import HotelFilter from "@/components/shared/HotelFilter";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faClose } from "@fortawesome/free-solid-svg-icons";
+import { faClose, faEye, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { extractfileName, handleFileUpload, formatISOToDateTimeLocal, getDataWithLoading, getEntityLabel } from "@/utils/sharedFunctions";
 import { Accordion } from "react-bootstrap";
 import { getCountryCodes } from "@/services/cms";
@@ -103,9 +104,363 @@ export function cleanUpdatableData(updatableData) {
     };
   }
 
+const STEPS = [
+  { id: 1, label: 'Products' },
+  { id: 2, label: 'Details' },
+  { id: 3, label: 'Timeline' },
+  { id: 4, label: 'Terms' },
+  { id: 5, label: 'Review' },
+];
+
+// Builds the `{ rfq_id, snapshot }` payload that /rfq/update expects when
+// editing an existing RFQ. The snapshot is a full picture of the RFQ — not
+// a delta — so this walks the live Redux products + form data and reshapes
+// each product into { id, product_variant_id, variant, product_name,
+// comment, specs (object), files (object), vendors (id[]) }.
+const buildEditSnapshotPayload = ({
+  editRfqId,
+  formDataCopy,
+  fullMobile,
+  rfqProductsFromStore,
+  selectedTerms,
+  selectedHotelIds,
+  liveUpdatableData,
+}) => {
+  const products = (rfqProductsFromStore || []).map((p) => {
+    // Spec rows: array of {title, value} → flat object keyed by title
+    const specs = {};
+    const specRows = Array.isArray(p.spec) ? p.spec : (p.product_specs || []);
+    for (const row of specRows) {
+      if (row && row.title != null) specs[row.title] = row.value;
+    }
+    const vendorList = Array.isArray(p.vendors)
+      ? p.vendors
+      : Array.isArray(p.vendor_details) ? p.vendor_details : [];
+    const vendors = vendorList
+      .map((v) => Number(v.user_id ?? v.id))
+      .filter((id) => !Number.isNaN(id));
+    // Prefer the synchronous delta from updatableDataRef when present —
+    // a same-tick saveDraft() after an upload sees fresh URLs there before
+    // useSelector has a chance to re-render. "rm" is the sentinel that
+    // handleFilesChange writes when an array goes empty.
+    const fileOverride = liveUpdatableData?.products?.updatable?.files?.[p.id];
+    const pickFiles = (key, fallback) => {
+      const delta = fileOverride?.[key];
+      if (delta === undefined) return (fallback || []).filter(Boolean);
+      if (delta === "rm") return [];
+      return Array.isArray(delta) ? delta.filter(Boolean) : (fallback || []).filter(Boolean);
+    };
+    const files = {
+      qap_file: pickFiles("qap_file", p.qap_file),
+      spec_file: pickFiles("spec_file", p.spec_file),
+      datasheet_file: pickFiles("datasheet_file", p.datasheet_file),
+    };
+    return {
+      id: p.id ?? null,
+      clientId: p.clientId,
+      product_variant_id: Number(p.product_variant_id ?? p.product_id),
+      variant: Number(p.variant) || 0,
+      product_name: p.product_details?.[0]?.name || p.name || `Product ${p.id || ''}`,
+      comment: p.comment || '',
+      specs,
+      files,
+      vendors,
+      tech_eval_clauses: p.tech_eval_clauses || [],
+    };
+  });
+
+  const snapshot = {
+    title: formDataCopy.title ?? '',
+    comment: formDataCopy.comment ?? '',
+    contact_name: formDataCopy.contact_name ?? '',
+    contact_number: fullMobile,
+    response_email: formDataCopy.response_email ?? '',
+    location: formDataCopy.location ?? '',
+    bid_end_date: formDataCopy.bid_end_date ?? '',
+    tender_publish_date: formDataCopy.tender_publish_date ?? null,
+    tender_fees: formDataCopy.tender_fees ?? null,
+    vendor_clarification_date: formDataCopy.vendor_clarification_date ?? null,
+    rfq_type: formDataCopy.rfq_type ?? null,
+    reverse_auction: Number(formDataCopy.reverse_auction || 0),
+    ra_start_date: formDataCopy.ra_start_date ?? null,
+    ra_end_date: formDataCopy.ra_end_date ?? null,
+    project_id: formDataCopy.project_id != null && formDataCopy.project_id !== ''
+      ? Number(formDataCopy.project_id)
+      : null,
+    is_tender: Number(formDataCopy.is_tender || 0),
+    hotel_ids: Array.isArray(selectedHotelIds) && selectedHotelIds.length > 0
+      ? selectedHotelIds
+      : (Array.isArray(formDataCopy.hotel_ids) ? formDataCopy.hotel_ids : []),
+    terms: (selectedTerms || []).map((t) => Number(t.id || t.term_id)).filter(Boolean),
+    // T&C attachments — diffed on the backend (applyTermFileChanges).
+    // Empty array clears all files; omitting the key would mean "no change".
+    term_and_condition_files: Array.isArray(formDataCopy.term_and_condition_files)
+      ? formDataCopy.term_and_condition_files.filter(Boolean)
+      : [],
+    products,
+  };
+
+  return { rfq_id: editRfqId, snapshot };
+};
+
+// Stable empty-array reference shared across renders. useSelector falls
+// back to this when the underlying field is null/undefined; without a stable
+// reference, `|| []` creates a fresh array each call, which makes useSelector
+// think the selected value changed every render and triggers an infinite
+// re-render loop downstream (the [termFiles] effect at the term-files
+// section is the canonical victim).
+const EMPTY_ARRAY = Object.freeze([]);
+
+// Adapts the /rfq/getRfqById response into the shape `intializeRfq` (and
+// downstream Item.js / form fields) expects. Differences vs the draft API:
+//   • products live under `products` and use `product_specs` for spec rows
+//   • vendors come back as `vendor_details` with nested user_details
+// We rename to `rfq_products` / `spec` / `vendors` so the rest of the
+// CreateRFQ pipeline doesn't need to know it was an edit-mode load.
+const reshapeRfqForStore = (rfq, rfqId) => {
+  const products = (rfq?.products || []).map((p) => ({
+    ...p,
+    spec: Array.isArray(p.product_specs) ? p.product_specs : (p.spec || []),
+    vendors: Array.isArray(p.vendor_details)
+      ? p.vendor_details.map((v) => ({
+          user_id: v.user_id,
+          variant: v.variant,
+          ...(v.user_details || {}),
+        }))
+      : (p.vendors || []),
+    qap_file: Array.isArray(p.qap_file) ? p.qap_file : [],
+    spec_file: Array.isArray(p.spec_file) ? p.spec_file : [],
+    datasheet_file: Array.isArray(p.datasheet_file) ? p.datasheet_file : [],
+  }));
+  // /rfq/getRfqById returns the RFQ's T&C URLs under the alias `TERM_files`
+  // (see rfqModel.js getRfqById). The rest of the component — selectors,
+  // upload reducer, snapshot builder — reads `term_and_condition_files`.
+  // Normalise here so an existing draft's T&C chips actually render and the
+  // setTermFiles reducer can spread the array on the next upload.
+  const termAndConditionFiles =
+    Array.isArray(rfq?.term_and_condition_files) ? rfq.term_and_condition_files
+    : Array.isArray(rfq?.TERM_files) ? rfq.TERM_files
+    : [];
+  return {
+    rfq_id: rfqId,
+    rfq_form_data: { ...rfq, term_and_condition_files: termAndConditionFiles },
+    rfq_products: products,
+  };
+};
+
+// Inline read-more for long text values inside the product detail modal.
+// Anything past `limit` chars collapses; clicking the toggle expands inline.
+const ExpandableText = ({ text, limit = 300 }) => {
+  const [expanded, setExpanded] = useState(false);
+  const value = (text ?? "").toString();
+  if (!value) return <span className="rfq-product-detail__empty">—</span>;
+  if (value.length <= limit) {
+    return <span className="rfq-product-detail__text">{value}</span>;
+  }
+  return (
+    <span className="rfq-product-detail__text">
+      {expanded ? value : `${value.slice(0, limit)}…`}
+      {" "}
+      <button
+        type="button"
+        className="rfq-product-detail__toggle"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? "View less" : "View more"}
+      </button>
+    </span>
+  );
+};
+
+// Product detail modal — opened from the Review section's product cards.
+// Two-column horizontal grid so labels sit beside compact values; long-text
+// fields (size / spec / comments) span both columns.
+const ProductDetailModal = ({ product: p, getSpecFieldValue, updatableData, onClose }) => {
+  const qty = getSpecFieldValue(p, "quantity");
+  const unit = getSpecFieldValue(p, "unit");
+  const size = getSpecFieldValue(p, "size");
+  const spec = getSpecFieldValue(p, "spec");
+  const editedComment = updatableData?.products?.updatable?.comment?.[p.id];
+  const commentVal = (editedComment !== undefined ? editedComment : p.comment) || "";
+  const tdsFiles = p.datasheet_file || p.TDS_flies || [];
+  const qapFiles = p.qap_file || p.QAP_files || [];
+  const specFiles = p.spec_file || p.SPEC_files || [];
+
+  const [clauses, setClauses] = useState(null); // null = loading, [] = none
+  const [minScore, setMinScore] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!p?.id) { setClauses([]); return; }
+    (async () => {
+      try {
+        const res = await getClausesByRfqProductId({ rfq_product_id: p.id, vendor_id: null });
+        if (cancelled) return;
+        if (res?.success) {
+          setClauses(Array.isArray(res.data) ? res.data : []);
+          const ms = res.minimum_passing_score;
+          setMinScore(ms != null && !isNaN(Number(ms)) ? Number(ms) : null);
+        } else {
+          setClauses([]);
+        }
+      } catch {
+        if (!cancelled) setClauses([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [p?.id]);
+
+  const renderFileGrid = (files) => (
+    files.length === 0
+      ? <span className="rfq-product-detail__empty">—</span>
+      : (
+        <ul className="rfq-product-detail__files rfq-product-detail__files--grid">
+          {files.map((url, i) => (
+            <li key={url}>
+              <a href={url} target="_blank" rel="noopener noreferrer">Document {i + 1}</a>
+            </li>
+          ))}
+        </ul>
+      )
+  );
+
+  return (
+    <div
+      className="rfq-doc-modal__overlay"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="rfq-doc-modal rfq-doc-modal--wide"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="rfq-doc-modal__header">
+          <h3 className="rfq-doc-modal__title">{p.name || `Product #${p.product_id}`}</h3>
+          <button
+            type="button"
+            className="rfq-doc-modal__close"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+        <div className="rfq-doc-modal__body">
+          <div className="rfq-product-detail">
+            <div className="rfq-product-detail__row rfq-product-detail__row--inline">
+              <div className="rfq-product-detail__field rfq-product-detail__field--inline">
+                <span className="rfq-product-detail__label">Quantity</span>
+                <span className="rfq-product-detail__value">{qty || "—"}</span>
+              </div>
+              <div className="rfq-product-detail__field rfq-product-detail__field--inline">
+                <span className="rfq-product-detail__label">Unit</span>
+                <span className="rfq-product-detail__value">{unit || "—"}</span>
+              </div>
+              {p.variant ? (
+                <div className="rfq-product-detail__field rfq-product-detail__field--inline">
+                  <span className="rfq-product-detail__label">Variant</span>
+                  <span className="rfq-product-detail__value">{p.variant}</span>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="rfq-product-detail__field rfq-product-detail__field--full">
+              <span className="rfq-product-detail__label">Product Size</span>
+              <span className="rfq-product-detail__value">
+                <ExpandableText text={size} />
+              </span>
+            </div>
+            <div className="rfq-product-detail__field rfq-product-detail__field--full">
+              <span className="rfq-product-detail__label">Product Specification</span>
+              <span className="rfq-product-detail__value">
+                <ExpandableText text={spec} />
+              </span>
+            </div>
+            <div className="rfq-product-detail__field rfq-product-detail__field--full">
+              <span className="rfq-product-detail__label">Comments</span>
+              <span className="rfq-product-detail__value">
+                <ExpandableText text={commentVal} />
+              </span>
+            </div>
+
+            <div className="rfq-product-detail__files-row">
+              <div className="rfq-product-detail__field">
+                <span className="rfq-product-detail__label">TDS</span>
+                <span className="rfq-product-detail__value">{renderFileGrid(tdsFiles)}</span>
+              </div>
+              <div className="rfq-product-detail__field">
+                <span className="rfq-product-detail__label">QAP</span>
+                <span className="rfq-product-detail__value">{renderFileGrid(qapFiles)}</span>
+              </div>
+              <div className="rfq-product-detail__field">
+                <span className="rfq-product-detail__label">Spec files</span>
+                <span className="rfq-product-detail__value">{renderFileGrid(specFiles)}</span>
+              </div>
+            </div>
+
+            <div className="rfq-product-detail__field rfq-product-detail__field--full">
+              <span className="rfq-product-detail__label">
+                Marks &amp; Clauses
+                {minScore != null && (
+                  <span className="rfq-product-detail__label-meta"> · Min passing: {minScore}%</span>
+                )}
+              </span>
+              {clauses === null ? (
+                <span className="rfq-product-detail__empty">Loading…</span>
+              ) : clauses.length === 0 ? (
+                <span className="rfq-product-detail__empty">—</span>
+              ) : (
+                <ul className="rfq-product-detail__clauses">
+                  {clauses.map((c, idx) => (
+                    <li key={c.clause_id || idx} className="rfq-product-detail__clause">
+                      <div className="rfq-product-detail__clause-head">
+                        <span className={`rfq-tag rfq-tag--${c.clause_type === 'sampling' ? 'violet' : 'primary'}`}>
+                          {c.clause_type === 'sampling' ? 'Sampling' : 'Technical'}
+                        </span>
+                        <span className="rfq-product-detail__clause-marks">Marks: {c.weightage || 0}</span>
+                      </div>
+                      <div className="rfq-product-detail__clause-text">
+                        <ExpandableText text={c.clause_text || ''} />
+                      </div>
+                      {Array.isArray(c.files) && c.files.length > 0 && (
+                        <ul className="rfq-product-detail__files rfq-product-detail__files--grid">
+                          {c.files.map((url, i) => (
+                            <li key={url}>
+                              <a href={url} target="_blank" rel="noopener noreferrer">Document {i + 1}</a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="rfq-doc-modal__footer">
+          <button
+            type="button"
+            className="rfq-doc-modal__btn"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CreateRFQ = () => {
   const router = useRouter();
   const { draft_id, view_only } = router.query;
+  // The edit-RFQ route (`/dashboard/buyer/rfq-management-edit?id=<rfqId>`)
+  // mounts this same component. When `id` is present we treat the run as
+  // editing an existing RFQ — loading via getRFQById and saving via
+  // updateRfq instead of the draft endpoints.
+  const editRfqId = router.query.id ? parseInt(router.query.id) : null;
+  const isEditMode = !!editRfqId;
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [mainLoading, setMainLoading] = useState(false);
@@ -127,6 +482,9 @@ const CreateRFQ = () => {
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [processes, setProcesses] = useState([]);
+  // Unit dropdown source — global defaults + this user's own custom units.
+  // Each row: { id, name, is_default }. Re-fetched after add / delete.
+  const [units, setUnits] = useState([]);
 
   const storeLoading = useSelector((data) => data.storeLoading);
   const rfqDetails = useSelector((data) => data.rfq_id);
@@ -134,12 +492,68 @@ const CreateRFQ = () => {
   const rfqFormDataFromStore = useSelector((data) => data.rfqFormData);
   const allTerms = useSelector((data) => data.allTerms);
   const selectedTerms = useSelector((data) => data.rfqFormData.terms);
-  const termFiles = useSelector((state) => state.rfqFormData.term_and_condition_files || []);
+  const termFiles = useSelector((state) => state.rfqFormData.term_and_condition_files || EMPTY_ARRAY);
   // View-only mode: when viewing someone else's draft (linked via view_only=true)
   // Also verified against created_by once draft loads
   const isViewOnlyDraft = view_only === 'true' && draft_id && userProfile &&
     rfqFormDataFromStore?.created_by && String(rfqFormDataFromStore.created_by) !== String(userProfile.id);
+
+  // ── Edit-mode lockdown flags ─────────────────────────────────────────────
+  // Mirrors the gates the backend's PUT /rfq/update enforces. Source of truth:
+  //   • allowlist: app/controllers/rfq/rfqEditableFields.js (RFQ_EDITABLE_FIELDS)
+  //   • runtime gates: rfqController.updateRFQ + rfqUpdateHelpers.assertEditAllowed
+  // Anything we let the user edit but the server rejects manifests as a
+  // confusing "saved" UX with no real change, so we mirror the rules here.
+  //
+  //   isReadOnly       — entire form locked (assertEditAllowed would fail)
+  //   isRestrictedEdit — only bid_end_date editable + vendor refresh allowed
+  //                      (vendors-or-tech-stuck-or-dead-end products)
+  //   isPostPublish    — additionally locks tender_publish_date + tender_fees
+  const _editMeta = isEditMode ? (rfqFormDataFromStore || {}) : {};
+  const _bidEndPassed = !!_editMeta.bid_end_date && new Date(_editMeta.bid_end_date) <= new Date();
+  const isReadOnly =
+    isEditMode && (
+      _editMeta.status === 2 ||
+      (_bidEndPassed && _editMeta.is_quotes_present && !_editMeta.has_dead_end_product && !_editMeta.has_tech_stuck_product)
+    );
+  const isRestrictedEdit =
+    isEditMode && !isReadOnly && (
+      !!_editMeta.has_received_quotes ||
+      !!_editMeta.has_dead_end_product ||
+      !!_editMeta.has_tech_stuck_product
+    );
+  const isPostPublish = isEditMode && _editMeta.is_published === 1;
+
+  // Per-field lock helper. Mirrors the backend's union of rule layers, so
+  // any input wired through this is automatically consistent with what
+  // the /update endpoint would actually accept.
+  const isFieldLocked = (field) => {
+    if (isViewOnlyDraft || isReadOnly) return true;
+    if (isRestrictedEdit && field !== 'bid_end_date') return true;
+    if (isPostPublish && (field === 'tender_publish_date' || field === 'tender_fees')) return true;
+    return false;
+  };
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  // Highest step the user has ever reached this session. Stepper pills with
+  // id <= maxStepReached stay marked "done" and clickable, so jumping back
+  // to step 1 doesn't re-lock the steps the user already completed.
+  // In edit-RFQ mode the RFQ is already published, so unlock every step on
+  // entry — the user can hop between sections freely.
+  const [maxStepReached, setMaxStepReached] = useState(editRfqId ? STEPS.length : 1);
+  // When the user clicks Next on an invalid step we tag the step number here
+  // so each required-but-empty field can render a red border + "Required"
+  // hint. The hint clears as soon as the field gets a value (the empty check
+  // itself drives visibility) or when the user navigates to a different step
+  // (effect below). Null = no error state.
+  const [triedNextOnStep, setTriedNextOnStep] = useState(null);
+  // When Submit's business-rule validation fails on a field that DOES have a
+  // value (e.g. a publish date that's set but less than 5 minutes from now),
+  // isFieldMissing won't flag it. Track the offender by name so the field
+  // gets the same red-border treatment until the user edits it or moves
+  // steps. Cleared in the step-change effect below and inside
+  // handleFormFieldChange when the user edits the flagged field.
+  const [submitInvalidField, setSubmitInvalidField] = useState(null);
   const [countryCode , setCountryCode] = useState ([]);
   const [ onecountrycode ,setonecountrycode] = useState("");
   const [showCreateConfirmModal, setShowCreateConfirmModal] = useState(false);
@@ -151,6 +565,9 @@ const CreateRFQ = () => {
     draft_id: null,
     sheet_id: null,
   })
+  // Product clicked from the Review section's product grid; when set, the
+  // details modal is open. Cleared when the user closes the modal.
+  const [viewProduct, setViewProduct] = useState(null);
   const [updatableData, setUpdatableData] = useState({
     products: {
       addable: [],
@@ -159,12 +576,18 @@ const CreateRFQ = () => {
     },
     vendors: {},
   })
+  // Mirror of updatableData that's updated synchronously by handleFilesChange
+  // (and similar mutators) so an immediate saveDraft() call from a child sees
+  // the latest payload — useState updates are async and a same-tick saveDraft
+  // would otherwise send stale data and lose the just-uploaded file.
+  const updatableDataRef = useRef(null);
 
   const [vendors, setVendors] = useState({});
   const [viewProductFilter, setViewProductFilter] = useState({});
   const [addableVendors, setAddableVendors] = useState([]);
   const [termsChanged, setTermsChanged] = useState(false);
   const [termFilesChanged, setTermFilesChanged] = useState(false);
+  const [termsFileModalOpen, setTermsFileModalOpen] = useState(false);
   const [activeKey, setActiveKey] = useState(null);
   const [showModal, setShowModal] = useState({
     vendorModal: false,
@@ -188,6 +611,21 @@ const CreateRFQ = () => {
 
   const rfqProductsRef = useRef({});
   const rfqFormDataRef = useRef({});
+  // Tracks the in-flight saveDraft request so a new save can abort the
+  // previous one. Holds an AbortController while a request is pending,
+  // null once it settles (or has been superseded).
+  const saveDraftAbortRef = useRef(null);
+  // True once we've read currentStep / maxStepReached from the URL on
+  // first mount. Prevents the URL→state hydration from running again
+  // when our own state→URL sync replaces the query.
+  const stepHydratedFromUrlRef = useRef(false);
+  // The hydration effect and the URL-sync effect both fire in the same
+  // render once router.isReady flips. Hydration's setCurrentStep is
+  // queued, so the sync effect would still observe stale state (=1) and
+  // overwrite the URL — clobbering the values we're trying to restore.
+  // This one-shot flag tells the sync effect to skip exactly once after
+  // hydration; the next render (with state in sync) handles the rest.
+  const skipFirstUrlSyncRef = useRef(false);
 
   const [validationErrors, setValidationErrors] = useState({});
   const [errorProducts, setErrorProducts] = useState(new Set());
@@ -339,6 +777,19 @@ const CreateRFQ = () => {
       setProcesses(procs);
     } catch (error) {
       console.error("Error fetching processes:", error);
+    }
+  };
+
+  // Pulled in its own callback so child components can ask the page to
+  // refresh after adding / deleting a custom unit.
+  const refreshUnits = async () => {
+    try {
+      const response = await getUnits();
+      const rows = response?.data?.data || response?.data || [];
+      setUnits(Array.isArray(rows) ? rows : []);
+    } catch (error) {
+      console.error("Error fetching units:", error);
+      toast.error("Couldn't load units. Try refreshing.");
     }
   };
 
@@ -581,16 +1032,10 @@ const CreateRFQ = () => {
     let name = e?.target?.name || actionMeta?.name;
     let value = e?.target?.value || selectedOption?.value || "";
 
-    if (name === "bid_end_date"){
-      // Warn if existing clarification date becomes invalid
-      if (value && rfqFormDataFromStore.vendor_clarification_date) {
-        const bidEndDate = new Date(value);
-        const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
-        const diffInHours = (bidEndDate - clarificationDate) / (1000 * 60 * 60);
-        if (diffInHours < 24) {
-          toast.warning("Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date. Please update one of them.");
-        }
-      }
+    // Editing the field that submit-time validation just rejected clears
+    // its red highlight — same UX as the existing isFieldMissing path.
+    if (name && submitInvalidField === name) {
+      setSubmitInvalidField(null);
     }
 
     // Tender Publish Date validation
@@ -600,11 +1045,18 @@ const CreateRFQ = () => {
         toast.error("Publish Date & Time must be at least 5 minutes from now.");
         return;
       }
-      // Warn if clarification date becomes invalid when tender publish date changes
+    }
+
+    // Quote Submission End Date validation — must be at least 24h after the
+    // Vendor Clarification End Date.
+    if (name === "bid_end_date" && value) {
+      const bidEndDate = new Date(value);
       if (rfqFormDataFromStore.vendor_clarification_date) {
         const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
-        if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
-          toast.warning("Vendor Clarification End Date is now invalid. Please update it.");
+        const diffInHours = (bidEndDate - clarificationDate) / (1000 * 60 * 60);
+        if (diffInHours < 24) {
+          toast.error("Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.");
+          return;
         }
       }
     }
@@ -621,15 +1073,23 @@ const CreateRFQ = () => {
           return;
         }
       }
+    }
 
-      // Rule 2: Quote Submission End Date must be at least 24 hours after Clarification
+    // Cascade-clear dependent dates so the chain
+    //   Publish → Vendor Clarification End → Quote Submission End
+    // never holds a stale value that's now out of order. Editing the publish
+    // date clears the next two; editing clarification clears the bid end.
+    if (name === "tender_publish_date") {
+      if (rfqFormDataFromStore.vendor_clarification_date) {
+        dispatch(setOtherFormFields({ field_name: "vendor_clarification_date", value: "" }));
+      }
       if (rfqFormDataFromStore.bid_end_date) {
-        const bidEndDate = new Date(rfqFormDataFromStore.bid_end_date);
-        const diffInHours = (bidEndDate - clarificationDate) / (1000 * 60 * 60);
-        if (diffInHours < 24) {
-          toast.error("Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.");
-          return;
-        }
+        dispatch(setOtherFormFields({ field_name: "bid_end_date", value: "" }));
+      }
+    }
+    if (name === "vendor_clarification_date") {
+      if (rfqFormDataFromStore.bid_end_date) {
+        dispatch(setOtherFormFields({ field_name: "bid_end_date", value: "" }));
       }
     }
 
@@ -680,7 +1140,7 @@ const CreateRFQ = () => {
           dispatch(
             setOtherFormFields({
               field_name: "reverse_auction",
-              value: projectData.reverse_auction !== undefined ? projectData.reverse_auction : 1,
+              value: projectData.reverse_auction !== undefined ? projectData.reverse_auction : 0,
             })
           );
           dispatch(
@@ -752,6 +1212,7 @@ useEffect(() => {
       }
     } else {
       dispatch(setTermFiles({ type, value: dynamicParam }))
+      toast.success("File removed");
     }
     setHasUnsavedChanges(true);
     setTermFilesChanged(true);
@@ -760,82 +1221,102 @@ useEffect(() => {
   const validateRFQFields = (values) => {
     // Deep clone the form data to avoid direct mutation
     const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
-    
+
     // Ensure company_name is included from either form values, Redux store, or user profile
     formDataCopy.company_name = values.company_name || formDataCopy.company_name || userProfile?.company_name || "";
-    
+
+    // Each early-return now also reports the step the failed field lives on
+    // so the submit handler can park the user there. Step map:
+    //  1 → Products  ·  2 → Details  ·  3 → Timeline  ·  4 → Terms
+    // The optional `field` is the form-field name to highlight even when it
+    // has a value (so business-rule failures like "must be 5 min from now"
+    // get the same red border as missing-field failures).
+    const fail = (step, message, field = null) => {
+      toast.error(message);
+      setMainLoading(false);
+      return { ok: false, step, field };
+    };
+
     // Changes by Agnij 2025-05-03 [Validate reverse auction dates without default values]
     if (formDataCopy.reverse_auction === 1) {
-      // Check if the reverse auction dates are empty
       if (!formDataCopy.ra_start_date || formDataCopy.ra_start_date === '') {
-        toast.error("Please set the Auction Start Date & Time for reverse auction");
-        setMainLoading(false);
-        return false;
+        return fail(3, "Please set the Auction Start Date & Time for reverse auction", "ra_start_date");
       }
-      
       if (!formDataCopy.ra_end_date || formDataCopy.ra_end_date === '') {
-        toast.error("Please set the Auction End Date & Time for reverse auction");
-        setMainLoading(false);
-        return false;
+        return fail(3, "Please set the Auction End Date & Time for reverse auction", "ra_end_date");
       }
     }
 
-    // Project is optional - no validation needed
-
     // Department is required when departments are available
     if (departments.length > 0 && !formDataCopy.department_id) {
-      toast.error("Please select a department");
-      setMainLoading(false);
-      return false;
+      return fail(2, "Please select a department", "department_id");
     }
 
     // Process is required for RFQ creation
     if (!formDataCopy.process_id) {
-      toast.error("Please select a process");
-      setMainLoading(false);
-      return false;
+      return fail(2, "Please select a process", "process_id");
     }
 
     // Publish Date & Time is required and must be at least 5 minutes from now
     if (!formDataCopy.tender_publish_date) {
-      toast.error("Please select Publish Date & Time");
-      setMainLoading(false);
-      return false;
+      return fail(3, "Please select Publish Date & Time", "tender_publish_date");
     }
     const publishDate = new Date(formDataCopy.tender_publish_date);
     if ((publishDate - new Date()) < 5 * 60 * 1000) {
-      toast.error("Publish Date & Time must be at least 5 minutes from now.");
-      setMainLoading(false);
-      return false;
+      return fail(3, "Publish Date & Time must be at least 5 minutes from now.", "tender_publish_date");
     }
 
     // Vendor Clarification End Date is required and must be at least 5 minutes after publish
     if (!formDataCopy.vendor_clarification_date) {
-      toast.error("Please select Vendor Clarification End Date");
-      setMainLoading(false);
-      return false;
+      return fail(3, "Please select Vendor Clarification End Date", "vendor_clarification_date");
     }
     const clarificationDate = new Date(formDataCopy.vendor_clarification_date);
     if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
-      toast.error("Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.");
-      setMainLoading(false);
-      return false;
+      return fail(3, "Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.", "vendor_clarification_date");
     }
 
     // Quote Submission End Date is required and must be at least 24 hours after clarification
     if (!formDataCopy.bid_end_date) {
-      toast.error("Please select Quote Submission End Date");
-      setMainLoading(false);
-      return false;
+      return fail(3, "Please select Quote Submission End Date", "bid_end_date");
     }
     const bidEndDate = new Date(formDataCopy.bid_end_date);
     if ((bidEndDate - clarificationDate) < 24 * 60 * 60 * 1000) {
-      toast.error("Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.");
-      setMainLoading(false);
-      return false;
+      return fail(3, "Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.", "bid_end_date");
     }
 
-    return true
+    // Per-product character limits — Size 200, Spec 2000, Comment 1000.
+    // Walks the live product list (rfqProductsFromStore) plus any in-flight
+    // edits in updatableData.products.updatable.specs / .comment so that
+    // both fresh entries and unsaved edits in the edit-RFQ flow are caught.
+    const PRODUCT_LIMITS = { Size: 200, Spec: 2000, comment: 1000 };
+    const products = Array.isArray(rfqProductsFromStore) ? rfqProductsFromStore : [];
+    for (const product of products) {
+      if (!product) continue;
+      const productLabel = product.name || `product #${product.product_id}`;
+      // Spec values: prefer live edits in updatableData, fall back to stored spec[]
+      const editedSpecs = updatableData?.products?.updatable?.specs?.[product.id] || {};
+      const storedSpecs = Array.isArray(product.spec) ? product.spec : [];
+      const readSpec = (title) => {
+        if (Object.prototype.hasOwnProperty.call(editedSpecs, title)) return editedSpecs[title];
+        const found = storedSpecs.find(s => (s.title || "").toLowerCase() === title.toLowerCase());
+        return found ? (found.value ?? "") : "";
+      };
+      for (const title of ["Size", "Spec"]) {
+        const val = readSpec(title);
+        const limit = PRODUCT_LIMITS[title];
+        if (typeof val === "string" && val.length > limit) {
+          return fail(1, `${title === "Size" ? "Product Size" : "Product Specification"} for "${productLabel}" exceeds ${limit} characters (currently ${val.length}).`);
+        }
+      }
+      // Per-product comment: prefer live edit, fall back to stored value
+      const editedComment = updatableData?.products?.updatable?.comment?.[product.id];
+      const commentVal = (editedComment !== undefined ? editedComment : product.comment) || "";
+      if (typeof commentVal === "string" && commentVal.length > PRODUCT_LIMITS.comment) {
+        return fail(1, `Comment for "${productLabel}" exceeds ${PRODUCT_LIMITS.comment} characters (currently ${commentVal.length}).`);
+      }
+    }
+
+    return { ok: true };
   }
 
   const handleCreateRFQ = (values) => {
@@ -934,6 +1415,53 @@ useEffect(() => {
 
     setShowRFQModal(false);
 
+    // Edit-RFQ flow: route Submit through /rfq/update with the full snapshot
+    // payload instead of /rfq/create. Same shape used by handleSaveDraft.
+    if (isEditMode) {
+      const liveUpdatableData = updatableDataRef.current ?? updatableData;
+      const editPayload = buildEditSnapshotPayload({
+        editRfqId,
+        formDataCopy,
+        fullMobile,
+        rfqProductsFromStore,
+        selectedTerms,
+        selectedHotelIds,
+        liveUpdatableData,
+      });
+      updateRfq(editPayload)
+        .then((res) => {
+          setMainLoading(false);
+          toast.success(
+            <h6>
+              <b>{getEntityLabel(rfqFormDataFromStore?.is_tender)} #{res?.message?.rfq?.rfq_no || editRfqId}:</b> Successfully updated!
+            </h6>,
+            { position: "top-right" }
+          );
+          setUpdatableData({
+            products: { addable: [], deletable: [], updatable: {} },
+            vendors: {},
+          });
+          setErrorProducts(new Set());
+          setHasUnsavedChanges(false);
+          rfqProductsRef.current = [];
+          rfqFormDataRef.current = {};
+          router.push("/dashboard/buyer/rfq-management");
+          dispatch(clearRfqState());
+        })
+        .catch((err) => {
+          setMainLoading(false);
+          setHasUnsavedChanges(true);
+          const errorData = err?.message?.response?.data;
+          const errorMessage = errorData?.message || errorData?.errors?.message || `Failed to update ${getEntityLabel(rfqFormDataFromStore?.is_tender)}. Please try again.`;
+          if (errorData?.errors?.details && Array.isArray(errorData.errors.details)) {
+            const missingVendorIds = errorData.errors.details.map(d => d.rfqProductId);
+            setErrorProducts(new Set(missingVendorIds));
+          }
+          toast.error(errorMessage);
+        });
+      return;
+    }
+
     createRfq(payload)
       .then((res) => {
         setMainLoading(false);
@@ -962,7 +1490,7 @@ useEffect(() => {
       .catch((err) => {
         setMainLoading(false);
         setHasUnsavedChanges(true);
-        
+
         const errorData = err?.message?.response?.data;
         const errorMessage = errorData?.message || `Failed to create ${getEntityLabel(rfqFormDataFromStore?.is_tender)}. Please check your form and try again.`;
 
@@ -1083,7 +1611,14 @@ useEffect(() => {
   );
 
   const handleSaveDraft = async () => {
-    setMainLoading(true);
+    // Supersede any prior in-flight save — the latest payload wins. The
+    // previous request's catch will see an ERR_CANCELED and bail without
+    // toasting / triggering side effects.
+    if (saveDraftAbortRef.current) {
+      saveDraftAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    saveDraftAbortRef.current = controller;
 
     const contactNumber = rfqFormDataRef?.current?.contact_number?.trim();
     const parts = contactNumber?.includes('-') ? contactNumber?.split('-') : [contactNumber];
@@ -1114,28 +1649,73 @@ useEffect(() => {
     }
 
     const filters = getRefinedFilters();
-    const cleanedUpdatableData = cleanUpdatableData(updatableData);
+    // Prefer the synchronously-updated ref so an upload that happens just
+    // before saveDraft() is captured. Falls back to state when the ref hasn't
+    // been seeded yet.
+    const liveUpdatableData = updatableDataRef.current ?? updatableData;
+    const cleanedUpdatableData = cleanUpdatableData(liveUpdatableData);
 
-    const payload = {
-      ...formDataCopy, // Use the filtered copy
-      rfq_id: rfqDetails,
-      contact_number: fullMobile,
-      sheet_id: selectedSheet?.value,
-      updatableData: cleanedUpdatableData,
-      filters,
-      termsChanged,
-      termFilesChanged,
-      selectedSheets: selectedSheetsForRFQ,
-      hotel_ids: selectedHotelIds || [],
-    };
+    // Edit mode posts to /rfq/update which requires a complete RFQ — gate on
+    // the same required-field check the Formik submit path uses, since the
+    // Save Changes button is type="button" and bypasses Yup. Drafts (non-edit)
+    // skip this so partial saves remain legal.
+    if (isEditMode) {
+      const result = validateRFQFields({
+        company_name: rfqFormDataRef.current?.company_name || ''
+      });
+      if (!result?.ok) {
+        if (result?.step) {
+          setCurrentStep(result.step);
+          setTriedNextOnStep(result.step);
+          setSubmitInvalidField(result.field || null);
+          setMaxStepReached((m) => Math.max(m, result.step));
+        }
+        saveDraftAbortRef.current = null;
+        return;
+      }
+    }
+
+    // In edit mode the backend expects a full snapshot ({ rfq_id, snapshot }),
+    // not the saveDraft delta — so divert to a different payload shape.
+    const payload = isEditMode
+      ? buildEditSnapshotPayload({
+          editRfqId,
+          formDataCopy,
+          fullMobile,
+          rfqProductsFromStore,
+          selectedTerms,
+          selectedHotelIds,
+          liveUpdatableData,
+        })
+      : {
+          ...formDataCopy, // Use the filtered copy
+          rfq_id: rfqDetails,
+          contact_number: fullMobile,
+          sheet_id: selectedSheet?.value,
+          updatableData: cleanedUpdatableData,
+          filters,
+          termsChanged,
+          termFilesChanged,
+          selectedSheets: selectedSheetsForRFQ,
+          hotel_ids: selectedHotelIds || [],
+        };
     const affectedVendorProductIds = Object.keys(
-      updatableData?.vendors || {}
+      liveUpdatableData?.vendors || {}
     );
 
     try {
-      const res = await saveDraft(payload);
-      setMainLoading(false);
-      await getDraftInitialData();
+      // Edit-RFQ flow targets a published RFQ — updateRfq replaces the
+      // saveDraft delta call. The signal arg isn't supported on updateRfq,
+      // so cancellation falls back to plain "first one in wins" semantics.
+      const res = isEditMode
+        ? await updateRfq(payload)
+        : await saveDraft(payload, controller.signal);
+      // Only the latest save owns the success side-effects — if the user
+      // kicked off another save while this one was resolving, let that one
+      // drive the refetches / toast / URL sync.
+      if (saveDraftAbortRef.current !== controller) return;
+      saveDraftAbortRef.current = null;
+      await getDraftInitialData({ silent: isEditMode });
       await refreshVendorCounts(affectedVendorProductIds);
       if(activeKey) {
         for(const key of activeKey) {
@@ -1151,30 +1731,48 @@ useEffect(() => {
         },
         vendors: {},
       })
+      // Step-aware toast — names the section the user just saved (Products,
+      // Basics, Contact, Timeline, Reverse Auction, Delivery, Terms, Review).
+      // Falls back to "Changes" if currentStep is somehow out of range.
+      const stepLabel = STEPS[currentStep - 1]?.label || 'Changes';
       toast.success(
         <h6>
-          <b>{getEntityLabel(rfqFormDataFromStore?.is_tender)} Draft #{res.message?.rfq?.rfq_no}:</b> Changes saved successfully!
+          <b>{getEntityLabel(rfqFormDataFromStore?.is_tender)} Draft #{res.message?.rfq?.rfq_no}:</b> {stepLabel} saved successfully!
         </h6>,
         { position: "top-right" }
       );
       setErrorProducts(new Set());
       setHasUnsavedChanges(false);
-      
-      // Don't reload or redirect, just update the local state if needed
-      if (res.message?.rfq_id && !rfqDetails) {
-        // If this is a new draft and we got an ID back, update it locally
-        dispatch(setOtherFormFields({ rfq_id: res.message.rfq_id }));
+
+      // First-save URL sync. When the response brings back a freshly-minted
+      // rfq_id and we didn't have one before, push it into Redux AND into the
+      // URL so a refresh / share / back-button still loads the draft. The
+      // `shallow: true` flag prevents Next from re-running its data-fetching
+      // hooks, which keeps the wizard's local state (current step, expanded
+      // accordions, scroll position) intact — this is what replaces the
+      // hard `window.location.reload()` we used to fire here.
+      const newRfqId = res.message?.rfq_id;
+      if (newRfqId && (!rfqDetails || rfqDetails === -1)) {
+        dispatch(setOtherFormFields({ rfq_id: newRfqId }));
+        router.replace(
+          { pathname: router.pathname, query: { ...router.query, draft_id: newRfqId } },
+          undefined,
+          { shallow: true }
+        );
       }
 
-      // 🔥 Reload the page after a short delay so the toast is visible
-    setTimeout(() => {
-      window.location.reload();
-    }, 800);
-
     } catch (error) {
-      setMainLoading(false);
-      
-      const errorData = error?.message?.response?.data;
+      // Aborted because a newer save took over — silent no-op. The newer
+      // request will own the user-visible result.
+      const axiosErr = error?.message;
+      if (axiosErr?.code === "ERR_CANCELED" || axiosErr?.name === "CanceledError") {
+        return;
+      }
+      if (saveDraftAbortRef.current === controller) {
+        saveDraftAbortRef.current = null;
+      }
+
+      const errorData = axiosErr?.response?.data;
       const errorMessage = errorData?.message || errorData?.errors?.message || "Failed to save draft. Please try again.";
 
       if (errorData?.errors?.details && Array.isArray(errorData.errors.details)) {
@@ -1257,11 +1855,16 @@ useEffect(() => {
           draftRes.data.rfq_form_data.contact_number = extractedContactNumber;
           draftRes.data.rfq_form_data.country_code = extractedCountryCode;
 
-          //  set selected hotel ids 
+          //  set selected hotel ids
           const getSelectedHotelIds = draftRes?.data?.mappedHotels.map((item)=> item.hotel_id);
           setSelectedHotelIds(getSelectedHotelIds);
-      
+
           setonecountrycode(extractedCountryCode);
+        }
+        if (draftRes?.data?.rfq_form_data) {
+          draftRes.data.rfq_form_data.reverse_auction = 0;
+          draftRes.data.rfq_form_data.ra_start_date = null;
+          draftRes.data.rfq_form_data.ra_end_date = null;
         }
         dispatch(intializeRfq(draftRes.data));
         draftRes.data.rfq_products
@@ -1292,14 +1895,23 @@ useEffect(() => {
     }
   };
 
-  const getDraftInitialData = async () => {
+  const getDraftInitialData = async ({ silent = false } = {}) => {
     dispatch(clearRfqState());
-    dispatch(setStoreLoading(true));
+    if (!silent) dispatch(setStoreLoading(true));
     try {
       // If a draft_id is provided in the URL, load that specific draft
       let draftRes;
-      
-      if (draftRfqId && draftRfqId !== -1) {
+
+      if (isEditMode) {
+        // Edit-RFQ flow: load the published RFQ via getRFQById and reshape
+        // its response to match the draft response so the rest of this
+        // function (form hydration, sheets, vendors) keeps working.
+        const editRes = await getRFQById(editRfqId, null, true);
+        const rfq = editRes?.data || editRes || {};
+        const reshaped = reshapeRfqForStore(rfq, editRfqId);
+        draftRes = { data: { rfq_id: reshaped.rfq_id, rfq_form_data: reshaped.rfq_form_data, rfq_products: reshaped.rfq_products } };
+        document.title = `Edit ${getEntityLabel(rfq?.is_tender)} #${editRfqId}`;
+      } else if (draftRfqId && draftRfqId !== -1) {
         draftRes = await getDraftById(draftRfqId, selectedSheet?.value);
         console.log("DRAFT PRODUCTS: ", draftRes.data.products)
         document.title = `Edit Draft ${getEntityLabel(rfqFormDataFromStore?.is_tender)} #${draftRfqId}`;
@@ -1366,12 +1978,23 @@ useEffect(() => {
         // **Modify `draftRes` before passing it to another function**
         draftRes.data.rfq_form_data.contact_number = extractedContactNumber;
         draftRes.data.rfq_form_data.country_code = extractedCountryCode; // Add extracted country code
-    
+
+        if (!isEditMode) {
+          draftRes.data.rfq_form_data.reverse_auction = 0;
+          draftRes.data.rfq_form_data.ra_start_date = null;
+          draftRes.data.rfq_form_data.ra_end_date = null;
+        }
+
         // **Pass modified draftRes to the function that sets RFQ data**
         dispatch(intializeRfq(draftRes.data));
         setonecountrycode(extractedCountryCode);
       }
       else{
+        if (!isEditMode && draftRes?.data?.rfq_form_data) {
+          draftRes.data.rfq_form_data.reverse_auction = 0;
+          draftRes.data.rfq_form_data.ra_start_date = null;
+          draftRes.data.rfq_form_data.ra_end_date = null;
+        }
         dispatch(intializeRfq(draftRes.data));
       }
       getTermsData();
@@ -1390,7 +2013,7 @@ useEffect(() => {
     } catch (error) {
       toast.error(error.message || `Error loading draft ${getEntityLabel(rfqFormDataFromStore?.is_tender)}`);
     } finally {
-      dispatch(setStoreLoading(false));
+      if (!silent) dispatch(setStoreLoading(false));
     }
   }
 
@@ -1450,7 +2073,7 @@ useEffect(() => {
   };
 
   const handleFilesChange = (product, change) => {
-    setUpdatableData((prev) => ({
+    const reducer = (prev) => ({
       ...prev,
       products: {
         ...prev.products,
@@ -1468,7 +2091,11 @@ useEffect(() => {
           },
         },
       },
-    }));
+    });
+    // Update the ref synchronously so a same-tick saveDraft() call sees the
+    // new files. The state update is queued for the next render.
+    updatableDataRef.current = reducer(updatableDataRef.current ?? updatableData);
+    setUpdatableData(reducer);
     setHasUnsavedChanges(true)
   };
 
@@ -1618,20 +2245,6 @@ useEffect(() => {
     });
   };
 
-  const handleRouteChange = async (url) => {
-    if (hasUnsavedChanges) {
-      const confirmLeave = window.confirm(
-        "You have unsaved changes. Do you want to save them before leaving?"
-      );
-      if (confirmLeave) {
-        await handleSaveDraft();
-      } else {
-        // Prevent navigation
-        router.events.emit("routeChangeError");
-        throw "Route change aborted by user."; // Suppress Next.js warning
-      }
-    }
-  };
 
   const populateVendorFilters = (newProducts) => {
     if(!newProducts || !Array.isArray(newProducts) || newProducts.length <= 0) return;
@@ -2129,6 +2742,7 @@ useEffect(() => {
       fetchCountryCodes();
       fetchHospitalityContexts();
       fetchProcesses();
+      refreshUnits();
     } catch (error) {
       console.log("SOMETHING WENT WRONG DURING INITIAL FETCHING");
       toast.error(error.message)
@@ -2144,6 +2758,56 @@ useEffect(() => {
   }, [selectedHotelIds]);
   // Watch for changes in the draft_id from URL
   useEffect(() => {
+    // Edit-RFQ flow: URL is `?id=<rfqId>` (no draft_id). Load via getRFQById
+    // and seed Redux from the response so the rest of the form behaves
+    // exactly as it does for a draft.
+    if (isEditMode) {
+      const loadEditRfq = async () => {
+        dispatch(clearRfqState());
+        dispatch(setStoreLoading(true));
+        try {
+          const editRes = await getRFQById(editRfqId, null, true);
+          const rfq = editRes?.data || editRes || {};
+
+          // Split the stored "+CC-NNNNNN" contact_number into country code +
+          // raw number so the phone input + onecountrycode dropdown both
+          // round-trip correctly. Without this, edit-mode saves drop the
+          // country code (the backend then sees "-6789456793").
+          if (rfq?.contact_number?.includes('-')) {
+            const [cc, ...rest] = rfq.contact_number.split('-');
+            const country = (cc || '').trim();          // e.g. "+91"
+            const number = rest.join('').trim();
+            rfq.contact_number = number;
+            rfq.country_code = country;
+            setonecountrycode(country);
+          }
+
+          // Seed selectedHotelIds — the backend rejects updates that change
+          // hotel mappings, so we MUST round-trip whatever the RFQ already
+          // has. Prefer mappedHotels[] when the API includes it; otherwise
+          // fall back to the single hotel_id field.
+          const mappedIds = Array.isArray(rfq?.mappedHotels)
+            ? rfq.mappedHotels.map((h) => h.hotel_id).filter(Boolean)
+            : [];
+          const hotelIds = mappedIds.length > 0
+            ? mappedIds
+            : (rfq?.hotel_id ? [rfq.hotel_id] : []);
+          setSelectedHotelIds(hotelIds);
+
+          dispatch(intializeRfq(reshapeRfqForStore(rfq, editRfqId)));
+          document.title = `Edit ${getEntityLabel(rfq?.is_tender)} #${editRfqId}`;
+          getTermsData();
+        } catch (error) {
+          console.error("Error loading RFQ for edit:", error);
+          toast.error(error.message || "Failed to load RFQ for edit");
+        } finally {
+          dispatch(setStoreLoading(false));
+        }
+      };
+      loadEditRfq();
+      return;
+    }
+
     // Changes by Agnij 2025-06-17 [Reset state when draft_id changes]
     // If no draft_id is present, clear state and force a fresh draft
     if (!draft_id) {
@@ -2163,11 +2827,11 @@ useEffect(() => {
           dispatch(setStoreLoading(false));
         }
       };
-      
+
       loadFreshDraft();
       return;
     }
-    
+
     // If draft_id is present, load that specific draft
     if (draft_id) {
       try {
@@ -2183,7 +2847,7 @@ useEffect(() => {
         console.error("Error processing draft_id:", error);
       }
     }
-  }, [draft_id]);
+  }, [draft_id, editRfqId]);
 
   // Add a useEffect to set the company name in the store when userProfile is loaded
   useEffect(() => {
@@ -2249,21 +2913,96 @@ useEffect(() => {
     rfqFormDataRef.current = rfqFormDataFromStore;
   }, [rfqFormDataFromStore]);
 
+  // Keep the synchronous ref in sync with state changes that come from
+  // anywhere other than handleFilesChange (e.g. resetUpdatableData after a
+  // successful save).
+  useEffect(() => {
+    updatableDataRef.current = updatableData;
+  }, [updatableData]);
+
+  // Clear "tried Next" highlights whenever the user moves to a different
+  // step (Previous, pill click, or successful Next). Without this, switching
+  // back to a step would still show stale red borders from a prior failed
+  // Next click. We only clear when the flag points to a *different* step
+  // than the new currentStep — so a forward jump that lands the user on the
+  // first invalid step (with triedNextOnStep already set to that step by
+  // flagInvalidStep) keeps its red borders intact.
+  // Maps a flagged field name back to the step it lives on, so the effect
+  // below can decide whether to clear the highlight on step change.
+  const submitFieldStep = (key) => {
+    switch (key) {
+      case "tender_publish_date":
+      case "vendor_clarification_date":
+      case "bid_end_date":
+      case "ra_start_date":
+      case "ra_end_date":
+        return 3;
+      case "department_id":
+      case "process_id":
+        return 2;
+      default:
+        return null;
+    }
+  };
+
+  useEffect(() => {
+    setTriedNextOnStep((prev) => (prev === currentStep ? prev : null));
+    // The submit-time invalid-field flag is per-field, so we let it persist
+    // when the user lands on the offending step (validateRFQFields just set
+    // both currentStep and submitInvalidField in the same tick) but clear
+    // it the moment they navigate elsewhere.
+    setSubmitInvalidField((prev) => (prev && currentStep !== submitFieldStep(prev) ? null : prev));
+  }, [currentStep]);
+
+  // Hydrate currentStep / maxStepReached from URL once the router is
+  // ready. A page refresh on `?step=4` lands the user back on step 4
+  // instead of step 1.
+  useEffect(() => {
+    if (!router.isReady || stepHydratedFromUrlRef.current) return;
+    stepHydratedFromUrlRef.current = true;
+    const stepParam = parseInt(router.query.step, 10);
+    const maxParam = parseInt(router.query.max, 10);
+    const inRange = (n) => Number.isFinite(n) && n >= 1 && n <= STEPS.length;
+    if (inRange(stepParam) || inRange(maxParam)) {
+      // Tell the sync effect (which runs in this same render with the
+      // pre-update state still visible) not to fight us back to step 1.
+      skipFirstUrlSyncRef.current = true;
+    }
+    if (inRange(stepParam)) setCurrentStep(stepParam);
+    const seed = inRange(maxParam) ? maxParam : (inRange(stepParam) ? stepParam : 1);
+    setMaxStepReached((m) => Math.max(m, seed));
+  }, [router.isReady, router.query.step, router.query.max]);
+
+  // Mirror currentStep / maxStepReached back into the URL so a refresh
+  // restores them. shallow:true keeps the page from re-running data
+  // fetches and preserves wizard state. Skipped until hydration has run
+  // so we don't blow away an incoming `?step=4` with an initial 1.
+  useEffect(() => {
+    if (!router.isReady || !stepHydratedFromUrlRef.current) return;
+    if (skipFirstUrlSyncRef.current) {
+      skipFirstUrlSyncRef.current = false;
+      return;
+    }
+    const queryStep = parseInt(router.query.step, 10);
+    const queryMax = parseInt(router.query.max, 10);
+    if (queryStep === currentStep && queryMax === maxStepReached) return;
+    router.replace(
+      {
+        pathname: router.pathname,
+        query: { ...router.query, step: currentStep, max: maxStepReached },
+      },
+      undefined,
+      { shallow: true }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, maxStepReached, router.isReady]);
+
   useEffect(() => {
     // Debug terms selection state
     if (allTerms?.length > 0 && selectedTerms?.length > 0) {
       
     }
   }, [allTerms, selectedTerms]);
-
-  useEffect(() => {
-    // Listen to route change events
-    router.events.on("routeChangeStart", handleRouteChange);
-
-    return () => {
-      router.events.off("routeChangeStart", handleRouteChange);
-    };
-  }, [hasUnsavedChanges, router, updatableData]);
 
   useEffect(() => {
     // Changes by Agnij 2025-05-03 [Removed auto-setting of default dates for reverse auction]
@@ -2287,7 +3026,7 @@ useEffect(() => {
       }));
     }
   }, [rfqFormDataFromStore.reverse_auction, rfqFormDataFromStore.bid_end_date]);
- 
+
   const countryCodeMatch = rfqFormDataFromStore.contact_number.match(/^\+(\d{1,4})-/);
   const countryCode1 = countryCodeMatch ? countryCodeMatch[0].slice(0, -1) : null; // Extracting country code from contact number
 
@@ -2378,854 +3117,1331 @@ useEffect(() => {
     <>
       {(mainLoading || storeLoading) && <Loader />}
 
-      <div className="create-rfq-con">
-          <>
-            {/* Read-only banner - viewing someone else's draft */}
-            {isViewOnlyDraft && (
-              <ReadOnlyBanner
-                title="View Only Mode"
-                message="This draft was created by another user. You can view it but cannot make changes."
-                noMarginTop
-              />
+      <div className="create-rfq-page">
+        {/* Page header — "Create RFQ for [hotels]" */}
+        <header className="rfq-page-header">
+          <h1 className="rfq-page-header__title">
+            {isViewOnlyDraft || (selectedHotelIds.length > 0 && !hasPermission && canRead) ? "View" : isEditMode ? "Update" : "Create"} {getEntityLabel(rfqFormDataFromStore.is_tender)}
+            {selectedHotelIds.length > 0 && userHotelMappings.length > 0 && (
+              <>
+                {" for "}
+                <span className="rfq-page-header__hotels">
+                  {userHotelMappings
+                    .filter(m => selectedHotelIds.includes(m.hospitality_hotel_id))
+                    .map(m => m.hotel_name)
+                    .join(", ")}
+                </span>
+              </>
             )}
+          </h1>
+          {userHotelMappings.length > 0 && selectedHotelIds.length === 0 && (
+            <div className="rfq-page-header__hotel-picker">
+              <label className="rfq-label">Business Units <span className="rfq-required">*</span></label>
+              <Select
+                id="select_hotels-create_rfq_page"
+                isMulti
+                options={userHotelMappings}
+                value={[]}
+                onChange={(selectedOptions) => {
+                  const ids = selectedOptions ? selectedOptions.map(opt => opt.hospitality_hotel_id) : [];
+                  handleHotelSelectionChange(ids);
+                }}
+                placeholder="Select Business Units..."
+                closeMenuOnSelect={false}
+                classNamePrefix="react-select"
+                isClearable
+                formatOptionLabel={(option) => (<div><span>{option.hotel_name}</span></div>)}
+                getOptionValue={(option) => option.hospitality_hotel_id}
+              />
+            </div>
+          )}
+        </header>
 
-            {/* Read-only banner - Show when user has read but not create/update permission */}
-            {!isViewOnlyDraft && selectedHotelIds.length > 0 && !hasPermission && canRead && (
-              <ReadOnlyBanner
-                title="View Only Mode"
-                message="You don't have create/edit permissions for the selected business units. Contact your administrator to request access."
-                noMarginTop
-              />
-            )}
-            {/* Add Products Button */}
-            <div className="details-table mt-0">
-              {!loading && rfqProducts.length == 0 ? (
-                <div className="text-center">
-                  <Link
-                    href={`/vendor/all${
-                      rfqDetails !== -1 ? `?rfq_id=${rfqDetails}` : ""
-                    }`}
-                    className="btn btn-primary"
-                    id="add_products-create_rfq_page"
-                  >
-                    Add Products
-                  </Link>
+        {/* Read-only banner - viewing someone else's draft */}
+        {isViewOnlyDraft && (
+          <ReadOnlyBanner
+            title="View Only Mode"
+            message="This draft was created by another user. You can view it but cannot make changes."
+            noMarginTop
+          />
+        )}
+
+        {/* Read-only banner - Show when user has read but not create/update permission */}
+        {!isViewOnlyDraft && selectedHotelIds.length > 0 && !hasPermission && canRead && (
+          <ReadOnlyBanner
+            title="View Only Mode"
+            message="You don't have create/edit permissions for the selected business units. Contact your administrator to request access."
+            noMarginTop
+          />
+        )}
+
+        {/* Edit-mode lockdown banners — explain WHY fields are disabled.
+            Driven by the same flags that gate every input below; so the user
+            doesn't think the form is broken when nothing accepts changes. */}
+        {!isViewOnlyDraft && isReadOnly && (
+          <ReadOnlyBanner
+            title="This RFQ can no longer be edited"
+            message="The bid window has closed and quotes have been received, or the RFQ is closed. Edits are no longer accepted."
+            noMarginTop
+          />
+        )}
+        {!isViewOnlyDraft && !isReadOnly && isRestrictedEdit && (
+          <ReadOnlyBanner
+            title="Restricted Edit Mode"
+            message="A vendor has already submitted a quote (or a product is dead-ended / tech-stuck). Only the Quote Submission Deadline can be changed; vendor refresh is still allowed."
+            noMarginTop
+          />
+        )}
+        {!isViewOnlyDraft && !isReadOnly && !isRestrictedEdit && isPostPublish && (
+          <ReadOnlyBanner
+            title="Published RFQ"
+            message="This RFQ has been published. Tender Publish Date and Tender Fees are locked; everything else can still be updated."
+            noMarginTop
+          />
+        )}
+
+        <Formik
+          enableReinitialize={true}
+          validateOnMount={true}
+          initialValues={{
+            is_published: rfqFormDataFromStore.is_published,
+            comment: rfqFormDataFromStore.comment,
+            response_email: rfqFormDataFromStore.response_email,
+            contact_name: rfqFormDataFromStore.contact_name,
+            contact_number: rfqFormDataFromStore.contact_number.replace(/^\+\d{1,4}-/, ""),
+            company_name: rfqFormDataFromStore.company_name || userProfile?.company_name || "",
+            bid_end_date: rfqFormDataFromStore.bid_end_date,
+            reverse_auction: rfqFormDataFromStore.reverse_auction,
+            is_tender: rfqFormDataFromStore.is_tender || 0,
+            tender_fees: rfqFormDataFromStore.tender_fees ? Number(rfqFormDataFromStore.tender_fees) / 100 : 0,
+            tender_publish_date: rfqFormDataFromStore.tender_publish_date,
+            vendor_clarification_date: rfqFormDataFromStore.vendor_clarification_date,
+            location: rfqFormDataFromStore.location,
+            countryCode: "+91",
+            title: rfqFormDataFromStore.title || "",
+          }}
+          validationSchema={CreateRFQSchema}
+          onSubmit={(values, { resetForm }) => {
+            const result = validateRFQFields(values);
+            if (result?.ok) {
+              if (sheetNameList.length > 0) {
+                setFinalRFQValues(values);
+                setShowRFQModal(true);
+              } else {
+                setPendingFormValues(values);
+                setShowCreateConfirmModal(true);
+              }
+            } else if (result?.step) {
+              // Park the user on the step that owns the failing field so
+              // they don't have to hunt for it from Step 5.
+              setCurrentStep(result.step);
+              setTriedNextOnStep(result.step);
+              setSubmitInvalidField(result.field || null);
+              setMaxStepReached((m) => Math.max(m, result.step));
+            }
+          }}
+        >
+          {({ errors, touched, isValid }) => {
+            const isStepValid = (step) => {
+              switch (step) {
+                case 1: {
+                  if (rfqProducts.length === 0) return false;
+                  // Every active product must have Quantity AND Unit before
+                  // the user can leave Step 1. Skip products marked deletable
+                  // (already pending removal in the edit flow).
+                  const hasInvalid = rfqProducts.some(
+                    (p) =>
+                      !updatableData.products.deletable.includes(p.id) &&
+                      specFieldsToValidate.some((f) => isSpecFieldEmpty(p, f))
+                  );
+                  return !hasInvalid;
+                }
+                case 2:
+                  // Combined Details step: Basics + Contact must both pass.
+                  return Boolean(rfqFormDataFromStore.title) &&
+                         (departments.length === 0 || rfqFormDataFromStore.department_id) &&
+                         (processes.length === 0 || rfqFormDataFromStore.process_id) &&
+                         Boolean(
+                           rfqFormDataFromStore.contact_name &&
+                           rfqFormDataFromStore.response_email &&
+                           rfqFormDataFromStore.contact_number
+                         );
+                case 3: {
+                  // Gate is "all three set and chronologically ordered".
+                  // Strict 5-min/24h windows are enforced at submit-time; the
+                  // <input min=...> attributes plus that submit-time check are
+                  // the source of truth — checking them again here would
+                  // fail any user who picks the minimum (the relative gap
+                  // shrinks by elapsed time between render and click).
+                  const pd = rfqFormDataFromStore.tender_publish_date ? new Date(rfqFormDataFromStore.tender_publish_date) : null;
+                  const cd = rfqFormDataFromStore.vendor_clarification_date ? new Date(rfqFormDataFromStore.vendor_clarification_date) : null;
+                  const bd = rfqFormDataFromStore.bid_end_date ? new Date(rfqFormDataFromStore.bid_end_date) : null;
+                  if (!pd || !cd || !bd) return false;
+                  if (cd <= pd) return false;
+                  if (bd <= cd) return false;
+                  // Reverse Auction now lives inside Timeline as a collapsible
+                  // block — when enabled, both auction dates must be set.
+                  if (rfqFormDataFromStore.reverse_auction === 1 &&
+                      !(rfqFormDataFromStore.ra_start_date && rfqFormDataFromStore.ra_end_date)) {
+                    return false;
+                  }
+                  return true;
+                }
+                case 4: return true;
+                case 5: return true;
+                default: return false;
+              }
+            };
+
+            // Human-readable labels for required fields — used in the
+            // "Please fill …" toast so the user knows exactly what's empty.
+            const FIELD_LABELS = {
+              title: " RFQ Title",
+              department_id: "Department",
+              process_id: "Process",
+              contact_name: "Contact person",
+              response_email: "Email",
+              contact_number: "Contact Number",
+              tender_publish_date: "Publish Date & Time",
+              vendor_clarification_date: "Vendor Clarification End Date",
+              bid_end_date: "Quote Submission End Date",
+              ra_start_date: "Auction Start Date & Time",
+              ra_end_date: "Auction End Date & Time",
+            };
+            const STEP_REQUIRED_KEYS = {
+              2: ["title", "department_id", "process_id", "contact_name", "response_email", "contact_number"],
+              3: ["tender_publish_date", "vendor_clarification_date", "bid_end_date", "ra_start_date", "ra_end_date"],
+            };
+
+            // Pure "is this required field empty right now" check —
+            // independent of whether the user has clicked Next yet, so it can
+            // also drive the field-name list inside the toast.
+            const isFieldMissing = (key) => {
+              const f = rfqFormDataFromStore || {};
+              switch (key) {
+                case "title":           return !f.title;
+                case "department_id":   return departments.length > 0 && !f.department_id;
+                case "process_id":      return processes.length > 0 && !f.process_id;
+                case "contact_name":    return !f.contact_name;
+                case "response_email":  return !f.response_email;
+                case "contact_number":  return !f.contact_number;
+                case "tender_publish_date":       return !f.tender_publish_date;
+                case "vendor_clarification_date": return !f.vendor_clarification_date;
+                case "bid_end_date":              return !f.bid_end_date;
+                case "ra_start_date":   return f.reverse_auction === 1 && !f.ra_start_date;
+                case "ra_end_date":     return f.reverse_auction === 1 && !f.ra_end_date;
+                default: return false;
+              }
+            };
+
+            // Used by each required input to render its red border + hint.
+            // Returns true when:
+            //  • The user clicked Next/Submit on this step and the field is
+            //    actually empty (existing missing-field UX), or
+            //  • Submit's business-rule check rejected this specific field
+            //    (e.g. publish-date must be 5 min from now). The submit path
+            //    also lands them on the right step, so this branch fires on
+            //    the same render as the navigation.
+            const isMissing = (key) =>
+              (triedNextOnStep === currentStep && isFieldMissing(key)) ||
+              submitInvalidField === key;
+
+            // Park the user on `step` and surface a toast that names the
+            // empty required fields (or a generic ordering-error fallback
+            // for Step 3 when every field is filled but out of sequence).
+            const flagInvalidStep = (step) => {
+              setCurrentStep(step);
+              setTriedNextOnStep(step);
+              if (step === 1) {
+                if (rfqProducts.length === 0) {
+                  toast.warning("Add at least one product before continuing");
+                  return;
+                }
+                // List each product that's missing Quantity and/or Unit so
+                // the user knows exactly which row(s) to fix.
+                const offenders = rfqProducts
+                  .filter((p) => !updatableData.products.deletable.includes(p.id))
+                  .map((p) => {
+                    const missing = specFieldsToValidate
+                      .filter((f) => isSpecFieldEmpty(p, f))
+                      .map((f) => f.charAt(0).toUpperCase() + f.slice(1));
+                    return missing.length > 0
+                      ? `${p.name || `Product #${p.product_id}`} (${missing.join(", ")})`
+                      : null;
+                  })
+                  .filter(Boolean);
+                if (offenders.length > 0) {
+                  toast.warning(`Please fill the required fields for: ${offenders.join("; ")}`);
+                }
+                return;
+              }
+              const missingNames = (STEP_REQUIRED_KEYS[step] || [])
+                .filter(isFieldMissing)
+                .map((k) => FIELD_LABELS[k]);
+              if (missingNames.length > 0) {
+                toast.warning(
+                  `Please fill the required ${missingNames.length === 1 ? "field" : "fields"}: ${missingNames.join(", ")}`
+                );
+              }
+            };
+
+            const goNext = () => {
+              if (currentStep >= STEPS.length) return;
+              if (!isStepValid(currentStep)) {
+                flagInvalidStep(currentStep);
+                return;
+              }
+              // Step is valid — clear any stale errors, fire a background
+              // save if the user has unsaved edits (don't await, the step
+              // change shouldn't wait for the network), and advance.
+              setTriedNextOnStep(null);
+              if (hasUnsavedChanges) {
+                handleSaveDraft();
+              }
+              const next = currentStep + 1;
+              setCurrentStep(next);
+              setMaxStepReached((m) => Math.max(m, next));
+            };
+            const goPrev = () => setCurrentStep((s) => Math.max(1, s - 1));
+            // Stepper-pill jump:
+            //  • Backwards / same step → always allowed.
+            //  • Forward → walk every intermediate step and stop at the
+            //    first invalid one with the same error treatment as Next,
+            //    so the user can't bypass validation by clicking ahead.
+            const goToStep = (n) => {
+              if (n > maxStepReached) return;
+              if (n <= currentStep) {
+                setCurrentStep(n);
+                setTriedNextOnStep(null);
+                return;
+              }
+              // Edit mode: the RFQ is already published, so let the user jump
+              // freely between steps without re-validating intermediate ones.
+              if (!isEditMode) {
+                for (let s = currentStep; s < n; s++) {
+                  if (!isStepValid(s)) {
+                    flagInvalidStep(s);
+                    return;
+                  }
+                }
+              }
+              setTriedNextOnStep(null);
+              if (hasUnsavedChanges) {
+                handleSaveDraft();
+              }
+              setCurrentStep(n);
+              setMaxStepReached((m) => Math.max(m, n));
+            };
+            const formattedDate = (iso) => iso ? formatISOToDateTimeLocal(iso).replace('T', ' ') : "—";
+
+            return (
+              <Form className="rfq-form">
+                {/* Stepper progress bar — hidden in view-only mode where the
+                    user only sees the read-only review summary. */}
+                {!isViewOnlyDraft && (
+                <div className="rfq-stepper-card">
+                  <ol className="rfq-stepper" aria-label="Create RFQ steps">
+                    {STEPS.map((s, idx) => {
+                      // Status:
+                      //   active  → on it now (amber)
+                      //   done    → behind current, visited (green ✓)
+                      //   pending → ahead of current but previously visited
+                      //             (yellow !) — the user stepped back, so
+                      //             these need a re-look but aren't locked
+                      //   locked  → never reached (grey, disabled)
+                      const statusFor = (id) =>
+                        id === currentStep ? 'active'
+                        : id < currentStep ? 'done'
+                        : id <= maxStepReached ? 'pending'
+                        : 'locked';
+                      const status = statusFor(s.id);
+                      const nextStep = STEPS[idx + 1];
+                      // Connector after this pill turns yellow when the
+                      // pill it leads into is in the pending state.
+                      const connectorWarn = nextStep && statusFor(nextStep.id) === 'pending';
+                      const clickable = s.id <= maxStepReached;
+                      return (
+                        <li
+                          key={s.id}
+                          className={`rfq-step-pill rfq-step-pill--${status}${connectorWarn ? ' rfq-step-pill--connector-warn' : ''}`}
+                        >
+                          <button
+                            type="button"
+                            className="rfq-step-pill__btn"
+                            onClick={() => clickable && goToStep(s.id)}
+                            disabled={!clickable}
+                            aria-current={s.id === currentStep ? 'step' : undefined}
+                          >
+                            <span className="rfq-step-pill__num">
+                              {status === 'done' ? '✓' : status === 'pending' ? '!' : s.id}
+                            </span>
+                            <span className="rfq-step-pill__text">
+                              <span className="rfq-step-pill__overline">Step {s.id}</span>
+                              <span className="rfq-step-pill__label">{s.label}</span>
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
                 </div>
-              ) : (
-                <>
-                  {isMagicRfq && sheetNameList.length > 0 && (
-                    <div className="row mb-3">
-                      <div className="col-md-3">
-                        <label className="form-label fw-medium">Select Sheet</label>
-                        <Select
-                          id="select_sheet-create_rfq_page"
-                          name="sheetName"
-                          options={sheetNameList}
-                          value={selectedSheet}
-                          placeholder="Select Sheet"
-                          onChange={handleSheetChange}
-                          className="sheet-selector"
-                        />
-                      </div>
-                    </div>
-                  )}
+                )}
+                {!isViewOnlyDraft && (
+                <p className="rfq-stepper-mobile">Step {currentStep} of {STEPS.length} — {STEPS[currentStep-1]?.label}</p>
+                )}
 
+                <fieldset
+                  className="rfq-fieldset"
+                  disabled={(selectedHotelIds.length > 0 && !hasPermission) || isViewOnlyDraft}
+                >
+                  {/* STEP 1 — PRODUCTS */}
+                  {!isViewOnlyDraft && currentStep === 1 && (
+                    <section className="rfq-section">
+                      <header className="rfq-section__header">
+                        <h3>1. Products</h3>
+                        <p>Review the products and assigned vendors. You need at least one product before continuing.</p>
+                      </header>
 
-                  {rfqFormDataFromStore.is_tender !== 1 && (
-                    <div
-                      className="d-flex flex-wrap justify-content-between align-items-start"
-                      style={{ height: "fit-content" }}
-                    >
-                      {generateDynamicFilter()}
-                    </div>
-                  )}
-                  {/* RFQ Products Table */}
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h4 className="mb-0">Review Products</h4>
-                    {rfqDetails && rfqDetails !== -1 && (
-                      <button
-                        className="refresh-vendors-btn"
-                        onClick={handleRefreshVendors}
-                        disabled={refreshingVendors || (selectedHotelIds.length > 0 && !hasPermission)}
-                        title="Add any missing eligible vendors to all products"
-                        id="refresh_vendors-product_actions-create_rfq_page"
-                      >
-                        <BsArrowRepeat className={refreshingVendors ? "spin-animation" : ""} size={15} />
-                        {refreshingVendors ? "Refreshing..." : "Refresh Vendors"}
-                      </button>
-                    )}
-                  </div>
-                  <div
-                    className=""
-                    style={{
-                      height: "fit-content",
-                      background: "#ffffa",
-                      border: hasEmptySpecFields ? "2px solid #dc3545" : "2px solid #CCCCCC",
-                      borderRadius: "10px",
-                      padding: "10px",
-                    }}
-                  >
-                    <Accordion
-                      flush
-                      alwaysOpen
-                      activeKey={activeKey}
-                      onSelect={(k) => {
-                        setActiveKey(k);
-                        k?.forEach((key) => {
-                          const rfqProductId = key;
-                          fetchVendorsForProduct(rfqProductId);
+                      {!loading && rfqProducts.length === 0 ? (
+                        <div className="rfq-products-empty">
+                          <p className="rfq-products-empty__title">No products yet</p>
+                          <p className="rfq-products-empty__hint">Add products from the catalog to start building this {getEntityLabel(rfqFormDataFromStore.is_tender)}.</p>
+                          <Link
+                            href={`/vendor/all${rfqDetails !== -1 ? `?rfq_id=${rfqDetails}` : ""}`}
+                            className="rfq-btn rfq-btn--primary"
+                            id="add_products-create_rfq_page"
+                          >
+                            Add Products
+                          </Link>
+                        </div>
+                      ) : (
+                        <>
+                          {isMagicRfq && sheetNameList.length > 0 && (
+                            <div className="rfq-field rfq-field--narrow">
+                              <label className="rfq-label">Select Sheet</label>
+                              <Select
+                                id="select_sheet-create_rfq_page"
+                                name="sheetName"
+                                options={sheetNameList}
+                                value={selectedSheet}
+                                placeholder="Select Sheet"
+                                onChange={handleSheetChange}
+                                classNamePrefix="react-select"
+                              />
+                            </div>
+                          )}
 
-                          const rfqProduct = rfqProducts.find(
-                            (product) => product.id == rfqProductId
-                          );
-                          if (rfqProduct) {
-                            getMakesProductWise(
-                              rfqProductId,
-                              rfqProduct.product_id
-                            );
-                          }
-                        });
-                      }}
-                    >
-                      {rfqProducts &&
-                        rfqProducts.length > 0 &&
-                        rfqProducts.map((product) => {
-                          if (
-                            updatableData.products.deletable.includes(
-                              product.id
-                            )
-                          ) {
-                            return null;
-                          }
-                          return (
-                            <Item
-                            is_tender={rfqFormDataFromStore?.is_tender}
-                              activeKey={activeKey}
-                              vendors={vendors?.[product.id] ?? []}
-                              fetchVendors={async () =>
-                                await fetchVendorsForProduct(product.id)
-                              }
-                              updatableData={updatableData}
-                              vendorApprovedList={vendorApprovedList}
-                              data={product}
-                              rfq_id={rfqDetails}
-                              setHasUnsavedChanges={setHasUnsavedChanges}
-                              getDraftInitialData={getDraftInitialData}
-                              saveDraft={handleSaveDraft}
-                              selectedSheet={selectedSheet}
-                              onSpecValueChange={(change) =>
-                                handleSpecChange(product, change)
-                              }
-                              onFilesChange={(change) =>
-                                handleFilesChange(product, change)
-                              }
-                              onCommentChange={(change) =>
-                                handleCommentChange(product, change)
-                              }
-                              onClauseChange={(change) =>
-                                handleClauseChange(product, change)
-                              }
-                              handleViewVendorInEdit={null}
-                              handleRemoveProductInEdit={() =>
-                                handleRemoveProduct(product)
-                              }
-                              handleAddVendorInEdit={null}
-                              // Header
-                              header={generateDynamicFilter}
-                              hasVendorError={errorProducts.has(product.id)}
-                              readOnly={selectedHotelIds.length > 0 && !hasPermission}
-                            />
-                          );
-                        })}
-                    </Accordion>
-                  </div>
+                          {rfqFormDataFromStore.is_tender !== 1 && (
+                            <div className="rfq-dynamic-filter">
+                              {generateDynamicFilter()}
+                            </div>
+                          )}
 
-                  {!isViewOnlyDraft && (
-                    <div className="float-end addmore mt-4 ">
-                      <Link
-                        href={`/vendor/all${
-                          rfqDetails !== -1
-                            ? `?rfq_id=${rfqDetails}${
-                                selectedSheet
-                                  ? `&sheet_id=${selectedSheet.value}`
-                                  : ``
-                              }`
-                            : ""
-                        }`}
-                        className="me-2"
-                        id="add_more_products-create_rfq_page"
-                      >
-                        Add More Products
-                      </Link>
-                    </div>
-                  )}
+                          <div className="rfq-products-toolbar">
+                            <h4 className="rfq-section__subhead">Review Products</h4>
+                            <div className="rfq-products-toolbar__actions">
+                              {rfqDetails && rfqDetails !== -1 && (
+                                <button
+                                  className="rfq-refresh-vendors-btn"
+                                  onClick={handleRefreshVendors}
+                                  disabled={refreshingVendors || (selectedHotelIds.length > 0 && !hasPermission)}
+                                  title="Add any missing eligible vendors to all products"
+                                  id="refresh_vendors-product_actions-create_rfq_page"
+                                  type="button"
+                                >
+                                  <BsArrowRepeat className={refreshingVendors ? "spin-animation" : ""} size={14} />
+                                  {refreshingVendors ? "Refreshing..." : "Refresh Vendors"}
+                                </button>
+                              )}
+                              {!isViewOnlyDraft && !isReadOnly && !isRestrictedEdit && (
+                                <Link
+                                  href={`/vendor/all${rfqDetails !== -1 ? `?rfq_id=${rfqDetails}${selectedSheet ? `&sheet_id=${selectedSheet.value}` : ``}` : ""}`}
+                                  className="rfq-btn rfq-btn--primary rfq-btn--sm"
+                                  id="add_more_products-create_rfq_page"
+                                >
+                                  + Add Products
+                                </Link>
+                              )}
+                            </div>
+                          </div>
 
-                  {loading && <Loader />}
-
-                  {sheetNameList && sheetNameList.length > 0 && (
-                    <ValidationErrorsDisplay rfq_id={draft_id} selectedSheet={selectedSheet} refetchRFQ={getDraftInitialData} setLoading={(loading => dispatch(setStoreLoading(loading)))} />
-                  )}
-
-                  {/* Terms Checkbox Section */}
-                  <div className="create-rfq-con-2 sc-pt-50">
-                    <div className="row">
-                      {!loading && allTerms.length > 0 && (
-                        <div className="col-md-8 createR-ffq-1">
-                          <h4>Suggested Terms</h4>
-
-                          <ol className="custom-ol">
-                            {allTerms.map((item) => {
-                              // Use consistent term content extraction
-                              const termContent =
-                                item.term_content ||
-                                item.name ||
-                                item.term_text ||
-                                (item.content &&
-                                  Array.isArray(item.content) &&
-                                  item.content[0]?.title) ||
-                                `Term ${item.id}`;
-
-                              // Check if term is selected using consistent ID comparison
-                              const isSelected = selectedTerms?.some(
-                                (term) =>
-                                  String(term.id || term.term_id) ===
-                                  String(item.id || item.term_id)
-                              );
-
-                              return (
-                                <li key={`term-${item.id}`}>
-                                  <div className="form-check">
-                                    <input
-                                      type="checkbox"
-                                      className="form-check-input"
-                                      id={`term-${item.id}`}
-                                      checked={isSelected}
-                                      disabled={isViewOnlyDraft}
-                                      onChange={(e) =>
-                                        handleTermChange(e, item)
-                                      }
+                          <div
+                            className="rfq-products-card"
+                            style={{ borderColor: hasEmptySpecFields ? "#dc2626" : undefined }}
+                          >
+                            <div className="rfq-products-card__list">
+                              <Accordion
+                                flush
+                                alwaysOpen
+                                activeKey={activeKey}
+                                onSelect={(k) => {
+                                  setActiveKey(k);
+                                  k?.forEach((key) => {
+                                    const rfqProductId = key;
+                                    fetchVendorsForProduct(rfqProductId);
+                                    const rfqProduct = rfqProducts.find((product) => product.id == rfqProductId);
+                                    if (rfqProduct) {
+                                      getMakesProductWise(rfqProductId, rfqProduct.product_id);
+                                    }
+                                  });
+                                }}
+                              >
+                                {rfqProducts && rfqProducts.length > 0 && rfqProducts.map((product) => {
+                                  if (updatableData.products.deletable.includes(product.id)) {
+                                    return null;
+                                  }
+                                  return (
+                                    <Item
+                                      is_tender={rfqFormDataFromStore?.is_tender}
+                                      activeKey={activeKey}
+                                      vendors={vendors?.[product.id] ?? []}
+                                      fetchVendors={async () => await fetchVendorsForProduct(product.id)}
+                                      updatableData={updatableData}
+                                      vendorApprovedList={vendorApprovedList}
+                                      data={product}
+                                      rfq_id={rfqDetails}
+                                      setHasUnsavedChanges={setHasUnsavedChanges}
+                                      getDraftInitialData={getDraftInitialData}
+                                      saveDraft={handleSaveDraft}
+                                      selectedSheet={selectedSheet}
+                                      onSpecValueChange={(change) => handleSpecChange(product, change)}
+                                      onFilesChange={(change) => handleFilesChange(product, change)}
+                                      onCommentChange={(change) => handleCommentChange(product, change)}
+                                      onClauseChange={(change) => handleClauseChange(product, change)}
+                                      handleViewVendorInEdit={null}
+                                      handleRemoveProductInEdit={() => handleRemoveProduct(product)}
+                                      handleAddVendorInEdit={null}
+                                      header={generateDynamicFilter}
+                                      hasVendorError={errorProducts.has(product.id)}
+                                      // Per-product fields go read-only whenever the user lacks
+                                      // RBAC, the RFQ is fully locked (assertEditAllowed-style),
+                                      // OR we're in restricted-edit mode (backend rejects every
+                                      // product-level change in that mode — see updateRFQ guard
+                                      // in rfqController.js). The one carve-out backend permits
+                                      // is `vendors.added` per existing product (Refresh
+                                      // Vendors); if you want to surface that, add a separate
+                                      // `allowVendorRefresh` prop to Item rather than relaxing
+                                      // this gate.
+                                      readOnly={(selectedHotelIds.length > 0 && !hasPermission) || isReadOnly || isRestrictedEdit}
+                                      units={units}
+                                      refreshUnits={refreshUnits}
                                     />
-                                    <label
-                                      className="form-check-label"
-                                      htmlFor={`term-${item.id}`}
-                                    >
-                                      {termContent}
-                                    </label>
-                                  </div>
-                                </li>
-                              );
-                            })}
-                          </ol>
+                                  );
+                                })}
+                              </Accordion>
+                            </div>
+                          </div>
+
+                          {loading && <Loader />}
+
+                          {sheetNameList && sheetNameList.length > 0 && (
+                            <ValidationErrorsDisplay
+                              rfq_id={draft_id}
+                              selectedSheet={selectedSheet}
+                              refetchRFQ={getDraftInitialData}
+                              setLoading={(loading => dispatch(setStoreLoading(loading)))}
+                            />
+                          )}
+                        </>
+                      )}
+                    </section>
+                  )}
+
+                  {/* STEP 2 — DETAILS (Basics + Contact) */}
+                  {!isViewOnlyDraft && currentStep === 2 && (
+                    <section className="rfq-section">
+                      <header className="rfq-section__header">
+                        <h3>2. Details</h3>
+                        <p>Title and assignment plus the contact info vendors will use to reach you.</p>
+                      </header>
+                      <h4 className="rfq-section__subhead">Basics</h4>
+                      <div className={`rfq-field${isMissing("title") ? " rfq-field--has-error" : ""}`}>
+                        <label className="rfq-label">{getEntityLabel(rfqFormDataFromStore.is_tender)} Title <span className="rfq-required">*</span></label>
+                        <input
+                          type="text"
+                          id="title-input-create_rfq_page"
+                          name="title"
+                          className="rfq-input"
+                          value={rfqFormDataFromStore.title || ""}
+                          onChange={handleFormFieldChange}
+                          placeholder={`Enter ${getEntityLabel(rfqFormDataFromStore.is_tender)} Title`}
+                          disabled={isFieldLocked('title')}
+                        />
+                        {isMissing("title") && <small className="rfq-field__required-hint">Required</small>}
+                      </div>
+                      <div className="rfq-grid-2">
+                        {departments.length > 0 && (
+                          <div className={`rfq-field${isMissing("department_id") ? " rfq-field--has-error" : ""}`}>
+                            <label className="rfq-label">Department <span className="rfq-required">*</span></label>
+                            <Select
+                              id="select_department-create_rfq_page"
+                              options={departments}
+                              value={departments.find(d => d.value === rfqFormDataFromStore.department_id) || null}
+                              onChange={(selected) => {
+                                dispatch(setOtherFormFields({ field_name: "department_id", value: selected?.value || null }));
+                                setHasUnsavedChanges(true);
+                              }}
+                              placeholder="Select Department"
+                              classNamePrefix="react-select"
+                              isClearable
+                              isDisabled={isViewOnlyDraft || isEditMode}
+                            />
+                            {isMissing("department_id") && <small className="rfq-field__required-hint">Required</small>}
+                            {rfqFormDataFromStore.department_id && (
+                              <small className="rfq-helper-text">
+                                Approvers with this department scope or All Departments can approve
+                              </small>
+                            )}
+                          </div>
+                        )}
+                        {processes.length > 0 && (
+                          <div className={`rfq-field${isMissing("process_id") ? " rfq-field--has-error" : ""}`}>
+                            <label className="rfq-label">Process <span className="rfq-required">*</span></label>
+                            <Select
+                              id="select_process-create_rfq_page"
+                              options={processes}
+                              value={processes.find(p => p.value === rfqFormDataFromStore.process_id) || null}
+                              onChange={(selected) => {
+                                dispatch(setOtherFormFields({ field_name: "process_id", value: selected?.value || null }));
+                                setHasUnsavedChanges(true);
+                              }}
+                              placeholder="Select Process"
+                              classNamePrefix="react-select"
+                              isDisabled={isViewOnlyDraft || isEditMode}
+                            />
+                            {isMissing("process_id") && <small className="rfq-field__required-hint">Required</small>}
+                          </div>
+                        )}
+                      </div>
+                      <h4 className="rfq-section__subhead">Contact</h4>
+                      <div className="rfq-grid-2">
+                        <div className={`rfq-field${isMissing("contact_name") ? " rfq-field--has-error" : ""}`}>
+                          <label className="rfq-label" htmlFor="contact_person_input-contact_info-create_rfq_page">
+                            Contact person <span className="rfq-required">*</span>
+                          </label>
+                          <Field
+                            id="contact_person_input-contact_info-create_rfq_page"
+                            type="text"
+                            name="contact_name"
+                            className={`rfq-input ${touched.contact_name && errors.contact_name ? "rfq-input--invalid" : ""}`}
+                            placeholder="Enter contact person"
+                            value={rfqFormDataFromStore.contact_name || ""}
+                            onChange={handleFormFieldChange}
+                            disabled={isFieldLocked('contact_name')}
+                          />
+                          {touched.contact_name && errors.contact_name && (
+                            <div className="rfq-error">{errors.contact_name}</div>
+                          )}
+                          {isMissing("contact_name") && <small className="rfq-field__required-hint">Required</small>}
+                        </div>
+                        <div className={`rfq-field${isMissing("response_email") ? " rfq-field--has-error" : ""}`}>
+                          <label className="rfq-label" htmlFor="email_input-contact_info-create_rfq_page">
+                            Email <span className="rfq-required">*</span>
+                          </label>
+                          <Field
+                            id="email_input-contact_info-create_rfq_page"
+                            type="email"
+                            name="response_email"
+                            className={`rfq-input ${touched.response_email && errors.response_email ? "rfq-input--invalid" : ""}`}
+                            placeholder="Enter email"
+                            value={rfqFormDataFromStore.response_email || ""}
+                            onChange={handleFormFieldChange}
+                            disabled={isFieldLocked('response_email')}
+                          />
+                          {touched.response_email && errors.response_email && (
+                            <div className="rfq-error">{errors.response_email}</div>
+                          )}
+                          {isMissing("response_email") && <small className="rfq-field__required-hint">Required</small>}
+                        </div>
+                      </div>
+                      <div className="rfq-grid-2">
+                        <div className={`rfq-field${isMissing("contact_number") ? " rfq-field--has-error" : ""}`}>
+                          <label className="rfq-label">Contact Number <span className="rfq-required">*</span></label>
+                          <div className="rfq-phone-row">
+                            <Field
+                              id="country_code-dropdown-contact_info-create_rfq_page"
+                              as="select"
+                              name="countryCode"
+                              className="rfq-input rfq-input--country"
+                              value={onecountrycode}
+                              onChange={(e) => setonecountrycode(e.target.value)}
+                              disabled={isFieldLocked('contact_number')}
+                            >
+                              <option value="countryCode">{selectedCountry?.country_code} ({selectedCountry?.phone_code})</option>
+                              {countryCode.map((country) => (
+                                <option key={country.id} value={country.phone_code}>
+                                  {country.country_code} ({country.phone_code})
+                                </option>
+                              ))}
+                            </Field>
+                            <Field
+                              id="contact_number-input-contact_info-create_rfq_page"
+                              type="text"
+                              name="contact_number"
+                              className={`rfq-input ${touched.contact_number && errors.contact_number ? "rfq-input--invalid" : ""}`}
+                              placeholder="Enter mobile number"
+                              value={rfqFormDataFromStore.contact_number?.replace(/^\+\d{1,4}-/, "") || ""}
+                              onChange={handleFormFieldChange}
+                              disabled={isFieldLocked('contact_number')}
+                            />
+                          </div>
+                          {touched.contact_number && errors.contact_number && (
+                            <div className="rfq-error">{errors.contact_number}</div>
+                          )}
+                          {isMissing("contact_number") && <small className="rfq-field__required-hint">Required</small>}
+                        </div>
+                        <div className="rfq-field">
+                          <label className="rfq-label">Company Name</label>
+                          <input
+                            type="text"
+                            className="rfq-input rfq-input--readonly"
+                            value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
+                            disabled
+                          />
+                          <input
+                            type="hidden"
+                            name="company_name"
+                            value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
+                          />
+                        </div>
+                      </div>
+                      {(() => {
+                        const LOCATION_MAX = 300;
+                        const locLen = (rfqFormDataFromStore.location || "").length;
+                        const locOver = locLen > LOCATION_MAX;
+                        const locNear = !locOver && locLen === LOCATION_MAX;
+                        return (
+                          <div className="rfq-field">
+                            <label className="rfq-label" htmlFor="delivery_location-rfq_details-create_rfq_page">
+                              Delivery location
+                            </label>
+                            <Field
+                              id="delivery_location-rfq_details-create_rfq_page"
+                              type="text"
+                              name="location"
+                              className={`rfq-input${locOver ? " rfq-input--invalid" : locNear ? " rfq-input--warn" : ""}`}
+                              placeholder="Enter delivery location"
+                              value={rfqFormDataFromStore.location || ""}
+                              onChange={handleFormFieldChange}
+                              maxLength={LOCATION_MAX}
+                              disabled={isFieldLocked('location')}
+                            />
+                            <div
+                              className={`rfq-char-count${locOver ? " rfq-char-count--over" : locNear ? " rfq-char-count--warn" : ""}`}
+                              aria-live="polite"
+                            >
+                              {locLen} / {LOCATION_MAX}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </section>
+                  )}
+
+                  {/* STEP 3 — TIMELINE */}
+                  {!isViewOnlyDraft && currentStep === 3 && (
+                    <section className="rfq-section">
+                      <header className="rfq-section__header">
+                        <h3>3. Timeline</h3>
+                        <p>All three dates are required, and must follow this order: Publish → Vendor Clarification End → Quote Submission End.</p>
+                      </header>
+                      <div className="rfq-grid-3">
+                        <div className={`rfq-field${isMissing("tender_publish_date") ? " rfq-field--has-error" : ""}`}>
+                          <label className="rfq-label">Publish Date & Time <span className="rfq-required">*</span></label>
+                          <input
+                            id="tender_publish_date-rfq_details-create_rfq_page"
+                            type="datetime-local"
+                            name="tender_publish_date"
+                            className="rfq-input"
+                            min={minPublishDate}
+                            value={rfqFormDataFromStore.tender_publish_date ? formatISOToDateTimeLocal(rfqFormDataFromStore.tender_publish_date) : ""}
+                            onChange={handleFormFieldChange}
+                            disabled={isFieldLocked('tender_publish_date')}
+                          />
+                          {isMissing("tender_publish_date") && <small className="rfq-field__required-hint">Required</small>}
+                        </div>
+                        <div className={`rfq-field${isMissing("vendor_clarification_date") ? " rfq-field--has-error" : ""}`}>
+                          <label className="rfq-label">Vendor Clarification End Date <span className="rfq-required">*</span></label>
+                          <input
+                            id="vendor_clarification_date-rfq_details-create_rfq_page"
+                            type="datetime-local"
+                            name="vendor_clarification_date"
+                            className="rfq-input"
+                            min={minClarificationDate}
+                            value={rfqFormDataFromStore.vendor_clarification_date ? formatISOToDateTimeLocal(rfqFormDataFromStore.vendor_clarification_date) : ""}
+                            onChange={handleFormFieldChange}
+                            disabled={isFieldLocked('vendor_clarification_date')}
+                          />
+                          {validationErrors.vendor_clarification_date && (
+                            <div className="rfq-error">{validationErrors.vendor_clarification_date}</div>
+                          )}
+                          {isMissing("vendor_clarification_date") && <small className="rfq-field__required-hint">Required</small>}
+                        </div>
+                        <div className={`rfq-field${isMissing("bid_end_date") ? " rfq-field--has-error" : ""}`}>
+                          <label className="rfq-label">Quote Submission End Date <span className="rfq-required">*</span></label>
+                          <input
+                            id="procurement_end_date-rfq_details-create_rfq_page"
+                            type="datetime-local"
+                            name="bid_end_date"
+                            className="rfq-input"
+                            min={minBidEndDate}
+                            value={rfqFormDataFromStore.bid_end_date ? formatISOToDateTimeLocal(rfqFormDataFromStore.bid_end_date) : ""}
+                            onChange={handleFormFieldChange}
+                            disabled={isFieldLocked('bid_end_date')}
+                          />
+                          {isMissing("bid_end_date") && <small className="rfq-field__required-hint">Required</small>}
+                        </div>
+                      </div>
+                      {rfqFormDataFromStore.is_tender === 1 && (
+                        <div className="rfq-field rfq-field--narrow">
+                          <label className="rfq-label">Tender Fees (INR)</label>
+                          <input
+                            id="tender_fees-input-rfq_details-create_rfq_page"
+                            type="number"
+                            className="rfq-input"
+                            value={rfqFormDataFromStore.tender_fees != null && rfqFormDataFromStore.tender_fees !== "" ? Number(rfqFormDataFromStore.tender_fees) / 100 : ""}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              if (raw === "") {
+                                dispatch(setOtherFormFields({ field_name: "tender_fees", value: null }));
+                              } else {
+                                const numericValue = parseFloat(raw);
+                                const paise = isNaN(numericValue) ? 0 : Math.max(0, Math.round(numericValue * 100));
+                                dispatch(setOtherFormFields({ field_name: "tender_fees", value: paise }));
+                              }
+                              setHasUnsavedChanges(true);
+                            }}
+                            placeholder="Enter fees in INR"
+                            min="0"
+                            disabled={isFieldLocked('tender_fees')}
+                          />
                         </div>
                       )}
 
-                      {/* Other Form Field Section */}
-                      <div className="col-md-8 createR-ffq-2">
-                        <Formik
-                          enableReinitialize={true}
-                          validateOnMount={true}
-                          initialValues={{
-                            is_published: rfqFormDataFromStore.is_published,
-                            comment: rfqFormDataFromStore.comment,
-                            response_email: rfqFormDataFromStore.response_email,
-                            contact_name: rfqFormDataFromStore.contact_name,
-                            contact_number:
-                              rfqFormDataFromStore.contact_number.replace(
-                                /^\+\d{1,4}-/,
-                                ""
-                              ),
-                            company_name:
-                              rfqFormDataFromStore.company_name ||
-                              userProfile?.company_name ||
-                              "",
-                            bid_end_date: rfqFormDataFromStore.bid_end_date,
-                            reverse_auction:
-                              rfqFormDataFromStore.reverse_auction,
-                            is_tender: rfqFormDataFromStore.is_tender || 0,
-                            tender_fees:
-                              rfqFormDataFromStore.tender_fees
-                                ? Number(rfqFormDataFromStore.tender_fees) / 100
-                                : 0,
-                            tender_publish_date: rfqFormDataFromStore.tender_publish_date,
-                            vendor_clarification_date: rfqFormDataFromStore.vendor_clarification_date,
-                            location: rfqFormDataFromStore.location,
-                            countryCode: "+91",
-                            title: rfqFormDataFromStore.title || "",
-                          }}
-                          validationSchema={CreateRFQSchema}
-                          onSubmit={(values, { resetForm }) => {
-                            if(validateRFQFields(values)) {
-                              if(sheetNameList.length > 0) {
-                                setFinalRFQValues(values);
-                                setShowRFQModal(true);
-                              } else {
-                                setPendingFormValues(values);
-                                setShowCreateConfirmModal(true);
-                              }
-                            }
-                          }}
-                        >
-                          {({ errors, touched, isValid }) => (
-                            <Form className="add-your-term-form">
-                              <fieldset disabled={(selectedHotelIds.length > 0 && !hasPermission) || isViewOnlyDraft}>
-                              <FormikField
-                                label="Add your own terms"
-                                placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
-                                type="editor"
-                                rows="5"
-                                name="comment"
-                                touched={touched}
-                                errors={errors}
-                                enableHandleChange={true}
-                                handleChange={(html) => {
-                                  dispatch(setOtherFormFields({ field_name: "comment", value: html }));
-                                  setHasUnsavedChanges(true);
-                                }}
-                                showOptionalLabel={false}
-                                isDisabled={isViewOnlyDraft}
-                              />
-                              <div className="row mt-2">
-                                <div className="custom-file">
-                                  <label
-                                    htmlFor="customFile"
-                                    className="custom-file-label"
-                                  >
-                                    Upload Your Terms
-                                  </label>
+                      {/* Reverse Auction — disabled by default. Toggling the switch
+                          on enables it and reveals the auction-window date fields. */}
+                      <div className={`rfq-reverse-auction${rfqFormDataFromStore.reverse_auction === 1 ? " is-on" : ""}`}>
+                        <div className="rfq-reverse-auction__head">
+                          <div className="rfq-reverse-auction__head-text">
+                            <span className="rfq-reverse-auction__title">Reverse Auction</span>
+                            <span className="rfq-reverse-auction__sub">
+                              Optional — enable a live reverse-auction phase after the quote-submission window closes.
+                            </span>
+                          </div>
+                          <label className="rfq-switch" htmlFor="reverse_auction-toggle-rfq_details-create_rfq_page">
+                            <input
+                              id="reverse_auction-toggle-rfq_details-create_rfq_page"
+                              type="checkbox"
+                              name="reverse_auction"
+                              checked={rfqFormDataFromStore.reverse_auction === 1}
+                              onChange={(e) => handleFormFieldChange({ target: { name: "reverse_auction", value: e.target.checked ? 1 : 0 } })}
+                              disabled={isFieldLocked('reverse_auction')}
+                            />
+                            <span className="rfq-switch__track" aria-hidden="true">
+                              <span className="rfq-switch__thumb" />
+                            </span>
+                            <span className="rfq-switch__label">{rfqFormDataFromStore.reverse_auction === 1 ? "Enabled" : "Disabled"}</span>
+                          </label>
+                        </div>
+                        {rfqFormDataFromStore.reverse_auction === 1 && (
+                          <div className="rfq-reverse-auction__body">
+                            <div className="rfq-grid-2">
+                              <div className={`rfq-field${isMissing("ra_start_date") ? " rfq-field--has-error" : ""}`}>
+                                <label className="rfq-label">Auction Start Date & Time <span className="rfq-required">*</span></label>
+                                <input
+                                  id="auction_start_date-rfq_details-create_rfq_page"
+                                  type="datetime-local"
+                                  name="ra_start_date"
+                                  className="rfq-input"
+                                  value={formatISOToDateTimeLocal(rfqFormDataFromStore.ra_start_date)}
+                                  onChange={handleFormFieldChange}
+                                  min={rfqFormDataFromStore.bid_end_date ? formatISOToDateTimeLocal(rfqFormDataFromStore.bid_end_date) : new Date().toISOString().slice(0, 16)}
+                                  disabled={isFieldLocked('ra_start_date')}
+                                />
+                                {validationErrors.ra_start_date && (<div className="rfq-error">{validationErrors.ra_start_date}</div>)}
+                                {isMissing("ra_start_date") && <small className="rfq-field__required-hint">Required</small>}
+                              </div>
+                              <div className={`rfq-field${isMissing("ra_end_date") ? " rfq-field--has-error" : ""}`}>
+                                <label className="rfq-label">Auction End Date & Time <span className="rfq-required">*</span></label>
+                                <input
+                                  id="auction_end_date-rfq_details-create_rfq_page"
+                                  type="datetime-local"
+                                  name="ra_end_date"
+                                  className="rfq-input"
+                                  value={formatISOToDateTimeLocal(rfqFormDataFromStore.ra_end_date)}
+                                  onChange={handleFormFieldChange}
+                                  min={rfqFormDataFromStore.ra_start_date ? formatISOToDateTimeLocal(rfqFormDataFromStore.ra_start_date) : ""}
+                                  disabled={!rfqFormDataFromStore.ra_start_date || isFieldLocked('ra_end_date')}
+                                />
+                                {validationErrors.ra_end_date && (<div className="rfq-error">{validationErrors.ra_end_date}</div>)}
+                                {isMissing("ra_end_date") && <small className="rfq-field__required-hint">Required</small>}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* STEP 4 — TERMS & CONDITIONS */}
+                  {!isViewOnlyDraft && currentStep === 4 && (
+                    <section className="rfq-section">
+                      <header className="rfq-section__header">
+                        <h3>4. Terms & Conditions</h3>
+                        <p>Pick from suggested terms, write your own, and attach any reference documents.</p>
+                      </header>
+                      {!loading && allTerms.length > 0 && (
+                        <div className="rfq-terms-suggested">
+                          <div className="rfq-terms-suggested__head">
+                            <h4 className="rfq-section__subhead">Suggested Terms</h4>
+                            {(() => {
+                              const allSelected = allTerms.every((item) =>
+                                selectedTerms?.some(
+                                  (term) => String(term.id || term.term_id) === String(item.id || item.term_id)
+                                )
+                              );
+                              const someSelected = !allSelected && allTerms.some((item) =>
+                                selectedTerms?.some(
+                                  (term) => String(term.id || term.term_id) === String(item.id || item.term_id)
+                                )
+                              );
+                              return (
+                                <label className="rfq-checkbox rfq-terms-suggested__select-all" htmlFor="rfq-terms-select-all">
                                   <input
-                                    id="upload_terms-create_rfq_page"
-                                    type="file"
-                                    accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                                    className="custom-file-input"
-                                    multiple
-                                    onChange={(e) => handleTermFiles("add", e)}
+                                    type="checkbox"
+                                    id="rfq-terms-select-all"
+                                    checked={allSelected}
+                                    disabled={isViewOnlyDraft || isFieldLocked('terms')}
+                                    ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                                    onChange={(e) => {
+                                      const check = e.target.checked;
+                                      const next = check
+                                        ? allTerms.map((item) => {
+                                            const id = Number(item.id || item.term_id);
+                                            const name = item.term_content || item.name || item.term_text ||
+                                              (item.content && Array.isArray(item.content) && item.content[0]?.title) ||
+                                              `Term ${id}`;
+                                            return { id, name };
+                                          })
+                                        : [];
+                                      dispatch(setTermsData(next));
+                                      setTermsChanged(true);
+                                      setHasUnsavedChanges(true);
+                                    }}
                                   />
-                                  {termFiles.length > 0 && (
-                                    <div className="row mt-2">
-                                      {termFiles.map((term_file) => (
-                                        <div
-                                          key={term_file}
-                                          className="col-md-6 col-lg-4"
-                                        >
-                                          <a
-                                            href={term_file}
-                                            target="_blank"
-                                            className="file-badge mb-2"
-                                            type="button"
-                                          >
-                                            <span
-                                              className="text-truncate me-3"
-                                              style={{ maxWidth: "90%" }}
-                                            >
-                                              {extractfileName(term_file)}
-                                            </span>
-                                            <FontAwesomeIcon
-                                              icon={faClose}
-                                              fontSize={15}
-                                              onClick={(e) => {
-                                                e.preventDefault();
-                                                handleTermFiles(
-                                                  "remove",
-                                                  term_file
-                                                );
-                                              }}
-                                            />
+                                  <span>{allSelected ? "Deselect all" : "Select all"}</span>
+                                </label>
+                              );
+                            })()}
+                          </div>
+                          <ul className="rfq-terms-list">
+                            {allTerms.map((item) => {
+                              const termContent =
+                                item.term_content || item.name || item.term_text ||
+                                (item.content && Array.isArray(item.content) && item.content[0]?.title) ||
+                                `Term ${item.id}`;
+                              const isSelected = selectedTerms?.some(
+                                (term) => String(term.id || term.term_id) === String(item.id || item.term_id)
+                              );
+                              return (
+                                <li key={`term-${item.id}`}>
+                                  <label className="rfq-checkbox" htmlFor={`term-${item.id}`}>
+                                    <input
+                                      type="checkbox"
+                                      id={`term-${item.id}`}
+                                      checked={isSelected}
+                                      disabled={isViewOnlyDraft || isFieldLocked('terms')}
+                                      onChange={(e) => handleTermChange(e, item)}
+                                    />
+                                    <span>{termContent}</span>
+                                  </label>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                      <div className="rfq-terms-add">
+                        <h4 className="rfq-section__subhead">Add your own terms</h4>
+                        <FormikField
+                          nolabel
+                          placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
+                          type="editor"
+                          rows="5"
+                          name="comment"
+                          touched={touched}
+                          errors={errors}
+                          enableHandleChange={true}
+                          handleChange={(html) => {
+                            dispatch(setOtherFormFields({ field_name: "comment", value: html }));
+                            setHasUnsavedChanges(true);
+                          }}
+                          showOptionalLabel={false}
+                          isDisabled={isViewOnlyDraft || isFieldLocked('comment')}
+                          className="rfq-terms-editor"
+                        />
+                      </div>
+                      <div className="rfq-upload">
+                        <h4 className="rfq-section__subhead">Upload Your Terms</h4>
+                        <div className="rfq-file-card">
+                          <label
+                            htmlFor="upload_terms-create_rfq_page"
+                            className={`rfq-file-drop ${(isViewOnlyDraft || isFieldLocked('term_and_condition_files')) ? "rfq-file-drop--disabled" : ""}`}
+                            aria-disabled={isViewOnlyDraft || isFieldLocked('term_and_condition_files')}
+                          >
+                            <span className="rfq-file-drop__label">Upload Your Terms</span>
+                            <span className="rfq-file-drop__hint">Click to browse</span>
+                            <input
+                              id="upload_terms-create_rfq_page"
+                              type="file"
+                              accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                              multiple
+                              onChange={(e) => handleTermFiles("add", e)}
+                              disabled={isViewOnlyDraft || isFieldLocked('term_and_condition_files')}
+                            />
+                          </label>
+                          {termFiles.length > 0 && (
+                            <button
+                              type="button"
+                              className="rfq-file-show-btn"
+                              onClick={() => setTermsFileModalOpen(true)}
+                            >
+                              <FontAwesomeIcon icon={faEye} />
+                              <span>Show file{termFiles.length > 1 ? "s" : ""} ({termFiles.length})</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  {termsFileModalOpen && (
+                    <div
+                      className="rfq-doc-modal__overlay"
+                      role="dialog"
+                      aria-modal="true"
+                      onClick={() => setTermsFileModalOpen(false)}
+                    >
+                      <div
+                        className="rfq-doc-modal"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="rfq-doc-modal__header">
+                          <h3 className="rfq-doc-modal__title">Upload Your Terms — Documents</h3>
+                          <button
+                            type="button"
+                            className="rfq-doc-modal__close"
+                            aria-label="Close"
+                            onClick={() => setTermsFileModalOpen(false)}
+                          >
+                            <FontAwesomeIcon icon={faXmark} />
+                          </button>
+                        </div>
+                        <div className="rfq-doc-modal__body">
+                          {(!termFiles || termFiles.length === 0) ? (
+                            <p className="rfq-doc-modal__empty">No documents uploaded.</p>
+                          ) : (
+                            <ul className="rfq-doc-list">
+                              {termFiles.map((fileUrl, idx) => (
+                                <li key={fileUrl} className="rfq-doc-list__row">
+                                  <span className="rfq-doc-list__label">Document {idx + 1}</span>
+                                  <div className="rfq-doc-list__actions">
+                                    <a
+                                      href={fileUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="rfq-doc-list__view"
+                                    >
+                                      <FontAwesomeIcon icon={faEye} />
+                                      <span>View doc</span>
+                                    </a>
+                                    {!isViewOnlyDraft && !isFieldLocked('term_and_condition_files') && (
+                                      <button
+                                        type="button"
+                                        className="rfq-doc-list__remove"
+                                        aria-label="Remove file"
+                                        title={extractfileName(fileUrl)}
+                                        onClick={() => handleTermFiles("remove", fileUrl)}
+                                      >
+                                        <FontAwesomeIcon icon={faTrash} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <div className="rfq-doc-modal__footer">
+                          <button
+                            type="button"
+                            className="rfq-doc-modal__btn"
+                            onClick={() => setTermsFileModalOpen(false)}
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STEP 5 — REVIEW & SUBMIT */}
+                  {(isViewOnlyDraft || currentStep === 5) && (
+                    <section className="rfq-section">
+                      {!isViewOnlyDraft && (
+                        <header className="rfq-section__header">
+                          <h3>5. Review & Submit</h3>
+                          <p>Final check before sending this {getEntityLabel(rfqFormDataFromStore.is_tender)} to vendors.</p>
+                        </header>
+                      )}
+                      {isEditMode && (
+                        <div className="rfq-edit-saved-banner" role="status">
+                          All changes have been saved. You can review or edit your changes!
+                        </div>
+                      )}
+                      {!isEditMode && !isViewOnlyDraft && !(selectedHotelIds.length > 0 && !hasPermission) && (
+                        <div className="rfq-submit-info-banner" role="status">
+                          Clicking “Submit” will send this {getEntityLabel(rfqFormDataFromStore?.is_tender)} to relevant vendors for the selected products.
+                        </div>
+                      )}
+                      <div className="rfq-review">
+                        <div className="rfq-review-group">
+                          <div className="rfq-review-group__head">
+                            <h4>Products {rfqProducts.length > 0 && <span className="rfq-review-group__count">({rfqProducts.length})</span>}</h4>
+                            {!isViewOnlyDraft && (<button type="button" className="rfq-review-edit" onClick={() => setCurrentStep(1)}>Edit</button>)}
+                          </div>
+                          {rfqProducts.length === 0 ? (
+                            <p className="rfq-review-line">No products added.</p>
+                          ) : (
+                            <div className="rfq-review-product-grid">
+                              {rfqProducts.map((p) => {
+                                const qty = getSpecFieldValue(p, "quantity");
+                                const unit = getSpecFieldValue(p, "unit");
+                                return (
+                                  <button
+                                    type="button"
+                                    key={p.id || `${p.product_id}-${p.variant}`}
+                                    className="rfq-review-product-card"
+                                    onClick={() => setViewProduct(p)}
+                                  >
+                                    <span className="rfq-review-product-card__name">{p.name || `Product #${p.product_id}`}</span>
+                                    <span className="rfq-review-product-card__meta">
+                                      <span><strong>Qty:</strong> {qty || "—"}</span>
+                                      <span className="rfq-review-product-card__sep">·</span>
+                                      <span><strong>Unit:</strong> {unit || "—"}</span>
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                        <div className="rfq-review-group">
+                          <div className="rfq-review-group__head">
+                            <h4>Details</h4>
+                            {!isViewOnlyDraft && (<button type="button" className="rfq-review-edit" onClick={() => setCurrentStep(2)}>Edit</button>)}
+                          </div>
+                          <dl className="rfq-review-dl">
+                            <dt>Title</dt><dd>{rfqFormDataFromStore.title || "—"}</dd>
+                            <dt>Department</dt><dd>{departments.find(d => d.value === rfqFormDataFromStore.department_id)?.label || "—"}</dd>
+                            <dt>Process</dt><dd>{processes.find(p => p.value === rfqFormDataFromStore.process_id)?.label || "—"}</dd>
+                            <dt>Contact person</dt><dd>{rfqFormDataFromStore.contact_name || "—"}</dd>
+                            <dt>Email</dt><dd>{rfqFormDataFromStore.response_email || "—"}</dd>
+                            <dt>Phone</dt><dd>{rfqFormDataFromStore.contact_number || "—"}</dd>
+                            <dt>Company</dt><dd>{rfqFormDataFromStore.company_name || userProfile?.company_name || "—"}</dd>
+                            <dt>Delivery location</dt><dd>{rfqFormDataFromStore.location || "—"}</dd>
+                          </dl>
+                        </div>
+                        <div className="rfq-review-group">
+                          <div className="rfq-review-group__head">
+                            <h4>Timeline</h4>
+                            {!isViewOnlyDraft && (<button type="button" className="rfq-review-edit" onClick={() => setCurrentStep(3)}>Edit</button>)}
+                          </div>
+                          <dl className="rfq-review-dl">
+                            <dt>Publish</dt><dd>{formattedDate(rfqFormDataFromStore.tender_publish_date)}</dd>
+                            <dt>Vendor Clarification End</dt><dd>{formattedDate(rfqFormDataFromStore.vendor_clarification_date)}</dd>
+                            <dt>Quote Submission End</dt><dd>{formattedDate(rfqFormDataFromStore.bid_end_date)}</dd>
+                            {rfqFormDataFromStore.is_tender === 1 && (
+                              <>
+                                <dt>Tender Fees</dt>
+                                <dd>{rfqFormDataFromStore.tender_fees != null ? `₹${(Number(rfqFormDataFromStore.tender_fees)/100).toFixed(2)}` : "—"}</dd>
+                              </>
+                            )}
+                            <dt>Reverse Auction</dt>
+                            <dd>
+                              {rfqFormDataFromStore.reverse_auction === 1
+                                ? `${formattedDate(rfqFormDataFromStore.ra_start_date)} → ${formattedDate(rfqFormDataFromStore.ra_end_date)}`
+                                : "Disabled"}
+                            </dd>
+                          </dl>
+                        </div>
+                        <div className="rfq-review-group">
+                          <div className="rfq-review-group__head">
+                            <h4>Terms & Conditions</h4>
+                            {!isViewOnlyDraft && (<button type="button" className="rfq-review-edit" onClick={() => setCurrentStep(4)}>Edit</button>)}
+                          </div>
+                          {(() => {
+                            const customPlain = (rfqFormDataFromStore.comment || "")
+                              .replace(/<br\s*\/?>(\s*)/gi, "\n")
+                              .replace(/<\/p>\s*<p[^>]*>/gi, "\n")
+                              .replace(/<[^>]*>/g, "")
+                              .replace(/&nbsp;/g, " ")
+                              .replace(/&amp;/g, "&")
+                              .replace(/&lt;/g, "<")
+                              .replace(/&gt;/g, ">")
+                              .trim();
+                            return (
+                              <div className="rfq-review-tc">
+                                <div className="rfq-review-tc__block">
+                                  <span className="rfq-review-tc__label">
+                                    Suggested Terms
+                                    <span className="rfq-review-tc__count">({selectedTerms?.length || 0})</span>
+                                  </span>
+                                  {selectedTerms?.length ? (
+                                    <ul className="rfq-review-tc__terms">
+                                      {selectedTerms.map((t) => {
+                                        const termText = t.term_content || t.name || t.term_text || `Term ${t.id || t.term_id}`;
+                                        return (
+                                          <li key={t.id || t.term_id}>{termText}</li>
+                                        );
+                                      })}
+                                    </ul>
+                                  ) : (
+                                    <span className="rfq-review-tc__empty">No suggested terms selected.</span>
+                                  )}
+                                </div>
+
+                                <div className="rfq-review-tc__block">
+                                  <span className="rfq-review-tc__label">Custom Terms</span>
+                                  {customPlain ? (
+                                    <p className="rfq-review-tc__custom">{customPlain}</p>
+                                  ) : (
+                                    <span className="rfq-review-tc__empty">No custom terms.</span>
+                                  )}
+                                </div>
+
+                                <div className="rfq-review-tc__block">
+                                  <span className="rfq-review-tc__label">
+                                    Attached Files
+                                    <span className="rfq-review-tc__count">({termFiles.length})</span>
+                                  </span>
+                                  {termFiles.length ? (
+                                    <ul className="rfq-review-tc__files">
+                                      {termFiles.map((url, idx) => (
+                                        <li key={url}>
+                                          <a href={url} target="_blank" rel="noopener noreferrer" title={extractfileName(url)}>
+                                            Document {idx + 1}
                                           </a>
-                                        </div>
+                                        </li>
                                       ))}
-                                    </div>
+                                    </ul>
+                                  ) : (
+                                    <span className="rfq-review-tc__empty">No files attached.</span>
                                   )}
                                 </div>
                               </div>
-
-                              <div className="row mt-3">
-                                {userHotelMappings.length > 0 && (
-                                  <div className="col-md-4">
-                                    <label className="form-label fw-medium">Business Units</label>
-                                    {selectedHotelIds.length > 0 ? (
-                                      <div className="d-flex flex-wrap gap-2" style={{ padding: '6px 0' }}>
-                                        {userHotelMappings
-                                          .filter(opt => selectedHotelIds.includes(opt.hospitality_hotel_id))
-                                          .map(opt => (
-                                            <span
-                                              key={opt.hospitality_hotel_id}
-                                              style={{
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                padding: '4px 10px',
-                                                fontSize: 13,
-                                                fontWeight: 500,
-                                                color: '#1e293b',
-                                                background: '#f1f5f9',
-                                                borderRadius: 6,
-                                                border: '1px solid #e2e8f0',
-                                              }}
-                                            >
-                                              {opt.hotel_name}
-                                            </span>
-                                          ))
-                                        }
-                                      </div>
-                                    ) : (
-                                      <Select
-                                        id="select_hotels-create_rfq_page"
-                                        isMulti
-                                        options={userHotelMappings}
-                                        value={[]}
-                                        onChange={(selectedOptions) => {
-                                          const ids = selectedOptions
-                                            ? selectedOptions.map(opt => opt.hospitality_hotel_id)
-                                            : [];
-                                          handleHotelSelectionChange(ids);
-                                        }}
-                                        placeholder="Select Business Units..."
-                                        closeMenuOnSelect={false}
-                                        classNamePrefix="react-select"
-                                        isClearable
-                                        formatOptionLabel={(option) => (
-                                          <div>
-                                            <span>{option.hotel_name}</span>
-                                          </div>
-                                        )}
-                                        getOptionValue={(option) => option.hospitality_hotel_id}
-                                      />
-                                    )}
-                                  </div>
-                                )}
-
-                                <div className="col-md-4">
-                                  <label className="form-label fw-medium">{getEntityLabel(rfqFormDataFromStore.is_tender)} Title <span className="text-danger">*</span></label>
-                                  <input
-                                    type="text"
-                                    id="title-input-create_rfq_page"
-                                    name="title"
-                                    className="form-control"
-                                    value={rfqFormDataFromStore.title || ""}
-                                    onChange={handleFormFieldChange}
-                                    placeholder={`Enter ${getEntityLabel(rfqFormDataFromStore.is_tender)} Title`}
-                                  />
-                                </div>
-
-                                {departments.length > 0 && (
-                                  <div className="col-md-4">
-                                    <label className="form-label fw-medium">Department <span className="text-danger">*</span></label>
-                                    <Select
-                                      id="select_department-create_rfq_page"
-                                      options={departments}
-                                      value={departments.find(d => d.value === rfqFormDataFromStore.department_id) || null}
-                                      onChange={(selected) => {
-                                        dispatch(setOtherFormFields({
-                                          field_name: "department_id",
-                                          value: selected?.value || null
-                                        }));
-                                        setHasUnsavedChanges(true);
-                                      }}
-                                      placeholder="Select Department"
-                                      classNamePrefix="react-select"
-                                      isClearable
-                                      isDisabled={isViewOnlyDraft}
-                                    />
-                                    {rfqFormDataFromStore.department_id && (
-                                      <small className="d-block mt-1 text-muted" style={{ fontSize: "11px" }}>
-                                        Approvers with this department scope or All Departments can approve
-                                      </small>
-                                    )}
-                                  </div>
-                                )}
-
-                                {processes.length > 0 && (
-                                  <div className="col-md-4">
-                                    <label className="form-label fw-medium">Process <span className="text-danger">*</span></label>
-                                    <Select
-                                      id="select_process-create_rfq_page"
-                                      options={processes}
-                                      value={processes.find(p => p.value === rfqFormDataFromStore.process_id) || null}
-                                      onChange={(selected) => {
-                                        dispatch(setOtherFormFields({
-                                          field_name: "process_id",
-                                          value: selected?.value || null
-                                        }));
-                                        setHasUnsavedChanges(true);
-                                      }}
-                                      placeholder="Select Process"
-                                      classNamePrefix="react-select"
-                                      isDisabled={isViewOnlyDraft}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="row mt-2">
-                                <div className="col-md-6">
-                                  <FormikField
-                                    id="email_input-contact_info-create_rfq_page"
-                                    label="Email"
-                                    value={rfqFormDataFromStore.response_email}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
-                                    type="email"
-                                    isRequired={true}
-                                    name="response_email"
-                                    touched={touched}
-                                    errors={errors}
-                                  />
-                                </div>
-                                <div className="col-md-6">
-                                  <FormikField
-                                    id="contact_person_input-contact_info-create_rfq_page"
-                                    label="Contact person"
-                                    value={rfqFormDataFromStore.contact_name}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
-                                    type="text"
-                                    isRequired={true}
-                                    name="contact_name"
-                                    touched={touched}
-                                    errors={errors}
-                                  />
-                                </div>
-                                
-                                <div className="col-md-6">
-                                  <label className="form-label">
-                                    Contact Number{" "}
-                                    <span className="text-danger">*</span>
-                                  </label>
-
-                                  <div className="d-flex">
-                                    {/* Country Code Dropdown */}
-                                    <Field
-                                      id="country_code-dropdown-contact_info-create_rfq_page"
-                                      as="select"
-                                      name="countryCode"
-                                      className="form-select"
-                                      style={{
-                                        maxWidth: "130px",
-                                        marginRight: "6px",
-                                        maxHeight: "44px",
-                                      }}
-                                      value={onecountrycode}
-                                      onChange={(e) =>
-                                        setonecountrycode(e.target.value)
-                                      }
-                                    >
-                                      <option value="countryCode">
-                                        {selectedCountry?.country_code} (
-                                        {selectedCountry?.phone_code})
-                                      </option>
-                                      {countryCode.map((country) => (
-                                        <option
-                                          key={country.id}
-                                          value={country.phone_code}
-                                        >
-                                          {country.country_code} (
-                                          {country.phone_code})
-                                        </option>
-                                      ))}
-                                    </Field>
-
-                                    {/* Mobile Number Input */}
-                                    <Field
-                                      id="contact_number-input-contact_info-create_rfq_page"
-                                      type="text"
-                                      name="contact_number"
-                                      className={`form-control ${
-                                        touched.contact_number &&
-                                        errors.contact_number
-                                          ? "is-invalid"
-                                          : ""
-                                      }`}
-                                      placeholder="Enter mobile number"
-                                      value={
-                                        rfqFormDataFromStore.contact_number?.replace(
-                                          /^\+\d{1,4}-/,
-                                          ""
-                                        ) || ""
-                                      }
-                                      onChange={handleFormFieldChange}
-                                      style={{ marginTop: "0px" }}
-                                    />
-
-                                    {touched.contact_number &&
-                                      errors.contact_number && (
-                                        <div className="invalid-feedback">
-                                          {errors.contact_number}
-                                        </div>
-                                      )}
-                                  </div>
-                                </div>
-
-                                <div className="col-md-6">
-                                  {/* Company Name - Read Only */}
-                                  <div className="mb-3">
-                                    <label className="form-label fw-medium">
-                                      Company Name
-                                    </label>
-                                    <input
-                                      type="text"
-                                      className="form-control bg-light"
-                                      value={
-                                        rfqFormDataFromStore.company_name ||
-                                        userProfile?.company_name ||
-                                        ""
-                                      }
-                                      disabled
-                                    />
-                                    <input
-                                      type="hidden"
-                                      name="company_name"
-                                      value={
-                                        rfqFormDataFromStore.company_name ||
-                                        userProfile?.company_name ||
-                                        ""
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-
-
-                              <div className="row mb-2">
-
-                                    <div className="col-md-4">
-                                      <label className="form-label">
-                                        Publish Date & Time <span className="text-danger">*</span>
-                                      </label>
-                                      <input
-                                        id="tender_publish_date-rfq_details-create_rfq_page"
-                                        type="datetime-local"
-                                        name="tender_publish_date"
-                                        className="form-control"
-                                        min={minPublishDate}
-                                        value={
-                                          rfqFormDataFromStore.tender_publish_date
-                                            ? formatISOToDateTimeLocal(rfqFormDataFromStore.tender_publish_date)
-                                            : ""
-                                        }
-                                        onChange={handleFormFieldChange}
-                                      />
-                                    </div>
-
-                                    <div className="col-md-4">
-                                      <label className="form-label">
-                                        Quote Submission End Date <span className="text-danger">*</span>
-                                      </label>
-                                      <input
-                                        id="procurement_end_date-rfq_details-create_rfq_page"
-                                        type="datetime-local"
-                                        name="bid_end_date"
-                                        className="form-control"
-                                        min={minBidEndDate}
-                                        value={
-                                          rfqFormDataFromStore.bid_end_date
-                                            ? formatISOToDateTimeLocal(rfqFormDataFromStore.bid_end_date)
-                                            : ""
-                                        }
-                                        onChange={handleFormFieldChange}
-                                      />
-                                    </div>
-
-                                    <div className="col-md-4">
-                                      <label className="form-label">
-                                        Vendor Clarification End Date <span className="text-danger">*</span>
-                                      </label>
-                                      <input
-                                        id="vendor_clarification_date-rfq_details-create_rfq_page"
-                                        type="datetime-local"
-                                        name="vendor_clarification_date"
-                                        className="form-control"
-                                        min={minClarificationDate}
-                                        value={
-                                          rfqFormDataFromStore.vendor_clarification_date
-                                            ? formatISOToDateTimeLocal(rfqFormDataFromStore.vendor_clarification_date)
-                                            : ""
-                                        }
-                                        onChange={handleFormFieldChange}
-                                      />
-                                      {validationErrors.vendor_clarification_date && (
-                                        <div className="text-danger">
-                                          {validationErrors.vendor_clarification_date}
-                                        </div>
-                                      )}
-                                    </div>
-
-
-                                {rfqFormDataFromStore.is_tender === 1 && (
-                                  <>
-                                    <div className="col-md-4">
-                                      <label className="form-label fw-medium">Tender Fees (INR)</label>
-                                      <input
-                                        id="tender_fees-input-rfq_details-create_rfq_page"
-                                        type="number"
-                                        className="form-control"
-                                        value={rfqFormDataFromStore.tender_fees != null && rfqFormDataFromStore.tender_fees !== ""
-                                          ? Number(rfqFormDataFromStore.tender_fees) / 100
-                                          : ""}
-                                        onChange={(e) => {
-                                          const raw = e.target.value;
-                                          if (raw === "") {
-                                            dispatch(setOtherFormFields({ field_name: "tender_fees", value: null }));
-                                          } else {
-                                            const numericValue = parseFloat(raw);
-                                            const paise = isNaN(numericValue) ? 0 : Math.max(0, Math.round(numericValue * 100));
-                                            dispatch(setOtherFormFields({ field_name: "tender_fees", value: paise }));
-                                          }
-                                          setHasUnsavedChanges(true);
-                                        }}
-                                        placeholder="Enter fees in INR"
-                                        min="0"
-                                      />
-                                    </div>
-                                  </>
-                                )}
-
-                                <div className="col-md-4">
-                                  <FormikField
-                                    id="reverse_auction-toggle-rfq_details-create_rfq_page"
-                                    label="Reverse Auction"
-                                    value={rfqFormDataFromStore.reverse_auction}
-                                    defaultValue={0}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
-                                    type="select"
-                                    selectOptions={[
-                                      { label: "Enable", value: 1 },
-                                      {label: "Disable", value: 0 },
-                                    ]}
-                                    isRequired={true}
-                                    name="reverse_auction"
-                                    touched={touched}
-                                    errors={errors}
-                                  />
-                                </div>
-
-
-                                {rfqFormDataFromStore.reverse_auction === 1 && (
-                                  <>
-                                    <div className="col-md-6">
-                                      <label className="form-label">
-                                        Auction Start Date & Time{" "}
-                                        <span className="text-danger">*</span>
-                                      </label>
-                                      <input
-                                        id="auction_start_date-rfq_details-create_rfq_page"
-                                        type="datetime-local"
-                                        name="ra_start_date"
-                                        className="form-control"
-                                        value={formatISOToDateTimeLocal(
-                                          rfqFormDataFromStore.ra_start_date
-                                        )}
-                                        onChange={handleFormFieldChange}
-                                        min={
-                                          rfqFormDataFromStore.bid_end_date
-                                            ? formatISOToDateTimeLocal(
-                                                rfqFormDataFromStore.bid_end_date
-                                              )
-                                            : new Date()
-                                                .toISOString()
-                                                .slice(0, 16)
-                                        }
-                                      />
-                                      {validationErrors.ra_start_date && (
-                                        <div className="text-danger">
-                                          {validationErrors.ra_start_date}
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="col-md-6">
-                                      <label className="form-label">
-                                        Auction End Date & Time{" "}
-                                        <span className="text-danger">*</span>
-                                      </label>
-                                      <input
-                                        id="auction_end_date-rfq_details-create_rfq_page"
-                                        type="datetime-local"
-                                        name="ra_end_date"
-                                        className="form-control"
-                                        value={formatISOToDateTimeLocal(
-                                          rfqFormDataFromStore.ra_end_date
-                                        )}
-                                        onChange={handleFormFieldChange}
-                                        min={
-                                          rfqFormDataFromStore.ra_start_date
-                                            ? formatISOToDateTimeLocal(
-                                                rfqFormDataFromStore.ra_start_date
-                                              )
-                                            : ""
-                                        }
-                                        disabled={
-                                          !rfqFormDataFromStore.ra_start_date
-                                        }
-                                      />
-                                      {validationErrors.ra_end_date && (
-                                        <div className="text-danger">
-                                          {validationErrors.ra_end_date}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </>
-                                )}
-
-                                <div className="col-md-12">
-                                  <FormikField
-                                    id="delivery_location-rfq_details-create_rfq_page"
-                                    label="Delivery location"
-                                    value={rfqFormDataFromStore.location}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
-                                    type="text"
-                                    isRequired={false}
-                                    name="location"
-                                    touched={touched}
-                                    errors={errors}
-                                    showOptionalLabel={false}
-                                  />
-                                </div>
-                              </div>
-                              </fieldset>
-
-                              {/* Action buttons - disabled if user doesn't have permission */}
-                              <button
-                                type="submit"
-                                className="btn btn-secondary mt-2 me-3"
-                                disabled={!isValid || (selectedHotelIds.length > 0 && !hasPermission)}
-                                id="create_rfq-rfq_actions-create_rfq_page"
-                                title={selectedHotelIds.length > 0 && !hasPermission ? "You don't have permission to create RFQ/Tender" : ""}
-                              >
-                                Submit
-                              </button>
-
-                              <button
-                                type="button"
-                                className="btn btn-secondary mt-2"
-                                onClick={handleSaveDraft}
-                                disabled={selectedHotelIds.length > 0 && !hasPermission}
-                                id="save_draft-rfq_actions-create_rfq_page"
-                                title={selectedHotelIds.length > 0 && !hasPermission ? "You don't have permission to save changes" : ""}
-                              >
-                                Save Changes
-                              </button>
-                            </Form>
-                          )}
-                        </Formik>
-                        {selectedHotelIds.length > 0 && !hasPermission ? (
-                          <p className="mt-2 text-danger fw-medium">
-                            This is a Read-Only {rfqFormDataFromStore?.is_tender === 1 ? "Tender" : "RFQ"}. You do not have permission to make changes.
-                          </p>
-                        ) : (
-                          <p className="mt-2">
-                            This action will send RFQs to all selected vendors for
-                            the relevant product.
-                          </p>
-                          
-                        )}
+                            );
+                          })()}
+                        </div>
                       </div>
+                      {!isViewOnlyDraft && selectedHotelIds.length > 0 && !hasPermission && (
+                        <p className="rfq-readonly-msg">
+                          This is a Read-Only {rfqFormDataFromStore?.is_tender === 1 ? "Tender" : "RFQ"}. You do not have permission to make changes.
+                        </p>
+                      )}
+                    </section>
+                  )}
+                </fieldset>
+
+                {/* Sticky action bar.
+                    View-only mode collapses this to a single Close button
+                    that returns the user to the Draft RFQ list — they can't
+                    edit or submit, so Previous / Save / Next / Submit are
+                    all irrelevant. */}
+                {isViewOnlyDraft ? (
+                  <div className="rfq-actions-bar rfq-actions-bar--end">
+                    <button
+                      type="button"
+                      className="rfq-btn rfq-btn--secondary"
+                      onClick={() => router.push('/dashboard/buyer/rfq-management?tab=draft-rfq')}
+                    >
+                      Close
+                    </button>
+                  </div>
+                ) : (
+                  <div className="rfq-actions-bar">
+                    <button
+                      type="button"
+                      className="rfq-btn rfq-btn--ghost"
+                      onClick={goPrev}
+                      disabled={currentStep === 1}
+                    >
+                      ← Previous
+                    </button>
+                    <div className="rfq-actions-bar__right">
+                      {!(isEditMode && currentStep === STEPS.length) && (
+                        <button
+                          type="button"
+                          className="rfq-btn rfq-btn--secondary"
+                          onClick={handleSaveDraft}
+                          disabled={!hasUnsavedChanges || isReadOnly || (selectedHotelIds.length > 0 && !hasPermission)}
+                          id="save_draft-rfq_actions-create_rfq_page"
+                          title={
+                            selectedHotelIds.length > 0 && !hasPermission
+                              ? "You don't have permission to save changes"
+                              : isReadOnly
+                                ? "This RFQ can no longer be edited"
+                                : !hasUnsavedChanges
+                                  ? "No changes to save"
+                                  : ""
+                          }
+                        >
+                          Save Changes
+                        </button>
+                      )}
+                      {currentStep < STEPS.length && (
+                        <button
+                          type="button"
+                          className="rfq-btn rfq-btn--primary"
+                          onClick={goNext}
+                        >
+                          Save and Next →
+                        </button>
+                      )}
+                      {currentStep === STEPS.length && !isEditMode && (
+                        <button
+                          type="submit"
+                          className="rfq-btn rfq-btn--success"
+                          disabled={!isValid || isReadOnly || (selectedHotelIds.length > 0 && !hasPermission)}
+                          id="create_rfq-rfq_actions-create_rfq_page"
+                          title={
+                            selectedHotelIds.length > 0 && !hasPermission ? "You don't have permission to create RFQ/Tender"
+                            : isReadOnly ? "This RFQ can no longer be edited"
+                            : ""
+                          }
+                        >
+                          Submit
+                        </button>
+                      )}
                     </div>
                   </div>
-                </>
-              )}
-            </div>
-          </>
+                )}
+              </Form>
+            );
+          }}
+        </Formik>
       </div>
+
+      {/* Product detail modal — opened from the Review section's product
+          card grid. Wide horizontal grid so big payloads stay readable. */}
+      {viewProduct && (
+        <ProductDetailModal
+          product={viewProduct}
+          getSpecFieldValue={getSpecFieldValue}
+          updatableData={updatableData}
+          onClose={() => setViewProduct(null)}
+        />
+      )}
 
       {/* Modals */}
       <ViewVendorModal

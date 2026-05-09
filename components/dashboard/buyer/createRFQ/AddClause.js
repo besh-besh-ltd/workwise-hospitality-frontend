@@ -1,34 +1,56 @@
 import { toast } from "react-toastify";
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Form, Tab, Nav, Button, Accordion, Table } from 'react-bootstrap';
+import { Modal, Form } from 'react-bootstrap';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCloudArrowUp, faDownload, faPaperclip, faTrash, faFilePdf } from "@fortawesome/free-solid-svg-icons";
+import { faPaperclip, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { handleFileUpload } from "@/utils/sharedFunctions";
 import FileLink from "@/components/shared/FileLink";
 import { faEdit } from "@fortawesome/free-regular-svg-icons";
-import { addClause, addClauseUsingFile, getClausesByRfqProductId, removeClause, updateClause, updateMinimumPassingScore } from "@/services/rfq";
+import { addClause, getClausesByRfqProductId, removeClause, updateClause, updateMinimumPassingScore } from "@/services/rfq";
 import FullLoader from "@/components/shared/FullLoader";
 
+// Inline read-more for clause text. Anything beyond 500 chars collapses by
+// default; clicking "Show more" expands inline (no modal). Lives outside the
+// AddClauseModal component so each card owns its own expanded/collapsed state.
+const CLAUSE_TEXT_TRUNCATE = 500;
+const ClauseText = ({ text }) => {
+    const [expanded, setExpanded] = useState(false);
+    const value = text || "";
+    if (value.length <= CLAUSE_TEXT_TRUNCATE) {
+        return <p className="rfq-clause-card__text">{value}</p>;
+    }
+    const display = expanded ? value : `${value.slice(0, CLAUSE_TEXT_TRUNCATE)}…`;
+    return (
+        <p className="rfq-clause-card__text">
+            {display}{" "}
+            <button
+                type="button"
+                className="rfq-clause-card__readmore"
+                onClick={() => setExpanded((v) => !v)}
+            >
+                {expanded ? "Show less" : "Show more"}
+            </button>
+        </p>
+    );
+};
 
 function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openToMinimumScore = false }) {
-    const [clauseFile, setClauseFile] = useState(null);
-    const [active, setActive] = useState('clause');
     const [message, setMessage] = useState("");
     const [files, setFiles] = useState([]);
     const [fileLoading, setFileLoading] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [uploadLoading, setUploadLoading] = useState(false);
     const fileInputRef = useRef(null);
     const [currentClause, setCurrentClause] = useState(null);
     const [update, setUpdate] = useState(false);
     const [previousClauses, setPreviousClauses] = useState(null);
-    const [fileName, setFileName] = useState('');
-    const [clauseErrors, setClauseErrors] = useState([]);
-    const [extractedClauses, setExtractedClauses] = useState([]);
+    // Clauses queued by Add Clause but not yet persisted to the backend.
+    // The footer Save button is the only place that flushes these via the
+    // API; everything in here is purely client-side until then.
+    const [pendingClauses, setPendingClauses] = useState([]);
     const [weightage, setWeightage] = useState("");
     const [minimumPassingScore, setMinimumPassingScore] = useState(null);
-    const [showMinimumScoreInput, setShowMinimumScoreInput] = useState(false);
-    const [tempMinimumScore, setTempMinimumScore] = useState("");
+    const [minScoreInput, setMinScoreInput] = useState("");
+    const [savingMinScore, setSavingMinScore] = useState(false);
 
     // Sampling clause specific state
     const [showSamplingForm, setShowSamplingForm] = useState(false);
@@ -45,7 +67,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
     const uploadToServer = async (e) => {
         setFileLoading(true)
         try {
-            const filePath = await handleFileUpload(e);
+            const filePath = await handleFileUpload(e, undefined, { allowAllTypes: true });
             const newList = [...files, filePath];
             setFiles(newList);
         } catch (error) {
@@ -94,14 +116,19 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
             toast.error("Failed to load clauses. Please try again.");
         } finally {
             setLoading(false);
-            setClauseFile(null);
-            setFileName('');
         }
     }
 
-    const handleAddClause = async () => {
+    // Add Clause — local only. Pushes the clause onto pendingClauses, clears
+    // the form. The footer Save button is what actually persists via the API.
+    const handleAddClause = () => {
         if (message.trim() === "") {
             toast.error("Message is required");
+            return;
+        }
+
+        if (message.length > 2000) {
+            toast.error("Clause text must be at most 2000 characters");
             return;
         }
 
@@ -110,39 +137,87 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
             return;
         }
 
-        const payload = {
-            rfq_id,
-            rfq_product_id: product.id,
+        const localClause = {
+            _localId: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            isPending: true,
             clause_text: message,
-            file_url: files,
+            files: [...files],
             clause_type: 'clause',
-            weightage: parseInt(weightage)
+            weightage: parseInt(weightage),
+        };
+        setPendingClauses((prev) => [...prev, localClause]);
+
+        setMessage("");
+        setFiles([]);
+        setWeightage("");
+    };
+
+    // Footer Save — commits every queued pending clause via the API in turn.
+    // If the user has typed into the form but not pressed Add Clause, that
+    // entry is included too so a single click finishes the job.
+    const handleSaveAll = async () => {
+        let toCommit = [...pendingClauses];
+
+        const formHasContent = message.trim() !== "" && weightage !== "";
+        if (formHasContent && !update) {
+            // Re-use validation from handleAddClause without pushing a toast
+            // for cases that pass; we just inline the same checks.
+            if (message.length > 2000) {
+                toast.error("Clause text must be at most 2000 characters");
+                return;
+            }
+            toCommit.push({
+                _localId: `local-${Date.now()}`,
+                clause_text: message,
+                files: [...files],
+                clause_type: 'clause',
+                weightage: parseInt(weightage),
+            });
+        }
+
+        if (update) {
+            // Existing in-flight edit of a persisted clause — fall through to
+            // the existing Update flow so a single Save commits it too.
+            await handleUpdateClause();
+            return;
+        }
+
+        if (toCommit.length === 0) {
+            toast.info("No changes to save.");
+            return;
         }
 
         setLoading(true);
         try {
-            const res = await addClause(payload);
-            toast.success(res.message || res.data?.message || "Clause added successfully");
-            // Wait a bit to ensure database has updated, then refresh clauses
-            setTimeout(() => {
-                getPreviousClauses();
-            }, 100);
-            onClauseChange && onClauseChange({
-                action: 'add',
-                payload: {
-                    ...payload,
-                    product_variant_id: product.product_id,
-                    variant: product.variant,
-                },
-            });
-
-        } catch (error) {
-            toast.error(error.message)
-        } finally {
-            setLoading(false);
+            for (const c of toCommit) {
+                const payload = {
+                    rfq_id,
+                    rfq_product_id: product.id,
+                    clause_text: c.clause_text,
+                    file_url: c.files || [],
+                    clause_type: 'clause',
+                    weightage: c.weightage,
+                };
+                await addClause(payload);
+                onClauseChange && onClauseChange({
+                    action: 'add',
+                    payload: {
+                        ...payload,
+                        product_variant_id: product.product_id,
+                        variant: product.variant,
+                    },
+                });
+            }
+            toast.success(`${toCommit.length} clause${toCommit.length === 1 ? '' : 's'} saved`);
+            setPendingClauses([]);
             setMessage("");
             setFiles([]);
             setWeightage("");
+            await getPreviousClauses();
+        } catch (error) {
+            toast.error(error.message || "Failed to save clauses");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -192,6 +267,11 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
     };
 
     const handleUpdateClause = async () => {
+        if (message && message.length > 2000) {
+            toast.error("Clause text must be at most 2000 characters");
+            return;
+        }
+
         if (!weightage || weightage === "") {
             toast.error("Marks is required");
             return;
@@ -234,7 +314,6 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
     const handleDeleteClause = async (clause_id) => {
         setLoading(true);
         try {
-            setClauseErrors([]);
             const res = await removeClause(clause_id);
             toast.success(res.message)
             getPreviousClauses();
@@ -254,23 +333,41 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
         }
     }
 
-    const openUpdateField = (clause, index) => {
-        const updatedClauses = previousClauses.filter((_, idx) => idx !== index);
+    // Pending (not-yet-saved) clauses live only on the client, so dropping
+    // one is a simple state filter — no API call.
+    const handleDeletePendingClause = (localId) => {
+        setPendingClauses((prev) => prev.filter((c) => c._localId !== localId));
+    };
+
+    const openUpdateField = (clause) => {
+        if (clause.isPending) {
+            // Editing a pending clause: pull it back into the form, drop from
+            // pendingClauses; pressing Add Clause again will re-queue it.
+            setPendingClauses((prev) => prev.filter((c) => c._localId !== clause._localId));
+            setMessage(clause.clause_text);
+            setFiles(clause.files || []);
+            setWeightage(clause.weightage || "");
+            setUpdate(false); // not a server-side update; behaves like a fresh add
+            setCurrentClause(null);
+            return;
+        }
+        // Editing a persisted clause: existing flow (hits API on Update).
+        const updatedClauses = previousClauses.filter((c) => c.clause_id !== clause.clause_id);
         setPreviousClauses(updatedClauses);
         setMessage(clause.clause_text);
-        setFiles(clause.files);
+        setFiles(clause.files || []);
         setWeightage(clause.weightage || "");
         setUpdate(true);
         setCurrentClause(clause);
     }
 
     const handleUpdateMinimumScore = async () => {
-        if (!tempMinimumScore || tempMinimumScore === "") {
+        if (!minScoreInput || minScoreInput === "") {
             toast.error("Please enter minimum passing percentage");
             return;
         }
 
-        const newMinimumScore = parseInt(tempMinimumScore);
+        const newMinimumScore = parseInt(minScoreInput);
 
         if (newMinimumScore < 0 || newMinimumScore > 100) {
             toast.error("Minimum passing percentage must be between 0 and 100");
@@ -283,18 +380,13 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
             minimum_passing_score: newMinimumScore
         }
 
-        setLoading(true);
+        setSavingMinScore(true);
         try {
             const res = await updateMinimumPassingScore(payload);
-            
+
             if (res && res.status === 1) {
-                const savedScore = parseInt(tempMinimumScore);
-                // Immediately update the state so button shows the value
-                setMinimumPassingScore(savedScore);
+                setMinimumPassingScore(newMinimumScore);
                 toast.success(res.message || "Minimum passing percentage updated successfully");
-                setShowMinimumScoreInput(false);
-                setTempMinimumScore("");
-                // Refresh clauses to ensure data is in sync - wait a bit for DB to update
                 setTimeout(async () => {
                     await getPreviousClauses();
                 }, 300);
@@ -304,22 +396,8 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
         } catch (error) {
             toast.error(error.message || "Failed to update minimum passing percentage");
         } finally {
-            setLoading(false);
+            setSavingMinScore(false);
         }
-    }
-
-    const handleCancelMinimumScore = () => {
-        setShowMinimumScoreInput(false);
-        setTempMinimumScore("");
-    }
-
-    const handleOpenMinimumScoreInput = () => {
-        // Use current state value, useEffect will sync if it changes
-        const scoreToShow = (minimumPassingScore !== null && minimumPassingScore !== undefined) 
-            ? minimumPassingScore.toString() 
-            : "";
-        setTempMinimumScore(scoreToShow);
-        setShowMinimumScoreInput(true);
     }
 
     const handleRemoveFile = (fileType, file) => {
@@ -328,609 +406,352 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
     }
 
     useEffect(() => {
-        if(show) {
-            setTempMinimumScore("");
-            // Open directly to minimum score view when requested
-            setShowMinimumScoreInput(!!openToMinimumScore);
-            // Fetch clauses and minimum passing score - this will set minimumPassingScore
+        if (show) {
             getPreviousClauses();
-        } else {
-            setShowMinimumScoreInput(false);
-            setTempMinimumScore("");
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [show, product.id, openToMinimumScore])
+    }, [show, product.id])
 
-    // Sync tempMinimumScore when minimumPassingScore changes and input is shown
+    // Keep the inline min-score input in sync with the loaded value.
     useEffect(() => {
-        if (showMinimumScoreInput && minimumPassingScore !== null && minimumPassingScore !== undefined) {
-            setTempMinimumScore(minimumPassingScore.toString());
+        if (minimumPassingScore !== null && minimumPassingScore !== undefined) {
+            setMinScoreInput(minimumPassingScore.toString());
+        } else {
+            setMinScoreInput("");
         }
-    }, [showMinimumScoreInput, minimumPassingScore])
+    }, [minimumPassingScore]);
 
-
-    const handleMagicFileUpload = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            const fileType = file.name.split('.').pop().toLowerCase();
-            if (fileType !== 'pdf') {
-                toast.error('Please upload a valid PDF file');
-            } else {
-                setFileName(file.name);
-                setClauseFile(file);
-            }
-        }
-        event.target.value = null;
+    const hasUnsavedChanges = () => {
+        if (pendingClauses.length > 0) return true;
+        if (message.trim() !== "") return true;
+        if (files.length > 0) return true;
+        return false;
     };
 
-    const uploadClauseFile = async () => {
-        if (!clauseFile) {
-            toast.error("Please select a file!");
-            return;
+    const handleHide = () => {
+        if (hasUnsavedChanges()) {
+            const proceed = window.confirm(
+                "The unsaved changes will be lost if closing this modal without saving, are you sure to close the modal?"
+            );
+            if (!proceed) return;
         }
-
-        setLoading(true);
-        setUploadLoading(true);
-        setClauseErrors([]);
-        setExtractedClauses([]);
-        
-        try {
-            toast.info("Processing file. This may take a moment...", {
-                autoClose: false,
-                toastId: "clause-processing"
-            });
-            
-            const formData = new FormData();
-            formData.append('file', clauseFile); 
-            formData.append('rfq_id', rfq_id); 
-            formData.append('rfq_product_id', product.id); 
-
-            const res = await addClauseUsingFile(formData);
-            
-            toast.dismiss("clause-processing");
-            
-            if(res?.status){
-                toast.success(res.message);            
-                // Changes by Agnij 2025-05-14 [Remove structured clause processing]
-                // Only process direct clauses (array of strings or objects with .text)
-                let allClauses = [];
-                if (res?.clauses && Array.isArray(res.clauses)) {
-                    allClauses = [...allClauses, ...res.clauses.map(clause => 
-                        typeof clause === 'string' ? clause : (clause.text || clause.value || JSON.stringify(clause))
-                    )];
-                }
-                // Remove duplicates
-                const uniqueClauses = [...new Set(allClauses)];
-                setExtractedClauses(uniqueClauses);
-                setClauseFile(null);
-                setFileName('');
-            } else {
-                setClauseErrors(res?.errors || []);
-            }
-        } catch (error) {
-            toast.dismiss("clause-processing");
-            toast.error(error.message || "An unexpected error occurred.");
-            setClauseErrors([{ Row: 0, error: error.message || "An unexpected error occurred."}]);
-        } finally{
-            setLoading(false);
-            setUploadLoading(false);
-            getPreviousClauses();
-        }
+        setPendingClauses([]);
+        setMessage("");
+        setFiles([]);
+        setWeightage("");
+        setUpdate(false);
+        setCurrentClause(null);
+        setShowSamplingForm(false);
+        setSamplingWeightage("");
+        onClose();
     };
-
-    const addSingleExactedClause = (clause) => {
-        setExtractedClauses([...extractedClauses, clause]);
+    const minScoreNum = parseInt(minScoreInput);
+    const minScoreOutOfRange =
+        minScoreInput !== "" && !isNaN(minScoreNum) &&
+        (minScoreNum < 0 || minScoreNum > 100);
+    const minScoreUnchanged =
+        minScoreInput !== "" && !isNaN(minScoreNum) && minScoreNum === minimumPassingScore;
+    const visibleClauses = [
+        ...((previousClauses || []).filter(c => c.clause_type !== 'sampling')),
+        ...pendingClauses,
+    ];
+    // Clause-text soft cap. Native maxLength stops new typing past 2000;
+    // messageOverLimit catches legacy values already over and is what the
+    // counter / red-border / submit-side guard react to. messageNearLimit
+    // (yellow outline + yellow counter) only fires exactly at the cap so
+    // the warning clears as soon as the user deletes a character.
+    const CLAUSE_TEXT_MAX = 2000;
+    const messageLength = (message || "").length;
+    const messageOverLimit = messageLength > CLAUSE_TEXT_MAX;
+    const messageNearLimit = !messageOverLimit && messageLength === CLAUSE_TEXT_MAX;
+    // Numeric clamp for the min-passing-percentage input. Strips non-digits
+    // (the field is an integer), and bounds within 0-100.
+    const handleMinScoreChange = (e) => {
+        const raw = e.target.value;
+        if (raw === "") { setMinScoreInput(""); return; }
+        const digits = raw.replace(/[^0-9]/g, "");
+        if (digits === "") { setMinScoreInput(""); return; }
+        let n = parseInt(digits, 10);
+        if (n > 100) n = 100;
+        if (n < 0) n = 0;
+        setMinScoreInput(String(n));
     };
 
     return (
-
-        <Modal show={show} onHide={() => {
-            setShowMinimumScoreInput(false);
-            setTempMinimumScore("");
-            setShowSamplingForm(false);
-            setSamplingWeightage("");
-            onClose();
-        }} centered size="lg" dialogClassName="add-clause-modal-dialog">
-            <style>{`.add-clause-modal-dialog { max-width: 950px; }`}</style>
-            <Modal.Header closeButton className="p-3">
-                <Modal.Title className="w-100 d-flex justify-content-between align-items-center gap-3">
-                    <span className="text-truncate me-2">Technical and Sampling Clause for - {product.name}</span>
-                    {!showMinimumScoreInput && (
-                        <button
-                            type="button"
-                            className="btn btn-outline-primary btn-sm text-nowrap flex-shrink-0 px-3 py-2"
-                            onClick={handleOpenMinimumScoreInput}
-                            style={{ minWidth: "max-content" }}
-                        >
-                            {(minimumPassingScore !== null && minimumPassingScore !== undefined)
-                                ? `Edit minimum passing percentage (${minimumPassingScore}%)`
-                                : "Set minimum passing percentage"}
-                        </button>
-                    )}
+        <Modal
+            show={show}
+            onHide={handleHide}
+            centered
+            size="lg"
+            dialogClassName="rfq-clause-modal-dialog"
+            contentClassName="rfq-clause-modal"
+        >
+            <Modal.Header closeButton className="rfq-clause-modal__header">
+                <Modal.Title className="rfq-clause-modal__title-row">
+                    <span className="rfq-clause-modal__title">
+                        Technical and Sampling Clauses
+                        <span className="rfq-clause-modal__product"> · {product.name}</span>
+                    </span>
                 </Modal.Title>
             </Modal.Header>
-            <Modal.Body className="p-2" style={{ minHeight: "200px" }}>
-                {showMinimumScoreInput ? (
-                    <div className="d-flex flex-column gap-3 p-3">
-                        <h5 className="mb-0">Set minimum passing percentage</h5>
-                        <div className="alert alert-info p-2" style={{ fontSize: "12px" }}>
-                            <strong>Minimum passing percentage:</strong> Enter a value between 0 and 100
-                            <br />
-                            <small>This percentage will be used to determine if vendors pass the technical evaluation.</small>
-                        </div>
-                        <div className="d-flex align-items-center gap-2" style={{ maxWidth: "200px" }}>
-                            <Form.Control
-                                type="number"
-                                placeholder="0-100"
-                                min="0"
-                                max="100"
-                                value={tempMinimumScore}
-                                onChange={(e) => setTempMinimumScore(e.target.value)}
-                            />
-                            <span className="fw-semibold text-muted" style={{ fontSize: "16px" }}>%</span>
-                        </div>
-                        {tempMinimumScore && !isNaN(parseInt(tempMinimumScore)) && (parseInt(tempMinimumScore) < 0 || parseInt(tempMinimumScore) > 100) && (
-                            <small className="text-danger">
-                                Minimum passing percentage must be between 0 and 100
-                            </small>
-                        )}
-                        <div className="d-flex gap-2 justify-content-end">
-                            <button
-                                type="button"
-                                className="btn btn-outline-secondary p-2"
-                                onClick={handleCancelMinimumScore}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                className="btn btn-primary p-2"
-                                onClick={handleUpdateMinimumScore}
-                                disabled={loading || !tempMinimumScore || tempMinimumScore === ""}
-                            >
-                                {loading ? "Saving..." : "Save Score"}
-                            </button>
-                        </div>
+
+            <Modal.Body className="rfq-clause-modal__body">
+                {/* Minimum passing percentage — inline */}
+                <div className="rfq-clause-minscore-row">
+                    <div className="rfq-clause-minscore-row__label">
+                        <p className="rfq-clause-minscore-row__title">Minimum passing percentage</p>
+                        <p className="rfq-clause-minscore-row__hint">Vendors must score at least this much to pass the technical evaluation.</p>
                     </div>
-                ) : (
-                <Tab.Container activeKey={active} onSelect={(k) => {
-                    if (k) {
-                        if (k === 'clause') {
-                            setActive('clause');
-                            setMessage("");
-                            setFiles([]);
-                            setWeightage("");
-                            setUpdate(false);
-                            setCurrentClause(null);
-                            setShowMinimumScoreInput(false);
-                            setShowSamplingForm(false);
-                            setSamplingWeightage("");
-                        } else if (k === 'bulkclause') {
-                            setActive('bulkclause');
-                            setUpdate(false);
-                            setCurrentClause(null);
-                            setShowMinimumScoreInput(false);
-                            setShowSamplingForm(false);
-                            setSamplingWeightage("");
-                        }
-                    }
-                }}>
-                    <Nav variant="tabs">
-                        <Nav.Item>
-                            <Nav.Link eventKey="clause">Clauses</Nav.Link>
-                        </Nav.Item>
+                    <div className="rfq-clause-minscore-row__input-wrap">
+                        <Form.Control
+                            type="number"
+                            placeholder="100"
+                            min="0"
+                            max="100"
+                            className="rfq-clause-input rfq-clause-input--narrow"
+                            value={minScoreInput}
+                            onChange={handleMinScoreChange}
+                        />
+                        <span className="rfq-clause-minscore-row__unit">%</span>
+                    </div>
+                    <button
+                        type="button"
+                        className="rfq-btn rfq-btn--primary rfq-btn--sm"
+                        onClick={handleUpdateMinimumScore}
+                        disabled={savingMinScore || minScoreInput === "" || minScoreOutOfRange || minScoreUnchanged}
+                    >
+                        {savingMinScore
+                            ? <span className="rfq-clause-spinner" />
+                            : minimumPassingScore === null || minimumPassingScore === undefined ? "Set" : "Update"}
+                    </button>
+                </div>
+                {minScoreOutOfRange && (
+                    <p className="rfq-clause-modal__error">Minimum passing percentage must be between 0 and 100</p>
+                )}
 
-                        <Nav.Item>
-                            <Nav.Link eventKey="bulkclause">Add Bulk Clauses</Nav.Link>
-                        </Nav.Item>
-                    </Nav>
-
-                    <Tab.Content>
-                        {/* Clauses Tab */}
-                        <Tab.Pane eventKey="clause">
-                            {/* Sampling Clause Section - Dedicated area with clear visual distinction */}
-                            <div className="border rounded p-3 mb-3 mt-2" style={{ backgroundColor: '#f8f9fa' }}>
-                                <div className="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <strong className="text-primary">Sampling Clause</strong>
-                                        <small className="text-muted d-block">Maximum 1 sampling clause per item</small>
-                                    </div>
-                                    {hasSamplingClause ? (
-                                        <div className="d-flex align-items-center gap-2">
-                                            <span className="badge bg-success">Added</span>
-                                            <span className="small text-muted">Marks: {existingSamplingClause.weightage || 0}</span>
-                                            <button
-                                                type="button"
-                                                className="btn btn-sm btn-outline-danger p-2"
-                                                onClick={() => handleDeleteClause(existingSamplingClause.clause_id)}
-                                                disabled={loading}
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                    ) : showSamplingForm ? (
-                                        <div className="d-flex flex-column align-items-center gap-2">
-                                            <Form.Control
-                                                type="number"
-                                                placeholder="Marks"
-                                                size="sm"
-                                                min="0"
-                                                value={samplingWeightage}
-                                                onChange={(e) => setSamplingWeightage(e.target.value)}
-                                            />
-                                            <div className="d-flex gap-2">
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-primary p-2"
-                                                    onClick={handleAddSamplingClause}
-                                                    disabled={loading || !samplingWeightage}
-                                                >
-                                                    {loading ? '...' : 'Add'}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-outline-secondary p-2"
-                                                    onClick={() => {
-                                                        setShowSamplingForm(false);
-                                                        setSamplingWeightage("");
-                                                    }}
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            className="btn btn-sm btn-outline-dark p-2"
-                                            onClick={() => setShowSamplingForm(true)}
-                                            disabled={loading}
-                                        >
-                                            + Add Sampling Clause
-                                        </button>
-                                    )}
-                                </div>
+                {/* Sampling Clause */}
+                <div className="rfq-sampling-card">
+                    <div className="rfq-sampling-card__head">
+                        <div>
+                            <p className="rfq-sampling-card__title">Sampling Clause</p>
+                            <p className="rfq-sampling-card__hint">Maximum 1 sampling clause per item</p>
+                        </div>
+                        {hasSamplingClause ? (
+                            <div className="rfq-sampling-card__status">
+                                <span className="rfq-tag rfq-tag--success">Added</span>
+                                <span className="rfq-sampling-card__marks">Marks: {existingSamplingClause.weightage || 0}</span>
+                                <button
+                                    type="button"
+                                    className="rfq-clause-pill-btn rfq-clause-pill-btn--danger"
+                                    onClick={() => handleDeleteClause(existingSamplingClause.clause_id)}
+                                    disabled={loading}
+                                >
+                                    Remove
+                                </button>
                             </div>
-
-                            {/* Regular Clause Form */}
-                            <div className="d-flex flex-column mb-3">
-                                <Form.Control
-                                    as="textarea"
-                                    placeholder="Message"
-                                    rows={2}
-                                    className="me-2 mb-2"
-                                    value={message}
-                                    onChange={(e) => setMessage(e.target.value)}
-                                />
+                        ) : showSamplingForm ? (
+                            <div className="rfq-sampling-card__form">
                                 <Form.Control
                                     type="number"
                                     placeholder="Marks"
-                                    className="me-2"
                                     min="0"
-                                    value={weightage}
-                                    onChange={(e) => setWeightage(e.target.value)}
+                                    className="rfq-clause-input rfq-clause-input--narrow"
+                                    value={samplingWeightage}
+                                    onChange={(e) => setSamplingWeightage(e.target.value)}
                                 />
-                                <div className="d-flex justify-content-between align-items-start mt-2">
-                                    <div role="button" onClick={handleAttachFileClick} className="text-sm" style={{ maxWidth: "80%" }}>
-                                        <FontAwesomeIcon icon={faPaperclip} className="opacity-75 me-2" />
-                                        Attach File
-                                        {fileLoading && (
-                                            <div className="spinner-border spinner-border-sm text-primary ms-2" role="status">
-                                                <span className="visually-hidden">Loading...</span>
-                                            </div>
-                                        )}
-                                        {files.length > 0 && (
-                                            <FileLink
-                                                Files={files}
-                                                ColumnClass="col-md-6"
-                                                Style={{ fontSize: "12px" }}
-                                                showDownload={false}
-                                                RemoveFile={handleRemoveFile}
-                                            />
-                                        )}
-                                    </div>
-
-                                    {update ? (
-                                        <button
-                                            type="button"
-                                            className="btn btn-warning p-1"
-                                            style={{ width: "100px" }}
-                                            onClick={handleUpdateClause}
-                                            disabled={!message || message.length === 0 || !weightage || weightage === ""}
-                                        >
-                                            Update
-                                        </button>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            className="btn btn-primary p-1"
-                                            style={{ width: "100px" }}
-                                            onClick={handleAddClause}
-                                            disabled={!message || message.length === 0 || !weightage || weightage === ""}
-                                        >
-                                            Add
-                                        </button>
-                                    )}
-                                </div>
+                                <button
+                                    type="button"
+                                    className="rfq-clause-pill-btn rfq-clause-pill-btn--primary"
+                                    onClick={handleAddSamplingClause}
+                                    disabled={loading || !samplingWeightage}
+                                >
+                                    {loading ? '…' : 'Add'}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="rfq-clause-pill-btn"
+                                    onClick={() => { setShowSamplingForm(false); setSamplingWeightage(""); }}
+                                >
+                                    Cancel
+                                </button>
                             </div>
-
-                            {/* Hidden file input field triggered by the "Attach file" button */}
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept=".pdf"
-                                style={{ display: 'none' }}
-                                onChange={(e) => uploadToServer(e)}
-                            />
-
-                            {/* Show Previous Clauses (excluding sampling clauses which are shown above) */}
-                            <strong className="text-primary">List of Clauses</strong>
-                            {loading && <FullLoader />}
-                            <div className="mt-2">
-                                {!loading && previousClauses && previousClauses.filter(c => c.clause_type !== 'sampling').length > 0 && (
-                                    <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                                        {previousClauses.filter(c => c.clause_type !== 'sampling').map((clause, index) => (
-                                            <li key={index} className="list-group-item ">
-                                                <p className="text-sm mb-1">
-                                                    <strong>Message:</strong> {clause.clause_text}
-                                                </p>
-                                                <p className="text-sm mb-1">
-                                                    <strong>Marks:</strong> {clause.weightage || 0}
-                                                </p>
-                                                {clause.files.length > 0 && (
-                                                    <div className="d-flex gap-2 align-items-start text-sm mb-1">
-                                                        <strong className="text-nowrap my-1">Files :</strong>
-                                                        <div style={{ width: "90%" }}>
-                                                            <FileLink
-                                                                Files={clause.files}
-                                                                ColumnClass="col-md-5"
-                                                                Style={{ fontSize: "12px" }}
-                                                                showDownload={true}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                <div className="d-flex justify-content-end">
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-warning p-1 me-2"
-                                                        style={{ width: "110px", fontSize: "12px" }}
-                                                        onClick={() => openUpdateField(clause, index)}
-                                                    >
-                                                        <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                                        Update
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-danger p-1"
-                                                        style={{ width: "110px", fontSize: "12px" }}
-                                                        onClick={() => handleDeleteClause(clause.clause_id)}
-                                                    >
-                                                        <FontAwesomeIcon icon={faTrash} className="me-2" />
-                                                        Remove
-                                                    </button>
-                                                </div>
-                                            </li>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </Tab.Pane>
-
-                        {/* Add Bulk Clauses Tab */}
-                        <Tab.Pane eventKey="bulkclause">                            
-
-                            <div className="col-md-10 mx-auto mt-2">
-                                    <div className="d-flex gap-1 mb-1">
-                                        <h2 className="title fs-6 mb-0">Step 1: </h2>
-                                        <div
-                                            title="Upload PDF files with your technical clauses and information"
-                                            className="d-flex justify-content-between align-items-center ">
-                                            <p className="fw-semibold mb-0 me-2" style={{ color: "var(--primary-color)" }}>Upload a PDF file with your technical clauses and other information</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="col-md-10 mx-auto">
-                                    <h2 className="title fs-6 mb-2">Step 2: Upload Your File.</h2>
-                                    <div
-                                        className="file-drop-area text-center rounded py-1"
-                                        style={{
-                                            border: '2px dashed grey',
-                                            cursor: 'pointer',
-                                            backgroundColor: '#fff',
-                                            color: 'green',
-                                        }}
-                                        onClick={() => document.getElementById('fileInput').click()}
-                                    >
-                                        <FontAwesomeIcon icon={fileName ? faFilePdf : faCloudArrowUp} style={{ fontSize: "30px" }} />
-                                        <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your PDF file here'}</p>
-                                        
-                                        {/* Changes by Agnij 2025-05-14 [Added document guidance] */}
-                                        {!fileName && (
-                                            <div className="small text-muted mt-1">
-                                                <p className="mb-1">Please ensure your document contains:</p>
-                                                <ul className="text-start small ps-4 mb-0">
-                                                    <li>Specifications related to <strong>{product.name || 'selected product'}</strong></li>
-                                                    <li>Technical details, standards, and requirements</li>
-                                                    <li>Clear product identification</li>
-                                                </ul>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Hidden File Input */}
-                                    <input
-                                        id="fileInput"
-                                        type="file"
-                                        accept=".pdf"
-                                        style={{ display: 'none' }}
-                                        onChange={handleMagicFileUpload}
-                                    />
-                                </div>
-                                
-                                {/* Show Errors if any */}
-                                {clauseErrors && clauseErrors.length > 0 && (
-                                    <div className="col-md-10 mx-auto mt-3">
-                                        <div className="alert alert-warning d-flex align-items-center border-0" 
-                                             style={{ background: "rgba(255, 248, 230, 0.6)", boxShadow: "0 2px 6px rgba(0,0,0,0.05)" }} role="alert">
-                                            <FontAwesomeIcon icon={faFilePdf} className="me-3" style={{ fontSize: '1.8rem', color: '#ffc107' }} />
-                                            <div>
-                                                <h6 className="fw-bold mb-1" style={{ color: '#664d03' }}>
-                                                    Document doesn't match the selected product
-                                                </h6>
-                                                <p className="mb-0" style={{ color: '#664d03' }}>
-                                                    The AI couldn't find relevant information about <b>{product.name}</b> in this document.
-                                                    <br/>
-                                                    <span className="mt-2 d-block">
-                                                        Please upload a document that specifically contains technical details for <b>{product.name}</b>.
-                                                    </span>
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Show extracted clauses after AI processing */}
-                                {extractedClauses && extractedClauses.length > 0 && (
-                                    <div className="border rounded p-3 mb-3">
-                                        <h6 className="text-primary mb-3">Extracted Clauses <span className="text-muted">({extractedClauses.length})</span></h6>
-                                        <div className="clause-list" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                            {extractedClauses.map((clause, index) => (
-                                                <div key={index} className="border-bottom pb-2 mb-2">
-                                                    <p className="mb-1">{clause}</p>
-                                                    <div className="d-flex justify-content-end">
-                                                        <Button 
-                                                            variant="outline-primary" 
-                                                            size="sm"
-                                                            onClick={() => addSingleExactedClause(clause)}
-                                                        >
-                                                            <i className="far fa-plus-square"></i> Add
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                        </Tab.Pane>
-
-                    </Tab.Content>
-                </Tab.Container>
-                )}
-            </Modal.Body>
-
-            {!showMinimumScoreInput && (
-            <Modal.Footer>
-                <div className="d-flex gap-2 ms-auto">
-                    {active === 'clause' ? (
+                        ) : (
                             <button
                                 type="button"
-                                className="btn btn-primary p-2"
-                                style={{ width: "120px" }}
-                                onClick={() => {
-                                    if (message.trim() !== "" || files.length > 0) {
-                                        if (update) {
-                                            handleUpdateClause();
-                                        } else {
-                                            handleAddClause();
-                                        }
-                                    } else {
-                                        toast.info("No changes to save.")
-                                    }
-                                }}
+                                className="rfq-clause-pill-btn rfq-clause-pill-btn--primary"
+                                onClick={() => setShowSamplingForm(true)}
                                 disabled={loading}
                             >
-                                {loading && active === 'clause' ? (
-                                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                ) : update ? 'Update' : 'Save'}
+                                + Add Sampling Clause
                             </button>
-                        ) : (
-                            <>
-                                {/* Show Upload button if there's a file to upload and no extracted clauses yet */}
-                                {!extractedClauses.length && (
-                                    <button
-                                        type="button"
-                                        className="btn btn-primary p-2"
-                                        style={{ width: "120px" }}
-                                        onClick={() => uploadClauseFile()}
-                                        disabled={uploadLoading || !clauseFile}
-                                    >
-                                        {uploadLoading ? (
-                                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                        ) : (
-                                            'Upload'
-                                        )}
-                                    </button>
-                                )}
-
-                                {/* Show buttons to add all clauses or clear results if we have extracted clauses */}
-                                {extractedClauses.length > 0 && (
-                                    <>
-                                        <button
-                                            type="button"
-                                            className="btn btn-success p-2"
-                                            style={{ width: "150px" }}
-                                            onClick={() => {
-                                                // Add all extracted clauses one by one
-                                                const addAllClauses = async () => {
-                                                    setLoading(true);
-                                                    try {
-                                                        for (const clause of extractedClauses) {
-                                                            await addClause({
-                                                                rfq_id: rfq_id,
-                                                                rfq_product_id: product.id,
-                                                                clause_text: clause,
-                                                                file_url: []
-                                                            });
-                                                        }
-                                                        toast.success(`Added ${extractedClauses.length} clauses successfully`);
-                                                        setExtractedClauses([]);
-                                                        getPreviousClauses();
-                                                    } catch (error) {
-                                                        toast.error("Error adding clauses: " + error.message);
-                                                    } finally {
-                                                        setLoading(false);
-                                                    }
-                                                };
-                                                addAllClauses();
-                                            }}
-                                            disabled={loading}
-                                        >
-                                            {loading ? (
-                                                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                            ) : (
-                                                'Add All Clauses'
-                                            )}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-warning p-2"
-                                            onClick={() => {
-                                                setExtractedClauses([]);
-                                                setClauseErrors([]);
-                                                setFileName('');
-                                                setClauseFile(null);
-                                            }}
-                                        >
-                                            Clear Results
-                                        </button>
-                                    </>
-                                )}
-                            </>
                         )}
-                    <button
-                        type="button"
-                        className="btn btn-secondary p-2"
-                        onClick={onClose}
-                    >
-                        Close
-                    </button>
+                    </div>
                 </div>
+
+                {/* Add / Update clause form (accordion) */}
+                <div className={`rfq-clause-form rfq-clause-form--accordion${(update || message.length > 0) ? ' rfq-clause-form--open' : ''}`}>
+                    <div className="rfq-clause-form__header">
+                        <div className="rfq-clause-form__marks">
+                            <label className="rfq-clause-label">Marks <span className="rfq-required">*</span></label>
+                            <Form.Control
+                                type="number"
+                                placeholder="e.g. 10"
+                                className="rfq-clause-input"
+                                min="0"
+                                value={weightage}
+                                onChange={(e) => setWeightage(e.target.value)}
+                            />
+                        </div>
+                        <div className="rfq-clause-form__attach">
+                            <label className="rfq-clause-label">&nbsp;</label>
+                            <button
+                                type="button"
+                                onClick={handleAttachFileClick}
+                                className="rfq-clause-attach-btn"
+                            >
+                                <FontAwesomeIcon icon={faPaperclip} />
+                                <span>Attach file</span>
+                                {fileLoading && <span className="rfq-clause-attach-btn__spinner" />}
+                            </button>
+                        </div>
+                        <div className="rfq-clause-form__cta-wrap">
+                            <label className="rfq-clause-label">&nbsp;</label>
+                            {update ? (
+                                <button
+                                    type="button"
+                                    className="rfq-btn rfq-btn--primary rfq-clause-form__cta"
+                                    onClick={handleUpdateClause}
+                                    disabled={!message || message.length === 0 || !weightage || weightage === ""}
+                                >
+                                    Update
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="rfq-btn rfq-btn--primary rfq-clause-form__cta"
+                                    onClick={handleAddClause}
+                                    disabled={!message || message.length === 0 || !weightage || weightage === ""}
+                                >
+                                    Add Clause
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    <div className="rfq-clause-form__accordion-body">
+                        <div className="rfq-clause-form__field">
+                            <label className="rfq-clause-label">{update ? "Edit clause" : "Add a clause"} <span className="rfq-required">*</span></label>
+                            <Form.Control
+                                as="textarea"
+                                rows={3}
+                                placeholder="Full clause text — what the vendor must comply with"
+                                className={`rfq-clause-input rfq-clause-input--textarea${messageOverLimit ? " rfq-clause-input--invalid" : messageNearLimit ? " rfq-clause-input--warn" : ""}`}
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                maxLength={CLAUSE_TEXT_MAX}
+                            />
+                            <div
+                                className={`rfq-char-count${messageOverLimit ? " rfq-char-count--over" : messageNearLimit ? " rfq-char-count--warn" : ""}`}
+                                aria-live="polite"
+                            >
+                                {messageLength} / {CLAUSE_TEXT_MAX}
+                            </div>
+                        </div>
+                        {files.length > 0 && (
+                            <div className="rfq-clause-attach-list">
+                                <FileLink
+                                    Files={files}
+                                    ColumnClass="col-md-6"
+                                    Style={{ fontSize: "12px" }}
+                                    showDownload={false}
+                                    RemoveFile={handleRemoveFile}
+                                />
+                            </div>
+                        )}
+                    </div>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        style={{ display: 'none' }}
+                        onChange={(e) => uploadToServer(e)}
+                    />
+                </div>
+
+                {/* Existing clauses list */}
+                <div className="rfq-clause-list-block">
+                    <p className="rfq-clause-list-block__title">List of Clauses {visibleClauses.length > 0 && <span className="rfq-clause-list-block__count">({visibleClauses.length})</span>}</p>
+                    {loading && <FullLoader />}
+                    {!loading && visibleClauses.length === 0 && (
+                        <p className="rfq-clause-list-block__empty">No clauses added yet. Add one above.</p>
+                    )}
+                    {!loading && visibleClauses.length > 0 && (
+                        <div className="rfq-clause-list">
+                            {visibleClauses.map((clause, index) => (
+                                <div key={clause._localId || clause.clause_id || index} className="rfq-clause-card">
+                                    <div className="rfq-clause-card__text-cell">
+                                        <ClauseText text={clause.clause_text} />
+                                        {clause.files && clause.files.length > 0 && (
+                                            <span className="rfq-clause-card__files">
+                                                <FileLink
+                                                    Files={clause.files}
+                                                    ColumnClass="col-md-5"
+                                                    Style={{ fontSize: "11px" }}
+                                                    showDownload={true}
+                                                />
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="rfq-clause-card__marks-cell">
+                                        <span className="rfq-tag rfq-tag--primary">Marks: {clause.weightage || 0}</span>
+                                        {clause.isPending && (
+                                            <span className="rfq-tag" style={{ marginLeft: 6, fontSize: 10, background: '#fef3c7', color: '#92400e' }}>Unsaved</span>
+                                        )}
+                                    </div>
+                                    <div className="rfq-clause-card__actions">
+                                        <button
+                                            type="button"
+                                            className="rfq-clause-card__icon-btn"
+                                            onClick={() => openUpdateField(clause)}
+                                            title="Edit clause"
+                                            aria-label="Edit clause"
+                                        >
+                                            <FontAwesomeIcon icon={faEdit} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="rfq-clause-card__icon-btn rfq-clause-card__icon-btn--danger"
+                                            onClick={() => clause.isPending
+                                                ? handleDeletePendingClause(clause._localId)
+                                                : handleDeleteClause(clause.clause_id)
+                                            }
+                                            title="Remove clause"
+                                            aria-label="Remove clause"
+                                        >
+                                            <FontAwesomeIcon icon={faTrash} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </Modal.Body>
+
+            <Modal.Footer className="rfq-clause-modal__footer">
+                <button type="button" className="rfq-btn rfq-btn--ghost" onClick={handleHide}>
+                    Close
+                </button>
+                <button
+                    type="button"
+                    className="rfq-btn rfq-btn--primary"
+                    onClick={handleSaveAll}
+                    disabled={loading}
+                >
+                    {loading
+                        ? <span className="rfq-clause-spinner" />
+                        : update ? 'Update' : 'Save'}
+                </button>
             </Modal.Footer>
-            )}
-        </Modal >
-    
+        </Modal>
     );
 }
 

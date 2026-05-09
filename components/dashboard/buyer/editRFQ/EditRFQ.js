@@ -2402,6 +2402,7 @@ const EditRFQ = () => {
                         </div>
                       )}
 
+
                       {
                         !!rfqFormDataFromStore.reverse_auction && parseInt(rfqFormDataFromStore.reverse_auction) && (
                           <>
@@ -2561,9 +2562,9 @@ const EditRFQ = () => {
                         <div className="row g-2">
                           {rfqData.term_and_condition_files.map((file, idx) => (
                             <div key={`file-${idx}`} className="col-md-6 col-lg-4">
-                              <a 
-                                href={file} 
-                                target="_blank" 
+                              <a
+                                href={file}
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 className="d-flex align-items-center border rounded p-2 text-decoration-none bg-light"
                               >
