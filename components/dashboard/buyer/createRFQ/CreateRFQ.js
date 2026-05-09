@@ -4199,6 +4199,11 @@ useEffect(() => {
                           All changes have been saved. You can review or edit your changes!
                         </div>
                       )}
+                      {!isEditMode && !isViewOnlyDraft && !(selectedHotelIds.length > 0 && !hasPermission) && (
+                        <div className="rfq-submit-info-banner" role="status">
+                          Clicking “Submit” will send this {getEntityLabel(rfqFormDataFromStore?.is_tender)} to relevant vendors for the selected products.
+                        </div>
+                      )}
                       <div className="rfq-review">
                         <div className="rfq-review-group">
                           <div className="rfq-review-group__head">
@@ -4339,16 +4344,10 @@ useEffect(() => {
                           })()}
                         </div>
                       </div>
-                      {!isViewOnlyDraft && (
-                        selectedHotelIds.length > 0 && !hasPermission ? (
-                          <p className="rfq-readonly-msg">
-                            This is a Read-Only {rfqFormDataFromStore?.is_tender === 1 ? "Tender" : "RFQ"}. You do not have permission to make changes.
-                          </p>
-                        ) : (
-                          <p className="rfq-muted">
-                            Submitting will send this {getEntityLabel(rfqFormDataFromStore?.is_tender)} to all selected vendors for the relevant products.
-                          </p>
-                        )
+                      {!isViewOnlyDraft && selectedHotelIds.length > 0 && !hasPermission && (
+                        <p className="rfq-readonly-msg">
+                          This is a Read-Only {rfqFormDataFromStore?.is_tender === 1 ? "Tender" : "RFQ"}. You do not have permission to make changes.
+                        </p>
                       )}
                     </section>
                   )}
