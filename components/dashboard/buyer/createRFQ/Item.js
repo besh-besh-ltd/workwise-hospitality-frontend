@@ -796,7 +796,7 @@ const Item = ({
             {(validationPills.isError || hasVendorError || validationPills.missing.length > 0) && (
               <div className="rfq-products-row__badges">
                 {(hasVendorError || validationPills.isError) && (
-                  <span className="rfq-tag rfq-tag--red">Select at least one vendor</span>
+                  <span className="rfq-tag rfq-tag--red">No vendor for this Product</span>
                 )}
                 {validationPills.missing.includes("Quantity") && (
                   <span className="rfq-tag rfq-tag--red">Quantity required</span>

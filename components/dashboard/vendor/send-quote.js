@@ -3009,6 +3009,9 @@ return { deletedTerms, createdTerms, updatedTerms };
 
                           {/* Sticky Footer: Summary + Save Button */}
                           <div style={{ flexShrink: 0, borderTop: "1px solid #dee2e6" }}>
+                            <div style={{ padding: "8px 16px", background: "#eff6ff", borderBottom: "1px solid #bfdbfe", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 500, textAlign: "center" }}>
+                             Charges will be saved when you submit the quote.
+                            </div>
                             <div className="p-3" style={{ background: "#f8f9fa" }}>
                               <div
                                 className="d-flex justify-content-between align-items-center"
