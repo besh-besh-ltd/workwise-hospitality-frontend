@@ -1655,6 +1655,26 @@ useEffect(() => {
     const liveUpdatableData = updatableDataRef.current ?? updatableData;
     const cleanedUpdatableData = cleanUpdatableData(liveUpdatableData);
 
+    // Edit mode posts to /rfq/update which requires a complete RFQ — gate on
+    // the same required-field check the Formik submit path uses, since the
+    // Save Changes button is type="button" and bypasses Yup. Drafts (non-edit)
+    // skip this so partial saves remain legal.
+    if (isEditMode) {
+      const result = validateRFQFields({
+        company_name: rfqFormDataRef.current?.company_name || ''
+      });
+      if (!result?.ok) {
+        if (result?.step) {
+          setCurrentStep(result.step);
+          setTriedNextOnStep(result.step);
+          setSubmitInvalidField(result.field || null);
+          setMaxStepReached((m) => Math.max(m, result.step));
+        }
+        saveDraftAbortRef.current = null;
+        return;
+      }
+    }
+
     // In edit mode the backend expects a full snapshot ({ rfq_id, snapshot }),
     // not the saveDraft delta — so divert to a different payload shape.
     const payload = isEditMode
