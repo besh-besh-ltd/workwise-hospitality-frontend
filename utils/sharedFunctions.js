@@ -150,14 +150,15 @@ export const extractfileName = (file_url) => {
     return file_url?.split('/').pop();
 }
 
-export const handleFileUpload = async (e, token) => {
+export const handleFileUpload = async (e, token, options = {}) => {
+    const { allowAllTypes = false } = options;
     const allowedExtensions = ["pdf", "docx", "doc", "xlsx", "xls", "csv", "png", "jpg", "jpeg"];
-  
+
     const files = e.target.files;
     const file = files[0];
     const fileExtension = file.name.split(".").pop().toLowerCase();
-  
-    if (allowedExtensions.includes(fileExtension)) {
+
+    if (allowAllTypes || allowedExtensions.includes(fileExtension)) {
       try {
         const { handleUploadFile } = await import("@/services/rfq");
         const res = await handleUploadFile(file, token);

@@ -56,6 +56,8 @@ const CommonFormInput = ({
   required = false,
   disabled = false,
   validation = "", // for custom validation like float_number
+  maxLength, // optional soft cap; renders inline counter and marks input invalid when exceeded
+  showCharCount = false, // when true (and maxLength is set), show "N / max" counter below the field
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [countryCodes, setCountryCodes] = useState([]);
@@ -113,11 +115,18 @@ const CommonFormInput = ({
     const [value, setValue] = useState('');
 
     const handelOnChahnge = (e) => {
-      setValue(e.target.value); 
+      setValue(e.target.value);
       onChange && onChange(e);
     }
+    const currentValue = (value || values || "");
+    const currentLength = String(currentValue).length;
+    const overLimit = !!maxLength && currentLength > maxLength;
+    // Warning shows only once the user is exactly at the cap; deleting
+    // any character drops the input back to its default style. Avoids the
+    // previous "stuck orange after delete" feel of an 80% pre-warning.
+    const nearLimit = !!maxLength && !overLimit && currentLength === maxLength;
     return (
-      <div className="form-group mb-3">
+      <div className="form-group mb-1">
         <label htmlFor={name} className="form-label">
           {label} {required && <span className="text-danger">*</span>}
         </label>
@@ -126,15 +135,24 @@ const CommonFormInput = ({
           disabled={disabled}
           name={name}
           className={`placeholder-muted form-control ${
-            isInvalid ? "is-invalid" : ""
+            isInvalid || overLimit ? "is-invalid" : nearLimit ? "is-warning" : ""
           } ${className}`}
           placeholder={placeholder || `Enter ${label}`}
           // defaultValue={defaultValue}
           value={value || values}
           onChange={handelOnChahnge}
           rows={4}
+          maxLength={maxLength}
           // style={style ?? {}}
         />
+        {showCharCount && maxLength && (
+          <div
+            className={`rfq-char-count ${overLimit ? "rfq-char-count--over" : nearLimit ? "rfq-char-count--warn" : ""}`}
+            aria-live="polite"
+          >
+            {currentLength} / {maxLength}
+          </div>
+        )}
         {isInvalid && <div className="invalid-feedback">{errors?.[name]}</div>}
       </div>
     );
@@ -187,6 +205,10 @@ const CommonFormInput = ({
       onChange && onChange(e);
     };
 
+    const currentValue = (value || values || "");
+    const currentLength = String(currentValue).length;
+    const overLimit = !!maxLength && currentLength > maxLength;
+    const nearLimit = !!maxLength && !overLimit && currentLength === maxLength;
     return (
       <div className="form-group mb-3">
         <label htmlFor={name} className="form-label">
@@ -197,14 +219,23 @@ const CommonFormInput = ({
           disabled={disabled}
           name={name}
           className={`placeholder-muted form-control ${
-            isInvalid ? "is-invalid" : ""
+            isInvalid || overLimit ? "is-invalid" : nearLimit ? "is-warning" : ""
           } ${className}`}
           placeholder={placeholder || `Enter ${label}`}
           // defaultValue={defaultValue}
           value={value || values}
           onChange={handelOnChange}
+          maxLength={maxLength}
           // style={style ?? {}}
         />
+        {showCharCount && maxLength && (
+          <div
+            className={`rfq-char-count ${overLimit ? "rfq-char-count--over" : nearLimit ? "rfq-char-count--warn" : ""}`}
+            aria-live="polite"
+          >
+            {currentLength} / {maxLength}
+          </div>
+        )}
         {isInvalid && <div className="invalid-feedback">{errors?.[name]}</div>}
       </div>
     );

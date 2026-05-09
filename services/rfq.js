@@ -191,10 +191,10 @@ export const getProcessingRFQs = (payload) => {
   });
 };
 
-export const saveDraft = (values) => {
+export const saveDraft = (values, signal) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/save-draft`, values);
+      let response = await axiosInstance.post(`/rfq/save-draft`, values, signal ? { signal } : undefined);
       resolve(response);
     } catch (error) {
       reject({ message: error });
