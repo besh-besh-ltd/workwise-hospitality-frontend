@@ -1000,7 +1000,12 @@ const CreateRFQ = () => {
     } else if (name === 'vendor_clarification_date' && value) {
         // Vendor Clarification Date Validation. In edit mode the cross-field
         // gap rules are relaxed in favor of the "≥ 60 min from now" floor; in
-        // create mode the original chronology rules apply.
+        // create mode the original chronology rules apply. Once ≥1 vendor has
+        // responded the field is locked and validation is skipped entirely —
+        // the stored date is typically already in the past at that point.
+        if (isEditMode && _editMeta.has_received_quotes) {
+          return '';
+        }
         const clarificationDate = new Date(value);
         if (isEditMode) {
           if ((clarificationDate - new Date()) < 60 * 60 * 1000) {
@@ -1078,8 +1083,9 @@ const CreateRFQ = () => {
     }
 
     // Vendor Clarification Date validation — "≥ publish + 5 min" in create
-    // flow; "≥ 60 min from now" in edit mode.
-    if (name === "vendor_clarification_date" && value) {
+    // flow; "≥ 60 min from now" in edit mode. Skipped entirely once a vendor
+    // has responded (field is locked at that point).
+    if (name === "vendor_clarification_date" && value && !(isEditMode && _editMeta.has_received_quotes)) {
       const clarificationDate = new Date(value);
       if (isEditMode) {
         if ((clarificationDate - new Date()) < 60 * 60 * 1000) {
@@ -1290,17 +1296,23 @@ useEffect(() => {
 
     // Vendor Clarification End Date — required. "≥ publish + 5 min" in create
     // flow; "≥ 60 min from now" in edit mode (the cross-field gap is relaxed
-    // so saved-RFQ timelines can be compressed).
-    if (!formDataCopy.vendor_clarification_date) {
-      return fail(3, "Please select Vendor Clarification End Date", "vendor_clarification_date");
-    }
-    const clarificationDate = new Date(formDataCopy.vendor_clarification_date);
-    if (isEditMode) {
-      if ((clarificationDate - new Date()) < 60 * 60 * 1000) {
-        return fail(3, "Vendor Clarification End Date must be at least 60 minutes from now.", "vendor_clarification_date");
+    // so saved-RFQ timelines can be compressed). Once ≥1 vendor has responded
+    // the field is locked and the stored date is usually already in the past,
+    // so we skip these checks entirely to avoid blocking bid_end_date updates.
+    const skipClarificationValidation = isEditMode && _editMeta.has_received_quotes;
+    let clarificationDate = null;
+    if (!skipClarificationValidation) {
+      if (!formDataCopy.vendor_clarification_date) {
+        return fail(3, "Please select Vendor Clarification End Date", "vendor_clarification_date");
       }
-    } else if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
-      return fail(3, "Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.", "vendor_clarification_date");
+      clarificationDate = new Date(formDataCopy.vendor_clarification_date);
+      if (isEditMode) {
+        if ((clarificationDate - new Date()) < 60 * 60 * 1000) {
+          return fail(3, "Vendor Clarification End Date must be at least 60 minutes from now.", "vendor_clarification_date");
+        }
+      } else if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
+        return fail(3, "Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.", "vendor_clarification_date");
+      }
     }
 
     // Quote Submission End Date — required. "≥ clarification + 24 h" in create
