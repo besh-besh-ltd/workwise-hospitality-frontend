@@ -311,7 +311,7 @@ export const buildProductComparisonModel = ({
         ),
       isLowest: !!quote?.is_lowest,
       delivery: pick(details.delivery_period, quote?.delivery_period, ""),
-      comment: pick(details.comment, quote?.comment, quote?.global_comment, ""),
+      comment: details.comment || quote?.comment || quote?.global_comment || "",
       documentFiles: pick(details.document_files, quote?.document_files, []),
       termsFiles: pick(details.global_document_files, quote?.global_document_files, []),
       paymentTermsText: getPaymentTermsText({ ...quote, ...details }),
@@ -424,11 +424,28 @@ export const buildCategoryComparisonModel = (
   const vendorsWithTotals = vendors.map((vendor) => {
     const { totals, deliveryDays } = buildVendorTotals(products, vendor, normalizeFilter);
 
+    // global_comment is quote-level (one per vendor per RFQ); pull it off any
+    // of this vendor's submitted quotes so the Category "Comments" footer row
+    // can render it without depending on all_vendors carrying the field.
+    let globalComment = "";
+    let lineComment = "";
+    for (const product of products) {
+      const quote = (product.quotations || []).find(
+        (q) => String(q.created_by) === String(vendor.id)
+      );
+      if (!quote) continue;
+      if (!globalComment && quote.global_comment) globalComment = quote.global_comment;
+      if (!lineComment && quote.comment) lineComment = quote.comment;
+      if (globalComment) break;
+    }
+
     return {
       ...vendor,
       ...totals,
       deliveryDays,
       displayName: vendor.organization_name || vendor.name || vendor.email || "Unknown Vendor",
+      global_comment: globalComment,
+      comment: lineComment,
     };
   });
 
