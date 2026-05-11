@@ -531,6 +531,7 @@ const CreateRFQ = () => {
     if (isViewOnlyDraft || isReadOnly) return true;
     if (isRestrictedEdit && field !== 'bid_end_date') return true;
     if (isPostPublish && (field === 'tender_publish_date' || field === 'tender_fees')) return true;
+    if (isEditMode && field === 'tender_publish_date') return true;
     return false;
   };
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -997,21 +998,29 @@ const CreateRFQ = () => {
             error = 'Reverse Auction End Time must be at least 60 minutes after the Start Time.';
         }}
     } else if (name === 'vendor_clarification_date' && value) {
-        // Vendor Clarification Date Validation
+        // Vendor Clarification Date Validation. In edit mode the cross-field
+        // gap rules are relaxed in favor of the "≥ 60 min from now" floor; in
+        // create mode the original chronology rules apply.
         const clarificationDate = new Date(value);
-        const publishDate = currentFormData.tender_publish_date
-          ? new Date(currentFormData.tender_publish_date) : null;
+        if (isEditMode) {
+          if ((clarificationDate - new Date()) < 60 * 60 * 1000) {
+            error = 'Vendor Clarification End Date must be at least 60 minutes from now.';
+          }
+        } else {
+          const publishDate = currentFormData.tender_publish_date
+            ? new Date(currentFormData.tender_publish_date) : null;
 
-        // Rule 1: Must be at least 5 minutes after tender publish date
-        if (publishDate && (clarificationDate - publishDate) < 5 * 60 * 1000) {
-          error = 'Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.';
-        }
+          // Rule 1: Must be at least 5 minutes after tender publish date
+          if (publishDate && (clarificationDate - publishDate) < 5 * 60 * 1000) {
+            error = 'Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.';
+          }
 
-        // Rule 2: Quote Submission End Date must be at least 24 hours after Clarification
-        if (!error && bidEndDate) {
-          const diffInHours = (bidEndDate - clarificationDate) / (1000 * 60 * 60);
-          if (diffInHours < 24) {
-            error = 'Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.';
+          // Rule 2: Quote Submission End Date must be at least 24 hours after Clarification
+          if (!error && bidEndDate) {
+            const diffInHours = (bidEndDate - clarificationDate) / (1000 * 60 * 60);
+            if (diffInHours < 24) {
+              error = 'Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.';
+            }
           }
         }
     } else if (name === 'reverse_auction' && !value) {
@@ -1048,10 +1057,17 @@ const CreateRFQ = () => {
     }
 
     // Quote Submission End Date validation — must be at least 24h after the
-    // Vendor Clarification End Date.
+    // Vendor Clarification End Date (create flow). In edit mode this gap rule
+    // is replaced by a "≥ 120 min from now" floor so buyers can compress the
+    // timeline when fixing dates on a saved RFQ.
     if (name === "bid_end_date" && value) {
       const bidEndDate = new Date(value);
-      if (rfqFormDataFromStore.vendor_clarification_date) {
+      if (isEditMode) {
+        if ((bidEndDate - new Date()) < 120 * 60 * 1000) {
+          toast.error("Quote Submission End Date must be at least 120 minutes from now.");
+          return;
+        }
+      } else if (rfqFormDataFromStore.vendor_clarification_date) {
         const clarificationDate = new Date(rfqFormDataFromStore.vendor_clarification_date);
         const diffInHours = (bidEndDate - clarificationDate) / (1000 * 60 * 60);
         if (diffInHours < 24) {
@@ -1061,12 +1077,16 @@ const CreateRFQ = () => {
       }
     }
 
-    // Vendor Clarification Date validation
+    // Vendor Clarification Date validation — "≥ publish + 5 min" in create
+    // flow; "≥ 60 min from now" in edit mode.
     if (name === "vendor_clarification_date" && value) {
       const clarificationDate = new Date(value);
-
-      // Rule 1: Must be at least 5 minutes after tender publish date
-      if (rfqFormDataFromStore.tender_publish_date) {
+      if (isEditMode) {
+        if ((clarificationDate - new Date()) < 60 * 60 * 1000) {
+          toast.error("Vendor Clarification End Date must be at least 60 minutes from now.");
+          return;
+        }
+      } else if (rfqFormDataFromStore.tender_publish_date) {
         const publishDate = new Date(rfqFormDataFromStore.tender_publish_date);
         if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
           toast.error("Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.");
@@ -1262,25 +1282,38 @@ useEffect(() => {
       return fail(3, "Please select Publish Date & Time", "tender_publish_date");
     }
     const publishDate = new Date(formDataCopy.tender_publish_date);
-    if ((publishDate - new Date()) < 5 * 60 * 1000) {
-      return fail(3, "Publish Date & Time must be at least 5 minutes from now.", "tender_publish_date");
+    if (!isFieldLocked('tender_publish_date')) {
+      if ((publishDate - new Date()) < 5 * 60 * 1000) {
+        return fail(3, "Publish Date & Time must be at least 5 minutes from now.", "tender_publish_date");
+      }
     }
 
-    // Vendor Clarification End Date is required and must be at least 5 minutes after publish
+    // Vendor Clarification End Date — required. "≥ publish + 5 min" in create
+    // flow; "≥ 60 min from now" in edit mode (the cross-field gap is relaxed
+    // so saved-RFQ timelines can be compressed).
     if (!formDataCopy.vendor_clarification_date) {
       return fail(3, "Please select Vendor Clarification End Date", "vendor_clarification_date");
     }
     const clarificationDate = new Date(formDataCopy.vendor_clarification_date);
-    if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
+    if (isEditMode) {
+      if ((clarificationDate - new Date()) < 60 * 60 * 1000) {
+        return fail(3, "Vendor Clarification End Date must be at least 60 minutes from now.", "vendor_clarification_date");
+      }
+    } else if ((clarificationDate - publishDate) < 5 * 60 * 1000) {
       return fail(3, "Vendor Clarification End Date must be at least 5 minutes after the Publish Date & Time.", "vendor_clarification_date");
     }
 
-    // Quote Submission End Date is required and must be at least 24 hours after clarification
+    // Quote Submission End Date — required. "≥ clarification + 24 h" in create
+    // flow; "≥ 120 min from now" in edit mode.
     if (!formDataCopy.bid_end_date) {
       return fail(3, "Please select Quote Submission End Date", "bid_end_date");
     }
     const bidEndDate = new Date(formDataCopy.bid_end_date);
-    if ((bidEndDate - clarificationDate) < 24 * 60 * 60 * 1000) {
+    if (isEditMode) {
+      if ((bidEndDate - new Date()) < 120 * 60 * 1000) {
+        return fail(3, "Quote Submission End Date must be at least 120 minutes from now.", "bid_end_date");
+      }
+    } else if ((bidEndDate - clarificationDate) < 24 * 60 * 60 * 1000) {
       return fail(3, "Quote Submission End Date must be at least 24 hours after the Vendor Clarification End Date.", "bid_end_date");
     }
 
@@ -1497,6 +1530,14 @@ useEffect(() => {
         if (errorData?.status === 2 && Array.isArray(errorData.details)) {
           const missingVendorIds = errorData.details.map(d => d.rfqProductId);
           setErrorProducts(new Set(missingVendorIds));
+          setCurrentStep(1);
+          setMaxStepReached((m) => Math.max(m, 1));
+          setTimeout(() => {
+            const firstError = document.querySelector(".rfq-tag--red");
+            if (firstError) {
+              firstError.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }, 0);
           toast.error(errorMessage);
         } else {
           toast.error(errorMessage);
@@ -1567,17 +1608,37 @@ useEffect(() => {
 
   // Generic helpers: get a spec field value (checks updatableData first, then product.spec(s), then direct prop)
   const getSpecFieldValue = (product, fieldName) => {
+    // Coerce shapes that aren't strings/numbers — e.g. an array of
+    // { title, value } pairs that slipped through — into a readable string.
+    // Without this, React renders them as "[object Object],[object Object]".
+    const coerce = (v) => {
+      if (v === undefined || v === null) return v;
+      if (Array.isArray(v)) {
+        return v
+          .map((item) => {
+            if (item && typeof item === "object") {
+              return item.value ?? item.val ?? "";
+            }
+            return item ?? "";
+          })
+          .filter((s) => s !== "" && s !== null && s !== undefined)
+          .join(", ");
+      }
+      if (typeof v === "object") return v.value ?? v.val ?? "";
+      return v;
+    };
+
     // 1) updatableData (Item writes here)
     const specsUp = updatableData?.products?.updatable?.specs?.[product.id];
     if (specsUp) {
       // try several key variants
       const candidates = [fieldName, fieldName.toLowerCase(), fieldName.charAt(0).toUpperCase() + fieldName.slice(1)];
       for (const k of candidates) {
-        if (Object.prototype.hasOwnProperty.call(specsUp, k)) return specsUp[k];
+        if (Object.prototype.hasOwnProperty.call(specsUp, k)) return coerce(specsUp[k]);
       }
       // also try any key that case-insensitively matches
       for (const k of Object.keys(specsUp)) {
-        if (k.toLowerCase() === fieldName.toLowerCase()) return specsUp[k];
+        if (k.toLowerCase() === fieldName.toLowerCase()) return coerce(specsUp[k]);
       }
     }
 
@@ -1588,9 +1649,17 @@ useEffect(() => {
       if (found) return found.value ?? found.val ?? "";
     }
 
-    // 3) direct property on product (e.g., product.quantity or product.unit)
+    // 3) direct property on product (e.g., product.quantity or product.unit).
+    // Skip when the property is an array/object — that's the spec *container*
+    // (e.g. product.spec is the [{title,value}] list), not the value the
+    // caller asked for. Returning the container would smush every spec item
+    // into the field (e.g. "tonne, 50" under "Product Specification").
     const directKey = fieldName.toLowerCase();
-    if (Object.prototype.hasOwnProperty.call(product, directKey)) return product[directKey];
+    if (Object.prototype.hasOwnProperty.call(product, directKey)) {
+      const direct = product[directKey];
+      if (direct === null || direct === undefined) return direct;
+      if (typeof direct !== "object") return direct;
+    }
 
     return undefined;
   };
@@ -3106,12 +3175,24 @@ useEffect(() => {
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
   const minPublishDate = formatLocalDateTime(new Date(Date.now() + 5 * 60 * 1000));
-  const minClarificationDate = rfqFormDataFromStore.tender_publish_date
-    ? formatLocalDateTime(new Date(new Date(rfqFormDataFromStore.tender_publish_date).getTime() + 5 * 60 * 1000))
-    : minPublishDate;
-  const minBidEndDate = rfqFormDataFromStore.vendor_clarification_date
-    ? formatLocalDateTime(new Date(new Date(rfqFormDataFromStore.vendor_clarification_date).getTime() + 24 * 60 * 60 * 1000))
-    : minPublishDate;
+  // Edit mode: floors are "now + N min", independent of the other dates so the
+  // buyer can compress the timeline when fixing a saved RFQ. Create mode keeps
+  // the chronological gap rules (clarification > publish + 5 min, bid_end >
+  // clarification + 24 h).
+  const minClarificationDate = isEditMode
+    ? formatLocalDateTime(new Date(Date.now() + 60 * 60 * 1000))
+    : formatLocalDateTime(
+        rfqFormDataFromStore.tender_publish_date
+          ? new Date(new Date(rfqFormDataFromStore.tender_publish_date).getTime() + 5 * 60 * 1000)
+          : new Date(Date.now() + 5 * 60 * 1000)
+      );
+  const minBidEndDate = isEditMode
+    ? formatLocalDateTime(new Date(Date.now() + 120 * 60 * 1000))
+    : formatLocalDateTime(
+        rfqFormDataFromStore.vendor_clarification_date
+          ? new Date(new Date(rfqFormDataFromStore.vendor_clarification_date).getTime() + 24 * 60 * 60 * 1000)
+          : new Date(Date.now() + 5 * 60 * 1000)
+      );
 
   return (
     <>
