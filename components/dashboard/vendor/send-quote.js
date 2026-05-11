@@ -3145,7 +3145,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                   >
                                     <td style={{ textAlign: "center", backgroundColor: "#f8f9fa", verticalAlign: "middle" }}>{index + 1}</td>
                                     <td>
-                                      <p className="fw-semibold text-nowrap mb-1">
+                                      <p className="fw-semibold mb-1" style={{ wordBreak: "break-word" }}>
                                         {item?.product_details[0]?.name}
                                       </p>
                                       {/* Product-level Negotiation Badge */}
