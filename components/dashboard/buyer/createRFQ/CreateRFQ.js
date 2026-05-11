@@ -1530,6 +1530,14 @@ useEffect(() => {
         if (errorData?.status === 2 && Array.isArray(errorData.details)) {
           const missingVendorIds = errorData.details.map(d => d.rfqProductId);
           setErrorProducts(new Set(missingVendorIds));
+          setCurrentStep(1);
+          setMaxStepReached((m) => Math.max(m, 1));
+          setTimeout(() => {
+            const firstError = document.querySelector(".rfq-tag--red");
+            if (firstError) {
+              firstError.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }, 0);
           toast.error(errorMessage);
         } else {
           toast.error(errorMessage);
@@ -1600,17 +1608,37 @@ useEffect(() => {
 
   // Generic helpers: get a spec field value (checks updatableData first, then product.spec(s), then direct prop)
   const getSpecFieldValue = (product, fieldName) => {
+    // Coerce shapes that aren't strings/numbers — e.g. an array of
+    // { title, value } pairs that slipped through — into a readable string.
+    // Without this, React renders them as "[object Object],[object Object]".
+    const coerce = (v) => {
+      if (v === undefined || v === null) return v;
+      if (Array.isArray(v)) {
+        return v
+          .map((item) => {
+            if (item && typeof item === "object") {
+              return item.value ?? item.val ?? "";
+            }
+            return item ?? "";
+          })
+          .filter((s) => s !== "" && s !== null && s !== undefined)
+          .join(", ");
+      }
+      if (typeof v === "object") return v.value ?? v.val ?? "";
+      return v;
+    };
+
     // 1) updatableData (Item writes here)
     const specsUp = updatableData?.products?.updatable?.specs?.[product.id];
     if (specsUp) {
       // try several key variants
       const candidates = [fieldName, fieldName.toLowerCase(), fieldName.charAt(0).toUpperCase() + fieldName.slice(1)];
       for (const k of candidates) {
-        if (Object.prototype.hasOwnProperty.call(specsUp, k)) return specsUp[k];
+        if (Object.prototype.hasOwnProperty.call(specsUp, k)) return coerce(specsUp[k]);
       }
       // also try any key that case-insensitively matches
       for (const k of Object.keys(specsUp)) {
-        if (k.toLowerCase() === fieldName.toLowerCase()) return specsUp[k];
+        if (k.toLowerCase() === fieldName.toLowerCase()) return coerce(specsUp[k]);
       }
     }
 
@@ -1621,9 +1649,17 @@ useEffect(() => {
       if (found) return found.value ?? found.val ?? "";
     }
 
-    // 3) direct property on product (e.g., product.quantity or product.unit)
+    // 3) direct property on product (e.g., product.quantity or product.unit).
+    // Skip when the property is an array/object — that's the spec *container*
+    // (e.g. product.spec is the [{title,value}] list), not the value the
+    // caller asked for. Returning the container would smush every spec item
+    // into the field (e.g. "tonne, 50" under "Product Specification").
     const directKey = fieldName.toLowerCase();
-    if (Object.prototype.hasOwnProperty.call(product, directKey)) return product[directKey];
+    if (Object.prototype.hasOwnProperty.call(product, directKey)) {
+      const direct = product[directKey];
+      if (direct === null || direct === undefined) return direct;
+      if (typeof direct !== "object") return direct;
+    }
 
     return undefined;
   };

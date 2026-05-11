@@ -787,7 +787,7 @@ const Item = ({
     <Accordion.Item
       key={`rfqp_${rfqProduct.product_id}_${rfqProduct.variant}`}
       eventKey={eventKey}
-      className="rfq-products-item"
+      className={`rfq-products-item${hasVendorError ? " rfq-products-item--invalid" : ""}`}
     >
       <Accordion.Header>
         <div className="rfq-products-row">
