@@ -23,6 +23,7 @@ import { addCommasToNumber, formatDisplayDate, formatToINRShort } from '@/utils/
 import useIsMobile from '@/hooks/useIsMobile';
 import Link from 'next/link';
 import ApprovalWorkflowSection from '@/components/dashboard/buyer/approval/ApprovalWorkflowSection';
+import FileLink from '@/components/shared/FileLink';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
 import CommonFormInput from '@/components/shared/CommonFormInput';
 import { useRouter } from 'next/navigation';
@@ -122,7 +123,7 @@ const elipsisToLimit = (text, limit = 45) => {
   return text.length > limit ? text.slice(0, limit).concat('...') : text;
 }
 
-const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers, isEditing, setIsEditing, handleUpdatePO, canWrite = true, canApprove = false, canRegenerate = false }) => {
+const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers, isEditing, setIsEditing, handleUpdatePO, canWrite = true, canApprove = false, canRegenerate = false }) => {
   const {
     id,
     rfq_id,
@@ -146,6 +147,9 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     approval_status,
     approval_history = [],
     documents = [],
+    vendor_quote_term_files = [],
+    vendor_quote_product_files = [],
+    vendor_tech_eval_files = [],
     site_rep,
     payment_milestones,
     hsn_codes,
@@ -938,6 +942,143 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             )}
           </div>
         </div>
+
+        {(() => {
+          const buyerTermFiles = Array.isArray(currentRfqData?.TERM_files) ? currentRfqData.TERM_files : [];
+          const rfqProductsById = {};
+          (currentRfqData?.products || []).forEach((p) => { rfqProductsById[p.id] = p; });
+
+          const vendorTermFiles = Array.isArray(vendor_quote_term_files) ? vendor_quote_term_files : [];
+          const vendorFilesByRfqProduct = {};
+          (vendor_quote_product_files || []).forEach((f) => {
+            const key = f.rfq_product_id;
+            if (!vendorFilesByRfqProduct[key]) vendorFilesByRfqProduct[key] = { name: f.product_name, files: [] };
+            vendorFilesByRfqProduct[key].files.push(f.file_url);
+          });
+
+          const techEvalByRfqProduct = {};
+          (vendor_tech_eval_files || []).forEach((f) => {
+            const key = f.rfq_product_id;
+            if (!techEvalByRfqProduct[key]) techEvalByRfqProduct[key] = { name: f.product_name, clauses: {} };
+            if (!techEvalByRfqProduct[key].clauses[f.clause_id]) {
+              techEvalByRfqProduct[key].clauses[f.clause_id] = { text: f.clause_text, files: [] };
+            }
+            techEvalByRfqProduct[key].clauses[f.clause_id].files.push(f.file_url);
+          });
+
+          const productRows = (product_details || []).map((pp) => {
+            const rfqId = pp.rfq_item_id;
+            const rfqProduct = rfqProductsById[rfqId];
+            return {
+              rfq_product_id: rfqId,
+              name: pp.name || rfqProduct?.name || vendorFilesByRfqProduct[rfqId]?.name || techEvalByRfqProduct[rfqId]?.name || `Product #${rfqId}`,
+              datasheet_file: rfqProduct?.datasheet_file || [],
+              spec_file: rfqProduct?.spec_file || [],
+              qap_file: rfqProduct?.qap_file || [],
+              vendor_files: vendorFilesByRfqProduct[rfqId]?.files || [],
+              tech_eval_clauses: techEvalByRfqProduct[rfqId]?.clauses
+                ? Object.entries(techEvalByRfqProduct[rfqId].clauses).map(([cid, c]) => ({ clause_id: cid, text: c.text, files: c.files }))
+                : [],
+            };
+          });
+
+          const hasBuyerFiles = buyerTermFiles.length > 0 || productRows.some(p => p.datasheet_file.length || p.spec_file.length || p.qap_file.length);
+          const hasVendorFiles = vendorTermFiles.length > 0
+            || productRows.some(p => p.vendor_files.length)
+            || productRows.some(p => p.tech_eval_clauses.length);
+
+          return (
+            <div className={`${styles.sectionCard} mb-3`}>
+              <div className={styles.sectionHeader}>
+                <h5 className={styles.sectionTitle}><BsFileEarmarkText size={16} /> Attachments from RFQ &amp; Quote</h5>
+              </div>
+              <div className={styles.sectionBody}>
+                {(!hasBuyerFiles && !hasVendorFiles) ? (
+                  <p className="text-muted mb-0">
+                    No attachments were exchanged on the RFQ or quote.
+                  </p>
+                ) : (
+                  <>
+                    {hasBuyerFiles && (
+                      <div className="mb-3">
+                        <h6 className="fw-semibold mb-2">Buyer (RFQ)</h6>
+                        {buyerTermFiles.length > 0 && (
+                          <div className="mb-2">
+                            <div className="small text-muted mb-1">Terms &amp; Conditions</div>
+                            <FileLink Files={buyerTermFiles} ColumnClass="col-12 col-md-6" />
+                          </div>
+                        )}
+                        {productRows.map((p) => {
+                          if (!p.datasheet_file.length && !p.spec_file.length && !p.qap_file.length) return null;
+                          return (
+                            <div key={`buyer-${p.rfq_product_id}`} className="mb-2 ps-2 border-start">
+                              <div className="small fw-semibold mb-1">{p.name}</div>
+                              {p.datasheet_file.length > 0 && (
+                                <div className="mb-1">
+                                  <div className="small text-muted">Datasheet</div>
+                                  <FileLink Files={p.datasheet_file} ColumnClass="col-12 col-md-6" />
+                                </div>
+                              )}
+                              {p.spec_file.length > 0 && (
+                                <div className="mb-1">
+                                  <div className="small text-muted">Specification</div>
+                                  <FileLink Files={p.spec_file} ColumnClass="col-12 col-md-6" />
+                                </div>
+                              )}
+                              {p.qap_file.length > 0 && (
+                                <div className="mb-1">
+                                  <div className="small text-muted">QAP</div>
+                                  <FileLink Files={p.qap_file} ColumnClass="col-12 col-md-6" />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {hasVendorFiles && (
+                      <div>
+                        <h6 className="fw-semibold mb-2">Vendor (Quote)</h6>
+                        {vendorTermFiles.length > 0 && (
+                          <div className="mb-2">
+                            <div className="small text-muted mb-1">Terms &amp; Conditions</div>
+                            <FileLink Files={vendorTermFiles} ColumnClass="col-12 col-md-6" />
+                          </div>
+                        )}
+                        {productRows.map((p) => {
+                          if (!p.vendor_files.length && !p.tech_eval_clauses.length) return null;
+                          return (
+                            <div key={`vendor-${p.rfq_product_id}`} className="mb-2 ps-2 border-start">
+                              <div className="small fw-semibold mb-1">{p.name}</div>
+                              {p.vendor_files.length > 0 && (
+                                <div className="mb-1">
+                                  <div className="small text-muted">Quote Documents</div>
+                                  <FileLink Files={p.vendor_files} ColumnClass="col-12 col-md-6" />
+                                </div>
+                              )}
+                              {p.tech_eval_clauses.length > 0 && (
+                                <div className="mb-1">
+                                  <div className="small text-muted mb-1">Technical Evaluation Evidence</div>
+                                  {p.tech_eval_clauses.map((c) => (
+                                    <div key={`te-${p.rfq_product_id}-${c.clause_id}`} className="ms-2 mb-1">
+                                      <div className="small text-muted fst-italic">{elipsisToLimit(c.text || `Clause #${c.clause_id}`, 80)}</div>
+                                      <FileLink Files={c.files} ColumnClass="col-12 col-md-6" />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className={`mb-0 ${styles.hsnGstRow}`}>
           <div className={`${styles.sectionCard} w-100`}>

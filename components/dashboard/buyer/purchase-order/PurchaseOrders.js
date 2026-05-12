@@ -553,6 +553,7 @@ const PurchaseOrders = () => {
                     )}
                     <PurchaseOrderDetails
                       data={poDetails}
+                      currentRfqData={currentRfqData}
                       handlePODecision={(canWrite || canApprove) ? handlePODecision : undefined}
                       refetchPODetails={getPODetails}
                       handleInitiatePO={canWrite ? handleInitiatePO : undefined}
