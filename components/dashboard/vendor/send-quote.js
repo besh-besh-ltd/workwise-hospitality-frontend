@@ -300,6 +300,14 @@ const originalPaymentTermsListRef = useRef(null);
   // /pricing/preview endpoint runs the same engine that recomputes on save,
   // so the totals shown here are guaranteed to match what gets persisted.
   const previewDraft = useMemo(() => {
+    // Charge amount inputs may transiently hold a string ("", "0.") while the
+    // user is mid-typing; coerce to a number here so the preview engine never
+    // sees a non-numeric value.
+    const coerceAmount = (v) => {
+      if (v === "" || v == null) return 0;
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : 0;
+    };
     return {
       items: quoteProducts.map((item) => {
         const prod = rfqDetails?.products?.find((pi) => pi.id == item.id);
@@ -310,12 +318,15 @@ const originalPaymentTermsListRef = useRef(null);
           quantity: qty,
           tax: item.tax,
           tax_mode: chargesMode?.tax?.[item.id] || item.tax_mode || "percentage",
-          other_charges: item.other_charges || [],
+          other_charges: (item.other_charges || []).map((c) => ({
+            ...c,
+            amount: coerceAmount(c.amount),
+          })),
         };
       }),
       global_charges: globalOtherCharges.map((c) => ({
         name: c.name,
-        amount: c.amount,
+        amount: coerceAmount(c.amount),
         amount_mode: c.amount_mode,
       })),
     };
@@ -1344,7 +1355,10 @@ return { deletedTerms, createdTerms, updatedTerms };
           product.total_price = parseFloat(product.total_price) || 0;
           product.other_charges = (product.other_charges || [])
             .filter(c => c.name && c.name.trim() !== "")
-            .map(({ _id, ...rest }) => rest);
+            .map(({ _id, amount, ...rest }) => ({
+              ...rest,
+              amount: parseFloat(amount) || 0,
+            }));
 
           return product;
         })
@@ -1398,7 +1412,10 @@ return { deletedTerms, createdTerms, updatedTerms };
         product.tax_mode = chargesMode.tax[product.id] || "percentage";
         product.other_charges = (product.other_charges || [])
           .filter(c => c.name && c.name.trim() !== "")
-          .map(({ _id, ...rest }) => rest);
+          .map(({ _id, amount, ...rest }) => ({
+            ...rest,
+            amount: parseFloat(amount) || 0,
+          }));
 
         return product;
       })
@@ -2256,13 +2273,25 @@ return { deletedTerms, createdTerms, updatedTerms };
                                   )}
                                 </div>
                                 <div className="d-flex align-items-center gap-1">
-                                  <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
+                                  {/* type=text + inputMode=decimal so the raw input ("", "0", "0.", "0.5")
+                                      can be stored as-is. `type=number` was discarding mid-typed values
+                                      and `parseFloat() || 0` was eating literal zeros. Downstream code
+                                      already runs parseFloat() on the amount before sending it. */}
+                                  <input type="text" inputMode="decimal" className="form-control form-control-sm" style={{ flex: 1, minWidth: 0 }}
                                     placeholder={charge.amount_mode === "percentage" ? "Tax (%)" : "Tax (₹)"}
-                                    value={charge.amount || ""}
+                                    value={charge.amount == null ? "" : String(charge.amount)}
                                     disabled={isBidExpired}
                                     onChange={(e) => {
+                                      const raw = e.target.value;
+                                      if (raw !== "" && !/^\d*\.?\d*$/.test(raw)) return;
                                       const updated = [...globalOtherCharges];
-                                      updated[idx] = { ...updated[idx], amount: parseFloat(e.target.value) || 0 };
+                                      updated[idx] = { ...updated[idx], amount: raw };
+                                      setGlobalOtherCharges(updated);
+                                    }}
+                                    onBlur={(e) => {
+                                      const n = parseFloat(e.target.value);
+                                      const updated = [...globalOtherCharges];
+                                      updated[idx] = { ...updated[idx], amount: Number.isFinite(n) ? n : 0 };
                                       setGlobalOtherCharges(updated);
                                     }}
                                     onWheel={(e) => e.currentTarget.blur()}
@@ -2919,10 +2948,19 @@ return { deletedTerms, createdTerms, updatedTerms };
                                   <div className="col-sm-4">
                                     <small className="text-muted d-block mb-1">Amount</small>
                                     <div className="d-flex align-items-center gap-1">
-                                      <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0, ...(isNegotiatedCharge ? { border: '2px solid #f0ad4e' } : {}) }}
+                                      {/* See Global Charges input — same reasoning for type=text + raw string state. */}
+                                      <input type="text" inputMode="decimal" className="form-control form-control-sm" style={{ flex: 1, minWidth: 0, ...(isNegotiatedCharge ? { border: '2px solid #f0ad4e' } : {}) }}
                                         placeholder={charge.amount_mode === "percentage" ? "%" : "₹"}
-                                        value={charge.amount || ""}
-                                        onChange={(e) => handleUpdateOtherCharge(modalIndex, charge._id, "amount", parseFloat(e.target.value) || 0)}
+                                        value={charge.amount == null ? "" : String(charge.amount)}
+                                        onChange={(e) => {
+                                          const raw = e.target.value;
+                                          if (raw !== "" && !/^\d*\.?\d*$/.test(raw)) return;
+                                          handleUpdateOtherCharge(modalIndex, charge._id, "amount", raw);
+                                        }}
+                                        onBlur={(e) => {
+                                          const n = parseFloat(e.target.value);
+                                          handleUpdateOtherCharge(modalIndex, charge._id, "amount", Number.isFinite(n) ? n : 0);
+                                        }}
                                         onWheel={(e) => e.target.blur()} disabled={chargeDisabled}
                                       />
                                       <PercentageAbsoluteToggle currentMode={charge.amount_mode}
