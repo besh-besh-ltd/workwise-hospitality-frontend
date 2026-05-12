@@ -73,7 +73,10 @@ export const formatToINRShort = (amount) => {
   } else if (amount >= 1000) {
     return `${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}K`;
   } else {
-    return amount.toString();
+    // Quantise to 2dp so float-drift (e.g. budget - po_total = 50.00000000001)
+    // doesn't render raw.
+    const quantised = Math.round((Number(amount) || 0) * 100) / 100;
+    return quantised.toString();
   }
 };
 
@@ -461,8 +464,12 @@ export const  addCommasToNumber = (number) => {
       return 0
     }
 
+    // Quantise to 2 decimals so float-drift (e.g. 39652.01779…) renders cleanly.
+    // Money math is owned by the backend; this is a display-side safety net.
+    const quantised = Math.round(Number(number) * 100) / 100;
+
     // Convert number to string
-    let numberString = number.toString();
+    let numberString = quantised.toString();
 
     // Split the number string into parts
     let parts = numberString.split(".");
