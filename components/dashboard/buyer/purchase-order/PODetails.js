@@ -32,6 +32,7 @@ import AddSiteRepModal from './AddSiteRepModal';
 import ApproveModal from './ApproveModal';
 import NoTechClausesBanner from '@/components/shared/NoTechClausesBanner';
 import useHasTechClauses from '@/hooks/useHasTechClauses';
+import { FilesListModal, ProductFilesModal } from './AttachmentsModals';
 
 const statusColors = {
   draft: 'secondary',
@@ -122,7 +123,7 @@ const elipsisToLimit = (text, limit = 45) => {
   return text.length > limit ? text.slice(0, limit).concat('...') : text;
 }
 
-const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers, isEditing, setIsEditing, handleUpdatePO, canWrite = true, canApprove = false, canRegenerate = false }) => {
+const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers, isEditing, setIsEditing, handleUpdatePO, canWrite = true, canApprove = false, canRegenerate = false }) => {
   const {
     id,
     rfq_id,
@@ -146,6 +147,10 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     approval_status,
     approval_history = [],
     documents = [],
+    vendor_quote_term_files = [],
+    vendor_quote_product_files = [],
+    vendor_tech_eval_files = [],
+    buyer_tech_eval_files = [],
     site_rep,
     payment_milestones,
     hsn_codes,
@@ -190,6 +195,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   const [deleteTaskId, setDeleteTaskId] = useState(null);
   const [actionLoading, setActionLoading] = useState(null); // 'initiate' | 'grn' | 'hsn' | 'gst' | null
   const [showRegenerateModal, setShowRegenerateModal] = useState(false);
+  const [termsModal, setTermsModal] = useState({ open: false, title: '', files: [] });
+  const [productAttachmentsModal, setProductAttachmentsModal] = useState({ open: false, product: null });
   const [regenerateLoading, setRegenerateLoading] = useState(false);
 
   const router = useRouter();
@@ -939,6 +946,154 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           </div>
         </div>
 
+        {(() => {
+          const buyerTermFiles = Array.isArray(currentRfqData?.TERM_files) ? currentRfqData.TERM_files : [];
+          const rfqProductsById = {};
+          (currentRfqData?.products || []).forEach((p) => { rfqProductsById[p.id] = p; });
+
+          const vendorTermFiles = Array.isArray(vendor_quote_term_files) ? vendor_quote_term_files : [];
+          const vendorFilesByRfqProduct = {};
+          (vendor_quote_product_files || []).forEach((f) => {
+            const key = f.rfq_product_id;
+            if (!vendorFilesByRfqProduct[key]) vendorFilesByRfqProduct[key] = { name: f.product_name, files: [] };
+            vendorFilesByRfqProduct[key].files.push(f.file_url);
+          });
+
+          const techEvalByRfqProduct = {};
+          (vendor_tech_eval_files || []).forEach((f) => {
+            const key = f.rfq_product_id;
+            if (!techEvalByRfqProduct[key]) techEvalByRfqProduct[key] = { name: f.product_name, clauses: {} };
+            if (!techEvalByRfqProduct[key].clauses[f.clause_id]) {
+              techEvalByRfqProduct[key].clauses[f.clause_id] = { text: f.clause_text, files: [] };
+            }
+            techEvalByRfqProduct[key].clauses[f.clause_id].files.push(f.file_url);
+          });
+
+          const buyerTechEvalByRfqProduct = {};
+          (buyer_tech_eval_files || []).forEach((f) => {
+            const key = f.rfq_product_id;
+            if (!buyerTechEvalByRfqProduct[key]) buyerTechEvalByRfqProduct[key] = { name: f.product_name, clauses: {} };
+            if (!buyerTechEvalByRfqProduct[key].clauses[f.clause_id]) {
+              buyerTechEvalByRfqProduct[key].clauses[f.clause_id] = { text: f.clause_text, files: [] };
+            }
+            buyerTechEvalByRfqProduct[key].clauses[f.clause_id].files.push(f.file_url);
+          });
+
+          const productRows = (product_details || []).map((pp) => {
+            const rfqId = pp.rfq_item_id;
+            const rfqProduct = rfqProductsById[rfqId];
+            return {
+              rfq_product_id: rfqId,
+              name: pp.name || rfqProduct?.name || vendorFilesByRfqProduct[rfqId]?.name || techEvalByRfqProduct[rfqId]?.name || buyerTechEvalByRfqProduct[rfqId]?.name || `Product #${rfqId}`,
+              datasheet_file: rfqProduct?.datasheet_file || [],
+              spec_file: rfqProduct?.spec_file || [],
+              qap_file: rfqProduct?.qap_file || [],
+              buyer_tech_eval_clauses: buyerTechEvalByRfqProduct[rfqId]?.clauses
+                ? Object.entries(buyerTechEvalByRfqProduct[rfqId].clauses).map(([cid, c]) => ({ clause_id: cid, text: c.text, files: c.files }))
+                : [],
+              vendor_files: vendorFilesByRfqProduct[rfqId]?.files || [],
+              tech_eval_clauses: techEvalByRfqProduct[rfqId]?.clauses
+                ? Object.entries(techEvalByRfqProduct[rfqId].clauses).map(([cid, c]) => ({ clause_id: cid, text: c.text, files: c.files }))
+                : [],
+            };
+          });
+
+          const hasBuyerFiles = buyerTermFiles.length > 0
+            || productRows.some(p => p.datasheet_file.length || p.spec_file.length || p.qap_file.length)
+            || productRows.some(p => p.buyer_tech_eval_clauses.length);
+          const hasVendorFiles = vendorTermFiles.length > 0
+            || productRows.some(p => p.vendor_files.length)
+            || productRows.some(p => p.tech_eval_clauses.length);
+
+          const hasAnyProductFiles = productRows.some(p =>
+            p.datasheet_file.length || p.spec_file.length || p.qap_file.length ||
+            p.buyer_tech_eval_clauses.length || p.vendor_files.length || p.tech_eval_clauses.length
+          );
+
+          return (
+            <div className={`${styles.sectionCard} mb-3`}>
+              <div className={styles.sectionHeader}>
+                <h5 className={styles.sectionTitle}><BsFileEarmarkText size={16} /> Attachments from RFQ &amp; Quote</h5>
+                {(buyerTermFiles.length > 0 || vendorTermFiles.length > 0) && (
+                  <div className="d-flex flex-wrap gap-2">
+                    {buyerTermFiles.length > 0 && (
+                      <button
+                        type="button"
+                        style={{ background: '#2E5BA8', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600 }}
+                        onClick={() => setTermsModal({ open: true, title: 'Buyer (RFQ) — Terms & Conditions', files: buyerTermFiles })}
+                      >
+                        Show Buyer T&amp;C Files ({buyerTermFiles.length})
+                      </button>
+                    )}
+                    {vendorTermFiles.length > 0 && (
+                      <button
+                        type="button"
+                        style={{ background: '#fff', color: '#2E5BA8', border: '1px solid #2E5BA8', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600 }}
+                        onClick={() => setTermsModal({ open: true, title: 'Vendor (Quote) — Terms & Conditions', files: vendorTermFiles })}
+                      >
+                        Show Vendor T&amp;C Files ({vendorTermFiles.length})
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className={styles.sectionBody}>
+                {(!hasBuyerFiles && !hasVendorFiles) ? (
+                  <p className="text-muted mb-0">
+                    No attachments were exchanged on the RFQ or quote.
+                  </p>
+                ) : (
+                  <>
+                    {/* Product cards — clicking a card opens a modal with all categorised files */}
+                    {hasAnyProductFiles ? (
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                          Products
+                        </div>
+                        <div className="d-flex flex-wrap gap-2">
+                          {productRows.map((p) => {
+                            const totalCount = p.datasheet_file.length + p.spec_file.length + p.qap_file.length
+                              + p.buyer_tech_eval_clauses.reduce((acc, c) => acc + (c.files?.length || 0), 0)
+                              + p.vendor_files.length
+                              + p.tech_eval_clauses.reduce((acc, c) => acc + (c.files?.length || 0), 0);
+                            return (
+                              <button
+                                key={`prod-card-${p.rfq_product_id}`}
+                                type="button"
+                                onClick={() => setProductAttachmentsModal({ open: true, product: p })}
+                                style={{
+                                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4,
+                                  padding: '10px 14px', minWidth: 180, textAlign: 'left',
+                                  background: '#fafbfc', border: '1px solid #eef0f2', borderRadius: 10,
+                                  cursor: 'pointer', transition: 'border-color 0.15s, transform 0.05s',
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#2E5BA8'}
+                                onMouseLeave={(e) => e.currentTarget.style.borderColor = '#eef0f2'}
+                              >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#1a2730' }}>
+                                  <BsFileEarmarkText size={14} color="#2E5BA8" />
+                                  {elipsisToLimit(p.name, 32)}
+                                </span>
+                                <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                                  {totalCount} document{totalCount === 1 ? '' : 's'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-muted mb-0">
+                        No per-product attachments. Use the Terms &amp; Conditions buttons above to view T&amp;C files.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         <div className={`mb-0 ${styles.hsnGstRow}`}>
           <div className={`${styles.sectionCard} w-100`}>
             <div className={styles.sectionHeader}>
@@ -1550,6 +1705,43 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           onRegenerate={handleRegenerate}
           onUpload={handleUploadPO}
           isProcessing={regenerateLoading}
+        />
+
+        <FilesListModal
+          show={termsModal.open}
+          onClose={() => setTermsModal({ open: false, title: '', files: [] })}
+          title={termsModal.title}
+          files={termsModal.files}
+        />
+
+        <ProductFilesModal
+          show={productAttachmentsModal.open}
+          onClose={() => setProductAttachmentsModal({ open: false, product: null })}
+          productName={productAttachmentsModal.product?.name || ''}
+          groups={productAttachmentsModal.product ? [
+            {
+              title: 'Buyer (RFQ)',
+              variant: 'buyer',
+              sections: [
+                { label: 'Datasheet', files: productAttachmentsModal.product.datasheet_file },
+                { label: 'Specification', files: productAttachmentsModal.product.spec_file },
+                { label: 'QAP', files: productAttachmentsModal.product.qap_file },
+              ],
+              clauseSections: [
+                { label: 'Technical Evaluation Clauses', clauses: productAttachmentsModal.product.buyer_tech_eval_clauses },
+              ],
+            },
+            {
+              title: 'Vendor (Quote)',
+              variant: 'vendor',
+              sections: [
+                { label: 'Quote Documents', files: productAttachmentsModal.product.vendor_files },
+              ],
+              clauseSections: [
+                { label: 'Technical Evaluation Evidence', clauses: productAttachmentsModal.product.tech_eval_clauses },
+              ],
+            },
+          ] : []}
         />
 
         {/* Sticky mobile approval bar */}
