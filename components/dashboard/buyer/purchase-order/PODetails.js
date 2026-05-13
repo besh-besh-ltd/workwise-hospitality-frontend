@@ -150,6 +150,7 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
     vendor_quote_term_files = [],
     vendor_quote_product_files = [],
     vendor_tech_eval_files = [],
+    buyer_tech_eval_files = [],
     site_rep,
     payment_milestones,
     hsn_codes,
@@ -966,15 +967,28 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
             techEvalByRfqProduct[key].clauses[f.clause_id].files.push(f.file_url);
           });
 
+          const buyerTechEvalByRfqProduct = {};
+          (buyer_tech_eval_files || []).forEach((f) => {
+            const key = f.rfq_product_id;
+            if (!buyerTechEvalByRfqProduct[key]) buyerTechEvalByRfqProduct[key] = { name: f.product_name, clauses: {} };
+            if (!buyerTechEvalByRfqProduct[key].clauses[f.clause_id]) {
+              buyerTechEvalByRfqProduct[key].clauses[f.clause_id] = { text: f.clause_text, files: [] };
+            }
+            buyerTechEvalByRfqProduct[key].clauses[f.clause_id].files.push(f.file_url);
+          });
+
           const productRows = (product_details || []).map((pp) => {
             const rfqId = pp.rfq_item_id;
             const rfqProduct = rfqProductsById[rfqId];
             return {
               rfq_product_id: rfqId,
-              name: pp.name || rfqProduct?.name || vendorFilesByRfqProduct[rfqId]?.name || techEvalByRfqProduct[rfqId]?.name || `Product #${rfqId}`,
+              name: pp.name || rfqProduct?.name || vendorFilesByRfqProduct[rfqId]?.name || techEvalByRfqProduct[rfqId]?.name || buyerTechEvalByRfqProduct[rfqId]?.name || `Product #${rfqId}`,
               datasheet_file: rfqProduct?.datasheet_file || [],
               spec_file: rfqProduct?.spec_file || [],
               qap_file: rfqProduct?.qap_file || [],
+              buyer_tech_eval_clauses: buyerTechEvalByRfqProduct[rfqId]?.clauses
+                ? Object.entries(buyerTechEvalByRfqProduct[rfqId].clauses).map(([cid, c]) => ({ clause_id: cid, text: c.text, files: c.files }))
+                : [],
               vendor_files: vendorFilesByRfqProduct[rfqId]?.files || [],
               tech_eval_clauses: techEvalByRfqProduct[rfqId]?.clauses
                 ? Object.entries(techEvalByRfqProduct[rfqId].clauses).map(([cid, c]) => ({ clause_id: cid, text: c.text, files: c.files }))
@@ -982,7 +996,9 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
             };
           });
 
-          const hasBuyerFiles = buyerTermFiles.length > 0 || productRows.some(p => p.datasheet_file.length || p.spec_file.length || p.qap_file.length);
+          const hasBuyerFiles = buyerTermFiles.length > 0
+            || productRows.some(p => p.datasheet_file.length || p.spec_file.length || p.qap_file.length)
+            || productRows.some(p => p.buyer_tech_eval_clauses.length);
           const hasVendorFiles = vendorTermFiles.length > 0
             || productRows.some(p => p.vendor_files.length)
             || productRows.some(p => p.tech_eval_clauses.length);
@@ -1009,7 +1025,7 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
                           </div>
                         )}
                         {productRows.map((p) => {
-                          if (!p.datasheet_file.length && !p.spec_file.length && !p.qap_file.length) return null;
+                          if (!p.datasheet_file.length && !p.spec_file.length && !p.qap_file.length && !p.buyer_tech_eval_clauses.length) return null;
                           return (
                             <div key={`buyer-${p.rfq_product_id}`} className="mb-2 ps-2 border-start">
                               <div className="small fw-semibold mb-1">{p.name}</div>
@@ -1029,6 +1045,17 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
                                 <div className="mb-1">
                                   <div className="small text-muted">QAP</div>
                                   <FileLink Files={p.qap_file} ColumnClass="col-12 col-md-6" />
+                                </div>
+                              )}
+                              {p.buyer_tech_eval_clauses.length > 0 && (
+                                <div className="mb-1">
+                                  <div className="small text-muted mb-1">Technical Evaluation Clauses</div>
+                                  {p.buyer_tech_eval_clauses.map((c) => (
+                                    <div key={`buyer-te-${p.rfq_product_id}-${c.clause_id}`} className="ms-2 mb-1">
+                                      <div className="small text-muted fst-italic">{elipsisToLimit(c.text || `Clause #${c.clause_id}`, 80)}</div>
+                                      <FileLink Files={c.files} ColumnClass="col-12 col-md-6" />
+                                    </div>
+                                  ))}
                                 </div>
                               )}
                             </div>
