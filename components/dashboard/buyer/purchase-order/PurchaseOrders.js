@@ -29,7 +29,10 @@ const PurchaseOrders = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { rfq, po, edit } = router.query;
-  const [loading, setloading] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [rfqMetaLoading, setRfqMetaLoading] = useState(false);
+  const [rfqMetaError, setRfqMetaError] = useState(false);
   const [rfqLoading, setRFQLoading] = useState(false);
   const [myRFQs, setmyRFQs] = useState([]);
   const [rfqNo, setRfqNo] = useState(null);
@@ -95,16 +98,27 @@ const PurchaseOrders = () => {
   const canWrite = rawCanWrite && !isRfqClosed;
   const canRegenerate = rawCanRegenerate && !isRfqClosed;
 
-  // Fetch RFQ metadata when rfq changes (for permission context)
+  // Fetch RFQ metadata when rfq changes (for permission context).
+  // rfqMetaLoading must gate the loader, otherwise the panel is blank during
+  // this window: useModulePermissions stays disabled until currentRfqData is
+  // set, so canRead is false and none of the render branches match.
   useEffect(() => {
     if (!rfq) {
       setCurrentRfqData(null);
+      setRfqMetaLoading(false);
+      setRfqMetaError(false);
       return;
     }
-    getRFQById(rfq).then(res => {
-      const data = Array.isArray(res.data) ? res.data[0] : res.data;
-      setCurrentRfqData(data || null);
-    }).catch(() => setCurrentRfqData(null));
+    setRfqMetaLoading(true);
+    setRfqMetaError(false);
+    getRFQById(rfq)
+      .then(res => {
+        const data = Array.isArray(res.data) ? res.data[0] : res.data;
+        setCurrentRfqData(data || null);
+        if (!data) setRfqMetaError(true);
+      })
+      .catch(() => { setCurrentRfqData(null); setRfqMetaError(true); })
+      .finally(() => setRfqMetaLoading(false));
   }, [rfq]);
 
   const fetchCompanyUsers = async () => {
@@ -160,16 +174,18 @@ const PurchaseOrders = () => {
   const getPOData = async (filters = {}) => {
     if(!rfq) return;
 
-    setloading(true);
+    const requestedRfq = rfq;
+    setListLoading(true);
     try {
-      const value = await getPoData(rfq, { ...poMeta, ...filters });
+      const value = await getPoData(requestedRfq, { ...poMeta, ...filters });
+      if (requestedRfq !== rfq) return; // stale — a newer rfq is now selected
       if(value) {
         setPOData(value.data);
         setTotalData(value.total);
         setApprovalLevel(value.approval_level);
       }
     } finally {
-      setloading(false);
+      if (requestedRfq === rfq) setListLoading(false);
     }
   };
 
@@ -233,7 +249,6 @@ const PurchaseOrders = () => {
 
   const handlePODecision = async (po_id, data, selectedPO) => {
     try {
-      setloading(true);
       if(data.type == 'approval') {
         if (data.remarks !== undefined) {
           const res = await handlePOApproval(po_id, { ...data, remarks: data.remarks });
@@ -264,8 +279,6 @@ const PurchaseOrders = () => {
         toast.error(message);
       }
       return { success: false, error: message };
-    } finally {
-      setloading(false);
     }
   }
 
@@ -278,7 +291,6 @@ const PurchaseOrders = () => {
 
   const confirmInitiatePO = async () => {
     try {
-      setloading(true);
       const res = await handlePOInitialization(initiatePOModal.selectedPO);
       if(res) {
         toast.success(res.message);
@@ -295,7 +307,6 @@ const PurchaseOrders = () => {
       const message = error?.response?.data?.message || error.message || 'Something went wrong while making a decision, please try again!'
       toast.error(message)
     } finally {
-      setloading(false);
       setInitiatePOModal({
         showModal: false,
         selectedPO: null
@@ -306,25 +317,22 @@ const PurchaseOrders = () => {
   const getPODetails = async () => {
     if(!po) return;
 
-    setloading(true);
+    const requestedPo = po;
+    setDetailsLoading(true);
     try {
-      const value = await getPoDetails(po);
+      const value = await getPoDetails(requestedPo);
+      if (requestedPo !== po) return; // stale — a newer po is now selected
       if(value) setPODetails(value);
     } finally {
-      setloading(false);
+      if (requestedPo === po) setDetailsLoading(false);
     }
   }
 
   const handlePOEdit = async (payload) => {
     if(!po) return;
 
-    try {
-      setloading(true);
-      const response = await updatePODetails(po, payload)
-      console.log("PO UPDATE RESPONSE:", response);
-    } finally {
-      setloading(false);
-    }
+    const response = await updatePODetails(po, payload)
+    console.log("PO UPDATE RESPONSE:", response);
   }
 
   const fetchUserHotelMappings = () => {
@@ -454,8 +462,10 @@ const PurchaseOrders = () => {
                 </div>
               )}
 
-              {/* Unified loader for permissions check + data fetch */}
-              {rfq && (permissionsLoading || (!permissionsLoading && canRead && loading && !poData && !poDetails)) && (
+              {/* Unified loader for RFQ metadata + permissions check + data fetch.
+                  rfqMetaLoading must be included or the panel goes blank while
+                  useModulePermissions is still disabled (canRead=false). */}
+              {rfq && !rfqMetaError && (rfqMetaLoading || permissionsLoading || (!permissionsLoading && canRead && (listLoading || detailsLoading) && !poData && !poDetails)) && (
                 <div className={styles.emptyState} style={{ minHeight: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <div style={{ textAlign: 'center' }}>
                     <div className={styles.emptyStateIcon} style={{ background: 'rgba(46, 91, 168, 0.08)', margin: '0 auto 12px' }}>
@@ -465,14 +475,28 @@ const PurchaseOrders = () => {
                     </div>
                     <h4 className={styles.emptyStateTitle}>Loading Purchase Orders</h4>
                     <p className={styles.emptyStateDesc}>
-                      {permissionsLoading ? 'Verifying access permissions...' : 'Fetching data...'}
+                      {rfqMetaLoading ? 'Loading RFQ details...' : permissionsLoading ? 'Verifying access permissions...' : 'Fetching data...'}
                     </p>
                   </div>
                 </div>
               )}
 
+              {/* RFQ metadata fetch failed — otherwise the panel would stay blank forever */}
+              {rfq && !rfqMetaLoading && rfqMetaError && (
+                <div className={styles.emptyState}>
+                  <div className={styles.emptyStateIcon}>
+                    <BsFileEarmarkText size={24} />
+                  </div>
+                  <h4 className={styles.emptyStateTitle}>Unable to load this RFQ</h4>
+                  <p className={styles.emptyStateDesc}>
+                    We couldn't fetch details for this RFQ. It may have been removed,
+                    or you may not have access. Please pick another from the sidebar.
+                  </p>
+                </div>
+              )}
+
               {/* Access Denied */}
-              {rfq && !permissionsLoading && currentRfqData && !canRead && (
+              {rfq && !rfqMetaLoading && !rfqMetaError && !permissionsLoading && currentRfqData && !canRead && (
                 <AccessDeniedPage
                   title="Access Denied"
                   message="You do not have permission to view Purchase Orders for this RFQ. Contact your administrator to request access."
@@ -481,7 +505,7 @@ const PurchaseOrders = () => {
               )}
 
               {/* Content area */}
-              {rfq && !permissionsLoading && canRead && (
+              {rfq && !rfqMetaLoading && !rfqMetaError && !permissionsLoading && canRead && (
                 <>
 
                   {/* Closed-RFQ Lock Banner — supersedes the read-only banner. Wait for content to load. */}
@@ -512,12 +536,16 @@ const PurchaseOrders = () => {
                       handleInitiatePO={canWrite ? handleInitiatePO : undefined}
                       onSelect={(po_id) =>
                         router.push(
-                          `/dashboard/buyer/purchase-order/?rfq=${rfq}&po=${po_id}`
+                          `/dashboard/buyer/purchase-order/?rfq=${rfq}&po=${po_id}`,
+                          undefined,
+                          { shallow: true }
                         )
                       }
                       onEdit={canWrite ? (po_id) =>
                         router.push(
-                          `/dashboard/buyer/purchase-order/?rfq=${rfq}&po=${po_id}&edit=true`
+                          `/dashboard/buyer/purchase-order/?rfq=${rfq}&po=${po_id}&edit=true`,
+                          undefined,
+                          { shallow: true }
                         ) : undefined
                       }
                       companyUsers={companyUsers}
@@ -530,7 +558,7 @@ const PurchaseOrders = () => {
                   )}
 
                   {/* PO Details loading */}
-                  {po && !poDetails && loading && (
+                  {po && !poDetails && detailsLoading && (
                     <div className={styles.emptyState} style={{ minHeight: '250px' }}>
                       <div className={styles.emptyStateIcon} style={{ background: 'rgba(46, 91, 168, 0.08)' }}>
                         <div className="spinner-border text-primary" role="status" style={{ width: '1.5rem', height: '1.5rem', borderWidth: '2px' }}>
@@ -553,6 +581,7 @@ const PurchaseOrders = () => {
                     )}
                     <PurchaseOrderDetails
                       data={poDetails}
+                      currentRfqData={currentRfqData}
                       handlePODecision={(canWrite || canApprove) ? handlePODecision : undefined}
                       refetchPODetails={getPODetails}
                       handleInitiatePO={canWrite ? handleInitiatePO : undefined}

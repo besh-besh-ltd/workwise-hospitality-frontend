@@ -13,6 +13,10 @@ const toNumber = (value) => {
   return Number.isFinite(num) ? num : 0;
 };
 
+// Quantise to 2 decimals — matches DB precision (numeric(15,2)) and prevents
+// float-drift when the view model sums already-2dp values across rows.
+const q2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
+
 const pick = (...values) => values.find((value) => value !== undefined && value !== null);
 
 const clamp = (value, min, max) => {
@@ -399,6 +403,12 @@ const buildVendorTotals = (products, vendor, normalizeFilter = false) => {
     if (delivery > 0) deliveryDays.push(delivery);
   });
 
+  totals.total = q2(totals.total);
+  totals.base = q2(totals.base);
+  totals.freight = q2(totals.freight);
+  totals.packaging = q2(totals.packaging);
+  totals.tax = q2(totals.tax);
+
   return { totals, deliveryDays };
 };
 
@@ -535,8 +545,8 @@ export const buildCategoryComparisonModel = (
     vendors: sortedVendors,
     categoryGroups: grouped,
     rows,
-    l1Total,
-    finalizedTotal,
+    l1Total: q2(l1Total),
+    finalizedTotal: q2(finalizedTotal),
   };
 };
 
@@ -620,10 +630,11 @@ export const buildOverallCostModel = (
   });
 
   const columnSums = Array.from({ length: maxRanks }).map((_, rank) => {
-    return rows.reduce((sum, row) => {
+    const sum = rows.reduce((acc, row) => {
       const entry = row.rankedQuotes[rank];
-      return sum + (entry ? toNumber(entry.total) : 0);
+      return acc + (entry ? toNumber(entry.total) : 0);
     }, 0);
+    return q2(sum);
   });
 
   return {
@@ -634,7 +645,7 @@ export const buildOverallCostModel = (
     l2Total: columnSums[1] || 0,
     incompleteCount,
     regretOnlyProducts,
-    finalizedTotal,
+    finalizedTotal: q2(finalizedTotal),
   };
 };
 
