@@ -1,3 +1,5 @@
+import React from "react";
+
 const GrandTotalBreakup = ({
   totalBase = 0,
   totalFreight = 0,
@@ -90,76 +92,79 @@ const GrandTotalBreakup = ({
     const subTotalAmount = amountRows.reduce((a, r) => a + (Number(r.amount) || 0), 0);
     const subTotalTax = taxRows.reduce((a, r) => a + (Number(r.tax) || 0), 0);
 
-    // Label = muted; value = darker (per UX request). Totals row uses the same
-    // darker value tone in bold.
-    const labelStyle = { whiteSpace: "nowrap", color: "#6c757d", fontSize: "0.78rem", lineHeight: "1.6" };
-    const valueStyle = { fontWeight: "500", whiteSpace: "nowrap", textAlign: "right", color: "#212529", fontSize: "0.78rem", lineHeight: "1.6", paddingLeft: "12px" };
-    const subLabelStyle = { whiteSpace: "nowrap", color: "#212529", fontWeight: "600", fontSize: "0.85rem", lineHeight: "1.6" };
-    const subValueStyle = { fontWeight: "600", whiteSpace: "nowrap", textAlign: "right", color: "#212529", fontSize: "0.85rem", lineHeight: "1.6", paddingLeft: "12px" };
-    const grandLabelStyle = { whiteSpace: "nowrap", color: "#212529", fontWeight: "700", fontSize: "0.9rem", lineHeight: "1.6" };
-    const grandValueStyle = { fontWeight: "700", whiteSpace: "nowrap", textAlign: "right", color: "#212529", fontSize: "0.9rem", lineHeight: "1.6", paddingLeft: "12px", minWidth: "110px" };
-    const dashStyle = { borderTop: "1px dashed #ced4da", margin: "3px 0 4px 0", width: "100%" };
+    // Plain divs (not <table>) so Bootstrap's global table styling (cell
+    // borders, striped row backgrounds) can't leak in. Label = muted, value =
+    // dark + semibold for prominence.
+    const labelStyle = { whiteSpace: "nowrap", color: "#6c757d", fontSize: "0.78rem", lineHeight: "1.45" };
+    const valueStyle = { fontWeight: "600", whiteSpace: "nowrap", textAlign: "right", color: "#212529", fontSize: "0.82rem", lineHeight: "1.45" };
+    const subLabelStyle = { whiteSpace: "nowrap", color: "#212529", fontWeight: "600", fontSize: "0.85rem", lineHeight: "1.45" };
+    const subValueStyle = { fontWeight: "700", whiteSpace: "nowrap", textAlign: "right", color: "#212529", fontSize: "0.88rem", lineHeight: "1.45" };
+    const grandLabelStyle = { whiteSpace: "nowrap", color: "#212529", fontWeight: "700", fontSize: "0.92rem", lineHeight: "1.45" };
+    const grandValueStyle = { fontWeight: "700", whiteSpace: "nowrap", textAlign: "right", color: "#212529", fontSize: "0.95rem", lineHeight: "1.45", minWidth: "110px" };
+    const dashStyle = { borderTop: "1px dashed #ced4da", margin: "4px 0", width: "100%" };
 
-    // Bottom-aligned flex: each column's totals row sits at the same baseline
-    // so the dotted separators line up across all 3 columns regardless of how
-    // many entries each column carries.
-    const wrapperStyle = { display: "flex", flexDirection: "row", alignItems: "flex-end", gap: "40px", justifyContent: align === "end" ? "flex-end" : "flex-start" };
+    // Grid with two auto-sized tracks (label | value) inside each column. The
+    // grid keeps label/value pairs aligned without any table cell borders.
+    const gridStyle = { display: "grid", gridTemplateColumns: "auto auto", columnGap: "10px", rowGap: "2px", alignItems: "baseline" };
+
+    const justify = align === "end" ? "flex-end" : "flex-start";
+    const wrapperStyle = { display: "flex", flexDirection: "row", flexWrap: "wrap", alignItems: "flex-end", rowGap: "10px", columnGap: "32px", justifyContent: justify };
+    const leftGroupStyle = { display: "flex", flexDirection: "row", alignItems: "flex-end", gap: "32px" };
     const colStyle = { display: "flex", flexDirection: "column", justifyContent: "flex-end" };
-    const tableStyle = { borderCollapse: "collapse" };
 
     const renderRows = (entries, side) => (
-      <table style={tableStyle}><tbody>
+      <div style={gridStyle}>
         {entries.map((r) => (
-          <tr key={`${side}-${r.label}`}>
-            <td style={labelStyle}>{side === "tax" ? `Tax on ${r.label}` : r.label}:</td>
-            <td style={valueStyle}>{fmt(Number(side === "tax" ? r.tax : r.amount) || 0)}</td>
-          </tr>
+          <React.Fragment key={`${side}-${r.label}`}>
+            <span style={labelStyle}>{side === "tax" ? `Tax on ${r.label}` : r.label}:</span>
+            <span style={valueStyle}>{fmt(Number(side === "tax" ? r.tax : r.amount) || 0)}</span>
+          </React.Fragment>
         ))}
-      </tbody></table>
+      </div>
     );
 
     const renderTotalRow = (label, value, bold = "sub") => {
       const ls = bold === "grand" ? grandLabelStyle : subLabelStyle;
       const vs = bold === "grand" ? grandValueStyle : subValueStyle;
       return (
-        <table style={tableStyle}><tbody>
-          <tr>
-            <td style={ls}>{label}</td>
-            <td style={vs}>{value}</td>
-          </tr>
-        </tbody></table>
+        <div style={gridStyle}>
+          <span style={ls}>{label}</span>
+          <span style={vs}>{value}</span>
+        </div>
       );
     };
 
     return (
       <div style={wrapperStyle}>
-        {/* Col 1: pre-tax amounts */}
-        <div style={colStyle}>
-          {renderRows(amountRows, "amount")}
-          <div style={dashStyle} />
-          {renderTotalRow(hasGlobals ? "Sub Total:" : "Total:", fmt(subTotalAmount))}
+        {/* Cols 1 + 2 grouped so they wrap together as a unit. Col 3 (globals
+            + Grand Total) drops onto its own row when the container is too
+            narrow to hold all three side by side. */}
+        <div style={leftGroupStyle}>
+          <div style={colStyle}>
+            {renderRows(amountRows, "amount")}
+            <div style={dashStyle} />
+            {renderTotalRow(hasGlobals ? "Sub Total:" : "Total:", fmt(subTotalAmount))}
+          </div>
+
+          {taxRows.length > 0 && (
+            <div style={colStyle}>
+              {renderRows(taxRows, "tax")}
+              <div style={dashStyle} />
+              {renderTotalRow("Total Tax:", fmt(subTotalTax))}
+            </div>
+          )}
         </div>
 
-        {/* Col 2: GST per row (no empty padding rows — list grows up to the dotted line) */}
-        {taxRows.length > 0 && (
-          <div style={colStyle}>
-            {renderRows(taxRows, "tax")}
-            <div style={dashStyle} />
-            {renderTotalRow("Total Tax:", fmt(subTotalTax))}
-          </div>
-        )}
-
-        {/* Col 3: globals + Grand Total. When no globals, Grand Total stands alone here. */}
         <div style={colStyle}>
           {hasGlobals && (
-            <table style={tableStyle}><tbody>
+            <div style={gridStyle}>
               {visibleGlobals.map((g) => (
-                <tr key={`global-${g.label}`}>
-                  <td style={labelStyle}>{g.label}:</td>
-                  <td style={valueStyle}>{fmt(Number(g.value) || 0)}</td>
-                </tr>
+                <React.Fragment key={`global-${g.label}`}>
+                  <span style={labelStyle}>{g.label}:</span>
+                  <span style={valueStyle}>{fmt(Number(g.value) || 0)}</span>
+                </React.Fragment>
               ))}
-            </tbody></table>
+            </div>
           )}
           <div style={dashStyle} />
           {renderTotalRow(
