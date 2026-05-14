@@ -1011,9 +1011,16 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
           );
 
           return (
-            <div className={`${styles.sectionCard} mb-3`}>
+            <div className={`${styles.sectionCard} ${styles.sectionCardHighlight} mb-3`}>
               <div className={styles.sectionHeader}>
-                <h5 className={styles.sectionTitle}><BsFileEarmarkText size={16} /> Attachments from RFQ &amp; Quote</h5>
+                <h5 className={styles.sectionTitle}>
+                  <BsFileEarmarkText size={18} color="#2E5BA8" />
+                  <span>
+                    Attachments from RFQ &amp; Quote
+                    <span className={styles.sectionReviewBadge}>Review</span>
+                    <span className={styles.sectionTitleSub}>Buyer &amp; vendor documents exchanged on this order — please review before approval.</span>
+                  </span>
+                </h5>
                 {(buyerTermFiles.length > 0 || vendorTermFiles.length > 0) && (
                   <div className="d-flex flex-wrap gap-2">
                     {buyerTermFiles.length > 0 && (
