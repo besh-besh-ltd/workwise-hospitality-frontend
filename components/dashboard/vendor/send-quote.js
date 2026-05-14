@@ -359,7 +359,7 @@ const originalPaymentTermsListRef = useRef(null);
 
   const quoteBreakup = useMemo(() => {
     if (!pricingTotals?.lines) {
-      return { totalBase: 0, totalTax: 0, totalOtherCharges: 0, chargeBreakdown: [] };
+      return { totalBase: 0, totalTax: 0, totalOtherCharges: 0, chargeBreakdown: [], taxedRows: [] };
     }
     let totalBase = 0, totalTax = 0, totalOtherCharges = 0;
     const chargesByName = {};
@@ -367,16 +367,31 @@ const originalPaymentTermsListRef = useRef(null);
       totalBase += Number(line.base) || 0;
       totalTax += Number(line.base_tax) || 0;
       (line.charges || []).forEach((charge) => {
-        const subtotal = Number(charge.subtotal) || 0;
+        const amount = Number(charge.amount) || 0;
+        const tax = Number(charge.tax) || 0;
+        const subtotal = Number(charge.subtotal) || (amount + tax);
         totalOtherCharges += subtotal;
-        if (subtotal > 0) {
+        if (amount > 0 || tax > 0) {
           const name = charge.name || "Other";
-          chargesByName[name] = (chargesByName[name] || 0) + subtotal;
+          const prev = chargesByName[name] || { amount: 0, tax: 0, subtotal: 0 };
+          chargesByName[name] = {
+            amount: prev.amount + amount,
+            tax: prev.tax + tax,
+            subtotal: prev.subtotal + subtotal,
+          };
         }
       });
     });
-    const chargeBreakdown = Object.entries(chargesByName).map(([label, value]) => ({ label, value }));
-    return { totalBase, totalTax, totalOtherCharges, chargeBreakdown };
+    const chargeBreakdown = Object.entries(chargesByName)
+      .map(([label, v]) => ({ label, value: v.subtotal }));
+    // Aligned-row data for the 3-column line breakdown: Base first, then each
+    // named charge with its own pre-tax amount + GST. Filtered to entries that
+    // contribute on either side so the column stays compact.
+    const taxedRows = [
+      { label: "Base Amount", amount: totalBase, tax: totalTax },
+      ...Object.entries(chargesByName).map(([label, v]) => ({ label, amount: v.amount, tax: v.tax })),
+    ].filter((r) => r.amount > 0 || r.tax > 0);
+    return { totalBase, totalTax, totalOtherCharges, chargeBreakdown, taxedRows };
   }, [pricingTotals]);
 
   // Check if any quoteable product has pending/incomplete tech eval
@@ -3183,7 +3198,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                   >
                                     <td style={{ textAlign: "center", backgroundColor: "#f8f9fa", verticalAlign: "middle" }}>{index + 1}</td>
                                     <td>
-                                      <p className="fw-semibold text-nowrap mb-1">
+                                      <p className="fw-semibold mb-1" style={{ wordBreak: "break-word" }}>
                                         {item?.product_details[0]?.name}
                                       </p>
                                       {/* Product-level Negotiation Badge */}
@@ -3691,6 +3706,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                             formatPrice={formatPrice}
                             align="end"
                             chargeBreakdown={quoteBreakup.chargeBreakdown}
+                            taxedRows={quoteBreakup.taxedRows}
                             globalChargeBreakdown={globalOtherCharges
                               .filter(c => c.name && c.name.trim())
                               .map(c => {

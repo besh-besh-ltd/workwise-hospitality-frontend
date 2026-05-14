@@ -2656,21 +2656,29 @@ const RfqManagementPreview = () => {
                                         </h4>
 
                                         {rfqDetails.quotations[0]?.products?.length > 0 && submittedQuoteTotals && (() => {
-                                          // Sum the engine-output breakdown across line items. Charges
-                                          // named "Freight" / "Packaging" populate their respective
-                                          // breakup rows; everything else flows through the engine totals.
-                                          let totalBase = 0, totalFreight = 0, totalPackaging = 0, totalTax = 0;
+                                          // Build the same row-aligned breakdown the send-quote page renders:
+                                          // Col 1 = Base + each named charge (pre-tax amount), Col 2 = matching
+                                          // GST per row, Col 3 = globals + Grand Total. Source data shape:
+                                          // submittedQuoteTotals.lines[].{ base, base_tax, charges[]{ name, amount, tax } }.
+                                          let totalBase = 0, baseTax = 0;
+                                          const chargesByName = {};
                                           (submittedQuoteTotals.lines || []).forEach(line => {
                                             totalBase += Number(line.base) || 0;
-                                            totalTax += Number(line.base_tax) || 0;
+                                            baseTax += Number(line.base_tax) || 0;
                                             (line.charges || []).forEach(c => {
-                                              const name = (c.name || "").toLowerCase();
-                                              const subtotal = Number(c.subtotal) || 0;
-                                              if (name === "freight") totalFreight += subtotal;
-                                              else if (name === "packaging") totalPackaging += subtotal;
-                                              else totalTax += 0; // other named charges are folded into the engine total
+                                              const name = c.name || "Other";
+                                              const amount = Number(c.amount) || 0;
+                                              const tax = Number(c.tax) || 0;
+                                              if (amount > 0 || tax > 0) {
+                                                const prev = chargesByName[name] || { amount: 0, tax: 0 };
+                                                chargesByName[name] = { amount: prev.amount + amount, tax: prev.tax + tax };
+                                              }
                                             });
                                           });
+                                          const taxedRows = [
+                                            { label: "Base Amount", amount: totalBase, tax: baseTax },
+                                            ...Object.entries(chargesByName).map(([label, v]) => ({ label, amount: v.amount, tax: v.tax })),
+                                          ].filter(r => r.amount > 0 || r.tax > 0);
                                           const grandTotal = Number(submittedQuoteTotals.grand_total) || 0;
                                           const globalChargeBreakdown = (submittedQuoteTotals.global_charges || []).map((c) => ({
                                             label: c.name,
@@ -2679,11 +2687,8 @@ const RfqManagementPreview = () => {
                                           return (
                                             <div className="mb-2 d-flex justify-content-end">
                                               <GrandTotalBreakup
-                                                totalBase={totalBase}
-                                                totalFreight={totalFreight}
-                                                totalPackaging={totalPackaging}
-                                                totalTax={totalTax}
                                                 grandTotal={grandTotal}
+                                                taxedRows={taxedRows}
                                                 globalChargeBreakdown={globalChargeBreakdown}
                                                 formatPrice={formatPrice}
                                                 align="end"
