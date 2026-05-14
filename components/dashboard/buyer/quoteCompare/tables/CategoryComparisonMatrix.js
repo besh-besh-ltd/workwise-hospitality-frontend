@@ -448,6 +448,14 @@ const CategoryComparisonMatrix = ({
         </table>
       </div>
 
+      <div className={styles.categoryInfoBanner} role="note">
+        <span className={styles.categoryInfoBannerIcon} aria-hidden="true">i</span>
+        <span>
+          <span className={styles.categoryInfoBannerStrong}>Charges apply per product.</span>
+          {" "}Switch to the <span className={styles.categoryInfoBannerStrong}>Product Wise Comparison</span> tab for the line-level breakdown.
+        </span>
+      </div>
+
       <BreakupInsightModal
         show={breakupModal.show}
         onHide={closeBreakupModal}
