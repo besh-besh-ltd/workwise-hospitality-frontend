@@ -214,12 +214,12 @@ const BreakupInsightModal = ({
           })}
         </div>
 
-        <div className={`${styles.breakupComment} ${styles.breakupRowHighlight}`}>
-          <p className={styles.breakupCommentLabel}>Vendor Comment</p>
-          <p className={styles.breakupCommentText}>
-            {details.global_comment || details.comment || details?.quote_details?.global_comment || "--"}
-          </p>
-        </div>
+        {details.comment ? (
+          <div className={`${styles.breakupComment} ${styles.breakupRowHighlight}`}>
+            <p className={styles.breakupCommentLabel}>Vendor Comment</p>
+            <p className={styles.breakupCommentText}>{details.comment}</p>
+          </div>
+        ) : null}
 
         {details.global_payment_term ? (
           <div className={styles.breakupComment}>
