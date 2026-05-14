@@ -112,7 +112,14 @@ const compareTargetToQuoted = (targetValue, targetMode, quoteData, fieldKey) => 
   if (isNaN(target)) return null;
 
   let quotedValue, quotedMode;
-  const basePrice = quoteData.unitPrice || 0;
+  // Percentage charges (freight, packaging, etc.) are applied to the line
+  // subtotal (unit_price × quantity) — same as the quote engine. Using just
+  // unit_price here made e.g. 5% on (500 × 4) look like ₹25 instead of ₹100,
+  // which flipped the lower/greater verdict and showed a bogus "quoted is
+  // lower than target" warning.
+  const unitPrice = parseFloat(quoteData.unitPrice) || 0;
+  const quantity = parseFloat(quoteData.quantity) || 1;
+  const basePrice = unitPrice * quantity;
 
   switch (fieldKey) {
     case 'base_price':
@@ -423,7 +430,9 @@ const VendorAccordionPanel = ({
                     if (isGlobalSelected && globalTarget && field.hasMode) {
                       const globalMode = globalFormData[field.modeKey] || 'percentage';
                       const vendorMode = field.value === 'freight' ? quoteData?.freightMode : quoteData?.packageMode;
-                      const basePrice = quoteData?.unitPrice || 0;
+                      // Charges are % of line subtotal (unit_price × quantity),
+                      // matching the engine — see compareTargetToQuoted above.
+                      const basePrice = (parseFloat(quoteData?.unitPrice) || 0) * (parseFloat(quoteData?.quantity) || 1);
                       if (vendorMode && globalMode !== localMode) {
                         const converted = convertTargetForDisplay(globalTarget, globalMode, localMode, basePrice);
                         placeholder = formatValueWithUnit(converted, localMode, field.value);
