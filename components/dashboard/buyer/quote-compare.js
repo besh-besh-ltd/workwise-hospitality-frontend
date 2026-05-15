@@ -434,15 +434,20 @@ const QuoteCompare = () => {
         loadNegotiationData();
       }
 
-      // Fetch vendor rejections from RFQ detail endpoint
+      // Fetch full RFQ detail (vendor rejections + fields not included in the list endpoint, e.g. comment)
       try {
         const rfqDetailRes = await getRFQById(fetchRfq);
         const rfqDetail = rfqDetailRes?.data || rfqDetailRes;
-        if (latestRfqRef.current === fetchRfq && rfqDetail?.vendor_rejections) {
-          setVendorRejections(rfqDetail.vendor_rejections);
+        if (latestRfqRef.current === fetchRfq && rfqDetail) {
+          if (rfqDetail.vendor_rejections) {
+            setVendorRejections(rfqDetail.vendor_rejections);
+          }
+          if (rfqDetail.comment !== undefined) {
+            setcurrentRFQ((prev) => (prev ? { ...prev, comment: rfqDetail.comment } : prev));
+          }
         }
       } catch (e) {
-        console.error("Error fetching vendor rejections:", e);
+        console.error("Error fetching RFQ detail:", e);
         setVendorRejections([]);
       }
     } catch (error) {
