@@ -11,6 +11,18 @@ import { toast } from "react-toastify";
 import { Badge } from "react-bootstrap";
 
 import {  Modal  } from "react-bootstrap";
+import { Dropdown } from "@/components/ui/Dropdown";
+
+const NEGOTIATION_FILTER_LABELS = {
+  all: "All RFQs",
+  active: "Active Negotiation",
+  ended: "Ended Negotiation",
+};
+const NEGOTIATION_FILTER_OPTIONS = Object.values(NEGOTIATION_FILTER_LABELS);
+const labelToFilterValue = (label) =>
+  Object.keys(NEGOTIATION_FILTER_LABELS).find(
+    (k) => NEGOTIATION_FILTER_LABELS[k] === label
+  ) || "all";
 
 const InquiriesReceived = ({ pageType = 0 }) => {
   const [page, setpage] = useState(1);
@@ -23,10 +35,11 @@ const InquiriesReceived = ({ pageType = 0 }) => {
   const [showReminderModal, setShowReminderModal] = useState(false); // New state for reminder confirmation modal
   const [selectedItem, setSelectedItem] = useState(null); // To keep track of the item for which reminder is being sent
   const [negotiationRounds, setNegotiationRounds] = useState({}); // Store active rounds by RFQ ID
+  const [negotiationFilter, setNegotiationFilter] = useState("all"); // "all" | "active" | "ended"
 
   useEffect(() => {
     getRFQs();
-  }, [page, limit]);
+  }, [page, limit, negotiationFilter]);
 
   useEffect(() => {
     // Load negotiation rounds for all RFQs in the list
@@ -83,7 +96,11 @@ const InquiriesReceived = ({ pageType = 0 }) => {
 
   const getRFQs = () => {
     setloading(true);
-    getVendorRfqList({ page, limit })
+    const payload = { page, limit };
+    if (negotiationFilter !== "all") {
+      payload.negotiation_filter = negotiationFilter;
+    }
+    getVendorRfqList(payload)
       .then((res) => {
         setloading(false);
         setrfqList(res.data);
@@ -191,6 +208,13 @@ const getQuoteStatus = async (rfq_id) => {
     setShowReminderModal(true);
   };
 
+  const handleNegotiationFilterChange = (label) => {
+    const value = labelToFilterValue(label);
+    if (value === negotiationFilter) return;
+    setpage(1);
+    setNegotiationFilter(value);
+  };
+
 
 
 
@@ -212,9 +236,22 @@ const getQuoteStatus = async (rfq_id) => {
           <div className="row">
             <div className="col-md-12">
               <div className="vendor-mngt-con">
+                {pageType == 0 && (
+                  <div className="d-flex justify-content-end mb-2" style={{ maxWidth: "260px", marginLeft: "auto" }}>
+                    <Dropdown
+                      options={NEGOTIATION_FILTER_OPTIONS}
+                      value={NEGOTIATION_FILTER_LABELS[negotiationFilter]}
+                      onChange={handleNegotiationFilterChange}
+                      placeholder="Filter by Negotiation"
+                    />
+                  </div>
+                )}
+
                 {!loading && rfqList.length == 0 && (
                   <p className="mb-0 text-center">
-                    You've not received any inqueries yet.
+                    {negotiationFilter !== "all"
+                      ? "No RFQs match the selected negotiation filter."
+                      : "You've not received any inqueries yet."}
                   </p>
                 )}
 

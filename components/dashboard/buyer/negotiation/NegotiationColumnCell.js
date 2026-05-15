@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { Modal, Spinner } from 'react-bootstrap';
 import { getNegotiationRounds } from '@/services/negotiation';
 import moment from 'moment';
@@ -36,7 +37,8 @@ const formatEndDate = (endDate) => {
   return moment.utc(endDate).local().format('DD/MM/YYYY, hh:mm A');
 };
 
-const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLoaded, token, vendorView = false }) => {
+const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLoaded, token, vendorView = false, isReverseAuctionActive = false }) => {
+  const router = useRouter();
   const [rounds, setRounds] = useState([]);
   const [latestRound, setLatestRound] = useState(null);
   const [totalRounds, setTotalRounds] = useState(0);
@@ -133,7 +135,14 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
   };
 
   const handleCellClick = () => {
-    if (!latestRound || vendorView) return;
+    if (!latestRound) return;
+    if (vendorView) {
+      const tokenParam = token !== undefined ? `&token=${token}` : '';
+      router.push(
+        `/dashboard/vendor/send-quote?type=update-quote&id=${rfq_id}${tokenParam}&showTechEvalRestrictions=${isReverseAuctionActive}`
+      );
+      return;
+    }
     setShowModal(true);
   };
 
@@ -165,7 +174,7 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
   return (
     <>
       <td
-        style={{ minWidth: '140px', verticalAlign: 'middle', cursor: vendorView ? 'default' : 'pointer' }}
+        style={{ minWidth: '140px', verticalAlign: 'middle', cursor: 'pointer' }}
         onClick={handleCellClick}
       >
         <div className={styles.negCell}>
@@ -211,6 +220,13 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
               <div className={styles.negCellSection}>
                 <div className={styles.negCellFooter}>
                   {latestRound.created_by_name ? `By ${latestRound.created_by_name}` : 'Click to view details'}
+                </div>
+              </div>
+            )}
+            {vendorView && (
+              <div className={styles.negCellSection}>
+                <div className={styles.negCellFooter}>
+                  Click to update quote
                 </div>
               </div>
             )}
