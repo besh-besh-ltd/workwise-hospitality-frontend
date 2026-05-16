@@ -21,6 +21,8 @@ const NegotiationCompactBanner = ({
   preloadedActiveRounds = null,
   preloadedRoundsHistory = null,
   preloadedApprovalBundle = null,
+  finalizationApprovalCompleted = false,
+  hasPendingFinalizationApproval = false,
 }) => {
   const [activeRounds, setActiveRounds] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -258,6 +260,9 @@ const NegotiationCompactBanner = ({
   // Check if all products have quote_approval_status approved — disable Create Round
   const allQuotesApproved = products.length > 0 && products.every(p => p.quote_approval_status?.status === 'APPROVED');
 
+  // Disable Create Round when the finalization cycle is in flight ("Finalized" or "In Approval"/"Action Required" of cycle b)
+  const finalizationCycleBlocksRound = finalizationApprovalCompleted || hasPendingFinalizationApproval;
+
   // Check if ARC is approved (hide ended rounds when ARC is approved)
   const isArcApproved = arcApprovalData?.status === 'APPROVED';
 
@@ -338,6 +343,29 @@ const NegotiationCompactBanner = ({
               overlay={
                 <Tooltip id="create-round-disabled">
                   All vendors are already in negotiation round
+                </Tooltip>
+              }
+            >
+              <span className="d-inline-block">
+                <button
+                  type="button"
+                  disabled
+                  className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <Plus size={14} strokeWidth={2.5} />
+                  Create Round
+                </button>
+              </span>
+            </OverlayTrigger>
+          ) : finalizationCycleBlocksRound ? (
+            <OverlayTrigger
+              placement="top"
+              overlay={
+                <Tooltip id="create-round-disabled-finalization">
+                  {finalizationApprovalCompleted
+                    ? 'Vendor finalization is already approved'
+                    : 'Vendor finalization is awaiting approval'}
                 </Tooltip>
               }
             >
