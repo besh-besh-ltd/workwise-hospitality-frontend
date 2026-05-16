@@ -1428,7 +1428,7 @@ return { deletedTerms, createdTerms, updatedTerms };
         )
       ) {
         // setShowSubmitQuoteConfirmModal(false);
-        return toast.error("Some required fields may be missing or in negative")
+        return toast.error("Base price and delivery period must be greater than zero")
       }
         
       payload = { ...payload, products: updatedProducts };
