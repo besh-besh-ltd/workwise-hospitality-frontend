@@ -1273,6 +1273,13 @@ useEffect(() => {
       }
     }
 
+    // Details step required fields — title + contact trio. Without these
+    // the Save Changes path would POST to /rfq/update and only surface the
+    // failure as a backend-driven toast, leaving the empty field un-highlighted.
+    if (!formDataCopy.title || String(formDataCopy.title).trim() === '') {
+      return fail(2, "Please enter the RFQ Title", "title");
+    }
+
     // Department is required when departments are available
     if (departments.length > 0 && !formDataCopy.department_id) {
       return fail(2, "Please select a department", "department_id");
@@ -1281,6 +1288,16 @@ useEffect(() => {
     // Process is required for RFQ creation
     if (!formDataCopy.process_id) {
       return fail(2, "Please select a process", "process_id");
+    }
+
+    if (!formDataCopy.contact_name || String(formDataCopy.contact_name).trim() === '') {
+      return fail(2, "Please enter the Contact person name", "contact_name");
+    }
+    if (!formDataCopy.response_email || String(formDataCopy.response_email).trim() === '') {
+      return fail(2, "Please enter the Email", "response_email");
+    }
+    if (!formDataCopy.contact_number || String(formDataCopy.contact_number).trim() === '') {
+      return fail(2, "Please enter the Contact Number", "contact_number");
     }
 
     // Publish Date & Time is required and must be at least 5 minutes from now
@@ -1496,11 +1513,26 @@ useEffect(() => {
         .catch((err) => {
           setMainLoading(false);
           setHasUnsavedChanges(true);
-          const errorData = err?.message?.response?.data;
-          const errorMessage = errorData?.message || errorData?.errors?.message || `Failed to update ${getEntityLabel(rfqFormDataFromStore?.is_tender)}. Please try again.`;
+          // updateRfq rejects with { message: <string>, error: <axiosError> }
+          const errorData = err?.error?.response?.data;
+          const errorMessage =
+            err?.message ||
+            errorData?.message ||
+            errorData?.errors?.message ||
+            `Failed to update ${getEntityLabel(rfqFormDataFromStore?.is_tender)}. Please try again.`;
           if (errorData?.errors?.details && Array.isArray(errorData.errors.details)) {
             const missingVendorIds = errorData.errors.details.map(d => d.rfqProductId);
             setErrorProducts(new Set(missingVendorIds));
+          }
+          // Jump to the step that owns the failing field so the user can
+          // see what to fix without hunting for it.
+          const failingField = errorData?.field;
+          const targetStep = failingField ? submitFieldStep(failingField) : null;
+          if (targetStep) {
+            setCurrentStep(targetStep);
+            setMaxStepReached((m) => Math.max(m, targetStep));
+            setSubmitInvalidField(failingField);
+            setTriedNextOnStep(targetStep);
           }
           toast.error(errorMessage);
         });
@@ -1843,9 +1875,13 @@ useEffect(() => {
       }
 
     } catch (error) {
+      // updateRfq rejects with { message: <string>, error: <axiosError> };
+      // saveDraft rejects with { message: <axiosError> }. Normalise both shapes.
+      const isUpdateRfqShape = typeof error?.message === 'string';
+      const axiosErr = isUpdateRfqShape ? error?.error : error?.message;
+
       // Aborted because a newer save took over — silent no-op. The newer
       // request will own the user-visible result.
-      const axiosErr = error?.message;
       if (axiosErr?.code === "ERR_CANCELED" || axiosErr?.name === "CanceledError") {
         return;
       }
@@ -1854,15 +1890,31 @@ useEffect(() => {
       }
 
       const errorData = axiosErr?.response?.data;
-      const errorMessage = errorData?.message || errorData?.errors?.message || "Failed to save draft. Please try again.";
+      const errorMessage =
+        (isUpdateRfqShape ? error.message : null) ||
+        errorData?.message ||
+        errorData?.errors?.message ||
+        (isEditMode
+          ? `Failed to update ${getEntityLabel(rfqFormDataFromStore?.is_tender)}. Please try again.`
+          : "Failed to save draft. Please try again.");
 
       if (errorData?.errors?.details && Array.isArray(errorData.errors.details)) {
         const missingVendorIds = errorData.errors.details.map(d => d.rfqProductId);
         setErrorProducts(new Set(missingVendorIds));
-        toast.error(errorMessage);
-      } else {
-        toast.error(errorMessage);
       }
+      // Jump to the step that owns the failing field so the user can see
+      // what to fix without hunting for it. Only the /rfq/update path
+      // tags errors with `field` today — saveDraft errors lack the tag,
+      // so non-edit drafts simply show the toast in place.
+      const failingField = errorData?.field;
+      const targetStep = failingField ? submitFieldStep(failingField) : null;
+      if (targetStep) {
+        setCurrentStep(targetStep);
+        setMaxStepReached((m) => Math.max(m, targetStep));
+        setSubmitInvalidField(failingField);
+        setTriedNextOnStep(targetStep);
+      }
+      toast.error(errorMessage);
     }
 
 
@@ -3020,7 +3072,14 @@ useEffect(() => {
         return 3;
       case "department_id":
       case "process_id":
+      case "tender_fees":
+      case "hotel_ids":
         return 2;
+      case "products":
+        return 1;
+      case "terms":
+      case "term_and_condition_files":
+        return 4;
       default:
         return null;
     }
@@ -3484,6 +3543,24 @@ useEffect(() => {
                 flagInvalidStep(currentStep);
                 return;
               }
+              // Edit mode posts the full snapshot to /rfq/update on every save,
+              // so a required field cleared on an earlier step would only blow
+              // up after the user has already advanced. Run the cross-step
+              // validator here and park the user on the offending step.
+              if (isEditMode) {
+                const result = validateRFQFields({
+                  company_name: rfqFormDataRef.current?.company_name || ''
+                });
+                if (!result?.ok) {
+                  if (result?.step) {
+                    setCurrentStep(result.step);
+                    setTriedNextOnStep(result.step);
+                    setSubmitInvalidField(result.field || null);
+                    setMaxStepReached((m) => Math.max(m, result.step));
+                  }
+                  return;
+                }
+              }
               // Step is valid — clear any stale errors, fire a background
               // save if the user has unsaved edits (don't await, the step
               // change shouldn't wait for the network), and advance.
@@ -3508,14 +3585,30 @@ useEffect(() => {
                 setTriedNextOnStep(null);
                 return;
               }
-              // Edit mode: the RFQ is already published, so let the user jump
-              // freely between steps without re-validating intermediate ones.
               if (!isEditMode) {
                 for (let s = currentStep; s < n; s++) {
                   if (!isStepValid(s)) {
                     flagInvalidStep(s);
                     return;
                   }
+                }
+              } else {
+                // Edit mode posts the full snapshot on every save, so a
+                // forward jump that leaves an earlier required field empty
+                // would only blow up after the user lands on the new step.
+                // Gate the jump on the same cross-step validator the Save
+                // Changes / Save and Next paths use.
+                const result = validateRFQFields({
+                  company_name: rfqFormDataRef.current?.company_name || ''
+                });
+                if (!result?.ok) {
+                  if (result?.step) {
+                    setCurrentStep(result.step);
+                    setTriedNextOnStep(result.step);
+                    setSubmitInvalidField(result.field || null);
+                    setMaxStepReached((m) => Math.max(m, result.step));
+                  }
+                  return;
                 }
               }
               setTriedNextOnStep(null);
