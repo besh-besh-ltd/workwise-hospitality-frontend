@@ -85,6 +85,11 @@ const UnitMenuList = (props) => {
               onMouseDown={(e) => e.stopPropagation()}
               onChange={(e) => setUnitFooterValue(e.target.value)}
               onKeyDown={(e) => {
+                // Stop every keystroke from bubbling up to react-select —
+                // otherwise its menu-level handler swallows Backspace (and
+                // others) and the user can't edit the inline custom-unit
+                // input. We still handle the navigation keys ourselves.
+                e.stopPropagation();
                 if (e.key === "Enter") { e.preventDefault(); submitNewUnit(); }
                 if (e.key === "Escape") { e.preventDefault(); closeUnitFooter(); }
               }}
