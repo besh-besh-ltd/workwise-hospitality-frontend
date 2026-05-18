@@ -73,7 +73,10 @@ export const formatToINRShort = (amount) => {
   } else if (amount >= 1000) {
     return `${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}K`;
   } else {
-    return amount.toString();
+    // Quantise to 2dp so float-drift (e.g. budget - po_total = 50.00000000001)
+    // doesn't render raw.
+    const quantised = Math.round((Number(amount) || 0) * 100) / 100;
+    return quantised.toString();
   }
 };
 
@@ -150,14 +153,15 @@ export const extractfileName = (file_url) => {
     return file_url?.split('/').pop();
 }
 
-export const handleFileUpload = async (e, token) => {
+export const handleFileUpload = async (e, token, options = {}) => {
+    const { allowAllTypes = false } = options;
     const allowedExtensions = ["pdf", "docx", "doc", "xlsx", "xls", "csv", "png", "jpg", "jpeg"];
-  
+
     const files = e.target.files;
     const file = files[0];
     const fileExtension = file.name.split(".").pop().toLowerCase();
-  
-    if (allowedExtensions.includes(fileExtension)) {
+
+    if (allowAllTypes || allowedExtensions.includes(fileExtension)) {
       try {
         const { handleUploadFile } = await import("@/services/rfq");
         const res = await handleUploadFile(file, token);
@@ -448,322 +452,10 @@ const useDebounce = (value, delay = 500) => {
 
 export default useDebounce;
 
-/**
- * Calculation_steps:
- * base = 100 * 2 = 200
- * freight = 200 * 10% = 20
- * packaging = 200 * 5% = 10
- * subtotal = 200 + 20 + 10 = 230
- * tax = 230 * 18% = 41.4
- * total = 230 + 41.4 = 271.4
- *
- * Apply payment_terms:
- * - 10% Advance → no discount: 10% of 271.4 = 27.14
- * - 20% @30 days → 1% discount: 20% * 271.4 * 0.99 = 53.166
- * - 70% @60 days → 2% discount: 70% * 271.4 * 0.98 = 186.556
- *
- * Final normalized total = 27.14 + 53.166 + 186.556 = 266.862 → Math.round = 267
- * Note: If payment terms do not sum to 100%, the leftover percentage (100% - defined %)  is added back to the normalized total with no discount applied.
- * Last changes by mukul on 07-aug-2025, to add normalization based on payment terms
- */
-export const calculateTotal = (item, quantity, normalizeFilter) => {
-
-// return 0
-  let total_qty = parseFloat(quantity) || 0;
-  let unit_price = item.unit_price || 0;
-  let tax = item.tax !== null ? parseFloat(item.tax) : 0;
-
-  let base = unit_price * total_qty;
-  if (base <= 0) return 0;
-
-  let T = (item.tax_mode ?? "percentage") == 'percentage' ? (base * tax) / 100 : tax;
-
-  // Other charges
-  let otherChargesTotal = 0;
-  (item.other_charges || []).forEach(c => {
-    let cAmt = (c.amount_mode ?? "percentage") == 'percentage' ? (base * (parseFloat(c.amount) || 0)) / 100 : (parseFloat(c.amount) || 0);
-    let cTax = (c.tax_mode ?? "percentage") == 'percentage' ? (cAmt * (parseFloat(c.tax) || 0)) / 100 : (parseFloat(c.tax) || 0);
-    otherChargesTotal += cAmt + cTax;
-  });
-
-  let TotalPrice = base + T + otherChargesTotal;
-
-const DELIVERY_DAYS = parseInt(item.delivery_period || 0);
-
-if (normalizeFilter) {
-  let normalizedTotal = 0;
-  let totalPercentDefined = 0;
-
-  item?.payment_terms?.forEach(term => {
-    const percentage = parseFloat(term.value) || 0;
-    const type = (term.type || "").toLowerCase();
-    const days = parseInt(term.days || 0);
-    const pctAmount = (percentage / 100) * TotalPrice;
-
-    let factor = 1;
-
-    if (type === "advance") {
-      // Advance logic: factor = 1 + (delivery_days / 30) * 1/100
-      factor = 1 + (DELIVERY_DAYS / 30) * (1 / 100);
-    } else if (type === "credit") {
-      // Credit logic: factor = 1 - (days / 30) * 1/100
-      factor = 1 - (days / 30) * (1 / 100);
-    } else {
-      // 'other' or anything unknown is left over (skip here)
-      return;
-    }
-
-    // Clamp factor between 0 and something reasonable (not mandatory but safe)
-    factor = Math.max(0, factor);
-
-    normalizedTotal += pctAmount * factor;
-    totalPercentDefined += percentage;
-  });
-
-  // Handle leftover (includes "other" type)
-  if (totalPercentDefined < 100) {
-    const leftoverPercent = 100 - totalPercentDefined;
-    normalizedTotal += (leftoverPercent / 100) * TotalPrice;
-  }
-
-  TotalPrice = normalizedTotal;
-}
-
-  return Math.round(TotalPrice);
-}
-
-
-/**
- * @created by mukul on 13-aug-2025
- * @description Normalizes freight, packaging, and tax for nested quote details. Converts absolute values to percentages and fills missing values using average (freight/package) or median (tax).
- * @used in category wise and overall quotation chart,
- * @test_cases written in workwise-portal/tests/utils/sharedFunctions.test.js
- */
-export const handleNormalize = (data) => {
-
-  // --- pre-normalize absolute -> percentage (values + labels) ---
-  const toNum = (v) => {
-    const n = parseFloat(v);
-    return Number.isFinite(n) ? n : 0;
-  };
-  const getQty = (d) => {
-    const fromRfq = d?.rfq_details?.find(x => x.title === 'Quantity')?.value;
-    const q = toNum(fromRfq ?? d?.quantity ?? 0);
-    return q > 0 ? q : 0;
-  };
-  const preNormalized = (data || []).map(item => ({
-    ...item,
-    quotations: (item.quotations || []).map(quote => ({
-      ...quote,
-      quote_details: (quote.quote_details || []).map(detail => {
-        const unit = toNum(detail.unit_price);
-        const qty  = getQty(detail);
-        const base = unit * qty;
-        const d = { ...detail };
-
-        if (d.freight_mode === 'absolute') {
-          d.freight_price = base ? (toNum(d.freight_price) / base) * 100 : 0;
-          d.freight_mode = 'percentage';
-        }
-        if (d.package_mode === 'absolute') {
-          d.package_price = base ? (toNum(d.package_price) / base) * 100 : 0;
-          d.package_mode = 'percentage';
-        }
-        if (d.tax_mode === 'absolute') {
-          d.tax = base ? (toNum(d.tax) / base) * 100 : 0;
-          d.tax_mode = 'percentage';
-        }
-        return d;
-      })
-    }))
-  }));
-  // --- END pre-normalize ---
-
-  // pools must use PERCENT data -> use preNormalized
-  const allFreightPrices = [];
-  const allPackagePrices = [];
-  const allTaxRates = [];
-
-  preNormalized.forEach(item => {                 // <-- changed
-    item.quotations.forEach(quote => {
-      quote.quote_details?.forEach(detail => {
-      const freight = parseFloat(detail.freight_price);
-      if (!isNaN(freight) && freight > 0) allFreightPrices.push(freight);
-
-      const pack = parseFloat(detail.package_price);
-      if (!isNaN(pack) && pack > 0) allPackagePrices.push(pack);
-
-        const tax = parseFloat(detail.tax);
-        if (!isNaN(tax)) allTaxRates.push(tax);
-      });
-    });
-  });
-
-  const averageFreight = allFreightPrices.length
-    ? allFreightPrices.reduce((s, v) => s + v, 0) / allFreightPrices.length
-    : 0;
-
-  const averagePackage = allPackagePrices.length
-    ? allPackagePrices.reduce((s, v) => s + v, 0) / allPackagePrices.length
-    : 0;
-
-  const sortedTaxRates = allTaxRates.sort((a, b) => a - b);
-  const medianTax = (() => {
-    const len = sortedTaxRates.length;
-    if (len === 0) return 0;
-    const mid = Math.floor(len / 2);
-    return len % 2 === 0
-      ? (sortedTaxRates[mid - 1] + sortedTaxRates[mid]) / 2
-      : sortedTaxRates[mid];
-  })();
-
-  // final mapping must also use preNormalized so labels are "%"
-  const normalized = preNormalized.map(item => {  // <-- changed
-
-    const vendorTermsById = new Map(
-      (item.all_vendors || []).map(v => [v.id, v.payment_terms || []])
-    );
-
-    const updatedQuotations = item.quotations.map(quote => {
-
-      const paymentTerms = vendorTermsById.get(quote.created_by) || [];
-
-    const updatedDetails = quote.quote_details?.map(detail => {
-      const currentFreight = safeTwoDecimals(detail.freight_price);
-      const currentPackage = safeTwoDecimals(detail.package_price);
-      const currentTax = safeTwoDecimals(detail.tax);
-    
-      return {
-        ...detail,
-        freight_price:
-          currentFreight === 0 ? safeTwoDecimals(averageFreight) : currentFreight,
-        package_price:
-          currentPackage === 0 ? safeTwoDecimals(averagePackage) : currentPackage,
-        tax:
-          currentTax === 0 ? safeTwoDecimals(medianTax) : currentTax,
-        payment_terms: paymentTerms
-      };
-    }) || [];
-
-
-      return { ...quote, quote_details: updatedDetails };
-    });
-
-    return { ...item, quotations: updatedQuotations };
-  });
-
-  return normalized;
-};
-
-
-
-/**
- * @created by mukul on 13-aug-2025
- * @description Normalizes freight, packaging, and tax for nested quote details. Converts absolute values to percentages and fills missing values using average (freight/package) or median (tax).
- * @used in individual quotation chart, and input is flat quotation data
- * @test_cases written in workwise-portal/tests/utils/sharedFunctions.test.js
- */
-export const normalizeFlatQuotationData = (data) => {
-
-  // --- pre-normalize absolute -> percentage (values + labels) ---
-  const toNum = (v) => {
-    const n = parseFloat(v);
-    return Number.isFinite(n) ? n : 0;
-  };
-  const getQty = (q) => {
-    const fromRfq = q?.rfq_details?.find?.(x => x.title === 'Quantity')?.value;
-    const qtty =
-      toNum(fromRfq) ||
-      toNum(q?.quantity) ||
-      toNum(q?.quote_details?.[0]?.quantity);
-    return qtty > 0 ? qtty : 0;
-  };
-  const getUnit = (q) =>
-    toNum(q?.unit_price ?? q?.quote_details?.[0]?.unit_price);
-
-  const preNormalized = (data || []).map(item => ({
-    ...item,
-    quotations: (item.quotations || []).map(q => {
-      const unit = getUnit(q);
-      const qty  = getQty(q);
-      const base = unit * qty; // base for % conversion
-
-      const r = { ...q };
-
-      if (r.package_mode === 'absolute') {
-        r.package_price = base ? (toNum(r.package_price) / base) * 100 : 0;
-        r.package_mode = 'percentage';
-      }
-      if (r.freight_mode === 'absolute') {
-        r.freight_price = base ? (toNum(r.freight_price) / base) * 100 : 0;
-        r.freight_mode = 'percentage';
-      }
-      if (r.tax_mode === 'absolute') {
-        r.tax = base ? (toNum(r.tax) / base) * 100 : 0;
-        r.tax_mode = 'percentage';
-      }
-      return r;
-    })
-  }));
-  // --- end pre-normalize ---
-
-  // return data 
-  const allFreightPrices = [];
-  const allPackagePrices = [];
-  const allTaxRates = [];
-
-  // Step 1: Collect all values (including 0) FROM preNormalized
-  preNormalized.forEach(item => {
-    item.quotations.forEach(quote => {
-      const freight = parseFloat(quote.freight_price);
-     if (!isNaN(freight) && freight > 0) allFreightPrices.push(freight);
-
-     const pack = parseFloat(quote.package_price);
-     if (!isNaN(pack) && pack > 0) allPackagePrices.push(pack);
-
-      const tax = parseFloat(quote.tax);
-      if (!isNaN(tax)) allTaxRates.push(tax);
-    });
-  });
-
-  const average = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-
-  const median = arr => {
-    if (!arr.length) return 0;
-    const sorted = [...arr].sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    return arr.length % 2 === 0
-      ? (sorted[mid - 1] + sorted[mid]) / 2
-      : sorted[mid];
-  };
-
-  const averageFreight = average(allFreightPrices);
-  const averagePackage = average(allPackagePrices);
-  const medianTax = median(allTaxRates);
-
-  // Step 2: Normalize (use preNormalized so modes are already '%')
-  const normalizedData = preNormalized.map(item => {
-    const updatedQuotations = item.quotations.map(quote => {
-      const freight = safeTwoDecimals(quote.freight_price);
-      const pack = safeTwoDecimals(quote.package_price);
-      const tax = safeTwoDecimals(quote.tax);
-  
-      return {
-        ...quote,
-        freight_price: freight === 0 ? safeTwoDecimals(averageFreight) : freight,
-        package_price: pack === 0 ? safeTwoDecimals(averagePackage) : pack,
-        tax: tax === 0 ? safeTwoDecimals(medianTax) : tax,
-      };
-    });
-  
-    return {
-      ...item,
-      quotations: updatedQuotations,
-    };
-  });
-
-  return normalizedData;
-};
+// Note: pricing math (per-line totals, peer normalisation, payment-term
+// adjustments) lives on the backend in app/services/pricingEngine.js. The
+// frontend renders engine output via the /pricing/preview and
+// /rfq/quote-compare/:id endpoints — no client-side recompute.
 
 
 export const  addCommasToNumber = (number) => {
@@ -772,8 +464,12 @@ export const  addCommasToNumber = (number) => {
       return 0
     }
 
+    // Quantise to 2 decimals so float-drift (e.g. 39652.01779…) renders cleanly.
+    // Money math is owned by the backend; this is a display-side safety net.
+    const quantised = Math.round(Number(number) * 100) / 100;
+
     // Convert number to string
-    let numberString = number.toString();
+    let numberString = quantised.toString();
 
     // Split the number string into parts
     let parts = numberString.split(".");
@@ -963,18 +659,29 @@ export const canEditRfq = (rfq, currentUser) => {
       reason: 'Only the user who created this RFQ can edit it.'
     };
   }
+  // Restricted-edit triggers (most-specific reason wins). All three collapse to
+  // the same enforcement: only bid_end_date + Refresh Vendors. Mirrors the
+  // backend computation of `isRestrictedEdit` in rfqController.update so the FE
+  // shouldn't author changes the BE will reject.
   if (rfq.has_dead_end_product) {
     return {
       allowed: true,
-      deadEndEdit: true,
-      reason: 'Editing is enabled because one or more products have all vendor POs rejected.'
+      restrictedEdit: true,
+      reason: 'Restricted editing: vendors have rejected the PO and no other vendor is finalisable. You can only extend the Quote Submission Deadline and refresh vendors.'
     };
   }
   if (rfq.has_tech_stuck_product) {
     return {
       allowed: true,
       restrictedEdit: true,
-      reason: 'Restricted editing: only bid end date extension and vendor refresh are available because all vendors failed technical evaluation.'
+      reason: 'Restricted editing: all vendors failed technical evaluation. You can only extend the Quote Submission Deadline and refresh vendors.'
+    };
+  }
+  if (rfq.has_received_quotes) {
+    return {
+      allowed: true,
+      restrictedEdit: true,
+      reason: 'Restricted editing: vendors have started submitting quotes. To stay fair to participants you can only extend the Quote Submission Deadline and refresh vendors.'
     };
   }
   return { allowed: true };

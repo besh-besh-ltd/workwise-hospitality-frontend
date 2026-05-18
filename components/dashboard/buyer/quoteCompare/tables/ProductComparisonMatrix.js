@@ -14,13 +14,16 @@ import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import FinalizeVendorModal from "@/components/dashboard/buyer/FinalizeVendorModal";
 import FinalizeHistoryModal from "@/components/dashboard/buyer/FinalizeHistoryModal";
 import HierarchySelectionModal from "@/components/dashboard/buyer/HierarchySelectionModal";
+import ExistingPOModal from "@/components/dashboard/buyer/ExistingPOModal";
 import RoundEndActions from "@/components/dashboard/buyer/negotiation/RoundEndActions";
 import ApprovalWorkflowSection from "@/components/dashboard/buyer/approval/ApprovalWorkflowSection";
+import { getExistingPOByVendor } from "@/services/rfq";
+import { willBeFinalApprover as predictWillBeFinalApprover } from "@/services/approval";
 import {
   approveNegotiationQuotes,
   rejectNegotiationQuotes,
 } from "@/services/negotiation";
-import { addCommasToNumber, calculateTotal } from "@/utils/sharedFunctions";
+import { addCommasToNumber } from "@/utils/sharedFunctions";
 import {
   buildProductComparisonModel,
   getPaymentTermsText,
@@ -54,7 +57,7 @@ const highlightedMetricKeys = new Set(["total", "grandTotal", "delivery", "comme
 
 const formatCurrency = (value) => {
   const num = Number(value || 0);
-  return `Rs. ${addCommasToNumber(Math.round(num))}`;
+  return `Rs. ${addCommasToNumber(num)}`;
 };
 
 const getNumericValue = (...values) => {
@@ -187,6 +190,7 @@ const ProductComparisonMatrix = ({
   originalQuotations,
   quantity,
   handleFinalize,
+  finalizeLoading = false,
   proditem,
   alreadyFinalized,
   isRfqClosed = false,
@@ -219,6 +223,13 @@ const ProductComparisonMatrix = ({
   });
   const [existingPOId, setExistingPOId] = useState(null);
   const [selectedRouteType, setSelectedRouteType] = useState(null);
+  // Merge-PO check at finalize time. Auto-approving NEGOTIATION_QUOTE
+  // instances bypass the approval-time merge prompt in
+  // ApprovalWorkflowSection, so we also probe for existing draft POs here
+  // so the user can merge in every flow (including initiator==approver).
+  const [mergeExistingPos, setMergeExistingPos] = useState([]);
+  const [mergeSelectedPo, setMergeSelectedPo] = useState(null);
+  const [mergeProbeLoading, setMergeProbeLoading] = useState(false);
   const [quoteApprovalStatus, setQuoteApprovalStatus] = useState(preloadedQuoteApprovalStatus);
   const [otherChargesExpanded, setOtherChargesExpanded] = useState(false);
   const [globalTaxesExpanded, setGlobalTaxesExpanded] = useState(false);
@@ -257,7 +268,7 @@ const ProductComparisonMatrix = ({
   );
 
   const handleApprovalActionComplete = () => {
-    if (onRoundEnded) onRoundEnded();
+    if (onRoundEnded) onRoundEnded(proditem?.id);
   };
 
   const handleCustomQuoteApprove = async (comment, handlerContext = {}) => {
@@ -363,11 +374,21 @@ const ProductComparisonMatrix = ({
         );
       }
       case "total": {
-        const currentTotal = Math.round(column.total);
+        // The "Total" row shows the per-LINE engine total (base + base_tax +
+        // per-line other_charges). Document-level global charges (TCS, doc
+        // fees) are added explicitly in the "Global Taxes" row below and
+        // rolled into the "Grand Total" row at the end. If we used
+        // column.total here (which is the grand_total used elsewhere for
+        // vendor headers), the subsequent "Global Taxes" / "Grand Total"
+        // rows would double-count the globals.
+        const lineEngineTotal = Number(
+          details?.engine?.total ?? column.quote?.engine_total ?? column.total
+        );
+        const currentTotal = lineEngineTotal;
         const prevQuote = findPreviousDifferent(
           previousQuotes,
           (prev) => {
-            const prevTotal = Math.round(getNumericValue(prev.total_price));
+            const prevTotal = getNumericValue(prev.total_price);
             return prevTotal > 0 && prevTotal !== currentTotal;
           }
         );
@@ -404,30 +425,38 @@ const ProductComparisonMatrix = ({
         return renderPaymentPills(content);
       }
       default: {
-        // Accordion summary rows
+        // Accordion summary rows — read from engine output. The engine
+        // applied the correct tax-inheritance rule, so this matches what
+        // the line `total` reflects (and what gets persisted on save).
         if (rowMeta.type === "otherChargesSummary") {
           const otherCharges = details.other_charges || [];
           if (otherCharges.length === 0) return <span className={styles.value}>--</span>;
-          const unitPrice = Number(details.unit_price || 0);
-          const qty = Number(column.quantity || 0);
-          const subtotal = unitPrice * qty;
-          let total = 0;
-          otherCharges.forEach(c => {
-            const amt = c.amount_mode === "percentage" ? (subtotal * Number(c.amount || 0)) / 100 : Number(c.amount || 0);
-            const tax = c.tax_mode === "percentage" ? (amt * Number(c.tax || 0)) / 100 : Number(c.tax || 0);
-            total += amt + tax;
-          });
+          const total = Number(details.engine?.charges_total || 0);
           return <span className={styles.value}>{formatCurrency(total)} <small className="text-muted">({otherCharges.length} charge{otherCharges.length > 1 ? "s" : ""})</small></span>;
         }
         if (rowMeta.type === "globalTaxesSummary") {
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
           if (globalCharges.length === 0) return <span className={styles.value}>--</span>;
-          const productTotal = Math.round(column.total);
-          let total = 0;
-          globalCharges.forEach(c => {
-            const tax = Number(c.tax || 0);
-            total += c.tax_mode === "percentage" ? (productTotal * tax) / 100 : tax;
-          });
+          // Prefer the BE's authoritative engine_global_charges_total (rounded
+          // consistently with the rest of the app); compute locally only as a
+          // fallback for legacy responses without engine output.
+          const engineTotalFromApi = Number(
+            details?.engine_global_charges_total ?? column.quote?.engine_global_charges_total ?? 0
+          );
+          let total = engineTotalFromApi;
+          if (!(total > 0)) {
+            // Apply globals to the per-LINE engine total, not to column.total
+            // (which is the grand total — line + globals — used elsewhere for
+            // vendor headers). Using grand here would double-count.
+            const lineEngineTotal = Number(
+              details?.engine?.total ?? column.quote?.engine_total ?? column.total
+            );
+            globalCharges.forEach(c => {
+              const tax = Number(c.tax ?? c.amount ?? 0);
+              const mode = c.tax_mode ?? c.amount_mode ?? "percentage";
+              total += mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+            });
+          }
           return <span className={styles.value}>{formatCurrency(total)} <small className="text-muted">({globalCharges.length} tax{globalCharges.length > 1 ? "es" : ""})</small></span>;
         }
         // Handle dynamic other_charges and global_charges detail rows
@@ -438,25 +467,66 @@ const ProductComparisonMatrix = ({
           const amountVal = Number(charge.amount || 0);
           const taxVal = Number(charge.tax || 0);
           const amountDisplay = charge.amount_mode === "percentage" ? `${amountVal}%` : formatCurrency(amountVal);
-          const taxDisplay = taxVal > 0 ? (charge.tax_mode === "percentage" ? ` (+${taxVal}% tax)` : ` (+${formatCurrency(taxVal)} tax)`) : "";
-          return <span className={styles.value}>{amountDisplay}<small className="text-muted">{taxDisplay}</small></span>;
+          const commentText = charge.comment ? ` (${charge.comment})` : "";
+          let taxDisplay = "";
+          let taxIncludesComment = false;
+          if (taxVal > 0) {
+            const taxUnit = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
+            taxDisplay = ` + ${taxUnit} tax${commentText}`;
+            taxIncludesComment = true;
+          } else if (amountVal > 0) {
+            // Vendor entered no tax on the charge. Only show "(auto-applied)"
+            // when the engine actually computed a non-zero tax for this line —
+            // the engine is the source of truth (it may legitimately respect a
+            // vendor-entered 0% tax and not auto-apply the base GST).
+            const engineCharges = details?.engine?.charges || [];
+            const engineCharge = engineCharges.find(
+              ec => (ec.slug && charge.slug && ec.slug === charge.slug) || ec.name === charge.name
+            );
+            const engineTax = Number(engineCharge?.tax || 0);
+            if (engineTax > 0) {
+              const baseTaxRate = (details.tax_mode ?? "percentage") === "percentage" ? (parseFloat(details.tax) || 0) : 0;
+              if (baseTaxRate > 0) {
+                taxDisplay = ` + ${baseTaxRate}% tax (auto-applied)`;
+              }
+            }
+          }
+          const trailingComment = !taxIncludesComment && commentText ? commentText : "";
+          return <span className={styles.value}>{amountDisplay}<small className="text-muted">{taxDisplay}{trailingComment}</small></span>;
         }
         if (rowMeta.type === "globalCharge") {
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
           const charge = globalCharges.find(c => c.name === rowMeta.chargeName);
           if (!charge) return <span className={styles.value}>--</span>;
           const taxVal = Number(charge.tax || 0);
-          return <span className={styles.value}>{charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal)}</span>;
+          const taxDisplay = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
+          const commentText = charge.comment ? ` (${charge.comment})` : "";
+          return <span className={styles.value}>{taxDisplay}{commentText && <small className="text-muted">{commentText}</small>}</span>;
         }
         if (rowKey === "grandTotal") {
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
-          const productTotal = Math.round(column.total);
+          // Grand Total = per-line engine total + global charges applied to
+          // the per-line total. Reads engine.total directly (NOT column.total,
+          // which already has globals folded in for the vendor header — using
+          // it here would double-count). Falls back to column.total only when
+          // engine output isn't available (legacy responses).
+          const lineEngineTotal = Number(
+            details?.engine?.total ?? column.quote?.engine_total ?? column.total
+          );
           let globalTotal = 0;
           globalCharges.forEach(c => {
-            const tax = Number(c.tax || 0);
-            globalTotal += c.tax_mode === "percentage" ? (productTotal * tax) / 100 : tax;
+            const tax = Number(c.tax ?? c.amount ?? 0);
+            const mode = c.tax_mode ?? c.amount_mode ?? "percentage";
+            globalTotal += mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
           });
-          return <span className={`${styles.value} fw-bold`}>{formatCurrency(productTotal + globalTotal)}</span>;
+          // Prefer the BE's authoritative engine_grand_total when it's
+          // present (rounded consistently with the rest of the app); compute
+          // locally only as a fallback for legacy responses.
+          const grandFromApi = Number(
+            details?.engine_grand_total ?? column.quote?.engine_grand_total ?? 0
+          );
+          const grand = grandFromApi > 0 ? grandFromApi : lineEngineTotal + globalTotal;
+          return <span className={`${styles.value} fw-bold`}>{formatCurrency(grand)}</span>;
         }
         return <EmptyValue />;
       }
@@ -496,6 +566,32 @@ const ProductComparisonMatrix = ({
 
   const lowestQuote = model.lowestQuote;
   const finalizedHistory = Array.isArray(proditem?.finalization_history) ? proditem.finalization_history : [];
+
+  // Effective lowest quote excludes vendors whose POs have been rejected
+  // (either by the vendor themselves or by an internal approver). This is
+  // what we surface to the buyer in the Lowest Bid card and use as the
+  // default for the Finalize CTA — re-finalizing a rejected vendor would
+  // just restart the same approval round we already know fails.
+  const rejectedVendorIdSet = new Set(
+    (vendorRejections || []).map((r) => String(r.vendor_id))
+  );
+  const effectiveLowestColumn = (model.columns || []).find(
+    (col) => !col.isRegret && col.total > 0 && !rejectedVendorIdSet.has(String(col.vendorId))
+  );
+  const effectiveLowestQuote = effectiveLowestColumn
+    ? effectiveLowestColumn.quote
+    : lowestQuote;
+  const lowestWasRejected =
+    !!lowestQuote &&
+    rejectedVendorIdSet.size > 0 &&
+    (() => {
+      const lowestVendorId = String(
+        getVendorDetails(lowestQuote, proditem)?.id ||
+          lowestQuote?.created_by ||
+          ''
+      );
+      return lowestVendorId && rejectedVendorIdSet.has(lowestVendorId);
+    })();
 
   return (
     <>
@@ -578,8 +674,18 @@ const ProductComparisonMatrix = ({
                     statuses.push({ label: "Missing", tone: "warning" });
                   }
                   if (column.isRegret) statuses.push({ label: "Regret", tone: "danger" });
-                  if (vendorRejections.some(r => String(r.vendor_id) === String(column.vendorId))) {
-                    statuses.push({ label: "PO Rejected", tone: "danger" });
+                  {
+                    const colRejection = vendorRejections.find(
+                      (r) => String(r.vendor_id) === String(column.vendorId)
+                    );
+                    if (colRejection) {
+                      statuses.push({
+                        label: colRejection.rejection_type === 'approver'
+                          ? 'PO Rejected by Approver'
+                          : 'PO Rejected by Vendor',
+                        tone: 'danger',
+                      });
+                    }
                   }
 
                   return (
@@ -603,7 +709,7 @@ const ProductComparisonMatrix = ({
                             <Dropdown.Menu>
                               <Dropdown.Item
                                 target="_blank"
-                                href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${column.vendorId}`}
+                                href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${column.vendorId}&showContact=true`}
                                 id={`view_vendor_profile_${column.vendorId}-vendor_actions-quote_compare_table`}
                               >
                                 <FontAwesomeIcon icon={faUser} className="me-2" />
@@ -709,10 +815,11 @@ const ProductComparisonMatrix = ({
                   <tr key={`${proditem?.id}_${summaryKey}`} className={styles.productMetricRow} style={{ cursor: "pointer" }} onClick={onToggle}>
                     <th
                       className={`${styles.metricCell} ${styles.metricCellCompact} ${styles.stickyLeft} ${styles.productMetricLabelCell}`}
-                      style={{ display: "flex", alignItems: "center", gap: "6px" }}
                     >
-                      {label}
-                      <span style={{ fontSize: "0.7rem", color: "#6c757d" }}>{isExpanded ? "▲" : "▼"}</span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        {label}
+                        <span style={{ fontSize: "0.7rem", color: "#6c757d" }}>{isExpanded ? "▲" : "▼"}</span>
+                      </span>
                     </th>
                     {model.columns.map((column) => (
                       <td
@@ -758,77 +865,158 @@ const ProductComparisonMatrix = ({
         </div>
       </ComparisonMatrixShell>
 
-      {/* Vendor PO Rejection Alert — shown above the Lowest Bid section */}
+      {/* PO Rejection Alert — shown above the Lowest Bid section.
+          Distinguishes vendor-rejection vs internal approver-rejection so the
+          buyer immediately understands what happened, who did it and why. */}
       {vendorRejections.length > 0 && alreadyFinalized?.length == 0 && (() => {
         const eligible = model.columns.filter(c => !c.isRegret && c.total > 0);
         const rejectedVendorIds = new Set(vendorRejections.map(r => String(r.vendor_id)));
         const otherVendors = eligible.filter(c => !rejectedVendorIds.has(String(c.vendorId)));
-        const lastRejection = vendorRejections[vendorRejections.length - 1];
-        const rejectedVendorName = lastRejection.vendor_organization || lastRejection.vendor_name;
+        // vendorRejections arrives ordered by rejected_at DESC NULLS LAST from
+        // the backend, so the freshest rejection is index 0. Pick that as the
+        // headline source — earlier wording used [length - 1] which surfaced
+        // the OLDEST event when multiple rejections existed for one product.
+        const latestRejection = vendorRejections[0];
+        const rejectedVendorName = latestRejection.vendor_organization || latestRejection.vendor_name;
+        const isApproverRejection = latestRejection.rejection_type === 'approver';
 
         // Was the rejected vendor L1?
-        const rejectedColumn = eligible.find(c => String(c.vendorId) === String(lastRejection.vendor_id));
+        const rejectedColumn = eligible.find(c => String(c.vendorId) === String(latestRejection.vendor_id));
         const wasL1 = rejectedColumn?.rank === 'L1';
+        const noAlternatives = otherVendors.length === 0;
 
-        // No other vendors available
-        if (otherVendors.length === 0) {
-          return (
-            <div style={{
-              background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10,
-              padding: '14px 18px', marginBottom: 12, marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 10,
-            }}>
-              <span style={{ fontSize: 18, lineHeight: 1 }}>🚫</span>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#991B1B' }}>
-                  {rejectedVendorName} rejected the PO for this product
-                </div>
-                {lastRejection.vendor_rejection_reason && (
-                  <div style={{ fontSize: 12.5, color: '#991B1B', marginTop: 2, opacity: 0.85 }}>
-                    Reason: {lastRejection.vendor_rejection_reason}
-                  </div>
-                )}
-                <div style={{ fontSize: 12.5, color: '#7F1D1D', marginTop: 6, lineHeight: 1.5 }}>
-                  No other vendor has quoted for this product. You may <strong>wait for additional quotes</strong> or <strong>finalize this vendor again</strong> below.
-                </div>
-              </div>
-            </div>
-          );
-        }
+        const formatRejectedAt = (raw) => {
+          if (!raw) return null;
+          const d = new Date(raw);
+          if (Number.isNaN(d.getTime())) return null;
+          return d.toLocaleString('en-IN', {
+            day: '2-digit', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: true,
+          });
+        };
+        const rejectedAtDisplay = formatRejectedAt(latestRejection.rejected_at);
 
-        // Other vendors available — suggest L2 if rejected was L1, else suggest L1
-        const suggested = wasL1 ? otherVendors[0] : eligible[0];
-        const suggestLabel = wasL1
-          ? `Recommended: L2 — ${suggested?.vendorName}`
-          : `Recommended: L1 — ${suggested?.vendorName}`;
+        const palette = noAlternatives
+          ? { bg: '#FEF2F2', border: '#FECACA', titleColor: '#991B1B', subColor: '#7F1D1D', metaBg: '#FEE2E2', metaColor: '#7F1D1D', chipBg: '#FECACA', chipColor: '#7F1D1D' }
+          : { bg: '#FFF7ED', border: '#FED7AA', titleColor: '#9A3412', subColor: '#7C2D12', metaBg: '#FFEDD5', metaColor: '#7C2D12', chipBg: '#FED7AA', chipColor: '#7C2D12' };
+
+        const headline = isApproverRejection
+          ? `Awarding approver rejected the PO for ${rejectedVendorName}`
+          : `${rejectedVendorName} rejected the PO`;
+
+        const chipLabel = isApproverRejection ? 'Approver rejection' : 'Vendor rejection';
 
         return (
-          <div style={{
-            background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10,
-            padding: '14px 18px', marginBottom: 12, marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 10,
-          }}>
-            <span style={{ fontSize: 18, lineHeight: 1 }}>💡</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1E40AF' }}>
-                {rejectedVendorName} rejected the PO for this product
-              </div>
-              {lastRejection.vendor_rejection_reason && (
-                <div style={{ fontSize: 12.5, color: '#1E40AF', marginTop: 2, opacity: 0.85 }}>
-                  Reason: {lastRejection.vendor_rejection_reason}
-                </div>
+          <div
+            style={{
+              background: palette.bg,
+              border: `1px solid ${palette.border}`,
+              borderRadius: 12,
+              padding: '14px 18px',
+              marginTop: 12,
+              marginBottom: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 0.4,
+                  textTransform: 'uppercase',
+                  background: palette.chipBg,
+                  color: palette.chipColor,
+                  padding: '3px 8px',
+                  borderRadius: 999,
+                }}
+              >
+                {chipLabel}
+              </span>
+              {latestRejection.po_number && (
+                <span style={{ fontSize: 12, color: palette.subColor, opacity: 0.85 }}>
+                  PO #{latestRejection.po_number}
+                </span>
               )}
-              <div style={{
-                marginTop: 8, padding: '8px 12px', background: '#DBEAFE', borderRadius: 8,
-                fontSize: 13, fontWeight: 600, color: '#1E3A8A', display: 'flex', alignItems: 'center', gap: 6,
-              }}>
-                <span style={{ fontSize: 15 }}>→</span>
-                {suggestLabel}
-                {suggested && (
-                  <span style={{ fontWeight: 400, marginLeft: 4, color: '#3B82F6' }}>
-                    (Rs. {addCommasToNumber(suggested.total)})
-                  </span>
+              {rejectedAtDisplay && (
+                <span style={{ fontSize: 12, color: palette.subColor, opacity: 0.85, marginLeft: 'auto' }}>
+                  {rejectedAtDisplay}
+                </span>
+              )}
+            </div>
+
+            <div style={{ fontSize: 14, fontWeight: 600, color: palette.titleColor, marginBottom: 4 }}>
+              {headline}
+            </div>
+
+            {(latestRejection.rejected_by_name || latestRejection.rejection_reason) && (
+              <div
+                style={{
+                  marginTop: 6,
+                  padding: '8px 10px',
+                  background: palette.metaBg,
+                  borderRadius: 8,
+                  fontSize: 12.5,
+                  color: palette.metaColor,
+                  display: 'grid',
+                  rowGap: 4,
+                }}
+              >
+                {latestRejection.rejected_by_name && (
+                  <div>
+                    <strong>Rejected by:</strong>{' '}
+                    {latestRejection.rejected_by_name}
+                    {isApproverRejection && latestRejection.rejected_by_email
+                      ? ` (${latestRejection.rejected_by_email})`
+                      : ''}
+                  </div>
+                )}
+                {latestRejection.rejection_reason && (
+                  <div>
+                    <strong>Reason:</strong> {latestRejection.rejection_reason}
+                  </div>
                 )}
               </div>
-            </div>
+            )}
+
+            {(() => {
+              if (noAlternatives) {
+                return (
+                  <div style={{ fontSize: 12.5, color: palette.subColor, marginTop: 8, lineHeight: 1.55 }}>
+                    {isApproverRejection
+                      ? 'The vendor was de-finalized. No other vendor has a valid quote for this product. You can re-finalize this vendor or extend the quote submission date.'
+                      : 'No other vendor has quoted for this product. You may wait for additional quotes or finalize this vendor again below.'}
+                  </div>
+                );
+              }
+              const suggested = wasL1 ? otherVendors[0] : eligible[0];
+              const suggestLabel = wasL1
+                ? `Recommended next: L2 — ${suggested?.vendorName}`
+                : `Recommended next: L1 — ${suggested?.vendorName}`;
+              return (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: '8px 12px',
+                    background: palette.metaBg,
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: palette.titleColor,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span style={{ fontSize: 15 }}>→</span>
+                  {suggestLabel}
+                  {suggested && (
+                    <span style={{ fontWeight: 400, marginLeft: 4, opacity: 0.85 }}>
+                      (Rs. {addCommasToNumber(suggested.total)})
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
@@ -836,22 +1024,36 @@ const ProductComparisonMatrix = ({
       {alreadyFinalized?.length == 0 ? (
         <div className={styles.footerCards}>
           <div className={styles.footerCard}>
-            <p className={styles.footerLabel}>Lowest Bid</p>
+            <p className={styles.footerLabel}>
+              {lowestWasRejected ? 'Next Best Bid' : 'Lowest Bid'}
+            </p>
             <p className={styles.footerValue}>
-              {lowestQuote
-                ? getVendorDetails(lowestQuote, proditem)?.organization_name ||
-                  getVendorDetails(lowestQuote, proditem)?.name ||
-                  getVendorDetails(lowestQuote, proditem)?.email ||
+              {effectiveLowestQuote
+                ? getVendorDetails(effectiveLowestQuote, proditem)?.organization_name ||
+                  getVendorDetails(effectiveLowestQuote, proditem)?.name ||
+                  getVendorDetails(effectiveLowestQuote, proditem)?.email ||
                   "Unknown Vendor"
                 : "--"}
             </p>
-            {lowestQuote ? (
+            {lowestWasRejected && effectiveLowestQuote && (
+              <p
+                style={{
+                  fontSize: 11.5,
+                  color: '#9A3412',
+                  margin: '4px 0 0',
+                  fontWeight: 500,
+                }}
+              >
+                L1 was rejected - showing next eligible vendor.
+              </p>
+            )}
+            {effectiveLowestQuote ? (
               <div className={styles.footerContactRow}>
-                <Link href={`mailto:${getVendorDetails(lowestQuote, proditem)?.email || ""}`} className={styles.footerContactLink}>
+                <Link href={`mailto:${getVendorDetails(effectiveLowestQuote, proditem)?.email || ""}`} className={styles.footerContactLink}>
                   <FontAwesomeIcon icon={faEnvelope} />
                 </Link>
                 <Link
-                  href={`tel:${getVendorDetails(lowestQuote, proditem)?.mobile || ""}`}
+                  href={`tel:${getVendorDetails(effectiveLowestQuote, proditem)?.mobile || ""}`}
                   className={styles.footerContactLink}
                   id="call_lowest_bidder-quote_actions-quote_compare_table"
                 >
@@ -861,9 +1063,11 @@ const ProductComparisonMatrix = ({
             ) : null}
           </div>
           <div className={styles.footerCard}>
-            <p className={styles.footerLabel}>Lowest Total</p>
+            <p className={styles.footerLabel}>
+              {lowestWasRejected ? 'Next Best Total' : 'Lowest Total'}
+            </p>
             <p className={styles.footerValue}>
-              {lowestQuote ? formatCurrency(getQuoteTotal(proditem, lowestQuote, normalizeFilter)) : "--"}
+              {effectiveLowestQuote ? formatCurrency(getQuoteTotal(proditem, effectiveLowestQuote, normalizeFilter)) : "--"}
             </p>
           </div>
           <div className={`${styles.footerCard} ${styles.footerCardAction}`}>
@@ -884,7 +1088,7 @@ const ProductComparisonMatrix = ({
                     const isActiveRoundBlocking = activeRound && activeRound.status === 'ACTIVE';
                     const noPermission = !canWrite || permissionsLoading;
                     const notInHierarchy = useLegacyHierarchy && availableHierarchies.length <= 0;
-                    const isDisabled = isActiveRoundBlocking || noPermission || notInHierarchy || !lowestQuote;
+                    const isDisabled = isActiveRoundBlocking || noPermission || notInHierarchy || !effectiveLowestQuote;
 
                     const tooltipText = isActiveRoundBlocking
                       ? 'Negotiation round is ongoing, vendor finalization is restricted'
@@ -899,7 +1103,7 @@ const ProductComparisonMatrix = ({
                         type="button"
                         className={`${styles.footerBtn} ${styles.footerBtnPrimary}`}
                         onClick={() => {
-                          setCurrentItem(lowestQuote);
+                          setCurrentItem(effectiveLowestQuote);
                           setActiveModal("finalize");
                         }}
                         disabled={isDisabled}
@@ -976,26 +1180,90 @@ const ProductComparisonMatrix = ({
 
       <FinalizeVendorModal
         show={activeModal === "finalize"}
-        onHide={() => setActiveModal(null)}
-        onConfirm={(selectedPOId) => {
-          setExistingPOId(selectedPOId);
+        onHide={() => { if (!finalizeLoading && !mergeProbeLoading) setActiveModal(null); }}
+        loading={finalizeLoading || mergeProbeLoading}
+        onConfirm={async () => {
           const isTender = proditem?.rfq?.[0]?.is_tender === 1 || proditem?.rfq?.[0]?.is_tender === true;
           const routeType = isTender ? "ARC" : "PO";
           setSelectedRouteType(routeType);
 
+          // Helper that runs the actual finalize call (after merge selection,
+          // hierarchy selection, or directly when neither applies).
+          const runFinalize = async (poIdForMerge) => {
+            if (routeType === "ARC") {
+              const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, "ARC");
+              if (result?.success !== false) setActiveModal(null);
+            } else if (!useLegacyHierarchy) {
+              const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, "PO");
+              if (result?.success !== false) setActiveModal(null);
+            } else if (availableHierarchies.length <= 0) {
+              toast.error(
+                "You cannot finalize a vendor, as you don't belong to the PO approval hierarchy"
+              );
+              setActiveModal(null);
+            } else {
+              setActiveModal("hierarchy");
+            }
+          };
+
+          // ARC has no PO concept — no merge probe needed.
           if (routeType === "ARC") {
-            handleFinalize(currentItem, proditem, selectedPOId, null, "ARC");
-            setActiveModal(null);
-          } else if (!useLegacyHierarchy) {
-            handleFinalize(currentItem, proditem, selectedPOId, null, "PO");
-            setActiveModal(null);
-          } else if (availableHierarchies.length <= 0) {
-            toast.error(
-              "You cannot finalize a vendor, as you don't belong to the PO approval hierarchy"
-            );
-            setActiveModal(null);
-          } else {
-            setActiveModal("hierarchy");
+            await runFinalize(null);
+            return;
+          }
+
+          const vendorIdForProbe =
+            getVendorDetails(currentItem, proditem)?.id ||
+            currentItem?.quote_details?.created_by;
+          if (!vendorIdForProbe || !activeRfqId) {
+            await runFinalize(null);
+            return;
+          }
+
+          // Probe for existing draft POs AND check whether the calling user
+          // will be the final NEGOTIATION_QUOTE approver. Only the final
+          // approver gets the merge prompt — for everyone else the question
+          // naturally rolls up to whoever closes the chain (handled by
+          // ApprovalWorkflowSection's approval-time merge check). Both
+          // probes run in parallel and either failing is non-fatal.
+          try {
+            setMergeProbeLoading(true);
+            const [posResponse, finalApproverResponse] = await Promise.all([
+              getExistingPOByVendor(vendorIdForProbe, activeRfqId).catch((e) => {
+                console.error("Existing-PO probe failed:", e);
+                return null;
+              }),
+              predictWillBeFinalApprover({
+                entity_type: 'NEGOTIATION_QUOTE',
+                // rfq_id lets the BE derive process_id (and the rest of the
+                // hospitality scope) directly from tbl_rfq, matching exactly
+                // what createApprovalInstance will use at submit time. Without
+                // this, process-scoped policies wouldn't be found and the
+                // probe would falsely return false for sole-approver cases.
+                rfq_id: activeRfqId,
+                hospitality_company_id: hospitalityCompanyId,
+                hotel_id: hotelId,
+                department_id: departmentId,
+              }).catch((e) => {
+                console.error("Final-approver probe failed:", e);
+                return null;
+              }),
+            ]);
+            const pos = posResponse?.existingPOS ?? [];
+            const willBeFinal = !!(finalApproverResponse?.data?.willBeFinal);
+            if (pos.length > 0 && willBeFinal) {
+              setMergeExistingPos(pos);
+              setMergeSelectedPo(null);
+              setExistingPOId(null);
+              setActiveModal("merge_po");
+            } else {
+              await runFinalize(null);
+            }
+          } catch (err) {
+            console.error("Merge-PO gate failed, finalizing without merge:", err);
+            await runFinalize(null);
+          } finally {
+            setMergeProbeLoading(false);
           }
         }}
         vendorName={
@@ -1004,20 +1272,48 @@ const ProductComparisonMatrix = ({
           "Vendor"
         }
         vendorDetails={getVendorDetails(currentItem, proditem)}
+        vendorId={getVendorDetails(currentItem, proditem)?.id || currentItem?.quote_details?.created_by}
         rfqId={activeRfqId}
-        quotedPrice={currentItem?.total_price}
+        quotedPrice={currentItem?.engine_grand_total ?? currentItem?.total_price}
         productDetails={proditem?.product_details}
         alreadyFinalized={alreadyFinalized}
         availableBudget={availableBudget}
+        vendorRejections={vendorRejections}
+        finalizationHistory={finalizedHistory}
       />
 
       <HierarchySelectionModal
         show={activeModal === "hierarchy"}
-        onHide={() => setActiveModal(null)}
+        onHide={() => { if (!finalizeLoading) setActiveModal(null); }}
         hierarchies={availableHierarchies}
-        onConfirm={(selectedHierarchy) => {
-          handleFinalize(currentItem, proditem, existingPOId, selectedHierarchy, selectedRouteType || "PO");
-          setActiveModal(null);
+        onConfirm={async (selectedHierarchy) => {
+          const result = await handleFinalize(currentItem, proditem, existingPOId, selectedHierarchy, selectedRouteType || "PO");
+          if (result?.success !== false) setActiveModal(null);
+        }}
+      />
+
+      <ExistingPOModal
+        show={activeModal === "merge_po"}
+        onHide={() => { if (!finalizeLoading) setActiveModal(null); }}
+        loading={finalizeLoading}
+        existingPos={mergeExistingPos}
+        selectedPo={mergeSelectedPo}
+        setSelectedPo={setMergeSelectedPo}
+        onConfirm={async (selectedPOId) => {
+          const poIdForMerge = selectedPOId || null;
+          setExistingPOId(poIdForMerge);
+          const route = selectedRouteType || "PO";
+          if (!useLegacyHierarchy) {
+            const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, route);
+            if (result?.success !== false) setActiveModal(null);
+          } else if (availableHierarchies.length <= 0) {
+            toast.error(
+              "You cannot finalize a vendor, as you don't belong to the PO approval hierarchy"
+            );
+            setActiveModal(null);
+          } else {
+            setActiveModal("hierarchy");
+          }
         }}
       />
 
@@ -1029,7 +1325,6 @@ const ProductComparisonMatrix = ({
           proditem?.product_details?.[0]?.rfq_details?.find((spec) => spec.title === "Quantity")
             ?.value
         }
-        calculateTotal={calculateTotal}
       />
     </>
   );

@@ -214,3 +214,25 @@ export const getInstanceChangeHistory = (instanceId) =>
     }
   });
 
+// Predict whether the calling user will be the FINAL approver for an
+// about-to-be-created approval instance. Used by the QC merge-PO gate so
+// only the final approver gets the merge prompt at finalize time.
+export const willBeFinalApprover = (params = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const queryParams = new URLSearchParams();
+      Object.keys(params).forEach((key) => {
+        if (params[key] !== null && params[key] !== undefined && params[key] !== "") {
+          queryParams.append(key, params[key]);
+        }
+      });
+      const queryString = queryParams.toString();
+      const response = await axiosInstance.get(
+        `/general/hospitality/approval/will-be-final-approver${queryString ? `?${queryString}` : ""}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+

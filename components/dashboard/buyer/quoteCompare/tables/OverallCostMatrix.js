@@ -17,7 +17,7 @@ import styles from "./QuoteCompareTables.module.scss";
 const formatCurrency = (value) => {
   const parsed = Number(String(value ?? 0).replace(/,/g, "").match(/-?\d+(\.\d+)?/)?.[0]);
   const safe = Number.isFinite(parsed) ? parsed : 0;
-  return `Rs. ${addCommasToNumber(Math.round(safe))}`;
+  return `Rs. ${addCommasToNumber(safe)}`;
 };
 
 const getHeatClass = (row, vendorId) => {
@@ -70,7 +70,7 @@ const OverallCostMatrix = ({
   const isSingleRank = model.maxRanks <= 1;
   const hasRankColumns = model.maxRanks > 0;
 
-  const baselineDelta = Number(metrics?.baselineTotal || 0) - Number(model.l1Total || 0);
+  const baselineDelta = Math.round(((Number(metrics?.baselineTotal || 0) - Number(model.l1Total || 0))) * 100) / 100;
 
   const openBreakupModal = (payload) => {
     setBreakupModal({ show: true, ...payload });

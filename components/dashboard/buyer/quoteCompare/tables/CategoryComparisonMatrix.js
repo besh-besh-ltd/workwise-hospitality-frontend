@@ -17,7 +17,7 @@ import styles from "./QuoteCompareTables.module.scss";
 const formatCurrency = (value) => {
   const parsed = Number(String(value ?? 0).replace(/,/g, "").match(/-?\d+(\.\d+)?/)?.[0]);
   const safe = Number.isFinite(parsed) ? parsed : 0;
-  return `Rs. ${addCommasToNumber(Math.round(safe))}`;
+  return `Rs. ${addCommasToNumber(safe)}`;
 };
 
 const formatRoundStatus = (status) => {
@@ -446,6 +446,14 @@ const CategoryComparisonMatrix = ({
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      <div className={styles.categoryInfoBanner} role="note">
+        <span className={styles.categoryInfoBannerIcon} aria-hidden="true">i</span>
+        <span>
+          <span className={styles.categoryInfoBannerStrong}>Charges apply per product.</span>
+          {" "}Switch to the <span className={styles.categoryInfoBannerStrong}>Product Wise Comparison</span> tab for the line-level breakdown.
+        </span>
       </div>
 
       <BreakupInsightModal

@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { NEGOTIATION_FIELD_OPTIONS, FIELD_TARGET_KEYS, buildChargeFieldOption, getChargeTargetKey } from './NegotiationFieldsSelect';
+import { NEGOTIATION_FIELD_OPTIONS, FIELD_TARGET_KEYS, TEXT_FIELDS, buildChargeFieldOption, getChargeTargetKey } from './NegotiationFieldsSelect';
 import styles from './NegotiationUI.module.scss';
 
 /**
@@ -49,6 +49,10 @@ const getFieldDisplayValue = (vendorData, fieldKey) => {
       return vendorData.vendorTC || '--';
     case 'comments':
       return vendorData.comment || '--';
+    case 'documents': {
+      const docs = vendorData.documentFiles || [];
+      return docs.length > 0 ? `${docs.length} document${docs.length > 1 ? 's' : ''}` : '--';
+    }
     case 'delivery_period':
       return vendorData.deliveryPeriod ? `${vendorData.deliveryPeriod}` : '--';
     default: {
@@ -108,7 +112,14 @@ const compareTargetToQuoted = (targetValue, targetMode, quoteData, fieldKey) => 
   if (isNaN(target)) return null;
 
   let quotedValue, quotedMode;
-  const basePrice = quoteData.unitPrice || 0;
+  // Percentage charges (freight, packaging, etc.) are applied to the line
+  // subtotal (unit_price × quantity) — same as the quote engine. Using just
+  // unit_price here made e.g. 5% on (500 × 4) look like ₹25 instead of ₹100,
+  // which flipped the lower/greater verdict and showed a bogus "quoted is
+  // lower than target" warning.
+  const unitPrice = parseFloat(quoteData.unitPrice) || 0;
+  const quantity = parseFloat(quoteData.quantity) || 1;
+  const basePrice = unitPrice * quantity;
 
   switch (fieldKey) {
     case 'base_price':
@@ -123,16 +134,14 @@ const compareTargetToQuoted = (targetValue, targetMode, quoteData, fieldKey) => 
         if (target === quotedValue) return { result: 'equal', diffAmt: '₹0', diffPct: '0%' };
         return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct };
       }
-    case 'freight':
-      quotedValue = parseFloat(quoteData.freightPrice);
-      quotedMode = quoteData.freightMode || 'percentage';
+    default: {
+      // Dynamic charges — look up from otherCharges by slug or name
+      const charge = (quoteData.otherCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
+      if (!charge) return null;
+      quotedValue = parseFloat(charge.amount);
+      quotedMode = charge.amount_mode || 'percentage';
       break;
-    case 'packaging':
-      quotedValue = parseFloat(quoteData.packagePrice);
-      quotedMode = quoteData.packageMode || 'percentage';
-      break;
-    default:
-      return null;
+    }
   }
 
   if (isNaN(quotedValue) || quotedValue <= 0 || !basePrice) return null;
@@ -169,6 +178,7 @@ const VendorAccordionPanel = ({
   onVendorLocalFieldToggle,
   globalFormData = {},
   chargeNamesList = [],
+  onOpenTextFieldModal,
 }) => {
   const [hoveredVendorId, setHoveredVendorId] = useState(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -193,7 +203,13 @@ const VendorAccordionPanel = ({
     const vendorApprovals = activeRound?.vendor_approvals || [];
     const roundVendorIds = new Set((activeRound?.vendor_ids || []).map(Number));
 
-    return productVendors.map(v => {
+    return productVendors.filter(v => {
+      const vid = Number(v.id || v.user_id);
+      return quotations.some(q => {
+        const vd = q.quote_details?.vendor_details;
+        return Number(vd?.id || vd?.user_id || q.vendor_id || q.created_by) === vid;
+      });
+    }).map(v => {
       const vendorId = Number(v.id || v.user_id);
 
       const matchedQuote = quotations.find(q => {
@@ -216,7 +232,7 @@ const VendorAccordionPanel = ({
       return {
         id: vendorId,
         name: getVendorDisplayName(v),
-        totalPrice: parseFloat(matchedQuote?.total_price || 0),
+        totalPrice: parseFloat(matchedQuote?.engine_grand_total ?? matchedQuote?.total_price ?? 0),
         activeRoundInfo: v.active_round_info || null,
         approvalStatus,
         isDisabled,
@@ -352,17 +368,26 @@ const VendorAccordionPanel = ({
               <div className={`${styles.vendorAccordionBody} ${isExpanded ? styles.vendorAccordionBodyOpen : ''}`}>
                 <div className={styles.vendorQuoteCardsGrid}>
                   {(() => {
-                    // Vendor accordion shows: comment, payment_terms, and vendor-specific custom charges
-                    const defaultChargeSlugs = new Set(
-                      chargeNamesList.filter(c => c.created_by === null).map(c => c.slug || c.name)
-                    );
+                    // Vendor accordion shows: comment, payment_terms, vendor-specific custom charges,
+                    // and global default charges ONLY when selected in the Negotiation Fields section
+                    const defaultCharges = chargeNamesList.filter(c => c.created_by === null && !c.is_global);
+                    const defaultChargeSlugs = new Set(defaultCharges.map(c => c.slug || c.name));
                     const vendorCustomCharges = (quoteData?.otherCharges || [])
                       .filter(c => !defaultChargeSlugs.has(c.slug || c.name))
                       .map(c => ({ name: c.name, slug: c.slug || c.name }))
                       .map(buildChargeFieldOption);
+                    // Include global fields (base_price, default charges) that are selected in the Negotiation Fields section — read-only
+                    const selectedGlobalFields = [
+                      ...(selectedFields.includes('base_price') ? [{ ...NEGOTIATION_FIELD_OPTIONS.find(f => f.value === 'base_price'), isGlobalReadOnly: true }] : []),
+                      ...defaultCharges
+                        .filter(c => selectedFields.includes(c.slug || c.name))
+                        .map(c => ({ ...buildChargeFieldOption(c), isGlobalReadOnly: true })),
+                    ];
                     const vendorFields = [
+                      ...selectedGlobalFields,
                       NEGOTIATION_FIELD_OPTIONS.find(f => f.value === 'payment_terms'),
                       { value: 'comments', label: 'Comments', inputType: 'text', placeholder: 'Enter target comments' },
+                      { value: 'documents', label: 'Documents', inputType: 'text', placeholder: 'Set target for documents' },
                       ...vendorCustomCharges,
                     ].filter(Boolean);
                     return vendorFields;
@@ -405,7 +430,9 @@ const VendorAccordionPanel = ({
                     if (isGlobalSelected && globalTarget && field.hasMode) {
                       const globalMode = globalFormData[field.modeKey] || 'percentage';
                       const vendorMode = field.value === 'freight' ? quoteData?.freightMode : quoteData?.packageMode;
-                      const basePrice = quoteData?.unitPrice || 0;
+                      // Charges are % of line subtotal (unit_price × quantity),
+                      // matching the engine — see compareTargetToQuoted above.
+                      const basePrice = (parseFloat(quoteData?.unitPrice) || 0) * (parseFloat(quoteData?.quantity) || 1);
                       if (vendorMode && globalMode !== localMode) {
                         const converted = convertTargetForDisplay(globalTarget, globalMode, localMode, basePrice);
                         placeholder = formatValueWithUnit(converted, localMode, field.value);
@@ -416,6 +443,8 @@ const VendorAccordionPanel = ({
                       placeholder = formatValueWithUnit(globalTarget, 'amount', field.value);
                     }
 
+                    const isTextField = TEXT_FIELDS.includes(field.value);
+
                     const cardEl = (
                       <div
                         key={field.value}
@@ -423,11 +452,18 @@ const VendorAccordionPanel = ({
                           isActive ? styles.vendorQuoteCardSelected : styles.vendorQuoteCardMuted
                         } ${validationClass}`}
                         onClick={(e) => {
+                          if (field.isGlobalReadOnly) return;
                           if (!isSelected || e.target.closest('input') || e.target.closest('button')) return;
                           e.stopPropagation();
-                          handleLocalCardClick(vendor.id, field.value);
+                          if (isTextField) {
+                            // Text fields: toggle on and open modal directly
+                            if (!isActive) handleLocalCardClick(vendor.id, field.value);
+                            if (onOpenTextFieldModal) onOpenTextFieldModal(vendor.id, field.value, field.label);
+                          } else {
+                            handleLocalCardClick(vendor.id, field.value);
+                          }
                         }}
-                        style={isSelected ? { cursor: 'pointer' } : undefined}
+                        style={isSelected && !field.isGlobalReadOnly ? { cursor: 'pointer' } : undefined}
                       >
                         <div className={styles.negFieldCardHeader}>
                           <p className={styles.vendorQuoteCardLabel}>{field.label}</p>
@@ -435,15 +471,33 @@ const VendorAccordionPanel = ({
 
                         <div
                           className={styles.vendorCardValueRow}
-                          onClick={(e) => { if (isActive && isSelected) e.stopPropagation(); }}
+                          onClick={(e) => { if (isActive && isSelected && !isTextField) e.stopPropagation(); }}
                           style={isSelected && !isActive ? { cursor: 'pointer' } : undefined}
                         >
-                          <span className={`${styles.vendorQuoteCardValue} ${
-                            displayValue === '--' ? styles.vendorQuoteCardMissing : ''
-                          }`}>
-                            {displayValue}
-                          </span>
-                          {isActive && isSelected && (
+                          {!isTextField && (
+                            <span className={`${styles.vendorQuoteCardValue} ${
+                              displayValue === '--' ? styles.vendorQuoteCardMissing : ''
+                            }`}>
+                              {displayValue}
+                            </span>
+                          )}
+                          {isTextField && (
+                            <span className={styles.vendorQuoteCardValue} style={{ fontSize: '0.7rem' }}>
+                              {localTarget ? 'Target set' : 'Click to set target'}
+                            </span>
+                          )}
+                          {isActive && isSelected && field.isGlobalReadOnly && globalTarget && (
+                            <>
+                              <span className={styles.vendorCardArrow}>→</span>
+                              <span style={{ fontWeight: 600, color: 'var(--primary-color)' }}>
+                                {field.hasMode
+                                  ? ((globalFormData[field.modeKey] || 'percentage') === 'percentage' ? `${globalTarget}%` : `₹${globalTarget}`)
+                                  : `₹${globalTarget}`
+                                }
+                              </span>
+                            </>
+                          )}
+                          {isActive && isSelected && !field.isGlobalReadOnly && !TEXT_FIELDS.includes(field.value) && (
                             <>
                               <span className={styles.vendorCardArrow}>→</span>
                               <input

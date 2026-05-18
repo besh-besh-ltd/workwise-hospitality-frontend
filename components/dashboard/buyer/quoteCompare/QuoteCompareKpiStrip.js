@@ -2,7 +2,7 @@ import React from "react";
 import { addCommasToNumber } from "@/utils/sharedFunctions";
 import styles from "./QuoteCompareRevamp.module.scss";
 
-const formatCurrency = (value) => `Rs. ${addCommasToNumber(Math.round(value || 0))}`;
+const formatCurrency = (value) => `Rs. ${addCommasToNumber(value || 0)}`;
 
 const QuoteCompareKpiStrip = ({ metrics = {} }) => {
   const cards = [

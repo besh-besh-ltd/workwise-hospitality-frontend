@@ -1,79 +1,144 @@
-import React from 'react';
-import { Modal, Button, Table } from 'react-bootstrap';
-import { formatDisplayDate } from "@/utils/sharedFunctions";
+import React from "react";
+import { Modal } from "react-bootstrap";
+import { addCommasToNumber, formatDisplayDate } from "@/utils/sharedFunctions";
+import styles from "./FinalizeHistoryModal.module.scss";
 
-const FinalizeHistoryModal = ({
-  show,
-  onHide,
-  history,
-  quantity,
-  calculateTotal,
-}) => {
+// History entries carry engine output on quote_info.engine when the page hit
+// /rfq/quote-compare/:id; otherwise fall back to the persisted total_price.
+const lineEngineTotal = (info) => {
+  if (!info) return 0;
+  const fromEngine = Number(info.engine?.total);
+  if (Number.isFinite(fromEngine) && fromEngine > 0) return fromEngine;
+  return Number(info.total_price) || 0;
+};
 
-    const getFormattedDate = (date) => {
-      return formatDisplayDate(date, { includeTime: true, includeSeconds: true });
-    };
+const formatPrice = (n) => {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v <= 0) return '—';
+  return `Rs. ${addCommasToNumber(Math.round(v))}`;
+};
+
+const initialsFor = (name) => {
+  if (!name) return '?';
+  return String(name)
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+};
+
+const formatTimestamp = (date) =>
+  date ? formatDisplayDate(date, { includeTime: true, includeSeconds: true }) : '—';
+
+const FinalizeHistoryModal = ({ show, onHide, history }) => {
+  const items = Array.isArray(history) ? history : [];
+
   return (
     <Modal
       show={show}
       onHide={onHide}
       centered
-      size="xl"
-      contentClassName="p-4"
-      dialogClassName="custom-modal-width"
+      size="lg"
+      contentClassName={styles.content}
+      dialogClassName={styles.dialog}
     >
-      <Modal.Header closeButton>
-        <Modal.Title className="fw-semibold fs-4">Finalization History</Modal.Title>
-      </Modal.Header>
-
-      <Modal.Body className="pt-2 pb-4 px-0">
-        <p className="mb-3 text-muted">
-          The below vendor(s) were finalized before the current finalized vendor.
-          <br/>
-          This helps you track previous decisions and modifications to vendor selection.
-        </p>
-
-        <div className="table-responsive border rounded">
-          <Table striped bordered hover className="mb-0">
-            <thead className="table-light">
-              <tr>
-                <th>Vendor ID</th>
-                <th>Vendor Name</th>
-                <th>Quoted Price</th>
-                <th>Finalized At</th>
-                <th>Changed At</th>
-                <th>Changed By</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.length > 0 ? (
-                history.map((entry, index) => (
-                  <tr key={index}>
-                    <td>{entry.vendor_id}</td>
-                    <td>{entry.vendor_name}</td>
-                    <td>₹{calculateTotal(entry.quote_info, quantity) || '—'}</td>
-                    <td>{getFormattedDate(entry.finalized_at)}</td>
-                    <td>{getFormattedDate(entry.changed_at)}</td>
-                    <td>{entry.changed_by}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="text-center py-3">
-                    No previous finalizations found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </Table>
+      <div className={styles.head}>
+        <div className={styles.headTopRow}>
+          <span className={styles.kicker}>Finalization History</span>
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={onHide}
+            aria-label="Close"
+          >
+            ×
+          </button>
         </div>
-      </Modal.Body>
+        <h2 className={styles.title}>Previously finalized vendors</h2>
+        <p className={styles.subtitle}>
+          A chronological log of vendors that were finalized for this product
+          before the current selection. Useful to trace decisions and any
+          changes made along the way.
+        </p>
+      </div>
 
-      <Modal.Footer className="d-flex justify-content-end p-0 pt-3">
-        <Button variant="secondary" style={{ padding: "0.7rem", margin: '0' }} onClick={onHide}>
+      <div className={styles.body}>
+        {items.length > 0 ? (
+          <>
+            <div className={styles.summary}>
+              <span className={styles.summaryDot} />
+              <span>
+                {items.length} previous finalization{items.length === 1 ? '' : 's'}
+              </span>
+            </div>
+
+            <div className={styles.timeline}>
+              {items.map((entry, index) => {
+                const vendorName = entry.vendor_name || `Vendor #${entry.vendor_id ?? '—'}`;
+                return (
+                  <div className={styles.entry} key={`${entry.vendor_id || 'v'}_${index}`}>
+                    <div className={styles.entryHead}>
+                      <div className={styles.entryVendor}>
+                        <span className={styles.avatar}>{initialsFor(vendorName)}</span>
+                        <div>
+                          <p className={styles.vendorName}>{vendorName}</p>
+                          {entry.vendor_id != null && (
+                            <p className={styles.vendorId}>ID #{entry.vendor_id}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className={styles.price}>
+                        <p className={styles.priceLabel}>Quoted</p>
+                        <p className={styles.priceValue}>
+                          {formatPrice(lineEngineTotal(entry.quote_info))}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className={styles.metaGrid}>
+                      <div className={styles.metaCell}>
+                        <span className={styles.metaLabel}>Finalized at</span>
+                        <span className={styles.metaValue}>
+                          {formatTimestamp(entry.finalized_at)}
+                        </span>
+                      </div>
+                      <div className={styles.metaCell}>
+                        <span className={styles.metaLabel}>Changed at</span>
+                        <span className={styles.metaValue}>
+                          {formatTimestamp(entry.changed_at)}
+                        </span>
+                      </div>
+                      <div className={styles.metaCell}>
+                        <span className={styles.metaLabel}>Changed by</span>
+                        <span className={styles.metaValue}>
+                          {entry.changed_by || '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className={styles.empty}>
+            <span className={styles.emptyIcon}>📜</span>
+            <div>No previous finalizations found for this product.</div>
+          </div>
+        )}
+      </div>
+
+      <div className={styles.footer}>
+        <button
+          type="button"
+          className={`${styles.btn} ${styles.btnSecondary}`}
+          onClick={onHide}
+        >
           Close
-        </Button>
-      </Modal.Footer>
+        </button>
+      </div>
     </Modal>
   );
 };

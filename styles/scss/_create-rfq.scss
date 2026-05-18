@@ -1,0 +1,2144 @@
+// Create-RFQ stepper page — design language inspired by the Workwise UX
+// prototype (deep-blue brand, rounded-xl cards, gray-200 hairlines, compact
+// type scale). No Bootstrap dependencies.
+.create-rfq-page {
+  // Brand
+  --rfq-primary:        #2e5ba8;
+  --rfq-primary-dark:   #1e4a8a;
+  --rfq-primary-light:  #ebf0f9;
+  // Neutrals — Tailwind gray scale
+  --rfq-gray-50:  #f9fafb;
+  --rfq-gray-100: #f3f4f6;
+  --rfq-gray-200: #e5e7eb;
+  --rfq-gray-300: #d1d5db;
+  --rfq-gray-400: #9ca3af;
+  --rfq-gray-500: #6b7280;
+  --rfq-gray-600: #4b5563;
+  --rfq-gray-700: #374151;
+  --rfq-gray-800: #1f2937;
+  --rfq-gray-900: #111827;
+  // Accents
+  --rfq-success:        #16a34a;
+  --rfq-success-dark:   #15803d;
+  --rfq-emerald:        #059669;
+  --rfq-danger:         #dc2626;
+  --rfq-violet-50:      #f5f3ff;
+  --rfq-violet-100:     #ede9fe;
+  --rfq-violet-700:     #6d28d9;
+  --rfq-violet-900:     #4c1d95;
+  // Tokens
+  --rfq-radius-sm:      6px;
+  --rfq-radius:         8px;   // rounded-lg
+  --rfq-radius-lg:      12px;  // rounded-xl
+  --rfq-shadow-sm:      0 1px 3px 0 rgba(0,0,0,0.06), 0 1px 2px -1px rgba(0,0,0,0.04);
+  --rfq-shadow-md:      0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -2px rgba(0,0,0,0.04);
+  --rfq-focus-ring:     rgba(46, 91, 168, 0.30);
+
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 24px 24px 96px;
+  color: var(--rfq-gray-900);
+  font-size: 14px;
+  line-height: 1.5;
+  font-family: inherit;
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  // ======================================================================
+  // Page header — "Create RFQ for [hotels]"
+  // ======================================================================
+  .rfq-page-header {
+    margin: 0 0 20px;
+    display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+    gap: 12px;
+    &__title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--rfq-gray-900);
+      line-height: 1.25;
+    }
+    &__hotels {
+      color: var(--rfq-primary);
+    }
+    &__hotel-picker {
+      min-width: 280px; flex: 0 1 320px;
+      .rfq-label { display: block; margin-bottom: 4px; }
+    }
+  }
+
+  // ======================================================================
+  // Stepper card
+  // ======================================================================
+  .rfq-stepper-card {
+    background: #ffffff;
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius-lg);
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .rfq-stepper {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex; align-items: stretch; gap: 8px;
+    flex-wrap: wrap;
+  }
+  .rfq-stepper-mobile {
+    display: none;
+    margin: 0 0 12px;
+    color: var(--rfq-gray-500);
+    font-weight: 600;
+  }
+
+  .rfq-step-pill {
+    list-style: none;
+    margin: 0;
+    flex: 1 1 120px; min-width: 120px;
+    position: relative;
+
+    // Progress line bridging this pill to the next. Sits at the num's
+    // vertical centre; coloured grey by default and turned green on
+    // completed pills via the &--done variant below. Tucked behind the
+    // num via z-index so the circle sits cleanly on top.
+    &:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 23px;
+      left: calc(50% + 22px);
+      right: calc(-50% + 14px);
+      height: 2px;
+      background: var(--rfq-gray-200);
+      z-index: 0;
+      transition: background .15s;
+    }
+
+    &__btn {
+      width: 100%;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      padding: 6px 8px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: center;
+      cursor: pointer;
+      border-radius: var(--rfq-radius);
+      position: relative;
+      z-index: 1;
+      // No hover background — the colored circle is the affordance.
+      &:hover { background: transparent; }
+      &:focus-visible { outline: 0; box-shadow: 0 0 0 3px var(--rfq-focus-ring); }
+      &:disabled { cursor: default; }
+    }
+    .rfq-step-pill__num {
+      flex: none;
+      width: 36px; height: 36px; border-radius: 9999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #ffffff;
+      color: var(--rfq-gray-500);
+      font-weight: 700; font-size: 14px;
+      border: 2px solid var(--rfq-gray-200);
+      transition: background .15s, color .15s, border-color .15s, box-shadow .15s;
+    }
+    &__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; align-items: center; max-width: 100%; }
+    &__overline {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--rfq-gray-400);
+      line-height: 1.1;
+    }
+    &__label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--rfq-gray-700);
+      line-height: 1.3;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    // Active (current step) — amber/yellow.
+    &.rfq-step-pill--active .rfq-step-pill__num {
+      background: #f59e0b;
+      border-color: #f59e0b;
+      color: #fff;
+      box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.18);
+    }
+    &.rfq-step-pill--active .rfq-step-pill__overline { color: #b45309; }
+    &.rfq-step-pill--active .rfq-step-pill__label { color: var(--rfq-gray-900); font-weight: 600; }
+
+    // Done (completed step) — green; connector to the next pill turns green too.
+    &.rfq-step-pill--done .rfq-step-pill__num {
+      background: var(--rfq-emerald);
+      border-color: var(--rfq-emerald);
+      color: #fff;
+    }
+    &.rfq-step-pill--done .rfq-step-pill__overline { color: var(--rfq-emerald); }
+    &.rfq-step-pill--done .rfq-step-pill__label { color: var(--rfq-gray-700); }
+    &.rfq-step-pill--done:not(:last-child)::after { background: var(--rfq-emerald); }
+
+    // Pending (visited but the user has stepped back behind it) — light
+    // yellow with an exclamation mark. Signals "you came from here, take
+    // another look". Connector handled by --connector-warn below.
+    &.rfq-step-pill--pending .rfq-step-pill__num {
+      background: #fef3c7;          // yellow-100
+      border-color: #eab308;        // yellow-500
+      color: #854d0e;               // yellow-900
+    }
+    &.rfq-step-pill--pending .rfq-step-pill__overline { color: #a16207; }
+    &.rfq-step-pill--pending .rfq-step-pill__label { color: var(--rfq-gray-700); }
+
+    // Connector after a pill turns yellow when the next pill is pending.
+    // Set on the LEFT pill (the one that owns the ::after). Placed after
+    // the --done connector rule so source order wins for done→pending.
+    &.rfq-step-pill--connector-warn:not(:last-child)::after { background: #eab308; }
+
+    &--locked .rfq-step-pill__btn { opacity: 0.55; }
+  }
+
+  // ======================================================================
+  // Section card
+  // ======================================================================
+  .rfq-fieldset {
+    border: 0; padding: 0; margin: 0;
+    min-width: 0;
+    &[disabled] .rfq-section { opacity: 0.85; }
+  }
+  .rfq-section {
+    background: #ffffff;
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius-lg);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 16px;
+
+    &__header {
+      margin: 0 0 4px;
+      h3 { font-size: 16px; font-weight: 600; margin: 0 0 4px; color: var(--rfq-gray-900); letter-spacing: -0.005em; }
+      p  { font-size: 13px; color: var(--rfq-gray-500); margin: 0; line-height: 1.45; }
+    }
+    &__subhead {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 8px 0;
+      color: var(--rfq-gray-800);
+    }
+  }
+
+  // Collapsible block — used for the Reverse Auction toggle inside Timeline.
+  .rfq-collapsible {
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius);
+    background: #ffffff;
+    overflow: hidden;
+    &__head {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      column-gap: 12px;
+      align-items: baseline;
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--rfq-gray-50);
+      border: 0;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+      color: var(--rfq-gray-800);
+      &:hover { background: var(--rfq-gray-100); }
+      &:focus-visible { outline: 0; box-shadow: 0 0 0 3px var(--rfq-focus-ring); }
+    }
+    &__title { font-size: 14px; font-weight: 600; color: var(--rfq-gray-900); }
+    &__sub   { font-size: 12px; color: var(--rfq-gray-500); }
+    &__chev  { font-size: 12px; color: var(--rfq-gray-500); justify-self: end; }
+    &__body {
+      padding: 16px;
+      display: flex; flex-direction: column; gap: 12px;
+      border-top: 1px solid var(--rfq-gray-200);
+    }
+    &.is-open .rfq-collapsible__head { background: #ffffff; }
+  }
+
+  // Reverse Auction block — header always visible with a switch toggle on
+  // the right; body (auction date fields) renders only when the toggle is
+  // on. Replaces the previous Disable/Enable select inside a collapsible.
+  .rfq-reverse-auction {
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius);
+    background: #ffffff;
+    overflow: hidden;
+    transition: border-color .15s, background .15s;
+    &__head {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 14px;
+      background: var(--rfq-gray-50);
+    }
+    &__head-text {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    &__title { font-size: 14px; font-weight: 600; color: var(--rfq-gray-900); }
+    &__sub   { font-size: 12px; color: var(--rfq-gray-500); line-height: 1.4; }
+    &__body {
+      padding: 16px;
+      display: flex; flex-direction: column; gap: 12px;
+      border-top: 1px solid var(--rfq-gray-200);
+    }
+    &.is-on {
+      border-color: var(--rfq-primary);
+      .rfq-reverse-auction__head { background: var(--rfq-primary-light); }
+    }
+  }
+
+  // Switch toggle (used by Reverse Auction; reusable elsewhere).
+  .rfq-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    flex: 0 0 auto;
+    margin: 0;
+    input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+      pointer-events: none;
+    }
+    &__track {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      background: var(--rfq-gray-300);
+      border-radius: 9999px;
+      transition: background .15s;
+      flex: none;
+    }
+    &__thumb {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      transition: transform .18s ease;
+    }
+    &__label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--rfq-gray-600);
+      min-width: 56px;
+    }
+    input:checked + .rfq-switch__track {
+      background: var(--rfq-primary);
+      .rfq-switch__thumb { transform: translateX(16px); }
+    }
+    input:checked ~ .rfq-switch__label { color: var(--rfq-primary); }
+    input:focus-visible + .rfq-switch__track {
+      box-shadow: 0 0 0 3px var(--rfq-focus-ring);
+    }
+  }
+
+  // ======================================================================
+  // Field grid + form controls
+  // ======================================================================
+  .rfq-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .rfq-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .rfq-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    // Modifiers nested INSIDE the base block so SCSS emits them AFTER the
+    // base rule. With identical specificity the later rule wins, so the red
+    // outline overrides the default border without needing !important.
+    &--has-error {
+      .rfq-input,
+      .react-select__control {
+        border-color: var(--rfq-danger);
+      }
+      .react-select__control--is-focused {
+        box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.20);
+      }
+    }
+    &__required-hint {
+      display: block;
+      margin-top: 4px;
+      font-size: 11px;
+      line-height: 1.2;
+      color: var(--rfq-danger);
+    }
+  }
+  .rfq-field--narrow { max-width: 360px; }
+
+  .rfq-label {
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--rfq-gray-700);
+    margin: 0 0 4px;
+  }
+  .rfq-required { color: var(--rfq-danger); margin-left: 2px; }
+  .rfq-helper-text {
+    font-size: 11px;
+    color: var(--rfq-gray-500);
+    margin-top: 4px;
+  }
+  // Generic char counter — small, right-aligned, color tracks the field
+  // outline (gray default → amber at limit → red over limit) so it stays
+  // visually in sync with the input's state. The .rfq-spec-field block
+  // overrides this with its own scoped rule for the Item.js spec form.
+  .rfq-field > .rfq-char-count {
+    display: block;
+    text-align: right;
+    font-size: 11px;
+    color: var(--rfq-gray-500);
+    margin-top: 4px;
+    letter-spacing: 0.01em;
+    transition: color .15s;
+    &--warn { color: #b45309; font-weight: 500; }
+    &--over { color: var(--rfq-danger); font-weight: 600; }
+  }
+  .rfq-error {
+    color: var(--rfq-danger);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  .rfq-muted { color: var(--rfq-gray-500); font-size: 13px; margin: 0; }
+
+  .rfq-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--rfq-gray-300);
+    border-radius: var(--rfq-radius);
+    background: #ffffff;
+    color: var(--rfq-gray-900);
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    transition: border-color .15s, box-shadow .15s;
+    &::placeholder { color: var(--rfq-gray-400); }
+    &:focus { outline: 0; border-color: var(--rfq-primary); box-shadow: 0 0 0 2px var(--rfq-focus-ring); }
+    &:disabled { background: var(--rfq-gray-50); color: var(--rfq-gray-500); cursor: not-allowed; }
+    &--country { max-width: 130px; }
+    &--invalid { border-color: var(--rfq-danger); }
+    &--warn {
+      border-color: #f59e0b;
+      &:focus { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25); }
+    }
+    &--readonly { background: var(--rfq-gray-50); color: var(--rfq-gray-600); cursor: default; }
+    &--file {
+      padding: 8px;
+      background: var(--rfq-gray-50);
+      cursor: pointer;
+    }
+  }
+  .rfq-phone-row { display: flex; gap: 8px; align-items: stretch; }
+
+  // react-select alignment
+  .react-select__control {
+    border-color: var(--rfq-gray-300) !important;
+    border-radius: var(--rfq-radius) !important;
+    min-height: 38px !important;
+    box-shadow: none !important;
+    &--is-focused {
+      border-color: var(--rfq-primary) !important;
+      box-shadow: 0 0 0 2px var(--rfq-focus-ring) !important;
+    }
+  }
+  .react-select__menu { z-index: 5; }
+  .react-select__placeholder { color: var(--rfq-gray-400) !important; font-size: 14px; }
+
+  // ======================================================================
+  // Buttons
+  // ======================================================================
+  .rfq-btn {
+    appearance: none;
+    border: 0;
+    border-radius: var(--rfq-radius);
+    padding: 8px 16px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, color .15s, opacity .15s, box-shadow .15s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    line-height: 1.2;
+    &:focus-visible { outline: 0; box-shadow: 0 0 0 3px var(--rfq-focus-ring); }
+    &:disabled { cursor: not-allowed; opacity: 0.5; }
+    &--primary {
+      background: var(--rfq-primary);
+      color: #fff;
+      &:hover:not(:disabled) { background: var(--rfq-primary-dark); }
+    }
+    &--secondary {
+      background: #fff;
+      color: var(--rfq-gray-700);
+      border: 1px solid var(--rfq-gray-300);
+      &:hover:not(:disabled) { background: var(--rfq-gray-50); border-color: var(--rfq-gray-400); }
+    }
+    &--success {
+      background: var(--rfq-success);
+      color: #fff;
+      padding: 8px 20px;
+      &:hover:not(:disabled) { background: var(--rfq-success-dark); }
+    }
+    &--ghost {
+      background: transparent;
+      color: var(--rfq-gray-600);
+      padding: 8px 16px;
+      &:hover:not(:disabled) { color: var(--rfq-gray-800); background: var(--rfq-gray-50); }
+      &:disabled { opacity: 0.4; }
+    }
+    &--sm {
+      box-sizing: border-box;
+      height: 34px;
+      padding: 0 14px;
+      font-size: 13px;
+      line-height: 1;
+    }
+  }
+
+  // ======================================================================
+  // Step 1: Products
+  // ======================================================================
+  .rfq-empty-products {
+    text-align: center;
+    padding: 40px 0;
+    border: 2px dashed var(--rfq-gray-200);
+    border-radius: var(--rfq-radius-lg);
+    background: var(--rfq-gray-50);
+  }
+  .rfq-dynamic-filter {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;
+    padding-bottom: 4px;
+  }
+  .rfq-products-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    h4 { margin: 0; font-size: 14px; font-weight: 600; color: var(--rfq-gray-800); }
+  }
+  .rfq-products-list {
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius);
+    padding: 8px;
+    background: var(--rfq-gray-50);
+  }
+  .rfq-add-more { display: flex; justify-content: flex-end; }
+  .rfq-link {
+    color: var(--rfq-primary);
+    font-weight: 500;
+    font-size: 13px;
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: var(--rfq-radius);
+    &:hover { background: var(--rfq-primary-light); text-decoration: underline; }
+  }
+
+  // ======================================================================
+  // Step 2 setup chips (also used for header)
+  // ======================================================================
+  .rfq-chip-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
+  .rfq-chip {
+    display: inline-flex; align-items: center;
+    padding: 4px 10px;
+    background: var(--rfq-gray-100);
+    color: var(--rfq-gray-800);
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius);
+    font-size: 12px; font-weight: 500;
+  }
+
+  // ======================================================================
+  // Step 7: Terms
+  // ======================================================================
+  .rfq-terms-suggested {
+    background: var(--rfq-gray-50);
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius);
+    padding: 16px;
+    &__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 4px;
+      .rfq-section__subhead { margin: 0; }
+    }
+    &__select-all {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--rfq-gray-700);
+      padding: 4px 10px;
+      border-radius: var(--rfq-radius-sm);
+      background: #fff;
+      border: 1px solid var(--rfq-gray-200);
+      transition: border-color .15s, color .15s, background .15s;
+      &:hover { border-color: var(--rfq-primary); color: var(--rfq-primary); }
+    }
+  }
+  .rfq-terms-list {
+    list-style: none;
+    padding-left: 0;
+    margin: 8px 0 0;
+    li { padding: 4px 0; }
+  }
+  .rfq-checkbox {
+    display: inline-flex; align-items: flex-start; gap: 8px;
+    cursor: pointer;
+    line-height: 1.45;
+    font-size: 13px;
+    input[type="checkbox"] {
+      margin-top: 3px; flex: none;
+      accent-color: var(--rfq-primary);
+    }
+    span { color: var(--rfq-gray-800); }
+    input:disabled + span { color: var(--rfq-gray-400); cursor: not-allowed; }
+  }
+  .rfq-upload { display: flex; flex-direction: column; gap: 6px; }
+  .rfq-upload-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .rfq-terms-add { display: flex; flex-direction: column; gap: 8px; }
+  // Compact the WYSIWYG editor used for "Add your own terms" — the default
+  // 220px min-height is set inline by the editor at runtime, so the override
+  // needs !important to win.
+  .rfq-terms-editor {
+    .ql-toolbar {
+      padding: 6px 8px !important;
+      button { width: 28px !important; height: 28px !important; padding: 4px !important; }
+      svg { width: 16px !important; height: 16px !important; }
+      .ql-picker { min-width: 84px !important; height: 28px !important; font-size: 13px !important; }
+      .ql-picker-label { height: 28px !important; padding: 0 22px 0 8px !important; font-size: 13px !important; }
+    }
+    .ql-container { font-size: 14px !important; }
+    .ql-editor {
+      min-height: 110px !important;
+      max-height: 160px;
+      overflow-y: auto;
+      font-size: 14px !important;
+      line-height: 1.5 !important;
+      padding: 10px 12px !important;
+    }
+  }
+  .rfq-file-name {
+    max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px;
+    font-size: 12px;
+  }
+
+  // ======================================================================
+  // Step 8: Review
+  // ======================================================================
+  .rfq-review { display: flex; flex-direction: column; gap: 10px; }
+  .rfq-review-group {
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius);
+    padding: 12px 16px;
+    background: var(--rfq-gray-50);
+    &__head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px;
+      h4 { margin: 0; font-size: 13px; font-weight: 600; color: var(--rfq-gray-900); letter-spacing: 0.01em; }
+    }
+    &__count { color: var(--rfq-gray-400); font-weight: 500; margin-left: 4px; }
+  }
+
+  // Product summary card grid in the Review section. Each card is clickable
+  // and opens the product details modal.
+  .rfq-review-product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .rfq-review-product-card {
+    appearance: none;
+    text-align: left;
+    background: #fff;
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius);
+    padding: 10px 12px;
+    cursor: pointer;
+    display: flex; flex-direction: column; gap: 4px;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+    &:hover {
+      border-color: var(--rfq-primary);
+      background: var(--rfq-primary-light);
+      box-shadow: var(--rfq-shadow-sm);
+    }
+    &__name {
+      font-size: 13px; font-weight: 600;
+      color: var(--rfq-gray-900);
+      word-break: break-word;
+    }
+    &__meta {
+      font-size: 12px; color: var(--rfq-gray-600);
+      display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+      strong { font-weight: 600; color: var(--rfq-gray-700); }
+    }
+    &__sep { color: var(--rfq-gray-400); }
+  }
+
+  .rfq-review-edit {
+    background: transparent; border: 0; padding: 4px 8px;
+    color: var(--rfq-primary); font: inherit; font-weight: 600; font-size: 12px;
+    cursor: pointer; border-radius: var(--rfq-radius);
+    &:hover { background: var(--rfq-primary-light); }
+  }
+  .rfq-review-line { margin: 0; color: var(--rfq-gray-600); font-size: 13px; }
+  .rfq-review-tc {
+    display: flex; flex-direction: column; gap: 12px;
+    &__block { display: flex; flex-direction: column; gap: 6px; }
+    &__label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--rfq-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    &__count {
+      font-size: 11px; font-weight: 600;
+      color: var(--rfq-gray-500);
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    &__empty { color: var(--rfq-gray-400); font-size: 13px; }
+    &__terms {
+      list-style: disc; margin: 0; padding-left: 18px;
+      display: flex; flex-direction: column; gap: 4px;
+      li { color: var(--rfq-gray-900); font-size: 13px; line-height: 1.5; }
+    }
+    &__custom {
+      margin: 0;
+      color: var(--rfq-gray-900);
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    &__files {
+      list-style: none; margin: 0; padding: 0;
+      display: flex; flex-wrap: wrap;
+      gap: 10px;
+      a { color: var(--rfq-primary); font-weight: 500; text-decoration: none; font-size: 13px; }
+      a:hover { text-decoration: underline; }
+    }
+  }
+  .rfq-review-dl {
+    display: grid;
+    grid-template-columns: minmax(140px, max-content) 1fr;
+    gap: 4px 16px;
+    margin: 0;
+    dt { color: var(--rfq-gray-500); font-size: 12px; font-weight: 500; }
+    dd { color: var(--rfq-gray-900); font-size: 13px; margin: 0; word-break: break-word; }
+  }
+  .rfq-readonly-msg {
+    color: var(--rfq-danger); font-weight: 600; margin: 0;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    padding: 12px 16px;
+    border-radius: var(--rfq-radius);
+    font-size: 13px;
+  }
+  .rfq-edit-saved-banner {
+    margin: 0 0 14px;
+    padding: 12px 16px;
+    border-radius: var(--rfq-radius);
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #047857;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .rfq-submit-info-banner {
+    margin: 0 0 14px;
+    padding: 12px 16px;
+    border-radius: var(--rfq-radius);
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  // ======================================================================
+  // Sticky action bar
+  // ======================================================================
+  .rfq-actions-bar {
+    position: sticky;
+    bottom: 12px;
+    margin-top: 14px;
+    padding: 6px 12px;
+    background: #fff;
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius);
+    box-shadow: var(--rfq-shadow-sm);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    z-index: 4;
+    .rfq-btn { padding: 6px 14px; font-size: 13px; }
+    &__right { display: flex; gap: 8px; align-items: center; }
+    // View-only mode: only the Close button is rendered, push it to the right.
+    &--end { justify-content: flex-end; }
+  }
+
+  // ======================================================================
+  // Products step (detailed) — outer card + row + expanded body
+  // ======================================================================
+  .rfq-products-empty {
+    border: 2px dashed var(--rfq-gray-300);
+    border-radius: var(--rfq-radius-lg);
+    background: var(--rfq-gray-50);
+    padding: 48px 24px;
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    &__title { margin: 0; font-size: 16px; font-weight: 600; color: var(--rfq-gray-700); }
+    &__hint  { margin: 0 0 8px; font-size: 13px; color: var(--rfq-gray-500); max-width: 420px; }
+  }
+
+  .rfq-products-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+    h4 { margin: 0; font-size: 14px; font-weight: 600; color: var(--rfq-gray-900); }
+    &__actions { display: flex; align-items: center; gap: 8px; }
+  }
+  .rfq-refresh-vendors-btn {
+    appearance: none;
+    box-sizing: border-box;
+    height: 34px;
+    border: 1px solid var(--rfq-gray-300);
+    background: #fff;
+    color: var(--rfq-gray-700);
+    border-radius: var(--rfq-radius);
+    padding: 0 14px;
+    font: inherit; font-size: 13px; font-weight: 500;
+    display: inline-flex; align-items: center; gap: 6px;
+    cursor: pointer;
+    line-height: 1;
+    transition: background .15s, border-color .15s;
+    &:hover:not(:disabled) { background: var(--rfq-gray-50); border-color: var(--rfq-primary); color: var(--rfq-primary); }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+    .spin-animation { animation: rfq-spin 1s linear infinite; }
+  }
+  @keyframes rfq-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .rfq-products-card {
+    background: #fff;
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius-lg);
+    overflow: hidden;
+    transition: border-color .15s;
+
+    &__list { display: block; }
+    &__footer {
+      border-top: 1px solid var(--rfq-gray-100);
+      padding: 8px 16px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    // ----- Bootstrap accordion overrides (scoped to this card) -----
+    .accordion {
+      --bs-accordion-bg: transparent;
+      --bs-accordion-border-color: transparent;
+      --bs-accordion-border-radius: 0;
+      --bs-accordion-inner-border-radius: 0;
+      --bs-accordion-active-bg: transparent;
+      --bs-accordion-active-color: inherit;
+      --bs-accordion-btn-bg: transparent;
+      --bs-accordion-btn-color: inherit;
+      --bs-accordion-btn-focus-box-shadow: none;
+      --bs-accordion-btn-padding-x: 0;
+      --bs-accordion-btn-padding-y: 0;
+      --bs-accordion-body-padding-x: 0;
+      --bs-accordion-body-padding-y: 0;
+    }
+    .accordion-item { border: 0; border-bottom: 1px solid var(--rfq-gray-100); }
+    .accordion-item:last-child { border-bottom: 0; }
+    .rfq-products-item--invalid {
+      border: 1px solid #dc2626;
+      border-radius: var(--rfq-radius-sm);
+      background: #fef2f2;
+    }
+    .rfq-products-item--invalid + .rfq-products-item { border-top: 0; }
+    .accordion-header { margin: 0; }
+    .accordion-button {
+      padding: 12px 16px;
+      width: 100%;
+      background: transparent;
+      box-shadow: none;
+      transition: background .15s;
+      &:not(.collapsed) { background: var(--rfq-gray-50); color: inherit; box-shadow: none; }
+      &:hover { background: var(--rfq-gray-50); }
+      &::after { margin-left: 12px; flex: none; }
+      &:focus { box-shadow: 0 0 0 2px var(--rfq-focus-ring); }
+    }
+    .accordion-body { padding: 0; }
+  }
+
+  // ----- Row (collapsed accordion header) -----
+  .rfq-products-row {
+    display: grid;
+    grid-template-columns: 1fr 120px 120px 96px;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+
+    &__main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    &__name {
+      font-size: 14px; font-weight: 500; color: var(--rfq-gray-900);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    &__badges { display: flex; flex-wrap: wrap; gap: 4px; }
+
+    &__cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    &__overline {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--rfq-gray-400); line-height: 1.1;
+    }
+    &__value {
+      font-size: 13px; font-weight: 500; color: var(--rfq-gray-800);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    &__actions {
+      display: flex; gap: 8px; justify-content: flex-end;
+    }
+    &__icon-btn {
+      width: 32px; height: 32px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--rfq-radius);
+      color: var(--rfq-gray-400);
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+      font-size: 14px;
+      &:hover:not(:disabled) { background: var(--rfq-gray-50); }
+      &:disabled { opacity: 0.4; cursor: not-allowed; }
+      &--primary {
+        &:hover:not(:disabled) { color: var(--rfq-primary); border-color: var(--rfq-primary-light); }
+      }
+      &--danger {
+        &:hover:not(:disabled) { color: var(--rfq-danger); border-color: #fecaca; }
+      }
+    }
+  }
+
+  // ----- Expanded body -----
+  // Subtle off-white body, no card-style sections; sections separated by hairlines.
+  .rfq-product-body {
+    background: #fbfbfc;
+    padding: 20px 24px;
+    display: flex; flex-direction: column;
+  }
+  .rfq-product-section {
+    padding: 12px 0;
+    &:first-child { padding-top: 0; }
+    &:last-child  { padding-bottom: 0; }
+    & + & { border-top: 1px solid var(--rfq-gray-200); }
+    &__title {
+      font-size: 11px; font-weight: 600; color: var(--rfq-gray-500);
+      letter-spacing: 0.08em;
+      margin: 0 0 12px;
+      text-transform: uppercase;
+    }
+    &--filter { padding-top: 0; padding-bottom: 12px; }
+    &--footer { padding-top: 12px; padding-bottom: 0; }
+  }
+
+  // ----- Specs layout (2 rows: Size+Spec / [Qty|Unit]+Comments) -----
+  // Vertical gap between rows matches the title→first-row gap (12px) so the
+  // rhythm inside the Specifications section reads as a single uniform stack.
+  // Horizontal column gap stays slightly larger (16px) for visual breathing
+  // between side-by-side fields.
+  .rfq-spec-rows { display: flex; flex-direction: column; gap: 12px; }
+  .rfq-spec-row {
+    display: grid;
+    gap: 16px;
+    &--prominent { grid-template-columns: 1fr 1fr; }
+    &--secondary { grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr); }
+  }
+  .rfq-spec-field {
+    display: flex; flex-direction: column; min-width: 0;
+    // CommonFormInput wraps every input in `.form-group mb-3` (Bootstrap
+    // !important). Without overriding the same way the cell is ~16px
+    // taller than the Qty|Unit combo cell — and grid-row stretch then
+    // leaves the combo's bordered field floating above empty space.
+    .form-group { margin: 0 !important; }
+    .rfq-char-count {
+      align-self: flex-end;
+      font-size: 11px;
+      color: var(--rfq-gray-500);
+      margin-top: 4px;
+      letter-spacing: 0.01em;
+      transition: color .15s;
+      // Yellow when 80%+ of the cap is used — visual heads-up before the
+      // hard limit. Red kicks in only if value somehow exceeds the cap
+      // (legacy data; native maxLength stops new typing).
+      &--warn { color: #b45309; font-weight: 500; }
+      &--over { color: var(--rfq-danger); font-weight: 600; }
+    }
+    label {
+      font-size: 11px; font-weight: 500; color: var(--rfq-gray-600);
+      margin-bottom: 6px;
+    }
+    .form-control, input.form-control, textarea.form-control {
+      padding: 8px 12px;
+      font-size: 13px;
+      border: 1px solid var(--rfq-gray-200);
+      border-radius: var(--rfq-radius);
+      min-height: 38px;
+      line-height: 1.45;
+      background: #fff;
+      transition: border-color .15s, box-shadow .15s;
+      &:focus { border-color: var(--rfq-primary); box-shadow: 0 0 0 2px var(--rfq-focus-ring); outline: 0; }
+      // Yellow border at >=80% of cap. Nested AFTER the base properties so
+      // the compiled CSS emits this rule later — same specificity, same
+      // !important, source order tiebreak goes to the modifier. Moving this
+      // rule out of the base block (or above it) makes the base shorthand
+      // win and the colour appears "stuck" when the class is removed.
+      &.is-warning {
+        border-color: #f59e0b !important;
+        box-shadow: none !important;
+        &:focus {
+          border-color: #f59e0b !important;
+          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25) !important;
+        }
+      }
+    }
+    textarea.form-control { min-height: 92px; resize: vertical; }
+    // Single-line variant — used for Comments alongside the Qty|Unit combo so
+    // both controls share the same 38px height. align-self prevents the cell
+    // from stretching when the row's combined-input column is taller.
+    &--single {
+      align-self: start;
+      .form-control, input.form-control { min-height: 38px; }
+    }
+  }
+
+  // ----- Combined Quantity | Unit input (single bordered field, 2 inputs inside) -----
+  .rfq-spec-combo {
+    display: flex; flex-direction: column; min-width: 0;
+    &__label {
+      font-size: 11px; font-weight: 500; color: var(--rfq-gray-600);
+      margin: 0 0 6px;
+    }
+    &__field {
+      display: flex; align-items: stretch;
+      border: 1px solid var(--rfq-gray-200);
+      border-radius: var(--rfq-radius);
+      background: #fff;
+      overflow: hidden;
+      transition: border-color .15s, box-shadow .15s;
+      &:focus-within {
+        border-color: var(--rfq-primary);
+        box-shadow: 0 0 0 2px var(--rfq-focus-ring);
+      }
+    }
+    // 50/50 split — both inputs share the combo width equally.
+    &__quantity { flex: 1 1 0; min-width: 0; display: flex; }
+    &__unit     { flex: 1 1 0; min-width: 0; display: flex; }
+    &__sep { width: 1px; background: var(--rfq-gray-200); flex: none; align-self: stretch; }
+    // Strip border / label / margins from the embedded CommonFormInputs so
+    // they merge into one continuous 38px-tall field. Bootstrap's `mb-3`
+    // class on the form-group wrapper uses `!important`, so we have to
+    // override the same way; we also clamp the wrapper to the field height
+    // and hide its label / error rows.
+    .form-group {
+      margin: 0 !important;
+      padding: 0 !important;
+      flex: 1 1 auto;
+      width: 100%;
+      height: 38px;
+      display: flex;
+      align-items: stretch;
+      > label, > .invalid-feedback, > .form-text { display: none !important; }
+    }
+    .form-control, input.form-control {
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      padding: 0 12px !important;
+      font-size: 13px;
+      height: 38px;
+      min-height: 38px;
+      max-height: 38px;
+      line-height: 38px;
+      width: 100%;
+      flex: 1;
+      &:focus { box-shadow: none !important; }
+    }
+    &__hints {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin-top: 4px;
+      // PrevHint compact mode renders nothing when there's no prior value;
+      // collapse the empty wrapper so the combo doesn't get a phantom
+      // bottom margin under the field.
+      &:empty { margin-top: 0; }
+    }
+
+    // ----- Unit react-select (sits inside the combo's right cell) -----
+    // The control needs to flatten into the bordered combo (no own border,
+    // transparent bg) so it reads as the right half of a single field.
+    // Height is locked to 38px to match the Quantity input on the left.
+    &__unit .rfq-unit-select {
+      width: 100%;
+      .rfq-unit-select__control {
+        min-height: 38px !important;
+        height: 38px;
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        cursor: pointer;
+      }
+      .rfq-unit-select__value-container {
+        padding: 0 12px;
+        height: 38px;
+      }
+      .rfq-unit-select__single-value,
+      .rfq-unit-select__placeholder {
+        font-size: 13px;
+        color: var(--rfq-gray-900);
+      }
+      .rfq-unit-select__placeholder { color: var(--rfq-gray-400); }
+      .rfq-unit-select__input-container { margin: 0; padding: 0; }
+      .rfq-unit-select__indicators { padding-right: 6px; }
+      .rfq-unit-select__dropdown-indicator {
+        padding: 4px;
+        color: var(--rfq-gray-500);
+        &:hover { color: var(--rfq-gray-700); }
+      }
+    }
+  }
+
+  // The unit menu renders into a portal (so it can spill outside the combo's
+  // overflow:hidden). Style the menu itself plus the sticky add-custom footer.
+  // Unit-select menu and option styles moved to root scope (below
+  // `.create-rfq-page`) — the menu is portalled to document.body and isn't
+  // a descendant of `.create-rfq-page`.
+
+  // .rfq-unit-add-footer styles moved to root scope (below `.create-rfq-page`)
+  // because the react-select menu is portalled to document.body and isn't a
+  // descendant of `.create-rfq-page`.
+
+  // ----- File grid (3-up dashed dropzones) -----
+  .rfq-file-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .rfq-file-card { display: flex; flex-direction: column; gap: 8px; }
+  .rfq-file-drop {
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px;
+    background: var(--rfq-gray-50);
+    border: 2px dashed var(--rfq-gray-300);
+    border-radius: var(--rfq-radius);
+    padding: 16px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    overflow: hidden;
+    &:hover { border-color: var(--rfq-primary); background: var(--rfq-primary-light); }
+    input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+    &__label {
+      font-size: 13px; font-weight: 600; color: var(--rfq-gray-800);
+    }
+    &__hint {
+      font-size: 11px; color: var(--rfq-gray-500);
+    }
+    &--disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+  }
+  .rfq-file-list { display: flex; flex-direction: column; gap: 6px; }
+  .rfq-file-row {
+    display: flex; align-items: center; gap: 8px;
+    background: #fff;
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius-sm);
+    padding: 6px 10px;
+    font-size: 12px;
+    &__name {
+      flex: 1; min-width: 0;
+      color: var(--rfq-primary);
+      text-decoration: none;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      &:hover { text-decoration: underline; }
+    }
+    &__remove {
+      flex: none;
+      width: 20px; height: 20px;
+      border: 0; background: transparent; border-radius: 50%;
+      color: var(--rfq-gray-400);
+      cursor: pointer;
+      font-size: 16px; line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center;
+      &:hover { background: #fee2e2; color: var(--rfq-danger); }
+    }
+  }
+
+  // ----- "Show file" button under each uploader -----
+  .rfq-file-show-btn {
+    appearance: none;
+    margin-top: 8px;
+    width: 100%;
+    border: 1px solid var(--rfq-gray-200);
+    background: #fff;
+    color: var(--rfq-primary);
+    border-radius: var(--rfq-radius);
+    padding: 6px 12px;
+    font: inherit; font-size: 12px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+    &:hover {
+      background: var(--rfq-primary-light);
+      border-color: var(--rfq-primary);
+    }
+  }
+
+  // ----- Tech evaluation row -----
+  .rfq-techeval-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .rfq-techeval-btn {
+    appearance: none;
+    border: 1px solid var(--rfq-primary-light);
+    background: #fff;
+    color: var(--rfq-primary);
+    border-radius: var(--rfq-radius);
+    padding: 8px 14px;
+    font: inherit; font-size: 13px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 8px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+    &:hover:not(:disabled) { background: var(--rfq-primary-light); border-color: var(--rfq-primary); }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+    &--score { border-color: var(--rfq-gray-200); color: var(--rfq-gray-700); }
+    &--score:hover:not(:disabled) { border-color: var(--rfq-primary); color: var(--rfq-primary); background: #fff; }
+    &__pill {
+      background: var(--rfq-primary); color: #fff;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+  }
+
+  // ----- Color-coded micro tags -----
+  .rfq-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--rfq-radius-sm);
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+    &--red     { background: #fee2e2; color: #991b1b; }
+    &--violet  { background: var(--rfq-violet-100); color: var(--rfq-violet-700); }
+    &--blue    { background: #dbeafe; color: #1d4ed8; }
+    &--primary { background: var(--rfq-primary-light); color: var(--rfq-primary); }
+    &--gray    { background: var(--rfq-gray-100); color: var(--rfq-gray-700); }
+  }
+
+  // ======================================================================
+  // Responsive
+  // ======================================================================
+  @media (max-width: 960px) {
+    .rfq-stepper-card { display: none; }
+    .rfq-stepper-mobile { display: block; }
+    .rfq-spec-row--prominent,
+    .rfq-spec-row--secondary { grid-template-columns: 1fr; }
+    .rfq-file-grid { grid-template-columns: 1fr; }
+    .rfq-products-row {
+      grid-template-columns: 1fr 80px 96px;
+      &__cell:nth-of-type(2) { display: none; } // hide qty column on tablet, keep unit
+    }
+  }
+  @media (max-width: 720px) {
+    padding: 16px 12px 96px;
+    .rfq-page-header__title { font-size: 18px; }
+    .rfq-grid-2, .rfq-grid-3 { grid-template-columns: 1fr; }
+    .rfq-products-toolbar { flex-direction: column; align-items: flex-start; }
+    .rfq-products-row {
+      grid-template-columns: 1fr 80px;
+      &__cell { display: none; }
+    }
+    .rfq-product-body { padding: 16px; }
+    .rfq-techeval-row .rfq-techeval-btn { width: 100%; justify-content: center; }
+    .rfq-actions-bar {
+      flex-direction: column;
+      align-items: stretch;
+      &__right { flex-direction: column-reverse; }
+      .rfq-btn { width: 100%; }
+    }
+    .rfq-review-dl { grid-template-columns: 1fr; }
+  }
+}
+
+// =====================================================================
+// Unit-select portalled menu — react-select renders the menu under
+// document.body, so all of these styles must live at root scope with
+// literal tokens.
+// =====================================================================
+.rfq-unit-select__menu {
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.12) !important;
+  overflow: hidden !important;
+}
+.rfq-unit-select__menu-list { padding: 4px 0 !important; }
+.rfq-unit-select__group-heading {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #6b7280 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  padding: 6px 12px 4px !important;
+}
+.rfq-unit-select__option {
+  padding: 0 !important;
+  cursor: pointer;
+  background: transparent !important;
+  color: #1f2937 !important;
+  &--is-focused {
+    background: #ebf0f9 !important;
+    color: #2e5ba8 !important;
+  }
+  &--is-selected {
+    background: #2e5ba8 !important;
+    color: #fff !important;
+  }
+}
+.rfq-unit-option {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px;
+  font-size: 13px;
+  width: 100%;
+  &__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  &__delete {
+    flex: none;
+    width: 22px; height: 22px;
+    border: 0;
+    background: transparent;
+    color: #9ca3af;
+    border-radius: 4px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .12s, background .12s, color .12s;
+    font-size: 12px;
+    line-height: 1;
+    padding: 0;
+    svg { width: 12px; height: 12px; display: block; }
+    &:hover { background: #fee2e2; color: #dc2626; }
+  }
+}
+// Reveal the × on hover/focus of the option row.
+.rfq-unit-select__option:hover .rfq-unit-option__delete,
+.rfq-unit-select__option--is-focused .rfq-unit-option__delete {
+  opacity: 1;
+}
+.rfq-unit-select__option--is-selected .rfq-unit-option__delete {
+  color: rgba(255, 255, 255, 0.85);
+  &:hover { color: #fff; background: rgba(255, 255, 255, 0.18); }
+}
+
+// =====================================================================
+// Unit-select "Add custom unit" footer — react-select portals its menu to
+// document.body, so this lives at root scope with literal tokens (the
+// .create-rfq-page CSS variables aren't available here).
+// =====================================================================
+.rfq-unit-add-footer {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  padding: 8px 10px;
+  z-index: 1;
+  &__trigger {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: #2e5ba8;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    &:hover { background: #ebf0f9; }
+  }
+  &__form {
+    display: flex; gap: 6px; align-items: center;
+  }
+  &__input {
+    flex: 1; min-width: 0;
+    height: 30px;
+    padding: 0 10px;
+    font-size: 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    &:focus { border-color: #2e5ba8; box-shadow: 0 0 0 2px rgba(46, 91, 168, 0.30); outline: 0; }
+  }
+  // Icon-only Save (tick) / Cancel (cross) buttons. Square 30×30 to match
+  // the input height; the centred glyph is the only content.
+  &__icon-btn {
+    flex: none;
+    width: 30px; height: 30px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s, opacity .15s;
+    &:disabled { cursor: not-allowed; opacity: 0.45; }
+    &--save {
+      background: #2e5ba8; color: #fff; border-color: #2e5ba8;
+      &:hover:not(:disabled) { background: #1e4a8a; border-color: #1e4a8a; }
+    }
+    &--cancel {
+      background: #fff; color: #4b5563; border-color: #d1d5db;
+      &:hover { background: #f9fafb; color: #1f2937; border-color: #9ca3af; }
+    }
+  }
+  // Tiny spinner shown in place of the tick while the POST is in flight.
+  &__spinner {
+    width: 12px; height: 12px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    display: inline-block;
+    animation: rfq-unit-add-spin .7s linear infinite;
+  }
+}
+@keyframes rfq-unit-add-spin { to { transform: rotate(360deg); } }
+
+// =====================================================================
+// Add Clause modal — rendered into a portal so its styles live outside
+// .create-rfq-page. Tokens are duplicated locally to keep the modal
+// independent and avoid leaking selectors.
+// =====================================================================
+.rfq-clause-modal-dialog {
+  max-width: 920px;
+  --rfq-primary:        #2e5ba8;
+  --rfq-primary-dark:   #1e4a8a;
+  --rfq-primary-light:  #ebf0f9;
+  --rfq-gray-50:        #f9fafb;
+  --rfq-gray-100:       #f3f4f6;
+  --rfq-gray-200:       #e5e7eb;
+  --rfq-gray-300:       #d1d5db;
+  --rfq-gray-400:       #9ca3af;
+  --rfq-gray-500:       #6b7280;
+  --rfq-gray-600:       #4b5563;
+  --rfq-gray-700:       #374151;
+  --rfq-gray-800:       #1f2937;
+  --rfq-gray-900:       #111827;
+  --rfq-success:        #16a34a;
+  --rfq-success-dark:   #15803d;
+  --rfq-emerald:        #059669;
+  --rfq-danger:         #dc2626;
+  --rfq-radius:         8px;
+  --rfq-radius-sm:      6px;
+  --rfq-radius-lg:      16px;
+  --rfq-focus-ring:     rgba(46, 91, 168, 0.30);
+
+  font-family: inherit;
+  color: var(--rfq-gray-900);
+  font-size: 14px;
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  .rfq-clause-modal {
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius-lg);
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+
+  // ---- Header ----
+  .rfq-clause-modal__header {
+    border-bottom: 1px solid var(--rfq-gray-100);
+    padding: 16px 20px;
+    align-items: center;
+    .btn-close { font-size: 12px; }
+  }
+  .rfq-clause-modal__title-row {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; gap: 12px; min-width: 0;
+  }
+  .rfq-clause-modal__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--rfq-gray-900);
+    line-height: 1.35;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  .rfq-clause-modal__product { color: var(--rfq-gray-500); font-weight: 500; }
+
+  // ---- Inline minimum-passing-percentage row ----
+  .rfq-clause-minscore-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    background: #f5f3ff;
+    border: 1px solid #ede9fe;
+    border-radius: var(--rfq-radius);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    &__label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    &__title {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #4c1d95;
+    }
+    &__hint {
+      margin: 0;
+      font-size: 11px;
+      color: #6d28d9;
+      line-height: 1.45;
+    }
+    &__input-wrap {
+      display: flex; align-items: center; gap: 6px;
+    }
+    &__unit {
+      color: var(--rfq-gray-600);
+      font-weight: 600;
+      font-size: 13px;
+    }
+  }
+
+  // ---- Body ----
+  .rfq-clause-modal__body { padding: 20px; max-height: 65vh; overflow-y: auto; }
+
+  // ---- Footer ----
+  .rfq-clause-modal__footer {
+    border-top: 1px solid var(--rfq-gray-100);
+    padding: 6px 16px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    .rfq-btn { padding: 6px 14px; font-size: 13px; }
+  }
+  .rfq-clause-modal__error {
+    color: var(--rfq-danger);
+    font-size: 12px;
+    margin: 4px 0 0;
+  }
+
+  // Clause-text char counter. Mirrors the .rfq-char-count rule that lives
+  // under .create-rfq-page > .rfq-spec-field — duplicated here because the
+  // modal renders into a portal outside .create-rfq-page so the original
+  // selector doesn't reach it.
+  .rfq-char-count {
+    display: block;
+    text-align: right;
+    font-size: 11px;
+    color: var(--rfq-gray-500);
+    margin-top: 4px;
+    letter-spacing: 0.01em;
+    transition: color .15s;
+    // Yellow at 80%+ usage; red only when over the cap (legacy values).
+    &--warn { color: #b45309; font-weight: 500; }
+    &--over { color: var(--rfq-danger); font-weight: 600; }
+  }
+  // ---- Sampling card ----
+  .rfq-sampling-card {
+    background: var(--rfq-gray-50);
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    &__head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap;
+    }
+    &__title { margin: 0; font-size: 13px; font-weight: 600; color: var(--rfq-gray-900); }
+    &__hint { margin: 2px 0 0; font-size: 11px; color: var(--rfq-gray-500); }
+    &__status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    &__marks { font-size: 12px; color: var(--rfq-gray-600); font-weight: 500; }
+    &__form { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  }
+
+  // Re-use the .rfq-tag tokens from the products section
+  .rfq-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--rfq-radius-sm);
+    font-size: 10px; font-weight: 500; line-height: 1.4;
+    &--success { background: #dcfce7; color: #166534; }
+    &--primary { background: var(--rfq-primary-light); color: var(--rfq-primary); }
+    &--red     { background: #fee2e2; color: #991b1b; }
+  }
+
+  // ---- Inline pill button (small action chips inside cards) ----
+  .rfq-clause-pill-btn {
+    appearance: none;
+    border: 1px solid var(--rfq-gray-300);
+    background: #fff;
+    color: var(--rfq-gray-700);
+    border-radius: var(--rfq-radius-sm);
+    padding: 4px 10px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+    &:hover:not(:disabled) { background: var(--rfq-gray-50); border-color: var(--rfq-gray-400); }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+    &--primary {
+      border-color: var(--rfq-primary);
+      color: #fff;
+      background: var(--rfq-primary);
+      &:hover:not(:disabled) { background: var(--rfq-primary-dark); border-color: var(--rfq-primary-dark); }
+    }
+    &--danger {
+      border-color: #fecaca;
+      color: var(--rfq-danger);
+      &:hover:not(:disabled) { background: #fef2f2; border-color: var(--rfq-danger); }
+    }
+  }
+
+  // ---- Add / update clause form ----
+  .rfq-clause-form {
+    display: flex; flex-direction: column; gap: 6px;
+    background: #fff;
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    // Matches .rfq-btn--sm height (the "Update" button on the Minimum
+    // passing percentage row uses --sm — keep all bottom-row controls at
+    // the same size so they line up.
+    --rfq-clause-control-height: 30px;
+
+    &__field { display: flex; flex-direction: column; gap: 4px; }
+    &__row {
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      gap: 12px;
+      align-items: end;
+    }
+    &__header {
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      gap: 12px;
+      align-items: end;
+    }
+    &__marks { display: flex; flex-direction: column; gap: 4px; }
+    &__attach { display: flex; flex-direction: column; gap: 4px; }
+    &__cta-wrap { display: flex; flex-direction: column; gap: 4px; }
+    &__cta {
+      height: var(--rfq-clause-control-height);
+      padding: 0 14px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    // Equalize the heights of the three bottom-row controls.
+    &__row .rfq-clause-input,
+    &__header .rfq-clause-input { height: var(--rfq-clause-control-height); }
+    &__attach .rfq-clause-attach-btn {
+      height: var(--rfq-clause-control-height);
+      width: 100%;
+      justify-content: center;
+    }
+
+    // Accordion: header always visible; body (textarea + attached files)
+    // expands on hover/focus-within, or when the form is in update mode /
+    // user has typed something.
+    &--accordion {
+      .rfq-clause-form__accordion-body {
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        margin-top: 0;
+        transition: max-height .25s ease, opacity .2s ease, margin-top .25s ease;
+      }
+      &:hover .rfq-clause-form__accordion-body,
+      &:focus-within .rfq-clause-form__accordion-body,
+      &.rfq-clause-form--open .rfq-clause-form__accordion-body {
+        max-height: 480px;
+        opacity: 1;
+        margin-top: 8px;
+      }
+    }
+  }
+  .rfq-clause-label {
+    font-size: 11px; font-weight: 600; color: var(--rfq-gray-700);
+    margin: 0;
+  }
+  .rfq-clause-input {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 13px;
+    border: 1px solid var(--rfq-gray-300) !important;
+    border-radius: var(--rfq-radius) !important;
+    background: #fff;
+    color: var(--rfq-gray-900);
+    box-shadow: none !important;
+    line-height: 1.3;
+    &:focus { border-color: var(--rfq-primary) !important; box-shadow: 0 0 0 2px var(--rfq-focus-ring) !important; outline: 0; }
+    &--narrow { max-width: 110px; }
+    &--textarea { resize: vertical; min-height: 64px; height: auto; }
+    &::placeholder { color: var(--rfq-gray-400); }
+    // Modifiers nested INSIDE the base block so SCSS emits them AFTER the
+    // base rule. With identical specificity + !important, the later rule
+    // wins — that's how amber/red beat the base's `border: 1px solid gray
+    // !important` shorthand. Move them OUT of this block (or place above
+    // the base) and the base will overwrite them and the colour will look
+    // "stuck" because the warn class never visually applies.
+    &--warn {
+      border-color: #f59e0b !important;
+      &:focus {
+        border-color: #f59e0b !important;
+        box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25) !important;
+      }
+    }
+    &--invalid {
+      border-color: var(--rfq-danger) !important;
+      &:focus {
+        border-color: var(--rfq-danger) !important;
+        box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25) !important;
+      }
+    }
+  }
+  .rfq-required { color: var(--rfq-danger); }
+
+  .rfq-clause-attach-btn {
+    appearance: none; border: 1px dashed var(--rfq-gray-300);
+    background: #fff;
+    color: var(--rfq-gray-600);
+    border-radius: var(--rfq-radius);
+    padding: 0 12px;
+    font: inherit; font-size: 12px; font-weight: 500;
+    display: inline-flex; align-items: center; gap: 6px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s, background .15s;
+    &:hover { color: var(--rfq-primary); border-color: var(--rfq-primary); background: var(--rfq-primary-light); }
+    &__spinner {
+      display: inline-block; width: 12px; height: 12px;
+      border: 2px solid var(--rfq-primary); border-right-color: transparent; border-radius: 50%;
+      animation: rfq-clause-spin .7s linear infinite;
+    }
+  }
+  .rfq-clause-attach-list { font-size: 11px; margin-top: 4px; }
+
+  @keyframes rfq-clause-spin {
+    to { transform: rotate(360deg); }
+  }
+  .rfq-clause-spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid currentColor; border-right-color: transparent;
+    border-radius: 50%;
+    animation: rfq-clause-spin .7s linear infinite;
+  }
+
+  // ---- Existing clauses list ----
+  .rfq-clause-list-block {
+    &__title {
+      font-size: 12px; font-weight: 600;
+      color: var(--rfq-gray-700);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin: 0 0 8px;
+    }
+    &__count { color: var(--rfq-gray-400); font-weight: 500; text-transform: none; letter-spacing: 0; }
+    &__empty {
+      margin: 0;
+      padding: 24px;
+      text-align: center;
+      color: var(--rfq-gray-500);
+      font-size: 12px;
+      background: var(--rfq-gray-50);
+      border: 1px dashed var(--rfq-gray-200);
+      border-radius: var(--rfq-radius);
+    }
+  }
+  .rfq-clause-list {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .rfq-clause-card {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff;
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: var(--rfq-radius);
+    padding: 12px 14px;
+    &__text-cell {
+      flex: 0 0 70%;
+      max-width: 70%;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    &__text {
+      margin: 0;
+      font-size: 13px;
+      color: var(--rfq-gray-800);
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    &__readmore {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      margin-left: 4px;
+      color: var(--rfq-primary);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      &:hover { text-decoration: underline; }
+    }
+    &__marks-cell {
+      flex: 1 1 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    &__files { font-size: 11px; }
+    &__actions {
+      flex: 0 0 auto;
+      display: flex;
+      gap: 4px;
+      justify-content: flex-end;
+    }
+    &__icon-btn {
+      width: 28px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--rfq-radius-sm);
+      color: var(--rfq-gray-400);
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+      &:hover { background: var(--rfq-gray-50); color: var(--rfq-primary); }
+      &--danger:hover { color: var(--rfq-danger); border-color: #fecaca; background: #fef2f2; }
+    }
+  }
+
+  // ---- Buttons (re-declared inside modal scope; mirror create-rfq-page) ----
+  .rfq-btn {
+    appearance: none; border: 0;
+    border-radius: var(--rfq-radius);
+    padding: 8px 16px;
+    font: inherit; font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: background .15s, color .15s, opacity .15s, border-color .15s;
+    line-height: 1.2;
+    &:disabled { cursor: not-allowed; opacity: 0.5; }
+    &:focus-visible { outline: 0; box-shadow: 0 0 0 3px var(--rfq-focus-ring); }
+    &--primary {
+      background: var(--rfq-primary); color: #fff;
+      &:hover:not(:disabled) { background: var(--rfq-primary-dark); }
+    }
+    &--secondary {
+      background: #fff; color: var(--rfq-gray-700);
+      border: 1px solid var(--rfq-gray-300);
+      &:hover:not(:disabled) { background: var(--rfq-gray-50); border-color: var(--rfq-gray-400); }
+    }
+    &--success {
+      background: var(--rfq-success); color: #fff;
+      padding: 8px 18px;
+      &:hover:not(:disabled) { background: var(--rfq-success-dark); }
+    }
+    &--ghost {
+      background: transparent; color: var(--rfq-gray-600);
+      &:hover:not(:disabled) { color: var(--rfq-gray-800); background: var(--rfq-gray-50); }
+    }
+    &--sm { padding: 6px 12px; font-size: 13px; }
+  }
+
+  @media (max-width: 720px) {
+    .rfq-clause-form__row,
+    .rfq-clause-form__header { grid-template-columns: 1fr; }
+    .rfq-clause-modal__title { white-space: normal; }
+    .rfq-clause-minscore-row {
+      grid-template-columns: 1fr;
+      &__input-wrap { justify-content: flex-start; }
+    }
+  }
+}
+
+// Documents modal — custom overlay opened by the "Show file" button under
+// each uploader. Lives at the top level (outside .create-rfq-page) so the
+// fixed-position overlay is unaffected by any ancestor stacking context.
+.rfq-doc-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1080;
+  padding: 16px;
+  animation: rfq-doc-modal-fade .15s ease-out;
+}
+
+@keyframes rfq-doc-modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.rfq-doc-modal {
+  --rfq-primary:        #2e5ba8;
+  --rfq-primary-dark:   #1e4a8a;
+  --rfq-primary-light:  #ebf0f9;
+  --rfq-gray-100:       #f3f4f6;
+  --rfq-gray-200:       #e5e7eb;
+  --rfq-gray-300:       #d1d5db;
+  --rfq-gray-400:       #9ca3af;
+  --rfq-gray-500:       #6b7280;
+  --rfq-gray-600:       #4b5563;
+  --rfq-gray-700:       #374151;
+  --rfq-gray-800:       #1f2937;
+  --rfq-gray-900:       #111827;
+  --rfq-danger:         #dc2626;
+
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 32px);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.25), 0 8px 16px -8px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: inherit;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--rfq-gray-200);
+  }
+  &__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--rfq-gray-900);
+    line-height: 1.3;
+  }
+  &__close {
+    appearance: none;
+    width: 30px; height: 30px;
+    border: 0;
+    background: transparent;
+    color: var(--rfq-gray-500);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s;
+    &:hover { background: var(--rfq-gray-100); color: var(--rfq-gray-800); }
+  }
+  &__body {
+    padding: 16px 18px;
+    overflow-y: auto;
+  }
+  &__empty {
+    margin: 0;
+    color: var(--rfq-gray-500);
+    font-size: 13px;
+    text-align: center;
+    padding: 16px 0;
+  }
+  &__footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--rfq-gray-200);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    background: #fafafa;
+  }
+  &__btn {
+    appearance: none;
+    border: 1px solid var(--rfq-gray-300);
+    background: #fff;
+    color: var(--rfq-gray-700);
+    border-radius: 8px;
+    padding: 7px 16px;
+    font: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+    &:hover {
+      background: var(--rfq-gray-100);
+      border-color: var(--rfq-gray-400);
+      color: var(--rfq-gray-900);
+    }
+  }
+
+  .rfq-doc-list {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: 8px;
+    &__row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--rfq-gray-200);
+      border-radius: 8px;
+      background: #fff;
+    }
+    &__label {
+      font-size: 13px; font-weight: 600;
+      color: var(--rfq-gray-800);
+    }
+    &__actions {
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    &__view {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600;
+      color: var(--rfq-primary);
+      text-decoration: none;
+      padding: 5px 10px;
+      border: 1px solid var(--rfq-primary-light);
+      border-radius: 6px;
+      transition: background .15s, border-color .15s;
+      &:hover { background: var(--rfq-primary-light); border-color: var(--rfq-primary); }
+    }
+    &__remove {
+      appearance: none;
+      width: 30px; height: 30px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: var(--rfq-gray-400);
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+      &:hover { color: var(--rfq-danger); background: #fef2f2; border-color: #fecaca; }
+    }
+  }
+
+  // Product detail modal — horizontal grid (label above value), with full-
+  // width rows for long-text fields. Opens via the Review-section cards.
+  &--wide { max-width: 920px; }
+
+  .rfq-product-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    &__row {
+      display: flex; gap: 32px; flex-wrap: wrap;
+      &--inline { gap: 48px; }
+    }
+    &__field {
+      display: flex; flex-direction: column; gap: 4px;
+      min-width: 0;
+      &--full { width: 100%; }
+      &--inline { flex: 0 0 auto; min-width: 80px; }
+    }
+    &__label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--rfq-primary);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    &__label-meta {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--rfq-gray-500);
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    &__value {
+      font-size: 13px;
+      color: var(--rfq-gray-900);
+      word-break: break-word;
+      line-height: 1.5;
+    }
+    &__text { white-space: pre-wrap; }
+    &__empty { color: var(--rfq-gray-400); font-size: 13px; }
+    &__toggle {
+      background: transparent; border: 0; padding: 0;
+      color: var(--rfq-primary);
+      font: inherit; font-size: 12px; font-weight: 600;
+      cursor: pointer;
+      &:hover { text-decoration: underline; }
+    }
+    &__files {
+      list-style: none; margin: 0; padding: 0;
+      display: flex; flex-direction: column; gap: 2px;
+      a { color: var(--rfq-primary); font-weight: 500; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      &--grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 4px 12px;
+      }
+    }
+    &__files-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px 24px;
+    }
+    &__clauses {
+      list-style: none; margin: 0; padding: 0;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    &__clause {
+      border: 1px solid var(--rfq-gray-200);
+      border-radius: var(--rfq-radius-sm);
+      padding: 10px 12px;
+      background: var(--rfq-gray-50);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    &__clause-head {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    &__clause-marks {
+      font-size: 12px; font-weight: 600; color: var(--rfq-gray-700);
+    }
+    &__clause-text {
+      font-size: 13px; color: var(--rfq-gray-900); line-height: 1.5;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .rfq-doc-modal .rfq-product-detail__files-row,
+  .rfq-doc-modal .rfq-product-detail__files--grid { grid-template-columns: 1fr; }
+  .rfq-doc-modal .rfq-product-detail__row--inline { gap: 24px; }
+}

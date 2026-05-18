@@ -32,6 +32,7 @@ import AddSiteRepModal from './AddSiteRepModal';
 import ApproveModal from './ApproveModal';
 import NoTechClausesBanner from '@/components/shared/NoTechClausesBanner';
 import useHasTechClauses from '@/hooks/useHasTechClauses';
+import { FilesListModal, ProductFilesModal } from './AttachmentsModals';
 
 const statusColors = {
   draft: 'secondary',
@@ -63,7 +64,7 @@ const POStatusBadge = ({ status }) => {
   };
   return (
     <Badge bg={statusColors[status] || 'secondary'} className="fs-6 px-3 py-2 float-end text-uppercase">
-      {labels[status] || status.replace(/_/g, ' ')}
+      {labels[status] || (status || '').replace(/_/g, ' ')}
     </Badge>
   );
 };
@@ -122,7 +123,7 @@ const elipsisToLimit = (text, limit = 45) => {
   return text.length > limit ? text.slice(0, limit).concat('...') : text;
 }
 
-const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers, isEditing, setIsEditing, handleUpdatePO, canWrite = true, canApprove = false, canRegenerate = false }) => {
+const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers, isEditing, setIsEditing, handleUpdatePO, canWrite = true, canApprove = false, canRegenerate = false }) => {
   const {
     id,
     rfq_id,
@@ -135,6 +136,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     quantity,
     unit_price,
     total_value,
+    line_subtotal,
+    global_charges = [],
     initiated_by_name,
     created_at,
     project_id,
@@ -144,6 +147,10 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     approval_status,
     approval_history = [],
     documents = [],
+    vendor_quote_term_files = [],
+    vendor_quote_product_files = [],
+    vendor_tech_eval_files = [],
+    buyer_tech_eval_files = [],
     site_rep,
     payment_milestones,
     hsn_codes,
@@ -188,6 +195,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   const [deleteTaskId, setDeleteTaskId] = useState(null);
   const [actionLoading, setActionLoading] = useState(null); // 'initiate' | 'grn' | 'hsn' | 'gst' | null
   const [showRegenerateModal, setShowRegenerateModal] = useState(false);
+  const [termsModal, setTermsModal] = useState({ open: false, title: '', files: [] });
+  const [productAttachmentsModal, setProductAttachmentsModal] = useState({ open: false, product: null });
   const [regenerateLoading, setRegenerateLoading] = useState(false);
 
   const router = useRouter();
@@ -390,6 +399,61 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   const handleWorkflowApprove = async (comment) => handleWorkflowDecision("approved", comment);
   const handleWorkflowReject = async (comment) => handleWorkflowDecision("rejected", comment);
 
+  // ── Global-charge allocation per product line ────────────────────────────
+  // Document-level global charges (TCS, document fee, convenience charge…)
+  // live on the PO header (po.global_charges). For the per-product display
+  // to reconcile to the grand total, allocate each global charge to product
+  // lines proportionally to that line's contribution to the line subtotal:
+  //
+  //   percentage charge → exact: chargeRate% × line_subtotal_i
+  //   absolute charge   → proportional: (line_i / Σline) × charge.amount
+  //
+  // Both schemes preserve Σ(allocated_share) === total global charge, so the
+  // per-product totals always sum to the grand total even when applied as
+  // a single document-level cost in the data model.
+  const globalChargesNormalized = (() => {
+    const arr = Array.isArray(global_charges)
+      ? global_charges
+      : (typeof global_charges === "string" && global_charges.trim()
+          ? (() => { try { return JSON.parse(global_charges); } catch (_e) { return []; } })()
+          : []);
+    return arr
+      .map((gc) => {
+        if (!gc || typeof gc !== "object") return null;
+        const value = Number(gc.amount ?? gc.tax) || 0;
+        const mode = gc.amount_mode ?? gc.tax_mode ?? "percentage";
+        if (!(value > 0)) return null;
+        const comment = typeof gc.comment === "string" ? gc.comment.trim() : "";
+        return {
+          name: gc.name || gc.slug || "Global Charge",
+          value,
+          mode,
+          comment: comment || null,
+        };
+      })
+      .filter(Boolean);
+  })();
+  const productLineSubtotalSum = (Array.isArray(product_details) ? product_details : [])
+    .reduce((acc, p) => acc + (Number(p?.total_price) || 0), 0);
+
+  // Recompute the headline grand total from line subtotal + document-level
+  // global charges. The backend stores this on po.total_value at draft time,
+  // but legacy POs drafted before pricingEngine.normalizeGlobalCharge existed
+  // have a stale stored value that excludes global charges. Recomputing in
+  // the FE makes the displayed total correct without requiring a one-time
+  // DB backfill, and is a no-op for new POs where the stored value already
+  // matches. The Product Details section's bottom summary computes the same
+  // numbers, so the headline and the breakdown agree by construction.
+  const totalGlobalChargesAcrossAllLines = globalChargesNormalized.reduce((sum, gc) => {
+    const applied = gc.mode === "percentage"
+      ? (productLineSubtotalSum * gc.value) / 100
+      : gc.value;
+    return sum + applied;
+  }, 0);
+  const displayedTotalValue = globalChargesNormalized.length > 0
+    ? Math.round((productLineSubtotalSum + totalGlobalChargesAcrossAllLines) * 100) / 100
+    : Number(total_value) || 0;
+
   if(!isEditing) {
     return (
       <div style={showMobileApprovalBar ? { paddingBottom: 120 } : undefined}>
@@ -403,7 +467,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               <span>Purchase Order</span>
               <span className={styles.detailsHeroPONum}>#{po_number}</span>
               <Badge bg={statusColors[status] || 'secondary'} className={styles.heroStatusBadge}>
-                {status === 'acceptance_pending' ? 'Awaiting' : status === 'rejected_by_vendor' ? 'Rejected' : status === 'approved' ? 'Accepted' : status.replace(/_/g, ' ')}
+                {status === 'acceptance_pending' ? 'Awaiting' : status === 'rejected_by_vendor' ? 'Rejected' : status === 'approved' ? 'Accepted' : (status || '').replace(/_/g, ' ')}
               </Badge>
             </div>
             <p className={styles.detailsHeroSub}>
@@ -480,7 +544,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               <div className={styles.detailsMetaIcon}><BsCurrencyRupee size={15} /></div>
               <div>
                 <div className={styles.detailsMetaLabel}>Total Value</div>
-                <div className={styles.detailsMetaValue}>₹{addCommasToNumber(total_value)}</div>
+                <div className={styles.detailsMetaValue}>₹{addCommasToNumber(displayedTotalValue)}</div>
               </div>
             </div>
             <div className={styles.detailsMetaItem}>
@@ -517,7 +581,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
               <div className={styles.detailsMetaIcon}><BsShieldCheck size={15} /></div>
               <div>
                 <div className={styles.detailsMetaLabel}>Status</div>
-                <div className={styles.detailsMetaValue} style={{ textTransform: 'capitalize' }}>{status === 'approved' ? 'Accepted' : status === 'acceptance_pending' ? 'Awaiting Vendor' : status === 'rejected_by_vendor' ? 'Vendor Rejected' : status.replace(/_/g, ' ')}</div>
+                <div className={styles.detailsMetaValue} style={{ textTransform: 'capitalize' }}>{status === 'approved' ? 'Accepted' : status === 'acceptance_pending' ? 'Awaiting Vendor' : status === 'rejected_by_vendor' ? 'Vendor Rejected' : (status || '').replace(/_/g, ' ')}</div>
               </div>
             </div>
             {budgetInfo && (
@@ -540,7 +604,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                   <div className={styles.detailsMetaIcon}><BsCurrencyRupee size={15} /></div>
                   <div>
                     <div className={styles.detailsMetaLabel}>After Approval</div>
-                    <div className={styles.detailsMetaValue}>₹{formatToINRShort(budgetInfo.available_budget - total_value)}</div>
+                    <div className={styles.detailsMetaValue}>₹{formatToINRShort(budgetInfo.available_budget - displayedTotalValue)}</div>
                   </div>
                 </div>
               </>
@@ -613,141 +677,214 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                 Compare Quotes &rarr;
               </Link>
             </div>
-            <div className={styles.sectionBody}>
+            <div className={styles.sectionBody} style={{ paddingTop: 4 }}>
   
-              {/* Product accordion */}
+              {/* Modern minimal layout: each product is a flat row, no
+                  accordion. Line total on the right, charge pills below the
+                  metadata, single Subtotal + Globals + Grand Total summary
+                  at the bottom. The math the buyer needs to verify is right
+                  there: line totals add up to subtotal, plus global charges,
+                  equals grand total. Same numbers as po.total_value and the
+                  printed PDF. */}
               {!product_details || product_details.length === 0 ? (
                 <p className="text-muted mb-0">
                   No product details available for this PO.
                 </p>
               ) : (
-                <Accordion alwaysOpen>
+                <div>
                   {product_details.map((prod, idx) => {
                     const baseValue =
                       Number(prod.unit_price || 0) * Number(prod.quantity || 0);
-  
+                    const lineSubtotal = Number(prod.total_price || 0);
+                    const cm = prod.charges_meta || {};
+                    const dynamic = Array.isArray(cm.other_charges) ? cm.other_charges : [];
+                    const legacyFreight = parseFloat(cm.freight_price);
+                    const legacyPackage = parseFloat(cm.package_price);
+                    const synthetic = [];
+                    if (dynamic.length === 0) {
+                      if (Number.isFinite(legacyFreight) && legacyFreight > 0) {
+                        synthetic.push({ name: "Freight", amount: legacyFreight, amount_mode: cm.freight_mode || "percentage" });
+                      }
+                      if (Number.isFinite(legacyPackage) && legacyPackage > 0) {
+                        synthetic.push({ name: "Packaging", amount: legacyPackage, amount_mode: cm.package_mode || "percentage" });
+                      }
+                    }
+                    const charges = dynamic.length ? dynamic : synthetic;
+                    const baseTaxValue = parseFloat(cm.tax);
+                    const baseTaxMode = cm.tax_mode || "percentage";
+                    const hasBaseTax = Number.isFinite(baseTaxValue) && baseTaxValue > 0;
+                    const baseTaxRateForInherit = baseTaxMode === "percentage" && hasBaseTax ? baseTaxValue : 0;
+                    const formatChargeAmount = (charge) => {
+                      const amount = parseFloat(charge.amount) || 0;
+                      const mode = charge.amount_mode || "percentage";
+                      return mode === "percentage" ? `${amount}%` : `₹${addCommasToNumber(amount)}`;
+                    };
+                    const formatChargeTax = (charge) => {
+                      const ownTax = parseFloat(charge.tax);
+                      if (Number.isFinite(ownTax) && ownTax > 0) {
+                        const mode = charge.tax_mode || "percentage";
+                        return mode === "percentage" ? `${ownTax}%` : `₹${addCommasToNumber(ownTax)}`;
+                      }
+                      if (baseTaxRateForInherit > 0) {
+                        return `${baseTaxRateForInherit}% (base)`;
+                      }
+                      return null;
+                    };
+                    const isLast = idx === product_details.length - 1;
                     return (
-                      <Accordion.Item
-                        eventKey={String(idx)}
+                      <div
                         key={prod.id || prod.rfq_item_id || idx}
+                        style={{
+                          padding: "12px 0",
+                          borderBottom: isLast ? "none" : "1px solid #eef0f3",
+                        }}
                       >
-                        {/* Accordion header: main outer details (same as above hr earlier) */}
-                        <Accordion.Header>
-                          <div className="w-100 d-flex justify-content-between align-items-start flex-wrap gap-2">
-                            <div className="d-flex flex-column gap-1" style={{ minWidth: 0, flex: 1 }}>
-                              <div className="fw-semibold" style={{ wordBreak: 'break-word' }}>
-                                {prod.name || "Unnamed Product"}
-                              </div>
-                              <div className="small text-muted">
-                                RFQ Item: <strong>{prod.rfq_item_id}</strong>
-                                {prod.product_id && (
-                                  <>
-                                    {" "}
-                                    • Product ID:{" "}
-                                    <strong>{prod.product_id}</strong>
-                                  </>
-                                )}
-                              </div>
+                        <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2730", letterSpacing: 0.2 }}>
+                              {prod.name || "Unnamed Product"}
                             </div>
-
-                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                              <div className="small text-muted">Total Amount</div>
-                              <div className="fw-semibold" style={{ fontSize: '0.95rem' }}>
-                                ₹
-                                {typeof addCommasToNumber === "function"
-                                  ? addCommasToNumber(prod.total_price)
-                                  : prod.total_price}
-                              </div>
+                            <div style={{ fontSize: 11.5, color: "#8a96a3", marginTop: 2 }}>
+                              {parseFloat(Number(prod.quantity).toFixed(3))} {prod.unit}
+                              <span style={{ margin: "0 6px", color: "#cdd3da" }}>·</span>
+                              ₹{addCommasToNumber(prod.unit_price)} each
+                              <span style={{ margin: "0 6px", color: "#cdd3da" }}>·</span>
+                              base ₹{addCommasToNumber(Math.round(baseValue * 100) / 100)}
                             </div>
                           </div>
-                        </Accordion.Header>
-  
-                        {/* Accordion body: expanded details (qty, unit price, etc.) */}
-                        <Accordion.Body>
-                          {/* Quantities / prices */}
-                          <div className="d-flex flex-wrap gap-4 mb-3">
-                            <div className="small">
-                              <div className="text-muted">Quantity</div>
-                              <div className="fw-semibold">
-                                {parseFloat(Number(prod.quantity).toFixed(2))} {prod.unit}
-                              </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: 16, fontWeight: 600, color: "#1a2730" }}>
+                              ₹{addCommasToNumber(lineSubtotal)}
                             </div>
-  
-                            <div className="small">
-                              <div className="text-muted">Unit Price</div>
-                              <div className="fw-semibold">
-                                ₹
-                                {typeof addCommasToNumber === "function"
-                                  ? addCommasToNumber(prod.unit_price)
-                                  : prod.unit_price}
-                              </div>
-                            </div>
-  
-                            <div className="small">
-                              <div className="text-muted">Base Value</div>
-                              <div className="fw-semibold">
-                                ₹
-                                {typeof addCommasToNumber === "function"
-                                  ? addCommasToNumber(baseValue)
-                                  : baseValue}
-                              </div>
+                            <div style={{ fontSize: 10.5, color: "#8a96a3", marginTop: 2 }}>
+                              Line total
                             </div>
                           </div>
-  
-                          {/* Charges summary */}
-                          {prod.charges_meta && (
-                            <>
-                              <div className="small text-muted mb-1">Charges</div>
-                              <div className="d-flex flex-wrap gap-2">
-                                {/* Freight */}
-                                {prod.charges_meta.freight_price != null && (
-                                  <span className="badge bg-light text-dark border">
-                                    Freight:{" "}
-                                    <strong>
-                                      {prod.charges_meta.freight_price}
-                                      {prod.charges_meta.freight_mode ===
-                                      "percentage"
-                                        ? "%"
-                                        : " ₹"}
-                                    </strong>
-                                  </span>
-                                )}
-  
-                                {/* Packing */}
-                                {prod.charges_meta.package_price != null && (
-                                  <span className="badge bg-light text-dark border">
-                                    Packing:{" "}
-                                    <strong>
-                                      {prod.charges_meta.package_price}
-                                      {prod.charges_meta.package_mode ===
-                                      "percentage"
-                                        ? "%"
-                                        : " ₹"}
-                                    </strong>
-                                  </span>
-                                )}
-  
-                                {/* Tax */}
-                                {prod.charges_meta.tax != null && (
-                                  <span className="badge bg-light text-dark border">
-                                    Tax:{" "}
-                                    <strong>
-                                      {prod.charges_meta.tax}
-                                      {prod.charges_meta.tax_mode === "percentage"
-                                        ? "%"
-                                        : " ₹"}
-                                    </strong>
-                                  </span>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </Accordion.Body>
-                      </Accordion.Item>
+                        </div>
+                        {(charges.length > 0 || hasBaseTax) && (
+                          <div className="d-flex flex-wrap gap-2 mt-2">
+                            {charges.map((charge, i) => {
+                              const taxDisplay = formatChargeTax(charge);
+                              const commentText = charge.comment ? String(charge.comment).trim() : "";
+                              return (
+                                <span
+                                  key={`${charge.name || i}_${i}`}
+                                  title={commentText || undefined}
+                                  style={{
+                                    fontSize: 11,
+                                    padding: "3px 9px",
+                                    background: "#f4f6f8",
+                                    color: "#54616e",
+                                    borderRadius: 999,
+                                  }}
+                                >
+                                  {charge.name || "Other"} <strong style={{ color: "#1a2730" }}>{formatChargeAmount(charge)}</strong>
+                                  {taxDisplay && (
+                                    <span style={{ color: "#8a96a3", marginLeft: 4 }}>+ {taxDisplay} tax</span>
+                                  )}
+                                  {commentText && (
+                                    <span style={{ color: "#8a96a3", fontStyle: "italic", marginLeft: 6 }}>
+                                      - {commentText}
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })}
+                            {hasBaseTax && (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  padding: "3px 9px",
+                                  background: "#f4f6f8",
+                                  color: "#54616e",
+                                  borderRadius: 999,
+                                }}
+                              >
+                                Tax <strong style={{ color: "#1a2730" }}>{baseTaxValue}{baseTaxMode === "percentage" ? "%" : " ₹"}</strong>
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
-                </Accordion>
+                </div>
               )}
+
+              {/* ── Document totals: Subtotal + Global Charges + Grand Total ──
+                  Modern, minimal summary block. Right-aligned amounts, clean
+                  typography, prominent grand total. The math is verifiable
+                  at a glance: Σ(line totals) + globals = grand total. */}
+              {Array.isArray(product_details) && product_details.length > 0 && (() => {
+                const subtotal = (product_details || [])
+                  .reduce((s, p) => s + (Number(p.total_price) || 0), 0);
+                const resolvedGlobals = globalChargesNormalized.map((gc) => {
+                  const computed = gc.mode === "percentage"
+                    ? (subtotal * gc.value) / 100
+                    : gc.value;
+                  return {
+                    name: gc.name,
+                    rate: gc.value,
+                    mode: gc.mode,
+                    comment: gc.comment || null,
+                    computed: Math.round(computed * 100) / 100,
+                  };
+                });
+                const globalsTotal = resolvedGlobals.reduce((s, gc) => s + gc.computed, 0);
+                const grandTotal = Math.round((subtotal + globalsTotal) * 100) / 100;
+                const itemLabel = product_details.length === 1 ? "1 item" : `${product_details.length} items`;
+                return (
+                  <div style={{ paddingTop: 14, borderTop: "1px solid #eef0f3" }}>
+                    <div className="d-flex justify-content-between" style={{ fontSize: 13, color: "#54616e", marginBottom: 8 }}>
+                      <span>Subtotal <span style={{ color: "#8a96a3", marginLeft: 4 }}>({itemLabel})</span></span>
+                      <span style={{ color: "#1a2730", fontWeight: 500 }}>₹{addCommasToNumber(Math.round(subtotal * 100) / 100)}</span>
+                    </div>
+                    {resolvedGlobals.map((gc, i) => (
+                      <div
+                        key={`${gc.name}_${i}`}
+                        className="d-flex justify-content-between align-items-start"
+                        style={{ fontSize: 13, color: "#54616e", marginBottom: 8 }}
+                      >
+                        <span>
+                          {gc.name}
+                          {gc.mode === "percentage" && (
+                            <span style={{ color: "#8a96a3", marginLeft: 6 }}>({gc.rate}%)</span>
+                          )}
+                          {gc.comment && (
+                            <span
+                              style={{
+                                display: "block",
+                                color: "#8a96a3",
+                                fontStyle: "italic",
+                                fontSize: 11.5,
+                                marginTop: 2,
+                              }}
+                            >
+                              - {gc.comment}
+                            </span>
+                          )}
+                        </span>
+                        <span style={{ color: "#1a2730", fontWeight: 500 }}>
+                          ₹{addCommasToNumber(gc.computed)}
+                        </span>
+                      </div>
+                    ))}
+                    <div
+                      className="d-flex justify-content-between align-items-center"
+                      style={{
+                        marginTop: 12,
+                        paddingTop: 14,
+                        borderTop: "1px solid #eef0f3",
+                      }}
+                    >
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "#1a2730" }}>Grand Total</span>
+                      <span style={{ fontSize: 18, fontWeight: 700, color: "#1a2730" }}>
+                        ₹{addCommasToNumber(grandTotal)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -808,6 +945,161 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
             )}
           </div>
         </div>
+
+        {(() => {
+          const buyerTermFiles = Array.isArray(currentRfqData?.TERM_files) ? currentRfqData.TERM_files : [];
+          const rfqProductsById = {};
+          (currentRfqData?.products || []).forEach((p) => { rfqProductsById[p.id] = p; });
+
+          const vendorTermFiles = Array.isArray(vendor_quote_term_files) ? vendor_quote_term_files : [];
+          const vendorFilesByRfqProduct = {};
+          (vendor_quote_product_files || []).forEach((f) => {
+            const key = f.rfq_product_id;
+            if (!vendorFilesByRfqProduct[key]) vendorFilesByRfqProduct[key] = { name: f.product_name, files: [] };
+            vendorFilesByRfqProduct[key].files.push(f.file_url);
+          });
+
+          const techEvalByRfqProduct = {};
+          (vendor_tech_eval_files || []).forEach((f) => {
+            const key = f.rfq_product_id;
+            if (!techEvalByRfqProduct[key]) techEvalByRfqProduct[key] = { name: f.product_name, clauses: {} };
+            if (!techEvalByRfqProduct[key].clauses[f.clause_id]) {
+              techEvalByRfqProduct[key].clauses[f.clause_id] = { text: f.clause_text, files: [] };
+            }
+            techEvalByRfqProduct[key].clauses[f.clause_id].files.push(f.file_url);
+          });
+
+          const buyerTechEvalByRfqProduct = {};
+          (buyer_tech_eval_files || []).forEach((f) => {
+            const key = f.rfq_product_id;
+            if (!buyerTechEvalByRfqProduct[key]) buyerTechEvalByRfqProduct[key] = { name: f.product_name, clauses: {} };
+            if (!buyerTechEvalByRfqProduct[key].clauses[f.clause_id]) {
+              buyerTechEvalByRfqProduct[key].clauses[f.clause_id] = { text: f.clause_text, files: [] };
+            }
+            buyerTechEvalByRfqProduct[key].clauses[f.clause_id].files.push(f.file_url);
+          });
+
+          const productRows = (product_details || []).map((pp) => {
+            const rfqId = pp.rfq_item_id;
+            const rfqProduct = rfqProductsById[rfqId];
+            return {
+              rfq_product_id: rfqId,
+              name: pp.name || rfqProduct?.name || vendorFilesByRfqProduct[rfqId]?.name || techEvalByRfqProduct[rfqId]?.name || buyerTechEvalByRfqProduct[rfqId]?.name || `Product #${rfqId}`,
+              datasheet_file: rfqProduct?.datasheet_file || [],
+              spec_file: rfqProduct?.spec_file || [],
+              qap_file: rfqProduct?.qap_file || [],
+              buyer_tech_eval_clauses: buyerTechEvalByRfqProduct[rfqId]?.clauses
+                ? Object.entries(buyerTechEvalByRfqProduct[rfqId].clauses).map(([cid, c]) => ({ clause_id: cid, text: c.text, files: c.files }))
+                : [],
+              vendor_files: vendorFilesByRfqProduct[rfqId]?.files || [],
+              tech_eval_clauses: techEvalByRfqProduct[rfqId]?.clauses
+                ? Object.entries(techEvalByRfqProduct[rfqId].clauses).map(([cid, c]) => ({ clause_id: cid, text: c.text, files: c.files }))
+                : [],
+            };
+          });
+
+          const hasBuyerFiles = buyerTermFiles.length > 0
+            || productRows.some(p => p.datasheet_file.length || p.spec_file.length || p.qap_file.length)
+            || productRows.some(p => p.buyer_tech_eval_clauses.length);
+          const hasVendorFiles = vendorTermFiles.length > 0
+            || productRows.some(p => p.vendor_files.length)
+            || productRows.some(p => p.tech_eval_clauses.length);
+
+          const hasAnyProductFiles = productRows.some(p =>
+            p.datasheet_file.length || p.spec_file.length || p.qap_file.length ||
+            p.buyer_tech_eval_clauses.length || p.vendor_files.length || p.tech_eval_clauses.length
+          );
+
+          return (
+            <div className={`${styles.sectionCard} ${styles.sectionCardHighlight} mb-3`}>
+              <div className={styles.sectionHeader}>
+                <h5 className={styles.sectionTitle}>
+                  <BsFileEarmarkText size={18} color="#2E5BA8" />
+                  <span>
+                    Attachments from RFQ &amp; Quote
+                    <span className={styles.sectionReviewBadge}>Review</span>
+                    <span className={styles.sectionTitleSub}>Buyer &amp; vendor documents exchanged on this order — please review before approval.</span>
+                  </span>
+                </h5>
+                {(buyerTermFiles.length > 0 || vendorTermFiles.length > 0) && (
+                  <div className="d-flex flex-wrap gap-2">
+                    {buyerTermFiles.length > 0 && (
+                      <button
+                        type="button"
+                        style={{ background: '#2E5BA8', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600 }}
+                        onClick={() => setTermsModal({ open: true, title: 'Buyer (RFQ) — Terms & Conditions', files: buyerTermFiles })}
+                      >
+                        Show Buyer T&amp;C Files ({buyerTermFiles.length})
+                      </button>
+                    )}
+                    {vendorTermFiles.length > 0 && (
+                      <button
+                        type="button"
+                        style={{ background: '#fff', color: '#2E5BA8', border: '1px solid #2E5BA8', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600 }}
+                        onClick={() => setTermsModal({ open: true, title: 'Vendor (Quote) — Terms & Conditions', files: vendorTermFiles })}
+                      >
+                        Show Vendor T&amp;C Files ({vendorTermFiles.length})
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className={styles.sectionBody}>
+                {(!hasBuyerFiles && !hasVendorFiles) ? (
+                  <p className="text-muted mb-0">
+                    No attachments were exchanged on the RFQ or quote.
+                  </p>
+                ) : (
+                  <>
+                    {/* Product cards — clicking a card opens a modal with all categorised files */}
+                    {hasAnyProductFiles ? (
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                          Products
+                        </div>
+                        <div className="d-flex flex-wrap gap-2">
+                          {productRows.map((p) => {
+                            const totalCount = p.datasheet_file.length + p.spec_file.length + p.qap_file.length
+                              + p.buyer_tech_eval_clauses.reduce((acc, c) => acc + (c.files?.length || 0), 0)
+                              + p.vendor_files.length
+                              + p.tech_eval_clauses.reduce((acc, c) => acc + (c.files?.length || 0), 0);
+                            return (
+                              <button
+                                key={`prod-card-${p.rfq_product_id}`}
+                                type="button"
+                                onClick={() => setProductAttachmentsModal({ open: true, product: p })}
+                                style={{
+                                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4,
+                                  padding: '10px 14px', minWidth: 180, textAlign: 'left',
+                                  background: '#fafbfc', border: '1px solid #eef0f2', borderRadius: 10,
+                                  cursor: 'pointer', transition: 'border-color 0.15s, transform 0.05s',
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#2E5BA8'}
+                                onMouseLeave={(e) => e.currentTarget.style.borderColor = '#eef0f2'}
+                              >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#1a2730' }}>
+                                  <BsFileEarmarkText size={14} color="#2E5BA8" />
+                                  {elipsisToLimit(p.name, 32)}
+                                </span>
+                                <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                                  {totalCount} document{totalCount === 1 ? '' : 's'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-muted mb-0">
+                        No per-product attachments. Use the Terms &amp; Conditions buttons above to view T&amp;C files.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className={`mb-0 ${styles.hsnGstRow}`}>
           <div className={`${styles.sectionCard} w-100`}>
@@ -1420,6 +1712,43 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
           onRegenerate={handleRegenerate}
           onUpload={handleUploadPO}
           isProcessing={regenerateLoading}
+        />
+
+        <FilesListModal
+          show={termsModal.open}
+          onClose={() => setTermsModal({ open: false, title: '', files: [] })}
+          title={termsModal.title}
+          files={termsModal.files}
+        />
+
+        <ProductFilesModal
+          show={productAttachmentsModal.open}
+          onClose={() => setProductAttachmentsModal({ open: false, product: null })}
+          productName={productAttachmentsModal.product?.name || ''}
+          groups={productAttachmentsModal.product ? [
+            {
+              title: 'Buyer (RFQ)',
+              variant: 'buyer',
+              sections: [
+                { label: 'Datasheet', files: productAttachmentsModal.product.datasheet_file },
+                { label: 'Specification', files: productAttachmentsModal.product.spec_file },
+                { label: 'QAP', files: productAttachmentsModal.product.qap_file },
+              ],
+              clauseSections: [
+                { label: 'Technical Evaluation Clauses', clauses: productAttachmentsModal.product.buyer_tech_eval_clauses },
+              ],
+            },
+            {
+              title: 'Vendor (Quote)',
+              variant: 'vendor',
+              sections: [
+                { label: 'Quote Documents', files: productAttachmentsModal.product.vendor_files },
+              ],
+              clauseSections: [
+                { label: 'Technical Evaluation Evidence', clauses: productAttachmentsModal.product.tech_eval_clauses },
+              ],
+            },
+          ] : []}
         />
 
         {/* Sticky mobile approval bar */}

@@ -37,8 +37,9 @@ import { getClarifications } from "@/services/clarification";
 import NegotiationColumnCell from "@/components/dashboard/buyer/negotiation/NegotiationColumnCell";
 import { getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { Badge, Button, Alert, OverlayTrigger, Tooltip } from "react-bootstrap";
-import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill } from "react-icons/bs";
+import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill, BsXCircleFill } from "react-icons/bs";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
+import usePreviewTotals from "@/hooks/usePreviewTotals";
 import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import {
   buildBuyerTechEvalProductSummary,
@@ -172,6 +173,36 @@ const RfqManagementPreview = () => {
   const { id, type, token } = router.query;
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
+
+  // Engine-driven breakup for the vendor's previously-submitted quote. The
+  // hook hits /pricing/preview once per render of this page, which the
+  // backend computes statelessly. Falls back to an empty draft when no
+  // quote is present, so the hook is a no-op for fresh inquiries.
+  const submittedPreviewDraft = React.useMemo(() => {
+    const submitted = rfqDetails?.quotations?.[0];
+    if (!submitted || submitted.is_regret !== 0) return null;
+    const products = submitted?.products || [];
+    if (products.length === 0) return null;
+    return {
+      items: products.map((p) => {
+        const rfqProduct = rfqDetails.products?.find((rp) => rp.product_id === p.product_id);
+        const qty = parseFloat(rfqProduct?.product_specs?.find((s) => s?.title === "Quantity")?.value) || 0;
+        return {
+          unit_price: p.unit_price,
+          quantity: qty,
+          tax: p.tax,
+          tax_mode: p.tax_mode || "percentage",
+          other_charges: Array.isArray(p.other_charges) ? p.other_charges : [],
+        };
+      }),
+      global_charges: (Array.isArray(submitted.global_charges) ? submitted.global_charges : []).map((c) => ({
+        name: c.name,
+        amount: c.tax,
+        amount_mode: c.tax_mode || "percentage",
+      })),
+    };
+  }, [rfqDetails]);
+  const { totals: submittedQuoteTotals } = usePreviewTotals(submittedPreviewDraft);
   const [enableBuyerView, setEnableBuyerView] = useState(false);
   // WH-69: Edit history modal open/close state
   const [showEditHistoryModal, setShowEditHistoryModal] = useState(false);
@@ -428,10 +459,10 @@ const RfqManagementPreview = () => {
 
   const isCreator = rfqDetails && userProfile && String(rfqDetails.created_by) === String(userProfile.id);
 
-  const handleCloseRFQ = async () => {
+  const handleCloseRFQ = async (comment) => {
     setcloseRFqLoading(true);
     try {
-      await closeRFQ(id);
+      await closeRFQ(id, comment);
       getRFQdetails();
       toast.success(`${getEntityLabel(rfqDetails?.is_tender)} closed successfully`);
     } catch (err) {
@@ -2158,9 +2189,20 @@ const RfqManagementPreview = () => {
                           </button>
                         )}
                         {enableBuyerView && rfqDetails?.status == 2 && (
-                          <button type="button" className="btn btn-danger" style={actionBtnStyle} disabled>
-                            {getEntityLabel(rfqDetails?.is_tender)} is Closed
-                          </button>
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={
+                              <Tooltip id={`close-info-${rfqDetails?.id || 'x'}`}>
+                                {rfqDetails?.close_comment || 'RFQ has been closed'}
+                              </Tooltip>
+                            }
+                          >
+                            <span className="d-inline-block">
+                              <button type="button" className="btn btn-danger" style={{ ...actionBtnStyle, pointerEvents: 'none' }} disabled>
+                                {getEntityLabel(rfqDetails?.is_tender)} is Closed
+                              </button>
+                            </span>
+                          </OverlayTrigger>
                         )}
 
                         {/* Withdraw Publish Request - Creator Only */}
@@ -2197,6 +2239,13 @@ const RfqManagementPreview = () => {
                         )}
                       </div>
                     </div>
+
+                    {rfqDetails?.status == 2 && rfqDetails?.close_comment && (
+                      <div className="alert alert-danger d-flex align-items-center gap-2 mt-3 mb-3" role="alert" style={{ borderRadius: '8px' }}>
+                        <BsXCircleFill size={18} className="flex-shrink-0" />
+                        <span><strong>This {getEntityLabel(rfqDetails?.is_tender)} has been closed.</strong> {rfqDetails.close_comment}</span>
+                      </div>
+                    )}
 
                     {type == "buyer-view" && rfqDetails?.products?.length > 0 && !rfqDetails.products.some(p => p.tech_evaluation_status?.has_tech_eval) && (
                       <NoTechClausesBanner entityLabel={getEntityLabel(rfqDetails?.is_tender)} />
@@ -2581,41 +2630,38 @@ const RfqManagementPreview = () => {
                                             .format("hh:mm A - DD/MM/YYYY")}
                                         </h4>
 
-                                        {rfqDetails.quotations[0]?.products?.length > 0 && (() => {
-                                          const products = rfqDetails.quotations[0].products;
-                                          let totalBase = 0, totalFreight = 0, totalPackaging = 0, totalTax = 0, grandTotal = 0;
-                                          products.forEach(p => {
-                                            // Quantity is stored in RFQ product specs, not in quotation products
-                                            const rfqProduct = rfqDetails.products?.find(rp => rp.product_id === p.product_id);
-                                            const qty = parseFloat(rfqProduct?.product_specs?.find(spec => spec?.title === 'Quantity')?.value) || 0;
-                                            const unitPrice = parseFloat(p.unit_price) || 0;
-                                            const base = unitPrice * qty;
-                                            const freight = (p.freight_mode || "percentage") === "percentage"
-                                              ? (base * (parseFloat(p.freight_price) || 0)) / 100
-                                              : parseFloat(p.freight_price) || 0;
-                                            const packaging = (p.package_mode || "percentage") === "percentage"
-                                              ? (base * (parseFloat(p.package_price) || 0)) / 100
-                                              : parseFloat(p.package_price) || 0;
-                                            const subtotal = base + freight + packaging;
-                                            const tax = (p.tax_mode || "percentage") === "percentage"
-                                              ? (subtotal * (parseFloat(p.tax) || 0)) / 100
-                                              : parseFloat(p.tax) || 0;
-                                            totalBase += base;
-                                            totalFreight += freight;
-                                            totalPackaging += packaging;
-                                            totalTax += tax;
-                                            grandTotal += Number(p.total_price) || 0;
+                                        {rfqDetails.quotations[0]?.products?.length > 0 && submittedQuoteTotals && (() => {
+                                          // Sum the engine-output breakdown across line items. Charges
+                                          // named "Freight" / "Packaging" populate their respective
+                                          // breakup rows; everything else flows through the engine totals.
+                                          let totalBase = 0, totalFreight = 0, totalPackaging = 0, totalTax = 0;
+                                          (submittedQuoteTotals.lines || []).forEach(line => {
+                                            totalBase += Number(line.base) || 0;
+                                            totalTax += Number(line.base_tax) || 0;
+                                            (line.charges || []).forEach(c => {
+                                              const name = (c.name || "").toLowerCase();
+                                              const subtotal = Number(c.subtotal) || 0;
+                                              if (name === "freight") totalFreight += subtotal;
+                                              else if (name === "packaging") totalPackaging += subtotal;
+                                              else totalTax += 0; // other named charges are folded into the engine total
+                                            });
                                           });
+                                          const grandTotal = Number(submittedQuoteTotals.grand_total) || 0;
+                                          const globalChargeBreakdown = (submittedQuoteTotals.global_charges || []).map((c) => ({
+                                            label: c.name,
+                                            value: Number(c.amount) || 0,
+                                          }));
                                           return (
-                                            <div className="mb-2">
+                                            <div className="mb-2 d-flex justify-content-end">
                                               <GrandTotalBreakup
                                                 totalBase={totalBase}
                                                 totalFreight={totalFreight}
                                                 totalPackaging={totalPackaging}
                                                 totalTax={totalTax}
                                                 grandTotal={grandTotal}
+                                                globalChargeBreakdown={globalChargeBreakdown}
                                                 formatPrice={formatPrice}
-                                                align="start"
+                                                align="end"
                                               />
                                             </div>
                                           );
@@ -2659,45 +2705,45 @@ const RfqManagementPreview = () => {
                                               item.finalization_status === "Another vendor is finalized" ||
                                               item.finalization_status === "You are finalized"
                                           )) ? (
-                                          <div className="d-flex flex-column align-items-center gap-2">
-                                            <span className={`badge ${
-                                              rfqDetails.products?.some(
-                                                (item) => item.finalization_status === "You are finalized"
-                                              )
-                                                ? "bg-success"
-                                                : "bg-warning text-dark"
-                                            } px-3 py-2`} style={{ fontSize: "0.85rem" }}>
-                                              {rfqDetails.products?.some(
-                                                (item) => item.finalization_status === "You are finalized"
-                                              )
-                                                ? "You are finalized"
-                                                : "Another vendor is finalized"}
-                                            </span>
-                                            <Link
-                                              className="mx-auto"
-                                              href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
-                                                token !== undefined ? `&token=${token}` : ""
-                                              }&showTechEvalRestrictions=${isReverseAuctionActive}`}
-                                              onClick={(e) => {
-                                                if (!localId && !id) {
-                                                  e.preventDefault();
-                                                  toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
-                                                }
-                                              }}
-                                            >
-                                              <button
-                                                type="button"
-                                                className="btn btn-secondary m-0"
-                                                style={{ width: "240px" }}
+                                          rfqDetails.products?.some(
+                                            (item) => item.finalization_status === "You are finalized"
+                                          ) ? (
+                                            <div className="d-flex justify-content-center mt-4">
+                                              <Alert variant="success" className="mb-0 py-2 px-3 d-inline-block" style={{ fontSize: "0.9rem", width: "auto" }}>
+                                                <strong>Congratulations</strong> you have been selected for this RFQ 🎉
+                                              </Alert>
+                                            </div>
+                                          ) : (
+                                            <div className="d-flex flex-column align-items-center gap-2">
+                                              <span className="badge bg-warning text-dark px-3 py-2" style={{ fontSize: "0.85rem" }}>
+                                                Another vendor is finalized
+                                              </span>
+                                              <Link
+                                                className="mx-auto"
+                                                href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
+                                                  token !== undefined ? `&token=${token}` : ""
+                                                }&showTechEvalRestrictions=${isReverseAuctionActive}`}
+                                                onClick={(e) => {
+                                                  if (!localId && !id) {
+                                                    e.preventDefault();
+                                                    toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
+                                                  }
+                                                }}
                                               >
-                                                <FontAwesomeIcon
-                                                  icon={faEye}
-                                                  className="me-2"
-                                                />
-                                                View Quote
-                                              </button>
-                                            </Link>
-                                          </div>
+                                                <button
+                                                  type="button"
+                                                  className="btn btn-secondary m-0"
+                                                  style={{ width: "240px" }}
+                                                >
+                                                  <FontAwesomeIcon
+                                                    icon={faEye}
+                                                    className="me-2"
+                                                  />
+                                                  View Quote
+                                                </button>
+                                              </Link>
+                                            </div>
+                                          )
                                         ) : hasPendingTechEval ? (
                                             <button
                                               type="button"
@@ -2888,6 +2934,9 @@ const RfqManagementPreview = () => {
         confirmButtonColor="danger"
         confirmButtonText={`Close ${getEntityLabel(rfqDetails?.is_tender)}`}
         cancelButtonText="Cancel"
+        requireComment
+        commentLabel="Reason for closing"
+        commentPlaceholder="Please provide a reason for closing this RFQ..."
       />
 
       {/* Withdraw Publish Request Confirmation Modal */}

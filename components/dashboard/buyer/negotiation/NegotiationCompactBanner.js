@@ -255,6 +255,9 @@ const NegotiationCompactBanner = ({
   // Per-field negotiation: vendors can be in a round for some fields but still eligible for others
   const allVendorsInRounds = false;
 
+  // Check if all products have quote_approval_status approved — disable Create Round
+  const allQuotesApproved = products.length > 0 && products.every(p => p.quote_approval_status?.status === 'APPROVED');
+
   // Check if ARC is approved (hide ended rounds when ARC is approved)
   const isArcApproved = arcApprovalData?.status === 'APPROVED';
 
@@ -354,7 +357,7 @@ const NegotiationCompactBanner = ({
             <button
               type="button"
               onClick={handleCreateClick}
-              disabled={!canWrite || permissionsLoading}
+              disabled={!canWrite || permissionsLoading || allQuotesApproved}
               className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
             >
               <Plus size={14} strokeWidth={2.5} />

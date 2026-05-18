@@ -17,7 +17,7 @@ import { getProjectAvailableBudget } from '@/services/project';
 import { addCommasToNumber, formatDisplayDate, formatToINRShort } from '@/utils/sharedFunctions';
 import Link from 'next/link';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
-import PurchaseOrderEditView from './PurchaseOrderEditView';
+import useIsMobile from '@/hooks/useIsMobile';
 import styles from "@/components/dashboard/buyer/purchase-order/PurchaseOrder.module.scss";
 
 const statusColors = {
@@ -61,7 +61,7 @@ const formatIST = (dateStr) => {
   });
 };
 
-const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers, isEditing, setIsEditing, handleUpdatePO, onAcceptPO, onRejectPO }) => {
+const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers, onAcceptPO, onRejectPO }) => {
   const {
     id,
     rfq_id,
@@ -101,6 +101,9 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   const [tasks, setTasks] = useState(null);
   const [filters, setFilters] = useState({ page: 1, limit: 10 });
 
+  const isMobile = useIsMobile();
+  const showMobileAcceptanceBar = isMobile && status === 'acceptance_pending';
+
   const handleFetchTasks = async () => {
     try {
       const res = await handleGetTasks(id, filters);
@@ -123,18 +126,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
   useEffect(() => { handleFetchTasks(); }, [filters]);
   useEffect(() => { handleFetchBudget(); }, []);
 
-  if (isEditing) {
-    return (
-      <PurchaseOrderEditView
-        data={data}
-        onCancel={() => setIsEditing(false)}
-        handleUpdatePO={handleUpdatePO}
-      />
-    );
-  }
-
   return (
-    <div>
+    <div style={showMobileAcceptanceBar ? { paddingBottom: 96 } : undefined}>
       {/* ── Hero Header Card ── */}
       <div className={styles.detailsHeader}>
         <div className={styles.detailsHero}>
@@ -343,28 +336,72 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
                           <div className="fw-semibold">₹{addCommasToNumber(baseValue)}</div>
                         </div>
                       </div>
-                      {prod.charges_meta && (
-                        <>
-                          <div className="small text-muted mb-1">Charges</div>
-                          <div className="d-flex flex-wrap gap-2">
-                            {prod.charges_meta.freight_price != null && (
-                              <span className="badge bg-light text-dark border">
-                                Freight: <strong>{prod.charges_meta.freight_price}{prod.charges_meta.freight_mode === "percentage" ? "%" : " ₹"}</strong>
-                              </span>
-                            )}
-                            {prod.charges_meta.package_price != null && (
-                              <span className="badge bg-light text-dark border">
-                                Packing: <strong>{prod.charges_meta.package_price}{prod.charges_meta.package_mode === "percentage" ? "%" : " ₹"}</strong>
-                              </span>
-                            )}
-                            {prod.charges_meta.tax != null && (
-                              <span className="badge bg-light text-dark border">
-                                Tax: <strong>{prod.charges_meta.tax}{prod.charges_meta.tax_mode === "percentage" ? "%" : " ₹"}</strong>
-                              </span>
-                            )}
-                          </div>
-                        </>
-                      )}
+                      {(() => {
+                        const cm = prod.charges_meta || {};
+                        const dynamic = Array.isArray(cm.other_charges) ? cm.other_charges : [];
+                        const legacyFreight = parseFloat(cm.freight_price);
+                        const legacyPackage = parseFloat(cm.package_price);
+                        const synthetic = [];
+                        if (dynamic.length === 0) {
+                          if (Number.isFinite(legacyFreight) && legacyFreight > 0) {
+                            synthetic.push({ name: "Freight", amount: legacyFreight, amount_mode: cm.freight_mode || "percentage" });
+                          }
+                          if (Number.isFinite(legacyPackage) && legacyPackage > 0) {
+                            synthetic.push({ name: "Packaging", amount: legacyPackage, amount_mode: cm.package_mode || "percentage" });
+                          }
+                        }
+                        const charges = dynamic.length ? dynamic : synthetic;
+                        const baseTaxValue = parseFloat(cm.tax);
+                        const baseTaxMode = cm.tax_mode || "percentage";
+                        const hasBaseTax = Number.isFinite(baseTaxValue) && baseTaxValue > 0;
+                        // Charges inherit base tax rate when they have no
+                        // explicit tax AND base tax_mode is percentage.
+                        const baseTaxRateForInherit = baseTaxMode === "percentage" && hasBaseTax ? baseTaxValue : 0;
+                        if (charges.length === 0 && !hasBaseTax) return null;
+
+                        const formatChargeAmount = (charge) => {
+                          const amount = parseFloat(charge.amount) || 0;
+                          const mode = charge.amount_mode || "percentage";
+                          return mode === "percentage" ? `${amount}%` : `₹ ${addCommasToNumber(amount)}`;
+                        };
+                        const formatChargeTax = (charge) => {
+                          const ownTax = parseFloat(charge.tax);
+                          if (Number.isFinite(ownTax) && ownTax > 0) {
+                            const mode = charge.tax_mode || "percentage";
+                            return mode === "percentage" ? `${ownTax}%` : `₹ ${addCommasToNumber(ownTax)}`;
+                          }
+                          if (baseTaxRateForInherit > 0) {
+                            return `${baseTaxRateForInherit}% (base)`;
+                          }
+                          return null;
+                        };
+
+                        return (
+                          <>
+                            <div className="small text-muted mb-1">Charges</div>
+                            <div className="d-flex flex-wrap gap-2">
+                              {charges.map((charge, i) => {
+                                const taxDisplay = formatChargeTax(charge);
+                                return (
+                                  <span key={`${charge.name || i}_${i}`} className="badge bg-light text-dark border">
+                                    {charge.name || "Other"}: <strong>{formatChargeAmount(charge)}</strong>
+                                    {taxDisplay && (
+                                      <span style={{ color: "#888", fontWeight: 400, marginLeft: 4 }}>
+                                        + {taxDisplay} tax
+                                      </span>
+                                    )}
+                                  </span>
+                                );
+                              })}
+                              {hasBaseTax && (
+                                <span className="badge bg-light text-dark border">
+                                  Tax: <strong>{baseTaxValue}{baseTaxMode === "percentage" ? "%" : " ₹"}</strong>
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </Accordion.Body>
                   </Accordion.Item>
                 );
@@ -442,6 +479,24 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
         confirmButtonText="Yes, Mark Dispatched"
         cancelButtonText="Cancel"
       />
+
+      {/* Sticky mobile acceptance bar (vendor) */}
+      {showMobileAcceptanceBar && (
+        <div className={styles.mobileApprovalBar}>
+          <button
+            className={styles.mobileApproveBtn}
+            onClick={() => onAcceptPO && onAcceptPO(data)}
+          >
+            Accept PO
+          </button>
+          <button
+            className={styles.mobileRejectBtn}
+            onClick={() => onRejectPO && onRejectPO(data)}
+          >
+            Reject PO
+          </button>
+        </div>
+      )}
     </div>
   );
 };

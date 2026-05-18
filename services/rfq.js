@@ -191,10 +191,10 @@ export const getProcessingRFQs = (payload) => {
   });
 };
 
-export const saveDraft = (values) => {
+export const saveDraft = (values, signal) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/save-draft`, values);
+      let response = await axiosInstance.post(`/rfq/save-draft`, values, signal ? { signal } : undefined);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -387,10 +387,11 @@ export const getVendorsForProduct = async (values) => {
   }
 };
 
-export const getVendorDetailsByID = (id) => {
+export const getVendorDetailsByID = (id, { showContact = false } = {}) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/users/vendor-profile/${id}`);
+      const url = `/users/vendor-profile/${id}${showContact ? '?showContact=true' : ''}`;
+      let response = await axiosInstance.get(url);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -485,7 +486,7 @@ export const getQuotes = (id, TA_Filter, freightFilter, rfq_product_id, source, 
 //   })
 // }
 
-export const downloadQuotesDetails = (id, TA_Filter, freightFilter, rfq_product_id, source) => {
+export const downloadQuotesDetails = (id, TA_Filter, freightFilter, rfq_product_id, source, normalize = false) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.get(
@@ -498,6 +499,7 @@ export const downloadQuotesDetails = (id, TA_Filter, freightFilter, rfq_product_
           params: {
             rfq_product_id,
             source,
+            normalize: normalize ? "1" : undefined,
           },
         }
       );
@@ -538,10 +540,10 @@ export const getExistingPOByVendor = (vendor_id, rfq_id) => {
 };
 
 
-export const closeRFQ = (id) => {
+export const closeRFQ = (id, comment) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/close-rfq/${id}`);
+      let response = await axiosInstance.post(`/rfq/close-rfq/${id}`, { comment });
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -1496,7 +1498,18 @@ export const submitRFQApprovalAction = (rfqId, payload) => {
 export const getChargeNames = () => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/charge-names/all`);
+      let response = await axiosInstance.get(`/rfq/charge-names`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const deleteQuoteFile = (file_url) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/users/delete-file`, { file_urls: [file_url] });
       resolve(response);
     } catch (error) {
       reject({ message: error });

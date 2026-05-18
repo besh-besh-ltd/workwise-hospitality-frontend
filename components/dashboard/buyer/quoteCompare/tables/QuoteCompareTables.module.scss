@@ -139,7 +139,7 @@ $breakup-insight-tones: (
 
 .matrixSurface {
   border: 1px solid #dfe7f2;
-  border-radius: $qc-radius-lg;
+  border-radius: $qc-radius-sm;
   background: $qc-surface;
   overflow: hidden;
 }
@@ -367,6 +367,7 @@ $breakup-insight-tones: (
   overflow-wrap: anywhere;
   line-height: 1.35;
   padding-inline: 12px;
+  vertical-align: middle !important;
 }
 
 .productMetricHead {
@@ -1600,6 +1601,46 @@ $breakup-insight-tones: (
   color: #314a68;
   line-height: 1.4;
   text-align: left;
+}
+
+/* Info banner under the category-wise comparison table — nudges buyers
+   to switch to the product-wise view for the charge-level breakdown that
+   this aggregated table intentionally hides. */
+.categoryInfoBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: linear-gradient(90deg, #eef4ff 0%, #f7faff 100%);
+  border: 1px solid #c7d6ef;
+  border-left: 4px solid #2E5BA8;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #1c3d7a;
+  line-height: 1.5;
+}
+
+.categoryInfoBannerIcon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #2E5BA8;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: Georgia, serif;
+  font-style: italic;
+  margin-top: 1px;
+}
+
+.categoryInfoBannerStrong {
+  font-weight: 700;
+  color: #122b5d;
 }
 
 @media (max-width: 992px) {
