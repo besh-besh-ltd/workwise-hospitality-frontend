@@ -166,10 +166,21 @@ const RfqManagement = () => {
     <>{tabNav}{mobileDrawer}</>
   ) : tabNav;
 
+  // The shell header should reflect what's actually being shown — when the
+  // (URL-only) Create RFQ tab is active, the listing-page title would be
+  // misleading and competes with the form's own context strip.
+  const isCreateTab = activeTab === "createRFQs";
+  const pageTitle = isCreateTab
+    ? "New Tender / RFQ"
+    : "Tender / RFQ Management";
+  const pageSubtitle = isCreateTab
+    ? "Define products, vendors, and a timeline for a new procurement request."
+    : "Create, track, and manage your procurement requests.";
+
   return (
     <TwoPanelPage
-      title="Tender / RFQ Management"
-      subtitle="Create, track, and manage your procurement requests."
+      title={pageTitle}
+      subtitle={pageSubtitle}
       sidebar={tabSidebar}
       filters={showFilters ? <FilterSection setFilterData={setFilterData} disabled={pendingLoading || listLoading} /> : null}
       onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}

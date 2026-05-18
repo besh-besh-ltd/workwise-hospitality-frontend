@@ -935,7 +935,7 @@
   overflow-y: auto;
   // ~5 rows visible — each row ≈ 60px (12+12 padding + 32 icon + 4 gap),
   // anything beyond scrolls inside the list.
-  max-height: 320px;
+  max-height: 334px;
   display: flex;
   flex-direction: column;
 }
