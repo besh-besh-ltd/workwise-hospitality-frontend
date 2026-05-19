@@ -1,6 +1,12 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import AsyncSelect from "react-select/async";
+
+const WysiwygEditor = dynamic(
+  () => import("@/components/wysiwyg-editor/wysiwygeditor"),
+  { ssr: false }
+);
 import { useRouter } from "next/router";
 import { getRfqs, fetchVendorSelectionOption, getAllClauses, getRFQById, submitTechEvalForApproval } from "@/services/rfq";
 import { getUserDetails as getAuthUser } from "@/services/Auth";
@@ -595,11 +601,11 @@ const BuyerTechnicalEvaluation = () => {
       items.push({ icon: <BsTag size={14} />, label: "RFQ Type", value: currentRfq.rfq_type });
     }
     items.push({ icon: <BsArrowRepeat size={14} />, label: "Reverse Auction", value: currentRfq.reverse_auction == 1 ? "Enabled" : "Disabled" });
-    if (currentRfq.comment && currentRfq.comment != "") {
-      items.push({ icon: <BsChatLeftText size={14} />, label: "Comment", value: currentRfq.comment });
-    }
     return items;
   };
+
+  const commentHasContent =
+    currentRfq?.comment && currentRfq.comment.replace(/<[^>]*>/g, "").trim() !== "";
 
   return (
     <>
@@ -775,6 +781,25 @@ const BuyerTechnicalEvaluation = () => {
                         </div>
                       ))}
                     </div>
+
+                    {commentHasContent && (
+                      <div className={styles.rfqCommentRow}>
+                        <div className={styles.rfqMetaIcon}>
+                          <BsChatLeftText size={14} />
+                        </div>
+                        <div className={styles.rfqCommentContent}>
+                          <span className={styles.rfqMetaLabel}>Comment</span>
+                          <div className={styles.rfqCommentBody}>
+                            <WysiwygEditor
+                              value={currentRfq.comment}
+                              readOnly
+                              showToolbar={false}
+                              minHeight="auto"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

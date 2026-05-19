@@ -2,15 +2,13 @@ import React, { useEffect, useRef } from "react";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
 
-const modules = {
-  toolbar: [
-    [{ header: [1, 2, false] }],
-    ["bold", "italic", "underline", "strike", "blockquote"],
-    [{ list: "ordered" }, { list: "bullet" }],
-    ["link", "image"],
-    ["clean"],
-  ],
-};
+const defaultToolbar = [
+  [{ header: [1, 2, false] }],
+  ["bold", "italic", "underline", "strike", "blockquote"],
+  [{ list: "ordered" }, { list: "bullet" }],
+  ["link", "image"],
+  ["clean"],
+];
 
 const editorShellStyle = {
   width: "100%",
@@ -20,7 +18,7 @@ const editorShellStyle = {
   backgroundColor: "#fff",
 };
 
-const applyEditorSizing = (quill) => {
+const applyEditorSizing = (quill, minHeight) => {
   const toolbar = quill.getModule("toolbar")?.container;
 
   if (toolbar) {
@@ -93,7 +91,7 @@ const applyEditorSizing = (quill) => {
 
   if (quill.root) {
     Object.assign(quill.root.style, {
-      minHeight: "220px",
+      minHeight: minHeight || "220px",
       fontSize: "16px",
       lineHeight: "1.7",
     });
@@ -107,6 +105,8 @@ const WysiwygEditor = ({
   placeholder = "",
   readOnly = false,
   className = "",
+  showToolbar = true,
+  minHeight = "220px",
 }) => {
   const editorRef = useRef(null);
   const quillRef = useRef(null);
@@ -130,7 +130,7 @@ const WysiwygEditor = ({
     const quill = new Quill(editorRef.current, {
       theme: "snow",
       placeholder,
-      modules,
+      modules: { toolbar: showToolbar ? defaultToolbar : false },
       readOnly,
     });
 
@@ -150,7 +150,7 @@ const WysiwygEditor = ({
       }
     });
 
-    applyEditorSizing(quill);
+    applyEditorSizing(quill, minHeight);
     quillRef.current = quill;
 
     return () => {
@@ -195,8 +195,13 @@ const WysiwygEditor = ({
     }
   }, [value]);
 
+  const isDisplayMode = readOnly && !showToolbar;
+  const shellStyle = isDisplayMode
+    ? { width: "100%", backgroundColor: "transparent" }
+    : editorShellStyle;
+
   return (
-    <div className={className} style={editorShellStyle}>
+    <div className={className} style={shellStyle}>
       <div ref={editorRef} />
     </div>
   );
