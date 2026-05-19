@@ -22,7 +22,6 @@ const NegotiationCompactBanner = ({
   preloadedRoundsHistory = null,
   preloadedApprovalBundle = null,
   finalizationApprovalCompleted = false,
-  hasPendingFinalizationApproval = false,
 }) => {
   const [activeRounds, setActiveRounds] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -260,8 +259,10 @@ const NegotiationCompactBanner = ({
   // Check if all products have quote_approval_status approved — disable Create Round
   const allQuotesApproved = products.length > 0 && products.every(p => p.quote_approval_status?.status === 'APPROVED');
 
-  // Disable Create Round when the finalization cycle is in flight ("Finalized" or "In Approval"/"Action Required" of cycle b)
-  const finalizationCycleBlocksRound = finalizationApprovalCompleted || hasPendingFinalizationApproval;
+  // Disable Create Round only when every product is finalized and approved.
+  // Backed by `finalization_approval_completed` which now requires
+  // count(rfq_products) = count(quote_finalization) on the RFQ side.
+  const finalizationCycleBlocksRound = finalizationApprovalCompleted;
 
   // Check if ARC is approved (hide ended rounds when ARC is approved)
   const isArcApproved = arcApprovalData?.status === 'APPROVED';
@@ -363,9 +364,7 @@ const NegotiationCompactBanner = ({
               placement="top"
               overlay={
                 <Tooltip id="create-round-disabled-finalization">
-                  {finalizationApprovalCompleted
-                    ? 'Vendor finalization is already approved'
-                    : 'Vendor finalization is awaiting approval'}
+                  Vendor finalization is already approved
                 </Tooltip>
               }
             >
