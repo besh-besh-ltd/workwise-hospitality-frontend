@@ -1613,7 +1613,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     console.error("Update target price error:", error);
   }
 };
-  const handleFinalize = (item, proditem, existingPOId, selectedHierarchy, routeType = 'PO') => {
+  const handleFinalize = (item, proditem, existingPOId, selectedHierarchy, routeType = 'PO', comment = '') => {
     if (isRfqClosed) {
       toast.error(`This ${getEntityLabel(currentRFQ?.is_tender)} is closed. Finalization is not permitted.`);
       return Promise.resolve({ success: false });
@@ -1670,6 +1670,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       quote_item_id: item.quote_item_id,
       variant: proditem.variant,
       route_type: routeType, // Pass the selected route type
+      comment: (comment || '').trim(),
       ...poRequiredPayload
     };
 

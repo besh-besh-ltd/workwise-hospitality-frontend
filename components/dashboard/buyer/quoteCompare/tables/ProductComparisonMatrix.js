@@ -223,6 +223,7 @@ const ProductComparisonMatrix = ({
   });
   const [existingPOId, setExistingPOId] = useState(null);
   const [selectedRouteType, setSelectedRouteType] = useState(null);
+  const [finalizeComment, setFinalizeComment] = useState('');
   // Merge-PO check at finalize time. Auto-approving NEGOTIATION_QUOTE
   // instances bypass the approval-time merge prompt in
   // ApprovalWorkflowSection, so we also probe for existing draft POs here
@@ -1182,7 +1183,9 @@ const ProductComparisonMatrix = ({
         show={activeModal === "finalize"}
         onHide={() => { if (!finalizeLoading && !mergeProbeLoading) setActiveModal(null); }}
         loading={finalizeLoading || mergeProbeLoading}
-        onConfirm={async () => {
+        onConfirm={async (_selectedPOId, commentFromModal) => {
+          const commentTrimmed = (commentFromModal || '').trim();
+          setFinalizeComment(commentTrimmed);
           const isTender = proditem?.rfq?.[0]?.is_tender === 1 || proditem?.rfq?.[0]?.is_tender === true;
           const routeType = isTender ? "ARC" : "PO";
           setSelectedRouteType(routeType);
@@ -1191,10 +1194,10 @@ const ProductComparisonMatrix = ({
           // hierarchy selection, or directly when neither applies).
           const runFinalize = async (poIdForMerge) => {
             if (routeType === "ARC") {
-              const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, "ARC");
+              const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, "ARC", commentTrimmed);
               if (result?.success !== false) setActiveModal(null);
             } else if (!useLegacyHierarchy) {
-              const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, "PO");
+              const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, "PO", commentTrimmed);
               if (result?.success !== false) setActiveModal(null);
             } else if (availableHierarchies.length <= 0) {
               toast.error(
@@ -1287,7 +1290,7 @@ const ProductComparisonMatrix = ({
         onHide={() => { if (!finalizeLoading) setActiveModal(null); }}
         hierarchies={availableHierarchies}
         onConfirm={async (selectedHierarchy) => {
-          const result = await handleFinalize(currentItem, proditem, existingPOId, selectedHierarchy, selectedRouteType || "PO");
+          const result = await handleFinalize(currentItem, proditem, existingPOId, selectedHierarchy, selectedRouteType || "PO", finalizeComment);
           if (result?.success !== false) setActiveModal(null);
         }}
       />
@@ -1304,7 +1307,7 @@ const ProductComparisonMatrix = ({
           setExistingPOId(poIdForMerge);
           const route = selectedRouteType || "PO";
           if (!useLegacyHierarchy) {
-            const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, route);
+            const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, route, finalizeComment);
             if (result?.success !== false) setActiveModal(null);
           } else if (availableHierarchies.length <= 0) {
             toast.error(
