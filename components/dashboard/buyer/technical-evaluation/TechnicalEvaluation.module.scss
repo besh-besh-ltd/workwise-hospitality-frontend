@@ -205,6 +205,28 @@
   word-break: break-word;
 }
 
+.rfqCommentRow {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #f1f5f9;
+  align-items: flex-start;
+}
+
+.rfqCommentContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 6px;
+}
+
+.rfqCommentBody {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #212529;
+}
+
 
 /* --- 2. Product Cards --- */
 .productCardHighlight {

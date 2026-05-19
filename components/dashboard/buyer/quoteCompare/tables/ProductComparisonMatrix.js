@@ -223,6 +223,7 @@ const ProductComparisonMatrix = ({
   });
   const [existingPOId, setExistingPOId] = useState(null);
   const [selectedRouteType, setSelectedRouteType] = useState(null);
+  const [finalizeComment, setFinalizeComment] = useState('');
   // Merge-PO check at finalize time. Auto-approving NEGOTIATION_QUOTE
   // instances bypass the approval-time merge prompt in
   // ApprovalWorkflowSection, so we also probe for existing draft POs here
@@ -464,35 +465,60 @@ const ProductComparisonMatrix = ({
           const otherCharges = details.other_charges || [];
           const charge = otherCharges.find(c => c.name === rowMeta.chargeName);
           if (!charge) return <span className={styles.value}>--</span>;
-          const amountVal = Number(charge.amount || 0);
-          const taxVal = Number(charge.tax || 0);
-          const amountDisplay = charge.amount_mode === "percentage" ? `${amountVal}%` : formatCurrency(amountVal);
-          const commentText = charge.comment ? ` (${charge.comment})` : "";
-          let taxDisplay = "";
-          let taxIncludesComment = false;
-          if (taxVal > 0) {
-            const taxUnit = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
-            taxDisplay = ` + ${taxUnit} tax${commentText}`;
-            taxIncludesComment = true;
-          } else if (amountVal > 0) {
-            // Vendor entered no tax on the charge. Only show "(auto-applied)"
-            // when the engine actually computed a non-zero tax for this line —
-            // the engine is the source of truth (it may legitimately respect a
-            // vendor-entered 0% tax and not auto-apply the base GST).
-            const engineCharges = details?.engine?.charges || [];
-            const engineCharge = engineCharges.find(
-              ec => (ec.slug && charge.slug && ec.slug === charge.slug) || ec.name === charge.name
-            );
-            const engineTax = Number(engineCharge?.tax || 0);
-            if (engineTax > 0) {
-              const baseTaxRate = (details.tax_mode ?? "percentage") === "percentage" ? (parseFloat(details.tax) || 0) : 0;
-              if (baseTaxRate > 0) {
-                taxDisplay = ` + ${baseTaxRate}% tax (auto-applied)`;
+          // Render a charge as "amount + tax (comment)". When includeAutoApplied
+          // is true and the vendor left tax blank, fall back to the base-GST
+          // auto-applied annotation — only available for the current quote
+          // because it reads from details.engine.
+          const renderChargeNode = (c, includeAutoApplied) => {
+            const amountVal = Number(c.amount || 0);
+            const taxVal = Number(c.tax || 0);
+            const amountDisplay = c.amount_mode === "percentage" ? `${amountVal}%` : formatCurrency(amountVal);
+            const commentText = c.comment ? ` (${c.comment})` : "";
+            let taxDisplay = "";
+            let taxIncludesComment = false;
+            if (taxVal > 0) {
+              const taxUnit = c.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
+              taxDisplay = ` + ${taxUnit} tax${commentText}`;
+              taxIncludesComment = true;
+            } else if (amountVal > 0 && includeAutoApplied) {
+              const engineCharges = details?.engine?.charges || [];
+              const engineCharge = engineCharges.find(
+                ec => (ec.slug && c.slug && ec.slug === c.slug) || ec.name === c.name
+              );
+              const engineTax = Number(engineCharge?.tax || 0);
+              if (engineTax > 0) {
+                const baseTaxRate = (details.tax_mode ?? "percentage") === "percentage" ? (parseFloat(details.tax) || 0) : 0;
+                if (baseTaxRate > 0) {
+                  taxDisplay = ` + ${baseTaxRate}% tax (auto-applied)`;
+                }
               }
             }
-          }
-          const trailingComment = !taxIncludesComment && commentText ? commentText : "";
-          return <span className={styles.value}>{amountDisplay}<small className="text-muted">{taxDisplay}{trailingComment}</small></span>;
+            const trailingComment = !taxIncludesComment && commentText ? commentText : "";
+            return <>{amountDisplay}<small className="text-muted">{taxDisplay}{trailingComment}</small></>;
+          };
+          const prevQuote = findPreviousDifferent(
+            previousQuotes,
+            (prev) => {
+              const prevCharge = (prev.other_charges || []).find(c => c.name === charge.name);
+              if (!prevCharge) return false;
+              return (
+                Number(prevCharge.amount || 0) !== Number(charge.amount || 0) ||
+                (prevCharge.amount_mode || "percentage") !== (charge.amount_mode || "percentage") ||
+                Number(prevCharge.tax || 0) !== Number(charge.tax || 0) ||
+                (prevCharge.tax_mode || "percentage") !== (charge.tax_mode || "percentage") ||
+                (prevCharge.comment || "") !== (charge.comment || "")
+              );
+            }
+          );
+          const prevCharge = prevQuote ? (prevQuote.other_charges || []).find(c => c.name === charge.name) : null;
+          return (
+            <PriceWithPrevious
+              currentDisplay={renderChargeNode(charge, true)}
+              previousDisplay={prevCharge ? renderChargeNode(prevCharge, false) : ""}
+              previousExists={!!prevCharge}
+              hasChanged={!!prevCharge}
+            />
+          );
         }
         if (rowMeta.type === "globalCharge") {
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
@@ -1182,7 +1208,9 @@ const ProductComparisonMatrix = ({
         show={activeModal === "finalize"}
         onHide={() => { if (!finalizeLoading && !mergeProbeLoading) setActiveModal(null); }}
         loading={finalizeLoading || mergeProbeLoading}
-        onConfirm={async () => {
+        onConfirm={async (_selectedPOId, commentFromModal) => {
+          const commentTrimmed = (commentFromModal || '').trim();
+          setFinalizeComment(commentTrimmed);
           const isTender = proditem?.rfq?.[0]?.is_tender === 1 || proditem?.rfq?.[0]?.is_tender === true;
           const routeType = isTender ? "ARC" : "PO";
           setSelectedRouteType(routeType);
@@ -1191,10 +1219,10 @@ const ProductComparisonMatrix = ({
           // hierarchy selection, or directly when neither applies).
           const runFinalize = async (poIdForMerge) => {
             if (routeType === "ARC") {
-              const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, "ARC");
+              const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, "ARC", commentTrimmed);
               if (result?.success !== false) setActiveModal(null);
             } else if (!useLegacyHierarchy) {
-              const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, "PO");
+              const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, "PO", commentTrimmed);
               if (result?.success !== false) setActiveModal(null);
             } else if (availableHierarchies.length <= 0) {
               toast.error(
@@ -1287,7 +1315,7 @@ const ProductComparisonMatrix = ({
         onHide={() => { if (!finalizeLoading) setActiveModal(null); }}
         hierarchies={availableHierarchies}
         onConfirm={async (selectedHierarchy) => {
-          const result = await handleFinalize(currentItem, proditem, existingPOId, selectedHierarchy, selectedRouteType || "PO");
+          const result = await handleFinalize(currentItem, proditem, existingPOId, selectedHierarchy, selectedRouteType || "PO", finalizeComment);
           if (result?.success !== false) setActiveModal(null);
         }}
       />
@@ -1304,7 +1332,7 @@ const ProductComparisonMatrix = ({
           setExistingPOId(poIdForMerge);
           const route = selectedRouteType || "PO";
           if (!useLegacyHierarchy) {
-            const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, route);
+            const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, route, finalizeComment);
             if (result?.success !== false) setActiveModal(null);
           } else if (availableHierarchies.length <= 0) {
             toast.error(
