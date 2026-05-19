@@ -260,8 +260,17 @@ const NegotiationCompactBanner = ({
   // Check if all products have quote_approval_status approved — disable Create Round
   const allQuotesApproved = products.length > 0 && products.every(p => p.quote_approval_status?.status === 'APPROVED');
 
-  // Disable Create Round when the finalization cycle is in flight ("Finalized" or "In Approval"/"Action Required" of cycle b)
-  const finalizationCycleBlocksRound = finalizationApprovalCompleted || hasPendingFinalizationApproval;
+  // Disable Create Round only when:
+  //   • a finalization approval cycle is in flight (still awaiting approval), OR
+  //   • the cycle has completed AND every product in the RFQ is approved.
+  // The backend's `finalization_approval_completed` flips true the moment any
+  // single finalization batch is approved, which was killing the button while
+  // products further down the list still needed a round. Pair it with the
+  // per-product `allQuotesApproved` check so the lock only kicks in when there
+  // are no more products that could benefit from a new round.
+  const finalizationCycleBlocksRound =
+    hasPendingFinalizationApproval ||
+    (finalizationApprovalCompleted && allQuotesApproved);
 
   // Check if ARC is approved (hide ended rounds when ARC is approved)
   const isArcApproved = arcApprovalData?.status === 'APPROVED';
