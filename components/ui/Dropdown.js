@@ -56,37 +56,39 @@ const Dropdown = React.forwardRef(({
           />
         </div>
         {isOpen && (
-          <div 
+          <div
             className="custom-dropdown-menu"
             style={{
               position: 'absolute',
-              top: '100%',
-              left: 0,
+              top: 'calc(100% + 4px)',
               right: 0,
+              minWidth: '100%',
+              width: 'max-content',
               backgroundColor: 'white',
               border: '1px solid #dee2e6',
-              borderTop: 'none',
-              borderRadius: '0 0 6px 6px',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+              borderRadius: '6px',
+              boxShadow: '0 6px 16px rgba(0, 0, 0, 0.12)',
               zIndex: 1000,
-              maxHeight: '200px',
-              overflowY: 'auto'
+              maxHeight: '240px',
+              overflowY: 'auto',
+              padding: '4px 0'
             }}
           >
-            {options.map((option) => (
+            {options.map((option, idx) => (
               <div
                 key={option}
                 className={`custom-dropdown-item ${value === option ? 'active' : ''}`}
                 onClick={() => handleSelect(option)}
                 style={{
-                  padding: '8px 12px',
+                  padding: '8px 14px',
                   cursor: 'pointer',
                   fontSize: '0.9rem',
                   color: value === option ? '#0d6efd' : '#495057',
                   transition: 'background-color 0.2s ease',
                   backgroundColor: value === option ? '#e3f2fd' : 'transparent',
                   fontWeight: value === option ? '500' : 'normal',
-                  borderBottom: '1px solid #f1f3f4'
+                  whiteSpace: 'nowrap',
+                  borderBottom: idx === options.length - 1 ? 'none' : '1px solid #f1f3f4'
                 }}
                 onMouseEnter={(e) => {
                   if (value !== option) {

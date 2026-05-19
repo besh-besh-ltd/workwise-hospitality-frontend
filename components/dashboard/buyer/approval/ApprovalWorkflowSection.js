@@ -20,6 +20,50 @@ import ExistingPOModal from "../ExistingPOModal";
 import { getExistingPOByVendor } from "@/services/rfq";
 import useIsMobile from "@/hooks/useIsMobile";
 
+// Surfaces the comment the finalizer typed in the Finalize Vendor modal so
+// the approver sees the rationale alongside the request.
+const FinalizerCommentPanel = ({ comment, entityType }) => {
+  if (!comment || typeof comment !== "string" || !comment.trim()) return null;
+  const isArc = entityType === "ARC";
+  const heading = isArc ? "Finalizer's note" : "Reason for finalizing this vendor";
+  return (
+    <div
+      style={{
+        marginBottom: 12,
+        padding: "10px 12px",
+        background: "#f8fafc",
+        border: "1px solid #e2e8f0",
+        borderLeft: "3px solid #6366f1",
+        borderRadius: 6,
+      }}
+    >
+      <div
+        style={{
+          fontSize: "0.7rem",
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: "0.04em",
+          color: "#475569",
+          marginBottom: 4,
+        }}
+      >
+        {heading}
+      </div>
+      <div
+        style={{
+          fontSize: "0.82rem",
+          color: "#1e293b",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          lineHeight: 1.45,
+        }}
+      >
+        {comment.trim()}
+      </div>
+    </div>
+  );
+};
+
 const statusConfig = {
   PENDING: {
     variant: "warning",
@@ -207,6 +251,12 @@ const PreviousAttemptsSection = ({ instances, entityType, isMobile = false }) =>
                 {/* Expanded: show vendor metadata + approval timeline */}
                 {isExpanded && (
                   <div style={{ padding: isMobile ? '10px' : '12px' }}>
+                    {/* Finalizer's comment for this attempt */}
+                    <FinalizerCommentPanel
+                      comment={inst?.metadata?.finalization_comment || inst?.metadata?.po_payload?.comment}
+                      entityType={entityType}
+                    />
+
                     {/* Vendor Evaluation Results for this attempt */}
                     {entityType === 'TECHNICAL' && (inst.metadata?.vendors?.length > 0 || inst.metadata?.not_evaluated_vendors?.length > 0) && (
                       <div style={{ marginBottom: '12px' }}>
@@ -901,6 +951,12 @@ const ApprovalWorkflowSection = ({
           <div>
             <div className="aws-body">
               <div className="aws-body-inner">
+                {/* Finalizer's comment (NEGOTIATION_QUOTE / ARC) */}
+                <FinalizerCommentPanel
+                  comment={instance?.metadata?.finalization_comment || instance?.metadata?.po_payload?.comment}
+                  entityType={entityType}
+                />
+
                 {/* Metadata displays */}
                 {instance?.metadata?.selected_quotes?.length > 0 && (
                   <SelectedQuotesDisplay

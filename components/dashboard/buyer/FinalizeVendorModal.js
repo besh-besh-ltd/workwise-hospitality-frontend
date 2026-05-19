@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal } from 'react-bootstrap';
 import { addCommasToNumber, formatDisplayDate } from '@/utils/sharedFunctions';
 import styles from './FinalizeVendorModal.module.scss';
@@ -37,6 +37,25 @@ const FinalizeVendorModal = ({
   const isReFinalize = Array.isArray(alreadyFinalized) && alreadyFinalized.length > 0;
   const productName = productDetails?.[0]?.product_name || '—';
   const quoted = Number(quotedPrice) || 0;
+
+  const COMMENT_MIN = 10;
+  const COMMENT_MAX = 2000;
+  const [comment, setComment] = useState('');
+  const [commentTouched, setCommentTouched] = useState(false);
+
+  // Reset the comment when the modal is reopened so a previous draft doesn't
+  // leak into a fresh finalization on another vendor/product.
+  useEffect(() => {
+    if (show) {
+      setComment('');
+      setCommentTouched(false);
+    }
+  }, [show]);
+
+  const trimmedComment = comment.trim();
+  const commentTooShort = trimmedComment.length < COMMENT_MIN;
+  const commentInvalid = commentTooShort;
+  const showCommentError = commentTouched && commentInvalid;
 
   const totalBudget = Number(availableBudget?.total_budget) || 0;
   const available = Number(availableBudget?.available_budget) || 0;
@@ -220,6 +239,37 @@ const FinalizeVendorModal = ({
           </div>
         )}
 
+        <div className={styles.commentSection}>
+          <label htmlFor="finalize-vendor-comment" className={styles.commentLabel}>
+            Reason for finalizing this vendor
+            <span className={styles.commentRequired} aria-hidden="true"> *</span>
+          </label>
+          <textarea
+            id="finalize-vendor-comment"
+            className={`${styles.commentInput} ${showCommentError ? styles.commentInputError : ''}`}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            onBlur={() => setCommentTouched(true)}
+            placeholder="Briefly explain why this vendor is being finalized (minimum 10 characters)."
+            rows={3}
+            maxLength={COMMENT_MAX}
+            disabled={loading}
+            aria-invalid={showCommentError ? 'true' : 'false'}
+            aria-describedby="finalize-vendor-comment-help"
+            required
+          />
+          <div id="finalize-vendor-comment-help" className={styles.commentHelpRow}>
+            <span className={showCommentError ? styles.commentErrorText : styles.commentHelpText}>
+              {showCommentError
+                ? `Please enter at least ${COMMENT_MIN} characters.`
+                : `Required. Minimum ${COMMENT_MIN} characters.`}
+            </span>
+            <span className={styles.commentCounter}>
+              {trimmedComment.length}/{COMMENT_MAX}
+            </span>
+          </div>
+        </div>
+
         {showBudget && (
           <div className={styles.budget}>
             <p className={styles.budgetTitle}>Budget check</p>
@@ -269,8 +319,14 @@ const FinalizeVendorModal = ({
         <button
           type="button"
           className={`${styles.btn} ${isWarning ? styles.btnWarning : styles.btnPrimary}`}
-          onClick={() => onConfirm(null)}
-          disabled={loading}
+          onClick={() => {
+            if (commentInvalid) {
+              setCommentTouched(true);
+              return;
+            }
+            onConfirm(null, trimmedComment);
+          }}
+          disabled={loading || commentInvalid}
         >
           {loading ? (
             <span className={styles.btnInner}>

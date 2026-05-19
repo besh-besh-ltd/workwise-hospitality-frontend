@@ -199,6 +199,40 @@ $badge-tones: (
   word-break: break-word;
 }
 
+.heroCommentRow {
+  display: flex;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid #eef2f7;
+  align-items: flex-start;
+}
+
+.heroCommentIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #f0f4fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #2E5BA8;
+}
+
+.heroCommentContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+}
+
+.heroCommentBody {
+  font-size: 13px;
+  line-height: 1.6;
+  color: $text-strong;
+}
+
 .actionRail {
   display: flex;
   flex-wrap: wrap;
