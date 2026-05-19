@@ -2992,10 +2992,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           const next = raw === "" ? null : (Number.isFinite(parseFloat(raw)) ? parseFloat(raw) : null);
                                           handleUpdateOtherCharge(modalIndex, charge._id, "tax", next);
                                         }}
-                                        onWheel={(e) => e.target.blur()} disabled={chargeDisabled || isNegotiatedCharge}
+                                        onWheel={(e) => e.target.blur()} disabled={chargeDisabled}
                                         />
                                         <PercentageAbsoluteToggle currentMode={charge.tax_mode}
-                                        disabled={chargeDisabled || isNegotiatedCharge}
+                                        disabled={chargeDisabled}
                                         onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "tax_mode", value)}
                                         />
                                         </div>
@@ -3301,10 +3301,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               placeholder={chargesMode.tax[quoteProducts[index]?.id] === "absolute" ? "Tax (₹)" : "Tax (%)"}
                                               value={quoteProducts[index].tax || ""}
                                               onChange={(e) => handleUpdateData(item.id, e, item.product_id, item.variant, "tax", "", getProductSpecValueByTitle(item?.product_specs, "Quantity"))}
-                                              onWheel={(e) => e.target.blur()} disabled={isProductDisabled || isBidExpiredNonNegotiable}
+                                              onWheel={(e) => e.target.blur()} disabled={!isFieldNegotiable('base_price')}
                                             />
                                             <PercentageAbsoluteToggle currentMode={chargesMode.tax[quoteProducts[index]?.id] || "percentage"}
-                                              disabled={isProductDisabled || isBidExpiredNonNegotiable}
+                                              disabled={!isFieldNegotiable('base_price')}
                                               onToggle={(value) => {
                                                 setChargesMode(prev => ({ ...prev, tax: { ...prev.tax, [quoteProducts[index].id]: value } }));
                                                 handleChargeFieldUpdate(index, "tax", quoteProducts[index].tax || 0, { tax: value });
