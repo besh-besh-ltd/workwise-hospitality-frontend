@@ -352,6 +352,12 @@ const NegotiationModal = ({
     return approvalInstance?.status === 'APPROVED';
   };
 
+  // Check if product quotes are awaiting approver action
+  const isQuoteApprovalPending = (productId) => {
+    const approvalInstance = quoteApprovalStatuses[productId];
+    return approvalInstance?.status === 'PENDING';
+  };
+
   // Load full approval journey (all instances) for a round
   const loadApprovalJourney = async (round) => {
     const roundId = round.id;
@@ -515,6 +521,9 @@ const NegotiationModal = ({
     // Priority 1: Hospitality approval workflow
     if (isQuoteApproved(productId)) {
       return { isDisabled: true, statusLabel: 'Approved', statusClass: styles.createStatusApproved };
+    }
+    if (isQuoteApprovalPending(productId)) {
+      return { isDisabled: true, statusLabel: 'Pending Approval', statusClass: styles.createStatusPartial };
     }
 
     // Priority 2: No valid quotes

@@ -293,7 +293,6 @@ const QuoteCompare = () => {
       reverse_auction_date: rfqData.reverse_auction_date,
       status: rfqData.status,
       finalization_approval_completed: rfqData.finalization_approval_completed,
-      has_pending_finalization_approval: rfqData.has_pending_finalization_approval,
     });
     setMetadataLoadedForRfq(rfq);
     setquotesLoading(true);
@@ -2084,7 +2083,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       preloadedRoundsHistory={negotiationApprovalBundle.rounds_history}
                       preloadedApprovalBundle={negotiationApprovalBundle}
                       finalizationApprovalCompleted={!!currentRFQ?.finalization_approval_completed}
-                      hasPendingFinalizationApproval={!!currentRFQ?.has_pending_finalization_approval}
                     />
                   </section>
                 )}
