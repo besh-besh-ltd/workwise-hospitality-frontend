@@ -292,6 +292,8 @@ const QuoteCompare = () => {
       rfq_type: rfqData.rfq_type,
       reverse_auction_date: rfqData.reverse_auction_date,
       status: rfqData.status,
+      finalization_approval_completed: rfqData.finalization_approval_completed,
+      has_pending_finalization_approval: rfqData.has_pending_finalization_approval,
     });
     setMetadataLoadedForRfq(rfq);
     setquotesLoading(true);
@@ -1918,11 +1920,23 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 getItemTags={(item) => {
                   if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
                   if (item.has_po_rejection) return [{ label: 'PO Rejected', variant: 'danger' }];
+                  // Cycle b (finalization) — above cycle a, except 'Rejected' which sits below cycle a
                   if (item.finalization_approval_completed) return [{ label: 'Finalized', variant: 'success' }];
-                  if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
-                  if (item.is_finalized || item.finalization_partially_approved) return [{ label: 'Awaiting Approval', variant: 'info' }];
-                  if (item.has_finalization) return [{ label: 'Partially Finalized', variant: 'purple' }];
-                  return [{ label: 'In Negotiation', variant: 'info' }];
+                  if (item.has_pending_finalization_approval) {
+                    return item.approval_required
+                      ? [{ label: 'Action Required', variant: 'warning' }]
+                      : [{ label: 'In Approval', variant: 'info' }];
+                  }
+                  // Cycle a (negotiation) — above 'Rejected'
+                  if (item.has_pending_negotiation_approval) {
+                    return item.approval_required
+                      ? [{ label: 'Action Required', variant: 'warning' }]
+                      : [{ label: 'In Approval', variant: 'info' }];
+                  }
+                  if (item.has_active_negotiation_round) return [{ label: 'In Negotiation', variant: 'info' }];
+                  if (item.finalization_approval_rejected) return [{ label: 'Rejected', variant: 'danger' }];
+                  if (item.negotiation_terminated) return [{ label: 'Negotiation Terminated', variant: 'danger' }];
+                  return [];
                 }}
                 showLoadMore={true}
                 hasMore={hasMoreQuotes}
@@ -2069,6 +2083,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       preloadedActiveRounds={preloadedActiveRounds}
                       preloadedRoundsHistory={negotiationApprovalBundle.rounds_history}
                       preloadedApprovalBundle={negotiationApprovalBundle}
+                      finalizationApprovalCompleted={!!currentRFQ?.finalization_approval_completed}
+                      hasPendingFinalizationApproval={!!currentRFQ?.has_pending_finalization_approval}
                     />
                   </section>
                 )}
