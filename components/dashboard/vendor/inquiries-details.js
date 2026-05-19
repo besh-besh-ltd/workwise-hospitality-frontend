@@ -2557,6 +2557,7 @@ const RfqManagementPreview = () => {
                                       onStatusLoaded={(hasData) => handleNegotiationLoaded(item.id, hasData)}
                                       token={token}
                                       vendorView={type !== "buyer-view"}
+                                      isReverseAuctionActive={isReverseAuctionActive}
                                     />
                                   )}
                                 </tr>
