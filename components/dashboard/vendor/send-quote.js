@@ -617,6 +617,7 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
             fieldsByProduct[r.rfq_product_id] = myApproval.negotiation_fields.map(f => ({
               name: f.name,
               targetPrice: f.target || f.target_price,
+              demand: f.demand || null,
               mode: f.mode || null,
             }));
           });
@@ -2604,10 +2605,19 @@ return { deletedTerms, createdTerms, updatedTerms };
                                     const allNegFields = Object.values(activeNegotiationFields).flat();
                                     const negField = allNegFields.find(f => f.name === showBuyerCommentModal.field);
                                     const target = negField?.targetPrice;
-                                    if (showBuyerCommentModal.field === 'documents' && Array.isArray(target)) {
+                                    if (showBuyerCommentModal.field === 'documents') {
+                                      const docs = Array.isArray(target) ? target : [];
+                                      const demand = negField?.demand || '';
+                                      if (docs.length === 0 && !demand) {
+                                        return (
+                                          <div style={{ fontSize: "0.9rem", lineHeight: 1.6, color: "#333", background: "#fff8e1", border: "1px solid #f0ad4e", borderRadius: "6px", padding: "12px 16px" }}>
+                                            No comment provided.
+                                          </div>
+                                        );
+                                      }
                                       return (
                                         <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                          {target.map((doc, idx) => (
+                                          {docs.map((doc, idx) => (
                                             <div key={idx} className="border rounded p-2 mb-2">
                                               <div className="d-flex justify-content-between align-items-center mb-1">
                                                 <span className="fw-semibold" style={{ fontSize: '0.85rem' }}>Document {(doc.document_index || 0) + 1}</span>
@@ -2620,6 +2630,14 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               </div>
                                             </div>
                                           ))}
+                                          {demand && (
+                                            <div className="border rounded p-2 mb-2">
+                                              <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>Demand document(s)</div>
+                                              <div style={{ fontSize: '0.85rem', background: '#fff8e1', border: '1px solid #f0ad4e', borderRadius: '6px', padding: '8px 12px', whiteSpace: 'pre-wrap' }}>
+                                                {demand}
+                                              </div>
+                                            </div>
+                                          )}
                                         </div>
                                       );
                                     }
@@ -2996,10 +3014,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           const next = raw === "" ? null : (Number.isFinite(parseFloat(raw)) ? parseFloat(raw) : null);
                                           handleUpdateOtherCharge(modalIndex, charge._id, "tax", next);
                                         }}
-                                        onWheel={(e) => e.target.blur()} disabled={chargeDisabled || isNegotiatedCharge}
+                                        onWheel={(e) => e.target.blur()} disabled={chargeDisabled}
                                         />
                                         <PercentageAbsoluteToggle currentMode={charge.tax_mode}
-                                        disabled={chargeDisabled || isNegotiatedCharge}
+                                        disabled={chargeDisabled}
                                         onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "tax_mode", value)}
                                         />
                                         </div>
@@ -3305,10 +3323,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               placeholder={chargesMode.tax[quoteProducts[index]?.id] === "absolute" ? "Tax (₹)" : "Tax (%)"}
                                               value={quoteProducts[index].tax || ""}
                                               onChange={(e) => handleUpdateData(item.id, e, item.product_id, item.variant, "tax", "", getProductSpecValueByTitle(item?.product_specs, "Quantity"))}
-                                              onWheel={(e) => e.target.blur()} disabled={isProductDisabled || isBidExpiredNonNegotiable}
+                                              onWheel={(e) => e.target.blur()} disabled={!isFieldNegotiable('base_price')}
                                             />
                                             <PercentageAbsoluteToggle currentMode={chargesMode.tax[quoteProducts[index]?.id] || "percentage"}
-                                              disabled={isProductDisabled || isBidExpiredNonNegotiable}
+                                              disabled={!isFieldNegotiable('base_price')}
                                               onToggle={(value) => {
                                                 setChargesMode(prev => ({ ...prev, tax: { ...prev.tax, [quoteProducts[index].id]: value } }));
                                                 handleChargeFieldUpdate(index, "tax", quoteProducts[index].tax || 0, { tax: value });

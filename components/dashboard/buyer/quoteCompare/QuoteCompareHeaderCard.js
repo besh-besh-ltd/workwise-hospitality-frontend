@@ -1,12 +1,21 @@
 import React from "react";
+import dynamic from "next/dynamic";
 import { Badge } from "react-bootstrap";
-import { BsArrowLeft } from "react-icons/bs";
+import { BsArrowLeft, BsChatLeftText } from "react-icons/bs";
 import {
   formatDisplayDate,
   formatRFQNumber,
   getEntityLabel,
 } from "@/utils/sharedFunctions";
 import styles from "./QuoteCompareRevamp.module.scss";
+
+const WysiwygEditor = dynamic(
+  () => import("@/components/wysiwyg-editor/wysiwygeditor"),
+  { ssr: false }
+);
+
+const hasVisibleText = (html) =>
+  typeof html === "string" && html.replace(/<[^>]*>/g, "").trim() !== "";
 
 const QuoteCompareHeaderCard = ({ currentRFQ, actions, onBack }) => {
   if (!currentRFQ) return null;
@@ -15,7 +24,6 @@ const QuoteCompareHeaderCard = ({ currentRFQ, actions, onBack }) => {
   const isClosed = Number(currentRFQ?.status) === 2;
 
   const meta = [
-    { label: "Project", value: currentRFQ?.project_name || "-" },
     { label: "Company", value: currentRFQ?.company_name || "-" },
     { label: "Hotel", value: currentRFQ?.hotel_name || "-" },
     { label: "Department", value: currentRFQ?.department_name || "-" },
@@ -47,9 +55,6 @@ const QuoteCompareHeaderCard = ({ currentRFQ, actions, onBack }) => {
           {currentRFQ?.title && (
             <p className={styles.heroSubTitle}>{currentRFQ.title}</p>
           )}
-          {currentRFQ?.comment && currentRFQ.comment !== currentRFQ.title && (
-            <p className={styles.heroDescription}>{currentRFQ.comment}</p>
-          )}
         </div>
 
         {actions && <div className={styles.heroActions}>{actions}</div>}
@@ -63,6 +68,25 @@ const QuoteCompareHeaderCard = ({ currentRFQ, actions, onBack }) => {
           </div>
         ))}
       </div>
+
+      {hasVisibleText(currentRFQ?.comment) && currentRFQ.comment !== currentRFQ.title && (
+        <div className={styles.heroCommentRow}>
+          <div className={styles.heroCommentIcon}>
+            <BsChatLeftText size={14} />
+          </div>
+          <div className={styles.heroCommentContent}>
+            <span className={styles.metaLabel}>Comment</span>
+            <div className={styles.heroCommentBody}>
+              <WysiwygEditor
+                value={currentRFQ.comment}
+                readOnly
+                showToolbar={false}
+                minHeight="auto"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
