@@ -2145,12 +2145,22 @@ useEffect(() => {
     }
   }, []);
 
-  // Re-fetch processes whenever is_tender flips so the dropdown only shows
-  // the relevant set. We also clear any previously-selected process_id since
-  // it would otherwise belong to the wrong process_type.
+  // Re-fetch processes whenever is_tender flips so the dropdown only
+  // shows the relevant set. We clear any previously-selected process_id
+  // ONLY on a real user-driven toggle — not on the initial hydration
+  // of a saved draft. Without the prev-value gate this effect ran on
+  // first mount and wiped the persisted process_id every time the
+  // buyer reopened a draft (silent data loss).
+  const prevIsTenderRef = useRef(undefined);
   useEffect(() => {
     const isTender = rfqFormDataFromStore?.is_tender === 1;
     fetchProcesses(isTender ? 'TENDER' : 'RFQ');
+    const prev = prevIsTenderRef.current;
+    prevIsTenderRef.current = rfqFormDataFromStore?.is_tender;
+    // Skip the clear when this is the initial render (prev === undefined)
+    // or when is_tender hasn't actually changed value. Clearing only fires
+    // for a real toggle (0 → 1 or 1 → 0) initiated by the user.
+    if (prev === undefined || prev === rfqFormDataFromStore?.is_tender) return;
     if (rfqFormDataFromStore?.process_id) {
       dispatch(setOtherFormFields({ field_name: 'process_id', value: null }));
     }
