@@ -183,10 +183,10 @@ const loginCSS = `
     font-family: Poppins, sans-serif;
     font-weight: 500;
     transition: all 0.2s ease;
-    background: none;
-    border: none;
-    padding: 0;
     cursor: pointer;
+    display: inline-block;
+    text-align: right;
+    width: 100%;
   }
   .lf-forgot:hover { color: #1e4a8a; text-decoration: underline; }
 
@@ -214,6 +214,26 @@ const loginCSS = `
     transition: color 0.2s ease;
   }
   .lf-back:hover { color: #2E5BA8; }
+
+  .lf-back-icon {
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    font-size: 18px;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 99;
+    transition: color 0.2s ease;
+  }
+  .lf-back-icon:hover { color: #2E5BA8; }
 
   .lf-resend {
     background: none;
@@ -430,16 +450,14 @@ const Login = (props) => {
                   )}
                 </div>
 
-                <div style={{ textAlign: 'right', marginBottom: '18px', marginTop: '-10px' }}>
-                  <button
+                  <span
                     type="button"
                     className="lf-forgot"
                     id="forgot_password-login_links-login_form"
                     onClick={() => setView("forgot_email")}
                   >
                     Forgot Password?
-                  </button>
-                </div>
+                  </span>
 
                 <button
                   type="submit"
@@ -464,11 +482,12 @@ const Login = (props) => {
         <>
           <button
             type="button"
-            className="lf-back"
+            className="lf-back-icon"
             onClick={() => setView("login")}
             id="back_to_login-forgot_email-login_form"
+            aria-label="Back to sign in"
           >
-            <FiArrowLeft /> Back to sign in
+            <FiArrowLeft />
           </button>
           <h3 style={{
             fontFamily: 'Poppins, sans-serif',
