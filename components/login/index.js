@@ -560,11 +560,12 @@ const Login = (props) => {
         <>
           <button
             type="button"
-            className="lf-back"
+            className="lf-back-icon"
             onClick={() => setView("forgot_email")}
             id="back_to_email-forgot_reset-login_form"
+            aria-label="Use a different identifier"
           >
-            <FiArrowLeft /> Use a different identifier
+            <FiArrowLeft />
           </button>
           <h3 style={{
             fontFamily: 'Poppins, sans-serif',
@@ -601,14 +602,15 @@ const Login = (props) => {
             {({ errors, touched }) => (
               <Form className="lf-animated">
                 <div className="lf-field">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label className="lf-label" style={{ marginBottom: 0 }}>One-time Code</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: 8 }}>
+                    <label className="lf-label" style={{ marginBottom: 0, flex: 1, textAlign: 'left' }}>One-time Code</label>
                     <button
                       type="button"
                       className="lf-resend"
                       onClick={handleResendOtp}
                       disabled={resending}
                       id="resend_otp-forgot_reset-login_form"
+                      style={{ flex: 1, textAlign: 'right' }}
                     >
                       {resending ? "Resending..." : "Resend OTP"}
                     </button>
