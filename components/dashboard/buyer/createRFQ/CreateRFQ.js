@@ -594,7 +594,7 @@ const CreateRFQ = () => {
     vendorModal: false,
     addVendorModal: false
   })
-  const [selectedProduct, setSelectedProduct] = useState({});
+  const [selectedProduct] = useState({});
   const [vendorFilters, setVendorFilters] = useState({
     global: {},
     local: {},
@@ -1273,6 +1273,13 @@ useEffect(() => {
       }
     }
 
+    // Details step required fields — title + contact trio. Without these
+    // the Save Changes path would POST to /rfq/update and only surface the
+    // failure as a backend-driven toast, leaving the empty field un-highlighted.
+    if (!formDataCopy.title || String(formDataCopy.title).trim() === '') {
+      return fail(2, "Please enter the RFQ Title", "title");
+    }
+
     // Department is required when departments are available
     if (departments.length > 0 && !formDataCopy.department_id) {
       return fail(2, "Please select a department", "department_id");
@@ -1281,6 +1288,16 @@ useEffect(() => {
     // Process is required for RFQ creation
     if (!formDataCopy.process_id) {
       return fail(2, "Please select a process", "process_id");
+    }
+
+    if (!formDataCopy.contact_name || String(formDataCopy.contact_name).trim() === '') {
+      return fail(2, "Please enter the Contact person name", "contact_name");
+    }
+    if (!formDataCopy.response_email || String(formDataCopy.response_email).trim() === '') {
+      return fail(2, "Please enter the Email", "response_email");
+    }
+    if (!formDataCopy.contact_number || String(formDataCopy.contact_number).trim() === '') {
+      return fail(2, "Please enter the Contact Number", "contact_number");
     }
 
     // Publish Date & Time is required and must be at least 5 minutes from now
@@ -1496,11 +1513,26 @@ useEffect(() => {
         .catch((err) => {
           setMainLoading(false);
           setHasUnsavedChanges(true);
-          const errorData = err?.message?.response?.data;
-          const errorMessage = errorData?.message || errorData?.errors?.message || `Failed to update ${getEntityLabel(rfqFormDataFromStore?.is_tender)}. Please try again.`;
+          // updateRfq rejects with { message: <string>, error: <axiosError> }
+          const errorData = err?.error?.response?.data;
+          const errorMessage =
+            err?.message ||
+            errorData?.message ||
+            errorData?.errors?.message ||
+            `Failed to update ${getEntityLabel(rfqFormDataFromStore?.is_tender)}. Please try again.`;
           if (errorData?.errors?.details && Array.isArray(errorData.errors.details)) {
             const missingVendorIds = errorData.errors.details.map(d => d.rfqProductId);
             setErrorProducts(new Set(missingVendorIds));
+          }
+          // Jump to the step that owns the failing field so the user can
+          // see what to fix without hunting for it.
+          const failingField = errorData?.field;
+          const targetStep = failingField ? submitFieldStep(failingField) : null;
+          if (targetStep) {
+            setCurrentStep(targetStep);
+            setMaxStepReached((m) => Math.max(m, targetStep));
+            setSubmitInvalidField(failingField);
+            setTriedNextOnStep(targetStep);
           }
           toast.error(errorMessage);
         });
@@ -1843,9 +1875,13 @@ useEffect(() => {
       }
 
     } catch (error) {
+      // updateRfq rejects with { message: <string>, error: <axiosError> };
+      // saveDraft rejects with { message: <axiosError> }. Normalise both shapes.
+      const isUpdateRfqShape = typeof error?.message === 'string';
+      const axiosErr = isUpdateRfqShape ? error?.error : error?.message;
+
       // Aborted because a newer save took over — silent no-op. The newer
       // request will own the user-visible result.
-      const axiosErr = error?.message;
       if (axiosErr?.code === "ERR_CANCELED" || axiosErr?.name === "CanceledError") {
         return;
       }
@@ -1854,15 +1890,31 @@ useEffect(() => {
       }
 
       const errorData = axiosErr?.response?.data;
-      const errorMessage = errorData?.message || errorData?.errors?.message || "Failed to save draft. Please try again.";
+      const errorMessage =
+        (isUpdateRfqShape ? error.message : null) ||
+        errorData?.message ||
+        errorData?.errors?.message ||
+        (isEditMode
+          ? `Failed to update ${getEntityLabel(rfqFormDataFromStore?.is_tender)}. Please try again.`
+          : "Failed to save draft. Please try again.");
 
       if (errorData?.errors?.details && Array.isArray(errorData.errors.details)) {
         const missingVendorIds = errorData.errors.details.map(d => d.rfqProductId);
         setErrorProducts(new Set(missingVendorIds));
-        toast.error(errorMessage);
-      } else {
-        toast.error(errorMessage);
       }
+      // Jump to the step that owns the failing field so the user can see
+      // what to fix without hunting for it. Only the /rfq/update path
+      // tags errors with `field` today — saveDraft errors lack the tag,
+      // so non-edit drafts simply show the toast in place.
+      const failingField = errorData?.field;
+      const targetStep = failingField ? submitFieldStep(failingField) : null;
+      if (targetStep) {
+        setCurrentStep(targetStep);
+        setMaxStepReached((m) => Math.max(m, targetStep));
+        setSubmitInvalidField(failingField);
+        setTriedNextOnStep(targetStep);
+      }
+      toast.error(errorMessage);
     }
 
 
@@ -2314,18 +2366,6 @@ useEffect(() => {
     setPendingProductToRemove(null);
   };
 
-  const handleShowModalWithProduct = (modalKey, product) => {
-    const key = `${product.id}`;
-    setShowModal((prev) => ({
-      ...prev,
-      [modalKey]: true,
-    }));
-    setSelectedProduct({
-      product,
-      vendors: vendors[key],
-    });
-  };
-
 
   const populateVendorFilters = (newProducts) => {
     if(!newProducts || !Array.isArray(newProducts) || newProducts.length <= 0) return;
@@ -2510,304 +2550,10 @@ useEffect(() => {
       fetchAvailableVendorsForProduct();
     }, [selectedProduct])
 
-  // Dynamic filters inside Single RFQ Product Item
-  // Vendor filters removed - vendors are auto-added for all modes
-  const generateDynamicFilter = (product = null) => {
-    return null;
-    const isGlobalFilter = !product;
-
-    const getFilterValue = (key) => isGlobalFilter ? vendorFilters.global?.[key] : vendorFilters.local?.[product.id]?.[key]
-
-    const forwardFilterUpdate = (newVal, action) => {
-      const param = {
-        [action.name]: newVal,
-      };
-
-      handleFilterUpdate(isGlobalFilter, product, param);
-    }
-
-    const getFilteredStates = () => {
-      const globalCountries = getFilterValue('country')
-      if(!globalCountries || globalCountries <= 0) return initialFilterOptions.states;
-
-      let filteredStates = initialFilterOptions.states;
-      filteredStates = filteredStates.filter(state => globalCountries.some(country => country.value == state.country_id))
-
-      return filteredStates;
-    }
-
-    const getFilteredCities = () => {
-      const globalCountries = getFilterValue('country')
-      const globalStates = getFilterValue('state')
-
-      if((!globalCountries || globalCountries <= 0) && (!globalStates || globalStates <= 0)) return initialFilterOptions.cities;
-
-      let filteredCities = initialFilterOptions.cities;
-      if(globalCountries && globalCountries.length > 0)
-        filteredCities = filteredCities.filter(city => globalCountries.some(country => country.value == city.country_id))
-
-      if(globalStates && globalStates.length > 0)
-        filteredCities = filteredCities.filter(city => globalStates.some(state => state.value == city.state_id))
-
-      return filteredCities;
-    }
-
-    return (
-      <>
-        <div className="w-100 d-flex flex-column gap-2 align-items-end mb-3">
-          {product && rfqFormDataFromStore?.is_tender !== 1 && (
-            <button
-              className="minimal-btn"
-              style={{ width: "fit-content" }}
-              onClick={() =>
-                setViewProductFilter((prev) => ({
-                  ...prev,
-                  [product.id]: !prev[product.id],
-                }))
-              }
-            >
-              {viewProductFilter[product.id] ? "Close" : "Open"} Filter
-            </button>
-          )}
-          {(!product || viewProductFilter[product.id]) && (
-            <div className="w-100 mb-2">
-              <div className=" d-flex justify-content-between align-items-end w-100">
-                <div className="row g-3" style={{ width: "100%" }}>
-                  <div className="col-md-3">
-                    <CommonFormInput
-                      id={`country_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                      isMulti={true}
-                      type="multiselect"
-                      options={initialFilterOptions.countries.map((item) => ({
-                        label: item.country_name,
-                        value: item.id,
-                      }))}
-                      name="country"
-                      label="Country"
-                      labelBold
-                      placeholder="Select"
-                      values={getFilterValue("country")}
-                      onChange={(newVal, action) =>
-                        forwardFilterUpdate(newVal, action)
-                      }
-                    />
-                  </div>
-                  <div className="col-md-3">
-                    <CommonFormInput
-                      id={`state_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                  disabled={
-                        !getFilterValue("country") ||
-                        getFilterValue("country").length <= 0
-                      }
-                      isMulti={true}
-                      type="multiselect"
-                      options={getFilteredStates().map((item) => ({
-                        label: item.state_name,
-                        value: item.id,
-                      }))}
-                      name="state"
-                      label="State"
-                      labelBold
-                      placeholder="Select"
-                      values={getFilterValue("state")}
-                      onChange={(newVal, action) =>
-                        forwardFilterUpdate(newVal, action)
-                      }
-                    />
-                  </div>
-                  <div className="col-md-3">
-                    <CommonFormInput
-                      id={`city_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                  disabled={
-                        !getFilterValue("country") ||
-                        getFilterValue("country").length <= 0
-                      }
-                      isMulti={true}
-                      type="multiselect"
-                      options={getFilteredCities().map((item) => ({
-                        label: item.city_name,
-                        value: item.id,
-                      }))}
-                      name="city"
-                      label="City"
-                      labelBold
-                      placeholder="Select"
-                      values={getFilterValue("city")}
-                      onChange={(newVal, action) =>
-                        forwardFilterUpdate(newVal, action)
-                      }
-                    />
-                  </div>
-                  <div className="col-md-3">
-                    <CommonFormInput
-                      id={`my_vendors_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                  type="multiselect"
-                      options={myVendorOptions}
-                      name="vendor_info"
-                      label="My Vendors"
-                      labelBold
-                      placeholder="Select"
-                      values={getFilterValue("vendor_info")}
-                      onChange={(newVal, action) =>
-                        forwardFilterUpdate(newVal, action)
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className=" d-flex justify-content-between align-items-end w-100">
-                <div className="row g-3" style={{ width: "100%" }}>
-                  <div className="col-md-3">
-                    <CommonFormInput
-                      id={`vendor_types_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                  isMulti={true}
-                      type="multiselect"
-                      options={initialFilterOptions.vendorTypes}
-                      name="vendor_type"
-                      label="Vendor Types"
-                      labelBold
-                      placeholder="Select"
-                      values={getFilterValue("vendor_type")}
-                      onChange={(newVal, action) =>
-                        forwardFilterUpdate(newVal, action)
-                      }
-                    />
-                  </div>
-                  <div className="col-md-3">
-                    <CommonFormInput
-                      id={`previously_worked_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                      type="multiselect"
-                      options={vendorConditions}
-                      name="prev_worked_with"
-                      label="Previously Worked With"
-                      labelBold
-                      placeholder="Select"
-                      values={getFilterValue("prev_worked_with")}
-                      onChange={(newVal, action) =>
-                        forwardFilterUpdate(newVal, action)
-                      }
-                    />
-                  </div>
-                  <div className="col-md-3">
-                    <CommonFormInput
-                     id={`vendor_approved_by_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                   isMulti={true}
-                      type="multiselect"
-                      options={initialFilterOptions.approvedBy.map((item) => ({
-                        label: item.vendor_approve,
-                        value: item.id,
-                      }))}
-                      name="vendor_approved_by"
-                      label="Vendor Approved By"
-                      labelBold
-                      placeholder="Select"
-                      values={getFilterValue("vendor_approved_by")}
-                      onChange={(newVal, action) =>
-                        forwardFilterUpdate(newVal, action)
-                      }
-                    />
-                  </div>
-                  <div className="col-md-3">
-                    <div className="form-group mb-3">
-                      <div className="d-flex gap-2">
-                        <label
-                          htmlFor="subscriptionType"
-                          className="form-label"
-                          style={{
-                            fontWeight: 500
-                          }}
-                          >
-                          Premium Vendors
-                        </label>
-                        {getFilterValue("subscription_type") != null && (
-                          <Link
-                            href="#"
-                            className="clearFilter"
-                            onClick={(e) => {e.preventDefault(); forwardFilterUpdate(null, { name: "subscription_type" })}}
-                          >
-                            <FontAwesomeIcon icon={faTimesCircle} /> clear
-                          </Link>
-                        )}
-                      </div>
-                      <div className="d-flex gap-1">
-                        <input
-                          type="radio"
-                          style={{width: "fit-content", height: "fit-content", marginRight: "4px", marginTop: "4px"}}
-                          name="subscriptionType"
-                          id={`subscription-premium`}
-                          value={"premium"}
-                          checked={getFilterValue("subscription_type")?.value == "premium"}
-                          onChange={(e) => {
-                            const selectedValue = e.target.value;
-                            const selected = subscriptionTypes.find(
-                              (option) => option.value == selectedValue
-                            );
-
-                            if (selected) {
-                              forwardFilterUpdate(selected, { name: "subscription_type" })
-                            }
-                          }}
-                        />
-                        <div className="d-flex flex-column">
-                          <label
-                            className="form-check-label"
-                            htmlFor={`subscription-permium`}
-                          >
-                            Get Guaranteed Quote in 24 Hours
-                          </label>
-                          {/* <small className="text-muted">(in 24 Hours)</small> */}
-                        </div>
-                      </div>
-                    </div>
-                    {/* <CommonFormInput
-                     id={`subscription_type_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                      type="select"
-                      options={subscriptionTypes}
-                      name="subscription_type"
-                      label="Subscription Type"
-                      labelBold
-                      placeholder="Select"
-                      values={getFilterValue("subscription_type")}
-                      onChange={(newVal, action) =>
-                        forwardFilterUpdate(newVal, action)
-                      }
-                    /> */}
-                  </div>
-                  {!isGlobalFilter && (
-                    <div className="col-md-3">
-                      <CommonFormInput
-                     id={`product_makes_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
-                     isMulti={true}
-                        type="multiselect"
-                        options={
-                          initialFilterOptions.productMakes?.[product.id]
-                            ? initialFilterOptions.productMakes[product.id].map(
-                                (item) => ({
-                                  label: item.make_name,
-                                  value: item.make_name,
-                                })
-                              )
-                            : []
-                        }
-                        name="productMakes"
-                        label="Product Makes"
-                        labelBold
-                        placeholder="Select"
-                        values={getFilterValue("productMakes")}
-                        onChange={(newVal, action) =>
-                          forwardFilterUpdate(newVal, action)
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </>
-    );
-  }
+  // Dynamic filters inside Single RFQ Product Item.
+  // Vendor filters were removed (vendors auto-added for all modes); the
+  // header slot is kept so callers stay wired up, but always renders nothing.
+  const generateDynamicFilter = () => null;
 
   useEffect(() => {
     const { draft_id, sheet_id } = router.query;
@@ -3020,7 +2766,14 @@ useEffect(() => {
         return 3;
       case "department_id":
       case "process_id":
+      case "tender_fees":
+      case "hotel_ids":
         return 2;
+      case "products":
+        return 1;
+      case "terms":
+      case "term_and_condition_files":
+        return 4;
       default:
         return null;
     }
@@ -3314,7 +3067,7 @@ useEffect(() => {
             title: rfqFormDataFromStore.title || "",
           }}
           validationSchema={CreateRFQSchema}
-          onSubmit={(values, { resetForm }) => {
+          onSubmit={(values) => {
             const result = validateRFQFields(values);
             if (result?.ok) {
               if (sheetNameList.length > 0) {
@@ -3484,6 +3237,24 @@ useEffect(() => {
                 flagInvalidStep(currentStep);
                 return;
               }
+              // Edit mode posts the full snapshot to /rfq/update on every save,
+              // so a required field cleared on an earlier step would only blow
+              // up after the user has already advanced. Run the cross-step
+              // validator here and park the user on the offending step.
+              if (isEditMode) {
+                const result = validateRFQFields({
+                  company_name: rfqFormDataRef.current?.company_name || ''
+                });
+                if (!result?.ok) {
+                  if (result?.step) {
+                    setCurrentStep(result.step);
+                    setTriedNextOnStep(result.step);
+                    setSubmitInvalidField(result.field || null);
+                    setMaxStepReached((m) => Math.max(m, result.step));
+                  }
+                  return;
+                }
+              }
               // Step is valid — clear any stale errors, fire a background
               // save if the user has unsaved edits (don't await, the step
               // change shouldn't wait for the network), and advance.
@@ -3508,14 +3279,30 @@ useEffect(() => {
                 setTriedNextOnStep(null);
                 return;
               }
-              // Edit mode: the RFQ is already published, so let the user jump
-              // freely between steps without re-validating intermediate ones.
               if (!isEditMode) {
                 for (let s = currentStep; s < n; s++) {
                   if (!isStepValid(s)) {
                     flagInvalidStep(s);
                     return;
                   }
+                }
+              } else {
+                // Edit mode posts the full snapshot on every save, so a
+                // forward jump that leaves an earlier required field empty
+                // would only blow up after the user lands on the new step.
+                // Gate the jump on the same cross-step validator the Save
+                // Changes / Save and Next paths use.
+                const result = validateRFQFields({
+                  company_name: rfqFormDataRef.current?.company_name || ''
+                });
+                if (!result?.ok) {
+                  if (result?.step) {
+                    setCurrentStep(result.step);
+                    setTriedNextOnStep(result.step);
+                    setSubmitInvalidField(result.field || null);
+                    setMaxStepReached((m) => Math.max(m, result.step));
+                  }
+                  return;
                 }
               }
               setTriedNextOnStep(null);
