@@ -1688,7 +1688,17 @@ const NegotiationModal = ({
                                 {round.target_price != null
                                   ? `₹${parseFloat(round.target_price).toLocaleString()}`
                                   : (() => {
-                                      const fields = round.vendor_approvals?.flatMap(va => va.negotiation_fields || []) || [];
+                                      const allFields = round.vendor_approvals?.flatMap(va => va.negotiation_fields || []) || [];
+                                      // Dedupe per round: targets are set at the round level, so the same
+                                      // (name + target value) repeats once per vendor_approval. Collapse them.
+                                      const seen = new Set();
+                                      const fields = allFields.filter(f => {
+                                        const val = f.target ?? f.target_price;
+                                        const key = `${f.name}::${f.mode || ''}::${typeof val === 'object' ? JSON.stringify(val) : String(val)}`;
+                                        if (seen.has(key)) return false;
+                                        seen.add(key);
+                                        return true;
+                                      });
                                       const textNames = new Set(['payment_terms', 'comments', 'vendor_tc', 'documents']);
                                       return fields.length > 0 ? fields.map(f => {
                                         const label = f.name === 'base_price' ? 'Base Price' : f.name === 'payment_terms' ? 'Payment Terms' : f.name === 'documents' ? 'Documents' : f.name === 'comments' ? 'Comments' : (f.label || f.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
