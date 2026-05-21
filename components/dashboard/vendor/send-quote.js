@@ -3221,11 +3221,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           {item.finalization_status === "You are finalized" ? "You are Finalized" : "Another Vendor is Finalized"} — Quote cannot be edited
                                         </span>
                                       )}
-                                      {isNegotiationSubmittedForProduct && (
-                                        <span className="badge bg-success mt-1" style={{ fontSize: "0.7rem" }}>
-                                          Negotiation Quote Submitted
-                                        </span>
-                                      )}
                                       {getProductSpecValueByTitle(item?.product_specs, "Size") && (
                                         <p className="text-sm mb-1">
                                           {getProductSpecValueByTitle(item?.product_specs, "Size")}
