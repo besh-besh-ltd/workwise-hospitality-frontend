@@ -3041,7 +3041,7 @@ useEffect(() => {
         {!isViewOnlyDraft && !isReadOnly && !isRestrictedEdit && isPostPublish && (
           <ReadOnlyBanner
             title="Published RFQ"
-            message="This RFQ has been published. Tender Publish Date and Tender Fees are locked; everything else can still be updated."
+            message="This RFQ has been published. Publish Date and BU Selection is locked; everything else can still be updated."
             noMarginTop
           />
         )}
