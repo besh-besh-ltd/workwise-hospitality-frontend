@@ -2266,12 +2266,15 @@ const RfqManagementPreview = () => {
                               {hasTdsData && <th style={{ minWidth: "50px", maxWidth: "90px", width: "auto" }}>TDS</th>}
                               {hasQapData && <th style={{ minWidth: "50px", maxWidth: "90px", width: "auto" }}>QAP</th>}
                               {type != "buyer-view" && (
+                                <th style={{ minWidth: "90px", maxWidth: "130px", width: "auto" }}>Status</th>
+                              )}
+                              {type != "buyer-view" && (
                                 <th style={{ minWidth: "120px", maxWidth: "170px", width: "auto" }}>Finalization Status</th>
                               )}
                               {hasCommentsData && <th style={{ minWidth: "100px", maxWidth: "220px", width: "auto" }}>Comments</th>}
-                              {type == "buyer-view" && !rfqDetails.is_tender ? (
-                                <th style={{ minWidth: "110px", maxWidth: "150px", width: "auto" }}>Selected vendors</th>
-                              ) : null}
+                              {type == "buyer-view" && (
+                                <th style={{ minWidth: "140px", maxWidth: "180px", width: "auto" }}>Participated vendors</th>
+                              )}
                               {showNegotiationCol !== false && <th style={{ minWidth: "90px", maxWidth: "150px", width: "auto" }}>Negotiation</th>}
                             </tr>
                           </thead>
@@ -2502,6 +2505,24 @@ const RfqManagementPreview = () => {
                                       )}
                                     </td>
                                   )}
+                                  {type != "buyer-view" && (() => {
+                                    const vendorQuote = rfqDetails?.quotations?.[0];
+                                    const hasSubmittedForItem = !!vendorQuote
+                                      && vendorQuote.is_regret === 0
+                                      && Array.isArray(vendorQuote.products)
+                                      && vendorQuote.products.some(
+                                        (qp) => qp.product_id === item.product_id && qp.variant === item.variant
+                                      );
+                                    return (
+                                      <td>
+                                        {hasSubmittedForItem ? (
+                                          <span className="badge bg-success">Submitted</span>
+                                        ) : (
+                                          <span className="badge bg-warning text-dark">Pending</span>
+                                        )}
+                                      </td>
+                                    );
+                                  })()}
                                   {type != "buyer-view" && (
                                     <td>
                                       {item.finalization_status ==
@@ -2541,10 +2562,10 @@ const RfqManagementPreview = () => {
                                     </td>
                                   )}
 
-                                  {type == "buyer-view" && !rfqDetails.is_tender && (
+                                  {type == "buyer-view" && (
                                     <td>
                                       <span className="fw-semibold">
-                                        Selected vendors ({item.vendors_count})
+                                        {(item.participated_vendors_count ?? 0)}/{(item.vendors_count ?? 0)}
                                       </span>
                                     </td>
                                   )}
