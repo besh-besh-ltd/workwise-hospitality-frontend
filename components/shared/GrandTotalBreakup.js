@@ -4,11 +4,14 @@ const GrandTotalBreakup = ({
   totalPackaging = 0,
   totalTax = 0,
   totalOtherCharges = 0,
+  totalBaseTax = 0,
   grandTotal = 0,
   formatPrice,
   align = "end",
   chargeBreakdown = [],
+  taxBreakdown = [],
   globalChargeBreakdown = [],
+  layout,
 }) => {
   const fmt = (val) => (formatPrice ? formatPrice(val) : `₹${val.toFixed(2)}`);
 
@@ -75,6 +78,117 @@ const GrandTotalBreakup = ({
     gap: "1px",
     minWidth: "240px",
   };
+
+  // 3-column layout (vendor send-quote): line costs | taxes | globals.
+  // Opt-in via layout="3col". Empty columns are suppressed.
+  if (layout === "3col") {
+    const col1Items = [
+      { label: "Base Amount", value: Number(totalBase) || 0 },
+      ...chargeBreakdown,
+    ].filter((item) => item.value > 0);
+    const col1Subtotal = col1Items.reduce((acc, item) => acc + Number(item.value || 0), 0);
+
+    const col2Items = [
+      { label: "Tax on Base", value: Number(totalBaseTax) || 0 },
+      ...taxBreakdown,
+    ].filter((item) => item.value > 0);
+    const col2Subtotal = col2Items.reduce((acc, item) => acc + Number(item.value || 0), 0);
+
+    const col3Items = visibleGlobals;
+    const hasCol2 = col2Items.length > 0;
+    const hasGlobalCol = col3Items.length > 0;
+    const subTotal3 = col1Subtotal + col2Subtotal;
+
+    if (!hasCol2 && !hasGlobalCol) {
+      // Falls through to the existing single-column Grand Total layout below.
+    } else {
+      const wrapperStyle = {
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "stretch",
+        gap: "32px",
+        justifyContent: align === "end" ? "flex-end" : "flex-start",
+        flexWrap: "wrap",
+      };
+
+      return (
+        <div style={wrapperStyle}>
+          <div style={columnStyle}>
+            {col1Items.map((item) => (
+              <div key={item.label} style={lineStyle}>
+                <span style={{ whiteSpace: "nowrap" }}>{item.label}:</span>
+                <span style={valueStyle}>{fmt(item.value)}</span>
+              </div>
+            ))}
+            <div style={separatorStyle} />
+            <div style={subTotalLineStyle}>
+              <span style={{ whiteSpace: "nowrap" }}>Total Charges:</span>
+              <span style={{ ...valueStyle, fontWeight: "600" }}>{fmt(col1Subtotal)}</span>
+            </div>
+          </div>
+
+          {hasCol2 && (
+            <div style={columnStyle}>
+              {col2Items.map((item) => (
+                <div key={item.label} style={lineStyle}>
+                  <span style={{ whiteSpace: "nowrap" }}>{item.label}:</span>
+                  <span style={valueStyle}>{fmt(item.value)}</span>
+                </div>
+              ))}
+              <div style={separatorStyle} />
+              <div style={subTotalLineStyle}>
+                <span style={{ whiteSpace: "nowrap" }}>Total Taxes:</span>
+                <span style={{ ...valueStyle, fontWeight: "600" }}>{fmt(col2Subtotal)}</span>
+              </div>
+            </div>
+          )}
+
+          <div style={columnStyle}>
+            <div style={lineStyle}>
+              <span style={{ whiteSpace: "nowrap" }}>Total Charges:</span>
+              <span style={valueStyle}>{fmt(col1Subtotal)}</span>
+            </div>
+            {hasCol2 && (
+              <div style={lineStyle}>
+                <span style={{ whiteSpace: "nowrap" }}>Total Taxes:</span>
+                <span style={valueStyle}>{fmt(col2Subtotal)}</span>
+              </div>
+            )}
+            <div style={separatorStyle} />
+            <div style={subTotalLineStyle}>
+              <span style={{ whiteSpace: "nowrap" }}>Sub Total:</span>
+              <span style={{ ...valueStyle, fontWeight: "600" }}>{fmt(subTotal3)}</span>
+            </div>
+          </div>
+
+          {hasGlobalCol && (
+            <div style={columnStyle}>
+              {col3Items.map((item) => (
+                <div key={item.label} style={lineStyle}>
+                  <span style={{ whiteSpace: "nowrap" }}>{item.label}:</span>
+                  <span style={valueStyle}>{fmt(item.value)}</span>
+                </div>
+              ))}
+              <div style={separatorStyle} />
+              <div style={totalLineStyle}>
+                <span style={{ whiteSpace: "nowrap" }}>Grand Total <span style={{ fontSize: "0.72rem", color: "#6c757d", fontWeight: 400 }}>(incl. GST)</span>:</span>
+                <span style={{ ...valueStyle, fontWeight: "700", minWidth: "100px" }}>{fmt(grandTotal)}</span>
+              </div>
+            </div>
+          )}
+
+          {!hasGlobalCol && (
+            <div style={columnStyle}>
+              <div style={totalLineStyle}>
+                <span style={{ whiteSpace: "nowrap" }}>Grand Total <span style={{ fontSize: "0.72rem", color: "#6c757d", fontWeight: 400 }}>(incl. GST)</span>:</span>
+                <span style={{ ...valueStyle, fontWeight: "700", minWidth: "100px" }}>{fmt(grandTotal)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+  }
 
   // Two-column layout when globals exist: left = per-line breakdown ending in
   // Sub Total, right = globals ending in Grand Total. Single-column fallback
