@@ -199,38 +199,123 @@ $badge-tones: (
   word-break: break-word;
 }
 
-.heroCommentRow {
-  display: flex;
-  gap: 10px;
-  padding: 14px 16px;
-  border-top: 1px solid #eef2f7;
-  align-items: flex-start;
+.heroMetaItemTnc {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: color 0.15s ease;
+
+  .metaValueTnc {
+    color: $brand-primary;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+  }
+
+  &:hover .metaValueTnc {
+    color: $brand-primary-dark;
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba($brand-primary, 0.35);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 }
 
-.heroCommentIcon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: #f0f4fa;
+.heroDeliveryRow {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 14px 16px;
+  border-top: 1px solid #eef2f7;
+}
+
+.tncOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  color: #2E5BA8;
+  z-index: 10000;
+  padding: 24px;
+  animation: tncFadeIn 0.18s ease;
 }
 
-.heroCommentContent {
+.tncDialog {
+  background: $surface-white;
+  border-radius: $radius-md;
+  border: 1px solid $border-soft;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
+  width: 100%;
+  max-width: 560px;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  gap: 4px;
+  overflow: hidden;
+  animation: tncDialogIn 0.2s ease;
 }
 
-.heroCommentBody {
+.tncHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid $border-soft;
+}
+
+.tncTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: $text-strong;
+}
+
+.tncClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: $text-soft;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: #f1f5f9;
+    color: $text-strong;
+  }
+}
+
+.tncBody {
+  padding: 16px 18px;
   font-size: 13px;
   line-height: 1.6;
   color: $text-strong;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+@keyframes tncFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tncDialogIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .actionRail {
