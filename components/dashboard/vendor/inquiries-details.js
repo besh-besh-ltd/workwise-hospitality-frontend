@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import { Router, useRouter } from "next/router";
 import { useSelector } from "react-redux";
-import { closeRFQ, withdrawPublish, terminateRFQ, getAllClauses, getRFQById, sendQuotation, fetchVendorAgreement, getTechClearedVendorsResult, submitRFQApprovalAction, getTechEvalStatus } from "@/services/rfq";
+import { closeRFQ, withdrawPublish, terminateRFQ, forcePublishRFQ, getAllClauses, getRFQById, sendQuotation, fetchVendorAgreement, getTechClearedVendorsResult, submitRFQApprovalAction, getTechEvalStatus } from "@/services/rfq";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
@@ -38,7 +38,7 @@ import { getClarifications } from "@/services/clarification";
 import NegotiationColumnCell from "@/components/dashboard/buyer/negotiation/NegotiationColumnCell";
 import { getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { Badge, Button, Alert, OverlayTrigger, Tooltip } from "react-bootstrap";
-import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill, BsXCircleFill } from "react-icons/bs";
+import { BsCalendarEvent, BsClockFill, BsCheckCircleFill, BsLightningChargeFill, BsXCircleFill, BsExclamationTriangleFill, BsExclamationOctagonFill, BsArrowRight } from "react-icons/bs";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
 import usePreviewTotals from "@/hooks/usePreviewTotals";
 import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
@@ -214,6 +214,8 @@ const RfqManagementPreview = () => {
   const [showWithdrawSuccessModal, setShowWithdrawSuccessModal] = useState(false);
   const [terminateLoading, setTerminateLoading] = useState(false);
   const [showTerminateConfirmModal, setShowTerminateConfirmModal] = useState(false);
+  const [forcePublishLoading, setForcePublishLoading] = useState(false);
+  const [showForcePublishConfirmModal, setShowForcePublishConfirmModal] = useState(false);
   const [isSubmitAble, setIsSubmitable] = useState(true);
   const [productleftforbid, setproductleftforbid] = useState(true);
   const [regretModal, setregretModal] = useState(false);
@@ -460,6 +462,18 @@ const RfqManagementPreview = () => {
 
   const isCreator = rfqDetails && userProfile && String(rfqDetails.created_by) === String(userProfile.id);
 
+  // Force Publish is offered only when the scheduled publish time has passed
+  // but the RFQ is still in Ready to Publish (auto-publish never completed).
+  // Backend re-validates these conditions; this flag only controls visibility.
+  const canForcePublish = !!(
+    isCreator
+    && rfqDetails
+    && Number(rfqDetails.status) === 4
+    && Number(rfqDetails.is_published) === 0
+    && rfqDetails.tender_publish_date
+    && new Date(rfqDetails.tender_publish_date) < new Date()
+  );
+
   const handleCloseRFQ = async (comment) => {
     setcloseRFqLoading(true);
     try {
@@ -514,6 +528,28 @@ const RfqManagementPreview = () => {
       setShowTerminateConfirmModal(false);
     } finally {
       setTerminateLoading(false);
+    }
+  };
+
+  const handleForcePublish = async () => {
+    setForcePublishLoading(true);
+    try {
+      const response = await forcePublishRFQ(id);
+      if (response && response.status === 1) {
+        toast.success(`${getEntityLabel(rfqDetails?.is_tender)} published successfully`);
+        getRFQdetails();
+        setShowForcePublishConfirmModal(false);
+      } else {
+        toast.error(response?.message || 'Failed to force publish');
+        setShowForcePublishConfirmModal(false);
+      }
+    } catch (error) {
+      console.error("Error force publishing:", error);
+      const msg = error?.message?.response?.data?.message || error?.response?.data?.message || 'Error force publishing';
+      toast.error(msg);
+      setShowForcePublishConfirmModal(false);
+    } finally {
+      setForcePublishLoading(false);
     }
   };
 
@@ -1806,7 +1842,7 @@ const RfqManagementPreview = () => {
                   )}
 
                   {/* Ready to Publish Banner - Shows when RFQ is approved and awaiting publication */}
-                  {enableBuyerView && rfqDetails?.is_published === 0 && rfqDetails?.status === 4 && rfqDetails?.tender_publish_date && (
+                  {enableBuyerView && rfqDetails?.is_published === 0 && rfqDetails?.status === 4 && rfqDetails?.tender_publish_date && !canForcePublish && (
                     <Alert
                       variant="info"
                       className="border-0 shadow-sm mt-3 mx-1"
@@ -1839,6 +1875,196 @@ const RfqManagementPreview = () => {
                         </div>
                       </div>
                     </Alert>
+                  )}
+
+                  {/* Stuck-publish recovery banner — appears when the scheduled
+                      publish time has passed but auto-publish never completed.
+                      Visible to the creator (canForcePublish is creator-gated).
+                      Modern SaaS incident-banner aesthetic: clean white card,
+                      single red accent stripe, generous spacing, urgency via
+                      typography + a pulsing pill + a confident red CTA. */}
+                  {enableBuyerView && canForcePublish && (
+                    <div
+                      role="alert"
+                      aria-live="assertive"
+                      className="mt-3 mx-1 mb-3"
+                      style={{
+                        position: "relative",
+                        background: "#FFFFFF",
+                        border: "1px solid #F3F4F6",
+                        borderRadius: 12,
+                        padding: "18px 22px 18px 26px",
+                        boxShadow:
+                          "0 1px 2px rgba(17, 24, 39, 0.04), 0 6px 16px rgba(17, 24, 39, 0.05)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {/* Left accent stripe — the only thing in the layout that
+                          is red on red, used sparingly to signal severity. */}
+                      <div
+                        aria-hidden="true"
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: 3,
+                          height: "100%",
+                          background: "#DC2626",
+                        }}
+                      />
+
+                      <div
+                        className="d-flex align-items-center flex-wrap"
+                        style={{ gap: 24 }}
+                      >
+                        <div className="flex-grow-1" style={{ minWidth: 280 }}>
+                          {/* Status row: pill + muted "stuck for" metadata */}
+                          <div
+                            className="d-flex align-items-center"
+                            style={{ gap: 10, marginBottom: 10 }}
+                          >
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                fontSize: 10.5,
+                                fontWeight: 700,
+                                letterSpacing: "0.1em",
+                                textTransform: "uppercase",
+                                color: "#B91C1C",
+                                background: "#FEF2F2",
+                                border: "1px solid #FECACA",
+                                padding: "3px 9px 3px 8px",
+                                borderRadius: 999,
+                                lineHeight: 1,
+                              }}
+                            >
+                              <span
+                                aria-hidden="true"
+                                style={{
+                                  position: "relative",
+                                  width: 6,
+                                  height: 6,
+                                  borderRadius: "50%",
+                                  background: "#DC2626",
+                                  display: "inline-block",
+                                  animation: "fpUrgentPulse 1.6s ease-out infinite",
+                                }}
+                              />
+                              Action required
+                            </span>
+                            {rfqDetails?.tender_publish_date && (
+                              <span
+                                style={{
+                                  fontSize: 11.5,
+                                  fontWeight: 500,
+                                  color: "#6B7280",
+                                  letterSpacing: "0.01em",
+                                }}
+                              >
+                                Stuck {moment(rfqDetails.tender_publish_date).fromNow(true)}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Title */}
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              fontSize: 15.5,
+                              color: "#111827",
+                              lineHeight: 1.35,
+                              letterSpacing: "-0.015em",
+                              marginBottom: 6,
+                            }}
+                          >
+                            Auto-publish failed &mdash; this {getEntityLabel(rfqDetails?.is_tender).toLowerCase()} hasn&rsquo;t gone live
+                          </div>
+
+                          {/* Body */}
+                          <div
+                            style={{
+                              fontSize: 13,
+                              color: "#6B7280",
+                              lineHeight: 1.6,
+                            }}
+                          >
+                            Scheduled for{" "}
+                            <span style={{ color: "#374151", fontWeight: 500 }}>
+                              {moment(rfqDetails.tender_publish_date).format("DD MMM YYYY, hh:mm A")} IST
+                            </span>
+                            .{" "}
+                            <span style={{ color: "#B91C1C", fontWeight: 600 }}>
+                              Vendors have not been notified.
+                            </span>{" "}
+                            Only you, as the creator, can publish it now.
+                          </div>
+                        </div>
+
+                        {/* CTA */}
+                        <button
+                          type="button"
+                          onClick={() => setShowForcePublishConfirmModal(true)}
+                          disabled={forcePublishLoading}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 7,
+                            fontSize: 13.5,
+                            fontWeight: 600,
+                            letterSpacing: "-0.005em",
+                            padding: "10px 18px",
+                            borderRadius: 8,
+                            border: "1px solid #991B1B",
+                            background:
+                              "linear-gradient(180deg, #DC2626 0%, #B91C1C 100%)",
+                            color: "#fff",
+                            whiteSpace: "nowrap",
+                            cursor: forcePublishLoading ? "wait" : "pointer",
+                            opacity: forcePublishLoading ? 0.7 : 1,
+                            boxShadow:
+                              "0 1px 2px rgba(153, 27, 27, 0.35), 0 0 0 0 rgba(220, 38, 38, 0.4)",
+                            transition:
+                              "transform 120ms ease, box-shadow 120ms ease, background 120ms ease",
+                            animation: forcePublishLoading
+                              ? "none"
+                              : "fpUrgentCtaPulse 2.4s ease-out infinite",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (forcePublishLoading) return;
+                            e.currentTarget.style.background =
+                              "linear-gradient(180deg, #B91C1C 0%, #991B1B 100%)";
+                            e.currentTarget.style.transform = "translateY(-1px)";
+                          }}
+                          onMouseLeave={(e) => {
+                            if (forcePublishLoading) return;
+                            e.currentTarget.style.background =
+                              "linear-gradient(180deg, #DC2626 0%, #B91C1C 100%)";
+                            e.currentTarget.style.transform = "translateY(0)";
+                          }}
+                        >
+                          {forcePublishLoading ? "Publishing…" : (
+                            <>
+                              Publish now
+                              <BsArrowRight size={14} />
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <style>{`
+                        @keyframes fpUrgentPulse {
+                          0%   { box-shadow: 0 0 0 0   rgba(220, 38, 38, 0.55); }
+                          70%  { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0);    }
+                          100% { box-shadow: 0 0 0 0   rgba(220, 38, 38, 0);    }
+                        }
+                        @keyframes fpUrgentCtaPulse {
+                          0%, 100% { box-shadow: 0 1px 2px rgba(153, 27, 27, 0.35), 0 0 0 0   rgba(220, 38, 38, 0.4); }
+                          50%      { box-shadow: 0 1px 2px rgba(153, 27, 27, 0.35), 0 0 0 6px rgba(220, 38, 38, 0);   }
+                        }
+                      `}</style>
+                    </div>
                   )}
 
                   {/* Pending Approval Banner - Shows when RFQ is submitted for approval */}
@@ -2226,6 +2452,8 @@ const RfqManagementPreview = () => {
                             {terminateLoading ? "Processing..." : `Terminate ${getEntityLabel(rfqDetails?.is_tender)}`}
                           </button>
                         )}
+                        {/* Force Publish lives in the recovery banner above —
+                            keeping a single CTA avoids visual duplication */}
                         {enableBuyerView && rfqDetails?.status == 5 && (
                           // WH-69: the Edit button for status 5 is now
                           // rendered by the unified block above; only the
@@ -3004,6 +3232,18 @@ const RfqManagementPreview = () => {
         description={`Are you sure you want to terminate ${getEntityLabel(rfqDetails?.is_tender)} #${rfqDetails?.rfq_no || ''}?\nThis will permanently terminate the ${getEntityLabel(rfqDetails?.is_tender)}. This action cannot be undone.`}
         confirmButtonColor="danger"
         confirmButtonText={`Terminate ${getEntityLabel(rfqDetails?.is_tender)}`}
+        cancelButtonText="Cancel"
+      />
+
+      {/* Force Publish Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showForcePublishConfirmModal}
+        onClose={() => setShowForcePublishConfirmModal(false)}
+        onConfirm={handleForcePublish}
+        title="Force Publish"
+        description={`The scheduled publish time for ${getEntityLabel(rfqDetails?.is_tender)} #${rfqDetails?.rfq_no || ''} has passed but the system could not auto-publish it.\nPublishing now will notify vendors immediately and start the bidding window.`}
+        confirmButtonColor="warning"
+        confirmButtonText="Force Publish"
         cancelButtonText="Cancel"
       />
 
