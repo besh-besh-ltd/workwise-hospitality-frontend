@@ -2125,6 +2125,13 @@ const RfqManagementPreview = () => {
                   {/* RFQ Details Section */}
                   <div className="bg-light p-3 rounded-2">
                     <div className="row g-3">
+                      {rfqDetails?.title && (
+                        <div className="col-md-2 col-sm-6">
+                          <strong>Title:</strong>
+                          <div>{rfqDetails.title}</div>
+                        </div>
+                      )}
+
                       {rfqDetails?.company_name && (
                         <div className="col-md-2 col-sm-6">
                           <strong>Company Name:</strong>
