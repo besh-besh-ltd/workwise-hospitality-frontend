@@ -4,6 +4,7 @@ import { TrendingDown, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import ApprovalWorkflowSection from '../approval/ApprovalWorkflowSection';
 import { approveNegotiationRound, rejectNegotiationRound } from '@/services/negotiation';
 import { formatDisplayDate } from "@/utils/sharedFunctions";
+import ProcessScopeErrorBanner from "@/components/shared/ProcessScopeErrorBanner";
 import styles from './NegotiationUI.module.scss';
 
 const STATUS_LABELS = {
@@ -28,6 +29,9 @@ const NegotiationWorkflowModal = ({
 }) => {
   const [submitting, setSubmitting] = useState(false);
   const [showAllVendors, setShowAllVendors] = useState(false);
+  // Typed-code error from the backend (PROCESS_NOT_IN_USER_SCOPE,
+  // NO_APPROVAL_POLICY_FOR_PROCESS). Surfaces via ProcessScopeErrorBanner.
+  const [scopeError, setScopeError] = useState(null);
 
   // Extract vendor data from products for this round
   const { productName, productQty, productUnit, vendorsInRound, l1Price } = useMemo(() => {
@@ -71,12 +75,23 @@ const NegotiationWorkflowModal = ({
 
   if (!round) return null;
 
+  const captureScopeError = (error) => {
+    const payload = error?.response?.data || error?.data || error;
+    if (payload?.code) {
+      setScopeError(payload);
+      return true;
+    }
+    return false;
+  };
+
   const handleApprove = async (comment) => {
     setSubmitting(true);
+    setScopeError(null);
     try {
       await approveNegotiationRound(round.id);
       return { success: true };
     } catch (error) {
+      captureScopeError(error);
       return { success: false, error: error.message || 'Failed to approve' };
     } finally {
       setSubmitting(false);
@@ -85,10 +100,12 @@ const NegotiationWorkflowModal = ({
 
   const handleReject = async (comment) => {
     setSubmitting(true);
+    setScopeError(null);
     try {
       await rejectNegotiationRound(round.id, comment);
       return { success: true };
     } catch (error) {
+      captureScopeError(error);
       return { success: false, error: error.message || 'Failed to reject' };
     } finally {
       setSubmitting(false);
@@ -126,6 +143,10 @@ const NegotiationWorkflowModal = ({
         </button>
       </Modal.Header>
       <Modal.Body className={styles.modalBody}>
+        {/* Typed-error banner — surfaces scope / missing-policy errors raised
+            by approve/reject so the user sees a structured explanation and (for
+            admins) a deep link to fix the policy configuration. */}
+        <ProcessScopeErrorBanner error={scopeError} onDismiss={() => setScopeError(null)} />
         {/* Round Info Card */}
         <div className={styles.wfInfoCard}>
           <div className={styles.wfInfoGrid}>

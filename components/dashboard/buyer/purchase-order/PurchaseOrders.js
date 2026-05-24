@@ -17,6 +17,7 @@ import RFQListSidebar from "@/components/shared/RFQListSidebar";
 import { useSelector } from "react-redux";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
+import ProcessScopeErrorBanner from "@/components/shared/ProcessScopeErrorBanner";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import useIsMobile from "@/hooks/useIsMobile";
 import { BsList } from "react-icons/bs";
@@ -84,6 +85,8 @@ const PurchaseOrders = () => {
     canCreate,
     canApprove,
     canRegenerate: rawCanRegenerate,
+    allowedProcessIds,
+    isProcessAllowed,
     loading: permissionsLoading,
   } = useModulePermissions({
     moduleKey: "awarding",
@@ -97,6 +100,16 @@ const PurchaseOrders = () => {
   const rawCanWrite = canUpdate || canCreate;
   const canWrite = rawCanWrite && !isRfqClosed;
   const canRegenerate = rawCanRegenerate && !isRfqClosed;
+
+  // Process-scope guard: a user whose awarding.* scope is narrowed to a
+  // subset of processes should not see PO details for an out-of-scope RFQ.
+  // POs inherit process_id from their parent RFQ, so the gate keys on the
+  // RFQ's process_id. Mirrors the backend's PROCESS_NOT_IN_USER_SCOPE.
+  const processOutOfScope =
+    !!currentRfqData &&
+    currentRfqData.process_id != null &&
+    Array.isArray(allowedProcessIds) &&
+    !isProcessAllowed(currentRfqData.process_id);
 
   // Fetch RFQ metadata when rfq changes (for permission context).
   // rfqMetaLoading must gate the loader, otherwise the panel is blank during
@@ -495,8 +508,21 @@ const PurchaseOrders = () => {
                 </div>
               )}
 
+              {/* Process out of scope — render the typed banner instead of
+                  generic AccessDenied so the message names the cause and
+                  (for admins) deep-links to approval-hierarchy. */}
+              {rfq && !rfqMetaLoading && !rfqMetaError && !permissionsLoading && currentRfqData && processOutOfScope && (
+                <ProcessScopeErrorBanner
+                  error={{
+                    code: "PROCESS_NOT_IN_USER_SCOPE",
+                    message: `You don't have access to this ${currentRfqData?.is_tender === 1 ? 'tender' : 'RFQ'}'s process. Contact your administrator to update your access.`,
+                    data: { process_id: currentRfqData?.process_id, rfq_id: rfq },
+                  }}
+                />
+              )}
+
               {/* Access Denied */}
-              {rfq && !rfqMetaLoading && !rfqMetaError && !permissionsLoading && currentRfqData && !canRead && (
+              {rfq && !rfqMetaLoading && !rfqMetaError && !permissionsLoading && currentRfqData && !canRead && !processOutOfScope && (
                 <AccessDeniedPage
                   title="Access Denied"
                   message="You do not have permission to view Purchase Orders for this RFQ. Contact your administrator to request access."
@@ -505,7 +531,7 @@ const PurchaseOrders = () => {
               )}
 
               {/* Content area */}
-              {rfq && !rfqMetaLoading && !rfqMetaError && !permissionsLoading && canRead && (
+              {rfq && !rfqMetaLoading && !rfqMetaError && !permissionsLoading && canRead && !processOutOfScope && (
                 <>
 
                   {/* Closed-RFQ Lock Banner — supersedes the read-only banner. Wait for content to load. */}

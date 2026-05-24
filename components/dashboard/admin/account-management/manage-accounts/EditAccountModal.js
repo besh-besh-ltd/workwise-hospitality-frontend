@@ -172,6 +172,7 @@ const EditAccountModal = ({
       company_id: role.company_id || null,
       hotel_id: role.hotel_id || null,
       department_id: role.department_id || null,
+      process_id: role.process_id || null,
       permissions: role.permissions || {},
     }));
 

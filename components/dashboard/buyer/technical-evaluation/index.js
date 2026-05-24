@@ -17,6 +17,7 @@ import Select from 'react-select';
 import { formatDisplayDate, formatRFQNumber, getEntityLabel, checkBidExpired } from "@/utils/sharedFunctions";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
+import ProcessScopeErrorBanner from "@/components/shared/ProcessScopeErrorBanner";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import { Badge, Modal, Form } from "react-bootstrap";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
@@ -158,6 +159,8 @@ const BuyerTechnicalEvaluation = () => {
     canUpdate,
     canCreate,
     canApprove,
+    allowedProcessIds,
+    isProcessAllowed,
     loading: permissionsLoading,
   } = useModulePermissions({
     moduleKey: "te",
@@ -165,6 +168,17 @@ const BuyerTechnicalEvaluation = () => {
     departmentId: currentRfq?.department_id || null,
     enabled: !!currentRfq,
   });
+
+  // Process-scope guard: even when canRead is true, a user whose te.* scope
+  // is narrowed to a subset of processes should NOT see/edit a TE for an
+  // out-of-scope RFQ. The backend already returns 403 PROCESS_NOT_IN_USER_SCOPE
+  // for direct API calls; this surface is the matching UX guard so the page
+  // doesn't briefly render real data before the backend rejects an action.
+  const processOutOfScope =
+    !!currentRfq &&
+    currentRfq.process_id != null &&
+    Array.isArray(allowedProcessIds) &&
+    !isProcessAllowed(currentRfq.process_id);
 
   // For technical evaluation, "write" access means either update OR create permission
   // BUT: a closed RFQ (status=2) is fully locked — no scoring, no submit, no approvals
@@ -564,15 +578,15 @@ const BuyerTechnicalEvaluation = () => {
   // canRead can be stale (from previous RFQ) when this fires.
   // Access denial is handled purely by isAccessDenied in the JSX.
   useEffect(() => {
-    if (rfq_id && currentRfq && !permissionsLoading && canRead && !permissionsVerified) {
+    if (rfq_id && currentRfq && !permissionsLoading && canRead && !processOutOfScope && !permissionsVerified) {
       fetchEvaluationData();
     }
-  }, [rfq_id, currentRfq, permissionsLoading, canRead, permissionsVerified]);
+  }, [rfq_id, currentRfq, permissionsLoading, canRead, processOutOfScope, permissionsVerified]);
 
   // Access Denied check - show when user has no read permission
   // Only check when an RFQ is selected and we have permission context
   const hasPermissionContext = hotelIds.length > 0 && !!currentRfq;
-  const isAccessDenied = hasPermissionContext && !permissionsLoading && !canRead;
+  const isAccessDenied = hasPermissionContext && !permissionsLoading && (!canRead || processOutOfScope);
 
   // Inline loading state — shown inside the content area, sidebar stays visible
   // When access is denied, stop the loader so the AccessDenied banner can show
@@ -712,8 +726,20 @@ const BuyerTechnicalEvaluation = () => {
                   </div>
                 )}
 
-                {/* Access Denied - show inside content area so sidebar stays visible */}
-                {!isContentLoading && isAccessDenied && (
+                {/* Access Denied - show inside content area so sidebar stays visible.
+                    When the denial is due to process-scope (canRead true but
+                    user's te.* scope doesn't include this RFQ's process_id),
+                    use the dedicated banner so the message names the cause. */}
+                {!isContentLoading && isAccessDenied && processOutOfScope && (
+                  <ProcessScopeErrorBanner
+                    error={{
+                      code: "PROCESS_NOT_IN_USER_SCOPE",
+                      message: `You don't have access to this ${getEntityLabel(currentRfq?.is_tender)}'s process. Contact your administrator to update your access.`,
+                      data: { process_id: currentRfq?.process_id, rfq_id },
+                    }}
+                  />
+                )}
+                {!isContentLoading && isAccessDenied && !processOutOfScope && (
                   <AccessDeniedPage
                     title="Access Denied"
                     message={`You do not have permission to view technical evaluations for this ${getEntityLabel(currentRfq?.is_tender)}. Contact your administrator to request access.`}

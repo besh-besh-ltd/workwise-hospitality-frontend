@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import useModulePermissions from "@/hooks/useModulePermissions";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
+import ProcessScopeErrorBanner from "@/components/shared/ProcessScopeErrorBanner";
 import {
   downloadQuotesDetails,
   finalizeQuotation,
@@ -250,6 +251,8 @@ const QuoteCompare = () => {
     canRead: canReadQuoteCompare,
     canUpdate: canUpdateQuoteCompare,
     canCreate: canCreateQuoteCompare,
+    allowedProcessIds: qcAllowedProcessIds,
+    isProcessAllowed: qcIsProcessAllowed,
     loading: quoteComparePermissionsLoading,
   } = useModulePermissions({
     moduleKey: "quote-compare",
@@ -258,6 +261,15 @@ const QuoteCompare = () => {
   });
   const rawCanWriteQuoteCompare = canUpdateQuoteCompare || canCreateQuoteCompare;
   const canWriteQuoteCompare = rawCanWriteQuoteCompare && !isRfqClosed;
+
+  // Process-scope guard: when the user's quote-compare scope is narrowed to a
+  // subset of processes, hide pages for RFQs whose process is outside that
+  // subset. Matches the backend's PROCESS_NOT_IN_USER_SCOPE response.
+  const processOutOfScope =
+    !!currentRFQ &&
+    currentRFQ.process_id != null &&
+    Array.isArray(qcAllowedProcessIds) &&
+    !qcIsProcessAllowed(currentRFQ.process_id);
 
   // Combined loading state
   const permissionsLoading = negotiationPermissionsLoading || quoteComparePermissionsLoading;
@@ -292,6 +304,7 @@ const QuoteCompare = () => {
       rfq_type: rfqData.rfq_type,
       reverse_auction_date: rfqData.reverse_auction_date,
       status: rfqData.status,
+      process_id: rfqData.process_id ?? null,
       finalization_approval_completed: rfqData.finalization_approval_completed,
     });
     setMetadataLoadedForRfq(rfq);
@@ -354,10 +367,10 @@ const QuoteCompare = () => {
   // Without this, quotesLoading stays true (set during Stage 1 metadata) because
   // initializeRfqData() is never called when both permissions are false.
   useEffect(() => {
-    if (rfq && rfqMetadataReady && !permissionsLoading && !canReadNegotiation && !canReadQuoteCompare) {
+    if (rfq && rfqMetadataReady && !permissionsLoading && (processOutOfScope || (!canReadNegotiation && !canReadQuoteCompare))) {
       setquotesLoading(false);
     }
-  }, [rfq, rfqMetadataReady, permissionsLoading, canReadNegotiation, canReadQuoteCompare]);
+  }, [rfq, rfqMetadataReady, permissionsLoading, canReadNegotiation, canReadQuoteCompare, processOutOfScope]);
 
   // Re-fetch quotes on filter change (TA, freight, normalize) — only for already-initialized RFQ
   const filterInitialized = useRef(false);
@@ -1832,8 +1845,11 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
 // };
 
-  // Access denied check - show only if user has NO permissions for EITHER section
-  const isAccessDenied = currentRFQ && !permissionsLoading && !canReadNegotiation && !canReadQuoteCompare;
+  // Access denied check - show only if user has NO permissions for EITHER section,
+  // OR if the user's quote-compare scope excludes this RFQ's process_id.
+  const isAccessDenied =
+    currentRFQ && !permissionsLoading &&
+    ((!canReadNegotiation && !canReadQuoteCompare) || processOutOfScope);
 
   // Inline loading — single loader for the entire right section
   // When access is denied, stop showing the spinner so the AccessDenied banner can render
@@ -1992,8 +2008,17 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   </div>
                 )}
 
-                {/* Access Denied */}
-                {!isContentLoading && isAccessDenied ? (
+                {/* Access Denied — use the process-scope banner when the
+                    reason is "user not scoped for this RFQ's process". */}
+                {!isContentLoading && isAccessDenied && processOutOfScope ? (
+                  <ProcessScopeErrorBanner
+                    error={{
+                      code: "PROCESS_NOT_IN_USER_SCOPE",
+                      message: `You don't have access to this ${getEntityLabel(currentRFQ?.is_tender)}'s process. Contact your administrator to update your access.`,
+                      data: { process_id: currentRFQ?.process_id, rfq_id: rfq },
+                    }}
+                  />
+                ) : !isContentLoading && isAccessDenied ? (
                   <AccessDeniedPage showBackButton={false} />
                 ) : !isContentLoading ? (
                 <>
