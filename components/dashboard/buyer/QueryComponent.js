@@ -49,8 +49,8 @@ const handleToggleVendor = (vendorId) => {
       // Mask vendor names when coming from RFQ management (pre-commercial stage) or for tenders
       const isTender = rfqDetails?.is_tender === 1 || rfqDetails?.is_tender === "1";
       const shouldMaskVendors = isTender || source === 'rfq-management';
-      const normalizedVendors = rawVendors.map((v, index) => {
-        const vendor_code = `Vendor ${index + 1}`;
+      const normalizedVendors = rawVendors.map((v) => {
+        const vendor_code = `Vendor #${v.user_id}`;
 
         let display_name;
         if (shouldMaskVendors) {
@@ -165,8 +165,8 @@ const handleSelectVendor = (vendor) => {
     if (!shouldMask) return;
 
     setVendors(prev =>
-      prev.map((v, index) => {
-        const vendor_code = `Vendor ${index + 1}`;
+      prev.map((v) => {
+        const vendor_code = `Vendor #${v.user_id}`;
         return { ...v, display_name: vendor_code, vendor_code };
       })
     );

@@ -382,6 +382,82 @@ $brand-blue-soft: #eef2ff;
   gap: 6px;
 }
 
+/* ── Comment ────────────────────────────────────────────────────────── */
+
+.commentSection {
+  margin-bottom: 14px;
+}
+
+.commentLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-primary;
+  margin-bottom: 6px;
+  letter-spacing: 0.2px;
+}
+
+.commentRequired {
+  color: #b91c1c;
+  margin-left: 2px;
+}
+
+.commentInput {
+  width: 100%;
+  border: 1px solid $border-soft;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: $text-primary;
+  background: #ffffff;
+  resize: vertical;
+  min-height: 72px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.commentInput:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.commentInput:disabled {
+  background: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.commentInputError {
+  border-color: #b91c1c;
+}
+
+.commentInputError:focus {
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.15);
+}
+
+.commentHelpRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 5px;
+  font-size: 11.5px;
+}
+
+.commentHelpText {
+  color: $text-muted;
+}
+
+.commentErrorText {
+  color: #b91c1c;
+  font-weight: 500;
+}
+
+.commentCounter {
+  color: $text-muted;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Footer ─────────────────────────────────────────────────────────── */
 
 .footer {

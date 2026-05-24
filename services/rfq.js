@@ -573,6 +573,17 @@ export const terminateRFQ = (id) => {
   });
 };
 
+export const forcePublishRFQ = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/force-publish/${id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const sendReminder = (id) => {
   return new Promise(async (resolve, reject) => {
     try {

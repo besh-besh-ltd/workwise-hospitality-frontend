@@ -352,6 +352,12 @@ const NegotiationModal = ({
     return approvalInstance?.status === 'APPROVED';
   };
 
+  // Check if product quotes are awaiting approver action
+  const isQuoteApprovalPending = (productId) => {
+    const approvalInstance = quoteApprovalStatuses[productId];
+    return approvalInstance?.status === 'PENDING';
+  };
+
   // Load full approval journey (all instances) for a round
   const loadApprovalJourney = async (round) => {
     const roundId = round.id;
@@ -516,6 +522,9 @@ const NegotiationModal = ({
     if (isQuoteApproved(productId)) {
       return { isDisabled: true, statusLabel: 'Approved', statusClass: styles.createStatusApproved };
     }
+    if (isQuoteApprovalPending(productId)) {
+      return { isDisabled: true, statusLabel: 'Pending Approval', statusClass: styles.createStatusPartial };
+    }
 
     // Priority 2: No valid quotes
     if (!hasQuotes(product)) {
@@ -637,19 +646,23 @@ const NegotiationModal = ({
               if (k === 'documents') {
                 try {
                   const docComments = typeof vt[k] === 'string' ? JSON.parse(vt[k]) : vt[k];
+                  const state = docComments && typeof docComments === 'object' ? docComments : {};
+                  const demand = (state.demand || '').trim();
                   const product = products.find(p => String(p.id) === String(pid));
                   const priceData = product ? getVendorPriceData(product) : { vendors: [] };
                   const vendorData = priceData.vendors.find(v => v.vendorId === vid);
                   const docFiles = vendorData?.documentFiles || [];
-                  const docTargets = Object.entries(docComments)
-                    .filter(([, comment]) => comment && comment.trim())
+                  const docTargets = Object.entries(state)
+                    .filter(([key, comment]) => key !== 'demand' && comment && String(comment).trim())
                     .map(([idx, comment]) => ({
                       document_index: parseInt(idx),
                       file_url: docFiles[parseInt(idx)]?.file_url || null,
                       comment: comment,
                     }));
-                  if (docTargets.length > 0) {
-                    fields.push({ name: 'documents', target: docTargets });
+                  if (docTargets.length > 0 || demand) {
+                    const fieldEntry = { name: 'documents', target: docTargets };
+                    if (demand) fieldEntry.demand = demand;
+                    fields.push(fieldEntry);
                   }
                 } catch { /* skip malformed */ }
                 return;
@@ -1675,7 +1688,17 @@ const NegotiationModal = ({
                                 {round.target_price != null
                                   ? `₹${parseFloat(round.target_price).toLocaleString()}`
                                   : (() => {
-                                      const fields = round.vendor_approvals?.flatMap(va => va.negotiation_fields || []) || [];
+                                      const allFields = round.vendor_approvals?.flatMap(va => va.negotiation_fields || []) || [];
+                                      // Dedupe per round: targets are set at the round level, so the same
+                                      // (name + target value) repeats once per vendor_approval. Collapse them.
+                                      const seen = new Set();
+                                      const fields = allFields.filter(f => {
+                                        const val = f.target ?? f.target_price;
+                                        const key = `${f.name}::${f.mode || ''}::${typeof val === 'object' ? JSON.stringify(val) : String(val)}`;
+                                        if (seen.has(key)) return false;
+                                        seen.add(key);
+                                        return true;
+                                      });
                                       const textNames = new Set(['payment_terms', 'comments', 'vendor_tc', 'documents']);
                                       return fields.length > 0 ? fields.map(f => {
                                         const label = f.name === 'base_price' ? 'Base Price' : f.name === 'payment_terms' ? 'Payment Terms' : f.name === 'documents' ? 'Documents' : f.name === 'comments' ? 'Comments' : (f.label || f.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
@@ -2031,17 +2054,28 @@ const NegotiationModal = ({
                                       const displayLabel = field?.label || nf.name;
                                       const quoted = field?.quoted || '--';
                                       const target = nf.target || nf.target_price;
+                                      const isDocuments = nf.name === 'documents';
+                                      const docs = isDocuments && Array.isArray(target) ? target : [];
+                                      const demand = isDocuments ? (nf.demand || '') : '';
+                                      const showTarget = isDocuments ? (docs.length > 0 || !!demand) : !!target;
                                       return (
                                         <div key={nf.name} className={`${styles.wfNegFieldCard} ${styles.wfNegFieldCardActive}`}>
                                           <div className={styles.wfNegFieldLabel}>{displayLabel}</div>
                                           <div className={styles.wfNegFieldValue}>
                                             {quoted}
-                                            {target && (
+                                            {showTarget && (
                                               <span className={styles.wfNegFieldTarget}>→ {(() => {
-                                                if (nf.name === 'documents' && Array.isArray(target)) {
-                                                  return target.map(d => (
-                                                    <div key={d.document_index} style={{ fontSize: '0.72rem' }}>Doc {(d.document_index || 0) + 1}: {d.comment}</div>
-                                                  ));
+                                                if (isDocuments) {
+                                                  return (
+                                                    <>
+                                                      {docs.map(d => (
+                                                        <div key={d.document_index} style={{ fontSize: '0.72rem' }}>Doc {(d.document_index || 0) + 1}: {d.comment}</div>
+                                                      ))}
+                                                      {demand && (
+                                                        <div style={{ fontSize: '0.72rem' }}>Demand: {demand}</div>
+                                                      )}
+                                                    </>
+                                                  );
                                                 }
                                                 if (textFieldNames.has(nf.name)) {
                                                   return typeof target === 'string' ? target : String(target);
@@ -2163,6 +2197,7 @@ const NegotiationModal = ({
                                   if (Array.isArray(pt)) return pt.map(t => `${t.value || ''}% ${t.type || ''}`).filter(Boolean).join(', ') || '--';
                                   return '--';
                                 })() },
+                                { name: 'documents', label: 'Documents', quoted: `${(src.document_files || []).length} document(s)` },
                                 ...otherCharges.map(c => ({
                                   name: c.name, label: c.name,
                                   quoted: c.amount_mode === 'percentage' ? `${c.amount}%` : `₹${Number(c.amount).toLocaleString('en-IN')}`,
@@ -2189,16 +2224,27 @@ const NegotiationModal = ({
                                       const isNeg = negFieldNames.has(field.name);
                                       const negField = negFields.find(f => f.name === field.name);
                                       const target = negField ? (negField.target || negField.target_price) : null;
+                                      const isDocuments = field.name === 'documents';
+                                      const docs = isDocuments && Array.isArray(target) ? target : [];
+                                      const demand = isDocuments ? (negField?.demand || '') : '';
+                                      const showTarget = isNeg && (isDocuments ? (docs.length > 0 || !!demand) : !!target);
                                       return (
                                         <div key={field.name} className={`${styles.wfNegFieldCard} ${isNeg ? styles.wfNegFieldCardActive : styles.wfNegFieldCardInactive}`}>
                                           <div className={styles.wfNegFieldLabel}>{field.label}</div>
                                           <div className={styles.wfNegFieldValue}>
                                             {field.quoted}
-                                            {isNeg && target && <span className={styles.wfNegFieldTarget}>→ {(() => {
-                                              if (field.name === 'documents' && Array.isArray(target)) {
-                                                return target.map(d => (
-                                                  <div key={d.document_index} style={{ fontSize: '0.72rem' }}>Doc {(d.document_index || 0) + 1}: {d.comment}</div>
-                                                ));
+                                            {showTarget && <span className={styles.wfNegFieldTarget}>→ {(() => {
+                                              if (isDocuments) {
+                                                return (
+                                                  <>
+                                                    {docs.map(d => (
+                                                      <div key={d.document_index} style={{ fontSize: '0.72rem' }}>Doc {(d.document_index || 0) + 1}: {d.comment}</div>
+                                                    ))}
+                                                    {demand && (
+                                                      <div style={{ fontSize: '0.72rem' }}>Demand: {demand}</div>
+                                                    )}
+                                                  </>
+                                                );
                                               }
                                               if (['payment_terms', 'comments', 'vendor_tc', 'documents'].includes(field.name)) {
                                                 return typeof target === 'string' ? target : String(target);
@@ -2368,40 +2414,56 @@ const NegotiationModal = ({
           )}
           {textFieldModal && textFieldModal.fieldKey === 'documents' && (() => {
             const docs = getVendorTextFieldValue(textFieldModal.vendorId, 'documents');
-            const docComments = typeof tempTextTarget === 'object' ? tempTextTarget : {};
-            if (!Array.isArray(docs) || docs.length === 0) {
-              return <p className="text-muted text-center py-3">No documents uploaded by this vendor.</p>;
-            }
+            const docComments = typeof tempTextTarget === 'object' && tempTextTarget ? tempTextTarget : {};
+            const demand = docComments.demand || '';
+            const hasDocs = Array.isArray(docs) && docs.length > 0;
             return (
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {docs.map((doc, idx) => {
-                  return (
-                    <div key={idx} className="border rounded p-2 mb-2">
-                      <div className="d-flex align-items-center justify-content-between mb-1">
-                        <span className="fw-semibold" style={{ fontSize: '0.82rem' }}>Document {idx + 1}</span>
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 600 }}>
-                          View Doc
-                        </a>
+                {hasDocs ? (
+                  docs.map((doc, idx) => {
+                    return (
+                      <div key={idx} className="border rounded p-2 mb-2">
+                        <div className="d-flex align-items-center justify-content-between mb-1">
+                          <span className="fw-semibold" style={{ fontSize: '0.82rem' }}>Document {idx + 1}</span>
+                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 600 }}>
+                            View Doc
+                          </a>
+                        </div>
+                        <textarea
+                          className="form-control"
+                          rows={2}
+                          value={docComments[String(idx)] || ''}
+                          onChange={(e) => {
+                            setTempTextTarget(prev => ({ ...(typeof prev === 'object' && prev ? prev : {}), [String(idx)]: e.target.value }));
+                          }}
+                          placeholder="Enter your comment for this document..."
+                          style={{ fontSize: '0.85rem' }}
+                        />
                       </div>
-                      <textarea
-                        className="form-control"
-                        rows={2}
-                        value={docComments[String(idx)] || ''}
-                        onChange={(e) => {
-                          setTempTextTarget(prev => ({ ...(typeof prev === 'object' ? prev : {}), [String(idx)]: e.target.value }));
-                        }}
-                        placeholder="Enter your comment for this document..."
-                        style={{ fontSize: '0.85rem' }}
-                      />
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  <p className="text-muted text-center py-3 mb-2">No documents uploaded by this vendor.</p>
+                )}
+                <div className="mt-2">
+                  <label className="fw-semibold mb-1 d-block" style={{ fontSize: '0.82rem' }}>Demand document(s)</label>
+                  <textarea
+                    className="form-control"
+                    rows={2}
+                    value={demand}
+                    onChange={(e) => {
+                      setTempTextTarget(prev => ({ ...(typeof prev === 'object' && prev ? prev : {}), demand: e.target.value }));
+                    }}
+                    placeholder="Specify the document(s) you want the vendor to provide..."
+                    style={{ fontSize: '0.85rem' }}
+                  />
+                </div>
               </div>
             );
           })()}
         </Modal.Body>
         <div style={{ padding: '10px 16px', borderTop: '1px solid #dee2e6', display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="button" className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '4px 16px' }} onClick={handleSaveTextFieldTarget}>Set Target</button>
+          <button type="button" className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '4px 16px' }} onClick={handleSaveTextFieldTarget}>{textFieldModal?.fieldKey === 'documents' ? 'Set Demand' : 'Set Target'}</button>
         </div>
       </Modal>
     </>

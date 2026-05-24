@@ -489,7 +489,7 @@ const VendorAccordionPanel = ({
                           {isActive && isSelected && field.isGlobalReadOnly && globalTarget && (
                             <>
                               <span className={styles.vendorCardArrow}>→</span>
-                              <span style={{ fontWeight: 600, color: 'var(--primary-color)' }}>
+                              <span style={{ fontWeight: 600, color: 'var(--primary-color)', wordBreak: 'break-word', overflowWrap: 'anywhere', minWidth: 0 }}>
                                 {field.hasMode
                                   ? ((globalFormData[field.modeKey] || 'percentage') === 'percentage' ? `${globalTarget}%` : `₹${globalTarget}`)
                                   : `₹${globalTarget}`

@@ -127,6 +127,7 @@ const QuoteCompareTable = ({
   const [availableHierarchies, setAvailableHierarchies] = useState([true]);
   const [useLegacyHierarchy, setUseLegacyHierarchy] = useState(false);
   const [selectedRouteType, setSelectedRouteType] = useState(null); // 'ARC' or 'PO'
+  const [finalizeComment, setFinalizeComment] = useState('');
   const [quoteApprovalStatus, setQuoteApprovalStatus] = useState(null); // Quote approval status for tenders
   const [approvalRefreshKey, setApprovalRefreshKey] = useState(0); // Key to refresh approval 
   
@@ -974,22 +975,24 @@ const QuoteCompareTable = ({
       <FinalizeVendorModal
         show={activeModal == 'finalize'}
         onHide={() => setActiveModal(null)}
-        onConfirm={(selectedPOId) => {
+        onConfirm={(selectedPOId, commentFromModal) => {
+          const commentTrimmed = (commentFromModal || '').trim();
+          setFinalizeComment(commentTrimmed);
           setExistingPOId(selectedPOId);
           // Automatically determine route based on is_tender
           const isTender = proditem?.rfq?.[0]?.is_tender === 1 || proditem?.rfq?.[0]?.is_tender === true;
           const routeType = isTender ? 'ARC' : 'PO';
           setSelectedRouteType(routeType);
-          
+
           if (routeType === 'ARC') {
             // ARC route: finalize directly without hierarchy selection
-            handleFinalize(currentItem, proditem, existingPOId, null, 'ARC');
+            handleFinalize(currentItem, proditem, existingPOId, null, 'ARC', commentTrimmed);
             setActiveModal(null);
           } else {
             // PO route
             if (!useLegacyHierarchy) {
               // Hospitality context: backend handles hierarchy, skip selection
-              handleFinalize(currentItem, proditem, selectedPOId, null, 'PO');
+              handleFinalize(currentItem, proditem, selectedPOId, null, 'PO', commentTrimmed);
               setActiveModal(null);
             } else if (availableHierarchies.length <= 0) {
               toast.error("You cannot finalize a vendor, as you don't belong to the company's PO approval hierarchy");
@@ -1017,7 +1020,7 @@ const QuoteCompareTable = ({
         hierarchies={availableHierarchies}
         onConfirm={(selectedHierarchy) => {
           // Use selected route type (defaults to PO)
-          handleFinalize(currentItem, proditem, existingPOId, selectedHierarchy, selectedRouteType || 'PO');
+          handleFinalize(currentItem, proditem, existingPOId, selectedHierarchy, selectedRouteType || 'PO', finalizeComment);
           setActiveModal(null);
         }}
       />
