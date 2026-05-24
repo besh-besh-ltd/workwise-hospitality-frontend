@@ -150,6 +150,8 @@ const NegotiationModal = ({
   const [selectedVendors, setSelectedVendors] = useState({}); // { [productId]: [vendorId, ...] }
   // Charge names from API
   const [chargeNamesList, setChargeNamesList] = useState([]); // All charge names from /rfq/charge-names
+  // Search term for filtering the product accordion list in create mode
+  const [productSearchTerm, setProductSearchTerm] = useState('');
 
   const toggleCardFlip = (productId, e) => {
     e.stopPropagation();
@@ -172,6 +174,7 @@ const NegotiationModal = ({
       setVendorTargets({});
       setFlippedCards({});
       setSelectedVendors({});
+      setProductSearchTerm('');
       loadQuoteApprovalStatuses();
       // Fetch charge names for negotiation fields
       getChargeNames().then(res => {
@@ -721,7 +724,12 @@ const NegotiationModal = ({
         setTempTextTarget(typeof existing === 'string' ? JSON.parse(existing) : (existing || {}));
       } catch { setTempTextTarget({}); }
     } else {
-      setTempTextTarget(vendorTargets[vendorId]?.[fieldKey] || '');
+      // Per-vendor override wins; otherwise seed from the global target value
+      // entered in Negotiation Fields (e.g. formData.target_payment_terms).
+      // Edits saved here will overwrite the per-vendor target.
+      const localTarget = vendorTargets[vendorId]?.[fieldKey];
+      const globalTarget = formData?.[getChargeTargetKey(fieldKey)];
+      setTempTextTarget(localTarget || globalTarget || '');
     }
     setTextFieldModal({ vendorId, fieldKey, fieldLabel });
   };
@@ -1282,8 +1290,27 @@ const NegotiationModal = ({
   const renderCreateForm = () => {
     const availableProducts = products.filter(p => !getProductRoundStatus(p.id).isDisabled);
 
+    const q = productSearchTerm.trim().toLowerCase();
+    const filteredProducts = q
+      ? products.filter((p) => {
+          const d = getProductDetails(p);
+          return (
+            (d.name || '').toLowerCase().includes(q) ||
+            (d.spec || '').toLowerCase().includes(q) ||
+            (d.size || '').toLowerCase().includes(q)
+          );
+        })
+      : products;
+
     return (
       <Form onSubmit={handleSubmit}>
+        <div className={styles.createNoticeBanner} role="note">
+          <span className={styles.createNoticeIcon} aria-hidden="true">i</span>
+          <span>
+            Heads up: a target at or above the vendor's current price will close
+            that field's negotiation automatically.
+          </span>
+        </div>
         <section className={styles.createSurface}>
           <div className={styles.createHeaderRow}>
             <div>
@@ -1297,24 +1324,42 @@ const NegotiationModal = ({
             </span>
           </div>
 
+          {products.length > 0 && (
+            <div className={styles.createSearchRow}>
+              <input
+                type="text"
+                className={styles.createSearchInput}
+                placeholder="Search products by name, spec, or size…"
+                value={productSearchTerm}
+                onChange={(e) => setProductSearchTerm(e.target.value)}
+              />
+            </div>
+          )}
+
           {products.length === 0 ? (
             <div className={styles.createEmpty}>
               <p className={styles.createEmptyTitle}>No products found</p>
               <p className={styles.createEmptySub}>Load an RFQ with products to create rounds.</p>
             </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className={styles.createEmpty}>
+              <p className={styles.createEmptyTitle}>No matching products</p>
+              <p className={styles.createEmptySub}>Try a different search term.</p>
+            </div>
           ) : (
             <div className={styles.createProductList}>
-              {products.map((product) => {
+              {filteredProducts.map((product) => {
                 const { isDisabled, statusLabel, statusClass } = getProductRoundStatus(product.id);
                 const isSelected = selectedProducts.includes(product.id);
                 const details = getProductDetails(product);
 
                 const priceData = getVendorPriceData(product);
                 const isFlipped = flippedCards[product.id];
+                const hasVendorsSelected = (selectedVendors[product.id] || []).length > 0;
 
                 return (
+                  <div key={product.id} className={styles.createProductItem}>
                   <div
-                    key={product.id}
                     className={`${styles.flipContainer} ${isFlipped ? styles.flipContainerFlipped : ''}`}
                   >
                     <div className={styles.flipInner}>
@@ -1442,6 +1487,64 @@ const NegotiationModal = ({
                       </div>
                     </div>
                   </div>
+
+                  <div
+                    className={`${styles.productAccordionBody} ${
+                      isSelected ? styles.productAccordionBodyOpen : ''
+                    }`}
+                  >
+                    {isSelected && (
+                      <>
+                        <NegotiationFieldsSelect
+                          selectedFields={formData.negotiation_fields}
+                          onToggleField={(fieldValue) => {
+                            setFormData(prev => {
+                              const current = prev.negotiation_fields;
+                              const next = current.includes(fieldValue)
+                                ? current.filter(f => f !== fieldValue)
+                                : [...current, fieldValue];
+                              return { ...prev, negotiation_fields: next };
+                            });
+                          }}
+                          formData={formData}
+                          onFormChange={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
+                          disabled={!hasVendorsSelected}
+                          defaultCharges={chargeNamesList.filter(c => c.created_by === null)}
+                        />
+
+                        <VendorAccordionPanel
+                          product={product}
+                          selectedVendorIds={selectedVendors[product.id] || []}
+                          onVendorToggle={(vid) => handleVendorToggle(product.id, vid)}
+                          onSelectAll={() => handleSelectAllVendors(product.id)}
+                          getVendorDisplayName={getVendorDisplayName}
+                          selectedFields={formData.negotiation_fields}
+                          vendorPriceData={priceData}
+                          chargeNamesList={chargeNamesList}
+                          vendorTargets={vendorTargets}
+                          onVendorTargetChange={(vendorId, fieldKey, value) => {
+                            setVendorTargets(prev => ({
+                              ...prev,
+                              [vendorId]: { ...(prev[vendorId] || {}), [fieldKey]: value }
+                            }));
+                          }}
+                          onVendorLocalFieldToggle={(vendorId, fieldKey) => {
+                            setVendorTargets(prev => {
+                              const vendorData = prev[vendorId] || {};
+                              const localFields = vendorData._localFields || [];
+                              const nextFields = localFields.includes(fieldKey)
+                                ? localFields.filter(f => f !== fieldKey)
+                                : [...localFields, fieldKey];
+                              return { ...prev, [vendorId]: { ...vendorData, _localFields: nextFields } };
+                            });
+                          }}
+                          globalFormData={formData}
+                          onOpenTextFieldModal={handleOpenTextFieldModal}
+                        />
+                      </>
+                    )}
+                  </div>
+                  </div>
                 );
               })}
             </div>
@@ -1453,77 +1556,6 @@ const NegotiationModal = ({
             </p>
           )}
         </section>
-
-        {selectedProducts.length > 0 && (() => {
-          const selectedProduct = products.find(p => p.id === selectedProducts[0]);
-          if (!selectedProduct) return null;
-          const priceData = getVendorPriceData(selectedProduct);
-          const hasVendorsSelected = (selectedVendors[selectedProduct.id] || []).length > 0;
-
-          // Collect unique charge names from all vendors
-          const dynamicChargeNames = [];
-          const seenChargeNames = new Set();
-          (priceData.vendors || []).forEach(v => {
-            (v.otherCharges || []).forEach(c => {
-              if (c.name && !seenChargeNames.has(c.name)) {
-                seenChargeNames.add(c.name);
-                dynamicChargeNames.push(c.name);
-              }
-            });
-          });
-
-          return (
-            <>
-              <NegotiationFieldsSelect
-                selectedFields={formData.negotiation_fields}
-                onToggleField={(fieldValue) => {
-                  setFormData(prev => {
-                    const current = prev.negotiation_fields;
-                    const next = current.includes(fieldValue)
-                      ? current.filter(f => f !== fieldValue)
-                      : [...current, fieldValue];
-                    return { ...prev, negotiation_fields: next };
-                  });
-                }}
-                formData={formData}
-                onFormChange={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
-                disabled={!hasVendorsSelected}
-                defaultCharges={chargeNamesList.filter(c => c.created_by === null)}
-              />
-
-              <VendorAccordionPanel
-                product={selectedProduct}
-                selectedVendorIds={selectedVendors[selectedProduct.id] || []}
-                onVendorToggle={(vid) => handleVendorToggle(selectedProduct.id, vid)}
-                onSelectAll={() => handleSelectAllVendors(selectedProduct.id)}
-                getVendorDisplayName={getVendorDisplayName}
-                selectedFields={formData.negotiation_fields}
-                vendorPriceData={priceData}
-                chargeNamesList={chargeNamesList}
-                vendorTargets={vendorTargets}
-                onVendorTargetChange={(vendorId, fieldKey, value) => {
-                  setVendorTargets(prev => ({
-                    ...prev,
-                    [vendorId]: { ...(prev[vendorId] || {}), [fieldKey]: value }
-                  }));
-                }}
-                onVendorLocalFieldToggle={(vendorId, fieldKey) => {
-                  setVendorTargets(prev => {
-                    const vendorData = prev[vendorId] || {};
-                    const localFields = vendorData._localFields || [];
-                    const nextFields = localFields.includes(fieldKey)
-                      ? localFields.filter(f => f !== fieldKey)
-                      : [...localFields, fieldKey];
-                    return { ...prev, [vendorId]: { ...vendorData, _localFields: nextFields } };
-                  });
-                }}
-                globalFormData={formData}
-                onOpenTextFieldModal={handleOpenTextFieldModal}
-              />
-
-            </>
-          );
-        })()}
       </Form>
     );
   };

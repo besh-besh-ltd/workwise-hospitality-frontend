@@ -483,7 +483,7 @@ const VendorAccordionPanel = ({
                           )}
                           {isTextField && (
                             <span className={styles.vendorQuoteCardValue} style={{ fontSize: '0.7rem' }}>
-                              {localTarget ? 'Target set' : 'Click to set target'}
+                              {localTarget || globalTarget ? 'Target set' : 'Click to set target'}
                             </span>
                           )}
                           {isActive && isSelected && field.isGlobalReadOnly && globalTarget && (
