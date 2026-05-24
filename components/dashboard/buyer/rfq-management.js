@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from 'next/router';
-import { ClipboardCheck, FileText, FilePenLine, XCircle, CheckCircle2 } from "lucide-react";
 import ManageRFQ from "./manageRFQ/ManageRFQ";
 import CreateRFQ from "./createRFQ/CreateRFQ";
 import DraftRFQ from "./draftRFQ/DraftRFQ";
@@ -10,20 +8,19 @@ import PendingApprovalsList from "./manageRFQ/PendingApprovalsList";
 import FilterSection from "@/components/shared/FilterSection";
 import { getPendingApprovalRFQs } from "@/services/rfq";
 import { TwoPanelPage } from "@/components/layout/DashboardShell";
-import useIsMobile from "@/hooks/useIsMobile";
-import styles from "@/components/layout/DashboardShell/DashboardShell.module.css";
+import styles from "./rfq-management.module.scss";
 
 const TAB_CONFIG = [
-  { key: "pendingRFQs", label: "Approval Pending RFQs", urlKey: "pending-rfq", Icon: ClipboardCheck, showBadge: true },
-  { key: "manageRFQs", label: "Running RFQs", urlKey: "manage-rfq", Icon: FileText },
-  { key: "draftRFQs", label: "Draft RFQs", urlKey: "draft-rfq", Icon: FilePenLine },
-  { key: "closedRFQs", label: "Closed RFQs", urlKey: "closed-rfq", Icon: XCircle },
-  { key: "completedRFQs", label: "Approved RFQs", urlKey: "completed-rfq", Icon: CheckCircle2 },
+  { key: "pendingRFQs", label: "Approval Pending", urlKey: "pending-rfq", showBadge: true },
+  { key: "manageRFQs", label: "Running", urlKey: "manage-rfq" },
+  { key: "draftRFQs", label: "Drafts", urlKey: "draft-rfq" },
+  { key: "closedRFQs", label: "Closed", urlKey: "closed-rfq" },
+  { key: "completedRFQs", label: "Approved", urlKey: "completed-rfq" },
 ];
 
 const URL_TO_TAB = {};
 TAB_CONFIG.forEach(t => { URL_TO_TAB[t.urlKey] = t.key; });
-// Hidden tab (not in sidebar nav, but accessible via URL)
+// Hidden tab (not in pill nav, but accessible via URL)
 URL_TO_TAB['create-rfq'] = 'createRFQs';
 
 const RfqManagement = () => {
@@ -32,7 +29,6 @@ const RfqManagement = () => {
   const [pendingRFQs, setPendingRFQs] = useState([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [listLoading, setListLoading] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filterData, setFilterData] = useState({
     project_id: -1,
     rfq_type: "",
@@ -45,7 +41,6 @@ const RfqManagement = () => {
   });
   const router = useRouter();
   const {tab} = router.query;
-  const isMobile = useIsMobile();
 
   const isInitialMount = useRef(true);
 
@@ -101,7 +96,7 @@ const RfqManagement = () => {
   }, [router])
 
 
-  const showFilters = activeTab === "pendingRFQs" || activeTab === "manageRFQs" || activeTab === "closedRFQs" || activeTab === "completedRFQs";
+  const showFilters = activeTab === "pendingRFQs" || activeTab === "manageRFQs" || activeTab === "closedRFQs" || activeTab === "completedRFQs" || activeTab === "draftRFQs";
 
   const activeFilterData = useMemo(() => ({ ...filterData, completed_status: 'active' }), [filterData]);
   const completedFilterData = useMemo(() => ({ ...filterData, completed_status: 'completed' }), [filterData]);
@@ -120,51 +115,29 @@ const RfqManagement = () => {
     );
   };
 
-  // Build the tab sub-sidebar
-  const tabNav = (
-    <div className={styles.tabSidebar}>
-      <div className={styles.tabSidebarHeader}>
-        <h2 className={styles.tabSidebarTitle}>Tender / RFQ Management</h2>
-      </div>
-      <nav className={styles.tabSidebarNav}>
-        {TAB_CONFIG.map((tabItem) => {
-          const isActive = activeTab === tabItem.key;
-          const Icon = tabItem.Icon;
-          return (
-            <button
-              key={tabItem.key}
-              id={`${tabItem.key}-rfq_tabs-rfq_management_page`}
-              className={`${styles.tabSidebarItem} ${isActive ? styles.tabSidebarItemActive : ""}`}
-              onClick={() => { handleTabChange(tabItem.key); if (isMobile) setSidebarOpen(false); }}
-            >
-              <span className={styles.tabSidebarIcon}>
-                <Icon size={16} strokeWidth={1.75} />
-              </span>
-              <span className={styles.tabSidebarLabel}>{tabItem.label}</span>
-              {tabItem.showBadge && pendingCount > 0 && (
-                <span className={styles.tabSidebarBadge}>{pendingCount}</span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
+  // Tab pill bar — minimal flat group (no icons, inline count after label)
+  const tabPillBar = (
+    <div className={styles.tabPills}>
+      {TAB_CONFIG.map((tabItem) => {
+        const isActive = activeTab === tabItem.key;
+        const showCount = tabItem.showBadge && pendingCount > 0;
+        return (
+          <button
+            key={tabItem.key}
+            id={`${tabItem.key}-rfq_tabs-rfq_management_page`}
+            type="button"
+            className={`${styles.tabPill} ${isActive ? styles.tabPillActive : ""}`}
+            onClick={() => handleTabChange(tabItem.key)}
+          >
+            <span>{tabItem.label}</span>
+            {showCount && (
+              <span className={styles.tabPillCount}>{pendingCount}</span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
-
-  // On mobile, portal the tab sidebar as a drawer to escape display:none parent
-  const mobileDrawer = isMobile && typeof document !== "undefined" ? createPortal(
-    <>
-      {sidebarOpen && <div className={styles.mobileDrawerOverlay} onClick={() => setSidebarOpen(false)} />}
-      <div className={`${styles.mobileDrawerToggle} ${sidebarOpen ? styles.mobileDrawerToggleOpen : ""}`}>
-        {tabNav}
-      </div>
-    </>,
-    document.body
-  ) : null;
-
-  const tabSidebar = isMobile ? (
-    <>{tabNav}{mobileDrawer}</>
-  ) : tabNav;
 
   // The shell header should reflect what's actually being shown — when the
   // (URL-only) Create RFQ tab is active, the listing-page title would be
@@ -181,11 +154,16 @@ const RfqManagement = () => {
     <TwoPanelPage
       title={pageTitle}
       subtitle={pageSubtitle}
-      sidebar={tabSidebar}
-      filters={showFilters ? <FilterSection setFilterData={setFilterData} disabled={pendingLoading || listLoading} /> : null}
-      onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
-      mobileSidebarOpen={sidebarOpen}
-      mobileToggleLabel="Switch view"
+      filters={
+        !isCreateTab ? (
+          <>
+            {tabPillBar}
+            {showFilters && (
+              <FilterSection setFilterData={setFilterData} disabled={pendingLoading || listLoading} />
+            )}
+          </>
+        ) : null
+      }
     >
 
       <div className="mt-2">
@@ -206,7 +184,7 @@ const RfqManagement = () => {
           <ManageRFQ filterData={activeFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
         )}
         {activeTab === "draftRFQs" && (
-          <DraftRFQ/>
+          <DraftRFQ filterData={filterData} setFilterData={setFilterData} />
         )}
         {activeTab === "closedRFQs" && (
           <ManageRFQ filterData={closedFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
