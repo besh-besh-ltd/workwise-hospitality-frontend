@@ -2494,7 +2494,10 @@ const RfqManagementPreview = () => {
                               {hasTdsData && <th style={{ minWidth: "50px", maxWidth: "90px", width: "auto" }}>TDS</th>}
                               {hasQapData && <th style={{ minWidth: "50px", maxWidth: "90px", width: "auto" }}>QAP</th>}
                               {type != "buyer-view" && (
-                                <th style={{ minWidth: "90px", maxWidth: "130px", width: "auto" }}>Status</th>
+                                <th style={{ minWidth: "110px", maxWidth: "140px", width: "auto" }}>Quote Submitted</th>
+                              )}
+                              {type != "buyer-view" && (
+                                <th style={{ minWidth: "130px", maxWidth: "170px", width: "auto" }}>Quote Price</th>
                               )}
                               {type != "buyer-view" && (
                                 <th style={{ minWidth: "120px", maxWidth: "170px", width: "auto" }}>Finalization Status</th>
@@ -2747,6 +2750,37 @@ const RfqManagementPreview = () => {
                                           <span className="badge bg-success">Submitted</span>
                                         ) : (
                                           <span className="badge bg-warning text-dark">Pending</span>
+                                        )}
+                                      </td>
+                                    );
+                                  })()}
+                                  {type != "buyer-view" && (() => {
+                                    // Match this product to its line in the
+                                    // engine-computed totals so we can show the
+                                    // submitted per-product total + unit price.
+                                    const vendorQuote = rfqDetails?.quotations?.[0];
+                                    const quoteProducts = Array.isArray(vendorQuote?.products) ? vendorQuote.products : [];
+                                    const lineIndex = quoteProducts.findIndex(
+                                      (qp) => qp.product_id === item.product_id && qp.variant === item.variant
+                                    );
+                                    const line = lineIndex >= 0 ? (submittedQuoteTotals?.lines || [])[lineIndex] : null;
+                                    const totalVal = Number(line?.total) || 0;
+                                    const unitPriceVal = lineIndex >= 0 ? Number(quoteProducts[lineIndex]?.unit_price) || 0 : 0;
+                                    return (
+                                      <td>
+                                        {totalVal > 0 ? (
+                                          <div style={{ lineHeight: 1.25 }}>
+                                            <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1f2937" }}>
+                                              {formatPrice(totalVal)}
+                                            </div>
+                                            {unitPriceVal > 0 && (
+                                              <div style={{ fontSize: "0.78rem", color: "#6c757d", fontWeight: 500 }}>
+                                                Unit price {formatPrice(unitPriceVal)}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted">--</span>
                                         )}
                                       </td>
                                     );

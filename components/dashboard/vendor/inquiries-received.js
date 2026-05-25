@@ -370,7 +370,23 @@ const getQuoteStatus = async (rfq_id) => {
                                 return (
                                   <tr key={`rfq-item-${item.rfq_no}`}>
                                     <td>
-                                      #{item.rfq_no}
+                                      {item.title && (
+                                        <div
+                                          style={{
+                                            fontSize: "0.95rem",
+                                            color: "#1f2937",
+                                            fontWeight: 600,
+                                            marginBottom: 2,
+                                            lineHeight: 1.3,
+                                          }}
+                                          title={item.title}
+                                        >
+                                          {item.title}
+                                        </div>
+                                      )}
+                                      <span style={{ fontSize: "0.78rem", color: "#6c757d", fontWeight: 500 }}>
+                                        #{item.rfq_no}
+                                      </span>
                                       {getNegotiationBadge(item.id)}
                                     </td>
                                     <td>{getProductsList(item)}</td>

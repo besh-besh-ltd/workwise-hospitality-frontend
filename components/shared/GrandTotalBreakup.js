@@ -89,7 +89,7 @@ const GrandTotalBreakup = ({
     const col1Subtotal = col1Items.reduce((acc, item) => acc + Number(item.value || 0), 0);
 
     const col2Items = [
-      { label: "Tax on Base", value: Number(totalBaseTax) || 0 },
+      { label: "GST", value: Number(totalBaseTax) || 0 },
       ...taxBreakdown,
     ].filter((item) => item.value > 0);
     const col2Subtotal = col2Items.reduce((acc, item) => acc + Number(item.value || 0), 0);
