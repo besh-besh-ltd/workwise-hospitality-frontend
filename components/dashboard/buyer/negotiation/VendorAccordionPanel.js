@@ -419,6 +419,11 @@ const VendorAccordionPanel = ({
                         ? styles.vendorQuoteCardWarning
                         : '';
 
+                    // Dim the card when target ≥ quoted — visual cue that
+                    // this field will be excluded from the negotiation round.
+                    const isExcluded = compResult === 'greater' || compResult === 'equal';
+                    const excludedClass = isExcluded ? styles.vendorQuoteCardExcluded : '';
+
                     const tooltipText = compResult === 'greater'
                       ? `Quoted value is lower than the target price (${comparison.diffAmt} / ${comparison.diffPct} higher)`
                       : compResult === 'equal'
@@ -450,7 +455,7 @@ const VendorAccordionPanel = ({
                         key={field.value}
                         className={`${styles.vendorQuoteCard} ${
                           isActive ? styles.vendorQuoteCardSelected : styles.vendorQuoteCardMuted
-                        } ${validationClass}`}
+                        } ${validationClass} ${excludedClass}`}
                         onClick={(e) => {
                           if (field.isGlobalReadOnly) return;
                           if (!isSelected || e.target.closest('input') || e.target.closest('button')) return;
@@ -483,7 +488,7 @@ const VendorAccordionPanel = ({
                           )}
                           {isTextField && (
                             <span className={styles.vendorQuoteCardValue} style={{ fontSize: '0.7rem' }}>
-                              {localTarget || globalTarget ? 'Target set' : 'Click to set target'}
+                              {localTarget || globalTarget ? 'Click to view target' : 'Click to set target'}
                             </span>
                           )}
                           {isActive && isSelected && field.isGlobalReadOnly && globalTarget && (

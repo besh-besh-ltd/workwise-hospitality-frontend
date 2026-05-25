@@ -565,6 +565,12 @@ $status-colors: (
   box-shadow: 0 0 0 2px rgba(46, 91, 168, 0.14);
 }
 
+.fieldInputError,
+.fieldInputError:focus {
+  border-color: #d93025;
+  box-shadow: 0 0 0 2px rgba(217, 48, 37, 0.15);
+}
+
 .formHint {
   margin-top: 6px;
   font-size: 11px;
@@ -1630,6 +1636,14 @@ $status-colors: (
   letter-spacing: -0.3px;
 }
 
+.createMetaValueL1Base {
+  margin: 2px 0 0;
+  color: #4a7c50;
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.1px;
+}
+
 /* ── Chart Toggle Button ── */
 
 .chartToggleRow {
@@ -2589,14 +2603,14 @@ $status-colors: (
   align-items: flex-start;
   gap: 10px;
   padding: 10px 14px;
-  margin: 0 0 14px;
-  background: #fff8e1;
-  border: 1px solid #ffe0a3;
-  border-left: 3px solid #f5a623;
+  margin: 16px 0 14px;
+  background: #fdecec;
+  border: 1px solid #f5b5b5;
+  border-left: 3px solid #d93025;
   border-radius: 8px;
   font-size: 12.5px;
   line-height: 1.5;
-  color: #5f4513;
+  color: #7a1f1a;
 }
 
 .createNoticeIcon {
@@ -2604,7 +2618,7 @@ $status-colors: (
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #f5a623;
+  background: #d93025;
   color: #fff;
   display: inline-flex;
   align-items: center;
@@ -2618,12 +2632,17 @@ $status-colors: (
 /* ── Product List Search (Create Mode) ── */
 
 .createSearchRow {
-  margin: 0 0 12px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #fff;
+  padding: 6px 0;
+  margin: 0 0 8px;
 }
 
 .createSearchInput {
   width: 100%;
-  padding: 10px 12px;
+  padding: 6px 10px;
   border: 1px solid #d7e0ed;
   border-radius: 8px;
   background: #fff;
@@ -2748,6 +2767,15 @@ $status-colors: (
 .vendorQuoteCardWarning {
   background: #fefce8 !important;
   border-color: #e5d5a0 !important;
+}
+
+/* Applied when the effective target ≥ vendor's quoted value — the field
+ * will be dropped from the negotiation payload, so dim the card to signal
+ * "not considered". Inputs inside the card stay clickable so the user can
+ * fix the value; opacity is just a visual cue. */
+.vendorQuoteCardExcluded {
+  opacity: 0.55;
+  filter: grayscale(0.25);
 }
 
 .vendorQuoteCardMuted {
