@@ -273,13 +273,12 @@ const getQuoteStatus = async (rfq_id) => {
                       <table className="table table-striped border-0 mb-0 ">
                         <thead>
                           <tr>
-                            <th>Tender / RFQ ID</th>
-                            <th>Products</th>
+                            <th style={{ minWidth: 200 }}>Tender / RFQ ID</th>
+                            <th style={{ maxWidth: 380 }}>Products</th>
                             <th>Company</th>
                             <th>Received Date</th>
                             <th>End Date</th>
                             <th>Quote Sent</th>
-                            <th>Reverse Auction</th>
                             <th>Action</th>
                             <th>Query</th>
                           </tr>
@@ -352,13 +351,12 @@ const getQuoteStatus = async (rfq_id) => {
                         <table className="table table-striped border-0 mb-0 ">
                           <thead>
                             <tr>
-                              <th>Tender / RFQ ID</th>
-                              <th>Products</th>
+                              <th style={{ minWidth: 200 }}>Tender / RFQ ID</th>
+                              <th style={{ maxWidth: 380 }}>Products</th>
                               <th>Company</th>
                               <th>Received Date</th>
                               <th>End Date</th>
                               <th>Quote Sent</th>
-                              <th>Reverse Auction</th>
                               <th>Action</th>
                               <th>Query</th>
                             </tr>
@@ -370,10 +368,24 @@ const getQuoteStatus = async (rfq_id) => {
                                 return (
                                   <tr key={`rfq-item-${item.rfq_no}`}>
                                     <td>
+                                      {item.title && (
+                                        <div
+                                          style={{
+                                            fontSize: "0.78rem",
+                                            color: "#6c757d",
+                                            fontWeight: 500,
+                                            marginBottom: 2,
+                                            lineHeight: 1.3,
+                                          }}
+                                          title={item.title}
+                                        >
+                                          {item.title}
+                                        </div>
+                                      )}
                                       #{item.rfq_no}
                                       {getNegotiationBadge(item.id)}
                                     </td>
-                                    <td>{getProductsList(item)}</td>
+                                    <td style={{ maxWidth: 380 }}>{getProductsList(item)}</td>
                                     <td>{item.company_name}</td>
                                     <td>
                                       {item.timestamp != ""
@@ -392,11 +404,6 @@ const getQuoteStatus = async (rfq_id) => {
                                     <td>
                                       {item.quote_status &&
                                         textCapitalize(item.quote_status)}
-                                    </td>
-                                    <td>
-                                      {item.reverse_auction === 1
-                                        ? "Enabled"
-                                        : "Disabled"}
                                     </td>
                                     <td>
                                       <span>
