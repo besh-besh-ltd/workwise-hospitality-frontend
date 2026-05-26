@@ -8,6 +8,7 @@ import Tooltip from "react-bootstrap/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheckCircle, faEnvelope, faUser } from "@fortawesome/free-regular-svg-icons";
 import { faComments, faHistory, faPhone } from "@fortawesome/free-solid-svg-icons";
+import { BsInfoCircle } from "react-icons/bs";
 import { toast } from "react-toastify";
 import ReadMore from "@/components/shared/ReadMore";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
@@ -524,10 +525,52 @@ const ProductComparisonMatrix = ({
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
           const charge = globalCharges.find(c => c.name === rowMeta.chargeName);
           if (!charge) return <span className={styles.value}>--</span>;
-          const taxVal = Number(charge.tax || 0);
-          const taxDisplay = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
+          // Both on-disk shapes coexist: legacy {tax, tax_mode} and newer
+          // {amount, amount_mode}. Read both so the displayed value + mode
+          // match what the engine actually applied.
+          const taxVal = Number(charge.tax ?? charge.amount ?? 0);
+          const mode = charge.tax_mode ?? charge.amount_mode ?? "percentage";
+          const taxDisplay = mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
           const commentText = charge.comment ? ` (${charge.comment})` : "";
-          return <span className={styles.value}>{taxDisplay}{commentText && <small className="text-muted">{commentText}</small>}</span>;
+          // Absolute (rupee) global charges are entered ONCE for the vendor's
+          // whole quote and the backend distributes them proportionally across
+          // the products in that quote (each product carries its weighted
+          // share, not the full amount). Surface this with an info tooltip so
+          // the buyer doesn't read "Rs. 1,000" in this cell as "added directly
+          // to this product". Percentage charges don't need it because "5%"
+          // is already the per-product rate the buyer expects.
+          let distributionInfo = null;
+          if (mode !== "percentage" && taxVal > 0) {
+            const engineGlobals = details.engine_global_charges || column.quote?.engine_global_charges || [];
+            const resolved = engineGlobals.find((c) =>
+              (c.slug && charge.slug && c.slug === charge.slug) || c.name === charge.name
+            );
+            const share = Number(resolved?.amount || 0);
+            distributionInfo = (
+              <OverlayTrigger
+                placement="top"
+                overlay={
+                  <Tooltip>
+                    The vendor entered this charge once for the entire quote. It is distributed across all products in this RFQ by each product&apos;s subtotal share — it is <strong>not</strong> added to each product in full.
+                    {share > 0 && (
+                      <> Share allocated to this product: <strong>{formatCurrency(share)}</strong>.</>
+                    )}
+                  </Tooltip>
+                }
+              >
+                <span className="ms-1 text-muted" style={{ cursor: "help", display: "inline-flex", verticalAlign: "middle" }}>
+                  <BsInfoCircle size={12} />
+                </span>
+              </OverlayTrigger>
+            );
+          }
+          return (
+            <span className={styles.value}>
+              {taxDisplay}
+              {commentText && <small className="text-muted">{commentText}</small>}
+              {distributionInfo}
+            </span>
+          );
         }
         if (rowKey === "grandTotal") {
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
