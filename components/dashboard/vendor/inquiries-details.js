@@ -2776,7 +2776,7 @@ const RfqManagementPreview = () => {
                                     return (
                                       <td>
                                         {totalVal > 0 ? (
-                                          <div style={{ lineHeight: 1.25 }}>
+                                          <div style={{ display: "flex", flexDirection: "column", gap: "4px", lineHeight: 1.25 }}>
                                             <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1f2937" }}>
                                               {formatPrice(totalVal)}
                                             </div>
