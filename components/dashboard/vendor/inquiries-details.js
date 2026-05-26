@@ -1979,7 +1979,7 @@ const RfqManagementPreview = () => {
                               marginBottom: 6,
                             }}
                           >
-                            Auto-publish failed &mdash; this {getEntityLabel(rfqDetails?.is_tender).toLowerCase()} hasn&rsquo;t gone live
+                            Auto-publish failed &mdash; This {getEntityLabel(rfqDetails?.is_tender).toLowerCase()} has not gone live yet.
                           </div>
 
                           {/* Body */}
@@ -2125,6 +2125,13 @@ const RfqManagementPreview = () => {
                   {/* RFQ Details Section */}
                   <div className="bg-light p-3 rounded-2">
                     <div className="row g-3">
+                      {rfqDetails?.title && (
+                        <div className="col-md-2 col-sm-6">
+                          <strong>Title:</strong>
+                          <div>{rfqDetails.title}</div>
+                        </div>
+                      )}
+
                       {rfqDetails?.company_name && (
                         <div className="col-md-2 col-sm-6">
                           <strong>Company Name:</strong>

@@ -565,6 +565,12 @@ $status-colors: (
   box-shadow: 0 0 0 2px rgba(46, 91, 168, 0.14);
 }
 
+.fieldInputError,
+.fieldInputError:focus {
+  border-color: #d93025;
+  box-shadow: 0 0 0 2px rgba(217, 48, 37, 0.15);
+}
+
 .formHint {
   margin-top: 6px;
   font-size: 11px;
@@ -1630,6 +1636,14 @@ $status-colors: (
   letter-spacing: -0.3px;
 }
 
+.createMetaValueL1Base {
+  margin: 2px 0 0;
+  color: #4a7c50;
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.1px;
+}
+
 /* ── Chart Toggle Button ── */
 
 .chartToggleRow {
@@ -2582,6 +2596,96 @@ $status-colors: (
   color: #6f849d;
 }
 
+/* ── Create Mode Notice Banner ── */
+
+.createNoticeBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  margin: 16px 0 14px;
+  background: #fdecec;
+  border: 1px solid #f5b5b5;
+  border-left: 3px solid #d93025;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #7a1f1a;
+}
+
+.createNoticeIcon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #d93025;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-style: italic;
+  font-family: serif;
+}
+
+/* ── Product List Search (Create Mode) ── */
+
+.createSearchRow {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #fff;
+  padding: 6px 0;
+  margin: 0 0 8px;
+}
+
+.createSearchInput {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #d7e0ed;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: #1b395f;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: #8eb1de;
+    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.12);
+  }
+}
+
+/* ── Product Accordion Wrapper (Create Mode) ── */
+
+.createProductItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.productAccordionBody {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease, padding 0.3s ease, margin 0.3s ease;
+  padding: 0;
+  margin: 0;
+  border-radius: 8px;
+}
+
+.productAccordionBodyOpen {
+  max-height: 2400px;
+  padding: 10px 12px 14px;
+  margin: 8px 0 0;
+  background: #f7fafd;
+  border: 1px solid #e5edf7;
+}
+
 /* ── Vendor Accordion Panel (Create Mode) ── */
 
 .vendorAccordionRow {
@@ -2663,6 +2767,15 @@ $status-colors: (
 .vendorQuoteCardWarning {
   background: #fefce8 !important;
   border-color: #e5d5a0 !important;
+}
+
+/* Applied when the effective target ≥ vendor's quoted value — the field
+ * will be dropped from the negotiation payload, so dim the card to signal
+ * "not considered". Inputs inside the card stay clickable so the user can
+ * fix the value; opacity is just a visual cue. */
+.vendorQuoteCardExcluded {
+  opacity: 0.55;
+  filter: grayscale(0.25);
 }
 
 .vendorQuoteCardMuted {
