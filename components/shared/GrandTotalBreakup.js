@@ -4,11 +4,14 @@ const GrandTotalBreakup = ({
   totalPackaging = 0,
   totalTax = 0,
   totalOtherCharges = 0,
+  totalBaseTax = 0,
   grandTotal = 0,
   formatPrice,
   align = "end",
   chargeBreakdown = [],
+  taxBreakdown = [],
   globalChargeBreakdown = [],
+  layout,
 }) => {
   const fmt = (val) => (formatPrice ? formatPrice(val) : `₹${val.toFixed(2)}`);
 
@@ -75,6 +78,134 @@ const GrandTotalBreakup = ({
     gap: "1px",
     minWidth: "240px",
   };
+
+  // 3-column layout (vendor send-quote): line costs | taxes | globals.
+  // Opt-in via layout="3col". Empty columns are suppressed.
+  if (layout === "3col") {
+    const col1Items = [
+      { label: "Base Amount", value: Number(totalBase) || 0 },
+      ...chargeBreakdown,
+    ].filter((item) => item.value > 0);
+    const col1Subtotal = col1Items.reduce((acc, item) => acc + Number(item.value || 0), 0);
+
+    const col2Items = [
+      { label: "GST", value: Number(totalBaseTax) || 0 },
+      ...taxBreakdown,
+    ].filter((item) => item.value > 0);
+    const col2Subtotal = col2Items.reduce((acc, item) => acc + Number(item.value || 0), 0);
+
+    const col3Items = visibleGlobals;
+    const hasCol2 = col2Items.length > 0;
+    const hasGlobalCol = col3Items.length > 0;
+    const subTotal3 = col1Subtotal + col2Subtotal;
+
+    if (!hasCol2 && !hasGlobalCol) {
+      // Falls through to the existing single-column Grand Total layout below.
+    } else {
+      // 2×2 grid: row 1 = Line costs | Taxes ; row 2 = Sub Total | Globals.
+      // Each cell is a fixed-width grid track so the four cells are
+      // symmetric and their footer rows align across columns.
+      const wrapperStyle = {
+        display: "grid",
+        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+        alignItems: "stretch",
+        columnGap: "32px",
+        rowGap: "20px",
+        width: "100%",
+      };
+
+      const gridColumnStyle = {
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-end",
+        gap: "1px",
+        minWidth: 0,
+      };
+
+      const gridLabelStyle = { whiteSpace: "nowrap" };
+
+      return (
+        <div style={wrapperStyle}>
+          {/* Row 1, Col 1 — Line costs */}
+          <div style={gridColumnStyle}>
+            {col1Items.map((item) => (
+              <div key={item.label} style={lineStyle}>
+                <span style={gridLabelStyle}>{item.label}:</span>
+                <span style={valueStyle}>{fmt(item.value)}</span>
+              </div>
+            ))}
+            <div style={separatorStyle} />
+            <div style={subTotalLineStyle}>
+              <span style={gridLabelStyle}>Total Charges:</span>
+              <span style={{ ...valueStyle, fontWeight: "600" }}>{fmt(col1Subtotal)}</span>
+            </div>
+          </div>
+
+          {/* Row 1, Col 2 — Taxes (empty placeholder keeps grid alignment when col2 is hidden) */}
+          {hasCol2 ? (
+            <div style={gridColumnStyle}>
+              {col2Items.map((item) => (
+                <div key={item.label} style={lineStyle}>
+                  <span style={gridLabelStyle}>{item.label}:</span>
+                  <span style={valueStyle}>{fmt(item.value)}</span>
+                </div>
+              ))}
+              <div style={separatorStyle} />
+              <div style={subTotalLineStyle}>
+                <span style={gridLabelStyle}>Total Taxes:</span>
+                <span style={{ ...valueStyle, fontWeight: "600" }}>{fmt(col2Subtotal)}</span>
+              </div>
+            </div>
+          ) : (
+            <div />
+          )}
+
+          {/* Row 2, Col 1 — Sub Total roll-up */}
+          <div style={gridColumnStyle}>
+            <div style={lineStyle}>
+              <span style={gridLabelStyle}>Total Charges:</span>
+              <span style={valueStyle}>{fmt(col1Subtotal)}</span>
+            </div>
+            {hasCol2 && (
+              <div style={lineStyle}>
+                <span style={gridLabelStyle}>Total Taxes:</span>
+                <span style={valueStyle}>{fmt(col2Subtotal)}</span>
+              </div>
+            )}
+            <div style={separatorStyle} />
+            <div style={subTotalLineStyle}>
+              <span style={gridLabelStyle}>Sub Total:</span>
+              <span style={{ ...valueStyle, fontWeight: "600" }}>{fmt(subTotal3)}</span>
+            </div>
+          </div>
+
+          {/* Row 2, Col 2 — Globals → Grand Total */}
+          {hasGlobalCol ? (
+            <div style={gridColumnStyle}>
+              {col3Items.map((item) => (
+                <div key={item.label} style={lineStyle}>
+                  <span style={gridLabelStyle}>{item.label}:</span>
+                  <span style={valueStyle}>{fmt(item.value)}</span>
+                </div>
+              ))}
+              <div style={separatorStyle} />
+              <div style={totalLineStyle}>
+                <span style={gridLabelStyle}>Grand Total <span style={{ fontSize: "0.72rem", color: "#6c757d", fontWeight: 400 }}>(incl. GST)</span>:</span>
+                <span style={{ ...valueStyle, fontWeight: "700", minWidth: "100px" }}>{fmt(grandTotal)}</span>
+              </div>
+            </div>
+          ) : (
+            <div style={gridColumnStyle}>
+              <div style={totalLineStyle}>
+                <span style={gridLabelStyle}>Grand Total <span style={{ fontSize: "0.72rem", color: "#6c757d", fontWeight: 400 }}>(incl. GST)</span>:</span>
+                <span style={{ ...valueStyle, fontWeight: "700", minWidth: "100px" }}>{fmt(grandTotal)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+  }
 
   // Two-column layout when globals exist: left = per-line breakdown ending in
   // Sub Total, right = globals ending in Grand Total. Single-column fallback

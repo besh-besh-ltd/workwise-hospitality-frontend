@@ -200,15 +200,19 @@ $badge-tones: (
 }
 
 .heroMetaItemTnc {
-  border: none;
   background: transparent;
-  padding: 0;
+  border-top: none;
+  border-left: none;
   margin: 0;
   text-align: left;
   cursor: pointer;
   font: inherit;
   color: inherit;
   transition: color 0.15s ease;
+
+  &:nth-child(3n) {
+    border-right: none;
+  }
 
   .metaValueTnc {
     color: $brand-primary;

@@ -2501,7 +2501,10 @@ const RfqManagementPreview = () => {
                               {hasTdsData && <th style={{ minWidth: "50px", maxWidth: "90px", width: "auto" }}>TDS</th>}
                               {hasQapData && <th style={{ minWidth: "50px", maxWidth: "90px", width: "auto" }}>QAP</th>}
                               {type != "buyer-view" && (
-                                <th style={{ minWidth: "90px", maxWidth: "130px", width: "auto" }}>Status</th>
+                                <th style={{ minWidth: "110px", maxWidth: "140px", width: "auto" }}>Quote Submitted</th>
+                              )}
+                              {type != "buyer-view" && (
+                                <th style={{ minWidth: "130px", maxWidth: "170px", width: "auto" }}>Quote Price</th>
                               )}
                               {type != "buyer-view" && (
                                 <th style={{ minWidth: "120px", maxWidth: "170px", width: "auto" }}>Finalization Status</th>
@@ -2758,6 +2761,37 @@ const RfqManagementPreview = () => {
                                       </td>
                                     );
                                   })()}
+                                  {type != "buyer-view" && (() => {
+                                    // Match this product to its line in the
+                                    // engine-computed totals so we can show the
+                                    // submitted per-product total + unit price.
+                                    const vendorQuote = rfqDetails?.quotations?.[0];
+                                    const quoteProducts = Array.isArray(vendorQuote?.products) ? vendorQuote.products : [];
+                                    const lineIndex = quoteProducts.findIndex(
+                                      (qp) => qp.product_id === item.product_id && qp.variant === item.variant
+                                    );
+                                    const line = lineIndex >= 0 ? (submittedQuoteTotals?.lines || [])[lineIndex] : null;
+                                    const totalVal = Number(line?.total) || 0;
+                                    const unitPriceVal = lineIndex >= 0 ? Number(quoteProducts[lineIndex]?.unit_price) || 0 : 0;
+                                    return (
+                                      <td>
+                                        {totalVal > 0 ? (
+                                          <div style={{ display: "flex", flexDirection: "column", gap: "4px", lineHeight: 1.25 }}>
+                                            <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1f2937" }}>
+                                              {formatPrice(totalVal)}
+                                            </div>
+                                            {unitPriceVal > 0 && (
+                                              <div style={{ fontSize: "0.78rem", color: "#6c757d", fontWeight: 500 }}>
+                                                Unit price {formatPrice(unitPriceVal)}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted">--</span>
+                                        )}
+                                      </td>
+                                    );
+                                  })()}
                                   {type != "buyer-view" && (
                                     <td>
                                       {item.finalization_status ==
@@ -2913,21 +2947,28 @@ const RfqManagementPreview = () => {
                                         </h4>
 
                                         {rfqDetails.quotations[0]?.products?.length > 0 && submittedQuoteTotals && (() => {
-                                          // Sum the engine-output breakdown across line items. Charges
-                                          // named "Freight" / "Packaging" populate their respective
-                                          // breakup rows; everything else flows through the engine totals.
-                                          let totalBase = 0, totalFreight = 0, totalPackaging = 0, totalTax = 0;
-                                          (submittedQuoteTotals.lines || []).forEach(line => {
+                                          // Engine line shape: { base, base_tax, charges: [{ name, amount,
+                                          // tax, subtotal }] }. Split each charge into amount + tax piece
+                                          // (subtotal - amount) so the 2×2 breakup can render line costs
+                                          // vs taxes vs globals consistently with the send-quote view.
+                                          let totalBase = 0;
+                                          let totalBaseTax = 0;
+                                          const chargeAmtByName = {};
+                                          const chargeTaxByName = {};
+                                          (submittedQuoteTotals.lines || []).forEach((line) => {
                                             totalBase += Number(line.base) || 0;
-                                            totalTax += Number(line.base_tax) || 0;
-                                            (line.charges || []).forEach(c => {
-                                              const name = (c.name || "").toLowerCase();
-                                              const subtotal = Number(c.subtotal) || 0;
-                                              if (name === "freight") totalFreight += subtotal;
-                                              else if (name === "packaging") totalPackaging += subtotal;
-                                              else totalTax += 0; // other named charges are folded into the engine total
+                                            totalBaseTax += Number(line.base_tax) || 0;
+                                            (line.charges || []).forEach((charge) => {
+                                              const name = charge.name || "Other";
+                                              const subtotal = Number(charge.subtotal) || 0;
+                                              const amount = Number(charge.amount) || 0;
+                                              const taxPart = Math.max(0, subtotal - amount);
+                                              if (amount > 0) chargeAmtByName[name] = (chargeAmtByName[name] || 0) + amount;
+                                              if (taxPart > 0) chargeTaxByName[name] = (chargeTaxByName[name] || 0) + taxPart;
                                             });
                                           });
+                                          const chargeBreakdown = Object.entries(chargeAmtByName).map(([label, value]) => ({ label, value }));
+                                          const taxBreakdown = Object.entries(chargeTaxByName).map(([label, value]) => ({ label: `Tax on ${label}`, value }));
                                           const grandTotal = Number(submittedQuoteTotals.grand_total) || 0;
                                           const globalChargeBreakdown = (submittedQuoteTotals.global_charges || []).map((c) => ({
                                             label: c.name,
@@ -2936,10 +2977,11 @@ const RfqManagementPreview = () => {
                                           return (
                                             <div className="mb-2 d-flex justify-content-end">
                                               <GrandTotalBreakup
+                                                layout="3col"
                                                 totalBase={totalBase}
-                                                totalFreight={totalFreight}
-                                                totalPackaging={totalPackaging}
-                                                totalTax={totalTax}
+                                                totalBaseTax={totalBaseTax}
+                                                chargeBreakdown={chargeBreakdown}
+                                                taxBreakdown={taxBreakdown}
                                                 grandTotal={grandTotal}
                                                 globalChargeBreakdown={globalChargeBreakdown}
                                                 formatPrice={formatPrice}
@@ -3040,7 +3082,7 @@ const RfqManagementPreview = () => {
                                               />
                                               Tech Eval Pending
                                             </button>
-                                          ) : (
+                                          ) : quoteDisabled && !hasActiveNegotiationRounds ? (
                                           <Link
                                             className="mx-auto mt-2"
                                             href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
@@ -3061,13 +3103,13 @@ const RfqManagementPreview = () => {
                                               style={{ width: "240px" }}
                                             >
                                               <FontAwesomeIcon
-                                                icon={quoteDisabled && !hasActiveNegotiationRounds ? faEye : faEdit}
+                                                icon={faEye}
                                                 className="me-2"
                                               />
-                                              {quoteDisabled && !hasActiveNegotiationRounds ? "View Quote" : "Update Your Quote"}
+                                              View Quote
                                             </button>
                                           </Link>
-                                        )}
+                                        ) : null}
                                       </div>
                                     )}
 
