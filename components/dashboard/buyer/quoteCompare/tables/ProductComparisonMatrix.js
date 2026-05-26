@@ -551,9 +551,9 @@ const ProductComparisonMatrix = ({
                 placement="top"
                 overlay={
                   <Tooltip>
-                    The vendor entered this charge once for the entire quote. It is distributed across all products in this RFQ by each product&apos;s subtotal share — it is <strong>not</strong> added to each product in full.
+                    The global charge was added only on the entire quote. It was then divided and shared across all products in this RFQ.                     
                     {share > 0 && (
-                      <> Share allocated to this product: <strong>{formatCurrency(share)}</strong>.</>
+                      <>This product's share is <strong>{formatCurrency(share)}</strong>.</>
                     )}
                   </Tooltip>
                 }
