@@ -373,6 +373,21 @@ const Login = (props) => {
             Sign in to your account
           </p>
 
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+            padding: '10px 12px', marginBottom: 20,
+            background: '#eff6ff', border: '1px solid #bfdbfe',
+            borderRadius: 10,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
+              <circle cx="8" cy="8" r="7" stroke="#1d4ed8" strokeWidth="1.4"/>
+              <path d="M8 7v4.5M8 4.5v.5" stroke="#1d4ed8" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            <span style={{ fontSize: '0.82rem', color: '#1e3a8a', fontFamily: 'Poppins, sans-serif', lineHeight: 1.4, fontWeight: 500 }}>
+              Employees must login using Employee ID only. Vendors can login using their registered Email Address.
+            </span>
+          </div>
+
           {loginError && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 10,
