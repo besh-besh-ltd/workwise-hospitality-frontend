@@ -2000,6 +2000,16 @@ const RfqManagementPreview = () => {
                             </span>{" "}
                             Only you, as the creator, can publish it now.
                           </div>
+                          <div
+                            style={{
+                              fontSize: 13,
+                              color: "#111827",
+                              fontWeight: 700,
+                              marginTop: 6,
+                            }}
+                          >
+                           Please cross-check the <span style={{ color: "#B91C1C" }}>Publish Date, Clarification Date, and Quote Submission End Date</span> before publishing this RFQ.
+                          </div>
                         </div>
 
                         {/* CTA */}
