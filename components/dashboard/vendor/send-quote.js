@@ -359,24 +359,29 @@ const originalPaymentTermsListRef = useRef(null);
 
   const quoteBreakup = useMemo(() => {
     if (!pricingTotals?.lines) {
-      return { totalBase: 0, totalTax: 0, totalOtherCharges: 0, chargeBreakdown: [] };
+      return { totalBase: 0, totalBaseTax: 0, chargeBreakdown: [], taxBreakdown: [] };
     }
-    let totalBase = 0, totalTax = 0, totalOtherCharges = 0;
-    const chargesByName = {};
+    let totalBase = 0;
+    let totalBaseTax = 0;
+    const chargeAmtByName = {};
+    const chargeTaxByName = {};
     pricingTotals.lines.forEach((line) => {
       totalBase += Number(line.base) || 0;
-      totalTax += Number(line.base_tax) || 0;
+      totalBaseTax += Number(line.base_tax) || 0;
       (line.charges || []).forEach((charge) => {
+        const name = charge.name || "Other";
         const subtotal = Number(charge.subtotal) || 0;
-        totalOtherCharges += subtotal;
-        if (subtotal > 0) {
-          const name = charge.name || "Other";
-          chargesByName[name] = (chargesByName[name] || 0) + subtotal;
-        }
+        const amount = Number(charge.amount) || 0;
+        // Engine output: subtotal = amount + tax_amount. Split here so the
+        // 3-col summary can render charge amount vs charge tax separately.
+        const taxPart = Math.max(0, subtotal - amount);
+        if (amount > 0) chargeAmtByName[name] = (chargeAmtByName[name] || 0) + amount;
+        if (taxPart > 0) chargeTaxByName[name] = (chargeTaxByName[name] || 0) + taxPart;
       });
     });
-    const chargeBreakdown = Object.entries(chargesByName).map(([label, value]) => ({ label, value }));
-    return { totalBase, totalTax, totalOtherCharges, chargeBreakdown };
+    const chargeBreakdown = Object.entries(chargeAmtByName).map(([label, value]) => ({ label, value }));
+    const taxBreakdown = Object.entries(chargeTaxByName).map(([label, value]) => ({ label: `Tax on ${label}`, value }));
+    return { totalBase, totalBaseTax, chargeBreakdown, taxBreakdown };
   }, [pricingTotals]);
 
   // Check if any quoteable product has pending/incomplete tech eval
@@ -1016,27 +1021,27 @@ const loadRazorpayScript = () => {
 
   // 
   const getPaymentTermsChanges = () => {
-  
+
   // newly added term, no id in objects
-const createdTerms = 
+const createdTerms =
   paymentTermsRows
-    .filter(t => !t.id && t.action !== "delete")
+    .filter(t => !t.id)
     .map(({ id, action, ...rest }) => rest)
 
 
-// DELETE: only ids
-const deletedTerms = paymentTermsRows
-  .filter(t => t.id && t.action === "delete")
+// DELETE: ids present in original list but no longer in current rows
+const currentIds = new Set(paymentTermsRows.filter(t => t.id).map(t => t.id));
+const deletedTerms = (originalPaymentTermsListRef.current || [])
+  .filter(t => t.id && !currentIds.has(t.id))
   .map(t => t.id);
 
 // UPDATE: full object incl. id, exclude action
-const updatedTerms = 
+const updatedTerms =
   paymentTermsRows
     .filter(c => {
-      const o = originalPaymentTermsListRef.current.find(x => x.id === c.id);
+      const o = (originalPaymentTermsListRef.current || []).find(x => x.id === c.id);
       return (
         c.id &&
-        c.action !== "delete" &&
         o && (
           c.type !== o.type ||
           c.value !== o.value ||
@@ -2546,7 +2551,11 @@ return { deletedTerms, createdTerms, updatedTerms };
                             {paymentTermsEnabled && (
                             <SmartButton
                                   onClick={() =>
-                                    setPaymentTermsRows((prev) => [ ...(prev || []), { id:null,  value: "", type: "advance", days: "", comment:'' } ])
+                                    setPaymentTermsRows((prev) => {
+                                      const used = (prev || []).map(r => r.type);
+                                      const defaultType = ["advance", "credit"].find(t => !used.includes(t)) || "other";
+                                      return [ ...(prev || []), { id:null,  value: "", type: defaultType, days: "", comment:'' } ];
+                                    })
                                   }
                             theme={'primary'}
                             style={{ paddingLeft: "0.5rem", paddingRight: "0.5rem", fontSize: "0.75rem" }}
@@ -3217,11 +3226,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           {item.finalization_status === "You are finalized" ? "You are Finalized" : "Another Vendor is Finalized"} — Quote cannot be edited
                                         </span>
                                       )}
-                                      {isNegotiationSubmittedForProduct && (
-                                        <span className="badge bg-success mt-1" style={{ fontSize: "0.7rem" }}>
-                                          Negotiation Quote Submitted
-                                        </span>
-                                      )}
                                       {getProductSpecValueByTitle(item?.product_specs, "Size") && (
                                         <p className="text-sm mb-1">
                                           {getProductSpecValueByTitle(item?.product_specs, "Size")}
@@ -3702,13 +3706,14 @@ return { deletedTerms, createdTerms, updatedTerms };
                         {/* Start Grand Total Breakup */}
                         <div className="d-flex justify-content-end mb-2">
                           <GrandTotalBreakup
+                            layout="3col"
                             totalBase={quoteBreakup.totalBase}
-                            totalTax={quoteBreakup.totalTax}
-                            totalOtherCharges={quoteBreakup.totalOtherCharges}
+                            totalBaseTax={quoteBreakup.totalBaseTax}
                             grandTotal={grandTotalIncludingGST}
                             formatPrice={formatPrice}
                             align="end"
                             chargeBreakdown={quoteBreakup.chargeBreakdown}
+                            taxBreakdown={quoteBreakup.taxBreakdown}
                             globalChargeBreakdown={globalOtherCharges
                               .filter(c => c.name && c.name.trim())
                               .map(c => {
@@ -3848,30 +3853,27 @@ const PaymentTermsEditor = ({ value, onChange, disabled = false }) => {
 
     const setRows = (next) => onChange && onChange(next);
 
-    const markDeleted = (index) => {
-     const updated = [...rows];
-     const row = updated[index] || {};
-    updated[index] = { ...row, action: "delete" };
-    setRows(updated);
-  };
-
-  const restoreRow = (index) => {
-    const updated = [...rows];
-    const row = updated[index];
-    if (!row) return;
-    const { action, ...rest } = row;
-    updated[index] = rest;
-    setRows(updated);
-  };
+    const removeRow = (index) => {
+      setRows(rows.filter((_, i) => i !== index));
+    };
 
   const updateRow = (index, patch) =>
     setRows(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+
+  const sumExcluding = (index) =>
+    rows.reduce((sum, r, i) => (i === index ? sum : sum + (Number(r.value) || 0)), 0);
+
+  const takenTypes = (index) =>
+    rows
+      .filter((r, i) => i !== index && r.type && r.type !== "other")
+      .map((r) => r.type);
 
   return (
     <div>
       {rows.map((row, index) => {
         const isCredit = row.type === "credit";
-        const isDeleted = row.action === "delete";
+        const taken = takenTypes(index);
+        const remaining = Math.max(0, 100 - sumExcluding(index));
         return (
           <div key={index} className="row g-2 align-items-end mb-2">
             <div className="col-3">
@@ -3881,14 +3883,20 @@ const PaymentTermsEditor = ({ value, onChange, disabled = false }) => {
                 className="form-control"
                 placeholder="e.g., 30"
                 value={row.value}
-                onChange={(e) =>
-                  updateRow(index, {
-                    value: e.target.value === "" ? "" : Number(e.target.value),
-                  })
-                }
+                onChange={(e) => {
+                  if (e.target.value === "") {
+                    updateRow(index, { value: "" });
+                    return;
+                  }
+                  let next = Number(e.target.value);
+                  if (isNaN(next)) return;
+                  if (next < 0) next = 0;
+                  if (next > remaining) next = remaining;
+                  updateRow(index, { value: next });
+                }}
                 min={0}
-                max={100}
-                disabled={isDeleted || disabled}
+                max={remaining}
+                disabled={disabled}
               />
             </div>
 
@@ -3905,16 +3913,20 @@ const PaymentTermsEditor = ({ value, onChange, disabled = false }) => {
                     comment: nextType === "credit" ? "" : (row.comment ?? ""),
                   });
                 }}
-                disabled={isDeleted || disabled}
+                disabled={disabled}
               >
-                <option value="advance">Advance</option>
-                <option value="credit">Credit</option>
+                {(!taken.includes("advance") || row.type === "advance") && (
+                  <option value="advance">Advance</option>
+                )}
+                {(!taken.includes("credit") || row.type === "credit") && (
+                  <option value="credit">Credit</option>
+                )}
                 <option value="other">Other</option>
               </select>
             </div>
 
             {isCredit ? (
-              <div className="col-4">
+              <div className="col-5">
                 <label className="form-label mb-1">Credit Days</label>
                 <input
                   type="number"
@@ -3927,11 +3939,11 @@ const PaymentTermsEditor = ({ value, onChange, disabled = false }) => {
                     })
                   }
                   min={1}
-                disabled={isDeleted || disabled}
+                disabled={disabled}
                 />
               </div>
             ) : (
-              <div className="col-4">
+              <div className="col-5">
                 <label className="form-label mb-1">
                   Comment
                 </label>
@@ -3941,37 +3953,25 @@ const PaymentTermsEditor = ({ value, onChange, disabled = false }) => {
                   placeholder={row.type === "other" ? "Describe payment term" : "Note (optional)"}
                   value={row.comment || ""}
                   onChange={(e) => updateRow(index, { comment: e.target.value })}
-               disabled={isDeleted || disabled}
+               disabled={disabled}
                 />
               </div>
             )}
 
-            <div className="col-2 d-flex mb-1">
-              {!disabled && (!isDeleted ? (
-                <SmartButton
-                  onClick={() => markDeleted(index)}
-                  theme={"red"}
-                  style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
-                  label="Remove"
+            <div
+              className="col-1 d-flex justify-content-end align-items-center"
+              style={{ height: "38px" }}
+            >
+              {!disabled && (
+                <FiTrash2
+                  size={20}
+                  color="#dc3545"
+                  style={{ cursor: "pointer" }}
+                  title="Remove"
+                  onClick={() => removeRow(index)}
                 />
-              ) : (
-                <SmartButton
-                  onClick={() => restoreRow(index)}
-                  theme={"secondary"}
-                  style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
-                  label="Restore"
-                />
-              ))}
+              )}
             </div>
-
-            {/* Small status line below inputs when deleted */}
-            {isDeleted && (
-              <div className="col-12 mt-0">
-                <small className="text-danger">
-                  you removed this term. Click "Restore" to add it back.
-                </small>
-              </div>
-            )}
           </div>
         );
       })}

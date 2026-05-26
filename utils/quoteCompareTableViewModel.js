@@ -503,8 +503,32 @@ export const buildCategoryComparisonModel = (
     const finalizedCell = vendorCells.find((cell) => cell.isFinalized && cell.total > 0);
     if (finalizedCell) finalizedTotal += finalizedCell.total;
 
+    // Heat band is keyed off the grand total shown in the cell
+    // (cell.total = engine_grand_total, incl. quote-level global charges),
+    // not the API's `total` band which excludes global charges. Computing
+    // client-side keeps the green/competitive/high tint aligned with the
+    // figure the buyer actually sees.
+    const grandTotalsByVendor = vendorCells
+      .filter((cell) => cell.quote && !cell.isRegret && cell.total > 0)
+      .map((cell) => ({ vendorId: cell.vendor.id, total: cell.total }));
+    const minGrand = grandTotalsByVendor.length
+      ? Math.min(...grandTotalsByVendor.map((e) => e.total))
+      : 0;
+    const maxGrand = grandTotalsByVendor.length
+      ? Math.max(...grandTotalsByVendor.map((e) => e.total))
+      : 0;
+    const grandBands = {};
+    grandTotalsByVendor.forEach(({ vendorId, total }) => {
+      if (total === minGrand) {
+        grandBands[vendorId] = "best";
+      } else if (maxGrand > minGrand && (total - minGrand) / (maxGrand - minGrand) >= 0.5) {
+        grandBands[vendorId] = "high";
+      } else {
+        grandBands[vendorId] = "competitive";
+      }
+    });
     const rowComparativeStats = {
-      total: buildRowComparativeStats(product, ["total"]).total,
+      total: { min: minGrand, max: maxGrand, bands: grandBands, normalizedScores: {} },
     };
 
     return {

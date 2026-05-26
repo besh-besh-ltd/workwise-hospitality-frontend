@@ -1,88 +1,43 @@
 import { useState } from "react";
-import Link from "next/link";
 import { Field, Form, Formik } from "formik";
 import * as yup from "yup";
+import { toast } from "react-toastify";
 import FullLoader from "../shared/FullLoader";
-import { FiMail, FiLock, FiEye, FiEyeOff, FiHash, FiArrowRight } from "react-icons/fi";
+import { FiMail, FiLock, FiEye, FiEyeOff, FiUser, FiArrowRight, FiArrowLeft, FiKey } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
+import { forgetPasswordService, forgetPasswordValiationService } from "../../services/Auth";
+import { ForgetPasswordOtpValidation } from "../../utils/schema";
 
-const emailSchema = yup.object().shape({
-  email: yup
-    .string()
-    .email()
-    .matches(
-      /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-      "Please enter valid email address"
-    )
-    .required("Email is required"),
-  password: yup
-    .string()
-    .required("Password is required")
-    .min(8, "Password must be 8 characters long")
-    .matches(/[0-9]/, "Password requires a number")
-    .matches(/[a-z]/, "Password requires a lowercase letter")
-    .matches(/[A-Z]/, "Password requires an uppercase letter")
-    .matches(/[^\w]/, "Password requires a symbol"),
-});
+const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
 
-const employeeCodeSchema = yup.object().shape({
-  employee_code: yup
+const loginSchema = yup.object().shape({
+  identifier: yup
     .string()
     .trim()
-    .required("Employee code is required"),
-  password: yup
-    .string()
-    .required("Password is required"),
+    .required("Email ID or Employee Code is required"),
+  password: yup.string().required("Password is required"),
 });
 
-const emailInitialValues = { email: "", password: "" };
-const employeeCodeInitialValues = { employee_code: "", password: "" };
+const forgotIdentifierSchema = yup.object().shape({
+  identifier: yup
+    .string()
+    .trim()
+    .required("Email ID or Employee Code is required"),
+});
+
+const loginInitialValues = { identifier: "", password: "" };
+const forgotIdentifierInitialValues = { identifier: "" };
+const forgotResetInitialValues = { otp: "", password: "", confirm_password: "" };
+
+const buildForgotPayload = (identifier) => {
+  const trimmed = (identifier || "").trim();
+  return isEmail(trimmed)
+    ? { email: trimmed }
+    : { employee_code: trimmed };
+};
 
 const loginCSS = `
   .lf-wrapper * { box-sizing: border-box; }
-
-  .lf-toggle {
-    display: flex;
-    position: relative;
-    background: #f1f5f9;
-    border-radius: 12px;
-    padding: 4px;
-    margin-bottom: 28px;
-  }
-  .lf-toggle-pill {
-    position: absolute;
-    top: 4px;
-    bottom: 4px;
-    left: 4px;
-    width: calc(50% - 4px);
-    background: linear-gradient(135deg, #2E5BA8, #3d6ec0);
-    border-radius: 10px;
-    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 1px 3px rgba(46, 91, 168, 0.3);
-  }
-  .lf-toggle-pill.right {
-    transform: translateX(calc(100% + 4px));
-  }
-  .lf-toggle-btn {
-    position: relative;
-    z-index: 1;
-    flex: 1;
-    padding: 12px 8px;
-    border: none;
-    border-radius: 10px;
-    background: transparent;
-    font-weight: 500;
-    font-size: 13.5px;
-    font-family: Poppins, sans-serif;
-    cursor: pointer;
-    transition: color 0.3s ease;
-    letter-spacing: 0.01em;
-    color: #64748b;
-  }
-  .lf-toggle-btn.active {
-    color: #fff;
-    font-weight: 600;
-  }
 
   .lf-field { margin-bottom: 20px; }
   .lf-label {
@@ -228,6 +183,10 @@ const loginCSS = `
     font-family: Poppins, sans-serif;
     font-weight: 500;
     transition: all 0.2s ease;
+    cursor: pointer;
+    display: inline-block;
+    text-align: right;
+    width: 100%;
   }
   .lf-forgot:hover { color: #1e4a8a; text-decoration: underline; }
 
@@ -238,6 +197,57 @@ const loginCSS = `
     transition: all 0.2s ease;
   }
   .lf-register-link:hover { color: #367035; text-decoration: underline; }
+
+  .lf-back {
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-family: Poppins, sans-serif;
+    font-weight: 500;
+    padding: 4px 0;
+    margin-bottom: 8px;
+    transition: color 0.2s ease;
+  }
+  .lf-back:hover { color: #2E5BA8; }
+
+  .lf-back-icon {
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    font-size: 18px;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 99;
+    transition: color 0.2s ease;
+  }
+  .lf-back-icon:hover { color: #2E5BA8; }
+
+  .lf-resend {
+    background: none;
+    border: none;
+    color: #2E5BA8;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-family: Poppins, sans-serif;
+    font-weight: 500;
+    padding: 0;
+    transition: color 0.2s ease;
+  }
+  .lf-resend:hover { color: #1e4a8a; text-decoration: underline; }
+  .lf-resend:disabled { color: #94a3b8; cursor: not-allowed; text-decoration: none; }
 
   @keyframes lfFadeIn {
     from { opacity: 0; transform: translateY(6px); }
@@ -259,194 +269,453 @@ const Login = (props) => {
   } = props;
 
   const [showPassword, setShowPassword] = useState(false);
-  const [loginMethod, setLoginMethod] = useState("employee_code");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [view, setView] = useState("login"); // "login" | "forgot_email" | "forgot_reset"
+  const [resetIdentifier, setResetIdentifier] = useState("");
+  const [resending, setResending] = useState(false);
 
-  const currentSchema = loginMethod === "employee_code" ? employeeCodeSchema : emailSchema;
-  const currentInitialValues = loginMethod === "employee_code" ? employeeCodeInitialValues : emailInitialValues;
-  const isEmployeeCode = loginMethod === "employee_code";
+  const resetPayload = buildForgotPayload(resetIdentifier);
+  const resetIsEmail = isEmail(resetIdentifier);
+
+  const handleForgotIdentifierSubmit = async ({ identifier }) => {
+    const trimmed = identifier.trim();
+    if (setloading) setloading(true);
+    try {
+      const res = await forgetPasswordService(buildForgotPayload(trimmed));
+      if (res?.status) {
+        setResetIdentifier(trimmed);
+        setView("forgot_reset");
+        toast.success(res?.message || "OTP sent to your registered email", { position: "top-right" });
+      } else {
+        toast.error(res?.message || "Unable to send OTP", { position: "top-right" });
+      }
+    } catch (e) {
+      toast.error(
+        e?.message?.response?.data?.message || "Something went wrong",
+        { position: "top-right" }
+      );
+    } finally {
+      if (setloading) setloading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!resetIdentifier) return;
+    setResending(true);
+    try {
+      const res = await forgetPasswordService(resetPayload);
+      if (res?.status) {
+        toast.success(res?.message || "OTP resent", { position: "top-right" });
+      } else {
+        toast.error(res?.message || "Unable to resend OTP", { position: "top-right" });
+      }
+    } catch (e) {
+      toast.error(
+        e?.message?.response?.data?.message || "Unable to resend OTP",
+        { position: "top-right" }
+      );
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const handleResetSubmit = async ({ otp, password, confirm_password }) => {
+    if (setloading) setloading(true);
+    try {
+      const res = await forgetPasswordValiationService({ otp, password, confirm_password });
+      const ok = res?.status === 1 || res?.status === true;
+      if (ok) {
+        toast.success(res?.message || "Password updated", { position: "top-right" });
+        setEmail(resetIsEmail ? resetIdentifier : "");
+        setPassword(password);
+        if (setEmployeeCode) setEmployeeCode(resetIsEmail ? "" : resetIdentifier);
+        loginSubmitHandler({ ...resetPayload, password });
+      } else {
+        toast.error(res?.message || "Invalid OTP or unable to reset password", { position: "top-right" });
+        if (setloading) setloading(false);
+      }
+    } catch (e) {
+      toast.error(
+        e?.message?.response?.data?.message || "Something went wrong",
+        { position: "top-right" }
+      );
+      if (setloading) setloading(false);
+    }
+  };
 
   return (
     <div className="login-form lf-wrapper">
       <style>{loginCSS}</style>
 
-      <h3 style={{
-        fontFamily: 'Poppins, sans-serif',
-        fontWeight: 700,
-        fontSize: '28px',
-        lineHeight: '36px',
-        color: '#0f172a',
-        textAlign: 'center',
-        marginBottom: '4px',
-      }}>
-        Welcome Back
-      </h3>
-      <p style={{
-        fontFamily: 'Poppins, sans-serif',
-        fontSize: '14px',
-        color: '#64748b',
-        textAlign: 'center',
-        marginBottom: '28px',
-        fontWeight: 400,
-        lineHeight: '22px',
-      }}>
-        Sign in to your account
-      </p>
+      {view === "login" && (
+        <>
+          <h3 style={{
+            fontFamily: 'Poppins, sans-serif',
+            fontWeight: 700,
+            fontSize: '28px',
+            lineHeight: '36px',
+            color: '#0f172a',
+            textAlign: 'center',
+            marginBottom: '4px',
+          }}>
+            Welcome Back
+          </h3>
+          <p style={{
+            fontFamily: 'Poppins, sans-serif',
+            fontSize: '14px',
+            color: '#64748b',
+            textAlign: 'center',
+            marginBottom: '28px',
+            fontWeight: 400,
+            lineHeight: '22px',
+          }}>
+            Sign in to your account
+          </p>
 
-      {/* Inline Error */}
-      {loginError && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '11px 14px', marginBottom: 20,
-          background: '#fef2f2', border: '1px solid #fecaca',
-          borderRadius: 10, animation: 'lfFadeIn 0.2s ease forwards',
-        }}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-            <circle cx="8" cy="8" r="7" stroke="#ef4444" strokeWidth="1.5"/>
-            <path d="M8 5v3.5M8 10.5v.5" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-          <span style={{ fontSize: '0.82rem', color: '#991b1b', fontFamily: 'Poppins, sans-serif', lineHeight: 1.4, fontWeight: 500 }}>
-            {loginError}
-          </span>
-        </div>
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+            padding: '10px 12px', marginBottom: 20,
+            background: '#eff6ff', border: '1px solid #bfdbfe',
+            borderRadius: 10,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
+              <circle cx="8" cy="8" r="7" stroke="#1d4ed8" strokeWidth="1.4"/>
+              <path d="M8 7v4.5M8 4.5v.5" stroke="#1d4ed8" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            <span style={{ fontSize: '0.82rem', color: '#1e3a8a', fontFamily: 'Poppins, sans-serif', lineHeight: 1.4, fontWeight: 500 }}>
+              <strong>Employees</strong> must login using <strong>Employee Code</strong> only. 
+              <br/>
+              <strong>Vendors</strong>  can login using their registered <strong>Email ID</strong>.
+            </span>
+          </div>
+
+          {loginError && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '11px 14px', marginBottom: 20,
+              background: '#fef2f2', border: '1px solid #fecaca',
+              borderRadius: 10, animation: 'lfFadeIn 0.2s ease forwards',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                <circle cx="8" cy="8" r="7" stroke="#ef4444" strokeWidth="1.5"/>
+                <path d="M8 5v3.5M8 10.5v.5" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <span style={{ fontSize: '0.82rem', color: '#991b1b', fontFamily: 'Poppins, sans-serif', lineHeight: 1.4, fontWeight: 500 }}>
+                {loginError}
+              </span>
+            </div>
+          )}
+
+          <Formik
+            initialValues={loginInitialValues}
+            validationSchema={loginSchema}
+            onSubmit={(values) => {
+              const identifier = values.identifier.trim();
+              const treatAsEmail = isEmail(identifier);
+              setEmail(treatAsEmail ? identifier : "");
+              setPassword(values.password);
+              if (setEmployeeCode) setEmployeeCode(treatAsEmail ? "" : identifier);
+              loginSubmitHandler(
+                treatAsEmail
+                  ? { email: identifier, password: values.password }
+                  : { employee_code: identifier, password: values.password }
+              );
+            }}
+          >
+            {({ errors, touched }) => (
+              <Form className="lf-animated">
+                <div className="lf-field">
+                  <label className="lf-label">Email ID or Employee Code</label>
+                  <div className="lf-input-wrap">
+                    <FiUser className="lf-icon" />
+                    <Field
+                      type="text"
+                      name="identifier"
+                      placeholder="name@example.com or EMP1234"
+                      className="lf-input"
+                      id="identifier-login_form"
+                      autoComplete="username"
+                    />
+                  </div>
+                  {touched.identifier && errors.identifier && (
+                    <div className="lf-error">{errors.identifier}</div>
+                  )}
+                </div>
+
+                <div className="lf-field">
+                  <label className="lf-label">Password</label>
+                  <div className="lf-input-wrap">
+                    <FiLock className="lf-icon" />
+                    <Field
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      placeholder="Enter your password"
+                      className="lf-input lf-input-pw"
+                      id="password-login_form"
+                    />
+                    <div
+                      className="lf-eye"
+                      onClick={() => setShowPassword(!showPassword)}
+                      id="toggle_password_visibility-password_field-login_form"
+                    >
+                      {showPassword ? <FiEye /> : <FiEyeOff />}
+                    </div>
+                  </div>
+                  {touched.password && errors.password && (
+                    <div className="lf-error">{errors.password}</div>
+                  )}
+                </div>
+
+                  <span
+                    type="button"
+                    className="lf-forgot"
+                    id="forgot_password-login_links-login_form"
+                    onClick={() => setView("forgot_email")}
+                  >
+                    Forgot Password?
+                  </span>
+
+                <button
+                  type="submit"
+                  className="lf-submit"
+                  id="login_submit-login_form-login_form"
+                  disabled={loading}
+                  style={loading ? { opacity: 0.7, cursor: 'not-allowed', transform: 'none' } : {}}
+                >
+                  {loading ? (
+                    <><span className="spinner-border spinner-border-sm" style={{ width: 16, height: 16 }} /> Signing In...</>
+                  ) : (
+                    <>Sign In <FiArrowRight className="lf-arrow" /></>
+                  )}
+                </button>
+              </Form>
+            )}
+          </Formik>
+        </>
       )}
 
-      {/* Sliding Toggle */}
-      <div className="lf-toggle">
-        <div className={`lf-toggle-pill${isEmployeeCode ? '' : ' right'}`} />
-        <button
-          type="button"
-          className={`lf-toggle-btn${isEmployeeCode ? ' active' : ''}`}
-          onClick={() => setLoginMethod("employee_code")}
-          id="toggle_employee_code-login_method-login_form"
-        >
-          Employee Code
-        </button>
-        <button
-          type="button"
-          className={`lf-toggle-btn${!isEmployeeCode ? ' active' : ''}`}
-          onClick={() => setLoginMethod("email")}
-          id="toggle_email-login_method-login_form"
-        >
-          Email
-        </button>
-      </div>
+      {view === "forgot_email" && (
+        <>
+          <button
+            type="button"
+            className="lf-back-icon"
+            onClick={() => setView("login")}
+            id="back_to_login-forgot_email-login_form"
+            aria-label="Back to sign in"
+          >
+            <FiArrowLeft />
+          </button>
+          <h3 style={{
+            fontFamily: 'Poppins, sans-serif',
+            fontWeight: 700,
+            fontSize: '26px',
+            lineHeight: '34px',
+            color: '#0f172a',
+            textAlign: 'center',
+            marginBottom: '4px',
+          }}>
+            Reset your password
+          </h3>
+          <p style={{
+            fontFamily: 'Poppins, sans-serif',
+            fontSize: '14px',
+            color: '#64748b',
+            textAlign: 'center',
+            marginBottom: '28px',
+            fontWeight: 400,
+            lineHeight: '22px',
+          }}>
+            Enter your email ID or employee code and we'll send a one-time code to your registered email.
+          </p>
 
-      {/* Form */}
-      <Formik
-        key={loginMethod}
-        initialValues={currentInitialValues}
-        validationSchema={currentSchema}
-        onSubmit={(values) => {
-          if (loginMethod === "employee_code") {
-            setEmail("");
-            setPassword(values.password);
-            if (setEmployeeCode) setEmployeeCode(values.employee_code);
-            loginSubmitHandler({ employee_code: values.employee_code, password: values.password });
-          } else {
-            setEmail(values.email);
-            setPassword(values.password);
-            if (setEmployeeCode) setEmployeeCode("");
-            loginSubmitHandler({ email: values.email, password: values.password });
-          }
-        }}
-      >
-        {({ errors, touched }) => (
-          <Form className="lf-animated">
-            {/* Identifier Field */}
-            {isEmployeeCode ? (
-              <div className="lf-field">
-                <label className="lf-label">Employee Code</label>
-                <div className="lf-input-wrap">
-                  <FiHash className="lf-icon" />
-                  <Field
-                    type="text"
-                    name="employee_code"
-                    placeholder="Enter your employee code"
-                    className="lf-input"
-                    id="employee_code-login_form"
-                  />
+          <Formik
+            initialValues={forgotIdentifierInitialValues}
+            validationSchema={forgotIdentifierSchema}
+            onSubmit={handleForgotIdentifierSubmit}
+          >
+            {({ errors, touched }) => (
+              <Form className="lf-animated">
+                <div className="lf-field">
+                  <label className="lf-label">Email ID or Employee Code</label>
+                  <div className="lf-input-wrap">
+                    <FiUser className="lf-icon" />
+                    <Field
+                      type="text"
+                      name="identifier"
+                      placeholder="name@example.com or EMP1234"
+                      className="lf-input"
+                      id="identifier-forgot_email-login_form"
+                      autoComplete="username"
+                    />
+                  </div>
+                  {touched.identifier && errors.identifier && (
+                    <div className="lf-error">{errors.identifier}</div>
+                  )}
                 </div>
-                {touched.employee_code && errors.employee_code && (
-                  <div className="lf-error">{errors.employee_code}</div>
-                )}
-              </div>
+
+                <button
+                  type="submit"
+                  className="lf-submit"
+                  id="send_otp-forgot_email-login_form"
+                  disabled={loading}
+                  style={loading ? { opacity: 0.7, cursor: 'not-allowed', transform: 'none' } : {}}
+                >
+                  {loading ? (
+                    <><span className="spinner-border spinner-border-sm" style={{ width: 16, height: 16 }} /> Sending OTP...</>
+                  ) : (
+                    <>Send OTP <FiArrowRight className="lf-arrow" /></>
+                  )}
+                </button>
+              </Form>
+            )}
+          </Formik>
+        </>
+      )}
+
+      {view === "forgot_reset" && (
+        <>
+          <button
+            type="button"
+            className="lf-back-icon"
+            onClick={() => setView("forgot_email")}
+            id="back_to_email-forgot_reset-login_form"
+            aria-label="Use a different identifier"
+          >
+            <FiArrowLeft />
+          </button>
+          <h3 style={{
+            fontFamily: 'Poppins, sans-serif',
+            fontWeight: 700,
+            fontSize: '26px',
+            lineHeight: '34px',
+            color: '#0f172a',
+            textAlign: 'center',
+            marginBottom: '4px',
+          }}>
+            Set a new password
+          </h3>
+          <p style={{
+            fontFamily: 'Poppins, sans-serif',
+            fontSize: '14px',
+            color: '#64748b',
+            textAlign: 'center',
+            marginBottom: '24px',
+            fontWeight: 400,
+            lineHeight: '22px',
+          }}>
+            {resetIsEmail ? (
+              <>Enter the OTP sent to <strong style={{ color: '#0f172a' }}>{resetIdentifier}</strong>.</>
             ) : (
-              <div className="lf-field">
-                <label className="lf-label">Email Address</label>
-                <div className="lf-input-wrap">
-                  <FiMail className="lf-icon" />
-                  <Field
-                    type="email"
-                    name="email"
-                    placeholder="name@example.com"
-                    className="lf-input"
-                    id="email-login_form"
-                  />
-                </div>
-                {touched.email && errors.email && (
-                  <div className="lf-error">{errors.email}</div>
-                )}
-              </div>
+              <>Enter the OTP sent to the email registered for <strong style={{ color: '#0f172a' }}>{resetIdentifier}</strong>.</>
             )}
+          </p>
 
-            {/* Password Field */}
-            <div className="lf-field">
-              <label className="lf-label">Password</label>
-              <div className="lf-input-wrap">
-                <FiLock className="lf-icon" />
-                <Field
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  placeholder="Enter your password"
-                  className="lf-input lf-input-pw"
-                  id="password-login_form"
-                />
-                <div
-                  className="lf-eye"
-                  onClick={() => setShowPassword(!showPassword)}
-                  id="toggle_password_visibility-password_field-login_form"
-                >
-                  {showPassword ? <FiEye /> : <FiEyeOff />}
+          <Formik
+            initialValues={forgotResetInitialValues}
+            validationSchema={ForgetPasswordOtpValidation}
+            onSubmit={handleResetSubmit}
+          >
+            {({ errors, touched }) => (
+              <Form className="lf-animated">
+                <div className="lf-field">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: 8 }}>
+                    <label className="lf-label" style={{ marginBottom: 0, flex: 1, textAlign: 'left' }}>One-time Code</label>
+                    <button
+                      type="button"
+                      className="lf-resend"
+                      onClick={handleResendOtp}
+                      disabled={resending}
+                      id="resend_otp-forgot_reset-login_form"
+                      style={{ flex: 1, textAlign: 'right' }}
+                    >
+                      {resending ? "Resending..." : "Resend OTP"}
+                    </button>
+                  </div>
+                  <div className="lf-input-wrap" style={{ marginTop: 7 }}>
+                    <FiKey className="lf-icon" />
+                    <Field
+                      type="text"
+                      name="otp"
+                      placeholder="Enter the 6-digit code"
+                      className="lf-input"
+                      id="otp-forgot_reset-login_form"
+                      autoComplete="one-time-code"
+                    />
+                  </div>
+                  {touched.otp && errors.otp && (
+                    <div className="lf-error">{errors.otp}</div>
+                  )}
                 </div>
-              </div>
-              {touched.password && errors.password && (
-                <div className="lf-error">{errors.password}</div>
-              )}
-            </div>
 
-            {/* Forgot Password (email only) */}
-            {!isEmployeeCode && (
-              <div style={{ textAlign: 'right', marginBottom: '18px', marginTop: '-10px' }}>
-                <Link
-                  href="/forget-password"
-                  onClick={() => props.closeModal()}
-                  className="lf-forgot"
-                  id="forgot_password-login_links-login_form"
+                <div className="lf-field">
+                  <label className="lf-label">New Password</label>
+                  <div className="lf-input-wrap">
+                    <FiLock className="lf-icon" />
+                    <Field
+                      type={showNewPassword ? "text" : "password"}
+                      name="password"
+                      placeholder="Create a strong password"
+                      className="lf-input lf-input-pw"
+                      id="password-forgot_reset-login_form"
+                      autoComplete="new-password"
+                    />
+                    <div
+                      className="lf-eye"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      id="toggle_new_password_visibility-forgot_reset-login_form"
+                    >
+                      {showNewPassword ? <FiEye /> : <FiEyeOff />}
+                    </div>
+                  </div>
+                  {touched.password && errors.password && (
+                    <div className="lf-error">{errors.password}</div>
+                  )}
+                </div>
+
+                <div className="lf-field">
+                  <label className="lf-label">Confirm Password</label>
+                  <div className="lf-input-wrap">
+                    <FiLock className="lf-icon" />
+                    <Field
+                      type={showConfirmPassword ? "text" : "password"}
+                      name="confirm_password"
+                      placeholder="Re-enter new password"
+                      className="lf-input lf-input-pw"
+                      id="confirm_password-forgot_reset-login_form"
+                      autoComplete="new-password"
+                    />
+                    <div
+                      className="lf-eye"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      id="toggle_confirm_password_visibility-forgot_reset-login_form"
+                    >
+                      {showConfirmPassword ? <FiEye /> : <FiEyeOff />}
+                    </div>
+                  </div>
+                  {touched.confirm_password && errors.confirm_password && (
+                    <div className="lf-error">{errors.confirm_password}</div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  className="lf-submit"
+                  id="change_password-forgot_reset-login_form"
+                  disabled={loading}
+                  style={loading ? { opacity: 0.7, cursor: 'not-allowed', transform: 'none' } : {}}
                 >
-                  Forgot Password?
-                </Link>
-              </div>
+                  {loading ? (
+                    <><span className="spinner-border spinner-border-sm" style={{ width: 16, height: 16 }} /> Updating...</>
+                  ) : (
+                    <>Change Password & Sign In <FiArrowRight className="lf-arrow" /></>
+                  )}
+                </button>
+              </Form>
             )}
-
-            {/* Submit */}
-            <button
-              type="submit"
-              className="lf-submit"
-              id="login_submit-login_form-login_form"
-              disabled={loading}
-              style={loading ? { opacity: 0.7, cursor: 'not-allowed', transform: 'none' } : {}}
-            >
-              {loading ? (
-                <><span className="spinner-border spinner-border-sm" style={{ width: 16, height: 16 }} /> Signing In...</>
-              ) : (
-                <>Sign In <FiArrowRight className="lf-arrow" /></>
-              )}
-            </button>
-          </Form>
-        )}
-      </Formik>
-
-
+          </Formik>
+        </>
+      )}
     </div>
   );
 };

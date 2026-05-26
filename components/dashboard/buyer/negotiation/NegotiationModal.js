@@ -150,6 +150,12 @@ const NegotiationModal = ({
   const [selectedVendors, setSelectedVendors] = useState({}); // { [productId]: [vendorId, ...] }
   // Charge names from API
   const [chargeNamesList, setChargeNamesList] = useState([]); // All charge names from /rfq/charge-names
+  // Search term for filtering the product accordion list in create mode
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  // Inline submit-time warning when any target ≥ vendor's quoted value
+  const [showTargetWarning, setShowTargetWarning] = useState(false);
+  // Red-border error on the End Date input when a submit is attempted without one
+  const [endDateError, setEndDateError] = useState(false);
 
   const toggleCardFlip = (productId, e) => {
     e.stopPropagation();
@@ -172,6 +178,9 @@ const NegotiationModal = ({
       setVendorTargets({});
       setFlippedCards({});
       setSelectedVendors({});
+      setProductSearchTerm('');
+      setShowTargetWarning(false);
+      setEndDateError(false);
       loadQuoteApprovalStatuses();
       // Fetch charge names for negotiation fields
       getChargeNames().then(res => {
@@ -592,14 +601,85 @@ const NegotiationModal = ({
     });
   };
 
+  // Per-(vendor, field) check: returns true if the effective target value
+  // (per-vendor override, else global) is ≥ that vendor's quoted value for
+  // the same field. Numeric fields only; text fields always return false.
+  // Mirrors VendorAccordionPanel.compareTargetToQuoted's normalization logic.
+  const TEXT_ONLY_NEG_FIELDS = new Set(['payment_terms', 'comments', 'vendor_tc', 'documents']);
+
+  const isFieldTargetInvalid = (fieldKey, vt, vendorData) => {
+    if (!vendorData || TEXT_ONLY_NEG_FIELDS.has(fieldKey)) return false;
+    const unitPrice = parseFloat(vendorData.unitPrice) || 0;
+    const quantity = parseFloat(vendorData.quantity) || 1;
+    const basePrice = unitPrice * quantity;
+
+    const localVal = vt?.[fieldKey];
+    const globalKey = getChargeTargetKey(fieldKey);
+    const globalVal = globalKey ? formData[globalKey] : '';
+    const rawTarget = localVal != null && localVal !== '' ? localVal : globalVal;
+    const target = parseFloat(rawTarget);
+    if (!Number.isFinite(target) || target <= 0) return false;
+
+    if (fieldKey === 'base_price') {
+      return unitPrice > 0 && target >= unitPrice;
+    }
+
+    const charge = (vendorData.otherCharges || []).find((c) =>
+      (c.slug || c.name) === fieldKey || c.name === fieldKey
+    );
+    if (!charge) return false;
+    const quotedValue = parseFloat(charge.amount);
+    if (!Number.isFinite(quotedValue) || quotedValue <= 0 || basePrice <= 0) return false;
+    const quotedMode = charge.amount_mode || 'percentage';
+    const quotedAmt = quotedMode === 'percentage' ? (quotedValue / 100) * basePrice : quotedValue;
+
+    const modeKey = `${fieldKey}_mode`;
+    const localMode = vt?.[modeKey];
+    const globalMode = formData[`target_${fieldKey}_mode`];
+    const targetMode = localMode || globalMode || 'percentage';
+    const targetAmt = targetMode === 'percentage' ? (target / 100) * basePrice : target;
+
+    return targetAmt >= quotedAmt;
+  };
+
+  // Returns true if ANY (vendor, field) combo across the currently selected
+  // product/vendors is invalid. Drives the inline error banner in real time.
+  const hasAnyTargetAtOrAboveQuote = () => {
+    const productId = selectedProducts[0];
+    if (!productId) return false;
+    const productVendorIds = selectedVendors[productId] || [];
+    if (productVendorIds.length === 0) return false;
+    const effectiveFields = getEffectiveFields();
+    if (effectiveFields.length === 0) return false;
+
+    const selectedProduct = products.find((p) => p.id === productId);
+    const productPriceData = selectedProduct ? getVendorPriceData(selectedProduct) : { vendors: [] };
+
+    return productVendorIds.some((vid) => {
+      const vendorData = (productPriceData.vendors || []).find((v) => v.vendorId === vid);
+      const vt = vendorTargets[vid] || {};
+      return effectiveFields.some((fieldKey) => isFieldTargetInvalid(fieldKey, vt, vendorData));
+    });
+  };
+
+  // Drive the banner in real time off the current state — show it as soon
+  // as any target ≥ quoted while the user types, hide it the moment all
+  // offending values are corrected.
+  useEffect(() => {
+    setShowTargetWarning(hasAnyTargetAtOrAboveQuote());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorTargets, formData, selectedVendors, selectedProducts, products]);
+
   const handleSubmit = async (e) => {
     if (e?.preventDefault) e.preventDefault();
     const effectiveFields = getEffectiveFields();
 
     if (selectedProducts.length === 0 || !formData.end_date) {
+      if (!formData.end_date) setEndDateError(true);
       toast.error('Please select a product and set an end date');
       return;
     }
+    setEndDateError(false);
 
     // Validate vendor selection
     const productId = selectedProducts[0];
@@ -625,6 +705,10 @@ const NegotiationModal = ({
       return;
     }
 
+    // Note: invalid (target ≥ quoted) fields are NOT submission blockers
+    // anymore — the inline error banner is driven from state and the payload
+    // builder below filters those fields out defensively.
+
     setSubmitting(true);
     try {
       // Convert local datetime to UTC ISO string
@@ -634,8 +718,15 @@ const NegotiationModal = ({
       // Create rounds for each selected product
       for (const pid of selectedProducts) {
         const productVendorIds = selectedVendors[pid] || [];
+        const productForPayload = products.find((p) => String(p.id) === String(pid));
+        const priceDataForPayload = productForPayload
+          ? getVendorPriceData(productForPayload)
+          : { vendors: [] };
         const vendorTargetsArray = productVendorIds.map(vid => {
           const vt = vendorTargets[vid] || {};
+          const vendorDataForCheck = (priceDataForPayload.vendors || []).find(
+            (v) => v.vendorId === vid
+          );
           const fields = [];
           const nonModeKeys = ['base_price', 'payment_terms', 'comments', 'vendor_tc', 'documents'];
           // Include per-vendor local targets
@@ -648,10 +739,7 @@ const NegotiationModal = ({
                   const docComments = typeof vt[k] === 'string' ? JSON.parse(vt[k]) : vt[k];
                   const state = docComments && typeof docComments === 'object' ? docComments : {};
                   const demand = (state.demand || '').trim();
-                  const product = products.find(p => String(p.id) === String(pid));
-                  const priceData = product ? getVendorPriceData(product) : { vendors: [] };
-                  const vendorData = priceData.vendors.find(v => v.vendorId === vid);
-                  const docFiles = vendorData?.documentFiles || [];
+                  const docFiles = vendorDataForCheck?.documentFiles || [];
                   const docTargets = Object.entries(state)
                     .filter(([key, comment]) => key !== 'demand' && comment && String(comment).trim())
                     .map(([idx, comment]) => ({
@@ -667,6 +755,10 @@ const NegotiationModal = ({
                 } catch { /* skip malformed */ }
                 return;
               }
+              // Defensive: skip numeric fields whose effective target is ≥
+              // the vendor's quoted value — the banner warns the user but if
+              // they proceed anyway we must not leak the bad value to BE.
+              if (isFieldTargetInvalid(k, vt, vendorDataForCheck)) return;
               const fieldObj = { name: k, target: vt[k] };
               if (!nonModeKeys.includes(k)) {
                 const modeVal = vt[`${k}_mode`] || 'percentage';
@@ -682,6 +774,8 @@ const NegotiationModal = ({
             const targetKey = getChargeTargetKey(f);
             const globalVal = targetKey && formData[targetKey];
             if (globalVal) {
+              // Same defensive filter applied to the global fallback.
+              if (isFieldTargetInvalid(f, vt, vendorDataForCheck)) return;
               const fieldObj = { name: f, target: globalVal };
               if (!nonModeKeys.includes(f)) {
                 const modeKey = `target_${f}_mode`;
@@ -721,7 +815,12 @@ const NegotiationModal = ({
         setTempTextTarget(typeof existing === 'string' ? JSON.parse(existing) : (existing || {}));
       } catch { setTempTextTarget({}); }
     } else {
-      setTempTextTarget(vendorTargets[vendorId]?.[fieldKey] || '');
+      // Per-vendor override wins; otherwise seed from the global target value
+      // entered in Negotiation Fields (e.g. formData.target_payment_terms).
+      // Edits saved here will overwrite the per-vendor target.
+      const localTarget = vendorTargets[vendorId]?.[fieldKey];
+      const globalTarget = formData?.[getChargeTargetKey(fieldKey)];
+      setTempTextTarget(localTarget || globalTarget || '');
     }
     setTextFieldModal({ vendorId, fieldKey, fieldLabel });
   };
@@ -1148,9 +1247,10 @@ const NegotiationModal = ({
 
     vendors.sort((a, b) => a.totalPrice - b.totalPrice);
     const l1 = vendors.length > 0 ? vendors[0].totalPrice : null;
+    const l1BasePrice = vendors.length > 0 ? vendors[0].unitPrice : null;
     vendors.forEach(v => { v.isL1 = v.totalPrice === l1; });
 
-    return { vendors, l1 };
+    return { vendors, l1, l1BasePrice };
   };
 
   // Build Chart.js config for vendor price chart (bar or line)
@@ -1282,6 +1382,18 @@ const NegotiationModal = ({
   const renderCreateForm = () => {
     const availableProducts = products.filter(p => !getProductRoundStatus(p.id).isDisabled);
 
+    const q = productSearchTerm.trim().toLowerCase();
+    const filteredProducts = q
+      ? products.filter((p) => {
+          const d = getProductDetails(p);
+          return (
+            (d.name || '').toLowerCase().includes(q) ||
+            (d.spec || '').toLowerCase().includes(q) ||
+            (d.size || '').toLowerCase().includes(q)
+          );
+        })
+      : products;
+
     return (
       <Form onSubmit={handleSubmit}>
         <section className={styles.createSurface}>
@@ -1297,24 +1409,42 @@ const NegotiationModal = ({
             </span>
           </div>
 
+          {products.length > 0 && (
+            <div className={styles.createSearchRow}>
+              <input
+                type="text"
+                className={styles.createSearchInput}
+                placeholder="Search products by name, spec, or size…"
+                value={productSearchTerm}
+                onChange={(e) => setProductSearchTerm(e.target.value)}
+              />
+            </div>
+          )}
+
           {products.length === 0 ? (
             <div className={styles.createEmpty}>
               <p className={styles.createEmptyTitle}>No products found</p>
               <p className={styles.createEmptySub}>Load an RFQ with products to create rounds.</p>
             </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className={styles.createEmpty}>
+              <p className={styles.createEmptyTitle}>No matching products</p>
+              <p className={styles.createEmptySub}>Try a different search term.</p>
+            </div>
           ) : (
             <div className={styles.createProductList}>
-              {products.map((product) => {
+              {filteredProducts.map((product) => {
                 const { isDisabled, statusLabel, statusClass } = getProductRoundStatus(product.id);
                 const isSelected = selectedProducts.includes(product.id);
                 const details = getProductDetails(product);
 
                 const priceData = getVendorPriceData(product);
                 const isFlipped = flippedCards[product.id];
+                const hasVendorsSelected = (selectedVendors[product.id] || []).length > 0;
 
                 return (
+                  <div key={product.id} className={styles.createProductItem}>
                   <div
-                    key={product.id}
                     className={`${styles.flipContainer} ${isFlipped ? styles.flipContainerFlipped : ''}`}
                   >
                     <div className={styles.flipInner}>
@@ -1369,6 +1499,11 @@ const NegotiationModal = ({
                             <p className={`${styles.createMetaValue} ${styles.createMetaValueL1}`}>
                               {priceData.l1 ? `₹${priceData.l1.toLocaleString('en-IN')}` : '-'}
                             </p>
+                            {priceData.l1BasePrice ? (
+                              <p className={styles.createMetaValueL1Base}>
+                                Base ₹{priceData.l1BasePrice.toLocaleString('en-IN')}
+                              </p>
+                            ) : null}
                           </div>
                           <div className={styles.createMetaItem}>
                             <p className={styles.createMetaLabel}>Vendors</p>
@@ -1442,6 +1577,73 @@ const NegotiationModal = ({
                       </div>
                     </div>
                   </div>
+
+                  <div
+                    className={`${styles.productAccordionBody} ${
+                      isSelected ? styles.productAccordionBodyOpen : ''
+                    }`}
+                  >
+                    {isSelected && (
+                      <>
+                        <NegotiationFieldsSelect
+                          selectedFields={formData.negotiation_fields}
+                          onToggleField={(fieldValue) => {
+                            setFormData(prev => {
+                              const current = prev.negotiation_fields;
+                              const next = current.includes(fieldValue)
+                                ? current.filter(f => f !== fieldValue)
+                                : [...current, fieldValue];
+                              return { ...prev, negotiation_fields: next };
+                            });
+                          }}
+                          formData={formData}
+                          onFormChange={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
+                          disabled={!hasVendorsSelected}
+                          defaultCharges={chargeNamesList.filter(c => c.created_by === null)}
+                        />
+
+                        {showTargetWarning && (
+                          <div className={styles.createNoticeBanner} role="alert">
+                            <span className={styles.createNoticeIcon} aria-hidden="true">i</span>
+                            <span>
+                              Fields with target values greater than or equal to the vendor’s quoted value cannot be negotiated. Adjust the target value or else system will remove that field from negotiation and <strong>vendor will not be able to negotiate on that field.</strong>
+                            </span>
+                          </div>
+                        )}
+
+                        <VendorAccordionPanel
+                          product={product}
+                          selectedVendorIds={selectedVendors[product.id] || []}
+                          onVendorToggle={(vid) => handleVendorToggle(product.id, vid)}
+                          onSelectAll={() => handleSelectAllVendors(product.id)}
+                          getVendorDisplayName={getVendorDisplayName}
+                          selectedFields={formData.negotiation_fields}
+                          vendorPriceData={priceData}
+                          chargeNamesList={chargeNamesList}
+                          vendorTargets={vendorTargets}
+                          onVendorTargetChange={(vendorId, fieldKey, value) => {
+                            setVendorTargets(prev => ({
+                              ...prev,
+                              [vendorId]: { ...(prev[vendorId] || {}), [fieldKey]: value }
+                            }));
+                          }}
+                          onVendorLocalFieldToggle={(vendorId, fieldKey) => {
+                            setVendorTargets(prev => {
+                              const vendorData = prev[vendorId] || {};
+                              const localFields = vendorData._localFields || [];
+                              const nextFields = localFields.includes(fieldKey)
+                                ? localFields.filter(f => f !== fieldKey)
+                                : [...localFields, fieldKey];
+                              return { ...prev, [vendorId]: { ...vendorData, _localFields: nextFields } };
+                            });
+                          }}
+                          globalFormData={formData}
+                          onOpenTextFieldModal={handleOpenTextFieldModal}
+                        />
+                      </>
+                    )}
+                  </div>
+                  </div>
                 );
               })}
             </div>
@@ -1453,77 +1655,6 @@ const NegotiationModal = ({
             </p>
           )}
         </section>
-
-        {selectedProducts.length > 0 && (() => {
-          const selectedProduct = products.find(p => p.id === selectedProducts[0]);
-          if (!selectedProduct) return null;
-          const priceData = getVendorPriceData(selectedProduct);
-          const hasVendorsSelected = (selectedVendors[selectedProduct.id] || []).length > 0;
-
-          // Collect unique charge names from all vendors
-          const dynamicChargeNames = [];
-          const seenChargeNames = new Set();
-          (priceData.vendors || []).forEach(v => {
-            (v.otherCharges || []).forEach(c => {
-              if (c.name && !seenChargeNames.has(c.name)) {
-                seenChargeNames.add(c.name);
-                dynamicChargeNames.push(c.name);
-              }
-            });
-          });
-
-          return (
-            <>
-              <NegotiationFieldsSelect
-                selectedFields={formData.negotiation_fields}
-                onToggleField={(fieldValue) => {
-                  setFormData(prev => {
-                    const current = prev.negotiation_fields;
-                    const next = current.includes(fieldValue)
-                      ? current.filter(f => f !== fieldValue)
-                      : [...current, fieldValue];
-                    return { ...prev, negotiation_fields: next };
-                  });
-                }}
-                formData={formData}
-                onFormChange={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
-                disabled={!hasVendorsSelected}
-                defaultCharges={chargeNamesList.filter(c => c.created_by === null)}
-              />
-
-              <VendorAccordionPanel
-                product={selectedProduct}
-                selectedVendorIds={selectedVendors[selectedProduct.id] || []}
-                onVendorToggle={(vid) => handleVendorToggle(selectedProduct.id, vid)}
-                onSelectAll={() => handleSelectAllVendors(selectedProduct.id)}
-                getVendorDisplayName={getVendorDisplayName}
-                selectedFields={formData.negotiation_fields}
-                vendorPriceData={priceData}
-                chargeNamesList={chargeNamesList}
-                vendorTargets={vendorTargets}
-                onVendorTargetChange={(vendorId, fieldKey, value) => {
-                  setVendorTargets(prev => ({
-                    ...prev,
-                    [vendorId]: { ...(prev[vendorId] || {}), [fieldKey]: value }
-                  }));
-                }}
-                onVendorLocalFieldToggle={(vendorId, fieldKey) => {
-                  setVendorTargets(prev => {
-                    const vendorData = prev[vendorId] || {};
-                    const localFields = vendorData._localFields || [];
-                    const nextFields = localFields.includes(fieldKey)
-                      ? localFields.filter(f => f !== fieldKey)
-                      : [...localFields, fieldKey];
-                    return { ...prev, [vendorId]: { ...vendorData, _localFields: nextFields } };
-                  });
-                }}
-                globalFormData={formData}
-                onOpenTextFieldModal={handleOpenTextFieldModal}
-              />
-
-            </>
-          );
-        })()}
       </Form>
     );
   };
@@ -1688,7 +1819,17 @@ const NegotiationModal = ({
                                 {round.target_price != null
                                   ? `₹${parseFloat(round.target_price).toLocaleString()}`
                                   : (() => {
-                                      const fields = round.vendor_approvals?.flatMap(va => va.negotiation_fields || []) || [];
+                                      const allFields = round.vendor_approvals?.flatMap(va => va.negotiation_fields || []) || [];
+                                      // Dedupe per round: targets are set at the round level, so the same
+                                      // (name + target value) repeats once per vendor_approval. Collapse them.
+                                      const seen = new Set();
+                                      const fields = allFields.filter(f => {
+                                        const val = f.target ?? f.target_price;
+                                        const key = `${f.name}::${f.mode || ''}::${typeof val === 'object' ? JSON.stringify(val) : String(val)}`;
+                                        if (seen.has(key)) return false;
+                                        seen.add(key);
+                                        return true;
+                                      });
                                       const textNames = new Set(['payment_terms', 'comments', 'vendor_tc', 'documents']);
                                       return fields.length > 0 ? fields.map(f => {
                                         const label = f.name === 'base_price' ? 'Base Price' : f.name === 'payment_terms' ? 'Payment Terms' : f.name === 'documents' ? 'Documents' : f.name === 'comments' ? 'Comments' : (f.label || f.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
@@ -2303,11 +2444,15 @@ const NegotiationModal = ({
               id="neg-end-date"
               type="datetime-local"
               value={formData.end_date || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+              onChange={(e) => {
+                const next = e.target.value;
+                setFormData(prev => ({ ...prev, end_date: next }));
+                if (next) setEndDateError(false);
+              }}
               min={new Date().toISOString().slice(0, 16)}
               required
               disabled={!(selectedVendors[selectedProducts[0]] || []).length}
-              className={styles.fieldInput}
+              className={`${styles.fieldInput} ${endDateError ? styles.fieldInputError : ''}`}
             />
           </div>
           <div className={styles.formActions}>

@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Badge } from "react-bootstrap";
 import { BsArrowLeft, BsChatLeftText } from "react-icons/bs";
+import { FiX } from "react-icons/fi";
 import {
   formatDisplayDate,
   formatRFQNumber,
@@ -18,10 +19,29 @@ const hasVisibleText = (html) =>
   typeof html === "string" && html.replace(/<[^>]*>/g, "").trim() !== "";
 
 const QuoteCompareHeaderCard = ({ currentRFQ, actions, onBack }) => {
+  const [showTncModal, setShowTncModal] = useState(false);
+
+  useEffect(() => {
+    if (!showTncModal) return;
+    const handleKey = (e) => {
+      if (e.key === "Escape") setShowTncModal(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [showTncModal]);
+
   if (!currentRFQ) return null;
 
   const entityLabel = getEntityLabel(currentRFQ?.is_tender);
   const isClosed = Number(currentRFQ?.status) === 2;
+
+  const hasTnc =
+    hasVisibleText(currentRFQ?.comment) && currentRFQ.comment !== currentRFQ.title;
 
   const meta = [
     { label: "Company", value: currentRFQ?.company_name || "-" },
@@ -38,7 +58,9 @@ const QuoteCompareHeaderCard = ({ currentRFQ, actions, onBack }) => {
       label: "Reverse Auction",
       value: Number(currentRFQ?.reverse_auction) === 1 ? "Enabled" : "Disabled",
     },
-    { label: "Delivery Location", value: currentRFQ?.location || "-" },
+    ...(hasTnc
+      ? [{ label: "Terms & Conditions", isTnc: true }]
+      : []),
   ];
 
   return (
@@ -61,24 +83,63 @@ const QuoteCompareHeaderCard = ({ currentRFQ, actions, onBack }) => {
       </div>
 
       <div className={styles.heroMetaGrid}>
-        {meta.map((item) => (
-          <div className={styles.heroMetaItem} key={item.label}>
-            <span className={styles.metaLabel}>{item.label}</span>
-            <span className={styles.metaValue}>{item.value}</span>
-          </div>
-        ))}
+        {meta.map((item) =>
+          item.isTnc ? (
+            <button
+              type="button"
+              key={item.label}
+              className={`${styles.heroMetaItem} ${styles.heroMetaItemTnc}`}
+              onClick={() => setShowTncModal(true)}
+            >
+              <span className={styles.metaLabel}>{item.label}</span>
+              <span className={`${styles.metaValue} ${styles.metaValueTnc}`}>
+                <BsChatLeftText size={12} />
+                View
+              </span>
+            </button>
+          ) : (
+            <div className={styles.heroMetaItem} key={item.label}>
+              <span className={styles.metaLabel}>{item.label}</span>
+              <span className={styles.metaValue}>{item.value}</span>
+            </div>
+          )
+        )}
       </div>
 
-      {hasVisibleText(currentRFQ?.comment) && currentRFQ.comment !== currentRFQ.title && (
-        <div className={styles.heroCommentRow}>
-          <div className={styles.heroCommentIcon}>
-            <BsChatLeftText size={14} />
-          </div>
-          <div className={styles.heroCommentContent}>
-            <span className={styles.metaLabel}>Comment</span>
-            <div className={styles.heroCommentBody}>
+      <div className={styles.heroDeliveryRow}>
+        <span className={styles.metaLabel}>Delivery Location</span>
+        <span className={styles.metaValue}>{currentRFQ?.location || "-"}</span>
+      </div>
+
+      {showTncModal && (
+        <div
+          className={styles.tncOverlay}
+          onClick={() => setShowTncModal(false)}
+          role="presentation"
+        >
+          <div
+            className={styles.tncDialog}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tnc-modal-title"
+          >
+            <div className={styles.tncHeader}>
+              <h3 id="tnc-modal-title" className={styles.tncTitle}>
+                Terms &amp; Conditions
+              </h3>
+              <button
+                type="button"
+                className={styles.tncClose}
+                aria-label="Close"
+                onClick={() => setShowTncModal(false)}
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+            <div className={styles.tncBody}>
               <WysiwygEditor
-                value={currentRFQ.comment}
+                value={currentRFQ?.comment || ""}
                 readOnly
                 showToolbar={false}
                 minHeight="auto"
