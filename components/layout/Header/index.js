@@ -111,9 +111,10 @@ const Header = () => {
       ?.map((item) => item.href) || [];
 
     const isOnLockedRoute = lockedRoutes.some((route) => pathname?.startsWith(route));
-    // Also block send-quote and inquiries-details (child routes)
+    // Also block send-quote, quote (new wizard) and inquiries-details (child routes)
     const isOnChildLockedRoute =
       pathname?.startsWith("/dashboard/vendor/send-quote") ||
+      pathname?.startsWith("/dashboard/vendor/quote") ||
       pathname?.startsWith("/dashboard/vendor/inquiries-details");
 
     if (isOnLockedRoute || isOnChildLockedRoute) {

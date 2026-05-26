@@ -1277,7 +1277,7 @@ const RfqManagementPreview = () => {
   const goToQuoteCreation = () => {
     // Changes by Agnij 2025-05-05 [Pass tech eval restriction flag to quote page]
     router.push(
-      `/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
+      `/dashboard/vendor/quote?id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
     );
   };
 
@@ -1807,7 +1807,7 @@ const RfqManagementPreview = () => {
                               return;
                             }
                             router.push(
-                              `/dashboard/vendor/send-quote?type=update-quote&id=${rfqId}${
+                              `/dashboard/vendor/quote?type=update-quote&id=${rfqId}${
                                 token !== undefined ? `&token=${token}` : ""
                               }&showTechEvalRestrictions=${isReverseAuctionActive}`
                             );
@@ -2925,7 +2925,7 @@ const RfqManagementPreview = () => {
                                             {rfqDetails.quotations?.length > 0 && !rfqDetails?.quotations[0]?.is_regret && (
                                               <Link
                                                 className="mx-auto"
-                                                href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
+                                                href={`/dashboard/vendor/quote?type=update-quote&id=${localId || id || ''}${
                                                   token !== undefined ? `&token=${token}` : ""
                                                 }&showTechEvalRestrictions=false`}
                                                 onClick={(e) => {
@@ -2970,7 +2970,7 @@ const RfqManagementPreview = () => {
                                               </span>
                                               <Link
                                                 className="mx-auto"
-                                                href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
+                                                href={`/dashboard/vendor/quote?type=update-quote&id=${localId || id || ''}${
                                                   token !== undefined ? `&token=${token}` : ""
                                                 }&showTechEvalRestrictions=${isReverseAuctionActive}`}
                                                 onClick={(e) => {
@@ -3011,7 +3011,7 @@ const RfqManagementPreview = () => {
                                           ) : (
                                           <Link
                                             className="mx-auto mt-2"
-                                            href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
+                                            href={`/dashboard/vendor/quote?type=update-quote&id=${localId || id || ''}${
                                               token !== undefined
                                                 ? `&token=${token}`
                                                 : ""

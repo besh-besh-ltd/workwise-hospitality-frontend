@@ -307,7 +307,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                 const hasQueries = item.unseen_query_count > 0;
 
                 return (
-                  <Link key={item.id} href={`/dashboard/vendor/inquiries-details?id=${item.id}`} className={styles.inquiryRow}>
+                  <Link key={item.id} href={`/dashboard/vendor/quote?id=${item.id}&showTechEvalRestrictions=false`} className={styles.inquiryRow}>
                     <div className={styles.rowLeft}>
                       <div className={styles.rowTopLine}>
                         <span className={styles.rfqNo}>#{item.rfq_no}</span>
