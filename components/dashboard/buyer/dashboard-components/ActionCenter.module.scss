@@ -1,161 +1,173 @@
-.actionSection {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.sectionHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.sectionTitle {
-  font-size: 14px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--dark-color);
-  margin: 0;
-}
+/* ActionCenter — inner-content only. Card frame from PersonaCardShell.
+   Five action tiles laid out borderlessly inside the unified card. */
 
 .liveBadge {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--secondary-color);
-  background: rgba(66, 139, 65, 0.08);
-  padding: 4px 10px;
-  border-radius: 999px;
-  letter-spacing: 0.06em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #15803d;
+  border: 1px solid rgba(21, 128, 61, 0.18);
 
   &::before {
     content: "";
-    display: inline-block;
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
-    background: var(--secondary-color);
-    margin-right: 6px;
-    vertical-align: middle;
+    background: #15803d;
+    box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.18);
+    animation: livePulse 1.6s ease-in-out infinite;
   }
+}
+
+.urgentBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid rgba(185, 28, 28, 0.22);
+  margin-right: 6px;
+
+  &::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #dc2626;
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.18);
+    animation: urgentPulse 1.4s ease-in-out infinite;
+  }
+}
+@keyframes urgentPulse {
+  0%, 100% { opacity: 0.65; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+@keyframes livePulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
 }
 
 .actionGrid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 14px;
-  position: relative;
-  min-height: 70px;
+  gap: 4px;
 
-  @media (max-width: 1200px) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  @media (max-width: 768px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  @media (max-width: 480px) {
-    grid-template-columns: 1fr;
-  }
+  @media (max-width: 1100px) { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 720px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 460px) { grid-template-columns: 1fr; }
 }
 
-.actionCard {
-  background: #fff;
-  padding: 18px;
+.actionItem {
+  background: transparent;
+  border: none;
   border-radius: 10px;
-  border: 1px solid #eee;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  padding: 10px 12px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 11px;
   cursor: pointer;
-  transition: all 0.2s ease;
   text-decoration: none;
   color: inherit;
-  position: relative;
-  overflow: hidden;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s ease;
+
+  & + .actionItem {
+    border-left: 1px solid #f4f4f1;
+
+    @media (max-width: 1100px) {
+      border-left: none;
+    }
+  }
 
   &:hover {
-    border-color: #ddd;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-    transform: translateY(-1px);
-  }
-
-}
-
-.iconContainer {
-  width: 42px;
-  height: 42px;
-  min-width: 42px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &.red {
-    background: rgba(219, 10, 10, 0.08);
-    color: var(--red-color);
-  }
-  &.orange {
-    background: rgba(255, 165, 0, 0.1);
-    color: var(--tertiary-color);
-  }
-  &.green {
-    background: rgba(66, 139, 65, 0.08);
-    color: var(--secondary-color);
-  }
-  &.blue {
-    background: rgba(46, 91, 168, 0.08);
-    color: var(--primary-color);
+    background: #fafaf9;
   }
 }
 
-.cardContent {
+.iconChip {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #71717a;
+  background: #f5f5f3;
+  border: 1px solid #ebebe6;
+
+  &.danger { color: #b91c1c; background: #fef2f2; border-color: rgba(185, 28, 28, 0.16); }
+  &.warn   { color: #b45309; background: #fef7ed; border-color: rgba(180, 83, 9, 0.18); }
+  &.info   { color: #2563eb; background: #eff6ff; border-color: rgba(37, 99, 235, 0.16); }
+  &.muted  { color: #52525b; }
+}
+
+.actionBody {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
 }
 
-.cardLabel {
-  font-size: 12px;
+.actionLabel {
+  font-size: 11.5px;
   font-weight: 500;
-  color: #777;
-  margin: 0;
+  color: #71717a;
+  letter-spacing: -0.005em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   line-height: 1.3;
 }
 
-.cardMetric {
+.countRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  margin-top: 2px;
+  flex-wrap: wrap;
 }
 
-.metricValue {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--dark-color);
-  line-height: 1;
-}
-
-.urgencyBadge {
-  font-size: 9px;
+.actionCount {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 22px;
   font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #fff;
+  color: #18181b;
+  letter-spacing: -0.025em;
+  line-height: 1;
 
-  &.urgent {
-    background: var(--red-color);
-  }
-  &.action {
-    background: var(--tertiary-color);
-  }
-  &.near {
-    background: var(--secondary-color);
-  }
-  &.reassign {
-    background: var(--red-color);
-  }
+  &.danger { color: #b91c1c; }
+  &.warn   { color: #b45309; }
+  &.info   { color: #2563eb; }
+  &.muted  { color: #18181b; }
+}
+
+.statusPill {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  line-height: 1.25;
+  white-space: nowrap;
+
+  &.danger { background: #fef2f2; color: #b91c1c; }
+  &.warn   { background: #fef7ed; color: #b45309; }
+  &.info   { background: #eff6ff; color: #1d4ed8; }
+  &.muted  { background: #f4f4f5; color: #52525b; }
 }

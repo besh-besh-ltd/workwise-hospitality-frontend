@@ -68,7 +68,7 @@ const SideNavItem = ({
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <Lock size={18} strokeWidth={1.6} />
+            <Lock size={16} strokeWidth={2} />
           </div>
           {tooltip}
         </>
@@ -84,7 +84,7 @@ const SideNavItem = ({
           onMouseEnter={showTooltip}
           onMouseLeave={hideTooltip}
         >
-          {Icon && <Icon size={18} strokeWidth={1.6} />}
+          {Icon && <Icon size={16} strokeWidth={2} />}
           {dotEl}
         </Link>
         {tooltip}
@@ -95,7 +95,7 @@ const SideNavItem = ({
   /* ── Expanded mode ── */
   const iconEl = (
     <span className={styles.navIcon}>
-      {Icon ? <Icon size={18} strokeWidth={1.6} /> : null}
+      {Icon ? <Icon size={16} strokeWidth={2} /> : null}
     </span>
   );
 

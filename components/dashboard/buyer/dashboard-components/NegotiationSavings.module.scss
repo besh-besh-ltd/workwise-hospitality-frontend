@@ -1,86 +1,87 @@
-.savingsCard {
-  background: #fff;
-  border-radius: 10px;
-  padding: 28px;
-  border: 1px solid #eee;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-  position: relative;
-  overflow: hidden;
-}
+/* NegotiationSavings — inner-content only. Card frame from PersonaCardShell. */
 
-.decorativeBlur {
-  position: absolute;
-  top: -60px;
-  right: -60px;
-  width: 180px;
-  height: 180px;
-  background: rgba(66, 139, 65, 0.04);
-  border-radius: 50%;
-  filter: blur(50px);
-  pointer-events: none;
-}
-
-.savingsContent {
-  position: relative;
-  z-index: 1;
-}
-
-.savingsHeader {
+.headlineRow {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 28px;
-  gap: 20px;
+  gap: 12px;
+  margin-bottom: 16px;
+}
 
-  @media (max-width: 768px) {
-    flex-direction: column;
+.headlineLbl {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: #a1a1aa;
+}
+
+.headlineNum {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 28px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  margin-top: 2px;
+}
+
+.mono {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+.savedPill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #15803d;
+  border: 1px solid rgba(21, 128, 61, 0.18);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+
+  &.lossSavedPill {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: rgba(185, 28, 28, 0.18);
   }
 }
 
-.headerLeft {
-  flex: 1;
-}
-
-.headerTitle {
-  font-size: 14px;
+.headerPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
   font-weight: 700;
-  color: var(--dark-color);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin: 0 0 4px 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+
+  svg { flex-shrink: 0; }
+
+  &.winPill {
+    background: #ecfdf5;
+    color: #15803d;
+    border: 1px solid rgba(21, 128, 61, 0.22);
+  }
+  &.lossPill {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid rgba(185, 28, 28, 0.22);
+  }
 }
 
-.headerSubtitle {
-  font-size: 13px;
-  color: #999;
-  margin: 0;
+.lossNum {
+  color: #b91c1c !important;
 }
 
-.headerRight {
-  text-align: right;
-}
-
-.savingsAmount {
-  font-size: 30px;
-  font-weight: 800;
-  color: var(--secondary-color);
-  line-height: 1;
-}
-
-.savingsLabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--secondary-color);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-top: 4px;
-}
-
-.comparisonBars {
+.bars {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  margin-bottom: 28px;
+  gap: 12px;
 }
 
 .barGroup {
@@ -92,103 +93,30 @@
 .barLabel {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-
-  &.baseline {
-    color: #aaa;
-  }
-  &.negotiated {
-    color: var(--secondary-color);
-  }
+  font-size: 11.5px;
+  color: #71717a;
 }
 
 .barTrack {
-  width: 100%;
-  height: 12px;
-  background: #f0f0f0;
+  height: 6px;
+  background: #f4f4f1;
   border-radius: 999px;
   overflow: hidden;
-}
-
-.barTrackLarge {
-  width: 100%;
-  height: 26px;
-  background: #f0f0f0;
-  border-radius: 999px;
-  overflow: hidden;
-  display: flex;
 }
 
 .barFill {
   height: 100%;
   border-radius: 999px;
-  transition: width 0.6s ease;
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 
-  &.grey {
-    background: #d4d4d4;
-  }
-  &.green {
-    background: var(--secondary-color);
-  }
-}
-
-.savedSection {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(66, 139, 65, 0.08);
-  border-radius: 0 999px 999px 0;
-}
-
-.savedText {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--secondary-color);
-  letter-spacing: 0.06em;
-}
-
-.subCards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding-top: 24px;
-  border-top: 1px solid #f0f0f0;
-
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
-  }
-}
-
-.subCard {
-  background: rgba(66, 139, 65, 0.03);
-  padding: 14px 16px;
-  border-radius: 8px;
-  border: 1px solid rgba(66, 139, 65, 0.08);
-}
-
-.subCardLabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--secondary-color);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin: 0 0 6px 0;
-}
-
-.subCardValue {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--dark-color);
-  margin: 0;
+  &.grey { background: #a8a29e; }
+  &.green { background: #15803d; }
 }
 
 .emptyState {
   text-align: center;
-  padding: 40px 20px;
-  color: #999;
-  font-size: 14px;
+  padding: 18px 10px;
+  font-size: 12.5px;
+  color: #a1a1aa;
+  font-style: italic;
 }

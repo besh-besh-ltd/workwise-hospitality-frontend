@@ -1,0 +1,374 @@
+/* Shared layout primitives for persona widgets. Each widget reuses
+   these classes to stay visually consistent. */
+
+.card {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 18px 18px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  min-width: 0;
+
+  &:hover {
+    border-color: #e0e0e0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.iconWrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #f5f5f3;
+  border: 1px solid #ebebe6;
+  display: grid;
+  place-items: center;
+  color: #52525b;
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: #18181b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.headActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.refreshBtn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px;
+  color: #a1a1aa;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: #18181b;
+    background: #fafaf9;
+    border-color: #e8e8e3;
+  }
+}
+
+.body {
+  min-height: 60px;
+  min-width: 0;
+}
+
+/* ──────────── Loading / error / empty states ──────────── */
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.skelBar {
+  height: 12px;
+  background: linear-gradient(90deg, #ebebe6 25%, #f4f4f1 50%, #ebebe6 75%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: skelShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skelShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.errorState {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid rgba(185, 28, 28, 0.18);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.errorBtn {
+  margin-left: auto;
+  background: #ffffff;
+  border: 1px solid rgba(185, 28, 28, 0.3);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: #b91c1c;
+  cursor: pointer;
+
+  &:hover { background: #fef2f2; }
+}
+
+.emptyState {
+  text-align: center;
+  padding: 22px 12px;
+  font-size: 12.5px;
+  color: #a1a1aa;
+  font-style: italic;
+}
+
+/* ──────────── Reusable data primitives ──────────── */
+
+/* Headline number + supporting line (used by approvals / drafts / etc.) */
+.headlineRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.headlineNum {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 32px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.headlineUnit {
+  font-size: 12.5px;
+  color: #71717a;
+  font-weight: 500;
+}
+
+.subline {
+  font-size: 12px;
+  color: #71717a;
+  margin-top: 2px;
+}
+
+.subValue {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  color: #18181b;
+  font-weight: 600;
+}
+
+/* List item — used by "top N" lists (oldest items, no-response RFQs, etc.) */
+.itemList {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #f4f4f1;
+  margin-top: 4px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f4f4f1;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+
+  &:hover { opacity: 0.7; }
+  &:last-child { border-bottom: none; }
+}
+
+.itemMain {
+  min-width: 0;
+  flex: 1;
+}
+
+.itemTitle {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #18181b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.005em;
+}
+
+.itemMeta {
+  font-size: 11px;
+  color: #a1a1aa;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  > * + *::before {
+    content: '·';
+    margin: 0 4px 0 0;
+    color: #d4d4d4;
+  }
+}
+
+.itemRight {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #71717a;
+  font-family: 'Geist Mono', ui-monospace, monospace;
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f4f4f1;
+  border: 1px solid #ebebe6;
+  color: #52525b;
+  white-space: nowrap;
+}
+.badgeDanger { background: #fef2f2; border-color: rgba(185, 28, 28, 0.18); color: #b91c1c; }
+.badgeWarn   { background: #fef7ed; border-color: rgba(180, 83, 9, 0.18);  color: #b45309; }
+.badgeSuccess{ background: #ecfdf5; border-color: rgba(21, 128, 61, 0.18); color: #15803d; }
+.badgeInfo   { background: #eff6ff; border-color: rgba(37, 99, 235, 0.18); color: #2563eb; }
+
+/* Throughput delta — used by all *_throughput widgets */
+.throughputBlock {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.throughputCurrent {
+  display: flex;
+  flex-direction: column;
+}
+
+.throughputLbl {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: #a1a1aa;
+}
+
+.throughputNum {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 26px;
+  font-weight: 700;
+  color: #18181b;
+  margin-top: 2px;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.throughputUnit {
+  font-size: 12.5px;
+  color: #71717a;
+  margin-left: 4px;
+  font-weight: 500;
+}
+
+.deltaChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.deltaUp   { background: #fef2f2; color: #b91c1c; }   /* worse — took longer */
+.deltaDown { background: #ecfdf5; color: #15803d; }   /* better — faster */
+.deltaFlat { background: #f4f4f1; color: #71717a; }
+
+.sparkline {
+  width: 100%;
+  height: 36px;
+  margin-top: 8px;
+}
+
+.sparklinePath {
+  fill: none;
+  stroke: #2563eb;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.sparklineArea {
+  fill: rgba(37, 99, 235, 0.08);
+}
+
+/* Pipeline split (used by award_value_pipeline) */
+.pipelineGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+
+  @media (max-width: 480px) { grid-template-columns: 1fr; }
+}
+
+.pipelineCell {
+  border: 1px solid #ebebe6;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fafaf9;
+}
+
+.pipelineCellLbl {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: #71717a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pipelineCellNum {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 19px;
+  font-weight: 700;
+  color: #18181b;
+  margin-top: 4px;
+  letter-spacing: -0.02em;
+}
+
+.pipelineCellMeta {
+  font-size: 11px;
+  color: #a1a1aa;
+  margin-top: 2px;
+}

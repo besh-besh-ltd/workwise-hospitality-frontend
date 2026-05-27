@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { PiggyBank, TrendingUp, TrendingDown } from "lucide-react";
 import { getNegotiationSavings } from "@/services/dashboard";
-import CardLoader from "./CardLoader";
-import CardError from "./CardError";
+import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import styles from "./NegotiationSavings.module.scss";
 
 const formatCurrency = (value) => {
@@ -15,114 +15,96 @@ const formatCurrency = (value) => {
 const NegotiationSavings = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState(null);
   const intervalRef = useRef(null);
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(false);
+  const fetchData = useCallback(async () => {
+    setError(null);
     try {
       const res = await getNegotiationSavings(filters);
       setData(res.data);
-    } catch {
-      setError(true);
+    } catch (e) {
+      setError(e?.message || "Failed to load");
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
+    setLoading(true);
     fetchData();
     intervalRef.current = setInterval(fetchData, 20000);
     return () => clearInterval(intervalRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
 
   const baseline = data?.market_baseline || 0;
   const negotiated = data?.negotiated_total || 0;
   const savings = data?.total_savings || 0;
+  const isLoss = savings < 0;
   const negotiatedPct = baseline > 0 ? Math.round((negotiated / baseline) * 100) : 0;
-  const savedPct = baseline > 0 ? Math.round((savings / baseline) * 100) : 0;
+  const savedPct = baseline > 0 ? Math.round((Math.abs(savings) / baseline) * 100) : 0;
+  const hasData = baseline > 0 && savings !== 0;
 
   return (
-    <div className={styles.savingsCard}>
-      <div className={styles.decorativeBlur} />
-      {loading && <CardLoader />}
-      {error && !loading && <CardError onRetry={fetchData} />}
-      <div className={styles.savingsContent}>
-        <div className={styles.savingsHeader}>
-          <div className={styles.headerLeft}>
-            <h3 className={styles.headerTitle}>Negotiation Savings Achieved</h3>
-            <p className={styles.headerSubtitle}>
-              Direct value impact from strategic vendor negotiations.
-            </p>
-          </div>
-          <div className={styles.headerRight}>
-            <div className={styles.savingsAmount}>{formatCurrency(savings)}</div>
-            <p className={styles.savingsLabel}>Total Saved</p>
+    <PersonaCardShell
+      title="Negotiation savings"
+      icon={PiggyBank}
+      tooltip="Direct value impact from strategic vendor negotiations in this period."
+      actions={
+        hasData ? (
+          <span className={`${styles.headerPill} ${isLoss ? styles.lossPill : styles.winPill}`}>
+            {isLoss ? <TrendingDown size={10} strokeWidth={2.4} /> : <TrendingUp size={10} strokeWidth={2.4} />}
+            {isLoss ? "Loss" : "Win"} · {savedPct}%
+          </span>
+        ) : null
+      }
+      loading={loading}
+      error={error}
+      isEmpty={!hasData}
+      renderEmpty={() => (
+        <div className={styles.emptyState}>
+          No price reductions recorded through negotiations in this period.
+        </div>
+      )}
+      onRefresh={() => {
+        setLoading(true);
+        fetchData();
+      }}
+    >
+      <div className={styles.headlineRow}>
+        <div>
+          <div className={styles.headlineLbl}>{isLoss ? "Total lost" : "Total saved"}</div>
+          <div className={`${styles.headlineNum} ${isLoss ? styles.lossNum : ""}`}>
+            {isLoss ? "−" : ""}{formatCurrency(Math.abs(savings))}
           </div>
         </div>
-
-        {baseline > 0 && savings > 0 ? (
-          <>
-            <div className={styles.comparisonBars}>
-              <div className={styles.barGroup}>
-                <div className={`${styles.barLabel} ${styles.baseline}`}>
-                  <span>Market Baseline</span>
-                  <span>{formatCurrency(baseline)}</span>
-                </div>
-                <div className={styles.barTrack}>
-                  <div
-                    className={`${styles.barFill} ${styles.grey}`}
-                    style={{ width: "100%" }}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.barGroup}>
-                <div className={`${styles.barLabel} ${styles.negotiated}`}>
-                  <span>Negotiated Price</span>
-                  <span>{formatCurrency(negotiated)}</span>
-                </div>
-                <div className={styles.barTrackLarge}>
-                  <div
-                    className={`${styles.barFill} ${styles.green}`}
-                    style={{ width: `${negotiatedPct}%` }}
-                  />
-                  <div className={styles.savedSection}>
-                    <span className={styles.savedText}>{savedPct}% SAVED</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.subCards}>
-              <div className={styles.subCard}>
-                <p className={styles.subCardLabel}>Top Category Saving</p>
-                <p className={styles.subCardValue}>
-                  {data?.top_category_saving
-                    ? `${data.top_category_saving.name} (${data.top_category_saving.percentage}%)`
-                    : "–"}
-                </p>
-              </div>
-              <div className={styles.subCard}>
-                <p className={styles.subCardLabel}>Cost Avoidance</p>
-                <p className={styles.subCardValue}>
-                  {data?.cost_avoidance
-                    ? `${formatCurrency(data.cost_avoidance)} prevented`
-                    : "–"}
-                </p>
-              </div>
-            </div>
-          </>
-        ) : (
-          !loading && (
-            <div className={styles.emptyState}>
-              No price reductions recorded through negotiations in this period.
-            </div>
-          )
-        )}
+        <span className={`${styles.savedPill} ${isLoss ? styles.lossSavedPill : ""}`}>
+          {savedPct}% {isLoss ? "lost" : "saved"}
+        </span>
       </div>
-    </div>
+
+      <div className={styles.bars}>
+        <div className={styles.barGroup}>
+          <div className={styles.barLabel}>
+            <span>Market baseline</span>
+            <span className={styles.mono}>{formatCurrency(baseline)}</span>
+          </div>
+          <div className={styles.barTrack}>
+            <div className={`${styles.barFill} ${styles.grey}`} style={{ width: "100%" }} />
+          </div>
+        </div>
+        <div className={styles.barGroup}>
+          <div className={styles.barLabel}>
+            <span>Negotiated total</span>
+            <span className={styles.mono}>{formatCurrency(negotiated)}</span>
+          </div>
+          <div className={styles.barTrack}>
+            <div className={`${styles.barFill} ${styles.green}`} style={{ width: `${negotiatedPct}%` }} />
+          </div>
+        </div>
+      </div>
+    </PersonaCardShell>
   );
 };
 

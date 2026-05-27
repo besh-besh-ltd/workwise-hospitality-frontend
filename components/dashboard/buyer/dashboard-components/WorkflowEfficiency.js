@@ -1,8 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
-import { AlertTriangle } from "lucide-react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { AlertTriangle, Workflow } from "lucide-react";
 import { getWorkflowEfficiency } from "@/services/dashboard";
-import CardLoader from "./CardLoader";
-import CardError from "./CardError";
+import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import styles from "./WorkflowEfficiency.module.scss";
 
 const formatDwellTime = (hours) => {
@@ -13,47 +12,44 @@ const formatDwellTime = (hours) => {
   return `${parseFloat(days).toFixed(1)}d`;
 };
 
-// Fixed lifecycle order with business-friendly labels
-// DB stages are mapped into these buckets
-// Fixed lifecycle order — keys match backend stage names exactly
 const LIFECYCLE_STAGES = [
-  { key: "rfq_approval", label: "RFQ Approval" },
-  { key: "quote_wait", label: "Awaiting Quotes" },
-  { key: "tech_evaluation", label: "Technical Evaluation" },
-  { key: "tech_approval", label: "Technical Approval" },
+  { key: "rfq_approval", label: "RFQ approval" },
+  { key: "quote_wait", label: "Awaiting quotes" },
+  { key: "tech_evaluation", label: "Technical evaluation" },
+  { key: "tech_approval", label: "Technical approval" },
   { key: "negotiation", label: "Negotiation" },
-  { key: "commercial_evaluation", label: "Commercial Evaluation" },
-  { key: "commercial_approval", label: "Commercial Approval" },
-  { key: "po_approval", label: "PO Approval" },
-  { key: "vendor_action", label: "Vendor Action" },
+  { key: "commercial_evaluation", label: "Commercial evaluation" },
+  { key: "commercial_approval", label: "Commercial approval" },
+  { key: "po_approval", label: "PO approval" },
+  { key: "vendor_action", label: "Vendor action" },
 ];
 
 const WorkflowEfficiency = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState(null);
   const intervalRef = useRef(null);
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(false);
+  const fetchData = useCallback(async () => {
+    setError(null);
     try {
       const res = await getWorkflowEfficiency(filters);
       setData(res.data);
-    } catch {
-      setError(true);
+    } catch (e) {
+      setError(e?.message || "Failed to load");
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
+    setLoading(true);
     fetchData();
     intervalRef.current = setInterval(fetchData, 20000);
     return () => clearInterval(intervalRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
 
-  // Map backend stages to fixed lifecycle order
   const rawStages = data?.stages || [];
   const stageMap = {};
   rawStages.forEach((s) => { stageMap[s.stage_name] = s; });
@@ -75,52 +71,53 @@ const WorkflowEfficiency = ({ filters }) => {
     ? lifecycleStages.reduce((maxIdx, s, i, arr) =>
         s.avg_dwell_time_hours > arr[maxIdx].avg_dwell_time_hours ? i : maxIdx, 0)
     : -1;
-
   return (
-    <div className={styles.card}>
-      {loading && <CardLoader />}
-      {error && !loading && <CardError onRetry={fetchData} />}
-      <h3 className={styles.sectionTitle}>Efficiency Funnel</h3>
-      <p className={styles.sectionSubtitle}>Average time spent at each workflow stage</p>
-
-      {lifecycleStages.length > 0 ? (
-        <div className={styles.stageList}>
-          {lifecycleStages.map((stage, index) => {
-            const isBottleneck = index === bottleneckIdx && stage.avg_dwell_time_hours > 0;
-            const pct = Math.max((stage.avg_dwell_time_hours / maxHours) * 100, 4);
-
-            return (
-              <div key={stage.key} className={styles.stageItem}>
-                <div className={styles.stageHeader}>
-                  <span className={styles.stageName}>{stage.label}</span>
-                  <span className={`${styles.stageTime} ${isBottleneck ? styles.bottleneck : styles.normal}`}>
-                    {formatDwellTime(stage.avg_dwell_time_hours)}
-                  </span>
-                </div>
-                <div className={styles.progressTrack}>
-                  <div
-                    className={`${styles.progressFill} ${isBottleneck ? styles.bottleneck : styles.normal}`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                {isBottleneck && (
-                  <div className={styles.bottleneckWarning}>
-                    <AlertTriangle size={12} />
-                    Longest stage — review for optimization
-                  </div>
-                )}
-              </div>
-            );
-          })}
+    <PersonaCardShell
+      title="Efficiency funnel"
+      icon={Workflow}
+      tooltip="Average time spent at each workflow stage. Bottleneck stage is highlighted."
+      loading={loading}
+      error={error}
+      isEmpty={lifecycleStages.length === 0}
+      renderEmpty={() => (
+        <div className={styles.emptyState}>
+          No workflow data available for the selected period.
         </div>
-      ) : (
-        !loading && (
-          <div className={styles.emptyState}>
-            No workflow data available for the selected period.
-          </div>
-        )
       )}
-    </div>
+      onRefresh={() => {
+        setLoading(true);
+        fetchData();
+      }}
+    >
+      <div className={styles.stageList}>
+        {lifecycleStages.map((stage, index) => {
+          const isBottleneck = index === bottleneckIdx && stage.avg_dwell_time_hours > 0;
+          const pct = Math.max((stage.avg_dwell_time_hours / maxHours) * 100, 4);
+          return (
+            <div key={stage.key} className={styles.stageItem}>
+              <div className={styles.stageHeader}>
+                <span className={styles.stageName}>{stage.label}</span>
+                <span className={`${styles.stageTime} ${isBottleneck ? styles.bottleneck : ""}`}>
+                  {formatDwellTime(stage.avg_dwell_time_hours)}
+                </span>
+              </div>
+              <div className={styles.progressTrack}>
+                <div
+                  className={`${styles.progressFill} ${isBottleneck ? styles.bottleneck : ""}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              {isBottleneck && (
+                <div className={styles.bottleneckWarning}>
+                  <AlertTriangle size={11} />
+                  Longest stage — review for optimisation
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </PersonaCardShell>
   );
 };
 

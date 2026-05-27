@@ -1,62 +1,58 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { ClipboardCheck, FileText, Clock, Package, UserX } from "lucide-react";
+import { ClipboardCheck, FileText, Clock, Package, UserX, Zap } from "lucide-react";
 import { getActionCenterData } from "@/services/dashboard";
-import CardError from "./CardError";
 import CardTooltip from "./CardTooltip";
 import PendingApprovalsModal from "./PendingApprovalsModal";
 import RejectedPOsModal from "./RejectedPOsModal";
+import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import styles from "./ActionCenter.module.scss";
 
 const ACTION_CARDS = [
   {
     key: "pending_approvals",
-    label: "Pending Approvals",
+    label: "Pending approvals",
     tooltip: "RFQs, negotiations or POs waiting for your approval action",
     icon: ClipboardCheck,
-    colorClass: "red",
-    badgeClass: "urgent",
-    badgeText: "URGENT",
+    accent: "danger",
+    statusLabel: "Urgent",
     href: null,
+    modal: "approvals",
   },
   {
     key: "rfqs_awaiting",
-    label: "No Responses",
+    label: "No responses",
     tooltip: "Published RFQs that haven't received any vendor quotes yet",
     icon: FileText,
-    colorClass: "orange",
-    badgeClass: "action",
-    badgeText: "ACTION",
+    accent: "warn",
+    statusLabel: "Action",
     href: "/dashboard/buyer/rfq-management",
   },
   {
     key: "rfqs_ending_soon",
-    label: "RFQs Ending Soon",
+    label: "RFQs ending soon",
     tooltip: "RFQs whose bid deadline is within the next 3 days",
     icon: Clock,
-    colorClass: "green",
-    badgeClass: "near",
-    badgeText: "NEAR",
+    accent: "info",
+    statusLabel: "Near",
     href: "/dashboard/buyer/rfq-management",
   },
   {
     key: "pos_awaiting",
-    label: "PO Pending",
-    tooltip: "Purchase orders sent to vendors awaiting their acceptance or rejection",
+    label: "PO pending",
+    tooltip: "Purchase orders sent to vendors awaiting acceptance",
     icon: Package,
-    colorClass: "blue",
-    badgeClass: null,
-    badgeText: null,
+    accent: "muted",
+    statusLabel: null,
     href: "/dashboard/buyer/purchase-order",
   },
   {
     key: "rejected_vendors",
-    label: "PO Rejected",
-    tooltip: "POs rejected by vendors that need to be reassigned to another vendor",
+    label: "PO rejected",
+    tooltip: "POs rejected by vendors that need to be reassigned",
     icon: UserX,
-    colorClass: "red",
-    badgeClass: "reassign",
-    badgeText: "REASSIGN",
+    accent: "danger",
+    statusLabel: "Reassign",
     href: null,
     modal: "rejected",
   },
@@ -65,87 +61,111 @@ const ACTION_CARDS = [
 const ActionCenter = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showRejectedModal, setShowRejectedModal] = useState(false);
   const intervalRef = useRef(null);
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(false);
+  const fetchData = useCallback(async () => {
+    setError(null);
     try {
       const res = await getActionCenterData(filters);
       setData(res.data);
-    } catch {
-      setError(true);
+    } catch (e) {
+      setError(e?.message || "Failed to load");
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
+    setLoading(true);
     fetchData();
     intervalRef.current = setInterval(fetchData, 20000);
     return () => clearInterval(intervalRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
 
+  const urgentCount = (data?.pending_approvals ?? 0) + (data?.rejected_vendors ?? 0);
+
   return (
-    <section className={styles.actionSection}>
-      <div className={styles.sectionHeader}>
-        <h3 className={styles.sectionTitle}>Action Center</h3>
-        <span className={styles.liveBadge}>LIVE</span>
-      </div>
+    <>
+      <PersonaCardShell
+        title="Action centre"
+        icon={Zap}
+        tooltip="Top-of-mind queue across approvals, vendor responses, and PO state."
+        actions={
+          <>
+            {urgentCount > 0 && (
+              <span className={styles.urgentBadge}>
+                {urgentCount} urgent
+              </span>
+            )}
+            <span className={styles.liveBadge}>Live</span>
+          </>
+        }
+        loading={loading}
+        error={error}
+        onRefresh={() => {
+          setLoading(true);
+          fetchData();
+        }}
+      >
+        <div className={styles.actionGrid}>
+          {ACTION_CARDS.map((card) => {
+            const IconComponent = card.icon;
+            const count = data?.[card.key] ?? 0;
+            const isAttention = count > 0;
 
-      {error && <CardError onRetry={fetchData} inline />}
-      <div className={styles.actionGrid}>
-        {ACTION_CARDS.map((card) => {
-          const IconComponent = card.icon;
-          const count = data?.[card.key] ?? 0;
-          const showBadge = card.badgeText && count > 0;
-
-          const inner = (
-            <>
-              <div className={`${styles.iconContainer} ${styles[card.colorClass]}`}>
-                <IconComponent size={22} />
-              </div>
-              <div className={styles.cardContent}>
-                <p className={styles.cardLabel}>
-                  {card.label}
-                  <CardTooltip text={card.tooltip} />
-                </p>
-                <div className={styles.cardMetric}>
-                  <span className={styles.metricValue}>
-                    {loading ? "–" : count}
-                  </span>
-                  {showBadge && (
-                    <span className={`${styles.urgencyBadge} ${styles[card.badgeClass]}`}>
-                      {card.badgeText}
-                    </span>
-                  )}
+            const inner = (
+              <>
+                <div className={`${styles.iconChip} ${styles[card.accent]}`}>
+                  <IconComponent size={14} />
                 </div>
-              </div>
-            </>
-          );
-
-          if (!card.href) {
-            const openModal = () => {
-              if (card.modal === "rejected") setShowRejectedModal(true);
-              else setShowApprovalModal(true);
-            };
-            return (
-              <div key={card.key} className={styles.actionCard} onClick={openModal}>
-                {inner}
-              </div>
+                <div className={styles.actionBody}>
+                  <div className={styles.actionLabel}>
+                    {card.label}
+                    <CardTooltip text={card.tooltip} />
+                  </div>
+                  <div className={styles.countRow}>
+                    <div className={`${styles.actionCount} ${isAttention ? styles[card.accent] : ""}`}>
+                      {count}
+                    </div>
+                    {isAttention && card.statusLabel && (
+                      <span className={`${styles.statusPill} ${styles[card.accent]}`}>
+                        {card.statusLabel}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </>
             );
-          }
 
-          return (
-            <Link key={card.key} href={card.href} className={styles.actionCard}>
-              {inner}
-            </Link>
-          );
-        })}
-      </div>
+            if (!card.href) {
+              const openModal = () => {
+                if (card.modal === "rejected") setShowRejectedModal(true);
+                else setShowApprovalModal(true);
+              };
+              return (
+                <button
+                  type="button"
+                  key={card.key}
+                  className={styles.actionItem}
+                  onClick={openModal}
+                >
+                  {inner}
+                </button>
+              );
+            }
+
+            return (
+              <Link key={card.key} href={card.href} className={styles.actionItem}>
+                {inner}
+              </Link>
+            );
+          })}
+        </div>
+      </PersonaCardShell>
 
       {showApprovalModal && (
         <PendingApprovalsModal onClose={() => setShowApprovalModal(false)} filters={filters} />
@@ -153,7 +173,7 @@ const ActionCenter = ({ filters }) => {
       {showRejectedModal && (
         <RejectedPOsModal onClose={() => setShowRejectedModal(false)} />
       )}
-    </section>
+    </>
   );
 };
 

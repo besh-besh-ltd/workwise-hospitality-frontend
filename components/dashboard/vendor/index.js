@@ -10,12 +10,12 @@ import {
   BarElement, Tooltip, Legend, Filler,
 } from "chart.js";
 import {
-  FileText, Clock, Flame, ShoppingCart, Users, Send, Trophy, TrendingUp,
-  Package, CheckCircle, XCircle, Zap, ArrowRight, AlertTriangle,
+  FileText, Clock, Flame, ShoppingCart, Inbox, Activity, Trophy, TrendingUp,
+  Package, ArrowRight, BarChart3, LineChart, Target, PieChart, Layers,
 } from "lucide-react";
 import { getVendorOpportunities, getVendorPerformance, getVendorInsights } from "@/services/vendorDashboard";
 import SubscriptionStatus from "./SubscriptionStatus";
-import CardLoader from "@/components/dashboard/buyer/dashboard-components/CardLoader";
+import { PersonaCardShell } from "../buyer/persona-widgets/PersonaCard";
 import styles from "./VendorDashboard.module.scss";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Filler);
@@ -64,12 +64,22 @@ const Vendor = () => {
 
   const filters = useMemo(() => getDateRange(duration.value), [duration]);
 
-  const fetchAll = useCallback(() => {
-    setLoadingOpp(true); setLoadingPerf(true); setLoadingInsights(true);
+  const fetchOpp = useCallback(() => {
+    setLoadingOpp(true);
     getVendorOpportunities(filters).then((r) => setOpp(r.data)).catch(() => {}).finally(() => setLoadingOpp(false));
+  }, [filters]);
+  const fetchPerf = useCallback(() => {
+    setLoadingPerf(true);
     getVendorPerformance(filters).then((r) => setPerf(r.data)).catch(() => {}).finally(() => setLoadingPerf(false));
+  }, [filters]);
+  const fetchInsights = useCallback(() => {
+    setLoadingInsights(true);
     getVendorInsights(filters).then((r) => setInsights(r.data)).catch(() => {}).finally(() => setLoadingInsights(false));
   }, [filters]);
+
+  const fetchAll = useCallback(() => {
+    fetchOpp(); fetchPerf(); fetchInsights();
+  }, [fetchOpp, fetchPerf, fetchInsights]);
 
   useEffect(() => {
     if (!userProfile) return;
@@ -85,8 +95,8 @@ const Vendor = () => {
     labels: insights.revenue_trend.labels.map((l) => new Date(l).toLocaleDateString("en-IN", { month: "short", year: "2-digit" })),
     datasets: [{
       label: "Revenue", data: insights.revenue_trend.data,
-      borderColor: "#2E5BA8", backgroundColor: "rgba(46,91,168,0.06)",
-      borderWidth: 2, pointRadius: 3, pointBackgroundColor: "#2E5BA8", tension: 0.3, fill: true,
+      borderColor: "#2563eb", backgroundColor: "rgba(37, 99, 235, 0.08)",
+      borderWidth: 2, pointRadius: 3, pointBackgroundColor: "#2563eb", tension: 0.3, fill: true,
     }],
   } : null;
 
@@ -95,28 +105,28 @@ const Vendor = () => {
   const buChartData = insights?.bu_performance?.length > 0 ? {
     labels: insights.bu_performance.map((b) => b.business_unit),
     datasets: [
-      { label: "RFQs Received", data: insights.bu_performance.map((b) => b.rfqs_received), backgroundColor: "rgba(46,91,168,0.7)", borderRadius: 4 },
-      { label: "Orders Won", data: insights.bu_performance.map((b) => b.orders_received), backgroundColor: "rgba(34,197,94,0.7)", borderRadius: 4 },
+      { label: "RFQs Received", data: insights.bu_performance.map((b) => b.rfqs_received), backgroundColor: "rgba(37, 99, 235, 0.75)", borderRadius: 4 },
+      { label: "Orders Won", data: insights.bu_performance.map((b) => b.orders_received), backgroundColor: "rgba(21, 128, 61, 0.75)", borderRadius: 4 },
     ],
   } : null;
 
   const lineChartOpts = {
     responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: false }, tooltip: { backgroundColor: "#1a2730", cornerRadius: 8, callbacks: { label: (c) => formatCurrency(c.raw) } } },
-    scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, color: "#999" } }, y: { grid: { color: "rgba(0,0,0,0.04)" }, ticks: { font: { size: 10 }, color: "#999", callback: (v) => formatCurrency(v) } } },
+    plugins: { legend: { display: false }, tooltip: { backgroundColor: "#18181b", cornerRadius: 8, callbacks: { label: (c) => formatCurrency(c.raw) } } },
+    scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, color: "#a1a1aa" } }, y: { grid: { color: "rgba(0,0,0,0.04)" }, ticks: { font: { size: 10 }, color: "#a1a1aa", callback: (v) => formatCurrency(v) } } },
   };
 
   const barChartOpts = {
     responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { position: "bottom", labels: { usePointStyle: true, pointStyle: "circle", font: { size: 11 }, padding: 16 } }, tooltip: { backgroundColor: "#1a2730", cornerRadius: 8 } },
-    scales: { x: { grid: { display: false }, ticks: { font: { size: 11 }, color: "#555" } }, y: { grid: { color: "rgba(0,0,0,0.04)" }, ticks: { font: { size: 10 }, color: "#999" } } },
+    plugins: { legend: { position: "bottom", labels: { usePointStyle: true, pointStyle: "circle", font: { size: 11 }, padding: 16, color: "#52525b" } }, tooltip: { backgroundColor: "#18181b", cornerRadius: 8 } },
+    scales: { x: { grid: { display: false }, ticks: { font: { size: 11 }, color: "#52525b" } }, y: { grid: { color: "rgba(0,0,0,0.04)" }, ticks: { font: { size: 10 }, color: "#a1a1aa" } } },
   };
 
   const OPP_CARDS = [
-    { key: "new_rfqs", label: "New RFQs", icon: FileText, color: "#2E5BA8", badge: "NEW", href: "/dashboard/vendor/inquiries-received" },
-    { key: "pending_quotes", label: "Pending Quotes", icon: Clock, color: "#f59e0b", badge: "ACTION", href: "/dashboard/vendor/inquiries-received" },
-    { key: "closing_soon", label: "Closing Soon", icon: Flame, color: "#ef4444", badge: "URGENT", href: "/dashboard/vendor/inquiries-received" },
-    { key: "pos_received", label: "POs Received", icon: ShoppingCart, color: "#22c55e", badge: null, href: "/dashboard/vendor/order-book" },
+    { key: "new_rfqs", label: "New RFQs", icon: FileText, accent: "info", statusLabel: "NEW", href: "/dashboard/vendor/inquiries-received" },
+    { key: "pending_quotes", label: "Pending Quotes", icon: Clock, accent: "warn", statusLabel: "ACTION", href: "/dashboard/vendor/inquiries-received" },
+    { key: "closing_soon", label: "Closing Soon", icon: Flame, accent: "danger", statusLabel: "URGENT", href: "/dashboard/vendor/inquiries-received" },
+    { key: "pos_received", label: "POs Received", icon: ShoppingCart, accent: "success", statusLabel: null, href: "/dashboard/vendor/order-book" },
   ];
 
   // Response efficiency breakdown
@@ -124,14 +134,30 @@ const Vendor = () => {
   const effTotal = (eff?.responded_count || 0) + (eff?.missed_count || 0);
   const responsePct = effTotal > 0 ? Math.round(((eff?.responded_count || 0) / effTotal) * 100) : 0;
 
+  // Win/Loss
+  const wl_w = insights?.win_loss?.won || 0;
+  const wl_l = insights?.win_loss?.lost || 0;
+  const wl_p = insights?.win_loss?.pending || 0;
+  const wl_total = wl_w + wl_l + wl_p;
+
+  // Performance funnel tiles
+  const PERF_TILES = [
+    { key: "rfqs_invited",  label: "Invited",     value: perf?.rfqs_invited ?? 0 },
+    { key: "rfqs_quoted",   label: "Quoted",      value: perf?.rfqs_quoted ?? 0 },
+    { key: "rfqs_finalized",label: "Finalized",   value: perf?.rfqs_finalized ?? 0 },
+    { key: "deals_won",     label: "Won / Final",value: `${perf?.deals_won ?? 0} / ${perf?.rfqs_finalized ?? 0}` },
+    { key: "total_revenue", label: "Revenue",     value: formatCurrency(perf?.total_revenue), highlighted: true },
+    { key: "win_rate",      label: "Win Rate",    value: `${perf?.win_rate ?? 0}%` },
+  ];
+
   return (
     <>
       <Head><title>Dashboard | Vendor</title></Head>
       <div className={styles.container}>
         {/* Header */}
         <div className={styles.header}>
-          <div>
-            <h1 className={styles.greeting}>{getGreeting()}, {firstName}! 👋</h1>
+          <div className={styles.greetingBlock}>
+            <h1 className={styles.greeting}>{getGreeting()}, {firstName}!</h1>
             <p className={styles.subtitle}>Your business growth at a glance.</p>
           </div>
           <div className={styles.headerRight}>
@@ -141,180 +167,235 @@ const Vendor = () => {
           </div>
         </div>
 
-        {/* Subscription */}
+        {/* Subscription banner — kept full-width but restyled */}
         {isHospitalityVendor && <SubscriptionStatus />}
 
-        {/* Section 1: Opportunities */}
-        <div className={styles.oppGrid}>
-          {OPP_CARDS.map((card) => {
-            const Icon = card.icon;
-            const count = opp?.[card.key] ?? 0;
-            return (
-              <Link key={card.key} href={card.href} className={styles.oppCard}>
-                <div className={styles.oppIcon} style={{ background: `${card.color}10`, color: card.color }}><Icon size={22} /></div>
-                <div className={styles.oppInfo}>
-                  <span className={styles.oppLabel}>{card.label}</span>
-                  <div className={styles.oppMetric}>
-                    <span className={styles.oppValue}>{loadingOpp ? "–" : count}</span>
-                    {card.badge && count > 0 && <span className={styles.oppBadge} style={{ background: card.color }}>{card.badge}</span>}
+        {/* Opportunities */}
+        <PersonaCardShell
+          title="Opportunities"
+          icon={Inbox}
+          tooltip="Live counts of incoming RFQs, pending quotes, urgent closures, and recent POs."
+          loading={loadingOpp}
+          onRefresh={fetchOpp}
+        >
+          <div className={styles.oppGrid}>
+            {OPP_CARDS.map((card) => {
+              const Icon = card.icon;
+              const count = opp?.[card.key] ?? 0;
+              const isActive = count > 0;
+              return (
+                <Link key={card.key} href={card.href} className={styles.oppItem}>
+                  <div className={`${styles.oppIcon} ${styles[card.accent]}`}>
+                    <Icon size={14} />
                   </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                  <div className={styles.oppBody}>
+                    <div className={styles.oppLabel}>{card.label}</div>
+                    <div className={styles.oppRow}>
+                      <div className={`${styles.oppValue} ${isActive ? styles[card.accent] : ""}`}>
+                        {count}
+                      </div>
+                      {isActive && card.statusLabel && (
+                        <span className={`${styles.statusPill} ${styles[card.accent]}`}>
+                          {card.statusLabel}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </PersonaCardShell>
 
-        {/* Section 2: Performance — clear funnel */}
-        <div className={styles.perfGrid}>
-          <div className={styles.perfCard}>
-            <span className={styles.perfValue}>{loadingPerf ? "–" : perf?.rfqs_invited ?? 0}</span>
-            <span className={styles.perfLabel}>Invited</span>
-          </div>
-          <div className={styles.perfCard}>
-            <span className={styles.perfValue}>{loadingPerf ? "–" : perf?.rfqs_quoted ?? 0}</span>
-            <span className={styles.perfLabel}>Quoted</span>
-          </div>
-          <div className={styles.perfCard}>
-            <span className={styles.perfValue}>{loadingPerf ? "–" : perf?.rfqs_finalized ?? 0}</span>
-            <span className={styles.perfLabel}>Finalized</span>
-          </div>
-          <div className={styles.perfCard}>
-            <span className={styles.perfValue}>{loadingPerf ? "–" : `${perf?.deals_won ?? 0} / ${perf?.rfqs_finalized ?? 0}`}</span>
-            <span className={styles.perfLabel}>Won / Finalized</span>
-          </div>
-          <div className={`${styles.perfCard} ${styles.perfHighlight}`}>
-            <span className={styles.perfValue}>{loadingPerf ? "–" : formatCurrency(perf?.total_revenue)}</span>
-            <span className={styles.perfLabel}>Revenue</span>
-          </div>
-          <div className={styles.perfCard}>
-            <span className={styles.perfValue}>{loadingPerf ? "–" : `${perf?.win_rate ?? 0}%`}</span>
-            <span className={styles.perfLabel}>Win Rate</span>
-          </div>
-        </div>
-
-        {/* Section 3: Two-column */}
-        <div className={styles.insightsGrid}>
-          <div className={styles.leftCol}>
-            {/* Revenue Trend */}
-            <div className={styles.card}>
-              {loadingInsights && <CardLoader />}
-              <h3 className={styles.cardTitle}>Revenue Trend</h3>
-              <div className={styles.chartWrap}>
-                {hasRevenueData ? <Line data={revenueChartData} options={lineChartOpts} /> : !loadingInsights && <p className={styles.emptyText}>No revenue data for this period</p>}
+        {/* Performance Funnel */}
+        <PersonaCardShell
+          title="Performance funnel"
+          icon={Target}
+          tooltip="From inviting to revenue — your conversion across the selected period."
+          loading={loadingPerf}
+          onRefresh={fetchPerf}
+        >
+          <div className={styles.perfGrid}>
+            {PERF_TILES.map((tile) => (
+              <div
+                key={tile.key}
+                className={`${styles.perfItem} ${tile.highlighted ? styles.highlighted : ""}`}
+              >
+                <div className={styles.perfLabel}>{tile.label}</div>
+                <div className={styles.perfValue}>{tile.value}</div>
               </div>
-            </div>
+            ))}
+          </div>
+        </PersonaCardShell>
 
-            {/* Business Unit Performance */}
-            <div className={styles.card}>
-              {loadingInsights && <CardLoader />}
-              <h3 className={styles.cardTitle}>Business Unit Performance</h3>
-              <p className={styles.cardSubtitle}>RFQs received vs orders won per business unit</p>
+        {/* Insights grid */}
+        <div className={styles.mainContent}>
+          <div className={styles.leftColumn}>
+            <PersonaCardShell
+              title="Revenue trend"
+              icon={LineChart}
+              tooltip="Revenue from finalised orders over the selected period."
+              loading={loadingInsights}
+              isEmpty={!hasRevenueData}
+              renderEmpty={() => (
+                <div className={styles.emptyText}>No revenue data for this period.</div>
+              )}
+              onRefresh={fetchInsights}
+            >
               <div className={styles.chartWrap}>
-                {buChartData ? <Bar data={buChartData} options={barChartOpts} /> : !loadingInsights && <p className={styles.emptyText}>No business unit data</p>}
+                <Line data={revenueChartData} options={lineChartOpts} />
               </div>
-            </div>
+            </PersonaCardShell>
 
-            {/* Top Products */}
-            <div className={styles.card}>
-              {loadingInsights && <CardLoader />}
-              <h3 className={styles.cardTitle}>Top Quoted Products</h3>
+            <PersonaCardShell
+              title="Business unit performance"
+              icon={BarChart3}
+              tooltip="RFQs received vs. orders won, split by business unit."
+              loading={loadingInsights}
+              isEmpty={!buChartData}
+              renderEmpty={() => (
+                <div className={styles.emptyText}>No business unit data.</div>
+              )}
+              onRefresh={fetchInsights}
+            >
+              <div className={styles.chartWrap}>
+                <Bar data={buChartData} options={barChartOpts} />
+              </div>
+            </PersonaCardShell>
+
+            <PersonaCardShell
+              title="Top quoted products"
+              icon={Package}
+              tooltip="Products you've been quoting most often, ranked by frequency."
+              loading={loadingInsights}
+              isEmpty={!insights?.top_products?.length}
+              renderEmpty={() => (
+                <div className={styles.emptyText}>No products quoted in this period.</div>
+              )}
+              onRefresh={fetchInsights}
+            >
               <div className={styles.productList}>
-                {insights?.top_products?.length > 0 ? insights.top_products.map((p, i) => (
+                {insights?.top_products?.map((p, i) => (
                   <div key={i} className={styles.productRow}>
                     <span className={styles.productRank}>{i + 1}</span>
                     <span className={styles.productName}>{p.product_name}</span>
                     <span className={styles.productCount}>{p.times_quoted}x</span>
                     <span className={styles.productValue}>{formatCurrency(p.avg_quote_value)} avg</span>
                   </div>
-                )) : !loadingInsights && <p className={styles.emptyText}>No products quoted</p>}
+                ))}
               </div>
-            </div>
+            </PersonaCardShell>
           </div>
 
-          <div className={styles.rightCol}>
-            {/* Response Efficiency — visual */}
-            <div className={styles.card}>
-              {loadingInsights && <CardLoader />}
-              <h3 className={styles.cardTitle}>Response Efficiency</h3>
-              <div className={styles.effHero}>
-                <div className={styles.effCircle}>
-                  <span className={styles.effPct}>{loadingInsights ? "–" : `${responsePct}%`}</span>
-                  <span className={styles.effCircleLabel}>Response Rate</span>
+          <div className={styles.rightColumn}>
+            <PersonaCardShell
+              title="Response efficiency"
+              icon={Activity}
+              tooltip="Share of RFQs you responded to vs. missed, plus average turnaround."
+              loading={loadingInsights}
+              actions={
+                effTotal > 0 ? (
+                  <span className={`${styles.headerPill} ${responsePct >= 70 ? styles.winPill : styles.warnPill}`}>
+                    {responsePct}%
+                  </span>
+                ) : null
+              }
+              onRefresh={fetchInsights}
+            >
+              <div className={styles.effBlock}>
+                <div className={styles.effHeadline}>
+                  <div className={styles.effLbl}>Response rate</div>
+                  <div className={styles.effNum}>{responsePct}%</div>
                 </div>
-                <div className={styles.effDetails}>
+                <div className={styles.effRows}>
                   <div className={styles.effRow}>
-                    <span className={styles.effDot} style={{ background: "#22c55e" }} />
+                    <span className={`${styles.effDot} ${styles.success}`} />
                     <span className={styles.effRowLabel}>Responded</span>
                     <span className={styles.effRowValue}>{eff?.responded_count ?? 0}</span>
                   </div>
                   <div className={styles.effRow}>
-                    <span className={styles.effDot} style={{ background: "#ef4444" }} />
+                    <span className={`${styles.effDot} ${styles.danger}`} />
                     <span className={styles.effRowLabel}>Missed</span>
                     <span className={styles.effRowValue}>{eff?.missed_count ?? 0}</span>
                   </div>
                   <div className={styles.effRow}>
-                    <span className={styles.effDot} style={{ background: "#2E5BA8" }} />
-                    <span className={styles.effRowLabel}>Avg. Response</span>
+                    <span className={`${styles.effDot} ${styles.info}`} />
+                    <span className={styles.effRowLabel}>Avg. response</span>
                     <span className={styles.effRowValue}>{eff?.avg_response_days > 0 ? `${eff.avg_response_days}d` : "–"}</span>
                   </div>
                   <div className={styles.effRow}>
-                    <span className={styles.effDot} style={{ background: "#f59e0b" }} />
+                    <span className={`${styles.effDot} ${styles.warn}`} />
                     <span className={styles.effRowLabel}>Within 24h</span>
                     <span className={styles.effRowValue}>{eff?.within_24h ?? 0}</span>
                   </div>
                 </div>
               </div>
-            </div>
+            </PersonaCardShell>
 
-            {/* Win/Loss — visual progress */}
-            <div className={styles.card}>
-              {loadingInsights && <CardLoader />}
-              <h3 className={styles.cardTitle}>Win / Loss Breakdown</h3>
-              {(() => {
-                const w = insights?.win_loss?.won || 0;
-                const l = insights?.win_loss?.lost || 0;
-                const p = insights?.win_loss?.pending || 0;
-                const total = w + l + p;
-                return total > 0 ? (
-                  <div className={styles.winLossWrap}>
-                    <div className={styles.winLossBar}>
-                      {w > 0 && <div className={styles.winSeg} style={{ width: `${(w / total) * 100}%` }}>{w}</div>}
-                      {l > 0 && <div className={styles.lossSeg} style={{ width: `${(l / total) * 100}%` }}>{l}</div>}
-                      {p > 0 && <div className={styles.pendingSeg} style={{ width: `${(p / total) * 100}%` }}>{p}</div>}
-                    </div>
-                    <div className={styles.winLossLegend}>
-                      <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: "#22c55e" }} /> Won ({w})</span>
-                      <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: "#ef4444" }} /> Lost ({l})</span>
-                      <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: "#f59e0b" }} /> Pending ({p})</span>
-                    </div>
-                  </div>
-                ) : !loadingInsights && <p className={styles.emptyText}>No competed RFQs</p>;
-              })()}
-            </div>
-
-            {/* Recent Activity — clickable */}
-            <div className={styles.card}>
-              {loadingInsights && <CardLoader />}
-              <h3 className={styles.cardTitle}>Recent Activity</h3>
-              <div className={styles.activityList}>
-                {insights?.recent_activity?.length > 0 ? insights.recent_activity.map((a, i) => (
-                  <Link key={i} href={`/dashboard/vendor/inquiries-details?id=${a.rfq_id}`} className={styles.activityRow}>
-                    <span className={`${styles.actDot} ${a.type === 'new_rfq' ? styles.actBlue : a.type === 'quote_sent' ? styles.actGreen : styles.actPurple}`} />
-                    <div className={styles.actContent}>
-                      <span className={styles.actTitle}>
-                        {a.type === 'new_rfq' ? 'New enquiry received' : a.type === 'quote_sent' ? 'Quote submitted' : 'PO received'}
-                      </span>
-                      <span className={styles.actSub}>
-                        {a.title || `#${a.rfq_no}`}
-                        {a.buyer_name ? ` · ${a.buyer_name}` : ""}
-                      </span>
-                    </div>
-                    <span className={styles.actDate}>{moment(a.event_time).format("DD MMM")}</span>
-                    <ArrowRight size={14} className={styles.actArrow} />
-                  </Link>
-                )) : !loadingInsights && <p className={styles.emptyText}>No recent activity</p>}
+            <PersonaCardShell
+              title="Win / loss breakdown"
+              icon={Trophy}
+              tooltip="Distribution of competed RFQs: won, lost, or still pending decision."
+              loading={loadingInsights}
+              isEmpty={wl_total === 0}
+              renderEmpty={() => (
+                <div className={styles.emptyText}>No competed RFQs in this period.</div>
+              )}
+              onRefresh={fetchInsights}
+            >
+              <div className={styles.winLossBar}>
+                {wl_w > 0 && <div className={`${styles.winSeg}`} style={{ width: `${(wl_w / wl_total) * 100}%` }}>{wl_w}</div>}
+                {wl_l > 0 && <div className={`${styles.lossSeg}`} style={{ width: `${(wl_l / wl_total) * 100}%` }}>{wl_l}</div>}
+                {wl_p > 0 && <div className={`${styles.pendingSeg}`} style={{ width: `${(wl_p / wl_total) * 100}%` }}>{wl_p}</div>}
               </div>
-            </div>
+              <div className={styles.winLossLegend}>
+                <span className={styles.legendItem}>
+                  <span className={`${styles.legendDot} ${styles.success}`} />
+                  Won ({wl_w})
+                </span>
+                <span className={styles.legendItem}>
+                  <span className={`${styles.legendDot} ${styles.danger}`} />
+                  Lost ({wl_l})
+                </span>
+                <span className={styles.legendItem}>
+                  <span className={`${styles.legendDot} ${styles.warn}`} />
+                  Pending ({wl_p})
+                </span>
+              </div>
+            </PersonaCardShell>
+
+            <PersonaCardShell
+              title="Recent activity"
+              icon={Layers}
+              tooltip="Latest events across your enquiries, quotes, and POs."
+              loading={loadingInsights}
+              isEmpty={!insights?.recent_activity?.length}
+              renderEmpty={() => (
+                <div className={styles.emptyText}>No recent activity.</div>
+              )}
+              onRefresh={fetchInsights}
+            >
+              <div className={styles.activityList}>
+                {insights?.recent_activity?.map((a, i) => {
+                  const accent = a.type === 'new_rfq' ? 'info' : a.type === 'quote_sent' ? 'success' : 'purple';
+                  const label = a.type === 'new_rfq' ? 'New enquiry received' : a.type === 'quote_sent' ? 'Quote submitted' : 'PO received';
+                  return (
+                    <Link key={i} href={`/dashboard/vendor/inquiries-details?id=${a.rfq_id}`} className={styles.activityRow}>
+                      <span className={`${styles.actDot} ${styles[accent]}`} />
+                      <div className={styles.actContent}>
+                        <span className={styles.actTitle}>{label}</span>
+                        <span className={styles.actSub}>
+                          {a.title || `#${a.rfq_no}`}
+                          {a.buyer_name ? ` · ${a.buyer_name}` : ""}
+                        </span>
+                      </div>
+                      <span className={styles.actDate}>{moment(a.event_time).format("DD MMM")}</span>
+                      <ArrowRight size={12} className={styles.actArrow} />
+                    </Link>
+                  );
+                })}
+              </div>
+            </PersonaCardShell>
           </div>
         </div>
       </div>

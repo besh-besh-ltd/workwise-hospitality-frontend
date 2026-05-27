@@ -23,6 +23,15 @@ const DashboardShell = ({ children }) => {
   const [currentUserType, setCurrentUserType] = useState("buyer");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const handleNavToggle = useCallback(() => {
+    if (typeof window !== "undefined" && window.innerWidth <= 992) {
+      setMobileNavOpen(true);
+    } else {
+      setSidebarCollapsed((c) => !c);
+    }
+  }, []);
 
   // Sub-sidebar state (set by TwoPanelPage via context)
   const [subSidebar, setSubSidebar] = useState(null);
@@ -93,16 +102,24 @@ const DashboardShell = ({ children }) => {
   return (
     <TwoPanelContext.Provider value={twoPanelCtx}>
       <div className={styles.shell}>
-        <SideNav
+        <TopBar
           user={loggedinUser}
           currentUserType={currentUserType}
-          subSidebar={subSidebar}
+          onNavToggle={handleNavToggle}
           onLogoutRequest={handleLogoutRequest}
-          onOpenMobileNav={() => setMobileNavOpen(true)}
           mobileRfqToggle={mobileRfqBtn}
         />
-        <div className={styles.main}>
-          <div className={styles.content}>{children}</div>
+        <div className={styles.body}>
+          <SideNav
+            user={loggedinUser}
+            currentUserType={currentUserType}
+            subSidebar={subSidebar}
+            collapsed={sidebarCollapsed}
+            onLogoutRequest={handleLogoutRequest}
+          />
+          <div className={styles.main}>
+            <div className={styles.content}>{children}</div>
+          </div>
         </div>
       </div>
 

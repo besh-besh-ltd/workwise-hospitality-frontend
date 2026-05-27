@@ -1,118 +1,125 @@
-.actionSection {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+/* ProcurementSnapshot — inner-content only. Card frame from PersonaCardShell. */
 
 .snapshotGrid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 14px;
-  position: relative;
-  min-height: 70px;
+  gap: 4px;
 
-  @media (max-width: 1200px) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  @media (max-width: 768px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  @media (max-width: 480px) {
-    grid-template-columns: 1fr;
-  }
+  @media (max-width: 1100px) { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 720px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 460px) { grid-template-columns: 1fr; }
 }
 
-.metricCard {
-  background: #fff;
-  padding: 20px;
-  border-radius: 10px;
-  border: 1px solid #eee;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+.metricItem {
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  transition: all 0.2s ease;
+  gap: 4px;
   position: relative;
-  overflow: hidden;
 
-  &:hover {
-    border-color: #ddd;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  & + .metricItem {
+    border-left: 1px solid #f4f4f1;
+
+    @media (max-width: 1100px) {
+      border-left: none;
+    }
   }
 
   &.highlighted {
-    background: var(--primary-color);
-    border-color: var(--primary-color);
-    box-shadow: 0 4px 16px rgba(46, 91, 168, 0.25);
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 
-    .metricLabel {
-      color: rgba(255, 255, 255, 0.7);
-    }
-
-    .metricValue {
-      color: #fff;
-    }
-
-    .sparkBar {
-      background: rgba(255, 255, 255, 0.2);
-      &.active {
-        background: #fff;
-      }
-    }
+    .metricLabel { color: rgba(255, 255, 255, 0.78); }
+    .metricValue { color: #ffffff; }
   }
 }
 
 .metricLabel {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #999;
-  margin: 0;
-}
-
-.metricValue {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--dark-color);
-  line-height: 1.2;
-  margin: 4px 0;
-}
-
-.trendRow {
+  letter-spacing: 0.08em;
+  color: #a1a1aa;
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-top: 4px;
 }
 
-.trendText {
-  font-size: 12px;
-  font-weight: 600;
+.metricValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
 
-  &.positive {
-    color: var(--secondary-color);
+.metricValue {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.trendChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 5px 2px 4px;
+  border-radius: 999px;
+  line-height: 1.2;
+  position: relative;
+  top: -1px;
+
+  svg { flex-shrink: 0; }
+
+  &.good {
+    background: #ecfdf5;
+    color: #15803d;
   }
-  &.negative {
-    color: var(--red-color);
+  &.bad {
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+  &.neutral {
+    background: #f4f4f5;
+    color: #52525b;
+  }
+
+  .highlighted & {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.92);
+
+    &.good { background: rgba(34, 197, 94, 0.22); color: #86efac; }
+    &.bad { background: rgba(239, 68, 68, 0.22); color: #fca5a5; }
   }
 }
 
 .sparkline {
-  height: 28px;
-  margin-top: 8px;
   display: flex;
   align-items: flex-end;
-  gap: 3px;
+  gap: 2px;
+  margin-top: 6px;
+  height: 18px;
 }
 
 .sparkBar {
   flex: 1;
+  background: #e8e8e3;
   border-radius: 2px;
-  transition: height 0.3s ease;
-  background: #eef1f5;
+  min-height: 2px;
 
   &.active {
-    background: var(--primary-color);
+    background: #18181b;
+  }
+
+  .highlighted & {
+    background: rgba(255, 255, 255, 0.18);
+    &.active { background: #ffffff; }
   }
 }

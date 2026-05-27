@@ -1,9 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import Link from "next/link";
-import { createPortal } from "react-dom";
+import React, { useMemo } from "react";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
-import { LogOut, User, Key, ChevronDown, Menu } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { roleMenus } from "@/components/layout/Header/headerConfig";
 import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
 import SideNavItem from "./SideNavItem";
@@ -14,40 +12,19 @@ const SideNav = ({
   user,
   currentUserType,
   subSidebar,
+  collapsed = false,
   onLogoutRequest,
-  onOpenMobileNav,
-  mobileRfqToggle,
 }) => {
   const router = useRouter();
   const { pathname } = router;
   const userProfile = useSelector((state) => state.userProfile);
 
   const hasSubSidebar = !!subSidebar;
+  const isCompact = hasSubSidebar || collapsed;
 
   const { hasPendingApproval } = usePendingApprovalIndicators({
     enabled: !!user,
   });
-
-  // Profile popover state
-  const [profileOpen, setProfileOpen] = useState(false);
-  const profileRef = useRef(null);
-  const popoverPortalRef = useRef(null);
-
-  useEffect(() => {
-    if (!profileOpen) return;
-    const handler = (e) => {
-      if (
-        profileRef.current && !profileRef.current.contains(e.target) &&
-        (!popoverPortalRef.current || !popoverPortalRef.current.contains(e.target))
-      ) {
-        setProfileOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [profileOpen]);
-
-  useEffect(() => { setProfileOpen(false); }, [pathname]);
 
 
   // Menu config
@@ -101,137 +78,13 @@ const SideNav = ({
     return map[currentUserType] || "/dashboard/buyer";
   };
 
-  const profileHref = useMemo(() => {
-    const menu = roleMenus[currentUserType] || [];
-    const profileItem = menu.find(m => m.targetMenu === "popup" && m.icon === "person");
-    return profileItem?.href || `/dashboard/${currentUserType}/editprofile`;
-  }, [currentUserType]);
-
-  const initial = user?.name?.charAt(0)?.toUpperCase() || "U";
-  const userName = user?.name || "User";
-  const userEmail = user?.email || "";
-
-  // Business unit count
-  const allMappings = userProfile?.hospitality_mappings || [];
-  const seenBUs = new Set();
-  allMappings.forEach((m) => {
-    if (m?.hospitality_hotel_id != null) seenBUs.add(m.hospitality_hotel_id);
-  });
-  const buCount = seenBUs.size;
-
-
   return (
     <>
-      {/* Mobile top bar — only visible on mobile */}
-      <div className={styles.mobileTopBar}>
-        <button
-          type="button"
-          className={styles.hamburger}
-          onClick={onOpenMobileNav}
-          aria-label="Open menu"
-        >
-          <Menu size={20} strokeWidth={2} />
-        </button>
-        <span className={styles.mobileTopBarLogo}>Workwise</span>
-        {mobileRfqToggle}
-      </div>
-
-      <aside className={`${styles.sidebar} ${hasSubSidebar ? styles.sidebarWithSub : styles.sidebarExpanded}`}>
-        <div className={`${styles.rail} ${hasSubSidebar ? styles.railCollapsed : styles.railExpanded}`}>
-          {/* Header — Profile */}
-          <div className={`${styles.railHeader} ${hasSubSidebar ? styles.railHeaderCollapsed : styles.railHeaderExpanded}`}>
-            {hasSubSidebar ? (
-              <div ref={profileRef} className={styles.compactProfileWrap}>
-                <button
-                  type="button"
-                  className={styles.compactProfileBtn}
-                  onClick={() => setProfileOpen((v) => !v)}
-                >
-                  <span className={styles.sidebarProfileAvatarWrap}>
-                    <span className={styles.sidebarProfileAvatar}>{initial}</span>
-                    <span className={styles.onlineDot} />
-                  </span>
-                </button>
-                {profileOpen && typeof document !== "undefined" && createPortal(
-                  <div ref={popoverPortalRef} className={styles.compactProfilePopover} style={{
-                    position: "fixed",
-                    top: profileRef.current?.getBoundingClientRect()?.bottom + 6 || 60,
-                    left: profileRef.current?.getBoundingClientRect()?.left || 8,
-                  }}>
-                    <div className={styles.popoverHeaderCompact}>
-                      <div className={styles.popoverUserName}>{userName}</div>
-                      <div className={styles.popoverUserContext}>{buCount > 0 ? `${buCount} Business Unit${buCount > 1 ? "s" : ""}` : userEmail}</div>
-                    </div>
-                    <div className={styles.popoverDivider} />
-                    <div className={styles.popoverSection}>
-                      <Link href={profileHref} className={styles.popoverItem} onClick={() => setProfileOpen(false)}>
-                        <span className={styles.popoverItemIcon}><User size={15} strokeWidth={1.6} /></span>
-                        Profile
-                      </Link>
-                      <Link href={`/change-password?redirect_url=${typeof window !== "undefined" ? window.location.pathname : "/"}`} className={styles.popoverItem} onClick={() => setProfileOpen(false)}>
-                        <span className={styles.popoverItemIcon}><Key size={15} strokeWidth={1.6} /></span>
-                        Change Password
-                      </Link>
-                    </div>
-                    <div className={styles.popoverDivider} />
-                    <div className={styles.popoverSection}>
-                      <button type="button" className={`${styles.popoverItem} ${styles.popoverItemLogout}`} onClick={() => { setProfileOpen(false); onLogoutRequest?.(); }}>
-                        <span className={styles.popoverItemIcon}><LogOut size={15} strokeWidth={1.6} /></span>
-                        Logout
-                      </button>
-                    </div>
-                  </div>,
-                  document.body
-                )}
-              </div>
-            ) : (
-              <div ref={profileRef} className={styles.headerProfileWrap}>
-                <button
-                  type="button"
-                  className={`${styles.sidebarProfileBtn} ${profileOpen ? styles.sidebarProfileBtnOpen : ""}`}
-                  onClick={() => setProfileOpen((v) => !v)}
-                >
-                  <span className={styles.sidebarProfileAvatarWrap}>
-                    <span className={styles.sidebarProfileAvatar}>{initial}</span>
-                    <span className={styles.onlineDot} />
-                  </span>
-                  <span className={styles.sidebarProfileName}>{userName}</span>
-                  <ChevronDown size={13} strokeWidth={2} className={styles.sidebarProfileChevron} />
-                </button>
-
-                {profileOpen && (
-                  <div className={styles.sidebarProfilePopoverDown}>
-                    <div className={styles.popoverHeaderCompact}>
-                      <div className={styles.popoverUserName}>{userName}</div>
-                      <div className={styles.popoverUserContext}>{buCount > 0 ? `${buCount} Business Unit${buCount > 1 ? "s" : ""}` : userEmail}</div>
-                    </div>
-                    <div className={styles.popoverDivider} />
-                    <div className={styles.popoverSection}>
-                      <Link href={profileHref} className={styles.popoverItem} onClick={() => setProfileOpen(false)}>
-                        <span className={styles.popoverItemIcon}><User size={15} strokeWidth={1.6} /></span>
-                        Profile
-                      </Link>
-                      <Link href={`/change-password?redirect_url=${typeof window !== "undefined" ? window.location.pathname : "/"}`} className={styles.popoverItem} onClick={() => setProfileOpen(false)}>
-                        <span className={styles.popoverItemIcon}><Key size={15} strokeWidth={1.6} /></span>
-                        Change Password
-                      </Link>
-                    </div>
-                    <div className={styles.popoverDivider} />
-                    <div className={styles.popoverSection}>
-                      <button type="button" className={`${styles.popoverItem} ${styles.popoverItemLogout}`} onClick={() => { setProfileOpen(false); onLogoutRequest?.(); }}>
-                        <span className={styles.popoverItemIcon}><LogOut size={15} strokeWidth={1.6} /></span>
-                        Logout
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
+      <aside className={`${styles.sidebar} ${hasSubSidebar ? styles.sidebarWithSub : (collapsed ? styles.sidebarMini : styles.sidebarExpanded)}`}>
+        <div className={`${styles.rail} ${isCompact ? styles.railCollapsed : styles.railExpanded}`}>
           {/* Nav items */}
-          <nav className={`${styles.railNav} ${hasSubSidebar ? styles.railNavCollapsed : styles.railNavExpanded}`}>
-            {hasSubSidebar ? (
+          <nav className={`${styles.railNav} ${isCompact ? styles.railNavCollapsed : styles.railNavExpanded}`}>
+            {isCompact ? (
               navItems.map((item) => {
                 const Icon = getNavIcon(item.href);
                 const locked = isSubLocked && item.requiresSubscription;
@@ -280,14 +133,14 @@ const SideNav = ({
           </nav>
 
           {/* Footer — Logout */}
-          <div className={`${styles.railFooter} ${hasSubSidebar ? styles.railFooterCollapsed : styles.railFooterExpanded}`}>
+          <div className={`${styles.railFooter} ${isCompact ? styles.railFooterCollapsed : styles.railFooterExpanded}`}>
             <button
               type="button"
-              className={hasSubSidebar ? styles.logoutBtnCompact : styles.logoutBtn}
+              className={isCompact ? styles.logoutBtnCompact : styles.logoutBtn}
               onClick={onLogoutRequest}
             >
-              <LogOut size={hasSubSidebar ? 18 : 16} strokeWidth={1.6} />
-              {!hasSubSidebar && <span>Logout</span>}
+              <LogOut size={16} strokeWidth={2} />
+              {!isCompact && <span>Logout</span>}
             </button>
           </div>
         </div>

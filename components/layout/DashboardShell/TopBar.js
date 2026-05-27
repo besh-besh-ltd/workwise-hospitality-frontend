@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
-import { Menu, Building2, ChevronDown, Key, LogOut, User, PanelLeftOpen } from "lucide-react";
+import { Menu, Building2, ChevronDown, Key, LogOut, User, PanelLeftOpen, Bell } from "lucide-react";
 import { roleMenus } from "@/components/layout/Header/headerConfig";
 import storageInstance from "@/utils/storageInstance";
 import styles from "./DashboardShell.module.css";
@@ -16,7 +16,7 @@ import styles from "./DashboardShell.module.css";
 const TopBar = ({
   user,
   currentUserType,
-  onOpenMobileNav,
+  onNavToggle,
   mobileRfqToggle,
   onLogoutRequest,
 }) => {
@@ -69,9 +69,9 @@ const TopBar = ({
       <div className={styles.topBarLeft}>
         <button
           type="button"
-          className={styles.hamburger}
-          onClick={onOpenMobileNav}
-          aria-label="Open menu"
+          className={styles.navToggle}
+          onClick={onNavToggle}
+          aria-label="Toggle navigation"
         >
           <Menu size={20} strokeWidth={2} />
         </button>
@@ -109,24 +109,20 @@ const TopBar = ({
           </div>
         )}
 
-        {showBuBadge && <div className={styles.topBarSep} />}
+        {/* Notifications */}
+        <button type="button" className={styles.notifBtn} aria-label="Notifications">
+          <Bell size={19} strokeWidth={1.9} />
+        </button>
 
-        {/* Profile chip + dropdown */}
+        {/* Profile avatar — opens dropdown */}
         <div style={{ position: "relative" }} ref={profileRef}>
           <button
             type="button"
-            className={`${styles.profileChip} ${profileOpen ? styles.profileChipOpen : ""}`}
+            className={`${styles.profileAvatarBtn} ${profileOpen ? styles.profileAvatarBtnOpen : ""}`}
             onClick={() => setProfileOpen((v) => !v)}
+            aria-label="Account"
           >
-            <span className={styles.profileAvatarWrap}>
-              <span className={styles.profileAvatar}>{initial}</span>
-              <span className={styles.activeDot} />
-            </span>
-            <span className={styles.profileInfo}>
-              <span className={styles.profileName}>{userName}</span>
-              {userEmail && <span className={styles.profileEmail}>{userEmail}</span>}
-            </span>
-            <ChevronDown size={13} strokeWidth={2} className={styles.profileChevron} />
+            {initial}
           </button>
 
           {profileOpen && (

@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import Select from "react-select";
 import { Line } from "react-chartjs-2";
+import { LineChart } from "lucide-react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,8 +13,7 @@ import {
   Filler,
 } from "chart.js";
 import { getCostIntelligence } from "@/services/dashboard";
-import CardLoader from "./CardLoader";
-import CardError from "./CardError";
+import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import styles from "./CostIntelligence.module.scss";
 
 ChartJS.register(
@@ -37,20 +37,20 @@ const formatCurrency = (value) => {
 const selectStyles = {
   control: (base, state) => ({
     ...base,
-    minHeight: 34,
-    fontSize: 13,
-    borderColor: state.isFocused ? "#2E5BA8" : "#e2e2e2",
-    boxShadow: state.isFocused ? "0 0 0 1px #2E5BA8" : "none",
+    minHeight: 30,
+    fontSize: 12,
+    borderColor: state.isFocused ? "#18181b" : "#e8e8e3",
+    boxShadow: state.isFocused ? "0 0 0 2px rgba(24,24,27,0.08)" : "none",
     borderRadius: 8,
-    "&:hover": { borderColor: "#ccc" },
+    "&:hover": { borderColor: "#d6d6cf" },
   }),
   option: (base, state) => ({
     ...base,
-    fontSize: 13,
+    fontSize: 12,
     backgroundColor: state.isSelected
-      ? "#2E5BA8"
+      ? "#18181b"
       : state.isFocused
-      ? "#f5f7fa"
+      ? "#fafaf9"
       : "transparent",
   }),
   menu: (base) => ({
@@ -112,21 +112,19 @@ const chartOptions = {
 const CostIntelligence = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const intervalRef = useRef(null);
   const currentProductRef = useRef(null);
 
-  const fetchData = async (productId) => {
-    setLoading(true);
-    setError(false);
+  const fetchData = useCallback(async (productId) => {
+    setError(null);
     try {
       const params = { ...filters };
       if (productId) params.product_variant_id = productId;
       const res = await getCostIntelligence(params);
       setData(res.data);
 
-      // Auto-select first product on initial load only
       if (!currentProductRef.current && res.data?.top_products?.length > 0) {
         const first = {
           label: res.data.top_products[0].product_name,
@@ -135,21 +133,23 @@ const CostIntelligence = ({ filters }) => {
         setSelectedProduct(first);
         currentProductRef.current = first.value;
       }
-    } catch {
-      setError(true);
+    } catch (e) {
+      setError(e?.message || "Failed to load");
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
     currentProductRef.current = null;
     setSelectedProduct(null);
+    setLoading(true);
     fetchData();
     intervalRef.current = setInterval(() => {
       fetchData(currentProductRef.current);
     }, 20000);
     return () => clearInterval(intervalRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
 
   const handleProductChange = (option) => {
@@ -180,41 +180,41 @@ const CostIntelligence = ({ filters }) => {
         labels: chartLabels,
         datasets: [
           {
-            label: "Max Price",
+            label: "Max",
             data: priceTrend.max,
-            borderColor: "#e04444",
+            borderColor: "#b91c1c",
             backgroundColor: "transparent",
-            borderWidth: 1.5,
-            borderDash: [4, 3],
+            borderWidth: 1.25,
+            borderDash: [3, 3],
             pointRadius: 2,
             pointHoverRadius: 4,
-            pointBackgroundColor: "#e04444",
+            pointBackgroundColor: "#b91c1c",
             tension: 0.3,
             spanGaps: false,
           },
           {
-            label: "Avg. Price",
+            label: "Avg",
             data: priceTrend.avg,
-            borderColor: "#2E5BA8",
-            backgroundColor: "rgba(46, 91, 168, 0.04)",
-            borderWidth: 2,
-            pointRadius: 3,
-            pointHoverRadius: 5,
-            pointBackgroundColor: "#2E5BA8",
+            borderColor: "#18181b",
+            backgroundColor: "rgba(24, 24, 27, 0.04)",
+            borderWidth: 1.75,
+            pointRadius: 2.5,
+            pointHoverRadius: 4.5,
+            pointBackgroundColor: "#18181b",
             tension: 0.3,
             fill: true,
             spanGaps: false,
           },
           {
-            label: "Min Price",
+            label: "Min",
             data: priceTrend.min,
-            borderColor: "#428B41",
+            borderColor: "#15803d",
             backgroundColor: "transparent",
-            borderWidth: 1.5,
-            borderDash: [4, 3],
+            borderWidth: 1.25,
+            borderDash: [3, 3],
             pointRadius: 2,
             pointHoverRadius: 4,
-            pointBackgroundColor: "#428B41",
+            pointBackgroundColor: "#15803d",
             tension: 0.3,
             spanGaps: false,
           },
@@ -223,71 +223,76 @@ const CostIntelligence = ({ filters }) => {
     : null;
 
   const vendors = data?.vendor_comparison || [];
-  const maxPrice = Math.max(...vendors.map((v) => v.avg_price || 0), 1);
 
   return (
-    <div className={styles.card}>
-      {loading && <CardLoader />}
-      {error && !loading && <CardError onRetry={() => fetchData(currentProductRef.current)} />}
-
-      <div className={styles.cardHeader}>
-        <div>
-          <h3 className={styles.sectionTitle}>Price Benchmarking</h3>
-          <p className={styles.sectionSubtitle}>Compare vendor pricing trends for your most ordered products</p>
-        </div>
+    <PersonaCardShell
+      title="Price benchmarking"
+      icon={LineChart}
+      tooltip="Compare vendor pricing trends for your most ordered products."
+      actions={
         <div className={styles.productSelector}>
           <Select
             value={selectedProduct}
             onChange={handleProductChange}
             options={productOptions}
-            placeholder="Select product..."
+            placeholder="Select product…"
             styles={selectStyles}
             isClearable={false}
             isSearchable
+            menuPortalTarget={typeof window !== "undefined" ? document.body : null}
+            menuPosition="fixed"
           />
         </div>
+      }
+      loading={loading}
+      error={error}
+      isEmpty={!chartData}
+      renderEmpty={() => (
+        <div className={styles.emptyState}>
+          No price benchmarking data available for the selected period.
+        </div>
+      )}
+      onRefresh={() => {
+        setLoading(true);
+        fetchData(currentProductRef.current);
+      }}
+    >
+      <div className={styles.chartContainer}>
+        <Line data={chartData} options={chartOptions} />
       </div>
-
-      {chartData ? (
+      {vendors.length > 0 && (
         <>
-          <div className={styles.chartContainer}>
-            <Line data={chartData} options={chartOptions} />
+          <div className={styles.vendorSectionLabel}>
+            Top {vendors.length} vendors by avg price
           </div>
-
-          {vendors.length > 0 && (
-            <>
-              <p className={styles.vendorSectionLabel}>Top {vendors.length} Vendors by Avg. Price</p>
-              <div className={styles.vendorGrid}>
-                {vendors.map((vendor, idx) => (
-                  <div
-                    key={idx}
-                    className={`${styles.vendorCard} ${vendor.is_best ? styles.best : ""}`}
-                  >
-                    <p className={styles.vendorName}>
+          <div className={styles.vendorGrid}>
+            {vendors.map((vendor, idx) => {
+              const rank = idx + 1;
+              const rankClass = rank === 1 ? styles.rankGold : rank === 2 ? styles.rankSilver : styles.rankBase;
+              return (
+                <div
+                  key={idx}
+                  className={`${styles.vendorCard} ${vendor.is_best ? styles.best : ""}`}
+                >
+                  <div className={styles.vendorNameRow}>
+                    <span className={`${styles.rankChip} ${rankClass}`}>#{rank}</span>
+                    <div className={styles.vendorName}>
                       {vendor.company_name || vendor.vendor_name}
-                    </p>
-                    <div className={styles.vendorPriceRow}>
-                      <span className={styles.vendorPrice}>
-                        {formatCurrency(vendor.avg_price)}
-                      </span>
-                      {vendor.is_best && (
-                        <span className={styles.bestBadge}>Best</span>
-                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            </>
-          )}
-        </>
-      ) : (
-        !loading && (
-          <div className={styles.emptyState}>
-            No price benchmarking data available for the selected period.
+                  <div className={styles.vendorPriceRow}>
+                    <span className={styles.vendorPrice}>
+                      {formatCurrency(vendor.avg_price)}
+                    </span>
+                    {vendor.is_best && <span className={styles.bestBadge}>Best</span>}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        )
+        </>
       )}
-    </div>
+    </PersonaCardShell>
   );
 };
 

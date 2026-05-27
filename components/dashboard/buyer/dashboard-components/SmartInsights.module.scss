@@ -1,134 +1,134 @@
-.insightsSection {
+/* SmartInsights — minimal insight rows with subtle priority signals.
+   Inner content only — card frame comes from PersonaCardShell. */
+
+.insightsBody {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.sectionLabel {
-  font-size: 14px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--dark-color);
-  margin: 0;
-  padding: 0;
 }
 
 .insightCard {
-  background: #fff;
-  border-radius: 10px;
-  padding: 14px 16px;
-  border: 1px solid #eee;
-  border-left: 3px solid transparent;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   display: flex;
-  gap: 12px;
-  transition: all 0.2s ease;
+  gap: 10px;
+  padding: 11px 0 12px 12px;
+  position: relative;
+  border-top: 1px solid #f4f4f1;
 
-  &:hover {
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
-    border-color: #ddd;
+  &:first-child {
+    border-top: none;
+    padding-top: 4px;
   }
 
-  &.price_alert {
-    border-left-color: var(--red-color);
+  /* Thin left accent rail — single visual anchor for priority */
+  &::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 14px;
+    bottom: 14px;
+    width: 2px;
+    border-radius: 2px;
+    background: #e5e5e5;
   }
-  &.vendor_optimization {
-    border-left-color: var(--secondary-color);
-  }
-  &.spend_trend {
-    border-left-color: var(--primary-color);
-  }
-  &.general {
-    border-left-color: var(--tertiary-color);
-  }
+
+  &.price_alert::before        { background: #dc2626; }
+  &.vendor_optimization::before{ background: #15803d; }
+  &.spend_trend::before        { background: #2563eb; }
+  &.general::before            { background: #a1a1aa; }
 }
 
-.insightIcon {
+.iconChip {
   flex-shrink: 0;
-  margin-top: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
 
-  &.price_alert {
-    color: var(--red-color);
-  }
-  &.vendor_optimization {
-    color: var(--secondary-color);
-  }
-  &.spend_trend {
-    color: var(--primary-color);
-  }
-  &.general {
-    color: var(--tertiary-color);
-  }
+  .price_alert &        { background: #fef2f2; color: #b91c1c; }
+  .vendor_optimization &{ background: #f0fdf4; color: #15803d; }
+  .spend_trend &        { background: #eff6ff; color: #2563eb; }
+  .general &            { background: #f4f4f5; color: #71717a; }
 }
 
 .insightBody {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
   flex: 1;
+  min-width: 0;
+}
+
+.insightHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
 }
 
 .insightTitle {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--dark-color);
   margin: 0;
-  line-height: 1.3;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.35;
+  color: #18181b;
+  flex: 1;
+  min-width: 0;
+}
+
+.badge {
+  flex-shrink: 0;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1.25;
+
+  .price_alert &        { background: #fee2e2; color: #b91c1c; }
+  .vendor_optimization &{ background: #dcfce7; color: #166534; }
+  .spend_trend &        { background: #dbeafe; color: #1d4ed8; }
+  .general &            { background: #f4f4f5; color: #52525b; }
 }
 
 .insightDescription {
-  font-size: 12px;
-  color: #777;
-  margin: 2px 0 0 0;
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  color: #71717a;
   line-height: 1.5;
-}
 
-.highlightRed {
-  font-weight: 700;
-  color: var(--red-color);
-}
-
-.highlightGreen {
-  font-weight: 700;
-  color: var(--secondary-color);
-}
-
-.insightAction {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--primary-color);
-  border: none;
-  background: none;
-  border-bottom: 1px solid var(--primary-color);
-  cursor: pointer;
-  padding: 0;
-  margin-top: 6px;
-  align-self: flex-start;
-  transition: color 0.2s ease;
-  text-decoration: none;
-  display: inline-block;
-
-  &:hover {
-    color: var(--secondary-color);
-    border-color: var(--secondary-color);
+  strong, b {
+    color: #18181b;
+    font-weight: 600;
   }
 }
 
-.insightsBody {
-  position: relative;
-  min-height: 80px;
-  border-radius: 10px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.actionCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.18s ease;
+
+  .price_alert &        { color: #b91c1c; }
+  .vendor_optimization &{ color: #15803d; }
+  .spend_trend &        { color: #2563eb; }
+  .general &            { color: #52525b; }
+
+  &:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  svg { display: block; transition: transform 0.18s ease; }
+  &:hover svg { transform: translateX(2px); }
 }
 
 .emptyState {
   text-align: center;
-  padding: 32px 20px;
-  color: #999;
-  font-size: 13px;
+  padding: 18px 10px;
+  font-size: 12.5px;
+  color: #a1a1aa;
+  font-style: italic;
 }

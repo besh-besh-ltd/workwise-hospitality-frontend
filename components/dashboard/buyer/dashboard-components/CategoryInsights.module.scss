@@ -1,64 +1,54 @@
-.card {
-  background: #fff;
-  border-radius: 10px;
-  padding: 24px;
-  border: 1px solid #eee;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-  position: relative;
-  overflow: hidden;
-}
-
-.sectionTitle {
-  font-size: 14px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--dark-color);
-  margin: 0 0 20px 0;
-}
+/* CategoryInsights — inner-content only. Card frame from PersonaCardShell. */
 
 .chartWrapper {
   position: relative;
-  width: 180px;
-  height: 180px;
-  margin: 0 auto 28px;
+  max-width: 180px;
+  margin: 4px auto 14px;
 }
 
 .chartCenter {
   position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
   pointer-events: none;
 }
 
 .chartCenterValue {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--dark-color);
-  line-height: 1.2;
+  display: block;
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 .chartCenterLabel {
+  display: block;
   font-size: 10px;
-  font-weight: 700;
   text-transform: uppercase;
-  color: #999;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  color: #a1a1aa;
+  font-weight: 600;
+  margin-top: 2px;
 }
 
 .categoryList {
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
 .categoryItem {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid #f4f4f1;
+
+  &:first-child { border-top: none; }
 }
 
 .categoryLeft {
@@ -69,45 +59,44 @@
 }
 
 .categoryDot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
   flex-shrink: 0;
 }
 
 .categoryName {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-color);
-  white-space: nowrap;
+  font-size: 12px;
+  color: #3f3f46;
+  letter-spacing: -0.005em;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .categoryRight {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
+  align-items: baseline;
+  gap: 8px;
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  white-space: nowrap;
 }
 
 .categorySpend {
   font-size: 12px;
-  font-weight: 500;
-  color: #999;
+  font-weight: 600;
+  color: #18181b;
 }
 
 .categoryPct {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--dark-color);
-  min-width: 40px;
-  text-align: right;
+  font-size: 11px;
+  color: #a1a1aa;
 }
 
 .emptyState {
   text-align: center;
-  padding: 40px 20px;
-  color: #999;
-  font-size: 14px;
+  padding: 18px 10px;
+  font-size: 12.5px;
+  color: #a1a1aa;
+  font-style: italic;
 }
