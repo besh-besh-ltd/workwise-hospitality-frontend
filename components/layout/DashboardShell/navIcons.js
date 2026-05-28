@@ -11,6 +11,9 @@ import {
   ClipboardList,
   Building2,
   Briefcase,
+  ReceiptText,
+  Truck,
+  PieChart,
 } from "lucide-react";
 
 /**
@@ -33,6 +36,11 @@ export const NAV_ICONS = {
   "/dashboard/buyer/technical-evaluation": Scale,
   "/dashboard/buyer/quote-compare": BarChart3,
   "/dashboard/buyer/purchase-order": ShoppingCart,
+
+  // Purchase Orders (new module)
+  "/dashboard/buyer/purchase-orders": ReceiptText,
+  "/dashboard/buyer/purchase-orders/tracking": Truck,
+  "/dashboard/buyer/purchase-orders/analytics": PieChart,
 
   // Admin
   "/dashboard/admin/account-management/manage-accounts": Users,

@@ -112,3 +112,55 @@ export const handleRejectPO = async (po_id, reason) => {
   const res = await axiosInstance.post(`/po/reject/${po_id}`, { reason });
   return res;
 };
+
+/* ─────────────────────────────────────────────────────────────────────────
+   New Purchase Order dashboard module (cross-RFQ aggregation endpoints).
+   Powers /dashboard/buyer/purchase-orders (Dashboard / Detail / Tracking /
+   Analytics). All are read-only and scoped server-side from req.user + the
+   hospitality headers injected by the axios interceptor — callers never pass
+   a company/hotel id. The interceptor already unwraps response.data, so `res`
+   is the response body.
+   ───────────────────────────────────────────────────────────────────────── */
+
+// GET /po/list → { data[], total_items, page, limit, status_counts }
+// params: { status, search, page, limit, sort }
+export const getPODashboardList = async (params) => {
+  const res = await axiosInstance.get(`/po/list`, { params });
+  return res;
+};
+
+// GET /po/dashboard/kpis → { activeCount, awaitingYou, awaitingOldestDays,
+//   inTransit, avgDeliveryDays, approvedThisMonth, approvedDeltaPct,
+//   totalValueMTD, totalValueDeltaPct }
+export const getPOKpis = async () => {
+  const res = await axiosInstance.get(`/po/dashboard/kpis`);
+  return res;
+};
+
+// GET /po/awaiting → { data[] } — POs pending the logged-in user's approval
+export const getPOAwaiting = async () => {
+  const res = await axiosInstance.get(`/po/awaiting`);
+  return res;
+};
+
+// GET /po/detail/:po_id → returns the contract-shaped detail object (the
+// endpoint wraps it as { data }, which the interceptor surfaces as res.data).
+export const getPODetailFull = async (po_id) => {
+  const res = await axiosInstance.get(`/po/detail/${po_id}`);
+  return res.data;
+};
+
+// GET /po/tracking → { data[], total_items, tab_counts }
+// params: { tab, search, page, limit }
+export const getPOTracking = async (params) => {
+  const res = await axiosInstance.get(`/po/tracking`, { params });
+  return res;
+};
+
+// GET /po/analytics → { kpis, spend_trend, status_dist, bottlenecks,
+//   top_vendors, savings, compliance, spend_by_dept, queue_health }
+// params: { period }
+export const getPOAnalytics = async (params) => {
+  const res = await axiosInstance.get(`/po/analytics`, { params });
+  return res;
+};

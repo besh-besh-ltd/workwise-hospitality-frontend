@@ -54,7 +54,10 @@ export const roleMenus = {
     { href: "/dashboard/buyer/rfq-management", label: "Management", targetMenu: "nav", section: "RFQs" },
     { href: "/dashboard/buyer/technical-evaluation", label: "Technical", targetMenu: "nav", section: "RFQs" },
     { href: "/dashboard/buyer/quote-compare", label: "Commercial", targetMenu: "nav", section: "RFQs" },
-    { href: "/dashboard/buyer/purchase-order", label: "Awarding", targetMenu: "nav", section: "RFQs" },
+    { href: "/dashboard/buyer/purchase-order", label: "Awarding", targetMenu: "nav", section: "RFQs", legacy: true },
+    { href: "/dashboard/buyer/purchase-orders", label: "PO Dashboard", targetMenu: "nav", section: "Purchase Orders", isNew: true },
+    { href: "/dashboard/buyer/purchase-orders/tracking", label: "PO Tracking", targetMenu: "nav", section: "Purchase Orders", isNew: true },
+    { href: "/dashboard/buyer/purchase-orders/analytics", label: "PO Analytics", targetMenu: "nav", section: "Purchase Orders", isNew: true },
     { href: "/dashboard/buyer/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
   ],
   vendor: [

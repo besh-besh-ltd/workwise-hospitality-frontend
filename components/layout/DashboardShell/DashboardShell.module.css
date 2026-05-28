@@ -358,6 +358,50 @@
   }
 }
 
+/* "NEW" badge for freshly shipped nav links (expanded rail) */
+.newBadge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  padding: 3px 5px;
+  border-radius: 5px;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  text-transform: uppercase;
+}
+
+/* "LEGACY" badge for deprecated nav links (expanded rail) — muted amber/zinc,
+   distinct from the blue .newBadge */
+.legacyBadge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  padding: 3px 5px;
+  border-radius: 5px;
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid rgba(180, 83, 9, 0.22);
+  text-transform: uppercase;
+}
+
+/* "NEW" indicator dot for the collapsed (icon-only) rail */
+.newDotCompact {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2563eb;
+  box-shadow: 0 0 0 2px #ffffff;
+  flex-shrink: 0;
+}
+
 .lockIcon {
   width: 13px;
   height: 13px;

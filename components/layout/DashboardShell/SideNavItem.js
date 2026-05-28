@@ -17,6 +17,8 @@ const SideNavItem = ({
   compact,
   locked,
   hasPending,
+  isNew,
+  isLegacy,
 }) => {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ left: 0, top: 0 });
@@ -57,6 +59,8 @@ const SideNavItem = ({
   if (compact) {
     const dotEl = hasPending ? (
       <span className={`${styles.approvalDot} ${styles.approvalDotCompact}`} />
+    ) : isNew ? (
+      <span className={styles.newDotCompact} />
     ) : null;
 
     if (locked) {
@@ -113,9 +117,12 @@ const SideNavItem = ({
     <Link
       href={href}
       className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}
+      title={isLegacy ? "Legacy page — use the new Purchase Orders section" : undefined}
     >
       {iconEl}
       <span className={styles.navLabel}>{label}</span>
+      {isNew && <span className={styles.newBadge}>NEW</span>}
+      {isLegacy && <span className={styles.legacyBadge}>LEGACY</span>}
       {hasPending && <span className={styles.approvalDot} />}
     </Link>
   );

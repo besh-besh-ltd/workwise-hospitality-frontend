@@ -59,24 +59,22 @@ const SideNav = ({
     return groups;
   }, [navItems]);
 
-  const isItemActive = (href) => {
-    // Dashboard link: exact match only (don't highlight on sub-pages)
-    const dashHref = getDashboardHref();
-    if (href === dashHref) return pathname === href;
-    return pathname === href || pathname.startsWith(`${href}/`);
-  };
+  // Longest-prefix match wins, so the most specific nav item is the only one
+  // highlighted. This keeps "PO Dashboard" (/purchase-orders) from also lighting
+  // up on /purchase-orders/tracking, and keeps the top "Dashboard" link active
+  // only on its own exact route (a shorter prefix of every sub-page).
+  const activeHref = useMemo(() => {
+    let best = null;
+    navItems.forEach((item) => {
+      const h = item.href;
+      if (pathname === h || pathname.startsWith(`${h}/`)) {
+        if (!best || h.length > best.length) best = h;
+      }
+    });
+    return best;
+  }, [navItems, pathname]);
 
-  const getDashboardHref = () => {
-    const map = {
-      vendor: "/dashboard/vendor",
-      admin: "/dashboard/admin",
-      management: "/dashboard/management",
-      engineering: "/dashboard/engineering",
-      finance: "/dashboard/finance",
-      buyer: "/dashboard/buyer",
-    };
-    return map[currentUserType] || "/dashboard/buyer";
-  };
+  const isItemActive = (href) => href === activeHref;
 
   return (
     <>
@@ -98,6 +96,8 @@ const SideNav = ({
                     active={active}
                     compact
                     locked={locked}
+                    isNew={item.isNew}
+                    isLegacy={item.legacy}
                     hasPending={!locked && hasPendingApproval(item.href)}
                   />
                 );
@@ -123,6 +123,8 @@ const SideNav = ({
                         active={active}
                         compact={false}
                         locked={locked}
+                        isNew={item.isNew}
+                        isLegacy={item.legacy}
                         hasPending={!locked && hasPendingApproval(item.href)}
                       />
                     );
