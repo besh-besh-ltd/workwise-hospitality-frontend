@@ -455,7 +455,11 @@ const ProductComparisonMatrix = ({
             globalCharges.forEach(c => {
               const tax = Number(c.tax ?? c.amount ?? 0);
               const mode = c.tax_mode ?? c.amount_mode ?? "percentage";
-              total += mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+              const chargeBase = mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+              const extraTax = Number(c.additional_tax ?? 0);
+              const extraMode = c.additional_tax_mode ?? "percentage";
+              const extraTaxAmt = extraTax > 0 ? (extraMode === "percentage" ? (chargeBase * extraTax) / 100 : extraTax) : 0;
+              total += chargeBase + extraTaxAmt;
             });
           }
           return <span className={styles.value}>{formatCurrency(total)} <small className="text-muted">({globalCharges.length} tax{globalCharges.length > 1 ? "es" : ""})</small></span>;
@@ -524,10 +528,43 @@ const ProductComparisonMatrix = ({
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
           const charge = globalCharges.find(c => c.name === rowMeta.chargeName);
           if (!charge) return <span className={styles.value}>--</span>;
-          const taxVal = Number(charge.tax || 0);
-          const taxDisplay = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
-          const commentText = charge.comment ? ` (${charge.comment})` : "";
-          return <span className={styles.value}>{taxDisplay}{commentText && <small className="text-muted">{commentText}</small>}</span>;
+          // Render a global charge as "rate + tax (comment)". Same pattern as
+          // per-product other_charges so the strikethrough-previous indicator
+          // can show prior-round values when they differ.
+          const renderGlobalChargeNode = (c) => {
+            const taxVal = Number(c.tax || 0);
+            const taxDisplay = c.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
+            const extraTax = Number(c.additional_tax || 0);
+            const extraMode = c.additional_tax_mode || "percentage";
+            const extraTaxDisplay = extraTax > 0
+              ? ` + ${extraMode === "percentage" ? `${extraTax}%` : formatCurrency(extraTax)} tax`
+              : "";
+            const commentText = c.comment ? ` (${c.comment})` : "";
+            return <>{taxDisplay}<small className="text-muted">{extraTaxDisplay}{commentText}</small></>;
+          };
+          const prevQuote = findPreviousDifferent(
+            previousQuotes,
+            (prev) => {
+              const prevGc = (prev.global_charges || []).find(c => c.name === charge.name);
+              if (!prevGc) return false;
+              return (
+                Number(prevGc.tax || 0) !== Number(charge.tax || 0) ||
+                (prevGc.tax_mode || "percentage") !== (charge.tax_mode || "percentage") ||
+                Number(prevGc.additional_tax || 0) !== Number(charge.additional_tax || 0) ||
+                (prevGc.additional_tax_mode || "percentage") !== (charge.additional_tax_mode || "percentage") ||
+                (prevGc.comment || "") !== (charge.comment || "")
+              );
+            }
+          );
+          const prevCharge = prevQuote ? (prevQuote.global_charges || []).find(c => c.name === charge.name) : null;
+          return (
+            <PriceWithPrevious
+              currentDisplay={renderGlobalChargeNode(charge)}
+              previousDisplay={prevCharge ? renderGlobalChargeNode(prevCharge) : ""}
+              previousExists={!!prevCharge}
+              hasChanged={!!prevCharge}
+            />
+          );
         }
         if (rowKey === "grandTotal") {
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
@@ -543,7 +580,11 @@ const ProductComparisonMatrix = ({
           globalCharges.forEach(c => {
             const tax = Number(c.tax ?? c.amount ?? 0);
             const mode = c.tax_mode ?? c.amount_mode ?? "percentage";
-            globalTotal += mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+            const chargeBase = mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+            const extraTax = Number(c.additional_tax ?? 0);
+            const extraMode = c.additional_tax_mode ?? "percentage";
+            const extraTaxAmt = extraTax > 0 ? (extraMode === "percentage" ? (chargeBase * extraTax) / 100 : extraTax) : 0;
+            globalTotal += chargeBase + extraTaxAmt;
           });
           // Prefer the BE's authoritative engine_grand_total when it's
           // present (rounded consistently with the rest of the app); compute
