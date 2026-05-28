@@ -359,24 +359,29 @@ const originalPaymentTermsListRef = useRef(null);
 
   const quoteBreakup = useMemo(() => {
     if (!pricingTotals?.lines) {
-      return { totalBase: 0, totalTax: 0, totalOtherCharges: 0, chargeBreakdown: [] };
+      return { totalBase: 0, totalBaseTax: 0, chargeBreakdown: [], taxBreakdown: [] };
     }
-    let totalBase = 0, totalTax = 0, totalOtherCharges = 0;
-    const chargesByName = {};
+    let totalBase = 0;
+    let totalBaseTax = 0;
+    const chargeAmtByName = {};
+    const chargeTaxByName = {};
     pricingTotals.lines.forEach((line) => {
       totalBase += Number(line.base) || 0;
-      totalTax += Number(line.base_tax) || 0;
+      totalBaseTax += Number(line.base_tax) || 0;
       (line.charges || []).forEach((charge) => {
+        const name = charge.name || "Other";
         const subtotal = Number(charge.subtotal) || 0;
-        totalOtherCharges += subtotal;
-        if (subtotal > 0) {
-          const name = charge.name || "Other";
-          chargesByName[name] = (chargesByName[name] || 0) + subtotal;
-        }
+        const amount = Number(charge.amount) || 0;
+        // Engine output: subtotal = amount + tax_amount. Split here so the
+        // 3-col summary can render charge amount vs charge tax separately.
+        const taxPart = Math.max(0, subtotal - amount);
+        if (amount > 0) chargeAmtByName[name] = (chargeAmtByName[name] || 0) + amount;
+        if (taxPart > 0) chargeTaxByName[name] = (chargeTaxByName[name] || 0) + taxPart;
       });
     });
-    const chargeBreakdown = Object.entries(chargesByName).map(([label, value]) => ({ label, value }));
-    return { totalBase, totalTax, totalOtherCharges, chargeBreakdown };
+    const chargeBreakdown = Object.entries(chargeAmtByName).map(([label, value]) => ({ label, value }));
+    const taxBreakdown = Object.entries(chargeTaxByName).map(([label, value]) => ({ label: `Tax on ${label}`, value }));
+    return { totalBase, totalBaseTax, chargeBreakdown, taxBreakdown };
   }, [pricingTotals]);
 
   // Check if any quoteable product has pending/incomplete tech eval
@@ -3695,13 +3700,14 @@ return { deletedTerms, createdTerms, updatedTerms };
                         {/* Start Grand Total Breakup */}
                         <div className="d-flex justify-content-end mb-2">
                           <GrandTotalBreakup
+                            layout="3col"
                             totalBase={quoteBreakup.totalBase}
-                            totalTax={quoteBreakup.totalTax}
-                            totalOtherCharges={quoteBreakup.totalOtherCharges}
+                            totalBaseTax={quoteBreakup.totalBaseTax}
                             grandTotal={grandTotalIncludingGST}
                             formatPrice={formatPrice}
                             align="end"
                             chargeBreakdown={quoteBreakup.chargeBreakdown}
+                            taxBreakdown={quoteBreakup.taxBreakdown}
                             globalChargeBreakdown={globalOtherCharges
                               .filter(c => c.name && c.name.trim())
                               .map(c => {
