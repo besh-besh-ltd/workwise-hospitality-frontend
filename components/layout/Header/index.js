@@ -23,6 +23,7 @@ import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
 import { initialMainNavs, roleMenus, websiteMenu, ANNOUNCEMENT_TEXT } from "./headerConfig";
 import UserMenu from "./UserMenu";
 import MobileMenu from "./MobileMenu";
+import NotificationBell from "@/components/shared/NotificationBell";
 import styles from "./Header.module.css";
 import posthog from 'posthog-js';
 
@@ -442,7 +443,8 @@ const Header = () => {
 
           {/* ── Dashboard User Menu ── */}
           {isDashboardPage && (
-            <div className={styles.hideMobile}>
+            <div className={styles.hideMobile} style={{ display: "flex", alignItems: "center" }}>
+              <NotificationBell />
               <UserMenu
                 user={loggedinUser}
                 userBusinessUnits={userBusinessUnits}

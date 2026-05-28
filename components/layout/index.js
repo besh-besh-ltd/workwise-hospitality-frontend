@@ -7,6 +7,7 @@ import { setSwSubscription } from "@/redux/slice";
 import { SWSubscribe } from "@/services/Auth";
 import { useRouter } from "next/router";
 import Head from "next/head";
+import PushPermissionPrompt from "@/components/shared/PushPermissionPrompt";
 // import Footer from "./Footer/newFooter";
 
 const Layout = (props) => {
@@ -17,44 +18,21 @@ const Layout = (props) => {
   const router = useRouter();
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      async function fetchData() {
-        // window.addEventListener("load", async () => {
+    if (typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator)) return;
 
-        const register = await navigator.serviceWorker.register(
-          "/service-worker.js",
-          { scope: "/" }
-        );
-        console.log("SERVICE WORKER REGISTERED");
-
-        const serviceWorker = await navigator.serviceWorker.ready;
-
-        const subscription = await register.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey:
-            process.env.NEXT_PUBLIC_SERVICEWORKER_PUBLIC_KEY,
-        });
-        dispatch(setSwSubscription(subscription));
-        console.log("SUBSCRIPTION REGISTERD");
-
-        // await fetch(
-        //   `${process.env.NEXT_PUBLIC_API_URL}/users/notifications/subscribe`,
-        //   {
-        //     method: "POST",
-        //     body: JSON.stringify(subscription),
-        //     headers: {
-        //       "Content-Type": "application/json",
-        //     },
-        //   }
-        // );
-
-        // });
-      }
-      fetchData();
-    } else {
-      console.log("NO SERVICE WORKER PRESENT");
-    }
-  }, []);
+    navigator.serviceWorker
+      .register("/service-worker.js", { scope: "/" })
+      .then((registration) => {
+        if (typeof window !== "undefined" && Notification.permission === "granted") {
+          registration.pushManager
+            .getSubscription()
+            .then((sub) => sub && dispatch(setSwSubscription(sub)))
+            .catch(() => {});
+        }
+      })
+      .catch((err) => console.warn("SW registration failed", err));
+  }, [dispatch]);
 
   /* REMOVED UN-USED CALL TO CMS DATA API */
   // useEffect(() => {
@@ -138,6 +116,7 @@ const Layout = (props) => {
         {/* Home-only announcement bar just below navbar */}
         <main className="flex-grow-1 ">{props.children}</main>
         {/* {!shouldHideNavbarFooter && <Footer />} */}
+        {isLoggedIn && <PushPermissionPrompt />}
       </div>
     </>
   );
