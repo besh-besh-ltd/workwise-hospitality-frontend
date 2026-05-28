@@ -93,7 +93,9 @@ const DraftRFQ = ({ filterData: parentFilterData, setFilterData: setParentFilter
       <div className="manage-rfq-con">
         <div className="details-table mt-0">
           {/* Card Data Section — uses the same skeleton as other tabs for consistency */}
-          {loading && <RFQListSkeleton count={limit > 5 ? 5 : limit} />}
+          {loading && (
+            <RFQListSkeleton count={Math.min(Math.max(limit || 10, 10), 15)} />
+          )}
           {!loading && myDraftRFQs.length == 0 && (
             <p>You don't have any draft Tender / RFQs yet!</p>
           )}

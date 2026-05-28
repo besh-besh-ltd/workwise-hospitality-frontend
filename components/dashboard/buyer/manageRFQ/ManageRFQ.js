@@ -83,10 +83,23 @@ const ManageRFQ = ({ filterData, setFilterData, onLoadingChange }) => {
     <>
       <div className="manage-rfq-con">
         <div style={{ marginTop: 0 }}>
-          {loading && <RFQListSkeleton count={filterData.limit > 5 ? 5 : filterData.limit} />}
+          {loading && (
+            <RFQListSkeleton
+              count={Math.min(Math.max(filterData.limit || 10, 10), 15)}
+            />
+          )}
           {!loading && myRFQs.length === 0 && (
-            <div style={{ textAlign: "center", padding: "48px 20px", color: "#999" }}>
-              <p style={{ fontSize: 14, margin: 0 }}>No Tender / RFQs found for the selected filters.</p>
+            <div style={{
+              textAlign: "center",
+              padding: "48px 20px",
+              background: "#ffffff",
+              border: "1px solid #ebebe6",
+              borderRadius: 12,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+            }}>
+              <p style={{ fontSize: 13, margin: 0, color: "#a1a1aa", fontStyle: "italic", letterSpacing: "-0.005em" }}>
+                No Tender / RFQs found for the selected filters.
+              </p>
             </div>
           )}
           {!loading && myRFQs && myRFQs.length > 0 && (

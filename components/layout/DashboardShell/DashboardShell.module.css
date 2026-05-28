@@ -1187,10 +1187,14 @@
 }
 
 /* ── TwoPanelPage ───────────────────────────── */
+/* Sits below the 56px sticky topbar, so the page must be exactly the
+   remaining viewport height. Using the full 100vh here pushes the bottom
+   56px past the fold and produces a second (window) scrollbar on top of the
+   inner .pageScrollSection scroll. */
 .pageRoot {
   display: flex;
   flex-direction: column;
-  height: calc(100vh);
+  height: calc(100vh - 56px);
   overflow: hidden;
   margin: -20px -24px;
 }
