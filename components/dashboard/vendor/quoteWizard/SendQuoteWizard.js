@@ -4,14 +4,15 @@
    /dashboard/vendor/send-quote experience.
    ──────────────────────────────────────────────────────────── */
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import {
   Building2, ClipboardCheck, FileText, Clock, Send, Download, X,
   Plus, Trash2, ArrowRight, ArrowLeft, Copy, History,
-  Check, Layers, MessageSquare, DollarSign,
+  Check, Layers, MessageSquare, DollarSign, MessageCircle, AlertTriangle,
+  Receipt, CreditCard, HelpCircle, Lock, CheckCircle2,
 } from "lucide-react";
 
 import {
@@ -19,15 +20,21 @@ import {
   sendQuotation,
   updateQuotation,
   fetchVendorAgreement,
-  getClausesByRfqProductId,
   addVendorAgreement,
   fetchQuoteHistory,
+  fetchDeviationPreviews,
   handleUploadFile,
 } from "@/services/rfq";
 import { getAllActiveNegotiationRounds } from "@/services/negotiation";
+import { getClarifications } from "@/services/clarification";
 import { checkBidExpired } from "@/utils/sharedFunctions";
 import usePreviewTotals from "@/hooks/usePreviewTotals";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
+import {
+  RaiseClarificationModal,
+  ClarificationDetailModal,
+} from "@/components/dashboard/buyer/clarification";
+import ClauseChatDrawer from "./ClauseChatDrawer";
 
 import styles from "./SendQuoteWizard.module.scss";
 import {
@@ -42,9 +49,56 @@ import {
 
 const ALL_STEPS = [
   { id: "overview", label: "Inquiry overview", meta: "Buyer, products & terms" },
+  { id: "clarifications", label: "Clarifications", meta: "Tender clarification window" },
   { id: "eval", label: "Technical evaluation", meta: "Specs & clause responses" },
-  { id: "pricing", label: "Pricing & submit", meta: "Quote totals & commercials" },
+  { id: "pricing", label: "Pricing", meta: "Per-line prices & charges" },
+  { id: "terms", label: "Commercial terms", meta: "GSTIN, payment & global charges" },
+  { id: "review", label: "Review & submit", meta: "Verify and confirm" },
 ];
+
+// IST handling for vendor_clarification_date — keep parsing identical to the
+// legacy send-quote page so the deadline never drifts by a few hours.
+const IST_OFFSET_MINUTES = 330;
+const parseISTDateTimeToUTCDate = (dateStr) => {
+  if (!dateStr) return null;
+  const raw = String(dateStr).trim();
+  let datePart, timePart;
+  if (raw.includes("T")) [datePart, timePart] = raw.split("T");
+  else if (raw.includes(" ")) [datePart, timePart] = raw.split(" ");
+  else { datePart = raw; timePart = "00:00:00"; }
+  const [year, month, day] = datePart.split("-").map((v) => parseInt(v, 10));
+  const [hourStr, minuteStr, secondStr] = (timePart || "00:00:00").split(":");
+  const hour = parseInt(hourStr || "0", 10);
+  const minute = parseInt(minuteStr || "0", 10);
+  const second = parseInt((secondStr || "0").split(".")[0] || "0", 10);
+  const utcMs = Date.UTC(year, month - 1, day, hour, minute, second) - IST_OFFSET_MINUTES * 60 * 1000;
+  return new Date(utcMs);
+};
+
+const formatCountdown = (ms) => {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+  const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
+};
+
+// Map between internal wizard state ("agree" / "disagree") and the
+// verbatim values stored in tbl_rfq_product_tech_evaluation_vendors_response
+// ("I Agree" / "I Dont Agree").
+const RESPONSE_TO_API = { agree: "I Agree", disagree: "I Dont Agree" };
+const API_TO_RESPONSE = (raw) => {
+  if (!raw) return null;
+  const v = String(raw).trim();
+  if (v === "I Agree") return "agree";
+  if (v === "I Dont Agree" || v === "I Don't Agree") return "disagree";
+  return null;
+};
+
+// Loose GSTIN format check — 15 chars, India pattern. Optional field, so the
+// "no value" case is handled separately (warning at review).
+const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{2}$/;
+const isValidGstin = (v) => !v || GSTIN_PATTERN.test(String(v).trim().toUpperCase());
 
 const PAY_TYPE_OPTIONS = [
   { value: "advance", label: "Advance" },
@@ -72,6 +126,9 @@ const SendQuoteWizard = () => {
   const [techResponses, setTechResponses] = useState({}); // { [productId]: { [clauseId]: {...} } }
   const [techLoading, setTechLoading] = useState(false);
   const [techSubmitted, setTechSubmitted] = useState({}); // { [productId]: true } — already submitted to backend
+  // Per-clause chat: { [`${productId}.${clauseId}`]: messageCount }
+  const [chatCounts, setChatCounts] = useState({});
+  const [chatTarget, setChatTarget] = useState(null); // { product, clause, clauseIndex }
 
   // step 3 — line items + commercials
   const [products, setProducts] = useState([]);
@@ -108,6 +165,21 @@ const SendQuoteWizard = () => {
   // Submitted confirmation
   const [submittedRef, setSubmittedRef] = useState(null);
   const [submittedAt, setSubmittedAt] = useState("");
+
+  // Clarifications (tenders only) — list + open status + modals.
+  const [clarifications, setClarifications] = useState([]);
+  const [hasOpenClarification, setHasOpenClarification] = useState(false);
+  const [isOwnerOfOpenClarification, setIsOwnerOfOpenClarification] = useState(false);
+  const [openClarificationObj, setOpenClarificationObj] = useState(null);
+  const [clarLoading, setClarLoading] = useState(false);
+  const [raiseClarOpen, setRaiseClarOpen] = useState(false);
+  const [detailClar, setDetailClar] = useState(null);
+  // 1-second tick for the clarification countdown
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   /* ─────────────────────────── Derived ─────────────────────────── */
   // Backend-engine pricing preview. Sent on every change (debounced 300ms) so
@@ -212,10 +284,35 @@ const SendQuoteWizard = () => {
     [products]
   );
   const hasTechEval = evalProducts.length > 0;
-  const visibleSteps = useMemo(
-    () => (hasTechEval ? ALL_STEPS : ALL_STEPS.filter((s) => s.id !== "eval")),
-    [hasTechEval]
+
+  // Hoisted clarification derivations — needed early because `visibleSteps`
+  // decides whether to inject the Clarifications step. The full set of
+  // derived clarification flags (window-active, countdown, blocks, etc.)
+  // lives in a block further down for readability.
+  const isTender = rfq?.is_tender === 1;
+  const clarificationDeadline = useMemo(
+    () => rfq?.vendor_clarification_date ? parseISTDateTimeToUTCDate(rfq.vendor_clarification_date) : null,
+    [rfq?.vendor_clarification_date]
   );
+  const isClarWindowActive = !!(clarificationDeadline && now < clarificationDeadline);
+  const clarBlocksQuote = isTender && (isClarWindowActive || hasOpenClarification);
+  const showClarStep = isTender && (clarificationDeadline != null || clarifications.length > 0);
+
+  const visibleSteps = useMemo(() => {
+    let base = ALL_STEPS;
+    if (!hasTechEval) base = base.filter((s) => s.id !== "eval");
+    if (!showClarStep) base = base.filter((s) => s.id !== "clarifications");
+    // In read-only flows the last step is a snapshot of what's been
+    // submitted — there's nothing to confirm anymore, so rename the label.
+    if (isBidExpired) {
+      return base.map((s) =>
+        s.id === "review"
+          ? { ...s, label: "Review", meta: "Snapshot of your submitted quote" }
+          : s
+      );
+    }
+    return base;
+  }, [hasTechEval, showClarStep, isBidExpired]);
   const currentStepId = visibleSteps[currentStep]?.id || "overview";
   const evalTotalClauses = useMemo(
     () => Object.values(techClauses).reduce((n, arr) => n + (arr?.length || 0), 0),
@@ -252,25 +349,82 @@ const SendQuoteWizard = () => {
 
   const canContinueStep1 = acceptedTerms;
   const canContinueStep2 = evalGateOk;
-  const canSubmit = useMemo(() => {
+  // Pricing step (step 3): at least one product priced with delivery.
+  const canContinueStep3 = useMemo(() => {
     if (!products.length) return false;
-    // At least one product must have base price + delivery; payment terms valid.
-    const anyPriced = products.some(
+    return products.some(
       (p) => (parseFloat(p.unit_price) || 0) > 0 && (parseInt(p.delivery_period) || 0) > 0
     );
+  }, [products]);
+  // Commercial terms step (step 4): valid GSTIN (or empty) + payment terms sum to 100.
+  const canContinueStep4 = useMemo(() => {
+    const gstinOk = isValidGstin(vendorGSTIN);
     const validPayment =
       paymentTotal === 100 &&
       paymentTerms
         .filter((t) => t.action !== "delete")
         .every((t) => t.type && (Number(t.value) || 0) > 0);
-    return anyPriced && validPayment;
-  }, [products, paymentTotal, paymentTerms]);
+    return gstinOk && validPayment;
+  }, [vendorGSTIN, paymentTotal, paymentTerms]);
+  const canSubmit = canContinueStep3 && canContinueStep4 && !clarBlocksQuote;
+
+  // Review-step double-check callouts.
+  const reviewWarnings = useMemo(() => {
+    const warnings = [];
+    if (!String(vendorGSTIN || "").trim()) {
+      warnings.push({
+        kind: "warn",
+        title: "No GSTIN provided",
+        detail: "Quote will be submitted without a GSTIN. Confirm this is intentional.",
+      });
+    }
+    const zeroTaxLines = [];
+    products.forEach((p) => {
+      const tax = String(p.tax ?? "").trim();
+      if (tax === "0" || tax === "0.0" || tax === "0.00") {
+        zeroTaxLines.push(p.product_name || p.name || `Product #${p.id}`);
+      }
+      (p.charges || []).forEach((ch) => {
+        const t = String(ch.tax ?? "").trim();
+        if (t === "0" || t === "0.0" || t === "0.00") {
+          zeroTaxLines.push(`${p.product_name || "Product"} → charge "${ch.name || "Untitled"}"`);
+        }
+      });
+    });
+    (globalCharges || []).forEach((ch) => {
+      const t = String(ch.tax ?? "").trim();
+      if (t === "0" || t === "0.0" || t === "0.00") {
+        zeroTaxLines.push(`Global charge "${ch.name || "Untitled"}"`);
+      }
+    });
+    if (zeroTaxLines.length) {
+      warnings.push({
+        kind: "warn",
+        title: `Tax explicitly set to 0 on ${zeroTaxLines.length} item${zeroTaxLines.length === 1 ? "" : "s"}`,
+        detail: zeroTaxLines.slice(0, 6).join(" · ") + (zeroTaxLines.length > 6 ? ` · +${zeroTaxLines.length - 6} more` : ""),
+      });
+    }
+    if (!String(globalComment || "").trim()) {
+      warnings.push({
+        kind: "warn",
+        title: "No global comment for the buyer",
+        detail: "Consider adding a note about delivery, packaging, or service expectations.",
+      });
+    }
+    return warnings;
+  }, [vendorGSTIN, products, globalCharges, globalComment]);
 
   const canVisit = (i) => {
     if (i <= currentStep) return true;
     const targetId = visibleSteps[i]?.id;
+    if (targetId === "clarifications") return acceptedTerms;
+    // For tenders during clarification window OR with an open clarification,
+    // every subsequent step is locked behind the clarifications step.
+    if (clarBlocksQuote && targetId !== "clarifications") return false;
     if (targetId === "eval") return acceptedTerms;
     if (targetId === "pricing") return acceptedTerms && evalGateOk;
+    if (targetId === "terms") return acceptedTerms && evalGateOk && canContinueStep3;
+    if (targetId === "review") return acceptedTerms && evalGateOk && canContinueStep3 && canContinueStep4;
     return false;
   };
 
@@ -308,6 +462,15 @@ const SendQuoteWizard = () => {
         canEdit: true,
       };
     }
+    if (isBidExpired && !alreadyQuoted) {
+      return {
+        kind: "warn",
+        title: "Looks like you missed this inquiry",
+        body: `The bid window ${rfq?.bid_end_date ? `closed on ${fmtShortDate(rfq.bid_end_date, { includeTime: true })}` : "has already closed"} and you weren't able to submit a quote in time. Try to respond a little earlier next time so you don't miss the opportunity — we'll keep nudging you when new inquiries from this buyer come in.`,
+        canEdit: false,
+        missed: true,
+      };
+    }
     if (isBidExpired) {
       return {
         kind: "warn",
@@ -327,6 +490,49 @@ const SendQuoteWizard = () => {
     return { kind: "info", title: "", body: "", canEdit: true };
   })();
   const isReadOnly = !editStatus.canEdit;
+  const missedInquiry = !!editStatus.missed;
+
+  /* ─────────────────────────── Clarification window ─────────────────────────── */
+  // (isTender / clarificationDeadline / isClarWindowActive / clarBlocksQuote /
+  //  showClarStep are declared above so the step list + canSubmit memos can
+  //  see them. Remaining derivations live here for readability.)
+  const clarMsLeft = isClarWindowActive ? clarificationDeadline.getTime() - now.getTime() : 0;
+  const clarCountdown = clarMsLeft > 0 ? formatCountdown(clarMsLeft) : "";
+
+  // Vendor can raise a new clarification only if: window still open AND there
+  // is no existing open clarification (neither own nor anyone else's).
+  const canRaiseClarification = isClarWindowActive && !hasOpenClarification;
+
+  // Fetch clarifications on load + after a new one is raised / replied to.
+  const refreshClarifications = useCallback(async () => {
+    if (!id || !isTender) return;
+    try {
+      setClarLoading(true);
+      const res = await getClarifications(parseInt(id), token);
+      const payload = res?.data?.data || res?.data || {};
+      const list = payload?.clarifications || payload?.data || (Array.isArray(payload) ? payload : []);
+      setClarifications(Array.isArray(list) ? list : []);
+      // Backend marks the active one + tells us if it's ours.
+      const openOne = payload?.open_clarification || (Array.isArray(list) ? list.find((c) => c.status === "OPEN") : null);
+      setOpenClarificationObj(openOne || null);
+      setHasOpenClarification(!!payload?.has_open || !!openOne);
+      setIsOwnerOfOpenClarification(!!payload?.is_own_clarification);
+    } catch (_) {
+      // keep last known list on error
+    } finally {
+      setClarLoading(false);
+    }
+  }, [id, token, isTender]);
+
+  useEffect(() => {
+    refreshClarifications();
+  }, [refreshClarifications]);
+  // Read-only because the bid window closed AFTER the vendor submitted —
+  // i.e. they have a quote on record but can no longer edit it.
+  // Scoped to bid-expiry (NOT finalization, which is its own success/danger
+  // story and shows its own inline banner inside the Pricing step).
+  const reviewOnly = isBidExpired && alreadyQuoted && !missedInquiry;
+  const bidEnded = isBidExpired;
 
   /* ─────────────────────────── Data load ─────────────────────────── */
   useEffect(() => {
@@ -376,63 +582,98 @@ const SendQuoteWizard = () => {
           setAcceptedTerms(true);
         }
 
-        // Preload tech-eval clauses & responses for each product that has eval
+        // Preload tech-eval clauses & responses for each product that has eval.
+        //
+        // `/rfq/get-vendor-responses` (fetchVendorAgreement) returns ALL clauses
+        // for this vendor — each row carries clause_id, clause_text,
+        // clause_files, plus the vendor's previously-saved vendor_response
+        // ("I Agree" / "I Dont Agree" / "") and vendor_response_files. So we
+        // can drop the separate get-clauses-of-product call and hydrate from
+        // a single endpoint, mirroring the working tech-eval page.
         const evalable = built.filter((p) => p.has_tech_eval);
         if (evalable.length > 0) {
           setTechLoading(true);
           await Promise.all(
             evalable.map(async (p) => {
               try {
-                const clausesRes = await getClausesByRfqProductId({
+                const respRes = await fetchVendorAgreement({
+                  rfq_id: parseInt(id),
                   rfq_product_id: p.id,
                   vendor_id: userProfile?.id,
                 });
-                const list = clausesRes?.data || [];
                 if (cancelled) return;
-                setTechClauses((prev) => ({ ...prev, [p.id]: list }));
 
-                // existing vendor responses
-                try {
-                  const respRes = await fetchVendorAgreement({
-                    rfq_id: parseInt(id),
-                    rfq_product_id: p.id,
-                    vendor_id: userProfile?.id,
-                  });
-                  const responses = {};
-                  (respRes?.data || []).forEach((r) => {
-                    if (r.clause_id) {
-                      responses[r.clause_id] = {
-                        response:
-                          r.vendor_response === "agree"
-                            ? "agree"
-                            : r.vendor_response === "disagree"
-                            ? "disagree"
-                            : null,
-                        comment: r.deviation_text || r.comment || "",
-                        files: r.vendor_response_files || [],
-                      };
-                    }
-                  });
-                  if (!cancelled && Object.keys(responses).length) {
-                    setTechResponses((prev) => ({ ...prev, [p.id]: responses }));
+                const rows = Array.isArray(respRes?.data) ? respRes.data : [];
+
+                // Clauses for rendering (the wizard's clause list expects
+                // `id` / `clause_text` / `file_url`, so normalise here).
+                const clauseList = rows.map((r) => ({
+                  id: r.clause_id,
+                  clause_id: r.clause_id,
+                  clause_text: r.clause_text,
+                  // The wizard's clause renderer reads `file_url` for the
+                  // single "Reference" attachment chip; the API returns an
+                  // array `clause_files`. Pick the first one for the chip and
+                  // pass the full list through for downstream use.
+                  file_url: (r.clause_files || [])[0] || "",
+                  files: r.clause_files || [],
+                }));
+                setTechClauses((prev) => ({ ...prev, [p.id]: clauseList }));
+
+                // Hydrate prior agree / disagree + uploaded reference files.
+                // Note: deviation text is NOT stored on vendor_response —
+                // it lives in the per-clause chat thread (loaded separately).
+                const responses = {};
+                let anyAnswered = false;
+                rows.forEach((r) => {
+                  const mapped = API_TO_RESPONSE(r.vendor_response);
+                  if (mapped) anyAnswered = true;
+                  responses[r.clause_id] = {
+                    response: mapped,
+                    comment: "",
+                    files: r.vendor_response_files || [],
+                  };
+                });
+                if (!cancelled) {
+                  setTechResponses((prev) => ({ ...prev, [p.id]: responses }));
+                  if (anyAnswered) {
                     setTechSubmitted((prev) => ({ ...prev, [p.id]: true }));
                   }
-                } catch (_) {
-                  /* swallow — clause-only state is fine */
                 }
+
+                // Prefetch chat message counts so the per-clause "Chat (N)"
+                // pill renders correctly on first paint.
+                try {
+                  const devRes = await fetchDeviationPreviews(
+                    p.id,
+                    userProfile?.id,
+                    token
+                  );
+                  if (!cancelled && Array.isArray(devRes?.data)) {
+                    const counts = {};
+                    devRes.data.forEach((m) => {
+                      const key = `${p.id}.${m.clause_id}`;
+                      counts[key] = (counts[key] || 0) + 1;
+                    });
+                    setChatCounts((prev) => ({ ...prev, ...counts }));
+                  }
+                } catch (_) { /* preview failure is non-fatal */ }
               } catch (e) {
-                console.error("Failed to load clauses for product", p.id, e);
+                console.error("Failed to load tech-eval for product", p.id, e);
               }
             })
           );
           if (!cancelled) setTechLoading(false);
         }
 
-        // If already quoted (update mode) — jump straight to pricing.
-        // Pricing index is dynamic: 2 if tech-eval present, else 1.
+        // If already quoted (update mode) — jump straight to the Review step
+        // so the vendor can re-verify and re-submit. They can step back to
+        // edit pricing or terms if needed.
         if (hasQuote) {
           const hasEvalAtLoad = built.some((p) => p.has_tech_eval);
-          setCurrentStep(hasEvalAtLoad ? 2 : 1);
+          // visibleSteps order: overview, [eval], pricing, terms, review
+          const reviewIdx = hasEvalAtLoad ? 4 : 3;
+          setCurrentStep(reviewIdx);
         }
 
         // Edit eligibility: check bid expiry + active negotiation rounds
@@ -615,15 +856,23 @@ const SendQuoteWizard = () => {
   /* ─────────────────────────── Submit tech-eval (per-product) ─────────────────────────── */
   const persistTechEvalForProduct = async (productId) => {
     const responses = techResponses[productId] || {};
-    const payload = Object.entries(responses).map(([clauseId, r]) => ({
-      rfq_id: parseInt(id),
-      rfq_product_id: productId,
-      clause_id: parseInt(clauseId),
-      vendor_response: r.response,
-      vendor_id: userProfile?.id,
-      file_url: r.files || [],
-      deviation_text: r.comment || "",
-    }));
+    const payload = Object.entries(responses).map(([clauseId, r]) => {
+      const row = {
+        rfq_id: parseInt(id),
+        rfq_product_id: productId,
+        clause_id: parseInt(clauseId),
+        vendor_response: r.response,
+        vendor_id: userProfile?.id,
+        file_url: r.files || [],
+      };
+      // Backend rejects deviation_text on "agree" rows (even when empty),
+      // so only include it when the vendor disagreed AND wrote something.
+      const trimmed = (r.comment || "").trim();
+      if (r.response === "disagree" && trimmed) {
+        row.deviation_text = trimmed;
+      }
+      return row;
+    });
     if (!payload.length) return;
     await addVendorAgreement(payload);
     setTechSubmitted((prev) => ({ ...prev, [productId]: true }));
@@ -814,7 +1063,13 @@ const SendQuoteWizard = () => {
       }
     }
     if (currentStep < visibleSteps.length - 1) {
-      const gateOk = currentStepId === "overview" ? canContinueStep1 : canContinueStep2;
+      const gateOk =
+        currentStepId === "overview" ? canContinueStep1
+        : currentStepId === "clarifications" ? !clarBlocksQuote
+        : currentStepId === "eval" ? canContinueStep2
+        : currentStepId === "pricing" ? canContinueStep3
+        : currentStepId === "terms" ? canContinueStep4
+        : true;
       if (gateOk) {
         setCurrentStep((s) => s + 1);
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -859,6 +1114,7 @@ const SendQuoteWizard = () => {
         pageType={pageType}
         alreadyQuoted={alreadyQuoted}
         totalSteps={visibleSteps.length}
+        bidEnded={bidEnded}
         onBack={handleBack}
       />
 
@@ -869,6 +1125,16 @@ const SendQuoteWizard = () => {
         onStep={goToStep}
       />
 
+      {(missedInquiry || reviewOnly) && (
+        <div className={`${styles.missedBanner} ${reviewOnly ? styles.missedBannerReview : ""}`}>
+          <AlertTriangle size={16} strokeWidth={2.2} />
+          <div className={styles.missedBannerBody}>
+            <div className={styles.missedBannerTitle}>{editStatus.title}</div>
+            <div className={styles.missedBannerDetail}>{editStatus.body}</div>
+          </div>
+        </div>
+      )}
+
       <main className={styles.content}>
         {currentStepId === "overview" && (
           <Step1Overview
@@ -877,6 +1143,25 @@ const SendQuoteWizard = () => {
             accepted={acceptedTerms}
             onToggleAccept={() => setAcceptedTerms((v) => !v)}
             alreadyQuoted={alreadyQuoted}
+            missedInquiry={missedInquiry}
+          />
+        )}
+
+        {currentStepId === "clarifications" && (
+          <StepClarifications
+            rfq={rfq}
+            clarifications={clarifications}
+            loading={clarLoading}
+            isWindowActive={isClarWindowActive}
+            countdown={clarCountdown}
+            deadline={clarificationDeadline}
+            hasOpen={hasOpenClarification}
+            isOwner={isOwnerOfOpenClarification}
+            openClarification={openClarificationObj}
+            canRaise={canRaiseClarification}
+            onRaise={() => setRaiseClarOpen(true)}
+            onOpenDetail={(c) => setDetailClar(c)}
+            currentUserId={userProfile?.id}
           />
         )}
 
@@ -894,11 +1179,8 @@ const SendQuoteWizard = () => {
             onSetComment={setClauseComment}
             onAddFile={addClauseFile}
             onRemoveFile={removeClauseFile}
-            onOpenChat={() =>
-              toast.info(
-                "Buyer chat opens from the inquiry's Queries page — use the topbar Queries button."
-              )
-            }
+            chatCounts={chatCounts}
+            onOpenClauseChat={(p, c, idx) => setChatTarget({ product: p, clause: c, clauseIndex: idx + 1 })}
           />
         )}
 
@@ -929,6 +1211,42 @@ const SendQuoteWizard = () => {
             negotiationFields={negotiationFields}
           />
         )}
+
+        {currentStepId === "terms" && (
+          <Step4CommercialTerms
+            rfq={rfq}
+            totals={totals}
+            pricingLoading={pricingLoading}
+            paymentTerms={paymentTerms}
+            paymentTotal={paymentTotal}
+            globalComment={globalComment}
+            vendorGSTIN={vendorGSTIN}
+            globalCharges={globalCharges}
+            onChangeGSTIN={setVendorGSTIN}
+            onChangeGlobalComment={setGlobalComment}
+            onOpenGlobalCharges={() => setGlobalChargesModalOpen(true)}
+            onAddPaymentTerm={addPaymentTerm}
+            onUpdatePaymentTerm={updatePaymentTerm}
+            onRemovePaymentTerm={removePaymentTerm}
+            canSubmit={canSubmit && !isReadOnly}
+            isReadOnly={isReadOnly}
+          />
+        )}
+
+        {currentStepId === "review" && (
+          <Step5Review
+            rfq={rfq}
+            products={products}
+            totals={totals}
+            pricingLoading={pricingLoading}
+            vendorGSTIN={vendorGSTIN}
+            globalComment={globalComment}
+            globalCharges={globalCharges}
+            paymentTerms={paymentTerms}
+            warnings={reviewWarnings}
+            canSubmit={canSubmit && !isReadOnly}
+          />
+        )}
       </main>
 
       {!submittedRef && (
@@ -939,7 +1257,11 @@ const SendQuoteWizard = () => {
           isLastStep={currentStep === visibleSteps.length - 1}
           canContinueStep1={canContinueStep1}
           canContinueStep2={canContinueStep2}
+          canContinueStep3={canContinueStep3}
+          canContinueStep4={canContinueStep4}
           canSubmit={canSubmit && !isReadOnly}
+          missedInquiry={missedInquiry}
+          clarBlocksQuote={clarBlocksQuote}
           evalAnswered={evalAnswered}
           evalTotal={evalTotalClauses}
           totals={totals}
@@ -1009,6 +1331,55 @@ const SendQuoteWizard = () => {
         />
       )}
 
+      <RaiseClarificationModal
+        show={raiseClarOpen}
+        onHide={() => setRaiseClarOpen(false)}
+        rfqId={parseInt(id)}
+        rfqNo={rfq?.rfq_no}
+        deadline={clarificationDeadline}
+        onSuccess={() => {
+          setRaiseClarOpen(false);
+          refreshClarifications();
+        }}
+      />
+
+      <ClarificationDetailModal
+        show={!!detailClar}
+        onHide={() => setDetailClar(null)}
+        clarification={detailClar}
+        isBuyer={false}
+        onSuccess={() => {
+          setDetailClar(null);
+          refreshClarifications();
+        }}
+      />
+
+      <ClauseChatDrawer
+        open={!!chatTarget}
+        onClose={() => setChatTarget(null)}
+        clause={chatTarget?.clause}
+        productName={chatTarget?.product?.product_name || chatTarget?.product?.name}
+        clauseIndex={chatTarget?.clauseIndex}
+        currentUser={userProfile}
+        otherUser={{
+          buyer_id: rfq?.buyer_id || rfq?.created_by,
+          vendor_id: userProfile?.id,
+          contactName: rfq?.buyer_name,
+          companyName: rfq?.buyer_company_name,
+          rfq_no: rfq?.rfq_no,
+          rfq_id: rfq?.id,
+        }}
+        product={chatTarget?.product}
+        rfq={rfq}
+        token={token}
+        onMessagesChanged={(count) => {
+          if (!chatTarget) return;
+          const key = `${chatTarget.product.id}.${chatTarget.clause.clause_id || chatTarget.clause.id}`;
+          setChatCounts((prev) => ({ ...prev, [key]: count }));
+        }}
+      />
+
+
       {submittedRef && (
         <SuccessModal
           rfq={rfq}
@@ -1026,11 +1397,13 @@ const SendQuoteWizard = () => {
 /* ════════════════════════════════════════════════════════════════
    Header strip
    ════════════════════════════════════════════════════════════════ */
-const HeaderStrip = ({ rfq, pageType, alreadyQuoted, totalSteps, onBack }) => {
+const HeaderStrip = ({ rfq, pageType, alreadyQuoted, totalSteps, bidEnded, onBack }) => {
   const isTender = rfq?.is_tender === 1;
-  const status = alreadyQuoted
-    ? { label: "Existing quote · Update", dot: "warn" }
-    : { label: "New inquiry · Active", dot: "" };
+  const status = bidEnded
+    ? { label: alreadyQuoted ? "Existing quote · Read-only" : "Inquiry · Closed", dot: "danger" }
+    : alreadyQuoted
+      ? { label: "Existing quote · Update", dot: "warn" }
+      : { label: "New inquiry · Active", dot: "" };
   const stepCopy = totalSteps === 2 ? "two quick steps" : "three quick steps";
   return (
     <section className={styles.headerStrip}>
@@ -1063,10 +1436,25 @@ const HeaderStrip = ({ rfq, pageType, alreadyQuoted, totalSteps, onBack }) => {
             </span>
           </span>
           {rfq?.bid_end_date && (
-            <span className={`${styles.pill} ${styles.warn}`}>
+            <span className={`${styles.pill} ${bidEnded ? styles.danger : styles.warn}`}>
               <Clock size={12} />
-              Deadline · {fmtShortDate(rfq.bid_end_date)}
+              {bidEnded
+                ? `Already ended · ${fmtShortDate(rfq.bid_end_date)}`
+                : `Deadline · ${fmtShortDate(rfq.bid_end_date)}`}
             </span>
+          )}
+          {rfq?.id && (
+            <a
+              href={`/dashboard/buyer/query?rfq_id=${rfq.id}&role=vendor`}
+              className={styles.queryBtn}
+              title="Message the buyer"
+            >
+              <MessageCircle size={13} strokeWidth={2} />
+              <span>Queries</span>
+              {Number(rfq.unseen_query_count) > 0 && (
+                <span className={styles.queryBtnBadge}>{rfq.unseen_query_count}</span>
+              )}
+            </a>
           )}
         </div>
       </div>
@@ -1100,41 +1488,60 @@ const StatusBanner = ({ status }) => {
 /* ════════════════════════════════════════════════════════════════
    Stepper
    ════════════════════════════════════════════════════════════════ */
-const Stepper = ({ steps, currentStep, canVisit, onStep }) => (
-  <nav className={styles.stepper} aria-label="Progress">
-    {steps.map((s, i) => {
-      const isActive = currentStep === i;
-      const isDone = currentStep > i;
-      const disabled = !canVisit(i) && !isActive && !isDone;
-      return (
-        <React.Fragment key={s.id}>
-          <button
-            type="button"
-            className={`${styles.step} ${isActive ? styles.stepActive : ""} ${
-              isDone ? styles.stepDone : ""
-            }`}
-            disabled={disabled}
-            onClick={() => onStep(i)}
-          >
-            <div className={styles.stepNum}>
-              <span className={styles.stepNumText}>{i + 1}</span>
-            </div>
-            <div className={styles.stepLabelWrap}>
-              <div className={styles.stepLabel}>{s.label}</div>
-              <div className={styles.stepMeta}>{s.meta}</div>
-            </div>
-          </button>
-          {i < steps.length - 1 && <div className={styles.stepDivider} />}
-        </React.Fragment>
-      );
-    })}
-  </nav>
-);
+const Stepper = ({ steps, currentStep, canVisit, onStep }) => {
+  const railRef = useRef(null);
+  const itemRefs = useRef({});
+
+  // Keep the active step visible inside the scrollable rail. When the list
+  // has more steps than fit on screen, scroll the active one into view with
+  // some breathing room on either side so the user can still see context.
+  useEffect(() => {
+    const rail = railRef.current;
+    const item = itemRefs.current[currentStep];
+    if (!rail || !item) return;
+    // inline: "center" keeps the active step near the middle of the rail
+    item.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [currentStep, steps.length]);
+
+  return (
+    <div className={styles.stepperWrap}>
+      <nav className={styles.stepper} aria-label="Progress" ref={railRef}>
+        {steps.map((s, i) => {
+          const isActive = currentStep === i;
+          const isDone = currentStep > i;
+          const disabled = !canVisit(i) && !isActive && !isDone;
+          return (
+            <React.Fragment key={s.id}>
+              <button
+                type="button"
+                ref={(el) => { itemRefs.current[i] = el; }}
+                className={`${styles.step} ${isActive ? styles.stepActive : ""} ${
+                  isDone ? styles.stepDone : ""
+                }`}
+                disabled={disabled}
+                onClick={() => onStep(i)}
+              >
+                <div className={styles.stepNum}>
+                  <span className={styles.stepNumText}>{i + 1}</span>
+                </div>
+                <div className={styles.stepLabelWrap}>
+                  <div className={styles.stepLabel}>{s.label}</div>
+                  <div className={styles.stepMeta}>{s.meta}</div>
+                </div>
+              </button>
+              {i < steps.length - 1 && <div className={styles.stepDivider} />}
+            </React.Fragment>
+          );
+        })}
+      </nav>
+    </div>
+  );
+};
 
 /* ════════════════════════════════════════════════════════════════
    Step 1 — Overview & Terms
    ════════════════════════════════════════════════════════════════ */
-const Step1Overview = ({ rfq, products, accepted, onToggleAccept, alreadyQuoted }) => {
+const Step1Overview = ({ rfq, products, accepted, onToggleAccept, alreadyQuoted, missedInquiry }) => {
   const terms = rfq?.terms || [];
   const additionalRaw = rfq?.comment || "";
 
@@ -1318,9 +1725,10 @@ const Step1Overview = ({ rfq, products, accepted, onToggleAccept, alreadyQuoted 
       </div>
 
       <label
-        className={`${styles.check} ${accepted ? styles.checked : ""}`}
+        className={`${styles.check} ${accepted ? styles.checked : ""} ${missedInquiry ? styles.checkDisabled : ""}`}
         onClick={(e) => {
           e.preventDefault();
+          if (missedInquiry) return;
           onToggleAccept();
         }}
       >
@@ -1330,8 +1738,9 @@ const Step1Overview = ({ rfq, products, accepted, onToggleAccept, alreadyQuoted 
             I have read and accept the terms &amp; conditions above.
           </div>
           <div className={styles.checkDesc}>
-            By checking this, you confirm that any quote you submit will follow
-            these terms. You can review them again before submitting.
+            {missedInquiry
+              ? "The bid window has closed — you can't accept the terms or submit a quote for this inquiry anymore."
+              : "By checking this, you confirm that any quote you submit will follow these terms. You can review them again before submitting."}
           </div>
         </div>
       </label>
@@ -1349,6 +1758,193 @@ const DetailCell = ({ label, value, mono = false }) => (
 );
 
 /* ════════════════════════════════════════════════════════════════
+   Step — Clarifications (tenders only)
+
+   This step shows whenever a tender has a configured clarification
+   window (vendor_clarification_date) or any open clarifications.
+   While the window is open OR an open clarification exists, every
+   subsequent step (tech eval, pricing, terms, review) is locked.
+   ════════════════════════════════════════════════════════════════ */
+const StepClarifications = ({
+  rfq,
+  clarifications,
+  loading,
+  isWindowActive,
+  countdown,
+  deadline,
+  hasOpen,
+  isOwner,
+  openClarification,
+  canRaise,
+  onRaise,
+  onOpenDetail,
+  currentUserId,
+}) => {
+  const deadlineText = deadline ? fmtShortDate(deadline, { includeTime: true }) : "";
+  const isLocked = isWindowActive || hasOpen;
+
+  // Choose the headline status pill + body copy based on the current state.
+  const statusBlock = (() => {
+    if (hasOpen) {
+      return isOwner
+        ? {
+            tone: "info",
+            title: "Your clarification is awaiting a response",
+            body: "The buyer has been notified and will respond here. Quote submission stays locked until this is resolved.",
+          }
+        : {
+            tone: "warn",
+            title: "Another vendor's clarification is in progress",
+            body: "While the buyer addresses it, no one (including you) can raise a new clarification or submit a quote.",
+          };
+    }
+    if (isWindowActive) {
+      return {
+        tone: "info",
+        title: "Clarification window is open",
+        body: "Raise any clarifications you have about the tender. Once the window closes (and any open clarifications are resolved), quote submission will unlock.",
+      };
+    }
+    return {
+      tone: "success",
+      title: "Clarification window has closed",
+      body: "No clarifications need attention. You can continue to the next step and start your quote.",
+    };
+  })();
+
+  return (
+    <div className={styles.stepPane}>
+      <div className={styles.sectionHead}>
+        <div>
+          <div className={styles.sectionTitle}>Clarifications</div>
+          <div className={styles.sectionSub}>
+            Tender clarification window — raise questions, see responses, and
+            unlock quote submission once everything is resolved.
+          </div>
+        </div>
+        <div className={styles.clarHeadActions}>
+          <span className={`${styles.clarStatePill} ${styles[`clarStatePill_${isLocked ? "locked" : "open"}`]}`}>
+            {isLocked ? <Lock size={11} strokeWidth={2.4} /> : <CheckCircle2 size={11} strokeWidth={2.4} />}
+            {isLocked ? "Quotes locked" : "Quotes unlocked"}
+          </span>
+        </div>
+      </div>
+
+      {/* Countdown + deadline tile */}
+      {deadline && (
+        <div className={`${styles.clarCountdownCard} ${isWindowActive ? styles.clarCountdownActive : styles.clarCountdownEnded}`}>
+          <div className={styles.clarCountdownLeft}>
+            <div className={styles.clarCountdownLbl}>
+              {isWindowActive ? "Clarification window closes in" : "Clarification window closed"}
+            </div>
+            {isWindowActive ? (
+              <div className={styles.clarCountdownValue}>{countdown}</div>
+            ) : (
+              <div className={styles.clarCountdownValueEnded}>Quotes opened</div>
+            )}
+            <div className={styles.clarCountdownDeadline}>
+              {isWindowActive ? "Closes" : "Closed"} at <strong>{deadlineText}</strong> IST
+            </div>
+          </div>
+          <div className={`${styles.clarCountdownIcon} ${isWindowActive ? "" : styles.muted}`}>
+            <HelpCircle size={28} strokeWidth={1.7} />
+          </div>
+        </div>
+      )}
+
+      {/* Status block */}
+      <div className={`${styles.clarStatusBox} ${styles[`clarStatusBox_${statusBlock.tone}`]}`}>
+        <AlertTriangle size={14} strokeWidth={2.2} />
+        <div>
+          <div className={styles.clarStatusTitle}>{statusBlock.title}</div>
+          <div className={styles.clarStatusBody}>{statusBlock.body}</div>
+        </div>
+      </div>
+
+      {/* List + raise button */}
+      <div className={styles.clarListHead}>
+        <div className={styles.clarListTitle}>
+          All clarifications
+          <span className={styles.clarListCount}>{clarifications.length}</span>
+        </div>
+        <button
+          type="button"
+          className={`${styles.btn} ${styles.btnPrimary} ${styles.btnSm}`}
+          onClick={onRaise}
+          disabled={!canRaise}
+          title={
+            !isWindowActive
+              ? "The clarification window has closed."
+              : hasOpen
+              ? "Wait for the current clarification to be resolved before raising another."
+              : "Raise a new clarification"
+          }
+        >
+          <Plus size={13} strokeWidth={2.4} />
+          Raise clarification
+        </button>
+      </div>
+
+      {loading && clarifications.length === 0 ? (
+        <div className={styles.clarEmpty}>Loading clarifications…</div>
+      ) : clarifications.length === 0 ? (
+        <div className={styles.clarEmpty}>
+          <HelpCircle size={20} strokeWidth={1.6} />
+          <div className={styles.clarEmptyTitle}>No clarifications yet</div>
+          <div className={styles.clarEmptyBody}>
+            {canRaise
+              ? "Spot something unclear in the tender? Raise a clarification — the buyer's response will be visible here for every invited vendor."
+              : isWindowActive
+              ? "Wait for the current clarification to be resolved before raising another."
+              : "The clarification window has closed — no new clarifications can be raised."}
+          </div>
+        </div>
+      ) : (
+        <div className={styles.clarList}>
+          {clarifications.map((c, idx) => {
+            const mine = c.raised_by === currentUserId || c.created_by === currentUserId;
+            const isOpenRow = c.status === "OPEN";
+            return (
+              <button
+                key={c.id || idx}
+                type="button"
+                className={`${styles.clarRow} ${isOpenRow ? styles.clarRowOpen : ""}`}
+                onClick={() => onOpenDetail(c)}
+              >
+                <div className={styles.clarRowNum}>{String(idx + 1).padStart(2, "0")}</div>
+                <div className={styles.clarRowMain}>
+                  <div className={styles.clarRowTitle}>
+                    {c.subject || c.title || c.question || "Clarification"}
+                    {mine && <span className={`${styles.tag} ${styles.tagInfo}`}>Mine</span>}
+                  </div>
+                  <div className={styles.clarRowMeta}>
+                    {c.created_at && <span>Raised {fmtShortDate(c.created_at, { includeTime: true })}</span>}
+                    {c.message_count > 0 && (
+                      <>
+                        <span>·</span>
+                        <span>{c.message_count} message{c.message_count === 1 ? "" : "s"}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <span
+                  className={`${styles.clarRowStatus} ${
+                    isOpenRow ? styles.clarRowStatusOpen : styles.clarRowStatusClosed
+                  }`}
+                >
+                  {isOpenRow ? "Open" : "Resolved"}
+                </span>
+                <ArrowRight size={13} strokeWidth={2} className={styles.clarRowArrow} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ════════════════════════════════════════════════════════════════
    Step 2 — Technical evaluation
    ════════════════════════════════════════════════════════════════ */
 const Step2TechEval = ({
@@ -1364,6 +1960,8 @@ const Step2TechEval = ({
   onSetComment,
   onAddFile,
   onRemoveFile,
+  chatCounts,
+  onOpenClauseChat,
 }) => {
   if (techLoading) {
     return (
@@ -1577,6 +2175,20 @@ const Step2TechEval = ({
                             }}
                           />
                         </label>
+
+                        {onOpenClauseChat && (
+                          <button
+                            type="button"
+                            className={styles.chatClauseBtn}
+                            onClick={() => onOpenClauseChat(p, c, cidx)}
+                            style={{ marginLeft: "auto" }}
+                          >
+                            <MessageCircle size={12} strokeWidth={2.2} />
+                            {chatCounts?.[`${p.id}.${c.id}`] > 0
+                              ? `Chat (${chatCounts[`${p.id}.${c.id}`]})`
+                              : "Ask buyer"}
+                          </button>
+                        )}
                       </div>
 
                       {(resp.files || []).length > 0 && (
@@ -1639,6 +2251,180 @@ const Step2TechEval = ({
 };
 
 /* ════════════════════════════════════════════════════════════════
+   QuoteSummary — shared sticky-right summary card used by Pricing,
+   Commercial terms and Review steps. Reads from the same `totals`
+   the pricing engine returns, so global-charge / payment / GSTIN
+   changes recalculate in real time across all three steps.
+   ════════════════════════════════════════════════════════════════ */
+const QuoteSummary = ({
+  rfq,
+  totals,
+  pricingLoading,
+  paymentTerms,
+  canSubmit,
+  variant = "pricing", // "pricing" | "terms" | "review"
+}) => {
+  const titleByVariant = {
+    pricing: "Quote summary",
+    terms: "Quote summary",
+    review: "Final total",
+  };
+  const activeTermCount = paymentTerms.filter((t) => t.action !== "delete").length;
+
+  return (
+    <div className={styles.heroSummary}>
+      <div className={styles.heroInner}>
+        <div className={styles.heroHead}>
+          <div className={styles.heroTitle}>{titleByVariant[variant]}</div>
+          <div className={styles.heroRfq}>#{rfq.rfq_no}</div>
+        </div>
+
+        {pricingLoading ? (
+          <div>
+            <div className={styles.heroGrandLbl}>Grand total</div>
+            <div className={styles.calculatingState}>
+              <span className={styles.calcDotLg} />
+              Calculating…
+            </div>
+            <div className={styles.heroGrandMeta}>
+              Updating from the pricing engine
+            </div>
+          </div>
+        ) : totals.grand > 0 ? (
+          <div>
+            <div className={styles.heroGrandLbl}>Grand total</div>
+            <div className={styles.heroGrand}>
+              <span className={styles.heroGrandCur}>₹</span>
+              <span>{fmtINR(totals.grand)}</span>
+            </div>
+            <div className={styles.heroGrandMeta}>
+              Inclusive of GST, global &amp; line charges · INR
+            </div>
+
+            <div className={styles.breakdownBar}>
+              <div
+                className={styles.bdSubtotal}
+                style={{ width: `${totals.grand ? (totals.subtotal / totals.grand) * 100 : 0}%` }}
+              />
+              <div
+                className={styles.bdGst}
+                style={{ width: `${totals.grand ? (totals.gst / totals.grand) * 100 : 0}%` }}
+              />
+              <div
+                className={styles.bdCharges}
+                style={{
+                  width: `${
+                    totals.grand
+                      ? (totals.extraCharges.reduce((s, c) => s + c.amount, 0) /
+                          totals.grand) *
+                        100
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+
+            <div className={styles.breakdownLegend}>
+              <div className={styles.breakdownRow}>
+                <span className={styles.lbl}>
+                  <span className={`${styles.swatch} ${styles.bdSubtotal}`} /> Subtotal
+                </span>
+                <span className={styles.val}>₹ {fmtINR(totals.subtotal)}</span>
+              </div>
+              <div className={styles.breakdownRow}>
+                <span className={styles.lbl}>
+                  <span className={`${styles.swatch} ${styles.bdGst}`} /> GST
+                </span>
+                <span className={styles.val}>₹ {fmtINR(totals.gst)}</span>
+              </div>
+              {totals.extraCharges.map((ec) => (
+                <React.Fragment key={ec.label}>
+                  <div className={styles.breakdownRow}>
+                    <span className={styles.lbl}>
+                      <span className={`${styles.swatch} ${styles.bdCharges}`} /> {ec.label}
+                    </span>
+                    <span className={styles.val}>₹ {fmtINR(ec.amount)}</span>
+                  </div>
+                  {ec.tax > 0 && (
+                    <div className={`${styles.breakdownRow} ${styles.breakdownSub}`}>
+                      <span className={styles.lbl}>
+                        <span className={styles.subBranch} /> GST on {ec.label.toLowerCase()}
+                      </span>
+                      <span className={styles.val}>₹ {fmtINR(ec.tax)}</span>
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
+              {(totals.globalCharges || []).length > 0 && (
+                <>
+                  <div className={styles.breakdownDivider}>On grand total</div>
+                  {totals.globalCharges.map((gc) => (
+                    <div className={styles.breakdownRow} key={`g-${gc.label}`}>
+                      <span className={styles.lbl}>
+                        <span className={`${styles.swatch} ${styles.bdGlobal}`} /> {gc.label}
+                      </span>
+                      <span className={styles.val}>₹ {fmtINR(gc.amount)}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className={styles.emptyHero}>
+            <div className={styles.ic}>
+              <DollarSign size={20} strokeWidth={1.8} />
+            </div>
+            <div className={styles.ttl}>Awaiting your prices</div>
+            <div className={styles.sub}>
+              Your grand total &amp; tax breakdown will appear here as you
+              price each line item.
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className={styles.heroFoot}>
+        <div className={styles.heroFootRow}>
+          <span className={styles.k}>Payment</span>
+          <span className={styles.v}>
+            {activeTermCount} term{activeTermCount === 1 ? "" : "s"}
+          </span>
+        </div>
+        <div className={styles.heroFootRow}>
+          <span className={styles.k}>Deadline</span>
+          <span className={styles.v}>{fmtShortDate(rfq.bid_end_date)}</span>
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <span className={`${styles.completionPill} ${canSubmit ? styles.ready : ""}`}>
+            <span className={styles.completionPulse} />
+            {canSubmit ? "Ready to submit" : "In progress"}
+          </span>
+          <span
+            style={{
+              fontSize: 11,
+              color: "var(--fg-4)",
+              fontFamily: "Geist Mono, monospace",
+            }}
+          >
+            v1 · draft
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ════════════════════════════════════════════════════════════════
    Step 3 — Pricing & submit
    ════════════════════════════════════════════════════════════════ */
 const Step3Pricing = ({
@@ -1674,7 +2460,10 @@ const Step3Pricing = ({
   ).length;
   return (
     <div className={styles.stepPane}>
-      {editStatus?.title && (
+      {/* Read-only / missed banners are hoisted to the top of the wizard.
+          Only render the inline banner for non-warn cases (success, info)
+          so we don't duplicate the same red strip in two places. */}
+      {editStatus?.title && editStatus.kind !== "warn" && (
         <StatusBanner status={editStatus} />
       )}
       <div className={styles.sectionHead}>
@@ -2045,347 +2834,448 @@ const Step3Pricing = ({
             );
           })}
 
-          {/* Commercial */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 28, marginBottom: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.015em", margin: 0 }}>
-                Commercial terms
-              </h3>
-              <span className={styles.pill}>Applies to entire quote</span>
+        </div>
+
+        {/* RIGHT — shared quote summary */}
+        <div className={styles.stickySection}>
+          <QuoteSummary
+            rfq={rfq}
+            totals={totals}
+            pricingLoading={pricingLoading}
+            paymentTerms={paymentTerms}
+            canSubmit={canSubmit}
+            variant="pricing"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ════════════════════════════════════════════════════════════════
+   Step 4 — Commercial terms (GSTIN, global comment, global charges,
+   payment terms). Extracted from Step3Pricing.
+   ════════════════════════════════════════════════════════════════ */
+const Step4CommercialTerms = ({
+  rfq,
+  totals,
+  pricingLoading,
+  paymentTerms,
+  paymentTotal,
+  globalComment,
+  vendorGSTIN,
+  globalCharges,
+  onChangeGSTIN,
+  onChangeGlobalComment,
+  onOpenGlobalCharges,
+  onAddPaymentTerm,
+  onUpdatePaymentTerm,
+  onRemovePaymentTerm,
+  canSubmit,
+  isReadOnly,
+}) => {
+  const hasGlobalCharges = (globalCharges || []).some(
+    (c) => c.name && c.name.trim() && parseFloat(c.amount) > 0
+  );
+  const activeGlobalCount = (globalCharges || []).filter(
+    (c) => c.name && c.name.trim()
+  ).length;
+  const gstinClean = String(vendorGSTIN || "").trim().toUpperCase();
+  const gstinValid = isValidGstin(gstinClean);
+
+  return (
+    <div className={styles.stepPane}>
+      <div className={styles.sectionHead}>
+        <div>
+          <div className={styles.sectionTitle}>Commercial terms</div>
+          <div className={styles.sectionSub}>
+            GSTIN, payment schedule, global charges and any quote-wide notes.
+            These apply to the entire quote, not individual line items.
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.cols}>
+        {/* LEFT — commercial form */}
+        <div>
+        <div className={styles.commercialCard}>
+        <div className={styles.cardSection}>
+          <label className={styles.label}>
+            GSTIN <span className={styles.labelMeta}>optional</span>
+          </label>
+          <input
+            className={`${styles.input} ${styles.mono}`}
+            value={vendorGSTIN}
+            onChange={(e) => onChangeGSTIN(e.target.value)}
+            placeholder="29ABCDE1234F1Z5"
+            maxLength={15}
+            style={{ maxWidth: 280 }}
+            disabled={isReadOnly}
+          />
+          <div style={{ fontSize: 11.5, color: gstinValid ? "var(--fg-4)" : "#b91c1c", marginTop: 6 }}>
+            {gstinValid ? "Used to issue invoices for the delivery location." : "GSTIN format looks off — should be 15 characters (e.g. 29ABCDE1234F1Z5)."}
+          </div>
+        </div>
+
+        <div className={styles.cardSection}>
+          <label className={styles.label}>
+            Global comment <span className={styles.labelMeta}>visible to buyer</span>
+          </label>
+          <textarea
+            className={styles.textarea}
+            value={globalComment}
+            onChange={(e) => onChangeGlobalComment(e.target.value)}
+            placeholder="Any quote-wide notes — packaging, batching, conditions, etc."
+            maxLength={500}
+            disabled={isReadOnly}
+          />
+        </div>
+
+        <div className={styles.cardSection}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <label className={styles.label} style={{ marginBottom: 2 }}>
+                Global charges <span className={styles.labelMeta}>applied on grand total</span>
+              </label>
+              <div style={{ fontSize: 11.5, color: "var(--fg-4)", lineHeight: 1.45 }}>
+                Charges that apply across the entire PO value — e.g. shipping
+                insurance, handling, vendor levies. Per-line charges live on each
+                product.
+              </div>
+            </div>
+            <button
+              type="button"
+              className={`${styles.chargesTrigger} ${hasGlobalCharges ? styles.chargesActive : ""}`}
+              onClick={onOpenGlobalCharges}
+              disabled={isReadOnly}
+              style={{ maxWidth: 280, flexShrink: 0 }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {hasGlobalCharges ? (
+                  <Check size={12} strokeWidth={2.4} />
+                ) : (
+                  <Plus size={12} />
+                )}
+                <span>
+                  {activeGlobalCount === 0
+                    ? "Add global charge"
+                    : `${activeGlobalCount} global charge${activeGlobalCount > 1 ? "s" : ""}`}
+                </span>
+              </span>
+              {hasGlobalCharges && totals?.globalChargesTotal > 0 && (
+                <span className={styles.chargesAmt}>₹ {fmtINR(totals.globalChargesTotal)}</span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.cardSection}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
+            <label className={styles.label} style={{ marginBottom: 0 }}>
+              Payment terms <span className={styles.req}>*</span>
+            </label>
+            <div className={styles.totHint} style={{ marginTop: 0 }}>
+              <span style={{ fontSize: 11.5, color: "var(--fg-4)" }}>
+                Must sum to 100% · currently
+              </span>
+              <span
+                className={`${styles.totNum} ${
+                  paymentTotal === 100 ? styles.totOk : styles.totErr
+                }`}
+                style={{ marginLeft: 6 }}
+              >
+                {paymentTotal}%
+              </span>
             </div>
           </div>
 
-          <div className={styles.commercialCard}>
-            <div className={styles.cardSection}>
-              <label className={styles.label}>
-                GSTIN <span className={styles.labelMeta}>optional</span>
-              </label>
-              <input
-                className={`${styles.input} ${styles.mono}`}
-                value={vendorGSTIN}
-                onChange={(e) => onChangeGSTIN(e.target.value)}
-                placeholder="29ABCDE1234F1Z5"
-                maxLength={15}
-                style={{ maxWidth: 280 }}
-              />
-              <div style={{ fontSize: 11.5, color: "var(--fg-4)", marginTop: 6 }}>
-                Used to issue invoices for the delivery location.
-              </div>
-            </div>
-
-            <div className={styles.cardSection}>
-              <label className={styles.label}>
-                Global comment <span className={styles.labelMeta}>visible to buyer</span>
-              </label>
-              <textarea
-                className={styles.textarea}
-                value={globalComment}
-                onChange={(e) => onChangeGlobalComment(e.target.value)}
-                placeholder="Any quote-wide notes — packaging, batching, conditions, etc."
-                maxLength={500}
-              />
-            </div>
-
-            <div className={styles.cardSection}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 12, flexWrap: "wrap" }}>
-                <div>
-                  <label className={styles.label} style={{ marginBottom: 2 }}>
-                    Global charges <span className={styles.labelMeta}>applied on grand total</span>
-                  </label>
-                  <div style={{ fontSize: 11.5, color: "var(--fg-4)", lineHeight: 1.45 }}>
-                    Charges that apply across the entire PO value — e.g. shipping
-                    insurance, handling, vendor levies. Per-line charges live on each
-                    product.
+          <div className={styles.payList}>
+            {paymentTerms.map((t, i) => {
+              const isDeleted = t.action === "delete";
+              return (
+                <div
+                  key={i}
+                  className={`${styles.payRow} ${isDeleted ? styles.deleted : ""}`}
+                >
+                  <div className={styles.payIdx}>
+                    {String(i + 1).padStart(2, "0")}
                   </div>
-                </div>
-                <button
-                  type="button"
-                  className={`${styles.chargesTrigger} ${hasGlobalCharges ? styles.chargesActive : ""}`}
-                  onClick={onOpenGlobalCharges}
-                  disabled={isReadOnly}
-                  style={{ maxWidth: 280, flexShrink: 0 }}
-                >
-                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {hasGlobalCharges ? (
-                      <Check size={12} strokeWidth={2.4} />
-                    ) : (
-                      <Plus size={12} />
-                    )}
-                    <span>
-                      {activeGlobalCount === 0
-                        ? "Add global charge"
-                        : `${activeGlobalCount} global charge${activeGlobalCount > 1 ? "s" : ""}`}
-                    </span>
-                  </span>
-                  {hasGlobalCharges && totals?.globalChargesTotal > 0 && (
-                    <span className={styles.chargesAmt}>₹ {fmtINR(totals.globalChargesTotal)}</span>
+                  <select
+                    className={styles.select}
+                    value={t.type || "advance"}
+                    onChange={(e) => onUpdatePaymentTerm(i, { type: e.target.value })}
+                    disabled={isDeleted || isReadOnly}
+                  >
+                    {PAY_TYPE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className={styles.inputGroup}>
+                    <input
+                      className={`${styles.input} ${styles.inputNum}`}
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={t.value ?? ""}
+                      onChange={(e) =>
+                        onUpdatePaymentTerm(i, { value: Number(e.target.value) })
+                      }
+                      disabled={isDeleted || isReadOnly}
+                      placeholder="0"
+                    />
+                    <div className={styles.suffix} style={{ padding: "0 9px" }}>%</div>
+                  </div>
+                  {t.type === "credit" ? (
+                    <div className={styles.inputGroup}>
+                      <input
+                        className={`${styles.input} ${styles.inputNum}`}
+                        type="number"
+                        value={t.days ?? ""}
+                        onChange={(e) =>
+                          onUpdatePaymentTerm(i, { days: Number(e.target.value) })
+                        }
+                        disabled={isDeleted || isReadOnly}
+                        placeholder="30"
+                      />
+                      <div className={styles.suffix} style={{ fontFamily: "inherit", fontSize: 12 }}>
+                        days
+                      </div>
+                    </div>
+                  ) : (
+                    <input
+                      className={styles.input}
+                      value={t.comment ?? ""}
+                      onChange={(e) =>
+                        onUpdatePaymentTerm(i, { comment: e.target.value })
+                      }
+                      placeholder="Note"
+                      disabled={isDeleted || isReadOnly}
+                    />
                   )}
-                </button>
+                  <button
+                    type="button"
+                    className={styles.iconBtn}
+                    onClick={() => onRemovePaymentTerm(i)}
+                    disabled={(isDeleted && paymentTerms.length === 1) || isReadOnly}
+                    aria-label="Remove"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              );
+            })}
+            {!isReadOnly && (
+              <button
+                type="button"
+                className={styles.payAdd}
+                onClick={onAddPaymentTerm}
+              >
+                <Plus size={13} />
+                Add another term
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+        </div>
+
+        {/* RIGHT — shared quote summary */}
+        <div className={styles.stickySection}>
+          <QuoteSummary
+            rfq={rfq}
+            totals={totals}
+            pricingLoading={pricingLoading}
+            paymentTerms={paymentTerms}
+            canSubmit={canSubmit}
+            variant="terms"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ════════════════════════════════════════════════════════════════
+   Step 5 — Review &amp; submit. Read-only summary of everything the
+   vendor entered, with soft warnings for items they may want to
+   double-check (zero tax, missing GSTIN, no global comment, etc.).
+   ════════════════════════════════════════════════════════════════ */
+const Step5Review = ({
+  rfq,
+  products,
+  totals,
+  pricingLoading,
+  vendorGSTIN,
+  globalComment,
+  globalCharges,
+  paymentTerms,
+  warnings,
+  canSubmit,
+}) => {
+  const priced = products.filter((p) => (parseFloat(p.unit_price) || 0) > 0);
+  const skipped = products.filter((p) => !((parseFloat(p.unit_price) || 0) > 0));
+  const activeGlobalCharges = (globalCharges || []).filter(
+    (c) => c.name && c.name.trim() && parseFloat(c.amount) > 0
+  );
+  const activePaymentTerms = paymentTerms.filter((t) => t.action !== "delete");
+
+  return (
+    <div className={styles.stepPane}>
+      <div className={styles.sectionHead}>
+        <div>
+          <div className={styles.sectionTitle}>Review &amp; submit</div>
+          <div className={styles.sectionSub}>
+            Verify every number below before you confirm. After submission, edits
+            will notify that buyer.
+          </div>
+        </div>
+      </div>
+
+      {warnings.length > 0 && (
+        <div className={styles.reviewWarnings}>
+          {warnings.map((w, i) => (
+            <div
+              key={i}
+              className={`${styles.reviewWarning} ${w.kind === "warn" ? styles.reviewWarningWarn : styles.reviewWarningInfo}`}
+            >
+              <AlertTriangle size={14} strokeWidth={2.2} />
+              <div>
+                <div className={styles.reviewWarningTitle}>{w.title}</div>
+                <div className={styles.reviewWarningDetail}>{w.detail}</div>
               </div>
             </div>
+          ))}
+        </div>
+      )}
 
-            <div className={styles.cardSection}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
-                <label className={styles.label} style={{ marginBottom: 0 }}>
-                  Payment terms <span className={styles.req}>*</span>
-                </label>
-                <div className={styles.totHint} style={{ marginTop: 0 }}>
-                  <span style={{ fontSize: 11.5, color: "var(--fg-4)" }}>
-                    Must sum to 100% · currently
-                  </span>
-                  <span
-                    className={`${styles.totNum} ${
-                      paymentTotal === 100 ? styles.totOk : styles.totErr
-                    }`}
-                    style={{ marginLeft: 6 }}
-                  >
-                    {paymentTotal}%
-                  </span>
-                </div>
-              </div>
-
-              <div className={styles.payList}>
-                {paymentTerms.map((t, i) => {
-                  const isDeleted = t.action === "delete";
-                  return (
-                    <div
-                      key={i}
-                      className={`${styles.payRow} ${isDeleted ? styles.deleted : ""}`}
-                    >
-                      <div className={styles.payIdx}>
-                        {String(i + 1).padStart(2, "0")}
-                      </div>
-                      <select
-                        className={styles.select}
-                        value={t.type || "advance"}
-                        onChange={(e) => onUpdatePaymentTerm(i, { type: e.target.value })}
-                        disabled={isDeleted}
-                      >
-                        {PAY_TYPE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                      <div className={styles.inputGroup}>
-                        <input
-                          className={`${styles.input} ${styles.inputNum}`}
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={t.value ?? ""}
-                          onChange={(e) =>
-                            onUpdatePaymentTerm(i, { value: Number(e.target.value) })
-                          }
-                          disabled={isDeleted}
-                          placeholder="0"
-                        />
-                        <div className={styles.suffix} style={{ padding: "0 9px" }}>%</div>
-                      </div>
-                      {t.type === "credit" ? (
-                        <div className={styles.inputGroup}>
-                          <input
-                            className={`${styles.input} ${styles.inputNum}`}
-                            type="number"
-                            value={t.days ?? ""}
-                            onChange={(e) =>
-                              onUpdatePaymentTerm(i, { days: Number(e.target.value) })
-                            }
-                            disabled={isDeleted}
-                            placeholder="30"
-                          />
-                          <div className={styles.suffix} style={{ fontFamily: "inherit", fontSize: 12 }}>
-                            days
-                          </div>
-                        </div>
+      <div className={styles.cols}>
+        {/* LEFT — read-only summary of every section */}
+        <div>
+          <div className={styles.reviewCard}>
+            <div className={styles.reviewCardHead}>
+              <h3>
+                <Layers size={14} strokeWidth={2} />
+                Line items
+              </h3>
+              <span className={styles.reviewHeadMeta}>
+                {priced.length} priced{skipped.length > 0 ? ` · ${skipped.length} skipped` : ""}
+              </span>
+            </div>
+            <div className={styles.reviewCardBody}>
+              {products.map((p, idx) => {
+                const qty = Number(p.qty) || 0;
+                const unit = parseFloat(p.unit_price) || 0;
+                // Prefer the engine-computed total (includes per-line charges + tax)
+                // and fall back to qty × unit only if it hasn't synced yet.
+                const lineTotal = Number(p.total_price) > 0 ? Number(p.total_price) : unit * qty;
+                const chargesCount = (p.other_charges || p.charges || []).filter((c) => c.name).length;
+                const isSkipped = !(unit > 0);
+                return (
+                  <div key={p.id} className={`${styles.reviewLine} ${isSkipped ? styles.reviewLineSkipped : ""}`}>
+                    <div className={styles.reviewLineNum}>{String(idx + 1).padStart(2, "0")}</div>
+                    <div className={styles.reviewLineMain}>
+                      <div className={styles.reviewLineName}>{p.product_name || p.name}</div>
+                      {isSkipped ? (
+                        <div className={styles.reviewLineDesc}>Not priced — will be marked as regret for this line</div>
                       ) : (
-                        <input
-                          className={styles.input}
-                          value={t.comment ?? ""}
-                          onChange={(e) =>
-                            onUpdatePaymentTerm(i, { comment: e.target.value })
-                          }
-                          placeholder="Note"
-                          disabled={isDeleted}
-                        />
+                        <div className={styles.reviewLineMath}>
+                          {qty} {p.unit || ""} × ₹ {fmtINR(unit)}
+                          {p.tax > 0 ? ` + ${p.tax}% tax` : ""}
+                          {p.delivery_period ? ` · ${p.delivery_period}d delivery` : ""}
+                          {chargesCount > 0 ? ` · ${chargesCount} extra charge${chargesCount > 1 ? "s" : ""}` : ""}
+                        </div>
                       )}
-                      <button
-                        type="button"
-                        className={styles.iconBtn}
-                        onClick={() => onRemovePaymentTerm(i)}
-                        disabled={isDeleted && paymentTerms.length === 1}
-                        aria-label="Remove"
-                      >
-                        <Trash2 size={13} />
-                      </button>
                     </div>
-                  );
-                })}
-                <button
-                  type="button"
-                  className={styles.payAdd}
-                  onClick={onAddPaymentTerm}
-                >
-                  <Plus size={13} />
-                  Add another term
-                </button>
+                    <div className={styles.reviewLineRight}>
+                      {isSkipped ? <span className={styles.reviewSkippedPill}>Skipped</span> : `₹ ${fmtINR(lineTotal)}`}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className={styles.reviewCard}>
+            <div className={styles.reviewCardHead}>
+              <h3>
+                <Receipt size={14} strokeWidth={2} />
+                Commercial terms
+              </h3>
+            </div>
+            <div className={styles.reviewCardBody}>
+              <div className={styles.reviewKv}>
+                <span className={styles.reviewKvKey}>GSTIN</span>
+                <span className={`${styles.reviewKvVal} ${styles.mono}`}>
+                  {vendorGSTIN ? vendorGSTIN : <span className={styles.reviewKvMuted}>— not provided —</span>}
+                </span>
               </div>
+              <div className={styles.reviewKv}>
+                <span className={styles.reviewKvKey}>Global comment</span>
+                <span className={styles.reviewKvVal}>
+                  {globalComment ? globalComment : <span className={styles.reviewKvMuted}>— none —</span>}
+                </span>
+              </div>
+              <div className={styles.reviewKv}>
+                <span className={styles.reviewKvKey}>Global charges</span>
+                <span className={styles.reviewKvVal}>
+                  {activeGlobalCharges.length === 0 ? (
+                    <span className={styles.reviewKvMuted}>— none —</span>
+                  ) : (
+                    <div className={styles.reviewChargeList}>
+                      {activeGlobalCharges.map((c, i) => (
+                        <div key={i} className={styles.reviewChargeRow}>
+                          <span>{c.name}</span>
+                          <span className={styles.mono}>₹ {fmtINR(c.amount)}{c.tax ? ` · ${c.tax}% tax` : ""}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.reviewCard}>
+            <div className={styles.reviewCardHead}>
+              <h3>
+                <CreditCard size={14} strokeWidth={2} />
+                Payment schedule
+              </h3>
+              <span className={styles.reviewHeadMeta}>{activePaymentTerms.length} term{activePaymentTerms.length === 1 ? "" : "s"}</span>
+            </div>
+            <div className={styles.reviewCardBody}>
+              {activePaymentTerms.map((t, i) => (
+                <div key={i} className={styles.reviewLine}>
+                  <div className={styles.reviewLineNum}>{String(i + 1).padStart(2, "0")}</div>
+                  <div className={styles.reviewLineMain}>
+                    <div className={styles.reviewLineName}>
+                      {PAY_TYPE_OPTIONS.find((o) => o.value === t.type)?.label || t.type}
+                    </div>
+                    <div className={styles.reviewLineDesc}>
+                      {t.type === "credit"
+                        ? `Net ${t.days || 0} days from invoice`
+                        : (t.comment || "—")}
+                    </div>
+                  </div>
+                  <div className={styles.reviewLineRight}>{t.value}%</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* RIGHT — hero summary */}
+        {/* RIGHT — shared quote summary (same as Pricing &amp; Commercial steps) */}
         <div className={styles.stickySection}>
-          <div className={styles.heroSummary}>
-            <div className={styles.heroInner}>
-              <div className={styles.heroHead}>
-                <div className={styles.heroTitle}>Quote summary</div>
-                <div className={styles.heroRfq}>#{rfq.rfq_no}</div>
-              </div>
-
-              {pricingLoading ? (
-                <div>
-                  <div className={styles.heroGrandLbl}>Grand total</div>
-                  <div className={styles.calculatingState}>
-                    <span className={styles.calcDotLg} />
-                    Calculating…
-                  </div>
-                  <div className={styles.heroGrandMeta}>
-                    Updating from the pricing engine
-                  </div>
-                </div>
-              ) : totals.grand > 0 ? (
-                <div>
-                  <div className={styles.heroGrandLbl}>Grand total</div>
-                  <div className={styles.heroGrand}>
-                    <span className={styles.heroGrandCur}>₹</span>
-                    <span>{fmtINR(totals.grand)}</span>
-                  </div>
-                  <div className={styles.heroGrandMeta}>
-                    Inclusive of GST, global &amp; line charges · INR
-                  </div>
-
-                  <div className={styles.breakdownBar}>
-                    <div
-                      className={styles.bdSubtotal}
-                      style={{ width: `${totals.grand ? (totals.subtotal / totals.grand) * 100 : 0}%` }}
-                    />
-                    <div
-                      className={styles.bdGst}
-                      style={{ width: `${totals.grand ? (totals.gst / totals.grand) * 100 : 0}%` }}
-                    />
-                    <div
-                      className={styles.bdCharges}
-                      style={{
-                        width: `${
-                          totals.grand
-                            ? (totals.extraCharges.reduce((s, c) => s + c.amount, 0) /
-                                totals.grand) *
-                              100
-                            : 0
-                        }%`,
-                      }}
-                    />
-                  </div>
-
-                  <div className={styles.breakdownLegend}>
-                    <div className={styles.breakdownRow}>
-                      <span className={styles.lbl}>
-                        <span className={`${styles.swatch} ${styles.bdSubtotal}`} /> Subtotal
-                      </span>
-                      <span className={styles.val}>₹ {fmtINR(totals.subtotal)}</span>
-                    </div>
-                    <div className={styles.breakdownRow}>
-                      <span className={styles.lbl}>
-                        <span className={`${styles.swatch} ${styles.bdGst}`} /> GST
-                      </span>
-                      <span className={styles.val}>₹ {fmtINR(totals.gst)}</span>
-                    </div>
-                    {totals.extraCharges.map((ec) => (
-                      <React.Fragment key={ec.label}>
-                        <div className={styles.breakdownRow}>
-                          <span className={styles.lbl}>
-                            <span className={`${styles.swatch} ${styles.bdCharges}`} /> {ec.label}
-                          </span>
-                          <span className={styles.val}>₹ {fmtINR(ec.amount)}</span>
-                        </div>
-                        {ec.tax > 0 && (
-                          <div className={`${styles.breakdownRow} ${styles.breakdownSub}`}>
-                            <span className={styles.lbl}>
-                              <span className={styles.subBranch} /> GST on {ec.label.toLowerCase()}
-                            </span>
-                            <span className={styles.val}>₹ {fmtINR(ec.tax)}</span>
-                          </div>
-                        )}
-                      </React.Fragment>
-                    ))}
-                    {(totals.globalCharges || []).length > 0 && (
-                      <>
-                        <div className={styles.breakdownDivider}>On grand total</div>
-                        {totals.globalCharges.map((gc) => (
-                          <div className={styles.breakdownRow} key={`g-${gc.label}`}>
-                            <span className={styles.lbl}>
-                              <span className={`${styles.swatch} ${styles.bdGlobal}`} /> {gc.label}
-                            </span>
-                            <span className={styles.val}>₹ {fmtINR(gc.amount)}</span>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className={styles.emptyHero}>
-                  <div className={styles.ic}>
-                    <DollarSign size={20} strokeWidth={1.8} />
-                  </div>
-                  <div className={styles.ttl}>Awaiting your prices</div>
-                  <div className={styles.sub}>
-                    Your grand total &amp; tax breakdown will appear here as you
-                    price each line item.
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className={styles.heroFoot}>
-              <div className={styles.heroFootRow}>
-                <span className={styles.k}>Payment</span>
-                <span className={styles.v}>
-                  {paymentTerms.filter((t) => t.action !== "delete").length} term
-                  {paymentTerms.filter((t) => t.action !== "delete").length === 1 ? "" : "s"}
-                </span>
-              </div>
-              <div className={styles.heroFootRow}>
-                <span className={styles.k}>Deadline</span>
-                <span className={styles.v}>{fmtShortDate(rfq.bid_end_date)}</span>
-              </div>
-
-              <div
-                style={{
-                  marginTop: 12,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                }}
-              >
-                <span className={`${styles.completionPill} ${canSubmit ? styles.ready : ""}`}>
-                  <span className={styles.completionPulse} />
-                  {canSubmit ? "Ready to submit" : "In progress"}
-                </span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: "var(--fg-4)",
-                    fontFamily: "Geist Mono, monospace",
-                  }}
-                >
-                  v1 · draft
-                </span>
-              </div>
-            </div>
-          </div>
+          <QuoteSummary
+            rfq={rfq}
+            totals={totals}
+            pricingLoading={pricingLoading}
+            paymentTerms={paymentTerms}
+            canSubmit={canSubmit}
+            variant="review"
+          />
         </div>
       </div>
     </div>
@@ -2402,6 +3292,8 @@ const ActionBar = ({
   isLastStep,
   canContinueStep1,
   canContinueStep2,
+  canContinueStep3,
+  canContinueStep4,
   canSubmit,
   evalAnswered,
   evalTotal,
@@ -2413,73 +3305,96 @@ const ActionBar = ({
   onRegret,
   alreadyQuoted,
   isReadOnly,
+  missedInquiry,
+  clarBlocksQuote,
 }) => {
   const stepNum = currentStep + 1;
+
+  const helper = (() => {
+    if (missedInquiry) {
+      return "The bid window has closed — there's nothing more to do on this inquiry.";
+    }
+    if (isReadOnly && (currentStepId === "pricing" || currentStepId === "terms" || currentStepId === "review")) {
+      return "Read-only. You can review your quote but no further changes can be submitted.";
+    }
+    if (currentStepId === "overview") return "Acknowledge the terms above to continue.";
+    if (currentStepId === "clarifications") {
+      return "Resolve all clarifications and wait for the window to close before continuing to the next step.";
+    }
+    if (currentStepId === "eval") {
+      return evalTotal === 0
+        ? "No clauses — continue when ready."
+        : `Answer ${Math.max(0, evalTotal - evalAnswered)} remaining clause(s) to continue.`;
+    }
+    if (currentStepId === "pricing") return "Enter prices for the items you can quote, then continue.";
+    if (currentStepId === "terms") return "Fill in commercial terms — GSTIN, payment schedule and any global charges.";
+    if (currentStepId === "review") return "Review every number, then confirm to submit.";
+    return null;
+  })();
+
+  // What does Next mean from the current step?
+  const nextLabel = (() => {
+    if (currentStepId === "overview") return totalSteps <= 2 ? "Continue to pricing" : "Continue";
+    if (currentStepId === "clarifications") return "Continue";
+    if (currentStepId === "eval") return "Continue to pricing";
+    if (currentStepId === "pricing") return "Continue to terms";
+    if (currentStepId === "terms") return "Continue to review";
+    return "Continue";
+  })();
+
+  const nextDisabled = (() => {
+    if (currentStepId === "overview") return !canContinueStep1;
+    if (currentStepId === "clarifications") return clarBlocksQuote;
+    if (currentStepId === "eval") return !canContinueStep2;
+    if (currentStepId === "pricing") return !canContinueStep3;
+    if (currentStepId === "terms") return !canContinueStep4;
+    return false;
+  })();
+
   return (
     <footer className={styles.actionBar}>
       <div className={styles.actionBarInner}>
         <div className={styles.actionHelper}>
-          {isReadOnly && currentStepId === "pricing" ? (
-            <span>
-              <span className={styles.accent}>Read-only.</span>{" "}
-              You can review your quote but no further changes can be submitted.
-            </span>
-          ) : currentStepId === "overview" ? (
-            <span>
-              <span className={styles.accent}>Step {stepNum} of {totalSteps}.</span>{" "}
-              Acknowledge the terms above to continue.
-            </span>
-          ) : currentStepId === "eval" ? (
-            <span>
-              <span className={styles.accent}>Step {stepNum} of {totalSteps}.</span>{" "}
-              {evalTotal === 0
-                ? "No clauses — continue when ready."
-                : `Answer ${Math.max(0, evalTotal - evalAnswered)} remaining clause(s) to continue.`}
-            </span>
-          ) : currentStepId === "pricing" ? (
-            <span>
-              <span className={styles.accent}>Step {stepNum} of {totalSteps}.</span>{" "}
-              Review totals, then submit when ready.
-            </span>
-          ) : null}
+          <span>
+            <span className={styles.accent}>Step {stepNum} of {totalSteps}.</span>{" "}
+            {helper}
+          </span>
         </div>
         <div className={styles.actionGroup}>
-          {currentStepId === "pricing" && totals.grand > 0 && (
+          {(currentStepId === "pricing" || currentStepId === "terms" || currentStepId === "review") && totals.grand > 0 && (
             <div className={styles.actionTotal}>
               <span className={styles.lbl}>Total</span>
               <span className={styles.val}>₹ {fmtINR(totals.grand)}</span>
             </div>
           )}
 
-          {!alreadyQuoted && (
+          {!alreadyQuoted && !missedInquiry && (
             <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={onRegret}>
               <X size={13} />
               Regret quote
             </button>
           )}
 
-          {currentStep > 0 && (
+          {currentStep > 0 && !missedInquiry && (
             <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={onPrev}>
               <ArrowLeft size={13} />
               Back
             </button>
           )}
 
-          {!isLastStep && (
+          {!isLastStep && !missedInquiry && (
             <button
               type="button"
               className={`${styles.btn} ${styles.btnPrimary}`}
               onClick={onNext}
-              disabled={currentStepId === "overview" ? !canContinueStep1 : !canContinueStep2}
+              disabled={nextDisabled}
             >
-              {currentStepId === "overview"
-                ? totalSteps === 2 ? "Continue to pricing" : "Continue to products"
-                : "Continue to pricing"}
+              {nextLabel}
               <ArrowRight size={13} />
             </button>
           )}
 
-          {isLastStep && (
+          {isLastStep && !missedInquiry && (
             <button
               type="button"
               className={`${styles.btn} ${styles.btnPrimary} ${styles.btnXl}`}
@@ -2487,7 +3402,7 @@ const ActionBar = ({
               disabled={!canSubmit || submitting}
             >
               <Send size={14} />
-              {submitting ? "Submitting…" : alreadyQuoted ? "Update quote" : "Submit quote"}
+              {submitting ? "Submitting…" : alreadyQuoted ? "Confirm & Update" : "Confirm & Submit"}
             </button>
           )}
         </div>

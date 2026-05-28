@@ -1,15 +1,17 @@
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import moment from "moment";
 import Select from "react-select";
 import {
   Search, Calendar, Clock, Building2, Package, ArrowRight, MessageCircle,
-  Zap, FileText, Send, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight,
+  Zap, FileText, Send, AlertTriangle, ChevronLeft, ChevronRight, Inbox, SlidersHorizontal,
 } from "lucide-react";
 import { getVendorRfqList } from "@/services/rfq";
 import { getAllActiveNegotiationRounds } from "@/services/negotiation";
 import { checkBidExpired } from "@/utils/sharedFunctions";
+import { PersonaCardShell } from "../buyer/persona-widgets/PersonaCard";
 import styles from "./InquiriesReceived.module.scss";
 
 const QUOTE_OPTIONS = [
@@ -35,20 +37,27 @@ const DEADLINE_OPTIONS = [
 
 const selectStyles = {
   control: (base, state) => ({
-    ...base, minHeight: 34, fontSize: 12.5,
-    borderColor: state.isFocused ? "#2E5BA8" : "#e2e2e2",
-    boxShadow: state.isFocused ? "0 0 0 1px #2E5BA8" : "none",
-    borderRadius: 8, "&:hover": { borderColor: "#ccc" },
+    ...base, minHeight: 34, fontSize: 13,
+    borderColor: state.isFocused ? "#2563eb" : "#ebebe6",
+    boxShadow: state.isFocused ? "0 0 0 1px #2563eb" : "none",
+    borderRadius: 8, cursor: "pointer",
+    "&:hover": { borderColor: "#d6d6cf" },
   }),
   indicatorSeparator: () => ({ display: "none" }),
+  dropdownIndicator: (base) => ({ ...base, color: "#a1a1aa", padding: "4px 6px" }),
   option: (base, state) => ({
-    ...base, fontSize: 12.5, padding: "7px 12px",
-    backgroundColor: state.isSelected ? "#2E5BA8" : state.isFocused ? "#f5f7fa" : "transparent",
-    color: state.isSelected ? "#fff" : "#334155",
+    ...base, fontSize: 13, padding: "8px 12px", cursor: "pointer",
+    backgroundColor: state.isSelected ? "#2563eb" : state.isFocused ? "#fafaf9" : "transparent",
+    color: state.isSelected ? "#fff" : "#18181b",
   }),
-  menu: (base) => ({ ...base, borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.1)", zIndex: 20 }),
-  placeholder: (base) => ({ ...base, fontSize: 12.5, color: "#aaa" }),
-  singleValue: (base) => ({ ...base, fontSize: 12.5 }),
+  menu: (base) => ({
+    ...base, borderRadius: 10,
+    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+    border: "1px solid #f0f0f0", marginTop: 4, zIndex: 20,
+  }),
+  placeholder: (base) => ({ ...base, fontSize: 13, color: "#a1a1aa" }),
+  singleValue: (base) => ({ ...base, fontSize: 13, color: "#18181b" }),
+  valueContainer: (base) => ({ ...base, padding: "2px 10px" }),
 };
 
 const InquiriesReceived = ({ pageType = 0 }) => {
@@ -66,6 +75,8 @@ const InquiriesReceived = ({ pageType = 0 }) => {
   const [quoteFilter, setQuoteFilter] = useState(QUOTE_OPTIONS[0]);
   const [statusFilter, setStatusFilter] = useState(STATUS_OPTIONS[0]);
   const [deadlineFilter, setDeadlineFilter] = useState(DEADLINE_OPTIONS[0]);
+
+  const router = useRouter();
 
   // Debounce search
   useEffect(() => {
@@ -135,12 +146,12 @@ const InquiriesReceived = ({ pageType = 0 }) => {
     const end = moment(bidEndDate);
     if (!end.isValid()) return null;
     const now = moment();
-    if (end.isBefore(now)) return { text: "Ended", color: "red" };
+    if (end.isBefore(now)) return { text: "Ended", tone: "danger" };
     const days = end.diff(now, "days");
-    if (days === 0) return { text: "Ends Today", color: "red" };
-    if (days === 1) return { text: "Tomorrow", color: "red" };
-    if (days <= 3) return { text: `${days}d left`, color: "yellow" };
-    return { text: `${days}d left`, color: "green" };
+    if (days === 0) return { text: "Ends Today", tone: "danger" };
+    if (days === 1) return { text: "Tomorrow", tone: "danger" };
+    if (days <= 3) return { text: `${days}d left`, tone: "warn" };
+    return { text: `${days}d left`, tone: "success" };
   };
 
   const getNegBadge = (rfqId) => {
@@ -156,69 +167,218 @@ const InquiriesReceived = ({ pageType = 0 }) => {
 
   const getActionInfo = (item) => {
     const expired = checkBidExpired(item.bid_end_date);
-    if (expired) return { label: "View Quote", color: "grey" };
+    if (expired) return { label: "View Quote", tone: "muted" };
     if (item.status === 1) {
-      if (item.quote_status === "pending") return { label: "Send Quote", color: "green" };
-      if (item.quote_status === "sent") return { label: "Edit Quote", color: "yellow" };
+      if (item.quote_status === "pending") return { label: "Send Quote", tone: "success" };
+      if (item.quote_status === "sent") return { label: "Edit Quote", tone: "warn" };
     }
-    return { label: "View Quote", color: "grey" };
+    return { label: "View Quote", tone: "muted" };
+  };
+
+  // Derive a single status pill for the row.
+  // Mapping: awarded → success | quoted → info | not quoted → warn |
+  //          regretted → danger | closed/expired → muted
+  const getQuoteStatusPill = (item) => {
+    const expired = checkBidExpired(item.bid_end_date);
+    if (item.is_finalized === 1) return { label: "Awarded", tone: "success" };
+    if (item.quote_status === "rejected") return { label: "Regretted", tone: "danger" };
+    if (item.quote_status === "sent") return { label: "Quoted", tone: "info" };
+    if (expired) return { label: "Closed", tone: "muted" };
+    if (item.quote_status === "pending") return { label: "Not Quoted", tone: "warn" };
+    return { label: item.quote_status || "Open", tone: "muted" };
   };
 
   const totalPages = Math.ceil(totalData / limit);
 
   const STAT_CARDS = [
-    { label: "Total Enquiries", value: stats.total, icon: FileText, color: "#2E5BA8" },
-    { label: "Pending Quotes", value: stats.pending, icon: AlertTriangle, color: "#f59e0b" },
-    { label: "Quoted", value: stats.quoted, icon: Send, color: "#22c55e" },
-    { label: "Closing Soon", value: stats.closing_soon, icon: Clock, color: "#ef4444" },
+    { label: "Total Enquiries", value: stats.total, icon: FileText, accent: "info" },
+    { label: "Pending Quotes", value: stats.pending, icon: AlertTriangle, accent: "warn" },
+    { label: "Quoted", value: stats.quoted, icon: Send, accent: "success" },
+    { label: "Closing Soon", value: stats.closing_soon, icon: Clock, accent: "danger" },
   ];
 
-  const SkeletonStatCards = () => (
-    <div className={styles.skeletonStatsGrid}>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className={styles.skeletonStatCard}>
-          <div className={`${styles.shimmerBar} ${styles.skeletonStatIcon}`} />
-          <div className={styles.skeletonStatInfo}>
-            <div className={styles.shimmerBar} style={{ width: 48, height: 22 }} />
-            <div className={styles.shimmerBar} style={{ width: 80, height: 11 }} />
+  const hasActiveFilters = !!(searchInput || quoteFilter.value || statusFilter.value || deadlineFilter.value);
+
+  // ── Sub-renderers ──
+
+  const renderStats = () => (
+    <div className={styles.statsGrid}>
+      {STAT_CARDS.map((card) => {
+        const Icon = card.icon;
+        return (
+          <div key={card.label} className={styles.statItem}>
+            <div className={`${styles.statIcon} ${styles[card.accent]}`}>
+              <Icon size={14} strokeWidth={2} />
+            </div>
+            <div className={styles.statBody}>
+              <div className={styles.statLabel}>{card.label}</div>
+              <div className={`${styles.statValue} ${styles[card.accent]}`}>{card.value}</div>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 
-  const SkeletonFilterBar = () => (
-    <div className={styles.skeletonFilterBar}>
-      <div className={`${styles.shimmerBar} ${styles.skeletonSearchBar}`} />
-      <div className={`${styles.shimmerBar} ${styles.skeletonFilterPill}`} />
-      <div className={`${styles.shimmerBar} ${styles.skeletonFilterPill}`} />
-      <div className={`${styles.shimmerBar} ${styles.skeletonFilterPill}`} />
+  const renderFilters = () => (
+    <div className={styles.filterBar}>
+      <div className={styles.searchWrap}>
+        <Search size={14} className={styles.searchIcon} strokeWidth={2} />
+        <input
+          className={styles.searchInput}
+          type="text"
+          placeholder="Search by RFQ No, Title, or Company"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+        />
+      </div>
+      <div className={styles.filterSelect}>
+        <Select options={DEADLINE_OPTIONS} value={deadlineFilter} onChange={setDeadlineFilter} styles={selectStyles} isSearchable={false} />
+      </div>
+      <div className={styles.filterSelect}>
+        <Select options={QUOTE_OPTIONS} value={quoteFilter} onChange={setQuoteFilter} styles={selectStyles} isSearchable={false} />
+      </div>
+      <div className={styles.filterSelect}>
+        <Select options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} styles={selectStyles} isSearchable={false} />
+      </div>
     </div>
   );
 
-  const SkeletonRows = () => (
+  const renderSkeletonRows = () => (
     <div className={styles.skeletonWrap}>
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className={styles.skeletonRow}>
           <div className={styles.skeletonRowLeft}>
             <div className={styles.skeletonRowTopLine}>
-              <div className={styles.shimmerBar} style={{ width: 64, height: 12 }} />
-              <div className={styles.shimmerBar} style={{ width: 90, height: 12 }} />
+              <div className={styles.shimmerBar} style={{ width: 64, height: 11 }} />
+              <div className={styles.shimmerBar} style={{ width: 90, height: 11 }} />
             </div>
-            <div className={styles.shimmerBar} style={{ width: "70%", height: 14 }} />
+            <div className={styles.shimmerBar} style={{ width: "65%", height: 13 }} />
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div className={styles.shimmerBar} style={{ width: 100, height: 12 }} />
-              <div className={styles.shimmerBar} style={{ width: 70, height: 12 }} />
-              <div className={styles.shimmerBar} style={{ width: 80, height: 12 }} />
+              <div className={styles.shimmerBar} style={{ width: 100, height: 10 }} />
+              <div className={styles.shimmerBar} style={{ width: 70, height: 10 }} />
+              <div className={styles.shimmerBar} style={{ width: 80, height: 10 }} />
             </div>
           </div>
           <div className={styles.skeletonRowRight}>
-            <div className={styles.shimmerBar} style={{ width: 72, height: 24, borderRadius: 5 }} />
-            <div className={styles.shimmerBar} style={{ width: 60, height: 24, borderRadius: 5 }} />
-            <div className={styles.shimmerBar} style={{ width: 80, height: 14 }} />
+            <div className={styles.shimmerBar} style={{ width: 64, height: 18, borderRadius: 4 }} />
+            <div className={styles.shimmerBar} style={{ width: 56, height: 18, borderRadius: 4 }} />
           </div>
         </div>
       ))}
+    </div>
+  );
+
+  const renderEmpty = () => (
+    <div className={styles.emptyState}>
+      <div className={styles.emptyIconChip}>
+        <Inbox size={18} strokeWidth={2} />
+      </div>
+      <div className={styles.emptyTitle}>
+        {hasActiveFilters ? "No enquiries match these filters" : "No enquiries received yet"}
+      </div>
+      <div className={styles.emptySub}>
+        {hasActiveFilters
+          ? "Try clearing a filter or widening the deadline window."
+          : "New buyer enquiries will land here as they arrive."}
+      </div>
+    </div>
+  );
+
+  const renderList = () => (
+    <div className={styles.inquiryList}>
+      {rfqList.map((item, idx) => {
+        const products = getProducts(item);
+        const daysLeft = getDaysLeft(item.bid_end_date);
+        const negBadge = getNegBadge(item.id);
+        const action = getActionInfo(item);
+        const quotePill = getQuoteStatusPill(item);
+        const hasQueries = item.unseen_query_count > 0;
+
+        return (
+          <Link
+            key={item.id}
+            href={`/dashboard/vendor/quote?id=${item.id}&showTechEvalRestrictions=false`}
+            className={styles.inquiryRow}
+          >
+            <span className={styles.rowRank}>
+              {String((page - 1) * limit + idx + 1).padStart(2, "0")}
+            </span>
+
+            <div className={styles.rowLeft}>
+              <div className={styles.rowTopLine}>
+                <span className={styles.rfqNo}>#{item.rfq_no}</span>
+                {item.title && (
+                  <>
+                    <span className={styles.rfqTitleSep}>-</span>
+                    <span className={styles.rfqTitle}>{item.title}</span>
+                  </>
+                )}
+                {negBadge && (
+                  <span className={`${styles.tag} ${negBadge.type === "active" ? styles.tagSuccess : styles.tagMuted}`}>
+                    <Zap size={9} strokeWidth={2.5} /> {negBadge.text}
+                  </span>
+                )}
+                {item.is_tender === 1 && <span className={`${styles.tag} ${styles.tagPurple}`}>Tender</span>}
+              </div>
+
+              <div className={styles.rowTitle}>
+                {products.join(", ") || "Untitled Enquiry"}
+              </div>
+
+              <div className={styles.rowMeta}>
+                <span className={styles.metaItem}><Building2 size={11} strokeWidth={2} /> {item.company_name}</span>
+                <span className={styles.metaItem}><Package size={11} strokeWidth={2} /> {products.length} product{products.length !== 1 ? "s" : ""}</span>
+                <span className={styles.metaItem}><Calendar size={11} strokeWidth={2} /> {moment(item.timestamp).format("DD MMM YYYY")}</span>
+              </div>
+            </div>
+
+            <div className={styles.rowRight}>
+              {hasQueries && (
+                <button
+                  type="button"
+                  className={`${styles.pill} ${styles.pillDanger} ${styles.pillBtn}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push(`/dashboard/buyer/query?rfq_id=${item.id}&role=vendor`);
+                  }}
+                  title="View &amp; reply to buyer queries"
+                >
+                  <MessageCircle size={10} strokeWidth={2.5} /> {item.unseen_query_count}
+                </button>
+              )}
+
+              {daysLeft && (
+                <span className={`${styles.pill} ${styles[`pill${daysLeft.tone.charAt(0).toUpperCase()}${daysLeft.tone.slice(1)}`]}`}>
+                  <Clock size={10} strokeWidth={2.5} /> {daysLeft.text}
+                </span>
+              )}
+
+              <span className={`${styles.pill} ${styles[`pill${quotePill.tone.charAt(0).toUpperCase()}${quotePill.tone.slice(1)}`]}`}>
+                {quotePill.label}
+              </span>
+
+              <span className={`${styles.actionLabel} ${styles[`action${action.tone.charAt(0).toUpperCase()}${action.tone.slice(1)}`]}`}>
+                {action.label}
+                <ArrowRight size={13} className={styles.actionArrow} strokeWidth={2} />
+              </span>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  );
+
+  const renderPagination = () => (
+    <div className={styles.pagination}>
+      <button className={styles.pageBtn} disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+        <ChevronLeft size={14} strokeWidth={2} />
+      </button>
+      <span className={styles.pageInfo}>Page <span className={styles.pageInfoNum}>{page}</span> of <span className={styles.pageInfoNum}>{totalPages}</span></span>
+      <button className={styles.pageBtn} disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+        <ChevronRight size={14} strokeWidth={2} />
+      </button>
     </div>
   );
 
@@ -229,157 +389,50 @@ const InquiriesReceived = ({ pageType = 0 }) => {
         {pageType === 0 && (
           <>
             <div className={styles.pageHeader}>
-              <div>
+              <div className={styles.pageHeaderText}>
                 <h1 className={styles.pageTitle}>Inquiries Received</h1>
                 <p className={styles.pageSubtitle}>View, filter, and respond to buyer enquiries.</p>
               </div>
             </div>
 
-            {/* ── Stat Cards ── */}
-            {loading && !stats.total ? <SkeletonStatCards /> : (
-              <div className={styles.statsGrid}>
-                {STAT_CARDS.map((card) => {
-                  const Icon = card.icon;
-                  return (
-                    <div key={card.label} className={styles.statCard}>
-                      <div className={styles.statIcon} style={{ background: `${card.color}10`, color: card.color }}>
-                        <Icon size={20} />
-                      </div>
-                      <div className={styles.statInfo}>
-                        <span className={styles.statValue}>{card.value}</span>
-                        <span className={styles.statLabel}>{card.label}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {/* ── Stat Tiles ── */}
+            <PersonaCardShell
+              title="At a glance"
+              icon={FileText}
+              loading={loading && !stats.total}
+            >
+              {renderStats()}
+            </PersonaCardShell>
 
             {/* ── Filters ── */}
-            {loading && !stats.total ? <SkeletonFilterBar /> : (
-              <div className={styles.filterBar}>
-                <div className={styles.searchWrap}>
-                  <Search size={14} className={styles.searchIcon} />
-                  <input
-                    className={styles.searchInput}
-                    type="text"
-                    placeholder="Search by RFQ No, Title, or Company..."
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                  />
-                </div>
-                <div className={styles.filterSelect}>
-                  <Select options={DEADLINE_OPTIONS} value={deadlineFilter} onChange={setDeadlineFilter} styles={selectStyles} isSearchable={false} />
-                </div>
-                <div className={styles.filterSelect}>
-                  <Select options={QUOTE_OPTIONS} value={quoteFilter} onChange={setQuoteFilter} styles={selectStyles} isSearchable={false} />
-                </div>
-                <div className={styles.filterSelect}>
-                  <Select options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} styles={selectStyles} isSearchable={false} />
-                </div>
-              </div>
-            )}
+            <PersonaCardShell
+              title="Filters"
+              icon={SlidersHorizontal}
+              loading={loading && !stats.total}
+            >
+              {renderFilters()}
+            </PersonaCardShell>
           </>
         )}
 
         {/* ── Inquiry List ── */}
-        <div className={styles.listCard}>
-          {pageType === 1 && (
-            <div className={styles.listHeader}>
-              <span className={styles.listCount}>{rfqList.length} Latest Enquiries</span>
-            </div>
-          )}
-
-          {loading ? (
-            <SkeletonRows />
-          ) : rfqList.length === 0 ? (
-            <div className={styles.emptyState}>
-              <Package size={32} className={styles.emptyIcon} />
-              <p>{searchInput || quoteFilter.value || statusFilter.value || deadlineFilter.value ? "No enquiries match your filters." : "No enquiries received yet."}</p>
-            </div>
-          ) : (
-            <div className={styles.inquiryList}>
-              {rfqList.map((item) => {
-                const products = getProducts(item);
-                const daysLeft = getDaysLeft(item.bid_end_date);
-                const negBadge = getNegBadge(item.id);
-                const action = getActionInfo(item);
-                const hasQueries = item.unseen_query_count > 0;
-
-                return (
-                  <Link key={item.id} href={`/dashboard/vendor/quote?id=${item.id}&showTechEvalRestrictions=false`} className={styles.inquiryRow}>
-                    <div className={styles.rowLeft}>
-                      <div className={styles.rowTopLine}>
-                        <span className={styles.rfqNo}>#{item.rfq_no}</span>
-                        {negBadge && (
-                          <span className={`${styles.negBadge} ${negBadge.type === "active" ? styles.negActive : styles.negEnded}`}>
-                            <Zap size={10} /> {negBadge.text}
-                          </span>
-                        )}
-                        {item.is_tender === 1 && <span className={styles.tenderTag}>Tender</span>}
-                      </div>
-                      <div className={styles.rowTitle}>
-                        {item.title || products.join(", ") || "Untitled Enquiry"}
-                      </div>
-                      <div className={styles.rowMeta}>
-                        <span className={styles.metaItem}><Building2 size={12} /> {item.company_name}</span>
-                        <span className={styles.metaDot} />
-                        <span className={styles.metaItem}><Package size={12} /> {products.length} product{products.length !== 1 ? "s" : ""}</span>
-                        <span className={styles.metaDot} />
-                        <span className={styles.metaItem}><Calendar size={12} /> {moment(item.timestamp).format("DD MMM YYYY")}</span>
-                      </div>
-                    </div>
-
-                    <div className={styles.rowRight}>
-                      <span className={`${styles.quoteBadge} ${
-                        item.quote_status === "sent" ? styles.quoteSent :
-                        item.quote_status === "pending" ? styles.quotePending : styles.quoteOther
-                      }`}>
-                        {item.quote_status === "sent" ? "Quoted" : item.quote_status === "pending" ? "Not Quoted" : (item.quote_status || "–")}
-                      </span>
-
-                      {daysLeft && (
-                        <span className={`${styles.deadlineBadge} ${
-                          daysLeft.color === "red" ? styles.deadlineRed :
-                          daysLeft.color === "yellow" ? styles.deadlineYellow : styles.deadlineGreen
-                        }`}>
-                          <Clock size={11} /> {daysLeft.text}
-                        </span>
-                      )}
-
-                      {hasQueries && (
-                        <span className={styles.queryBadge}>
-                          <MessageCircle size={11} /> {item.unseen_query_count}
-                        </span>
-                      )}
-
-                      <span className={`${styles.actionLabel} ${
-                        action.color === "green" ? styles.actionGreen :
-                        action.color === "yellow" ? styles.actionYellow : ""
-                      }`}>
-                        {action.label}
-                        <ArrowRight size={14} className={styles.actionArrow} />
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {!loading && rfqList.length > 0 && pageType === 0 && totalPages > 1 && (
-            <div className={styles.pagination}>
-              <button className={styles.pageBtn} disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                <ChevronLeft size={16} />
-              </button>
-              <span className={styles.pageInfo}>Page {page} of {totalPages}</span>
-              <button className={styles.pageBtn} disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          )}
-        </div>
+        <PersonaCardShell
+          title={pageType === 1 ? "Latest enquiries" : "Enquiries"}
+          icon={Inbox}
+          actions={
+            !loading && rfqList.length > 0 ? (
+              <span className={styles.countBadge}>
+                {pageType === 1 ? `${rfqList.length}` : `${totalData}`}
+              </span>
+            ) : null
+          }
+          loading={loading}
+          isEmpty={!loading && rfqList.length === 0}
+          renderEmpty={renderEmpty}
+        >
+          {loading ? renderSkeletonRows() : renderList()}
+          {!loading && rfqList.length > 0 && pageType === 0 && totalPages > 1 && renderPagination()}
+        </PersonaCardShell>
       </div>
     </>
   );
