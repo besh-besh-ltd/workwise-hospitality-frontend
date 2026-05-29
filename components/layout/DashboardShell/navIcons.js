@@ -35,6 +35,7 @@ export const NAV_ICONS = {
   "/dashboard/buyer/rfq-management": FolderKanban,
   "/dashboard/buyer/technical-evaluation": Scale,
   "/dashboard/buyer/quote-compare": BarChart3,
+  "/dashboard/buyer/quote-comparison": BarChart3,
   "/dashboard/buyer/purchase-order": ShoppingCart,
 
   // Purchase Orders (new module)
