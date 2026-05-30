@@ -126,10 +126,19 @@ const BreakupInsightModal = ({
       const resolved = resolvedGlobalByName.get(charge?.name || "");
       const taxVal = toNumber(charge.tax);
       const taxUnit = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
-      const subText = charge.comment ? `${taxUnit} · ${charge.comment}` : taxUnit;
+      const extraTaxVal = toNumber(charge.additional_tax);
+      const extraTaxUnit = extraTaxVal > 0
+        ? (charge.additional_tax_mode === "percentage" ? `${extraTaxVal}%` : formatCurrency(extraTaxVal))
+        : "";
+      const taxLabel = extraTaxUnit ? `${taxUnit} + ${extraTaxUnit} tax` : taxUnit;
+      const subText = charge.comment ? `${taxLabel} · ${charge.comment}` : taxLabel;
+      const chargeBase = charge.tax_mode === "percentage" ? (lineSubtotal * taxVal) / 100 : taxVal;
+      const extraTaxAmt = extraTaxVal > 0
+        ? (charge.additional_tax_mode === "percentage" ? (chargeBase * extraTaxVal) / 100 : extraTaxVal)
+        : 0;
       const resolvedAmount = resolved
         ? toNumber(resolved.amount)
-        : (charge.tax_mode === "percentage" ? (lineSubtotal * taxVal) / 100 : taxVal);
+        : (chargeBase + extraTaxAmt);
       return {
         label: charge.name || "Global Charge",
         value: formatCurrency(resolvedAmount),
