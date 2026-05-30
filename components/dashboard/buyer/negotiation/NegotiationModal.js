@@ -692,19 +692,30 @@ const NegotiationModal = ({
       return;
     }
 
-    // Validate that at least one target is set (global or per-vendor)
+    // Validate that every selected vendor has at least one effective target —
+    // either a per-vendor target set in their card, OR a global target that
+    // will be applied to them via the fallback below. A selected vendor with
+    // no effective targets would be silently dropped by the payload builder
+    // (line ~792 `.filter(v => v.fields.length > 0)`); we surface that here
+    // and block the API call so the user can fix it explicitly.
     const productVendorIds = selectedVendors[selectedProducts[0]] || [];
-    const hasAnyLocalTarget = productVendorIds.some(vid => {
-      const vt = vendorTargets[vid] || {};
-      // Check targets matching global fields OR any local field target
-      return Object.keys(vt).some(k => k !== '_localFields' && !k.endsWith('_mode') && vt[k]);
-    });
     const hasAnyGlobalTarget = effectiveFields.some(f => {
       const targetKey = getChargeTargetKey(f);
       return targetKey && formData[targetKey];
     });
-    if (!hasAnyLocalTarget && !hasAnyGlobalTarget) {
-      toast.error('Please set at least one target value for the selected negotiation fields');
+    const vendorsWithoutTarget = productVendorIds.filter(vid => {
+      const vt = vendorTargets[vid] || {};
+      const hasOwnTarget = Object.keys(vt).some(k => k !== '_localFields' && !k.endsWith('_mode') && vt[k]);
+      return !hasOwnTarget && !hasAnyGlobalTarget;
+    });
+    if (vendorsWithoutTarget.length > 0) {
+      const selectedProduct = products.find(p => String(p.id) === String(productId));
+      const priceData = selectedProduct ? getVendorPriceData(selectedProduct) : { vendors: [] };
+      const vendorNames = vendorsWithoutTarget.map(vid => {
+        const v = (priceData.vendors || []).find(x => x.vendorId === vid);
+        return v?.vendorName || `Vendor ${vid}`;
+      });
+      toast.error(`Please set at least one target value for: ${vendorNames.join(', ')}`);
       return;
     }
 
