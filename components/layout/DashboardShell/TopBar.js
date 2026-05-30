@@ -1,12 +1,36 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
-import { Menu, Building2, ChevronDown, Key, LogOut, User, PanelLeftOpen, Bell } from "lucide-react";
+import { Menu, Building2, ChevronDown, Key, LogOut, User, PanelLeftOpen, Bell, BellOff } from "lucide-react";
 import { roleMenus } from "@/components/layout/Header/headerConfig";
+import { toast } from "react-toastify";
 import storageInstance from "@/utils/storageInstance";
+import { ensurePushSubscription } from "@/utils/pushSubscription";
+import {
+  getUnreadCount,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "@/services/Notifications";
 import styles from "./DashboardShell.module.css";
+
+const NOTIF_POLL_MS = 30 * 1000;
+
+const formatNotifTime = (iso) => {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const diff = Math.max(0, Date.now() - then);
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+};
 
 /**
  * Slim top bar — shows:
@@ -27,6 +51,58 @@ const TopBar = ({
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
 
+  // Notifications
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
+  const [notifItems, setNotifItems] = useState([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifPermission, setNotifPermission] = useState("default"); // 'granted' | 'denied' | 'default' | 'unsupported'
+  const [notifEnabling, setNotifEnabling] = useState(false);
+  const notifRef = useRef(null);
+
+  const isLoggedIn = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    return !!storageInstance.getStorage("token");
+  }, []);
+
+  const refreshNotifCount = useCallback(async () => {
+    if (!isLoggedIn()) return;
+    try {
+      const resp = await getUnreadCount();
+      const c = resp && resp.data && resp.data.count;
+      setNotifCount(Number(c) || 0);
+    } catch (_) {}
+  }, [isLoggedIn]);
+
+  const loadNotifList = useCallback(async () => {
+    if (!isLoggedIn()) return;
+    setNotifLoading(true);
+    try {
+      const resp = await listNotifications(1, 20);
+      setNotifItems(Array.isArray(resp?.data) ? resp.data : []);
+    } catch (_) {
+      setNotifItems([]);
+    } finally {
+      setNotifLoading(false);
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+    refreshNotifCount();
+    const id = setInterval(refreshNotifCount, NOTIF_POLL_MS);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refreshNotifCount();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", refreshNotifCount);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", refreshNotifCount);
+    };
+  }, [refreshNotifCount, isLoggedIn]);
+
   useEffect(() => {
     if (!profileOpen) return;
     const handler = (e) => {
@@ -38,7 +114,105 @@ const TopBar = ({
     return () => document.removeEventListener("mousedown", handler);
   }, [profileOpen]);
 
-  useEffect(() => { setProfileOpen(false); }, [pathname]);
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handler = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [notifOpen]);
+
+  useEffect(() => {
+    setProfileOpen(false);
+    setNotifOpen(false);
+  }, [pathname]);
+
+  // Read the browser-level Notification permission. Done on mount AND when the
+  // dropdown opens so a manual change in the browser UI reflects immediately.
+  const refreshNotifPermission = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) {
+      setNotifPermission("unsupported");
+      return;
+    }
+    setNotifPermission(window.Notification.permission || "default");
+  }, []);
+
+  useEffect(() => {
+    refreshNotifPermission();
+  }, [refreshNotifPermission]);
+
+  // Triggered from the in-dropdown banner. Browsers IGNORE requestPermission()
+  // when the user has already 'denied' (it resolves silently to 'denied'), so we
+  // surface a clear toast in that case directing them to browser settings.
+  const handleEnableNotifications = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (notifEnabling) return;
+    setNotifEnabling(true);
+    try {
+      const before = window.Notification.permission;
+      const result = await window.Notification.requestPermission();
+      setNotifPermission(result);
+      if (result === "granted") {
+        await ensurePushSubscription().catch(() => {});
+        toast.success("Notifications enabled. You'll receive instant updates.");
+      } else if (before === "denied") {
+        toast.error(
+          "Notifications are blocked in your browser. Please allow them from the site settings (lock icon in the address bar)."
+        );
+      } else {
+        toast.info("Notifications stay off. You can enable them anytime.");
+      }
+    } catch (_) {
+      // swallow — user can retry from the banner
+    } finally {
+      setNotifEnabling(false);
+    }
+  };
+
+  const toggleNotif = () => {
+    const next = !notifOpen;
+    setNotifOpen(next);
+    if (next) {
+      loadNotifList();
+      refreshNotifPermission();
+    }
+  };
+
+  const handleNotifItemClick = async (n) => {
+    if (!n.is_read) {
+      setNotifItems((curr) => curr.map((x) => (x.id === n.id ? { ...x, is_read: 1 } : x)));
+      setNotifCount((c) => Math.max(0, c - 1));
+      markNotificationRead(n.id).catch(() => {});
+    }
+    setNotifOpen(false);
+    if (n.action_url) {
+      try {
+        const url = new URL(n.action_url, window.location.origin);
+        if (url.origin === window.location.origin) {
+          router.push(url.pathname + url.search + url.hash);
+        } else {
+          window.location.href = n.action_url;
+        }
+      } catch (_) {
+        router.push(n.action_url);
+      }
+    }
+  };
+
+  const handleNotifMarkAllRead = async () => {
+    if (notifCount === 0) return;
+    setNotifCount(0);
+    setNotifItems((curr) => curr.map((x) => ({ ...x, is_read: 1 })));
+    try {
+      await markAllNotificationsRead();
+    } catch (_) {
+      refreshNotifCount();
+    }
+  };
 
   // Business units
   const allMappings = userProfile?.hospitality_mappings || [];
@@ -110,9 +284,125 @@ const TopBar = ({
         )}
 
         {/* Notifications */}
-        <button type="button" className={styles.notifBtn} aria-label="Notifications">
-          <Bell size={19} strokeWidth={1.9} />
-        </button>
+        {isLoggedIn() && (
+          <div style={{ position: "relative" }} ref={notifRef}>
+            <button
+              type="button"
+              className={styles.notifBtn}
+              onClick={toggleNotif}
+              aria-label={`Notifications${notifCount > 0 ? ` — ${notifCount} unread` : ""}`}
+            >
+              <Bell size={18} strokeWidth={1.9} />
+              {notifCount > 0 && (
+                <span className={styles.notifBadge}>
+                  {notifCount > 99 ? "99+" : notifCount}
+                </span>
+              )}
+            </button>
+
+            {notifOpen && (
+              <div className={styles.notifPopover} role="dialog" aria-label="Notifications">
+                <div className={styles.notifHead}>
+                  <span className={styles.notifTitleRow}>
+                    <span className={styles.notifTitle}>Notifications</span>
+                    {notifCount > 0 && (
+                      <span className={styles.notifCountChip}>
+                        {notifCount > 99 ? "99+" : notifCount} new
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleNotifMarkAllRead}
+                    disabled={notifCount === 0}
+                    className={styles.notifMarkAll}
+                  >
+                    Mark all read
+                  </button>
+                </div>
+
+                {notifPermission !== "granted" && notifPermission !== "unsupported" && (
+                  <div className={styles.notifDisabledBanner}>
+                    <BellOff size={13} className={styles.notifDisabledBannerIc} />
+                    <div className={styles.notifDisabledBannerBody}>
+                      <strong>
+                        {notifPermission === "denied"
+                          ? "Notifications are blocked."
+                          : "Notifications are turned off."}
+                      </strong>{" "}
+                      {notifPermission === "denied"
+                        ? "Allow them in your browser settings to never miss an update."
+                        : "Turn them on to never miss an update."}
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.notifDisabledBannerBtn}
+                      onClick={handleEnableNotifications}
+                      disabled={notifEnabling}
+                    >
+                      {notifEnabling ? "Enabling…" : "Enable"}
+                    </button>
+                  </div>
+                )}
+
+                <div className={styles.notifList}>
+                  {notifLoading && (
+                    <>
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <div className={styles.notifSkelItem} key={i}>
+                          <span className={styles.notifSkelDot} />
+                          <div className={styles.notifSkelBody}>
+                            <span className={styles.notifSkelBar} style={{ width: "62%" }} />
+                            <span className={styles.notifSkelBar} style={{ width: "92%", height: 7 }} />
+                            <span className={styles.notifSkelBar} style={{ width: "28%", height: 7 }} />
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {!notifLoading && notifItems.length === 0 && (
+                    <div className={styles.notifEmpty}>
+                      <span className={styles.notifEmptyIc}>
+                        <Bell size={16} strokeWidth={1.8} />
+                      </span>
+                      <span>You&apos;re all caught up.</span>
+                    </div>
+                  )}
+
+                  {!notifLoading &&
+                    notifItems.map((n) => (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => handleNotifItemClick(n)}
+                        className={`${styles.notifItem} ${!n.is_read ? styles.notifUnread : ""}`}
+                      >
+                        <span className={styles.notifUnreadDot} aria-hidden />
+                        <div className={styles.notifBody}>
+                          <div className={styles.notifItemTitle}>{n.title}</div>
+                          {n.message && <div className={styles.notifMsg}>{n.message}</div>}
+                          <div className={styles.notifTime}>{formatNotifTime(n.created_at)}</div>
+                        </div>
+                      </button>
+                    ))}
+                </div>
+
+                {!notifLoading && notifItems.length > 0 && (
+                  <div className={styles.notifFooter}>
+                    <Link
+                      href="/notifications"
+                      onClick={() => setNotifOpen(false)}
+                      className={styles.notifViewAll}
+                    >
+                      View all notifications
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Profile avatar — opens dropdown */}
         <div style={{ position: "relative" }} ref={profileRef}>
