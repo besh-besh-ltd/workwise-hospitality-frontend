@@ -302,13 +302,19 @@ const QuoteCompare = () => {
   // First tries to extract from the sidebar list (already fetched). Falls back to a dedicated call
   // only if the RFQ is not in the sidebar (e.g., deep-linked or filtered out).
   useEffect(() => {
-    let cancelled = false;
-    setMetadataLoadedForRfq(null);
-
     if (!rfq || rfq === 'undefined' || rfq === 'null') {
+      setMetadataLoadedForRfq(null);
       setcurrentRFQ(null);
       return;
     }
+
+    // Skip if metadata is already loaded for the current rfq. Without this guard, a sidebar
+    // search (which replaces myRFQs) re-fires this effect and resets quotesLoading to true
+    // — but the Stage 2 init effect is gated on `dataInitializedForRfq.current !== rfq`, so
+    // it never re-runs, leaving the main content stuck on the loader.
+    if (String(metadataLoadedForRfq) === String(rfq)) return;
+
+    let cancelled = false;
 
     // Check if the sidebar list already has this RFQ
     const fromSidebar = myRFQs.find(r => String(r.id) === String(rfq));
@@ -335,7 +341,7 @@ const QuoteCompare = () => {
 
     fetchRFQMetadata();
     return () => { cancelled = true; };
-  }, [rfq, myRFQs]);
+  }, [rfq, myRFQs, metadataLoadedForRfq]);
 
   // Stage 2: Once permissions are verified, check TE first, then fetch quotes with correct filter
   const dataInitializedForRfq = useRef(null);
