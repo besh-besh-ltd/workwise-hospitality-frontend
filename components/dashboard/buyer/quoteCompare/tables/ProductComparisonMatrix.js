@@ -8,6 +8,7 @@ import Tooltip from "react-bootstrap/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheckCircle, faEnvelope, faUser } from "@fortawesome/free-regular-svg-icons";
 import { faComments, faHistory, faPhone } from "@fortawesome/free-solid-svg-icons";
+import { BsInfoCircle } from "react-icons/bs";
 import { toast } from "react-toastify";
 import ReadMore from "@/components/shared/ReadMore";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
@@ -103,17 +104,58 @@ const getHeatToneClass = (model, rowKey, vendorId) => {
   return "";
 };
 
-const renderFileLinks = (files = [], label = "View File") => {
-  if (!Array.isArray(files) || files.length === 0) {
+const fileToUrl = (file) => (typeof file === "string" ? file : file?.file_url);
+const fileReplaces = (file) => (file && typeof file === "object" ? file.replaces : null);
+
+// Diff prev vs current files for strikethrough rendering:
+// - `replaced` pairs `{old, new}` when a current file's `replaces` matches a prev URL
+// - `removed` are prev URLs absent from current and not part of any replacement
+const fileDiffSince = (currentFiles, previousQuotes, prevFilesKey) => {
+  if (!Array.isArray(previousQuotes) || previousQuotes.length === 0) {
+    return { removed: [], replaced: [] };
+  }
+  const current = Array.isArray(currentFiles) ? currentFiles : [];
+  const prevFiles = previousQuotes[0]?.[prevFilesKey] || [];
+  const prevByUrl = new Map();
+  prevFiles.forEach((f) => {
+    const url = fileToUrl(f);
+    if (url) prevByUrl.set(url, f);
+  });
+  const currentSet = new Set(current.map(fileToUrl).filter(Boolean));
+
+  const replaced = [];
+  const replacedOldUrls = new Set();
+  current.forEach((cf) => {
+    const oldUrl = fileReplaces(cf);
+    if (oldUrl && prevByUrl.has(oldUrl)) {
+      replaced.push({ old: prevByUrl.get(oldUrl), new: cf });
+      replacedOldUrls.add(oldUrl);
+    }
+  });
+
+  const removed = prevFiles.filter((f) => {
+    const url = fileToUrl(f);
+    return url && !currentSet.has(url) && !replacedOldUrls.has(url);
+  });
+
+  return { removed, replaced };
+};
+
+const renderFileLinks = (files = [], label = "View File", diff = { removed: [], replaced: [] }) => {
+  const currentFiles = Array.isArray(files) ? files.filter((f) => fileToUrl(f)) : [];
+  const removed = Array.isArray(diff?.removed) ? diff.removed.filter((f) => fileToUrl(f)) : [];
+  const replaced = Array.isArray(diff?.replaced) ? diff.replaced : [];
+  const replacedNewUrls = new Set(replaced.map((p) => fileToUrl(p.new)).filter(Boolean));
+  const standalone = currentFiles.filter((f) => !replacedNewUrls.has(fileToUrl(f)));
+
+  if (standalone.length === 0 && removed.length === 0 && replaced.length === 0) {
     return <EmptyValue />;
   }
 
   return (
     <div className={styles.innerScrollTall}>
-      {files.map((file, index) => {
-        const fileUrl = typeof file === "string" ? file : file?.file_url;
-        if (!fileUrl) return null;
-
+      {standalone.map((file, index) => {
+        const fileUrl = fileToUrl(file);
         return (
           <a
             key={`${fileUrl}_${index}`}
@@ -121,6 +163,50 @@ const renderFileLinks = (files = [], label = "View File") => {
             target="_blank"
             rel="noreferrer"
             className="page-link p-0"
+          >
+            {label}
+          </a>
+        );
+      })}
+      {replaced.map((pair, index) => {
+        const oldUrl = fileToUrl(pair.old);
+        const newUrl = fileToUrl(pair.new);
+        return (
+          <div key={`replaced_${oldUrl}_${index}`} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <a
+              href={oldUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="page-link p-0"
+              style={{ textDecoration: "line-through", color: "#9aa0a6" }}
+              title="Replaced in current round"
+            >
+              {label}
+            </a>
+            <a
+              href={newUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="page-link p-0"
+              style={{ fontSize: "0.78rem" }}
+              title="Replacement file"
+            >
+              ↳ {label}
+            </a>
+          </div>
+        );
+      })}
+      {removed.map((file, index) => {
+        const fileUrl = fileToUrl(file);
+        return (
+          <a
+            key={`removed_${fileUrl}_${index}`}
+            href={fileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="page-link p-0"
+            style={{ textDecoration: "line-through", color: "#9aa0a6" }}
+            title="Removed since previous round"
           >
             {label}
           </a>
@@ -418,9 +504,17 @@ const ProductComparisonMatrix = ({
           <EmptyValue />
         );
       case "documents":
-        return renderFileLinks(column.documentFiles, "View File");
+        return renderFileLinks(
+          column.documentFiles,
+          "View File",
+          fileDiffSince(column.documentFiles, previousQuotes, "document_files")
+        );
       case "terms":
-        return renderFileLinks(column.termsFiles, "View File");
+        return renderFileLinks(
+          column.termsFiles,
+          "View File",
+          fileDiffSince(column.termsFiles, previousQuotes, "global_document_files")
+        );
       case "payment": {
         const content = getPaymentTermsText({ ...column.quote, ...details });
         return renderPaymentPills(content);
@@ -528,42 +622,51 @@ const ProductComparisonMatrix = ({
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
           const charge = globalCharges.find(c => c.name === rowMeta.chargeName);
           if (!charge) return <span className={styles.value}>--</span>;
-          // Render a global charge as "rate + tax (comment)". Same pattern as
-          // per-product other_charges so the strikethrough-previous indicator
-          // can show prior-round values when they differ.
-          const renderGlobalChargeNode = (c) => {
-            const taxVal = Number(c.tax || 0);
-            const taxDisplay = c.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
-            const extraTax = Number(c.additional_tax || 0);
-            const extraMode = c.additional_tax_mode || "percentage";
-            const extraTaxDisplay = extraTax > 0
-              ? ` + ${extraMode === "percentage" ? `${extraTax}%` : formatCurrency(extraTax)} tax`
-              : "";
-            const commentText = c.comment ? ` (${c.comment})` : "";
-            return <>{taxDisplay}<small className="text-muted">{extraTaxDisplay}{commentText}</small></>;
-          };
-          const prevQuote = findPreviousDifferent(
-            previousQuotes,
-            (prev) => {
-              const prevGc = (prev.global_charges || []).find(c => c.name === charge.name);
-              if (!prevGc) return false;
-              return (
-                Number(prevGc.tax || 0) !== Number(charge.tax || 0) ||
-                (prevGc.tax_mode || "percentage") !== (charge.tax_mode || "percentage") ||
-                Number(prevGc.additional_tax || 0) !== Number(charge.additional_tax || 0) ||
-                (prevGc.additional_tax_mode || "percentage") !== (charge.additional_tax_mode || "percentage") ||
-                (prevGc.comment || "") !== (charge.comment || "")
-              );
-            }
-          );
-          const prevCharge = prevQuote ? (prevQuote.global_charges || []).find(c => c.name === charge.name) : null;
+          // Both on-disk shapes coexist: legacy {tax, tax_mode} and newer
+          // {amount, amount_mode}. Read both so the displayed value + mode
+          // match what the engine actually applied.
+          const taxVal = Number(charge.tax ?? charge.amount ?? 0);
+          const mode = charge.tax_mode ?? charge.amount_mode ?? "percentage";
+          const taxDisplay = mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
+          const commentText = charge.comment ? ` (${charge.comment})` : "";
+          // Absolute (rupee) global charges are entered ONCE for the vendor's
+          // whole quote and the backend distributes them proportionally across
+          // the products in that quote (each product carries its weighted
+          // share, not the full amount). Surface this with an info tooltip so
+          // the buyer doesn't read "Rs. 1,000" in this cell as "added directly
+          // to this product". Percentage charges don't need it because "5%"
+          // is already the per-product rate the buyer expects.
+          let distributionInfo = null;
+          if (mode !== "percentage" && taxVal > 0) {
+            const engineGlobals = details.engine_global_charges || column.quote?.engine_global_charges || [];
+            const resolved = engineGlobals.find((c) =>
+              (c.slug && charge.slug && c.slug === charge.slug) || c.name === charge.name
+            );
+            const share = Number(resolved?.amount || 0);
+            distributionInfo = (
+              <OverlayTrigger
+                placement="top"
+                overlay={
+                  <Tooltip>
+                    The global charge was added only on the entire quote. It was then divided and shared across all products in this RFQ.                     
+                    {share > 0 && (
+                      <>This product's share is <strong>{formatCurrency(share)}</strong>.</>
+                    )}
+                  </Tooltip>
+                }
+              >
+                <span className="ms-1 text-muted" style={{ cursor: "help", display: "inline-flex", verticalAlign: "middle" }}>
+                  <BsInfoCircle size={12} />
+                </span>
+              </OverlayTrigger>
+            );
+          }
           return (
-            <PriceWithPrevious
-              currentDisplay={renderGlobalChargeNode(charge)}
-              previousDisplay={prevCharge ? renderGlobalChargeNode(prevCharge) : ""}
-              previousExists={!!prevCharge}
-              hasChanged={!!prevCharge}
-            />
+            <span className={styles.value}>
+              {taxDisplay}
+              {commentText && <small className="text-muted">{commentText}</small>}
+              {distributionInfo}
+            </span>
           );
         }
         if (rowKey === "grandTotal") {
