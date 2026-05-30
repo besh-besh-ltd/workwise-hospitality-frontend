@@ -104,17 +104,58 @@ const getHeatToneClass = (model, rowKey, vendorId) => {
   return "";
 };
 
-const renderFileLinks = (files = [], label = "View File") => {
-  if (!Array.isArray(files) || files.length === 0) {
+const fileToUrl = (file) => (typeof file === "string" ? file : file?.file_url);
+const fileReplaces = (file) => (file && typeof file === "object" ? file.replaces : null);
+
+// Diff prev vs current files for strikethrough rendering:
+// - `replaced` pairs `{old, new}` when a current file's `replaces` matches a prev URL
+// - `removed` are prev URLs absent from current and not part of any replacement
+const fileDiffSince = (currentFiles, previousQuotes, prevFilesKey) => {
+  if (!Array.isArray(previousQuotes) || previousQuotes.length === 0) {
+    return { removed: [], replaced: [] };
+  }
+  const current = Array.isArray(currentFiles) ? currentFiles : [];
+  const prevFiles = previousQuotes[0]?.[prevFilesKey] || [];
+  const prevByUrl = new Map();
+  prevFiles.forEach((f) => {
+    const url = fileToUrl(f);
+    if (url) prevByUrl.set(url, f);
+  });
+  const currentSet = new Set(current.map(fileToUrl).filter(Boolean));
+
+  const replaced = [];
+  const replacedOldUrls = new Set();
+  current.forEach((cf) => {
+    const oldUrl = fileReplaces(cf);
+    if (oldUrl && prevByUrl.has(oldUrl)) {
+      replaced.push({ old: prevByUrl.get(oldUrl), new: cf });
+      replacedOldUrls.add(oldUrl);
+    }
+  });
+
+  const removed = prevFiles.filter((f) => {
+    const url = fileToUrl(f);
+    return url && !currentSet.has(url) && !replacedOldUrls.has(url);
+  });
+
+  return { removed, replaced };
+};
+
+const renderFileLinks = (files = [], label = "View File", diff = { removed: [], replaced: [] }) => {
+  const currentFiles = Array.isArray(files) ? files.filter((f) => fileToUrl(f)) : [];
+  const removed = Array.isArray(diff?.removed) ? diff.removed.filter((f) => fileToUrl(f)) : [];
+  const replaced = Array.isArray(diff?.replaced) ? diff.replaced : [];
+  const replacedNewUrls = new Set(replaced.map((p) => fileToUrl(p.new)).filter(Boolean));
+  const standalone = currentFiles.filter((f) => !replacedNewUrls.has(fileToUrl(f)));
+
+  if (standalone.length === 0 && removed.length === 0 && replaced.length === 0) {
     return <EmptyValue />;
   }
 
   return (
     <div className={styles.innerScrollTall}>
-      {files.map((file, index) => {
-        const fileUrl = typeof file === "string" ? file : file?.file_url;
-        if (!fileUrl) return null;
-
+      {standalone.map((file, index) => {
+        const fileUrl = fileToUrl(file);
         return (
           <a
             key={`${fileUrl}_${index}`}
@@ -122,6 +163,50 @@ const renderFileLinks = (files = [], label = "View File") => {
             target="_blank"
             rel="noreferrer"
             className="page-link p-0"
+          >
+            {label}
+          </a>
+        );
+      })}
+      {replaced.map((pair, index) => {
+        const oldUrl = fileToUrl(pair.old);
+        const newUrl = fileToUrl(pair.new);
+        return (
+          <div key={`replaced_${oldUrl}_${index}`} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <a
+              href={oldUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="page-link p-0"
+              style={{ textDecoration: "line-through", color: "#9aa0a6" }}
+              title="Replaced in current round"
+            >
+              {label}
+            </a>
+            <a
+              href={newUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="page-link p-0"
+              style={{ fontSize: "0.78rem" }}
+              title="Replacement file"
+            >
+              ↳ {label}
+            </a>
+          </div>
+        );
+      })}
+      {removed.map((file, index) => {
+        const fileUrl = fileToUrl(file);
+        return (
+          <a
+            key={`removed_${fileUrl}_${index}`}
+            href={fileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="page-link p-0"
+            style={{ textDecoration: "line-through", color: "#9aa0a6" }}
+            title="Removed since previous round"
           >
             {label}
           </a>
@@ -419,9 +504,17 @@ const ProductComparisonMatrix = ({
           <EmptyValue />
         );
       case "documents":
-        return renderFileLinks(column.documentFiles, "View File");
+        return renderFileLinks(
+          column.documentFiles,
+          "View File",
+          fileDiffSince(column.documentFiles, previousQuotes, "document_files")
+        );
       case "terms":
-        return renderFileLinks(column.termsFiles, "View File");
+        return renderFileLinks(
+          column.termsFiles,
+          "View File",
+          fileDiffSince(column.termsFiles, previousQuotes, "global_document_files")
+        );
       case "payment": {
         const content = getPaymentTermsText({ ...column.quote, ...details });
         return renderPaymentPills(content);
@@ -456,7 +549,11 @@ const ProductComparisonMatrix = ({
             globalCharges.forEach(c => {
               const tax = Number(c.tax ?? c.amount ?? 0);
               const mode = c.tax_mode ?? c.amount_mode ?? "percentage";
-              total += mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+              const chargeBase = mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+              const extraTax = Number(c.additional_tax ?? 0);
+              const extraMode = c.additional_tax_mode ?? "percentage";
+              const extraTaxAmt = extraTax > 0 ? (extraMode === "percentage" ? (chargeBase * extraTax) / 100 : extraTax) : 0;
+              total += chargeBase + extraTaxAmt;
             });
           }
           return <span className={styles.value}>{formatCurrency(total)} <small className="text-muted">({globalCharges.length} tax{globalCharges.length > 1 ? "es" : ""})</small></span>;
@@ -586,7 +683,11 @@ const ProductComparisonMatrix = ({
           globalCharges.forEach(c => {
             const tax = Number(c.tax ?? c.amount ?? 0);
             const mode = c.tax_mode ?? c.amount_mode ?? "percentage";
-            globalTotal += mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+            const chargeBase = mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+            const extraTax = Number(c.additional_tax ?? 0);
+            const extraMode = c.additional_tax_mode ?? "percentage";
+            const extraTaxAmt = extraTax > 0 ? (extraMode === "percentage" ? (chargeBase * extraTax) / 100 : extraTax) : 0;
+            globalTotal += chargeBase + extraTaxAmt;
           });
           // Prefer the BE's authoritative engine_grand_total when it's
           // present (rounded consistently with the rest of the app); compute

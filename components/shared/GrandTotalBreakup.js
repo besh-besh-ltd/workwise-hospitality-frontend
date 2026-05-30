@@ -182,12 +182,21 @@ const GrandTotalBreakup = ({
           {/* Row 2, Col 2 — Globals → Grand Total */}
           {hasGlobalCol ? (
             <div style={gridColumnStyle}>
-              {col3Items.map((item) => (
-                <div key={item.label} style={lineStyle}>
-                  <span style={gridLabelStyle}>{item.label}:</span>
-                  <span style={valueStyle}>{fmt(item.value)}</span>
-                </div>
-              ))}
+              {col3Items.map((item) => {
+                const taxPart = Number(item.tax) || 0;
+                const basePart = Number(item.value || 0) - taxPart;
+                return (
+                  <div key={item.label} style={lineStyle}>
+                    <span style={gridLabelStyle}>{item.label}:</span>
+                    <span style={valueStyle}>
+                      {fmt(basePart)}
+                      {taxPart > 0 && (
+                        <span style={{ color: "#6c757d", fontWeight: 400 }}> + {fmt(taxPart)} (tax)</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
               <div style={separatorStyle} />
               <div style={totalLineStyle}>
                 <span style={gridLabelStyle}>Grand Total <span style={{ fontSize: "0.72rem", color: "#6c757d", fontWeight: 400 }}>(incl. GST)</span>:</span>
@@ -235,12 +244,21 @@ const GrandTotalBreakup = ({
           </div>
         </div>
         <div style={columnStyle}>
-          {visibleGlobals.map((item) => (
-            <div key={item.label} style={lineStyle}>
-              <span style={{ whiteSpace: "nowrap" }}>{item.label}:</span>
-              <span style={valueStyle}>{fmt(item.value)}</span>
-            </div>
-          ))}
+          {visibleGlobals.map((item) => {
+            const taxPart = Number(item.tax) || 0;
+            const basePart = Number(item.value || 0) - taxPart;
+            return (
+              <div key={item.label} style={lineStyle}>
+                <span style={{ whiteSpace: "nowrap" }}>{item.label}:</span>
+                <span style={valueStyle}>
+                  {fmt(basePart)}
+                  {taxPart > 0 && (
+                    <span style={{ color: "#6c757d", fontWeight: 400 }}> + {fmt(taxPart)} (tax)</span>
+                  )}
+                </span>
+              </div>
+            );
+          })}
           <div style={separatorStyle} />
           <div style={totalLineStyle}>
             <span style={{ whiteSpace: "nowrap" }}>Grand Total <span style={{ fontSize: "0.72rem", color: "#6c757d", fontWeight: 400 }}>(incl. GST)</span>:</span>

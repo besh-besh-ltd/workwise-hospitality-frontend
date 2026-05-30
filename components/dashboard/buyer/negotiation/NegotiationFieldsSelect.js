@@ -24,7 +24,7 @@ export const buildChargeFieldOption = (charge) => {
 };
 
 export const NUMERIC_FIELDS = ['base_price', 'delivery_period'];
-export const TEXT_FIELDS = ['payment_terms', 'vendor_tc', 'comments', 'documents'];
+export const TEXT_FIELDS = ['payment_terms', 'vendor_tc', 'comment', 'global_comment', 'documents'];
 
 // Map field value to its formData target key
 export const FIELD_TARGET_KEYS = {
@@ -32,7 +32,8 @@ export const FIELD_TARGET_KEYS = {
   delivery_period: 'target_delivery_date',
   payment_terms: 'target_payment_terms',
   vendor_tc: 'target_vendor_tc',
-  comments: 'target_comments',
+  comment: 'target_comment',
+  global_comment: 'target_global_comment',
 };
 
 // Get target key for dynamic charge fields
