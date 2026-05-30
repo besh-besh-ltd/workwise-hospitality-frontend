@@ -36,11 +36,10 @@ import {
 
 import useModulePermissions from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
-import { getQuoteComparisonView, getQuoteComparison } from "@/services/pricing";
+import { getQuoteComparisonView } from "@/services/pricing";
 import { finalizeQuotation, getRFQById, getRfqs } from "@/services/rfq";
 import { approveNegotiationQuotes, rejectNegotiationQuotes } from "@/services/negotiation";
 import { formatRFQNumber } from "@/utils/sharedFunctions";
-import { getQuoteDetails, getVendorId } from "@/utils/quoteCompareTableViewModel";
 
 import styles from "./QuoteComparison.module.scss";
 import * as C from "./computeHelpers";
@@ -87,7 +86,6 @@ const QuoteComparison = () => {
 
   // view-model data
   const [view, setView] = useState(null);
-  const [legacy, setLegacy] = useState(null); // legacy getQuoteComparison for finalize ids + history
   const [currentRFQMeta, setCurrentRFQMeta] = useState(null); // hotel_ids/department_id from getRFQById
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -121,6 +119,7 @@ const QuoteComparison = () => {
   const sortBtnRef = useRef(null);
   const [menu, setMenu] = useState(null); // { x, y, pid, vid }
   const [showHistory, setShowHistory] = useState(null); // { product, vendor }
+  const [approvalPanel, setApprovalPanel] = useState(null); // product whose approval trail is open
 
   const latestRfqRef = useRef(rfq ? String(rfq) : null);
   latestRfqRef.current = rfq ? String(rfq) : null;
@@ -296,28 +295,18 @@ const QuoteComparison = () => {
   const isRfqClosed = view ? String(view.rfq?.status).toUpperCase() === "CLOSED" : false;
   const canWrite = (canUpdate || canCreate) && !isRfqClosed;
 
-  /* ─────────────── fetch view + legacy ─────────────── */
+  /* ─────────────── fetch view (single endpoint) ─────────────── */
   const fetchView = useCallback(
     async ({ silent = false } = {}) => {
       if (!rfq) return;
       const fetchRfq = String(rfq);
       if (!silent) setLoading(true);
       try {
+        // ONE call now powers the whole page: the view contract carries the
+        // finalize identifiers + quote history per cell (no second round-trip).
         const viewRes = await getQuoteComparisonView(rfq, { freight: freightOn });
         if (latestRfqRef.current !== fetchRfq) return;
         setView(viewRes || null);
-        // The legacy payload only powers the finalize payload + quote-history
-        // modal. While quotes are sealed (pre-deadline) we neither finalize nor
-        // show history, so we don't fetch real quotes at all.
-        if (viewRes && !viewRes.quotes_locked) {
-          const legacyRes = await getQuoteComparison(rfq, { include_negotiation: true }).catch(
-            () => null
-          );
-          if (latestRfqRef.current !== fetchRfq) return;
-          setLegacy(legacyRes?.data || legacyRes || null);
-        } else {
-          setLegacy(null);
-        }
       } catch (e) {
         if (latestRfqRef.current !== fetchRfq) return;
         // eslint-disable-next-line no-console
@@ -333,7 +322,6 @@ const QuoteComparison = () => {
   useEffect(() => {
     if (!rfq || !canRead) {
       setView(null);
-      setLegacy(null);
       return;
     }
     fetchView();
@@ -369,10 +357,11 @@ const QuoteComparison = () => {
       if (showConfirm) return setShowConfirm(false);
       if (showHistory) return setShowHistory(null);
       if (showSwitchRfq) return setShowSwitchRfq(false);
+      if (approvalPanel) return setApprovalPanel(null);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [menu, sortOpen, showFinalize, showConfirm, showHistory, showSwitchRfq]);
+  }, [menu, sortOpen, showFinalize, showConfirm, showHistory, showSwitchRfq, approvalPanel]);
 
   /* ─────────────── derived data ─────────────── */
   const vendors = view?.vendors || [];
@@ -597,21 +586,6 @@ const QuoteComparison = () => {
     return list;
   }, [pendingProducts, approveSel, rejectSel]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ─────────────── legacy id lookup for finalize ─────────────── */
-  const legacyLookup = useMemo(() => {
-    // map: `${rfq_product_id}|${vendor_id}` -> { quotation, product }
-    const map = {};
-    const legacyProducts = legacy?.products || [];
-    legacyProducts.forEach((prod) => {
-      (prod.quotations || []).forEach((q) => {
-        const vid = getVendorId(q);
-        if (vid == null) return;
-        map[`${prod.id}|${vid}`] = { quotation: q, product: prod };
-      });
-    });
-    return map;
-  }, [legacy]);
-
   /* ─────────────── per-cell kebab + quote history ─────────────── */
   const openMenu = (e, pid, vid) => {
     e.stopPropagation();
@@ -631,50 +605,82 @@ const QuoteComparison = () => {
     setMenu(null);
   };
 
-  // REAL round history from the legacy negotiation payload (previous_quotes + current).
+  // REAL round history now ships precomputed on the cell (view contract).
   const historyRounds = useMemo(() => {
     if (!showHistory) return [];
-    const entry = legacyLookup[`${showHistory.product?.id}|${showHistory.vendor?.id}`];
-    return C.quoteHistoryFor(entry?.quotation, getQuoteDetails);
-  }, [showHistory, legacyLookup]);
+    const cell = showHistory.product?.quotes?.[showHistory.vendor?.id];
+    return Array.isArray(cell?.history) ? cell.history : [];
+  }, [showHistory]);
+
+  // Render one round-over-round change (any edited field, not just base price).
+  const fmtChangeVal = (c) => {
+    const money = (v) => (v == null ? "—" : `₹${fmt(v)}`);
+    const pct = (v) => (v == null ? "—" : `${v}%`);
+    const txt = (v) => (v == null || v === "" ? "—" : String(v));
+    const fmtV = c.kind === "pct" ? pct : c.kind === "money" ? money : txt;
+    if (c.added) return `added ${fmtV(c.to)}`;
+    if (c.removed) return `removed ${fmtV(c.from)}`;
+    return `${fmtV(c.from)} → ${fmtV(c.to)}`;
+  };
+  const changeToneClass = (c) =>
+    (c.kind === "money" || c.kind === "pct") && c.dir === "up"
+      ? styles.chgUp
+      : (c.kind === "money" || c.kind === "pct") && c.dir === "down"
+      ? styles.chgDown
+      : "";
+
+  /* ─────────────── approval drawer (audit trail) ─────────────── */
+  // "Awaiting approval from Vineet I" / "… from 3 persons" + a names tooltip.
+  const awaitingApprovalLabel = (p) => {
+    const cur = p?.approval?.current_approvers || [];
+    if (cur.length === 1) return `Awaiting approval from ${cur[0].name}`;
+    if (cur.length > 1) return `Awaiting approval from ${cur.length} persons`;
+    return "Awaiting approval";
+  };
+  const awaitingApprovalNames = (p) =>
+    (p?.approval?.current_approvers || []).map((a) => a.name).filter(Boolean).join(", ") || null;
+  // Toggle: clicking the SAME open cell/badge closes it; a DIFFERENT one swaps in
+  // its trail.
+  const openApprovalPanel = (p) => {
+    if (!p) return;
+    setApprovalPanel((cur) => (cur && String(cur.id) === String(p.id) ? null : p));
+  };
+  // Keep the open drawer's data fresh after a refetch (same product id).
+  useEffect(() => {
+    if (!approvalPanel) return;
+    const fresh = products.find((p) => String(p.id) === String(approvalPanel.id));
+    if (fresh && fresh !== approvalPanel) setApprovalPanel(fresh);
+  }, [products]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ─────────────── finalize ─────────────── */
+  // All finalize identifiers come from the view contract now (cell.finalize +
+  // product + rfq block) — no second API call.
   const buildFinalizePayload = (productId, vendorId) => {
-    const entry = legacyLookup[`${productId}|${vendorId}`];
-    if (!entry) return null;
-    const { quotation, product: proditem } = entry;
-    const details = getQuoteDetails(quotation) || {};
-    const specs = proditem.product_details?.[0]?.rfq_details || [];
-    const findSpec = (title) => specs.find((s) => s.title === title)?.value;
+    const product = productById(productId);
+    const cell = product?.quotes?.[vendorId];
+    const f = cell?.finalize;
+    if (!product || !f) return null;
 
     return {
-      rfq_id: proditem.rfq_id,
-      rfq_no: proditem.rfq?.[0]?.rfq_no,
-      product_variant_id: proditem.product_variant_id,
-      vendor_id: details.created_by ?? vendorId,
-      quote_id: quotation.quote_id,
-      quote_item_id: quotation.quote_item_id,
-      variant: proditem.variant,
+      rfq_id: rfqInfo.id,
+      rfq_no: rfqInfo.rfq_no,
+      product_variant_id: product.product_variant_id,
+      vendor_id: f.vendor_id,
+      quote_id: f.quote_id,
+      quote_item_id: f.quote_item_id,
+      variant: product.variant,
       route_type: "PO",
       comment: finalizeComment.trim(),
-      project_id: proditem.rfq?.[0]?.project_id,
-      total_value: details.total_price ?? quotation.total_price,
+      project_id: rfqInfo.project_id ?? null,
+      total_value: f.total_value,
       selected_hierarchy: null,
       product_info: {
-        rfq_product_id: proditem.id,
-        quantity: findSpec("Quantity") ?? -1,
-        unit: findSpec("Unit") ?? "N/A",
-        unit_price: details.unit_price,
-        charges_meta: {
-          freight_price: details.freight_price,
-          freight_mode: details.freight_mode,
-          package_price: details.package_price,
-          package_mode: details.package_mode,
-          tax: details.tax,
-          tax_mode: details.tax_mode,
-          other_charges: details.other_charges || [],
-        },
-        finalized_vendor_id: details.created_by ?? vendorId,
+        rfq_product_id: product.id,
+        quantity: product.qty,
+        unit: product.unit || "N/A",
+        unit_price: f.unit_price,
+        charges_meta: f.charges_meta,
+        finalized_vendor_id: f.vendor_id,
       },
     };
   };
@@ -792,9 +798,14 @@ const QuoteComparison = () => {
     const finVendor = String(p.finalized_vendor) === String(vid);
     const decisionActive = role === "approver" && (approveSel[p.id] || rejectSel[p.id]);
 
+    // The finalized vendor's cell (once it has an approval) opens the trail aside.
+    const opensTrail =
+      finVendor && (p.state === "pending" || p.state === "approved" || p.state === "rejected");
+
     const cls = [styles.priceCell];
     if (isL1(p, vid)) cls.push(styles.isL1);
     if (reselect) cls.push(styles.selectable);
+    if (opensTrail) cls.push(styles.cellTrailClickable);
     if (sel) cls.push(styles.isSelected);
     if (finVendor && p.state === "pending" && !decisionActive) cls.push(styles.cellFinalized);
     if (finVendor && p.state === "approved") cls.push(styles.cellApproved);
@@ -811,7 +822,11 @@ const QuoteComparison = () => {
         <div
           className={cls.join(" ")}
           onClick={() => {
-            if (reselect && !(p.state === "rejected" && finVendor)) selectCell(p, vid);
+            if (reselect && !(p.state === "rejected" && finVendor)) {
+              selectCell(p, vid);
+              return;
+            }
+            if (opensTrail) openApprovalPanel(p);
           }}
         >
           <button
@@ -966,14 +981,29 @@ const QuoteComparison = () => {
             </div>
           )}
 
-          {/* state tags */}
+          {/* state tags — clickable to open the approval audit-trail drawer */}
           {finVendor && p.state === "pending" && role === "buyer" && (
-            <span className={`${styles.cellStateTag} ${styles.finalized}`}>⏳ Awaiting approval</span>
+            <button
+              className={`${styles.cellStateTag} ${styles.finalized} ${styles.clickableTag}`}
+              title={awaitingApprovalNames(p) || undefined}
+              onClick={(e) => {
+                e.stopPropagation();
+                openApprovalPanel(p);
+              }}
+            >
+              <Clock size={10} /> {awaitingApprovalLabel(p)} <ChevronRight size={10} />
+            </button>
           )}
           {finVendor && p.state === "approved" && (
-            <span className={`${styles.cellStateTag} ${styles.approved}`}>
-              <Check size={10} /> Approved
-            </span>
+            <button
+              className={`${styles.cellStateTag} ${styles.approved} ${styles.clickableTag}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                openApprovalPanel(p);
+              }}
+            >
+              <Check size={10} /> Approved <ChevronRight size={10} />
+            </button>
           )}
 
           {/* APPROVER: dual buttons on pending finalized cell — only when it's this user's turn */}
@@ -1165,22 +1195,28 @@ const QuoteComparison = () => {
                   </div>
                 )}
                 {p.state !== "open" && (
-                  <span
-                    className={`${styles.itemState} ${styles[p.state]} ${
+                  <button
+                    className={`${styles.itemState} ${styles[p.state]} ${styles.clickableTag} ${
                       p.state === "rejected" && p.reject_info ? styles.hasTip : ""
                     }`}
+                    title={p.state === "pending" ? awaitingApprovalNames(p) || undefined : undefined}
                     onMouseEnter={(e) => p.state === "rejected" && p.reject_info && showTip(e, p)}
                     onMouseLeave={hideTip}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openApprovalPanel(p);
+                    }}
                   >
                     {p.state === "approved" && <span>✓ Approved</span>}
-                    {p.state === "pending" && <span>⏳ Awaiting approval</span>}
+                    {p.state === "pending" && <span>⏳ {awaitingApprovalLabel(p)}</span>}
                     {p.state === "rejected" && (
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                         ✕ Rejected — action needed
                         <Info size={11} style={{ opacity: 0.7 }} />
                       </span>
                     )}
-                  </span>
+                    <ChevronRight size={11} style={{ opacity: 0.7 }} />
+                  </button>
                 )}
               </div>
               <div className={styles.qtyBlock}>
@@ -2240,6 +2276,122 @@ const QuoteComparison = () => {
       </Portal>
     );
 
+  /* ─────────────── approval audit-trail drawer (right side) ─────────────── */
+  const renderApprovalDrawer = () => {
+    if (!approvalPanel) return null;
+    const p = approvalPanel;
+    const trail = p.approval?.trail || [];
+    // Progress counts the real approval nodes only (not the terminal "forwarded" node).
+    const realNodes = trail.filter((n) => n.kind !== "terminal");
+    const doneCount = realNodes.filter((n) => n.status === "done").length;
+    const finVendorObj = vendorById(p.finalized_vendor);
+    const statusLabel = {
+      done: "DONE",
+      rejected: "REJECTED",
+      current: "AWAITING",
+      pending: "PENDING",
+    };
+    const nodeStatusLabel = (node) =>
+      node.kind === "terminal"
+        ? node.status === "done"
+          ? "COMPLETE"
+          : "NEXT"
+        : statusLabel[node.status];
+    return (
+      <Portal>
+        <aside className={styles.apDrawer} role="dialog" aria-label="Approval audit trail">
+          <div className={styles.apHead}>
+            <div className={styles.apHeadT}>
+              <div className={`${styles.modalHeadIc} ${styles.modalHeadIcInfo}`}>
+                <GitBranch size={15} />
+              </div>
+              <div>
+                <h3>Approval trail</h3>
+                <div className={styles.sub}>
+                  <strong style={{ color: "var(--fg)" }}>{p.name}</strong>
+                  {finVendorObj && <> · awarded to {finVendorObj.name}</>}
+                </div>
+              </div>
+            </div>
+            <button className={styles.iconBtn} onClick={() => setApprovalPanel(null)} aria-label="Close">
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className={styles.apBody}>
+            <div className={styles.apProgress}>
+              <span className={styles.apProgressLbl}>Audit trail</span>
+              <span className={styles.apProgressVal}>
+                {doneCount} of {realNodes.length} done
+              </span>
+            </div>
+
+            {trail.length === 0 ? (
+              <div className={styles.apEmpty}>No approval activity yet for this item.</div>
+            ) : (
+              <ol className={styles.apTrail}>
+                {trail.map((node, i) => (
+                  <li
+                    className={`${styles.apNode} ${styles[`ap_${node.status}`]} ${
+                      node.kind === "terminal" ? styles.apTerminal : ""
+                    } ${i === trail.length - 1 ? styles.apLast : ""}`}
+                    key={node.key || i}
+                  >
+                    <span className={styles.apDot}>
+                      {node.kind === "terminal" ? (
+                        node.status === "done" ? <Check size={13} /> : <ArrowRight size={13} />
+                      ) : (
+                        <>
+                          {node.status === "done" && <Check size={13} />}
+                          {node.status === "rejected" && <X size={13} />}
+                          {node.status === "current" && <Clock size={13} />}
+                          {node.status === "pending" && <span className={styles.apDotEmpty} />}
+                        </>
+                      )}
+                    </span>
+                    <div className={styles.apNodeBody}>
+                      <div className={styles.apNodeTop}>
+                        <span className={styles.apTitle}>{node.title}</span>
+                        <span className={`${styles.apStatus} ${styles[`aps_${node.status}`]}`}>
+                          {nodeStatusLabel(node)}
+                        </span>
+                      </div>
+                      {node.by && (
+                        <div className={styles.apWho}>
+                          <span className={styles.apAvatar}>{node.initials || "?"}</span>
+                          <span className={styles.apWhoName}>{node.by}</span>
+                          {node.role && <span className={styles.apWhoRole}>· {node.role}</span>}
+                        </div>
+                      )}
+                      {/* multi-approver step: list the rest */}
+                      {Array.isArray(node.approvers) && node.approvers.length > 1 && (
+                        <div className={styles.apApprovers}>
+                          {node.approvers.map((a, ai) => (
+                            <span className={styles.apApprover} key={ai} title={a.role || undefined}>
+                              {a.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {node.when && <div className={styles.apWhen}>{fmtDateTime(node.when)}</div>}
+                      {node.note && <div className={styles.apNote}>{node.note}</div>}
+                      {node.status === "current" && (
+                        <div className={styles.apCurrentNote}>Currently with this approver.</div>
+                      )}
+                      {node.reason && (
+                        <div className={styles.apReason}>Reason: “{node.reason}”</div>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </aside>
+      </Portal>
+    );
+  };
+
   /* ─────────────── sort dropdown (portaled above topbar) ─────────────── */
   const renderSortMenu = () =>
     sortOpen &&
@@ -2313,10 +2465,32 @@ const QuoteComparison = () => {
                         <span className={styles.qhPrice}>
                           ₹{fmt(r.price)} / {showHistory.product?.unit}
                         </span>
-                        {r.delta != null && <span className={styles.qhDelta}>↓ ₹{fmt(r.delta)}</span>}
+                        {r.delta != null && r.delta !== 0 && (
+                          <span
+                            className={`${styles.qhDelta} ${r.delta > 0 ? styles.qhDown : styles.qhUp}`}
+                          >
+                            {r.delta > 0 ? "↓" : "↑"} ₹{fmt(Math.abs(r.delta))}
+                          </span>
+                        )}
                       </div>
                       {r.date && <div className={styles.qhDate}>{fmtDateTime(r.date)}</div>}
                       {r.note && <div className={styles.qhNote}>{r.note}</div>}
+                      {Array.isArray(r.changes) && r.changes.length > 0 && (
+                        <div className={styles.qhChanges}>
+                          <div className={styles.qhChangesLbl}>Changed this round</div>
+                          {r.changes.map((c, ci) => (
+                            <div className={styles.qhChange} key={ci}>
+                              <span className={styles.qhChangeLabel}>{c.label}</span>
+                              <span className={`${styles.qhChangeVal} ${changeToneClass(c)}`}>
+                                {fmtChangeVal(c)}
+                                {(c.kind === "money" || c.kind === "pct") && c.dir && !c.added && !c.removed && (
+                                  <span className={styles.qhArrow}>{c.dir === "up" ? "↑" : "↓"}</span>
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -2493,6 +2667,7 @@ const QuoteComparison = () => {
         {renderSortMenu()}
         {renderHistoryModal()}
         {renderSwitchRfqModal()}
+        {renderApprovalDrawer()}
 
         {tip && (
           <Portal>

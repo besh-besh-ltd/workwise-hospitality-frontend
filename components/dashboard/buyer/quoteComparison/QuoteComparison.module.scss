@@ -723,9 +723,75 @@
 .qhRound.isFinal .qhCard { background: var(--success-tint); border-color: rgba(21,128,61,0.20); }
 .qhTop { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .qhPrice { font-family: 'Geist Mono', monospace; font-size: 16px; font-weight: 700; color: var(--fg); letter-spacing: -0.015em; }
-.qhDelta { font-family: 'Geist Mono', monospace; font-size: 12px; font-weight: 600; color: var(--success); }
+.qhDelta { font-family: 'Geist Mono', monospace; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+.qhDelta.qhDown { color: var(--success); }
+.qhDelta.qhUp { color: var(--danger); }
 .qhDate { margin-top: 4px; font-size: 11.5px; color: var(--fg-4); font-family: 'Geist Mono', monospace; }
 .qhNote { margin-top: 6px; font-size: 12.5px; color: var(--fg-2); line-height: 1.5; }
+/* per-round "what changed" breakdown */
+.qhChanges { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-strong); display: flex; flex-direction: column; gap: 5px; }
+.qhChangesLbl { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--fg-4); margin-bottom: 1px; }
+.qhChange { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12px; }
+.qhChangeLabel { color: var(--fg-3); font-weight: 500; }
+.qhChangeVal { font-family: 'Geist Mono', monospace; font-weight: 600; color: var(--fg-2); display: inline-flex; align-items: center; gap: 4px; text-align: right; }
+.qhChangeVal.chgUp { color: var(--danger); }
+.qhChangeVal.chgDown { color: var(--success); }
+.qhArrow { font-weight: 700; }
+
+/* ═══════════════════════════════════════════════════════════
+   Approval audit-trail drawer (right side)
+   ═══════════════════════════════════════════════════════════ */
+/* floating card-style aside (not a full-height drawer) */
+.apDrawer { @include qc-tokens; position: fixed; top: 72px; right: 20px; width: 400px; max-width: 92vw; max-height: calc(100vh - 96px); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 16px; box-shadow: 0 24px 60px -20px rgba(15,15,14,0.32), 0 8px 22px -14px rgba(15,15,14,0.18); z-index: 2001; display: flex; flex-direction: column; overflow: hidden; animation: apSlideIn 0.18s ease; }
+@keyframes apSlideIn { from { transform: translateY(-8px) translateX(8px); opacity: 0; } to { transform: translateY(0) translateX(0); opacity: 1; } }
+.apHead { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+.apHeadT { display: flex; gap: 11px; min-width: 0; }
+.apHead h3 { font-size: 15px; font-weight: 600; letter-spacing: -0.015em; color: var(--fg); margin: 0; }
+.apHead .sub { margin-top: 2px; font-size: 12px; color: var(--fg-3); }
+.apBody { flex: 1; overflow-y: auto; padding: 18px; }
+.apProgress { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.apProgressLbl { font-size: 14px; font-weight: 700; color: var(--fg); }
+.apProgressVal { font-size: 12.5px; color: var(--fg-3); font-family: 'Geist Mono', monospace; }
+.apEmpty { padding: 28px 16px; text-align: center; font-size: 13px; color: var(--fg-3); background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: 10px; }
+.apTrail { list-style: none; margin: 0; padding: 0; position: relative; }
+.apNode { position: relative; display: flex; gap: 14px; padding-bottom: 20px; }
+.apNode::before { content: ''; position: absolute; left: 15px; top: 32px; bottom: -2px; width: 2px; background: var(--border-strong); }
+.apNode.apLast::before { display: none; }
+.apDot { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; z-index: 2; display: grid; place-items: center; color: white; }
+.ap_done .apDot { background: var(--success); }
+.ap_rejected .apDot { background: var(--danger); }
+.ap_current .apDot { background: var(--warn); }
+.ap_pending .apDot { background: var(--surface-3); border: 1px solid var(--border-strong); }
+.apDotEmpty { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-4); }
+.apNodeBody { flex: 1; min-width: 0; padding-top: 3px; }
+.apNodeTop { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.apTitle { font-size: 14px; font-weight: 700; color: var(--fg); }
+.apStatus { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; flex-shrink: 0; }
+.aps_done { color: var(--success); }
+.aps_rejected { color: var(--danger); }
+.aps_current { color: var(--warn); }
+.aps_pending { color: var(--fg-4); }
+.apWho { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+.apAvatar { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-size: 10px; font-weight: 700; background: var(--indigo-soft); color: var(--indigo); font-family: 'Geist Mono', monospace; }
+.apWhoName { font-size: 13px; color: var(--fg-2); font-weight: 500; }
+.apWhoRole { font-size: 11.5px; color: var(--fg-4); }
+.apApprovers { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+.apApprover { font-size: 11px; font-weight: 600; color: var(--fg-3); background: var(--surface-3); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; }
+.apWhen { margin-top: 6px; font-size: 11.5px; color: var(--fg-4); font-family: 'Geist Mono', monospace; }
+.apCurrentNote { margin-top: 6px; font-size: 12px; color: var(--warn); font-weight: 500; }
+.apReason { margin-top: 8px; font-size: 12.5px; color: var(--danger); background: var(--danger-soft); border: 1px solid rgba(185,28,28,0.18); border-radius: 8px; padding: 7px 10px; line-height: 1.45; }
+.apNote { margin-top: 4px; font-size: 12.5px; color: var(--fg-3); line-height: 1.45; }
+/* terminal "forwarded / complete" node — softer dot, dashed connector */
+.apTerminal .apDot { background: var(--surface-3); color: var(--fg-3); border: 1px dashed var(--border-strong); }
+.apTerminal.ap_done .apDot { background: var(--success-soft); color: var(--success); border: 1px solid rgba(21,128,61,0.30); }
+.apTerminal .apTitle { font-weight: 600; color: var(--fg-2); }
+.apNode.apTerminal::before { background: repeating-linear-gradient(to bottom, var(--border-strong) 0 4px, transparent 4px 8px); }
+
+/* clickable state-tag badges (open the approval drawer) */
+.clickableTag { cursor: pointer; border: none; font-family: inherit; }
+.clickableTag:hover { filter: brightness(0.97); text-decoration: none; }
+/* whole finalized cell opens the approval trail aside */
+.cellTrailClickable { cursor: pointer; }
 
 /* ═══════════════════════════════════════════════════════════
    Switch-RFQ — band button + modal list
