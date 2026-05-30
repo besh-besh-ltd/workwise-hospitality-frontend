@@ -687,7 +687,7 @@ const handleCloseNormalizeModal = () => {
  
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
-    getRfqs({ tech_eval: false, quote_compare: true, page, limit, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote", hotel_id: selectedHotelIds && selectedHotelIds.length > 0 ? selectedHotelIds[0] : null })
+    getRfqs({ tech_eval: false, quote_compare: true, page, limit, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC", is_tender: isTenderFilter !== null ? (isTenderFilter === '1' || isTenderFilter === 1) : null, module_keys: "negotiation,negotiation_quote,po", hotel_id: selectedHotelIds && selectedHotelIds.length > 0 ? selectedHotelIds[0] : null })
       .then((res) => {
         setloading(false);
         const newData = Array.isArray(res) ? res : [];
@@ -1900,6 +1900,12 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       }}
       getItemTags={(item) => {
         if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
+        // PO cycle — pending approval supersedes a prior rejection
+        if (item.has_pending_po_approval) {
+          return item.approval_required
+            ? [{ label: 'Action Required', variant: 'warning' }]
+            : [{ label: 'In Approval', variant: 'info' }];
+        }
         if (item.has_po_rejection) return [{ label: 'PO Rejected', variant: 'danger' }];
         // Cycle b (finalization) — above cycle a, except 'Rejected' which sits below cycle a
         if (item.finalization_approval_completed) return [{ label: 'Finalized', variant: 'success' }];
