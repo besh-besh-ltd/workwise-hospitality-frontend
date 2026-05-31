@@ -1,39 +1,19 @@
-import React, { useState, useEffect } from "react";
-import dynamic from "next/dynamic";
+import React, { useState } from "react";
 import { Badge } from "react-bootstrap";
 import { BsArrowLeft, BsChatLeftText } from "react-icons/bs";
-import { FiX } from "react-icons/fi";
 import {
   formatDisplayDate,
   formatRFQNumber,
   getEntityLabel,
 } from "@/utils/sharedFunctions";
+import RfqTermsModal from "@/components/modal/RfqTermsModal";
 import styles from "./QuoteCompareRevamp.module.scss";
-
-const WysiwygEditor = dynamic(
-  () => import("@/components/wysiwyg-editor/wysiwygeditor"),
-  { ssr: false }
-);
 
 const hasVisibleText = (html) =>
   typeof html === "string" && html.replace(/<[^>]*>/g, "").trim() !== "";
 
 const QuoteCompareHeaderCard = ({ currentRFQ, actions, onBack }) => {
   const [showTncModal, setShowTncModal] = useState(false);
-
-  useEffect(() => {
-    if (!showTncModal) return;
-    const handleKey = (e) => {
-      if (e.key === "Escape") setShowTncModal(false);
-    };
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [showTncModal]);
 
   if (!currentRFQ) return null;
 
@@ -111,43 +91,11 @@ const QuoteCompareHeaderCard = ({ currentRFQ, actions, onBack }) => {
         <span className={styles.metaValue}>{currentRFQ?.location || "-"}</span>
       </div>
 
-      {showTncModal && (
-        <div
-          className={styles.tncOverlay}
-          onClick={() => setShowTncModal(false)}
-          role="presentation"
-        >
-          <div
-            className={styles.tncDialog}
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="tnc-modal-title"
-          >
-            <div className={styles.tncHeader}>
-              <h3 id="tnc-modal-title" className={styles.tncTitle}>
-                Terms &amp; Conditions
-              </h3>
-              <button
-                type="button"
-                className={styles.tncClose}
-                aria-label="Close"
-                onClick={() => setShowTncModal(false)}
-              >
-                <FiX size={18} />
-              </button>
-            </div>
-            <div className={styles.tncBody}>
-              <WysiwygEditor
-                value={currentRFQ?.comment || ""}
-                readOnly
-                showToolbar={false}
-                minHeight="auto"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <RfqTermsModal
+        open={showTncModal}
+        onClose={() => setShowTncModal(false)}
+        rfq={currentRFQ}
+      />
     </div>
   );
 };

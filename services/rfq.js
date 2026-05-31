@@ -17,6 +17,19 @@ export const getTerms = (values) => {
   });
 };
 
+export const downloadRfqTermsPdf = (rfqId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const blob = await axiosInstance.get(`/rfq/terms-pdf?rfq_id=${rfqId}`, {
+        responseType: "blob",
+      });
+      resolve(blob);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const handleUploadFile = (file, token=null) => {
   let payload = {};
   payload.file = file;

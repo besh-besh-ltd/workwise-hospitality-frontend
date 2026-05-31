@@ -46,6 +46,107 @@ const baseMetricRows = [
   { key: "gst", label: "Tax (GST)" },
 ];
 
+// Map matrix row keys → negotiation field slugs in
+// tbl_negotiation_rounds.vendor_approvals[].negotiation_fields[].name.
+// Used to overlay an "approved target" badge on a vendor's cell when an
+// ACTIVE negotiation round is running on that field. Charge-detail rows
+// (otherCharge__<name>, globalCharge__<name>) match dynamically by chargeName.
+const FIELD_SLUG_FOR_ROW_KEY = {
+  basePrice: "base_price",
+  delivery: "delivery_period",
+  payment: "payment_terms",
+  terms: "vendor_tc",
+  comment: "comment",
+  documents: "documents",
+};
+
+// Return the vendor's approved negotiation target for a given matrix row,
+// or null when the round isn't ACTIVE, the vendor has no targets in the
+// round, or the row isn't a negotiable field.
+const getActiveRoundTargetForCell = (activeRound, vendorId, rowKey, rowMeta) => {
+  if (!activeRound || activeRound.status !== "ACTIVE") return null;
+  if (vendorId == null) return null;
+
+  const va = (activeRound.vendor_approvals || []).find(
+    (v) => String(v?.vendor_id) === String(vendorId)
+  );
+  if (!va || !Array.isArray(va.negotiation_fields)) return null;
+
+  // Skip system entries that don't represent a target field (e.g. trailing
+  // `_mode` markers stored alongside the actual value).
+  const usable = va.negotiation_fields.filter(
+    (f) => f && f.name && !/_mode$/.test(f.name) && f.target !== "" && f.target != null
+  );
+  if (usable.length === 0) return null;
+
+  let match = null;
+  if (FIELD_SLUG_FOR_ROW_KEY[rowKey]) {
+    match = usable.find((f) => f.name === FIELD_SLUG_FOR_ROW_KEY[rowKey]);
+  } else if (rowMeta?.type === "otherCharge" || rowMeta?.type === "globalCharge") {
+    const target = String(rowMeta.chargeName || "").toLowerCase();
+    match = usable.find((f) => String(f.name || "").toLowerCase() === target);
+  }
+  if (!match) return null;
+
+  // Mode lives on the field object itself (`mode: 'percentage' | 'absolute'`),
+  // written by the negotiation creation flow alongside the value. Legacy rows
+  // may also carry a sibling `<slug>_mode` entry — read it as a fallback.
+  const fallbackModeEntry = va.negotiation_fields.find(
+    (f) => f?.name === `${match.name}_mode`
+  );
+  return {
+    value: match.target,
+    mode: match.mode || fallbackModeEntry?.target || null,
+    slug: match.name,
+  };
+};
+
+const TargetBadge = ({ target, rowKey }) => {
+  if (!target || target.value === "" || target.value == null) return null;
+
+  const isNumeric = !Number.isNaN(Number(target.value));
+  // Negotiation mode values from BE: 'percentage' | 'absolute' (NegotiationModal
+  // remaps the UI's 'amount' to 'absolute' before posting). Accept both spellings
+  // so legacy rounds still render correctly.
+  const isAbsoluteMode = target.mode === "absolute" || target.mode === "amount";
+  const isPercentMode = target.mode === "percentage";
+  let display;
+  if (rowKey === "basePrice" && isNumeric) {
+    display = `Rs. ${addCommasToNumber(Number(target.value))}`;
+  } else if (rowKey === "delivery" && isNumeric) {
+    display = `${Number(target.value)} day(s)`;
+  } else if (isPercentMode && isNumeric) {
+    display = `${Number(target.value)}%`;
+  } else if (isAbsoluteMode && isNumeric) {
+    display = `Rs. ${addCommasToNumber(Number(target.value))}`;
+  } else {
+    display = String(target.value);
+  }
+
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        marginTop: 4,
+        padding: "2px 8px",
+        fontSize: 10.5,
+        fontWeight: 600,
+        color: "#854D0E",
+        background: "#FEF3C7",
+        border: "1px solid #FDE68A",
+        borderRadius: 999,
+        lineHeight: 1.3,
+      }}
+      title="Approved negotiation target for this vendor on this field"
+    >
+      <span aria-hidden="true">◎</span>
+      Target: {display}
+    </div>
+  );
+};
+
 const afterTotalMetricRows = [
   { key: "delivery", label: "Delivery" },
   { key: "comment", label: "Comment" },
@@ -970,14 +1071,24 @@ const ProductComparisonMatrix = ({
                     >
                       {row.label}
                     </th>
-                    {model.columns.map((column) => (
-                      <td
-                        className={getCellClassName(column, row.key)}
-                        key={`${proditem?.id}_${row.key}_${column.vendorId}_${column.quote?.quote_id || "x"}`}
-                      >
-                        {getCellContent(column, row.key, row)}
-                      </td>
-                    ))}
+                    {model.columns.map((column) => {
+                      const target = column.isRegret
+                        ? null
+                        : getActiveRoundTargetForCell(activeRound, column.vendorId, row.key, row);
+                      return (
+                        <td
+                          className={getCellClassName(column, row.key)}
+                          key={`${proditem?.id}_${row.key}_${column.vendorId}_${column.quote?.quote_id || "x"}`}
+                        >
+                          {getCellContent(column, row.key, row)}
+                          {target && (
+                            <div style={{ marginTop: 4 }}>
+                              <TargetBadge target={target} rowKey={row.key} />
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
 

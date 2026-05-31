@@ -143,6 +143,7 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
     project_id,
     project_details,
     product_details,
+    vendor_global_comment,
     is_approver,
     approval_status,
     approval_history = [],
@@ -805,6 +806,24 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
                             )}
                           </div>
                         )}
+                        {prod.vendor_comment && String(prod.vendor_comment).trim() && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "#54616e",
+                              marginTop: 8,
+                              padding: "8px 10px",
+                              background: "#f8f9fa",
+                              borderLeft: "2px solid #cdd3da",
+                              borderRadius: 4,
+                            }}
+                          >
+                            <span style={{ color: "#8a96a3", fontWeight: 600, marginRight: 6 }}>
+                              Vendor note:
+                            </span>
+                            {String(prod.vendor_comment).trim()}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -885,6 +904,24 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
                   </div>
                 );
               })()}
+              {vendor_global_comment && String(vendor_global_comment).trim() && (
+                <div
+                  style={{
+                    marginTop: 16,
+                    padding: "12px 14px",
+                    background: "#f8f9fa",
+                    border: "1px solid #eef0f3",
+                    borderRadius: 6,
+                  }}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#8a96a3", marginBottom: 4, letterSpacing: 0.3, textTransform: "uppercase" }}>
+                    Vendor overall comment
+                  </div>
+                  <div style={{ fontSize: 13, color: "#1a2730", whiteSpace: "pre-wrap" }}>
+                    {String(vendor_global_comment).trim()}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
