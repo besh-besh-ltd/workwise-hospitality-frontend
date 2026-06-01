@@ -730,6 +730,25 @@ const ProductComparisonMatrix = ({
           const mode = charge.tax_mode ?? charge.amount_mode ?? "percentage";
           const taxDisplay = mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
           const commentText = charge.comment ? ` (${charge.comment})` : "";
+          // Additional tax on the charge itself (e.g. 10% tax on TCS).
+          // Resolve to ₹ using this product's engine share so the buyer sees
+          // the same amount the vendor's send-quote page shows.
+          const extraTaxRate = Number(charge.additional_tax ?? 0);
+          const extraTaxMode = charge.additional_tax_mode ?? "percentage";
+          let extraTaxDisplay = null;
+          if (extraTaxRate > 0) {
+            const engineGlobalsForTax = details.engine_global_charges || column.quote?.engine_global_charges || [];
+            const resolvedForTax = engineGlobalsForTax.find((c) =>
+              (c.slug && charge.slug && c.slug === charge.slug) || c.name === charge.name
+            );
+            const shareForTax = Number(resolvedForTax?.amount || 0);
+            const extraTaxAmt = extraTaxMode === "percentage"
+              ? (shareForTax * extraTaxRate) / 100
+              : extraTaxRate;
+            if (extraTaxAmt > 0) {
+              extraTaxDisplay = ` + ${formatCurrency(extraTaxAmt)} tax`;
+            }
+          }
           // Absolute (rupee) global charges are entered ONCE for the vendor's
           // whole quote and the backend distributes them proportionally across
           // the products in that quote (each product carries its weighted
@@ -765,6 +784,7 @@ const ProductComparisonMatrix = ({
           return (
             <span className={styles.value}>
               {taxDisplay}
+              {extraTaxDisplay && <small className="text-muted">{extraTaxDisplay}</small>}
               {commentText && <small className="text-muted">{commentText}</small>}
               {distributionInfo}
             </span>

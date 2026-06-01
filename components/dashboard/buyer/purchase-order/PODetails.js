@@ -425,11 +425,15 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
         const mode = gc.amount_mode ?? gc.tax_mode ?? "percentage";
         if (!(value > 0)) return null;
         const comment = typeof gc.comment === "string" ? gc.comment.trim() : "";
+        const additionalTax = Number(gc.additional_tax) || 0;
+        const additionalTaxMode = gc.additional_tax_mode ?? "percentage";
         return {
           name: gc.name || gc.slug || "Global Charge",
           value,
           mode,
           comment: comment || null,
+          additionalTax,
+          additionalTaxMode,
         };
       })
       .filter(Boolean);
@@ -449,7 +453,10 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
     const applied = gc.mode === "percentage"
       ? (productLineSubtotalSum * gc.value) / 100
       : gc.value;
-    return sum + applied;
+    const taxOnApplied = gc.additionalTax > 0
+      ? (gc.additionalTaxMode === "percentage" ? (applied * gc.additionalTax) / 100 : gc.additionalTax)
+      : 0;
+    return sum + applied + taxOnApplied;
   }, 0);
   const displayedTotalValue = globalChargesNormalized.length > 0
     ? Math.round((productLineSubtotalSum + totalGlobalChargesAcrossAllLines) * 100) / 100
@@ -841,15 +848,21 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
                   const computed = gc.mode === "percentage"
                     ? (subtotal * gc.value) / 100
                     : gc.value;
+                  const taxOnComputed = gc.additionalTax > 0
+                    ? (gc.additionalTaxMode === "percentage" ? (computed * gc.additionalTax) / 100 : gc.additionalTax)
+                    : 0;
                   return {
                     name: gc.name,
                     rate: gc.value,
                     mode: gc.mode,
                     comment: gc.comment || null,
                     computed: Math.round(computed * 100) / 100,
+                    tax: Math.round(taxOnComputed * 100) / 100,
+                    taxRate: gc.additionalTax,
+                    taxMode: gc.additionalTaxMode,
                   };
                 });
-                const globalsTotal = resolvedGlobals.reduce((s, gc) => s + gc.computed, 0);
+                const globalsTotal = resolvedGlobals.reduce((s, gc) => s + gc.computed + gc.tax, 0);
                 const grandTotal = Math.round((subtotal + globalsTotal) * 100) / 100;
                 const itemLabel = product_details.length === 1 ? "1 item" : `${product_details.length} items`;
                 return (
@@ -885,6 +898,11 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
                         </span>
                         <span style={{ color: "#1a2730", fontWeight: 500 }}>
                           ₹{addCommasToNumber(gc.computed)}
+                          {gc.tax > 0 && (
+                            <span style={{ color: "#8a96a3", fontWeight: 400, marginLeft: 4 }}>
+                              + ₹{addCommasToNumber(gc.tax)} (tax)
+                            </span>
+                          )}
                         </span>
                       </div>
                     ))}
