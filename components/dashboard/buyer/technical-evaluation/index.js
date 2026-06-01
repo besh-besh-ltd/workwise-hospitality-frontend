@@ -1,12 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import AsyncSelect from "react-select/async";
-
-const WysiwygEditor = dynamic(
-  () => import("@/components/wysiwyg-editor/wysiwygeditor"),
-  { ssr: false }
-);
 import { useRouter } from "next/router";
 import { getRfqs, fetchVendorSelectionOption, getAllClauses, getRFQById, submitTechEvalForApproval } from "@/services/rfq";
 import { getUserDetails as getAuthUser } from "@/services/Auth";
@@ -20,6 +14,7 @@ import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import { Badge, Modal, Form } from "react-bootstrap";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import RfqTermsModal from "@/components/modal/RfqTermsModal";
 import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
@@ -75,6 +70,7 @@ const BuyerTechnicalEvaluation = () => {
   const [productEvaluationStatus, setProductEvaluationStatus] = useState(new Map());
   const [showUnifiedSubmitModal, setShowUnifiedSubmitModal] = useState(false);
   const [unifiedSubmitLoading, setUnifiedSubmitLoading] = useState(false);
+  const [showTncModal, setShowTncModal] = useState(false);
   const [rfqCompletionMap, setRfqCompletionMap] = useState(new Map());
   const [expandedProducts, setExpandedProducts] = useState(new Set());
   const [techEvalDashboard, setTechEvalDashboard] = useState(null);
@@ -788,15 +784,27 @@ const BuyerTechnicalEvaluation = () => {
                           <BsChatLeftText size={14} />
                         </div>
                         <div className={styles.rfqCommentContent}>
-                          <span className={styles.rfqMetaLabel}>Comment</span>
-                          <div className={styles.rfqCommentBody}>
-                            <WysiwygEditor
-                              value={currentRfq.comment}
-                              readOnly
-                              showToolbar={false}
-                              minHeight="auto"
-                            />
-                          </div>
+                          <span className={styles.rfqMetaLabel}>Terms &amp; Conditions</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowTncModal(true)}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              padding: 0,
+                              marginTop: 2,
+                              border: "none",
+                              background: "transparent",
+                              color: "#2E5BA8",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            <BsChatLeftText size={12} />
+                            View
+                          </button>
                         </div>
                       </div>
                     )}
@@ -1060,6 +1068,11 @@ const BuyerTechnicalEvaluation = () => {
         </div>
       </section>
       <Tooltip id="spec-tooltip" place="top" style={{ maxWidth: 320, fontSize: 12, borderRadius: 8, zIndex: 9999, wordBreak: 'break-word' }} />
+      <RfqTermsModal
+        open={showTncModal}
+        onClose={() => setShowTncModal(false)}
+        rfq={currentRfq}
+      />
     </>
   );
 };
