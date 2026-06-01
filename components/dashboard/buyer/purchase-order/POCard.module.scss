@@ -32,7 +32,7 @@ $urgency-critical: #dc3545;
   color: #495057;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  min-width: 860px;
+  min-width: 950px;
 
   .colStatus,
   .colPoNumber {
@@ -69,7 +69,7 @@ $urgency-critical: #dc3545;
   gap: 8px;
   cursor: pointer;
   transition: background 0.15s ease;
-  min-width: 860px;
+  min-width: 950px;
 
   &:hover {
     background: #f8f9fa;
@@ -118,7 +118,39 @@ $urgency-critical: #dc3545;
 // ========================================
 // COLUMN WIDTHS
 // ========================================
-.colStatus { width: 90px; flex-shrink: 0; }
+.colSelect {
+  width: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  input[type="checkbox"] {
+    width: 16px; height: 16px; cursor: pointer; accent-color: #1a56db; margin: 0;
+    &:disabled { cursor: not-allowed; opacity: 0.45; }
+  }
+}
+.colStatus {
+  width: 130px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+}
+
+// "Pending at: <name>" caption shown under the status badge on rows whose
+// PO is currently awaiting approval. Tight typography so it doesn't add row
+// height when present and stays invisible when absent.
+.pendingAtCaption {
+  font-size: 0.65rem;
+  line-height: 1.2;
+  color: #6c757d;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: help;
+}
+.pendingAtLabel {
+  color: #94a3b8;
+  font-weight: 500;
+}
+.pendingAtName {
+  color: #475569;
+  font-weight: 600;
+}
 .colPoNumber { width: 85px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
 .poNum { font-weight: 700; font-size: 0.8rem; color: #212529; }
 .projectName { font-size: 0.6rem; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; max-width: 80px; }

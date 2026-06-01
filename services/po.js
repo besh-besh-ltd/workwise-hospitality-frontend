@@ -26,6 +26,14 @@ export const handlePOInitialization = async (po_id) => {
   return res;
 };
 
+// Merge N draft POs of the same vendor on the same RFQ into one.
+// `po_ids` is the full set (including keep_po_id); backend rejects mixed
+// vendors / statuses / RFQs / tenants.
+export const mergeDraftPOs = async ({ keep_po_id, po_ids }) => {
+  const res = await axiosInstance.post(`/po/merge-drafts`, { keep_po_id, po_ids });
+  return res;
+};
+
 export const handleCreateMilestone = async (payload) => {
   const res = await axiosInstance.post('/po/milestones', payload);
   return res;
