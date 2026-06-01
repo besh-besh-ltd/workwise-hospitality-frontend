@@ -74,6 +74,9 @@ const Header = () => {
       pathname?.startsWith("/modules") ||
       pathname?.startsWith("/work-with-us") ||
       pathname?.startsWith("/blogs") ||
+      pathname?.startsWith("/for-vendors") ||
+      pathname?.startsWith("/contactus") ||
+      pathname?.startsWith("/aboutus") ||
       (pathname?.startsWith("/vendor") && !(loggedinUser && loggedinUser?.name)) ||
       pathname === "/";
   }, [pathname, loggedinUser, mainNavs, isDashboardPage]);
@@ -347,6 +350,9 @@ const Header = () => {
           {/* ── Public CTAs ── */}
           {isPublicPage && (
             <div className={`${styles.ctaGroup} ${styles.hideMobile}`}>
+              <Link href="/for-vendors" className={styles.btnOutlineCta}>
+                For Suppliers
+              </Link>
               <button
                 type="button"
                 className={styles.btnFilledCta}

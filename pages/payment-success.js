@@ -118,8 +118,8 @@ const PaymentSuccessPage = () => {
                         storageInstance.setStorage("current-user-type", "vendor");
                         window.location.href = "/dashboard/vendor";
                       } else {
-                        // Not logged in, send back to the home/login page
-                        router.push("/");
+                        // Not logged in, redirect to login page
+                        router.push("/hotel-vendor?login=true");
                       }
                     }}
                   >

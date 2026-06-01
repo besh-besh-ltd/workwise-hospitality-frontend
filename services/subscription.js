@@ -15,10 +15,58 @@ export const loadScript = (src) => {
     });
 };
 
-// Legacy main-portal subscription helpers (getSubscriptionList,
-// proceedToSubscription, testRazorPayEndpoint, applyCoupon) were retired
-// alongside the admin-panel subscription/coupon module. Hospitality vendor
-// subscription helpers below are the supported replacement.
+export const getSubscriptionList = () => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.get(`/cms/subscription-list`);
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+}
+
+export const proceedToSubscription = (payload) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.post(
+                `/users/subscription-payment`,
+                payload
+            );
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+}
+
+export const testRazorPayEndpoint = (payload) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.post(
+                `/users/test-razorpay-webhook`,
+                payload
+            );
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+}
+
+export const applyCoupon = (payload) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.post(
+                `/users/coupon-check`,
+                payload
+            );
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+}
 
 export const hospitalitySubscriptionPayment = (payload) => {
     return new Promise(async (resolve, reject) => {

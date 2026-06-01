@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Header from "./Header";
 // import Footer from "./Footer";
+import { getCmsData } from "@/services/cms";
 import { useDispatch } from "react-redux";
 import { setSwSubscription } from "@/redux/slice";
 import { SWSubscribe } from "@/services/Auth";
@@ -9,6 +10,7 @@ import Head from "next/head";
 // import Footer from "./Footer/newFooter";
 
 const Layout = (props) => {
+  const [cmsdata, setCmsdata] = useState([]);
   const [showModal, setshowModal] = useState(false);
   const [fromType, setFromType] = useState();
   const dispatch = useDispatch();
@@ -55,6 +57,22 @@ const Layout = (props) => {
   }, []);
 
   /* REMOVED UN-USED CALL TO CMS DATA API */
+  // useEffect(() => {
+  //   getCmsSections();
+  // }, []);
+
+  const getCmsSections = () => {
+    getCmsData(0)
+      .then((response) => {
+        if (response.data.length > 0) {
+          setCmsdata(response.data);
+        }
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  };
+
   const handleContainerClick = (event) => {
     const target = event.target;
     //console.log(target.tagName);
@@ -101,7 +119,7 @@ const Layout = (props) => {
     };
   }, [router]);
 
-  const isStaticPage = router.pathname === '/';
+  const isStaticPage = router.pathname === '/hotel-vendor' || router.pathname === '/';
   const isVendorCoCPage = router.pathname === '/vendor-coc';
   const isVendorTnCPage = router.pathname === '/vendor-tnc';
   const isVendorRegistrationPage = router.pathname === '/vendor-registration';
