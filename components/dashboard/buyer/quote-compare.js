@@ -1924,21 +1924,23 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       ? [{ label: 'Action Required', variant: 'warning' }]
                       : [{ label: 'In Approval', variant: 'info' }];
                   }
-                  if (item.has_po_rejection) return [{ label: 'PO Rejected', variant: 'danger' }];
-                  // Cycle b (finalization) — above cycle a, except 'Rejected' which sits below cycle a
+                  // Cycle b (finalization)
                   if (item.finalization_approval_completed) return [{ label: 'Finalized', variant: 'success' }];
                   if (item.has_pending_finalization_approval) {
                     return item.approval_required
                       ? [{ label: 'Action Required', variant: 'warning' }]
                       : [{ label: 'In Approval', variant: 'info' }];
                   }
-                  // Cycle a (negotiation) — above 'Rejected'
+                  // Cycle a (negotiation) — any newer in-flight work outranks a stale PO rejection
                   if (item.has_pending_negotiation_approval) {
                     return item.approval_required
                       ? [{ label: 'Action Required', variant: 'warning' }]
                       : [{ label: 'In Approval', variant: 'info' }];
                   }
                   if (item.has_active_negotiation_round) return [{ label: 'In Negotiation', variant: 'info' }];
+                  // PO Rejected sits below cycle a/b active work so a fresh
+                  // negotiation/finalization cycle takes precedence over the stale PO state
+                  if (item.has_po_rejection) return [{ label: 'PO Rejected', variant: 'danger' }];
                   if (item.finalization_approval_rejected) return [{ label: 'Rejected', variant: 'danger' }];
                   if (item.negotiation_terminated) return [{ label: 'Negotiation Terminated', variant: 'danger' }];
                   return [];
