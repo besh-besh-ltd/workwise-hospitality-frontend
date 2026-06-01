@@ -3,10 +3,17 @@ export const ANNOUNCEMENT_TEXT =
 
 export const initialMainNavs = [
   "/",
+  "/aboutus",
+  "/contactus",
+  "/for-vendors",
   "/vendor/all",
+  "/hotel-vendor",
+  "/solutions",
   "/blogs",
   "/validate-otp",
   "/forget-password",
+  "/privacypolicy",
+  "/terms-of-use",
   "/products",
   "/dashboard/vendor/inquiries-details",
   "/dashboard/buyer/rfq-management-vendor/vendor-profile",
@@ -105,6 +112,7 @@ export const websiteMenu = [
           { label: "Turnkey Project Firms", href: "/who-we-serve/stakeholders/turnkey" },
           { label: "Project Consultants", href: "/who-we-serve/stakeholders/consultants" },
           { label: "Industrial Clients", href: "/who-we-serve/stakeholders/industrial-clients" },
+          { label: "Vendors & OEMs", href: "/for-vendors" },
         ],
       },
       {

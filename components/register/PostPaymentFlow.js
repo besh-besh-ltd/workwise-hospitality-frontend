@@ -3,7 +3,7 @@ import { FiCheck, FiFileText } from "react-icons/fi";
 import { useDispatch } from "react-redux";
 import { setUserProfile } from "@/redux/slice";
 import { LoginService, SWSubscribe, getProfile } from "@/services/Auth";
-import { verifyHospitalityPayment, getMatchingOpenRfqs, joinOpenRfqs } from "@/services/subscription";
+import { testRazorPayEndpoint, getMatchingOpenRfqs, joinOpenRfqs } from "@/services/subscription";
 import storageInstance from "@/utils/storageInstance";
 import styles from "./Register.module.css";
 
@@ -40,7 +40,7 @@ const PostPaymentFlow = ({ show, razorpayData, orderId, userCredentials, swSubsc
     try {
       // Phase 1: Verify payment
       setPhase(PHASE.VERIFYING);
-      const verifyRes = await verifyHospitalityPayment({
+      const verifyRes = await testRazorPayEndpoint({
         order_id: orderId,
         razorpay_payment_id: razorpayData.razorpay_payment_id,
         razorpay_order_id: razorpayData.razorpay_order_id,
