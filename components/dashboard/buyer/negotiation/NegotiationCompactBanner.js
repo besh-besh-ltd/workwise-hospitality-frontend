@@ -34,9 +34,14 @@ const NegotiationCompactBanner = ({
   useEffect(() => {
     if (rfq_id) {
       loadActiveRounds();
+    }
+  }, [rfq_id, preloadedActiveRounds, preloadedApprovalBundle]);
+
+  useEffect(() => {
+    if (rfq_id) {
       loadRoundsHistory();
     }
-  }, [rfq_id]);
+  }, [rfq_id, preloadedRoundsHistory]);
 
   const loadActiveRounds = async () => {
     try {
