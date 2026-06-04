@@ -199,6 +199,8 @@ const RfqManagementPreview = () => {
         name: c.name,
         amount: c.tax,
         amount_mode: c.tax_mode || "percentage",
+        additional_tax: c.additional_tax || 0,
+        additional_tax_mode: c.additional_tax_mode || "percentage",
       })),
     };
   }, [rfqDetails]);
@@ -2955,10 +2957,15 @@ const RfqManagementPreview = () => {
                                           const chargeBreakdown = Object.entries(chargeAmtByName).map(([label, value]) => ({ label, value }));
                                           const taxBreakdown = Object.entries(chargeTaxByName).map(([label, value]) => ({ label: `Tax on ${label}`, value }));
                                           const grandTotal = Number(submittedQuoteTotals.grand_total) || 0;
-                                          const globalChargeBreakdown = (submittedQuoteTotals.global_charges || []).map((c) => ({
-                                            label: c.name,
-                                            value: Number(c.amount) || 0,
-                                          }));
+                                          const globalChargeBreakdown = (submittedQuoteTotals.global_charges || []).map((c) => {
+                                            const amount = Number(c.amount) || 0;
+                                            const tax = Number(c.additional_tax) || 0;
+                                            return {
+                                              label: c.name,
+                                              value: amount + tax,
+                                              tax,
+                                            };
+                                          });
                                           return (
                                             <div className="mb-2 d-flex justify-content-end">
                                               <GrandTotalBreakup

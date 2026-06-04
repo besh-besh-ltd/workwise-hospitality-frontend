@@ -291,10 +291,14 @@ const Login = (props) => {
         toast.error(res?.message || "Unable to send OTP", { position: "top-right" });
       }
     } catch (e) {
-      toast.error(
-        e?.message?.response?.data?.message || "Something went wrong",
-        { position: "top-right" }
-      );
+      // Axios interceptor already toasts field-level messages from `errors`; skip the generic fallback in that case
+      const data = e?.message?.response?.data;
+      if (!data?.errors) {
+        toast.error(
+          data?.message || "Something went wrong",
+          { position: "top-right" }
+        );
+      }
     } finally {
       if (setloading) setloading(false);
     }
@@ -311,10 +315,13 @@ const Login = (props) => {
         toast.error(res?.message || "Unable to resend OTP", { position: "top-right" });
       }
     } catch (e) {
-      toast.error(
-        e?.message?.response?.data?.message || "Unable to resend OTP",
-        { position: "top-right" }
-      );
+      const data = e?.message?.response?.data;
+      if (!data?.errors) {
+        toast.error(
+          data?.message || "Unable to resend OTP",
+          { position: "top-right" }
+        );
+      }
     } finally {
       setResending(false);
     }
@@ -336,10 +343,13 @@ const Login = (props) => {
         if (setloading) setloading(false);
       }
     } catch (e) {
-      toast.error(
-        e?.message?.response?.data?.message || "Something went wrong",
-        { position: "top-right" }
-      );
+      const data = e?.message?.response?.data;
+      if (!data?.errors) {
+        toast.error(
+          data?.message || "Something went wrong",
+          { position: "top-right" }
+        );
+      }
       if (setloading) setloading(false);
     }
   };

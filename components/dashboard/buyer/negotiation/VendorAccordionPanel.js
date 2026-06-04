@@ -47,8 +47,10 @@ const getFieldDisplayValue = (vendorData, fieldKey) => {
       return formatPaymentTerms(vendorData.paymentTerms) || '--';
     case 'vendor_tc':
       return vendorData.vendorTC || '--';
-    case 'comments':
+    case 'comment':
       return vendorData.comment || '--';
+    case 'global_comment':
+      return vendorData.globalComment || '--';
     case 'documents': {
       const docs = vendorData.documentFiles || [];
       return docs.length > 0 ? `${docs.length} document${docs.length > 1 ? 's' : ''}` : '--';
@@ -56,9 +58,13 @@ const getFieldDisplayValue = (vendorData, fieldKey) => {
     case 'delivery_period':
       return vendorData.deliveryPeriod ? `${vendorData.deliveryPeriod}` : '--';
     default: {
-      // Dynamic charge fields — match by slug or name
+      // Dynamic charge fields — match by slug or name across both per-product
+      // other_charges and quote-level global_charges. Global charges store the
+      // rate in `tax`/`tax_mode` (legacy naming) rather than amount/amount_mode.
       const charge = (vendorData.otherCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
       if (charge) return formatCharge(charge.amount, charge.amount_mode) || '--';
+      const globalCharge = (vendorData.globalCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
+      if (globalCharge) return formatCharge(globalCharge.tax, globalCharge.tax_mode) || '--';
       return '--';
     }
   }
@@ -135,11 +141,18 @@ const compareTargetToQuoted = (targetValue, targetMode, quoteData, fieldKey) => 
         return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct };
       }
     default: {
-      // Dynamic charges — look up from otherCharges by slug or name
+      // Dynamic charges — look up from otherCharges first, fall back to
+      // quote-level globalCharges (stored as tax/tax_mode legacy shape).
       const charge = (quoteData.otherCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
-      if (!charge) return null;
-      quotedValue = parseFloat(charge.amount);
-      quotedMode = charge.amount_mode || 'percentage';
+      if (charge) {
+        quotedValue = parseFloat(charge.amount);
+        quotedMode = charge.amount_mode || 'percentage';
+      } else {
+        const globalCharge = (quoteData.globalCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
+        if (!globalCharge) return null;
+        quotedValue = parseFloat(globalCharge.tax);
+        quotedMode = globalCharge.tax_mode || 'percentage';
+      }
       break;
     }
   }
@@ -376,6 +389,12 @@ const VendorAccordionPanel = ({
                       .filter(c => !defaultChargeSlugs.has(c.slug || c.name))
                       .map(c => ({ name: c.name, slug: c.slug || c.name }))
                       .map(buildChargeFieldOption);
+                    // Each vendor's quote-level global charges (TCS, GST, etc.) become
+                    // per-vendor negotiation tiles. Rates differ between vendors, so
+                    // these are always shown per-vendor — never as a global target card.
+                    const vendorGlobalCharges = (quoteData?.globalCharges || [])
+                      .map(c => ({ name: c.name, slug: c.slug || c.name }))
+                      .map(buildChargeFieldOption);
                     // Include global fields (base_price, default charges) that are selected in the Negotiation Fields section — read-only
                     const selectedGlobalFields = [
                       ...(selectedFields.includes('base_price') ? [{ ...NEGOTIATION_FIELD_OPTIONS.find(f => f.value === 'base_price'), isGlobalReadOnly: true }] : []),
@@ -386,9 +405,12 @@ const VendorAccordionPanel = ({
                     const vendorFields = [
                       ...selectedGlobalFields,
                       NEGOTIATION_FIELD_OPTIONS.find(f => f.value === 'payment_terms'),
-                      { value: 'comments', label: 'Comments', inputType: 'text', placeholder: 'Enter target comments' },
+                      { value: 'delivery_period', label: 'Delivery Period (In Days)', inputType: 'number', placeholder: 'Target days', step: '1', min: '1', hasMode: false },
+                      { value: 'comment', label: 'Comment', inputType: 'text', placeholder: 'Enter target comment' },
+                      { value: 'global_comment', label: 'Global Comment', inputType: 'text', placeholder: 'Enter target global comment' },
                       { value: 'documents', label: 'Documents', inputType: 'text', placeholder: 'Set target for documents' },
                       ...vendorCustomCharges,
+                      ...vendorGlobalCharges,
                     ].filter(Boolean);
                     return vendorFields;
                   })().map(field => {

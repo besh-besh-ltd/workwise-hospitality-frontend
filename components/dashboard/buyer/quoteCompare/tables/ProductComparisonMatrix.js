@@ -8,6 +8,7 @@ import Tooltip from "react-bootstrap/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheckCircle, faEnvelope, faUser } from "@fortawesome/free-regular-svg-icons";
 import { faComments, faHistory, faPhone } from "@fortawesome/free-solid-svg-icons";
+import { BsInfoCircle } from "react-icons/bs";
 import { toast } from "react-toastify";
 import ReadMore from "@/components/shared/ReadMore";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
@@ -44,6 +45,107 @@ const baseMetricRows = [
   { key: "subtotal", label: "Sub Total" },
   { key: "gst", label: "Tax (GST)" },
 ];
+
+// Map matrix row keys → negotiation field slugs in
+// tbl_negotiation_rounds.vendor_approvals[].negotiation_fields[].name.
+// Used to overlay an "approved target" badge on a vendor's cell when an
+// ACTIVE negotiation round is running on that field. Charge-detail rows
+// (otherCharge__<name>, globalCharge__<name>) match dynamically by chargeName.
+const FIELD_SLUG_FOR_ROW_KEY = {
+  basePrice: "base_price",
+  delivery: "delivery_period",
+  payment: "payment_terms",
+  terms: "vendor_tc",
+  comment: "comment",
+  documents: "documents",
+};
+
+// Return the vendor's approved negotiation target for a given matrix row,
+// or null when the round isn't ACTIVE, the vendor has no targets in the
+// round, or the row isn't a negotiable field.
+const getActiveRoundTargetForCell = (activeRound, vendorId, rowKey, rowMeta) => {
+  if (!activeRound || activeRound.status !== "ACTIVE") return null;
+  if (vendorId == null) return null;
+
+  const va = (activeRound.vendor_approvals || []).find(
+    (v) => String(v?.vendor_id) === String(vendorId)
+  );
+  if (!va || !Array.isArray(va.negotiation_fields)) return null;
+
+  // Skip system entries that don't represent a target field (e.g. trailing
+  // `_mode` markers stored alongside the actual value).
+  const usable = va.negotiation_fields.filter(
+    (f) => f && f.name && !/_mode$/.test(f.name) && f.target !== "" && f.target != null
+  );
+  if (usable.length === 0) return null;
+
+  let match = null;
+  if (FIELD_SLUG_FOR_ROW_KEY[rowKey]) {
+    match = usable.find((f) => f.name === FIELD_SLUG_FOR_ROW_KEY[rowKey]);
+  } else if (rowMeta?.type === "otherCharge" || rowMeta?.type === "globalCharge") {
+    const target = String(rowMeta.chargeName || "").toLowerCase();
+    match = usable.find((f) => String(f.name || "").toLowerCase() === target);
+  }
+  if (!match) return null;
+
+  // Mode lives on the field object itself (`mode: 'percentage' | 'absolute'`),
+  // written by the negotiation creation flow alongside the value. Legacy rows
+  // may also carry a sibling `<slug>_mode` entry — read it as a fallback.
+  const fallbackModeEntry = va.negotiation_fields.find(
+    (f) => f?.name === `${match.name}_mode`
+  );
+  return {
+    value: match.target,
+    mode: match.mode || fallbackModeEntry?.target || null,
+    slug: match.name,
+  };
+};
+
+const TargetBadge = ({ target, rowKey }) => {
+  if (!target || target.value === "" || target.value == null) return null;
+
+  const isNumeric = !Number.isNaN(Number(target.value));
+  // Negotiation mode values from BE: 'percentage' | 'absolute' (NegotiationModal
+  // remaps the UI's 'amount' to 'absolute' before posting). Accept both spellings
+  // so legacy rounds still render correctly.
+  const isAbsoluteMode = target.mode === "absolute" || target.mode === "amount";
+  const isPercentMode = target.mode === "percentage";
+  let display;
+  if (rowKey === "basePrice" && isNumeric) {
+    display = `Rs. ${addCommasToNumber(Number(target.value))}`;
+  } else if (rowKey === "delivery" && isNumeric) {
+    display = `${Number(target.value)} day(s)`;
+  } else if (isPercentMode && isNumeric) {
+    display = `${Number(target.value)}%`;
+  } else if (isAbsoluteMode && isNumeric) {
+    display = `Rs. ${addCommasToNumber(Number(target.value))}`;
+  } else {
+    display = String(target.value);
+  }
+
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        marginTop: 4,
+        padding: "2px 8px",
+        fontSize: 10.5,
+        fontWeight: 600,
+        color: "#854D0E",
+        background: "#FEF3C7",
+        border: "1px solid #FDE68A",
+        borderRadius: 999,
+        lineHeight: 1.3,
+      }}
+      title="Approved negotiation target for this vendor on this field"
+    >
+      <span aria-hidden="true">◎</span>
+      Target: {display}
+    </div>
+  );
+};
 
 const afterTotalMetricRows = [
   { key: "delivery", label: "Delivery" },
@@ -103,17 +205,58 @@ const getHeatToneClass = (model, rowKey, vendorId) => {
   return "";
 };
 
-const renderFileLinks = (files = [], label = "View File") => {
-  if (!Array.isArray(files) || files.length === 0) {
+const fileToUrl = (file) => (typeof file === "string" ? file : file?.file_url);
+const fileReplaces = (file) => (file && typeof file === "object" ? file.replaces : null);
+
+// Diff prev vs current files for strikethrough rendering:
+// - `replaced` pairs `{old, new}` when a current file's `replaces` matches a prev URL
+// - `removed` are prev URLs absent from current and not part of any replacement
+const fileDiffSince = (currentFiles, previousQuotes, prevFilesKey) => {
+  if (!Array.isArray(previousQuotes) || previousQuotes.length === 0) {
+    return { removed: [], replaced: [] };
+  }
+  const current = Array.isArray(currentFiles) ? currentFiles : [];
+  const prevFiles = previousQuotes[0]?.[prevFilesKey] || [];
+  const prevByUrl = new Map();
+  prevFiles.forEach((f) => {
+    const url = fileToUrl(f);
+    if (url) prevByUrl.set(url, f);
+  });
+  const currentSet = new Set(current.map(fileToUrl).filter(Boolean));
+
+  const replaced = [];
+  const replacedOldUrls = new Set();
+  current.forEach((cf) => {
+    const oldUrl = fileReplaces(cf);
+    if (oldUrl && prevByUrl.has(oldUrl)) {
+      replaced.push({ old: prevByUrl.get(oldUrl), new: cf });
+      replacedOldUrls.add(oldUrl);
+    }
+  });
+
+  const removed = prevFiles.filter((f) => {
+    const url = fileToUrl(f);
+    return url && !currentSet.has(url) && !replacedOldUrls.has(url);
+  });
+
+  return { removed, replaced };
+};
+
+const renderFileLinks = (files = [], label = "View File", diff = { removed: [], replaced: [] }) => {
+  const currentFiles = Array.isArray(files) ? files.filter((f) => fileToUrl(f)) : [];
+  const removed = Array.isArray(diff?.removed) ? diff.removed.filter((f) => fileToUrl(f)) : [];
+  const replaced = Array.isArray(diff?.replaced) ? diff.replaced : [];
+  const replacedNewUrls = new Set(replaced.map((p) => fileToUrl(p.new)).filter(Boolean));
+  const standalone = currentFiles.filter((f) => !replacedNewUrls.has(fileToUrl(f)));
+
+  if (standalone.length === 0 && removed.length === 0 && replaced.length === 0) {
     return <EmptyValue />;
   }
 
   return (
     <div className={styles.innerScrollTall}>
-      {files.map((file, index) => {
-        const fileUrl = typeof file === "string" ? file : file?.file_url;
-        if (!fileUrl) return null;
-
+      {standalone.map((file, index) => {
+        const fileUrl = fileToUrl(file);
         return (
           <a
             key={`${fileUrl}_${index}`}
@@ -121,6 +264,50 @@ const renderFileLinks = (files = [], label = "View File") => {
             target="_blank"
             rel="noreferrer"
             className="page-link p-0"
+          >
+            {label}
+          </a>
+        );
+      })}
+      {replaced.map((pair, index) => {
+        const oldUrl = fileToUrl(pair.old);
+        const newUrl = fileToUrl(pair.new);
+        return (
+          <div key={`replaced_${oldUrl}_${index}`} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <a
+              href={oldUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="page-link p-0"
+              style={{ textDecoration: "line-through", color: "#9aa0a6" }}
+              title="Replaced in current round"
+            >
+              {label}
+            </a>
+            <a
+              href={newUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="page-link p-0"
+              style={{ fontSize: "0.78rem" }}
+              title="Replacement file"
+            >
+              ↳ {label}
+            </a>
+          </div>
+        );
+      })}
+      {removed.map((file, index) => {
+        const fileUrl = fileToUrl(file);
+        return (
+          <a
+            key={`removed_${fileUrl}_${index}`}
+            href={fileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="page-link p-0"
+            style={{ textDecoration: "line-through", color: "#9aa0a6" }}
+            title="Removed since previous round"
           >
             {label}
           </a>
@@ -418,9 +605,17 @@ const ProductComparisonMatrix = ({
           <EmptyValue />
         );
       case "documents":
-        return renderFileLinks(column.documentFiles, "View File");
+        return renderFileLinks(
+          column.documentFiles,
+          "View File",
+          fileDiffSince(column.documentFiles, previousQuotes, "document_files")
+        );
       case "terms":
-        return renderFileLinks(column.termsFiles, "View File");
+        return renderFileLinks(
+          column.termsFiles,
+          "View File",
+          fileDiffSince(column.termsFiles, previousQuotes, "global_document_files")
+        );
       case "payment": {
         const content = getPaymentTermsText({ ...column.quote, ...details });
         return renderPaymentPills(content);
@@ -455,7 +650,11 @@ const ProductComparisonMatrix = ({
             globalCharges.forEach(c => {
               const tax = Number(c.tax ?? c.amount ?? 0);
               const mode = c.tax_mode ?? c.amount_mode ?? "percentage";
-              total += mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+              const chargeBase = mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+              const extraTax = Number(c.additional_tax ?? 0);
+              const extraMode = c.additional_tax_mode ?? "percentage";
+              const extraTaxAmt = extraTax > 0 ? (extraMode === "percentage" ? (chargeBase * extraTax) / 100 : extraTax) : 0;
+              total += chargeBase + extraTaxAmt;
             });
           }
           return <span className={styles.value}>{formatCurrency(total)} <small className="text-muted">({globalCharges.length} tax{globalCharges.length > 1 ? "es" : ""})</small></span>;
@@ -524,10 +723,72 @@ const ProductComparisonMatrix = ({
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
           const charge = globalCharges.find(c => c.name === rowMeta.chargeName);
           if (!charge) return <span className={styles.value}>--</span>;
-          const taxVal = Number(charge.tax || 0);
-          const taxDisplay = charge.tax_mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
+          // Both on-disk shapes coexist: legacy {tax, tax_mode} and newer
+          // {amount, amount_mode}. Read both so the displayed value + mode
+          // match what the engine actually applied.
+          const taxVal = Number(charge.tax ?? charge.amount ?? 0);
+          const mode = charge.tax_mode ?? charge.amount_mode ?? "percentage";
+          const taxDisplay = mode === "percentage" ? `${taxVal}%` : formatCurrency(taxVal);
           const commentText = charge.comment ? ` (${charge.comment})` : "";
-          return <span className={styles.value}>{taxDisplay}{commentText && <small className="text-muted">{commentText}</small>}</span>;
+          // Additional tax on the charge itself (e.g. 10% tax on TCS).
+          // Resolve to ₹ using this product's engine share so the buyer sees
+          // the same amount the vendor's send-quote page shows.
+          const extraTaxRate = Number(charge.additional_tax ?? 0);
+          const extraTaxMode = charge.additional_tax_mode ?? "percentage";
+          let extraTaxDisplay = null;
+          if (extraTaxRate > 0) {
+            const engineGlobalsForTax = details.engine_global_charges || column.quote?.engine_global_charges || [];
+            const resolvedForTax = engineGlobalsForTax.find((c) =>
+              (c.slug && charge.slug && c.slug === charge.slug) || c.name === charge.name
+            );
+            const shareForTax = Number(resolvedForTax?.amount || 0);
+            const extraTaxAmt = extraTaxMode === "percentage"
+              ? (shareForTax * extraTaxRate) / 100
+              : extraTaxRate;
+            if (extraTaxAmt > 0) {
+              extraTaxDisplay = ` + ${formatCurrency(extraTaxAmt)} tax`;
+            }
+          }
+          // Absolute (rupee) global charges are entered ONCE for the vendor's
+          // whole quote and the backend distributes them proportionally across
+          // the products in that quote (each product carries its weighted
+          // share, not the full amount). Surface this with an info tooltip so
+          // the buyer doesn't read "Rs. 1,000" in this cell as "added directly
+          // to this product". Percentage charges don't need it because "5%"
+          // is already the per-product rate the buyer expects.
+          let distributionInfo = null;
+          if (mode !== "percentage" && taxVal > 0) {
+            const engineGlobals = details.engine_global_charges || column.quote?.engine_global_charges || [];
+            const resolved = engineGlobals.find((c) =>
+              (c.slug && charge.slug && c.slug === charge.slug) || c.name === charge.name
+            );
+            const share = Number(resolved?.amount || 0);
+            distributionInfo = (
+              <OverlayTrigger
+                placement="top"
+                overlay={
+                  <Tooltip>
+                    The global charge was added only on the entire quote. It was then divided and shared across all products in this RFQ.                     
+                    {share > 0 && (
+                      <>This product's share is <strong>{formatCurrency(share)}</strong>.</>
+                    )}
+                  </Tooltip>
+                }
+              >
+                <span className="ms-1 text-muted" style={{ cursor: "help", display: "inline-flex", verticalAlign: "middle" }}>
+                  <BsInfoCircle size={12} />
+                </span>
+              </OverlayTrigger>
+            );
+          }
+          return (
+            <span className={styles.value}>
+              {taxDisplay}
+              {extraTaxDisplay && <small className="text-muted">{extraTaxDisplay}</small>}
+              {commentText && <small className="text-muted">{commentText}</small>}
+              {distributionInfo}
+            </span>
+          );
         }
         if (rowKey === "grandTotal") {
           const globalCharges = details.global_charges || column.quote?.global_charges || [];
@@ -543,7 +804,11 @@ const ProductComparisonMatrix = ({
           globalCharges.forEach(c => {
             const tax = Number(c.tax ?? c.amount ?? 0);
             const mode = c.tax_mode ?? c.amount_mode ?? "percentage";
-            globalTotal += mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+            const chargeBase = mode === "percentage" ? (lineEngineTotal * tax) / 100 : tax;
+            const extraTax = Number(c.additional_tax ?? 0);
+            const extraMode = c.additional_tax_mode ?? "percentage";
+            const extraTaxAmt = extraTax > 0 ? (extraMode === "percentage" ? (chargeBase * extraTax) / 100 : extraTax) : 0;
+            globalTotal += chargeBase + extraTaxAmt;
           });
           // Prefer the BE's authoritative engine_grand_total when it's
           // present (rounded consistently with the rest of the app); compute
@@ -826,14 +1091,24 @@ const ProductComparisonMatrix = ({
                     >
                       {row.label}
                     </th>
-                    {model.columns.map((column) => (
-                      <td
-                        className={getCellClassName(column, row.key)}
-                        key={`${proditem?.id}_${row.key}_${column.vendorId}_${column.quote?.quote_id || "x"}`}
-                      >
-                        {getCellContent(column, row.key, row)}
-                      </td>
-                    ))}
+                    {model.columns.map((column) => {
+                      const target = column.isRegret
+                        ? null
+                        : getActiveRoundTargetForCell(activeRound, column.vendorId, row.key, row);
+                      return (
+                        <td
+                          className={getCellClassName(column, row.key)}
+                          key={`${proditem?.id}_${row.key}_${column.vendorId}_${column.quote?.quote_id || "x"}`}
+                        >
+                          {getCellContent(column, row.key, row)}
+                          {target && (
+                            <div style={{ marginTop: 4 }}>
+                              <TargetBadge target={target} rowKey={row.key} />
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
 

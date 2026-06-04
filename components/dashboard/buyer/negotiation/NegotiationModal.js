@@ -605,7 +605,7 @@ const NegotiationModal = ({
   // (per-vendor override, else global) is ≥ that vendor's quoted value for
   // the same field. Numeric fields only; text fields always return false.
   // Mirrors VendorAccordionPanel.compareTargetToQuoted's normalization logic.
-  const TEXT_ONLY_NEG_FIELDS = new Set(['payment_terms', 'comments', 'vendor_tc', 'documents']);
+  const TEXT_ONLY_NEG_FIELDS = new Set(['payment_terms', 'comment', 'global_comment', 'vendor_tc', 'documents']);
 
   const isFieldTargetInvalid = (fieldKey, vt, vendorData) => {
     if (!vendorData || TEXT_ONLY_NEG_FIELDS.has(fieldKey)) return false;
@@ -627,10 +627,13 @@ const NegotiationModal = ({
     const charge = (vendorData.otherCharges || []).find((c) =>
       (c.slug || c.name) === fieldKey || c.name === fieldKey
     );
-    if (!charge) return false;
-    const quotedValue = parseFloat(charge.amount);
+    const globalCharge = !charge
+      ? (vendorData.globalCharges || []).find((c) => (c.slug || c.name) === fieldKey || c.name === fieldKey)
+      : null;
+    if (!charge && !globalCharge) return false;
+    const quotedValue = parseFloat(charge ? charge.amount : globalCharge.tax);
     if (!Number.isFinite(quotedValue) || quotedValue <= 0 || basePrice <= 0) return false;
-    const quotedMode = charge.amount_mode || 'percentage';
+    const quotedMode = (charge ? charge.amount_mode : globalCharge.tax_mode) || 'percentage';
     const quotedAmt = quotedMode === 'percentage' ? (quotedValue / 100) * basePrice : quotedValue;
 
     const modeKey = `${fieldKey}_mode`;
@@ -689,19 +692,30 @@ const NegotiationModal = ({
       return;
     }
 
-    // Validate that at least one target is set (global or per-vendor)
+    // Validate that every selected vendor has at least one effective target —
+    // either a per-vendor target set in their card, OR a global target that
+    // will be applied to them via the fallback below. A selected vendor with
+    // no effective targets would be silently dropped by the payload builder
+    // (line ~792 `.filter(v => v.fields.length > 0)`); we surface that here
+    // and block the API call so the user can fix it explicitly.
     const productVendorIds = selectedVendors[selectedProducts[0]] || [];
-    const hasAnyLocalTarget = productVendorIds.some(vid => {
-      const vt = vendorTargets[vid] || {};
-      // Check targets matching global fields OR any local field target
-      return Object.keys(vt).some(k => k !== '_localFields' && !k.endsWith('_mode') && vt[k]);
-    });
     const hasAnyGlobalTarget = effectiveFields.some(f => {
       const targetKey = getChargeTargetKey(f);
       return targetKey && formData[targetKey];
     });
-    if (!hasAnyLocalTarget && !hasAnyGlobalTarget) {
-      toast.error('Please set at least one target value for the selected negotiation fields');
+    const vendorsWithoutTarget = productVendorIds.filter(vid => {
+      const vt = vendorTargets[vid] || {};
+      const hasOwnTarget = Object.keys(vt).some(k => k !== '_localFields' && !k.endsWith('_mode') && vt[k]);
+      return !hasOwnTarget && !hasAnyGlobalTarget;
+    });
+    if (vendorsWithoutTarget.length > 0) {
+      const selectedProduct = products.find(p => String(p.id) === String(productId));
+      const priceData = selectedProduct ? getVendorPriceData(selectedProduct) : { vendors: [] };
+      const vendorNames = vendorsWithoutTarget.map(vid => {
+        const v = (priceData.vendors || []).find(x => x.vendorId === vid);
+        return v?.vendorName || `Vendor ${vid}`;
+      });
+      toast.error(`Please set at least one target value for: ${vendorNames.join(', ')}`);
       return;
     }
 
@@ -728,7 +742,7 @@ const NegotiationModal = ({
             (v) => v.vendorId === vid
           );
           const fields = [];
-          const nonModeKeys = ['base_price', 'payment_terms', 'comments', 'vendor_tc', 'documents'];
+          const nonModeKeys = ['base_price', 'payment_terms', 'comment', 'global_comment', 'vendor_tc', 'documents', 'delivery_period'];
           // Include per-vendor local targets
           Object.keys(vt).forEach(k => {
             if (k === '_localFields' || k.endsWith('_mode')) return;
@@ -907,8 +921,10 @@ const NegotiationModal = ({
           }).filter(Boolean).join(', ');
         }
         return '--';
-      case 'comments':
+      case 'comment':
         return vendorData.comment || '--';
+      case 'global_comment':
+        return vendorData.globalComment || '--';
       case 'vendor_tc':
         return vendorData.vendorTC || '--';
       case 'documents':
@@ -1230,7 +1246,8 @@ const NegotiationModal = ({
         const gpt = src.global_payment_term;
         return Array.isArray(gpt) ? (gpt[0]?.details || '') : (typeof gpt === 'string' ? gpt : '');
       })();
-      const comment = src.comment || src.global_comment || null;
+      const comment = src.comment || null;
+      const globalComment = src.global_comment || null;
       const documentFiles = src.document_files || [];
       const vendorId = (() => {
         const vd = getVendorDetailsFromQuote(q);
@@ -1240,7 +1257,7 @@ const NegotiationModal = ({
       return {
         vendorName, totalPrice, unitPrice, quantity,
         otherCharges, globalCharges, tax, taxMode,
-        deliveryPeriod, paymentTerms, vendorTC, comment, documentFiles, vendorId,
+        deliveryPeriod, paymentTerms, vendorTC, comment, globalComment, documentFiles, vendorId,
         isRegret,
       };
     }).filter(v => v.totalPrice > 0 || v.isRegret);
@@ -1830,15 +1847,18 @@ const NegotiationModal = ({
                                         seen.add(key);
                                         return true;
                                       });
-                                      const textNames = new Set(['payment_terms', 'comments', 'vendor_tc', 'documents']);
+                                      const textNames = new Set(['payment_terms', 'comment', 'global_comment', 'vendor_tc', 'documents']);
                                       return fields.length > 0 ? fields.map(f => {
-                                        const label = f.name === 'base_price' ? 'Base Price' : f.name === 'payment_terms' ? 'Payment Terms' : f.name === 'documents' ? 'Documents' : f.name === 'comments' ? 'Comments' : (f.label || f.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+                                        const label = f.name === 'base_price' ? 'Base Price' : f.name === 'payment_terms' ? 'Payment Terms' : f.name === 'documents' ? 'Documents' : f.name === 'comment' ? 'Comment' : f.name === 'global_comment' ? 'Global Comment' : f.name === 'delivery_period' ? 'Delivery Period' : (f.label || f.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
                                         const val = f.target || f.target_price;
                                         if (f.name === 'documents' && Array.isArray(val)) {
                                           return `${label}: ${val.length} comment(s)`;
                                         }
                                         if (textNames.has(f.name)) {
                                           return `${label}: ${typeof val === 'string' ? val : String(val)}`;
+                                        }
+                                        if (f.name === 'delivery_period') {
+                                          return `${label}: ${val} day(s)`;
                                         }
                                         const formatted = f.mode === 'percentage' ? `${val}%` : `₹${val}`;
                                         return `${label}: ${formatted}`;
@@ -2143,7 +2163,7 @@ const NegotiationModal = ({
                               const src = matchedQuote || {};
                               const otherCharges = src.other_charges || [];
                               const globalCharges = src.global_charges || [];
-                              const textFieldNames = new Set(['payment_terms', 'comments', 'vendor_tc', 'documents']);
+                              const textFieldNames = new Set(['payment_terms', 'comment', 'global_comment', 'vendor_tc', 'documents']);
                               const allFields = [
                                 { slug: 'base_price', label: 'Base Price', quoted: src.unit_price ? `₹${Number(src.unit_price).toLocaleString('en-IN')}` : '--' },
                                 { slug: 'payment_terms', label: 'Payment Terms', quoted: (() => {
@@ -2153,7 +2173,9 @@ const NegotiationModal = ({
                                   if (Array.isArray(pt)) return pt.map(t => `${t.value || ''}% ${t.type || ''}`).filter(Boolean).join(', ') || '--';
                                   return '--';
                                 })() },
-                                { slug: 'comments', label: 'Comments', quoted: src.comment || src.global_comment || '--' },
+                                { slug: 'comment', label: 'Comment', quoted: src.comment || '--' },
+                                { slug: 'global_comment', label: 'Global Comment', quoted: src.global_comment || '--' },
+                                { slug: 'delivery_period', label: 'Delivery Period', quoted: src.delivery_period ? `${src.delivery_period} day(s)` : '--' },
                                 { slug: 'documents', label: 'Documents', quoted: `${(src.document_files || []).length} document(s)` },
                                 ...otherCharges.map(c => ({
                                   slug: c.slug || c.name,
@@ -2328,6 +2350,9 @@ const NegotiationModal = ({
                                   if (Array.isArray(pt)) return pt.map(t => `${t.value || ''}% ${t.type || ''}`).filter(Boolean).join(', ') || '--';
                                   return '--';
                                 })() },
+                                { name: 'comment', label: 'Comment', quoted: src.comment || '--' },
+                                { name: 'global_comment', label: 'Global Comment', quoted: src.global_comment || '--' },
+                                { name: 'delivery_period', label: 'Delivery Period', quoted: src.delivery_period ? `${src.delivery_period} day(s)` : '--' },
                                 { name: 'documents', label: 'Documents', quoted: `${(src.document_files || []).length} document(s)` },
                                 ...otherCharges.map(c => ({
                                   name: c.name, label: c.name,
@@ -2377,8 +2402,11 @@ const NegotiationModal = ({
                                                   </>
                                                 );
                                               }
-                                              if (['payment_terms', 'comments', 'vendor_tc', 'documents'].includes(field.name)) {
+                                              if (['payment_terms', 'comment', 'global_comment', 'vendor_tc', 'documents'].includes(field.name)) {
                                                 return typeof target === 'string' ? target : String(target);
+                                              }
+                                              if (field.name === 'delivery_period') {
+                                                return `${target} day(s)`;
                                               }
                                               return negField?.mode === 'percentage' ? `${target}%` : `₹${target}`;
                                             })()}</span>}
