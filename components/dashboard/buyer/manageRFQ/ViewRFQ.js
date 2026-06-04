@@ -2,10 +2,11 @@ import { faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { OverlayTrigger, Tooltip } from "react-bootstrap";
+import { OverlayTrigger, Tooltip, Badge } from "react-bootstrap";
 import { FaHistory } from "react-icons/fa";
+import { Copy as CopyIcon } from "lucide-react";
 import moment from "moment";
 import { getEntityLabel, canEditRfq, getRFQPublishState } from "@/utils/sharedFunctions";
 import PublishDateTimer from "@/components/shared/PublishDateTimer";
@@ -13,6 +14,7 @@ import ReadMore from "@/components/shared/ReadMore";
 import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import useHasTechClauses from "@/hooks/useHasTechClauses";
 import RFQEditHistory from "./RFQEditHistory/RFQEditHistory";
+import { getRfqLineage } from "@/services/rfq";
 
 // WH-69: Edit button that uses canEditRfq() to decide whether to render
 // enabled (a Link) or disabled (a button with a hover tooltip explaining
@@ -60,6 +62,25 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
   // since this component already has many other props and we don't want to
   // thread it through.
   const currentUser = useSelector((state) => state.userProfile);
+
+  // RFQ Copy lineage: parent (if this RFQ is a copy) + descendants.
+  // Filtered server-side by accessible hotels so cross-tenant copies don't
+  // leak in or out.
+  const [lineage, setLineage] = useState({ copied_from: null, copies: [] });
+  useEffect(() => {
+    let cancelled = false;
+    if (!data?.id) return undefined;
+    getRfqLineage(data.id)
+      .then((res) => {
+        if (cancelled) return;
+        setLineage({
+          copied_from: res?.data?.copied_from || null,
+          copies: res?.data?.copies || [],
+        });
+      })
+      .catch(() => { /* silent — lineage is non-critical */ });
+    return () => { cancelled = true; };
+  }, [data?.id]);
 
   // Check if RFQ has any technical clauses
   const { hasClauses, loading: clauseLoading } = useHasTechClauses({ rfq_id: data?.id });
@@ -155,6 +176,19 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
                       <small className="text-muted d-block">Created On</small>
                       <strong>{moment(data.timestamp).format('DD MMM YYYY')}</strong>
                     </div>
+                    {lineage.copied_from && (
+                      <div>
+                        <small className="text-muted d-block">Source</small>
+                        <Link
+                          href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${lineage.copied_from.id}`}
+                          className="text-decoration-none"
+                        >
+                          <Badge bg="info" className="d-inline-flex align-items-center gap-1" style={{ fontSize: '0.8rem' }}>
+                            <CopyIcon size={12} /> Copied from RFQ #{lineage.copied_from.rfq_no}
+                          </Badge>
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -736,6 +770,40 @@ const ViewRFQ = ({ data, onCloseRFQ, closeLoading, isCreator, onWithdrawPublish,
                     onClose={() => setShowEditHistoryModal(false)}
                   />
                 </>
+              )}
+
+              {/* Forward lineage: every RFQ that was copied from this one,
+                  filtered server-side by accessible hotels. Hidden when there
+                  are no descendants — only renders when the buyer has spawned
+                  copies (typical for recurring procurement). */}
+              {lineage.copies.length > 0 && (
+                <div className="container-fluid mt-3 p-3 border rounded bg-light">
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    <CopyIcon size={16} />
+                    <strong>Copies of this RFQ ({lineage.copies.length})</strong>
+                  </div>
+                  <ul className="list-unstyled mb-0">
+                    {lineage.copies.map((copy) => (
+                      <li key={copy.id} className="mb-1">
+                        <Link
+                          href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${copy.id}`}
+                          className="text-decoration-none"
+                        >
+                          RFQ #{copy.rfq_no}
+                        </Link>
+                        {copy.title ? <span className="text-muted ms-2">— {copy.title}</span> : null}
+                        {copy.hotel_name ? (
+                          <span className="text-muted ms-2">@ {copy.hotel_name}</span>
+                        ) : null}
+                        {copy.timestamp ? (
+                          <span className="text-muted ms-2">
+                            ({moment(copy.timestamp).format('DD MMM YYYY')})
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           </div>

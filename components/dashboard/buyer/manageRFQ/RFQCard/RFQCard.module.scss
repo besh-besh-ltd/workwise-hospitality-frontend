@@ -222,6 +222,48 @@
   }
 }
 
+.copiedFromChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #4338ca;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 0.6rem;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  svg {
+    color: #6366f1;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: #e0e7ff;
+    border-color: #a5b4fc;
+    color: #3730a3;
+    text-decoration: none;
+
+    svg { color: #4f46e5; }
+  }
+}
+
+.copiedFromLabel {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.copiedFromNum {
+  font-weight: 600;
+  color: inherit;
+}
+
 
 // Right Section: Metrics + Date + Expand
 .rightSection {

@@ -1547,3 +1547,36 @@ export const deleteChargeName = (id) => {
     }
   });
 };
+
+// RFQ Copy: server creates a DRAFT clone of source_rfq_id pre-populated with
+// all products, specs, files, tech-eval clauses, and re-resolves vendors
+// against target_hotel_id's current eligible pool. Returns { new_rfq_id,
+// new_rfq_no, copied_from } — caller redirects to the CreateRFQ wizard with
+// ?draft_id=<new_rfq_id> so the buyer can review and submit.
+export const copyRfq = ({ source_rfq_id, target_hotel_id }) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/copy`, {
+        source_rfq_id,
+        target_hotel_id,
+      });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+// Returns { copied_from, copies[] } for the RFQ details page lineage UI.
+// Filtered server-side by the caller's accessible hotels — never leaks
+// cross-tenant lineage.
+export const getRfqLineage = (rfq_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/${rfq_id}/lineage`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
