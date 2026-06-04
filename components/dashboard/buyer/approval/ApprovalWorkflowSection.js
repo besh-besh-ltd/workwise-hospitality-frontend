@@ -16,8 +16,6 @@ import ApprovalTimeline from "./ApprovalTimeline";
 import ApprovalActionModal from "./ApprovalActionModal";
 import SelectedQuotesDisplay from "../negotiation/SelectedQuotesDisplay";
 import TechEvalVendorStatusDisplay from "../technical-evaluation/TechEvalVendorStatusDisplay";
-import ExistingPOModal from "../ExistingPOModal";
-import { getExistingPOByVendor } from "@/services/rfq";
 import useIsMobile from "@/hooks/useIsMobile";
 
 // Surfaces the comment the finalizer typed in the Finalize Vendor modal so
@@ -381,15 +379,8 @@ const ApprovalWorkflowSection = ({
   const [expanded, setExpanded] = useState(false);
   const [localActionLoading, setLocalActionLoading] = useState(false);
   const [currentAttemptExpanded, setCurrentAttemptExpanded] = useState(true);
-
-  // Existing PO merge flow for final approver of NEGOTIATION_QUOTE
-  const [showExistingPOModal, setShowExistingPOModal] = useState(false);
-  const [existingPos, setExistingPos] = useState([]);
-  const [selectedPo, setSelectedPo] = useState(null);
-  const [pendingApproveComment, setPendingApproveComment] = useState(null);
   const isMobile = useIsMobile();
 
-  const isFinalApprover = canUserApprove && currentStep === totalSteps && status === "PENDING";
   const isNegotiationQuote = entityType === "NEGOTIATION_QUOTE";
 
   // Auto-expand when action is required
@@ -404,13 +395,12 @@ const ApprovalWorkflowSection = ({
     setShowActionModal(true);
   };
 
-  const executeApproval = async (comment, existingPoId = null) => {
+  const executeApproval = async (comment) => {
     let result;
 
     const handlerContext = {
       approval_instance_id: instance?.id,
       approval_instance_step_id: instance?.user_approval_step_id,
-      existing_po_id: existingPoId,
     };
 
     // For custom handlers (NEGOTIATION_QUOTE), apply optimistic local update
@@ -454,42 +444,10 @@ const ApprovalWorkflowSection = ({
   const handleAction = async (comment) => {
     setLocalActionLoading(true);
     try {
-      // If this is the final approver for a NEGOTIATION_QUOTE, check for existing POs first
-      if (actionType === "APPROVE" && isNegotiationQuote && isFinalApprover) {
-        const vendorId = instance?.metadata?.vendor_id || instance?.metadata?.po_payload?.product_info?.finalized_vendor_id;
-        const rfqId = instance?.metadata?.rfq_id;
-
-        if (vendorId && rfqId) {
-          try {
-            const response = await getExistingPOByVendor(vendorId, rfqId);
-            const pos = response?.existingPOS ?? [];
-            if (pos.length > 0) {
-              // Store comment and show existing PO modal
-              setPendingApproveComment(comment);
-              setExistingPos(pos);
-              setSelectedPo(null);
-              setShowActionModal(false);
-              setShowExistingPOModal(true);
-              return;
-            }
-          } catch (e) {
-            // If fetching fails, proceed without merge
-            console.error("Failed to fetch existing POs:", e);
-          }
-        }
-      }
-
       await executeApproval(comment);
     } finally {
       setLocalActionLoading(false);
     }
-  };
-
-  const handleExistingPOConfirm = async (selectedPOId) => {
-    setShowExistingPOModal(false);
-    await executeApproval(pendingApproveComment, selectedPOId || null);
-    setPendingApproveComment(null);
-    setSelectedPo(null);
   };
 
   // Loading state
@@ -1271,15 +1229,6 @@ const ApprovalWorkflowSection = ({
         entityLabel={entityLabel}
       />
 
-      {/* Existing PO Merge Modal - shown to final approver of NEGOTIATION_QUOTE */}
-      <ExistingPOModal
-        show={showExistingPOModal}
-        onHide={setShowExistingPOModal}
-        existingPos={existingPos}
-        selectedPo={selectedPo}
-        setSelectedPo={setSelectedPo}
-        onConfirm={handleExistingPOConfirm}
-      />
     </>
   );
 };
