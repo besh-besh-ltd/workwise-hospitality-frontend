@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { AlertTriangle, Workflow } from "lucide-react";
 import { getWorkflowEfficiency } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
+import { SkeletonKpiGrid } from "@/components/dashboard/shared";
 import styles from "./WorkflowEfficiency.module.scss";
 
 const formatDwellTime = (hours) => {
@@ -79,6 +80,7 @@ const WorkflowEfficiency = ({ filters }) => {
       loading={loading}
       error={error}
       isEmpty={lifecycleStages.length === 0}
+      skeleton={<SkeletonKpiGrid count={5} />}
       renderEmpty={() => (
         <div className={styles.emptyState}>
           No workflow data available for the selected period.

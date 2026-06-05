@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AlertTriangle, ArrowUpRight } from "lucide-react";
 import { getTechEvalsWithDisagreements } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 /** Items where one or more vendors flagged disagree on clauses —
@@ -14,6 +15,7 @@ const TechEvalsWithDisagreements = ({ filters }) => (
     tooltip="Tech-eval items where one or more vendors flagged disagree on clauses — extra analysis needed."
     filters={filters}
     fetcher={getTechEvalsWithDisagreements}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (
       <div className={styles.emptyState}>

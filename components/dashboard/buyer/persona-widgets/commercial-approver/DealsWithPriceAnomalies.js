@@ -3,6 +3,7 @@ import Link from "next/link";
 import { TrendingUp, ArrowUpRight } from "lucide-react";
 import { getDealsWithPriceAnomalies } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 const fmtINR = (n) => {
@@ -23,6 +24,7 @@ const DealsWithPriceAnomalies = ({ filters }) => (
     tooltip="Approvals where the awarded unit-price is significantly higher than the last time we bought the same product."
     filters={filters}
     fetcher={getDealsWithPriceAnomalies}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (
       <div className={styles.emptyState}>

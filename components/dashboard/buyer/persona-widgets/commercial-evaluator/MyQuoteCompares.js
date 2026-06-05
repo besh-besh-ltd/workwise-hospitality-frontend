@@ -4,6 +4,7 @@ import { GitCompareArrows, ArrowUpRight } from "lucide-react";
 import moment from "moment";
 import { getMyQuoteCompares } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 /** RFQs in quote-compare stage awaiting my decision. */
@@ -14,6 +15,7 @@ const MyQuoteCompares = ({ filters }) => (
     tooltip="RFQs in quote-compare stage where you're the assigned evaluator."
     filters={filters}
     fetcher={getMyQuoteCompares}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (
       <div className={styles.emptyState}>

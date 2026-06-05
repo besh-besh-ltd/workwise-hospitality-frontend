@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { PiggyBank, TrendingUp, TrendingDown } from "lucide-react";
 import { getNegotiationSavings } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
+import { SkeletonHeadline } from "@/components/dashboard/shared";
 import styles from "./NegotiationSavings.module.scss";
 
 const formatCurrency = (value) => {
@@ -62,6 +63,7 @@ const NegotiationSavings = ({ filters }) => {
       loading={loading}
       error={error}
       isEmpty={!hasData}
+      skeleton={<SkeletonHeadline withSpark={false} />}
       renderEmpty={() => (
         <div className={styles.emptyState}>
           No price reductions recorded through negotiations in this period.

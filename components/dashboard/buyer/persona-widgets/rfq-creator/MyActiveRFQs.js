@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Activity, ArrowUpRight } from "lucide-react";
 import { getMyActiveRfqs } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 const STAGE_LABELS = {
@@ -22,6 +23,7 @@ const MyActiveRFQs = ({ filters }) => (
     tooltip="Your live RFQs grouped by where they are in the lifecycle."
     filters={filters}
     fetcher={getMyActiveRfqs}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.total > 0 || (d.stages && d.stages.length > 0))}
     renderEmpty={() => (
       <div className={styles.emptyState}>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Briefcase, ArrowUpRight } from "lucide-react";
 import { getMyCommercialApprovalsPending } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonHeadline } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 const fmtINR = (n) => {
@@ -21,6 +22,7 @@ const MyCommercialApprovalsPending = ({ filters }) => (
     tooltip="Commercial approvals awaiting your sign-off — count, total ₹ value, and the top 3 by value."
     filters={filters}
     fetcher={getMyCommercialApprovalsPending}
+    skeleton={<SkeletonHeadline withSpark={false} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.top_by_value && d.top_by_value.length > 0))}
     renderEmpty={() => (
       <div className={styles.emptyState}>

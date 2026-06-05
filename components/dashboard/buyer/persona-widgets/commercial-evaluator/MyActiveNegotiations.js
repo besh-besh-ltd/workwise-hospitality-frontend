@@ -4,6 +4,7 @@ import { MessageSquareWarning, ArrowUpRight } from "lucide-react";
 import moment from "moment";
 import { getMyActiveNegotiations } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 /** Negotiation rounds where I'm the lead — with silent-vendor flags. */
@@ -14,6 +15,7 @@ const MyActiveNegotiations = ({ filters }) => (
     tooltip="Negotiation rounds where you're the lead — silent vendors flagged."
     filters={filters}
     fetcher={getMyActiveNegotiations}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (
       <div className={styles.emptyState}>

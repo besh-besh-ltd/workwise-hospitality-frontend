@@ -14,6 +14,7 @@ import {
 } from "chart.js";
 import { getCostIntelligence } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
+import { SkeletonChart } from "@/components/dashboard/shared";
 import styles from "./CostIntelligence.module.scss";
 
 ChartJS.register(
@@ -247,6 +248,7 @@ const CostIntelligence = ({ filters }) => {
       loading={loading}
       error={error}
       isEmpty={!chartData}
+      skeleton={<SkeletonChart legendCount={3} />}
       renderEmpty={() => (
         <div className={styles.emptyState}>
           No price benchmarking data available for the selected period.

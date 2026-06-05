@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Hourglass, ArrowUpRight } from "lucide-react";
 import { getTechApprovalOldestPending } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 /** Top 5 items in MY tech-approval queue waiting on me the longest. */
@@ -13,6 +14,7 @@ const TechApprovalOldestPending = ({ filters }) => (
     tooltip="The 5 items that have been waiting on you the longest — proactive escalation list."
     filters={filters}
     fetcher={getTechApprovalOldestPending}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.items && d.items.length > 0)}
     renderEmpty={() => (
       <div className={styles.emptyState}>

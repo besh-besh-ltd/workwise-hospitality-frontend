@@ -43,9 +43,17 @@ const DashboardPermissionsContext = createContext({
  */
 export const DashboardPermissionsProvider = ({ hotelIds, children }) => {
   const [permissions, setPermissions] = useState([]);
+  // `isLoading` flips to true ONLY on the first fetch. After that, BU changes
+  // (and any other refetch) update permissions silently — the previously-loaded
+  // widget list keeps showing, and each widget's own skeleton handles the data
+  // refresh. This prevents the whole dashboard from blanking on BU change.
+  // `isRefetching` exposes the background refresh state for any consumer that
+  // wants a subtle indicator.
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefetching, setIsRefetching] = useState(false);
   const [error, setError] = useState(null);
   const fetchIdRef = useRef(0);
+  const firstLoadDoneRef = useRef(false);
 
   // Stable key so empty / reordered arrays don't re-trigger.
   const hotelIdsKey = useMemo(
@@ -55,7 +63,11 @@ export const DashboardPermissionsProvider = ({ hotelIds, children }) => {
 
   const fetchPermissions = useCallback(async () => {
     const currentFetchId = ++fetchIdRef.current;
-    setIsLoading(true);
+    if (!firstLoadDoneRef.current) {
+      setIsLoading(true);
+    } else {
+      setIsRefetching(true);
+    }
     setError(null);
 
     try {
@@ -75,6 +87,8 @@ export const DashboardPermissionsProvider = ({ hotelIds, children }) => {
     } finally {
       if (fetchIdRef.current === currentFetchId) {
         setIsLoading(false);
+        setIsRefetching(false);
+        firstLoadDoneRef.current = true;
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -98,10 +112,11 @@ export const DashboardPermissionsProvider = ({ hotelIds, children }) => {
       permissions,
       visibleCodes,
       isLoading,
+      isRefetching,
       error,
       refetch: fetchPermissions,
     }),
-    [permissions, visibleCodes, isLoading, error, fetchPermissions]
+    [permissions, visibleCodes, isLoading, isRefetching, error, fetchPermissions]
   );
 
   return (

@@ -4,6 +4,7 @@ import { History, ArrowUpRight, FileCheck } from "lucide-react";
 import moment from "moment";
 import { getRecentAwards } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 const fmtINR = (n) => {
@@ -22,6 +23,7 @@ const RecentAwards = ({ filters }) => (
     tooltip="What you've cleared recently, with links to the generated POs."
     filters={filters}
     fetcher={getRecentAwards}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.items && d.items.length > 0)}
     renderEmpty={() => (
       <div className={styles.emptyState}>

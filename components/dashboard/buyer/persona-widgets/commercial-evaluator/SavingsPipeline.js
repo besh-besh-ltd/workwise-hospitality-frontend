@@ -2,6 +2,7 @@ import React from "react";
 import { PiggyBank, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { getSavingsPipeline } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonHeadline } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 const fmtINR = (n) => {
@@ -25,6 +26,7 @@ const SavingsPipeline = ({ filters }) => (
     tooltip="Net ₹ saved (or lost) across negotiations you led this period. Losses render in red."
     filters={filters}
     fetcher={getSavingsPipeline}
+    skeleton={<SkeletonHeadline withSpark={false} />}
     isEmpty={(d) => !d || (d.negotiation_count ?? 0) === 0}
     renderEmpty={() => (
       <div className={styles.emptyState}>

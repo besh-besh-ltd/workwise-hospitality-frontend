@@ -4,6 +4,7 @@ import { Award, ArrowUpRight } from "lucide-react";
 import moment from "moment";
 import { getMyAwardApprovalsPending } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 const fmtINR = (n) => {
@@ -22,6 +23,7 @@ const MyAwardApprovalsPending = ({ filters }) => (
     tooltip="Awards waiting on your approval — any step in the chain where you're next."
     filters={filters}
     fetcher={getMyAwardApprovalsPending}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (
       <div className={styles.emptyState}>

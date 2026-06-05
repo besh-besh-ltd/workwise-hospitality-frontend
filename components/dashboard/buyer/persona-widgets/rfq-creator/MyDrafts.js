@@ -4,6 +4,7 @@ import { FilePlus, ArrowUpRight } from "lucide-react";
 import moment from "moment";
 import { getMyDrafts } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 /** RFQs the user started but hasn't published yet — sorted by most recently edited. */
@@ -14,6 +15,7 @@ const MyDrafts = ({ filters }) => (
     tooltip="RFQs you started but haven't published. Resume editing or publish."
     filters={filters}
     fetcher={getMyDrafts}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (
       <div className={styles.emptyState}>

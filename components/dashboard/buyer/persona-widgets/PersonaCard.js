@@ -26,6 +26,7 @@ const DEFAULT_POLL_MS = 20000;
  */
 const PersonaCard = ({
   title,
+  subtitle,
   icon: Icon,
   tooltip,
   filters,
@@ -34,7 +35,10 @@ const PersonaCard = ({
   children,
   renderEmpty,
   actions,
+  foot,
+  noPad,
   isEmpty,
+  skeleton,
 }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -101,6 +105,7 @@ const PersonaCard = ({
           </div>
         </div>
         <div className={styles.headActions}>
+          {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
           {actions}
           {!loading && (
             <button
@@ -116,13 +121,15 @@ const PersonaCard = ({
         </div>
       </div>
 
-      <div className={styles.body}>
+      <div className={`${styles.body} ${noPad ? styles.noPad : ""}`}>
         {loading && (
-          <div className={styles.skeleton}>
-            <div className={styles.skelBar} style={{ width: "55%", height: 20 }} />
-            <div className={styles.skelBar} style={{ width: "78%" }} />
-            <div className={styles.skelBar} style={{ width: "62%" }} />
-          </div>
+          skeleton ?? (
+            <div className={styles.skeleton}>
+              <div className={styles.skelBar} style={{ width: "55%", height: 20 }} />
+              <div className={styles.skelBar} style={{ width: "78%" }} />
+              <div className={styles.skelBar} style={{ width: "62%" }} />
+            </div>
+          )
         )}
 
         {!loading && error && (
@@ -149,6 +156,7 @@ const PersonaCard = ({
           typeof children === "function" ? children(data, { onRetry: handleRetry }) : children
         )}
       </div>
+      {foot && <div className={styles.foot}>{foot}</div>}
     </div>
   );
 };
@@ -162,9 +170,12 @@ export default PersonaCard;
    ──────────────────────────────────────────────────────────── */
 export const PersonaCardShell = ({
   title,
+  subtitle,
   icon: Icon,
   tooltip,
   actions,
+  foot,
+  noPad,
   onRefresh,
   loading = false,
   error = null,
@@ -172,6 +183,7 @@ export const PersonaCardShell = ({
   renderEmpty,
   children,
   className,
+  skeleton,
 }) => {
   return (
     <div className={`${styles.card} ${className || ""}`}>
@@ -188,6 +200,7 @@ export const PersonaCardShell = ({
           </div>
         </div>
         <div className={styles.headActions}>
+          {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
           {actions}
           {onRefresh && !loading && (
             <button
@@ -203,13 +216,15 @@ export const PersonaCardShell = ({
         </div>
       </div>
 
-      <div className={styles.body}>
+      <div className={`${styles.body} ${noPad ? styles.noPad : ""}`}>
         {loading && (
-          <div className={styles.skeleton}>
-            <div className={styles.skelBar} style={{ width: "55%", height: 20 }} />
-            <div className={styles.skelBar} style={{ width: "78%" }} />
-            <div className={styles.skelBar} style={{ width: "62%" }} />
-          </div>
+          skeleton ?? (
+            <div className={styles.skeleton}>
+              <div className={styles.skelBar} style={{ width: "55%", height: 20 }} />
+              <div className={styles.skelBar} style={{ width: "78%" }} />
+              <div className={styles.skelBar} style={{ width: "62%" }} />
+            </div>
+          )
         )}
         {!loading && error && (
           <div className={styles.errorState}>
@@ -229,6 +244,7 @@ export const PersonaCardShell = ({
         )}
         {!loading && !error && !isEmpty && children}
       </div>
+      {foot && <div className={styles.foot}>{foot}</div>}
     </div>
   );
 };

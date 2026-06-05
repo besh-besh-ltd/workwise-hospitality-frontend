@@ -17,7 +17,7 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
   min-width: 0;
 }
 
@@ -58,6 +58,27 @@
   gap: 8px;
 }
 
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #ebebe6;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #71717a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    border-color: #d6d6cf;
+    color: #18181b;
+    background: #fafaf9;
+  }
+}
+
 .filterItem {
   min-width: 170px;
 
@@ -93,80 +114,91 @@
 .oppGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
+  gap: 12px;
 
   @media (max-width: 1100px) { grid-template-columns: repeat(2, 1fr); }
   @media (max-width: 600px)  { grid-template-columns: 1fr; }
 }
 
+/* KPI-tile look: card chrome + accent-edge stripe on top. */
 .oppItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px 14px 14px;
+  border: 1px solid #ebebe6;
+  border-radius: 12px;
+  background: #ffffff;
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.15s ease;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: #d6d6cf;
+  }
+  &.info::before    { background: #2563eb; }
+  &.warn::before    { background: #b45309; }
+  &.danger::before  { background: #b91c1c; }
+  &.success::before { background: #15803d; }
+
+  &:hover {
+    border-color: #d6d6cf;
+    box-shadow: 0 6px 18px -8px rgba(15, 15, 14, 0.10);
+  }
+}
+
+.oppHead {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  text-decoration: none;
-  color: inherit;
-  background: transparent;
-  transition: background 0.15s ease;
-
-  & + .oppItem {
-    border-left: 1px solid #f4f4f1;
-    @media (max-width: 1100px) { border-left: none; }
-  }
-
-  &:hover { background: #fafaf9; }
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .oppIcon {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  color: #71717a;
-  background: #f5f5f3;
-  border: 1px solid #ebebe6;
+  color: #52525b;
+  background: #f4f4f1;
 
-  &.danger  { color: #b91c1c; background: #fef2f2; border-color: rgba(185, 28, 28, 0.16); }
-  &.warn    { color: #b45309; background: #fef7ed; border-color: rgba(180, 83, 9, 0.18); }
-  &.info    { color: #2563eb; background: #eff6ff; border-color: rgba(37, 99, 235, 0.16); }
-  &.success { color: #15803d; background: #ecfdf5; border-color: rgba(21, 128, 61, 0.18); }
-  &.muted   { color: #52525b; }
-}
-
-.oppBody {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-  flex: 1;
+  &.danger  { color: #b91c1c; background: #fef2f2; }
+  &.warn    { color: #b45309; background: #fef7ed; }
+  &.info    { color: #2563eb; background: #eff6ff; }
+  &.success { color: #15803d; background: #ecfdf5; }
 }
 
 .oppLabel {
-  font-size: 11.5px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
   color: #71717a;
-  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   line-height: 1.3;
 }
 
 .oppRow {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
+  align-items: baseline;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .oppValue {
   font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
   color: #18181b;
-  letter-spacing: -0.025em;
-  line-height: 1;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
 
   &.danger  { color: #b91c1c; }
   &.warn    { color: #b45309; }
@@ -194,50 +226,64 @@
 .perfGrid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 4px;
+  gap: 10px;
 
   @media (max-width: 1200px) { grid-template-columns: repeat(3, 1fr); }
   @media (max-width: 720px)  { grid-template-columns: repeat(2, 1fr); }
   @media (max-width: 460px)  { grid-template-columns: 1fr; }
 }
 
+/* KPI-tile look — soft-blue tint on the highlighted (REVENUE) tile. */
 .perfItem {
-  padding: 10px 14px;
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #ebebe6;
+  border-radius: 12px;
+  padding: 11px 13px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  position: relative;
+  gap: 5px;
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 
-  & + .perfItem {
-    border-left: 1px solid #f4f4f1;
-    @media (max-width: 1200px) { border-left: none; }
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: #d6d6cf;
+  }
+
+  &:hover {
+    border-color: #d6d6cf;
+    box-shadow: 0 6px 18px -8px rgba(15, 15, 14, 0.08);
   }
 
   &.highlighted {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    border-radius: 10px;
-    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    background: #f5f9ff;
+    border-color: rgba(37, 99, 235, 0.22);
 
-    .perfLabel { color: rgba(255, 255, 255, 0.78); }
-    .perfValue { color: #ffffff; }
+    &::before { background: #2563eb; }
+    .perfLabel { color: #2563eb; }
+    .perfValue { color: #18181b; }
   }
 }
 
 .perfLabel {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #a1a1aa;
+  letter-spacing: 0.06em;
+  color: #71717a;
 }
 
 .perfValue {
   font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: #18181b;
-  letter-spacing: -0.025em;
-  line-height: 1;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
   margin-top: 2px;
 }
 
@@ -245,7 +291,7 @@
 .mainContent {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 24px;
+  gap: 16px;
 
   @media (max-width: 992px) { grid-template-columns: 1fr; }
 }
@@ -254,7 +300,7 @@
 .rightColumn {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
   min-width: 0;
 }
 

@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import { useSelector } from "react-redux";
 import Head from "next/head";
 import Link from "next/link";
-import Select from "react-select";
 import moment from "moment";
 import { Line, Bar } from "react-chartjs-2";
 import {
@@ -11,32 +10,47 @@ import {
 } from "chart.js";
 import {
   FileText, Clock, Flame, ShoppingCart, Inbox, Activity, Trophy, TrendingUp,
-  Package, ArrowRight, BarChart3, LineChart, Target, PieChart, Layers,
+  Package, ArrowRight, BarChart3, LineChart, Target, PieChart, Layers, RefreshCw,
 } from "lucide-react";
 import { getVendorOpportunities, getVendorPerformance, getVendorInsights } from "@/services/vendorDashboard";
 import SubscriptionStatus from "./SubscriptionStatus";
 import { PersonaCardShell } from "../buyer/persona-widgets/PersonaCard";
+import {
+  Seg,
+  SkeletonKpiGrid,
+  SkeletonRankList,
+  SkeletonChart,
+  SkeletonActivityFeed,
+  SkeletonLabeledRows,
+  SkeletonBarWithLegend,
+} from "@/components/dashboard/shared";
 import styles from "./VendorDashboard.module.scss";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Filler);
 
-const DURATION_OPTIONS = [
-  { label: "Last 7 Days", value: "past7days" },
-  { label: "Last 15 Days", value: "past15days" },
-  { label: "This Month", value: "currentMonth" },
-  { label: "Last 6 Months", value: "past6months" },
-  { label: "All Time", value: "allTime" },
+const RANGE_OPTIONS = [
+  { label: "30D", value: "past30days" },
+  { label: "FY", value: "fy" },
+  { label: "All", value: "allTime" },
 ];
 
 const getDateRange = (type) => {
   const today = moment().endOf("day");
   switch (type) {
-    case "past7days": return { start_date: moment().subtract(6, "days").format("YYYY-MM-DD"), end_date: today.format("YYYY-MM-DD") };
-    case "past15days": return { start_date: moment().subtract(14, "days").format("YYYY-MM-DD"), end_date: today.format("YYYY-MM-DD") };
-    case "currentMonth": return { start_date: moment().startOf("month").format("YYYY-MM-DD"), end_date: today.format("YYYY-MM-DD") };
-    case "past6months": return { start_date: moment().subtract(5, "months").startOf("month").format("YYYY-MM-DD"), end_date: today.format("YYYY-MM-DD") };
-    case "allTime": return { start_date: "2025-01-01", end_date: today.format("YYYY-MM-DD") };
-    default: return { start_date: moment().subtract(6, "days").format("YYYY-MM-DD"), end_date: today.format("YYYY-MM-DD") };
+    case "past30days":
+      return { start_date: moment().subtract(29, "days").format("YYYY-MM-DD"), end_date: today.format("YYYY-MM-DD") };
+    case "fy": {
+      const now = moment();
+      const fyStartYear = now.month() >= 3 ? now.year() : now.year() - 1;
+      return {
+        start_date: moment({ year: fyStartYear, month: 3, day: 1 }).format("YYYY-MM-DD"),
+        end_date: today.format("YYYY-MM-DD"),
+      };
+    }
+    case "allTime":
+      return { start_date: "2025-01-01", end_date: today.format("YYYY-MM-DD") };
+    default:
+      return { start_date: moment().subtract(29, "days").format("YYYY-MM-DD"), end_date: today.format("YYYY-MM-DD") };
   }
 };
 
@@ -53,7 +67,7 @@ const Vendor = () => {
   const firstName = userProfile?.name?.split(" ")?.[0] || "there";
   const isHospitalityVendor = userProfile && (userProfile.is_hospitality === 1 || userProfile.is_hospitality === '1');
 
-  const [duration, setDuration] = useState(DURATION_OPTIONS[3]);
+  const [range, setRange] = useState(RANGE_OPTIONS[1].value); // FY default
   const [opp, setOpp] = useState(null);
   const [perf, setPerf] = useState(null);
   const [insights, setInsights] = useState(null);
@@ -62,7 +76,7 @@ const Vendor = () => {
   const [loadingInsights, setLoadingInsights] = useState(true);
   const intervalRef = useRef(null);
 
-  const filters = useMemo(() => getDateRange(duration.value), [duration]);
+  const filters = useMemo(() => getDateRange(range), [range]);
 
   const fetchOpp = useCallback(() => {
     setLoadingOpp(true);
@@ -161,9 +175,16 @@ const Vendor = () => {
             <p className={styles.subtitle}>Your business growth at a glance.</p>
           </div>
           <div className={styles.headerRight}>
-            <div className={styles.filterItem}>
-              <Select options={DURATION_OPTIONS} value={duration} onChange={setDuration} isClearable={false} isSearchable={false} classNamePrefix="react-select" />
-            </div>
+            <Seg options={RANGE_OPTIONS} value={range} onChange={setRange} />
+            <button
+              type="button"
+              className={styles.refreshBtn}
+              onClick={fetchAll}
+              title="Refresh all data"
+              aria-label="Refresh"
+            >
+              <RefreshCw size={15} />
+            </button>
           </div>
         </div>
 
@@ -176,6 +197,7 @@ const Vendor = () => {
           icon={Inbox}
           tooltip="Live counts of incoming RFQs, pending quotes, urgent closures, and recent POs."
           loading={loadingOpp}
+          skeleton={<SkeletonKpiGrid count={OPP_CARDS.length} />}
           onRefresh={fetchOpp}
         >
           <div className={styles.oppGrid}>
@@ -184,22 +206,26 @@ const Vendor = () => {
               const count = opp?.[card.key] ?? 0;
               const isActive = count > 0;
               return (
-                <Link key={card.key} href={card.href} className={styles.oppItem}>
-                  <div className={`${styles.oppIcon} ${styles[card.accent]}`}>
-                    <Icon size={14} />
-                  </div>
-                  <div className={styles.oppBody}>
+                <Link
+                  key={card.key}
+                  href={card.href}
+                  className={`${styles.oppItem} ${styles[card.accent]}`}
+                >
+                  <div className={styles.oppHead}>
                     <div className={styles.oppLabel}>{card.label}</div>
-                    <div className={styles.oppRow}>
-                      <div className={`${styles.oppValue} ${isActive ? styles[card.accent] : ""}`}>
-                        {count}
-                      </div>
-                      {isActive && card.statusLabel && (
-                        <span className={`${styles.statusPill} ${styles[card.accent]}`}>
-                          {card.statusLabel}
-                        </span>
-                      )}
+                    <div className={`${styles.oppIcon} ${styles[card.accent]}`}>
+                      <Icon size={13} />
                     </div>
+                  </div>
+                  <div className={styles.oppRow}>
+                    <div className={`${styles.oppValue} ${isActive ? styles[card.accent] : ""}`}>
+                      {count}
+                    </div>
+                    {isActive && card.statusLabel && (
+                      <span className={`${styles.statusPill} ${styles[card.accent]}`}>
+                        {card.statusLabel}
+                      </span>
+                    )}
                   </div>
                 </Link>
               );
@@ -213,6 +239,7 @@ const Vendor = () => {
           icon={Target}
           tooltip="From inviting to revenue — your conversion across the selected period."
           loading={loadingPerf}
+          skeleton={<SkeletonKpiGrid count={PERF_TILES.length} />}
           onRefresh={fetchPerf}
         >
           <div className={styles.perfGrid}>
@@ -237,6 +264,7 @@ const Vendor = () => {
               tooltip="Revenue from finalised orders over the selected period."
               loading={loadingInsights}
               isEmpty={!hasRevenueData}
+              skeleton={<SkeletonChart legendCount={0} />}
               renderEmpty={() => (
                 <div className={styles.emptyText}>No revenue data for this period.</div>
               )}
@@ -253,6 +281,7 @@ const Vendor = () => {
               tooltip="RFQs received vs. orders won, split by business unit."
               loading={loadingInsights}
               isEmpty={!buChartData}
+              skeleton={<SkeletonChart legendCount={2} />}
               renderEmpty={() => (
                 <div className={styles.emptyText}>No business unit data.</div>
               )}
@@ -269,6 +298,7 @@ const Vendor = () => {
               tooltip="Products you've been quoting most often, ranked by frequency."
               loading={loadingInsights}
               isEmpty={!insights?.top_products?.length}
+              skeleton={<SkeletonRankList rows={4} />}
               renderEmpty={() => (
                 <div className={styles.emptyText}>No products quoted in this period.</div>
               )}
@@ -293,6 +323,7 @@ const Vendor = () => {
               icon={Activity}
               tooltip="Share of RFQs you responded to vs. missed, plus average turnaround."
               loading={loadingInsights}
+              skeleton={<SkeletonLabeledRows rows={4} />}
               actions={
                 effTotal > 0 ? (
                   <span className={`${styles.headerPill} ${responsePct >= 70 ? styles.winPill : styles.warnPill}`}>
@@ -338,6 +369,7 @@ const Vendor = () => {
               tooltip="Distribution of competed RFQs: won, lost, or still pending decision."
               loading={loadingInsights}
               isEmpty={wl_total === 0}
+              skeleton={<SkeletonBarWithLegend legendCount={3} />}
               renderEmpty={() => (
                 <div className={styles.emptyText}>No competed RFQs in this period.</div>
               )}
@@ -370,6 +402,7 @@ const Vendor = () => {
               tooltip="Latest events across your enquiries, quotes, and POs."
               loading={loadingInsights}
               isEmpty={!insights?.recent_activity?.length}
+              skeleton={<SkeletonActivityFeed rows={5} />}
               renderEmpty={() => (
                 <div className={styles.emptyText}>No recent activity.</div>
               )}

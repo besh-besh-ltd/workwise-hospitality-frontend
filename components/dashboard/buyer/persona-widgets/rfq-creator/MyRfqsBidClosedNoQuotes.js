@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AlertOctagon, ArrowUpRight } from "lucide-react";
 import { getMyRfqsBidClosedNoQuotes } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 /**
@@ -16,6 +17,7 @@ const MyRfqsBidClosedNoQuotes = ({ filters }) => (
     tooltip="Your RFQs whose bid window has passed but no vendor responded. Re-publish, extend the bid, or escalate."
     filters={filters}
     fetcher={getMyRfqsBidClosedNoQuotes}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (
       <div className={styles.emptyState}>

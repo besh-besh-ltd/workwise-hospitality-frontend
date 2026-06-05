@@ -4,6 +4,7 @@ import { ShieldCheck, ArrowUpRight } from "lucide-react";
 import moment from "moment";
 import { getMyTechApprovalsPending } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 /** Tech-eval results queued for my approval. */
@@ -14,6 +15,7 @@ const MyTechApprovalsPending = ({ filters }) => (
     tooltip="Tech-evaluation results queued for your approval."
     filters={filters}
     fetcher={getMyTechApprovalsPending}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (
       <div className={styles.emptyState}>

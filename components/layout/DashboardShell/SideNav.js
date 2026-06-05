@@ -1,12 +1,14 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
-import { LogOut } from "lucide-react";
+import { ChevronDown, LogOut, Search, X } from "lucide-react";
 import { roleMenus } from "@/components/layout/Header/headerConfig";
 import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
 import SideNavItem from "./SideNavItem";
 import { getNavIcon } from "./navIcons";
 import styles from "./DashboardShell.module.css";
+
+const COLLAPSED_SECTIONS_KEY = "ww:sidebar:collapsedSections";
 
 const SideNav = ({
   user,
@@ -76,10 +78,106 @@ const SideNav = ({
 
   const isItemActive = (href) => href === activeHref;
 
+  // Per-section collapse state, persisted across navigations. Only applies in
+  // the expanded rail; the icon-only rail always shows everything.
+  const [collapsedSections, setCollapsedSections] = useState(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.localStorage.getItem(COLLAPSED_SECTIONS_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch (_) {
+      return new Set();
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        COLLAPSED_SECTIONS_KEY,
+        JSON.stringify(Array.from(collapsedSections))
+      );
+    } catch (_) {}
+  }, [collapsedSections]);
+
+  const toggleSection = useCallback((section) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  }, []);
+
+  // Sidebar nav search — filters items by label. While searching, all sections
+  // are force-expanded and any group with no matches is hidden.
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef(null);
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const isSearching = trimmedQuery.length > 0;
+
+  // ⌘/Ctrl+K focuses the search input.
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        if (searchInputRef.current) {
+          e.preventDefault();
+          searchInputRef.current.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // Reset search on route change so the nav settles back to normal after click.
+  useEffect(() => {
+    const close = () => setSearchQuery("");
+    router.events.on("routeChangeStart", close);
+    return () => router.events.off("routeChangeStart", close);
+  }, [router.events]);
+
+  const matchesQuery = useCallback(
+    (label) => (label || "").toLowerCase().includes(trimmedQuery),
+    [trimmedQuery]
+  );
+
   return (
     <>
       <aside className={`${styles.sidebar} ${hasSubSidebar ? styles.sidebarWithSub : (collapsed ? styles.sidebarMini : styles.sidebarExpanded)}`}>
         <div className={`${styles.rail} ${isCompact ? styles.railCollapsed : styles.railExpanded}`}>
+          {/* Search — expanded rail only. ⌘/Ctrl+K to focus. */}
+          {!isCompact && (
+            <div className={styles.navSearch}>
+              <Search size={13} strokeWidth={2.2} className={styles.navSearchIcon} />
+              <input
+                ref={searchInputRef}
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search…"
+                className={styles.navSearchInput}
+                aria-label="Search navigation"
+              />
+              {isSearching ? (
+                <button
+                  type="button"
+                  className={styles.navSearchClear}
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear search"
+                >
+                  <X size={11} strokeWidth={2.4} />
+                </button>
+              ) : (
+                <span className={styles.navSearchKbd}>
+                  <span className={styles.navSearchKbdGlyph}>⌘</span>
+                  <span className={styles.navSearchKbdGlyph}>K</span>
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Nav items */}
           <nav className={`${styles.railNav} ${isCompact ? styles.railNavCollapsed : styles.railNavExpanded}`}>
             {isCompact ? (
@@ -103,34 +201,75 @@ const SideNav = ({
                 );
               })
             ) : (
-              groupedNavItems.map((group, gi) => (
-                <div key={group.section || gi}>
-                  {group.section && (
-                    <p className={`${styles.sectionLabel} ${gi === 0 ? styles.sectionLabelFirst : ""}`}>
-                      {group.section}
-                    </p>
-                  )}
-                  {group.items.map((item) => {
-                    const Icon = getNavIcon(item.href);
-                    const locked = isSubLocked && item.requiresSubscription;
-                    const active = !locked && isItemActive(item.href);
-                    return (
-                      <SideNavItem
-                        key={item.href}
-                        href={item.href}
-                        label={item.label}
-                        Icon={Icon}
-                        active={active}
-                        compact={false}
-                        locked={locked}
-                        isNew={item.isNew}
-                        isLegacy={item.legacy}
-                        hasPending={!locked && hasPendingApproval(item.href)}
-                      />
-                    );
-                  })}
-                </div>
-              ))
+              (() => {
+                // While searching, filter items and skip whole groups with no matches.
+                const visibleGroups = groupedNavItems
+                  .map((group) => ({
+                    ...group,
+                    items: isSearching
+                      ? group.items.filter((it) => matchesQuery(it.label))
+                      : group.items,
+                  }))
+                  .filter((group) => group.items.length > 0);
+
+                if (isSearching && visibleGroups.length === 0) {
+                  return (
+                    <div className={styles.navSearchEmpty}>
+                      No matches for &ldquo;{searchQuery.trim()}&rdquo;
+                    </div>
+                  );
+                }
+
+                return visibleGroups.map((group, gi) => {
+                  // Searching expands every section so the matches are visible.
+                  const isCollapsed = !isSearching && group.section
+                    ? collapsedSections.has(group.section)
+                    : false;
+                  return (
+                    <div key={group.section || gi} className={styles.sectionGroup}>
+                      {group.section ? (
+                        <button
+                          type="button"
+                          className={`${styles.sectionToggle} ${gi === 0 ? styles.sectionLabelFirst : ""}`}
+                          onClick={() => toggleSection(group.section)}
+                          aria-expanded={!isCollapsed}
+                          disabled={isSearching}
+                        >
+                          <ChevronDown
+                            size={11}
+                            strokeWidth={2.4}
+                            className={`${styles.sectionChev} ${isCollapsed ? styles.sectionChevCollapsed : ""}`}
+                          />
+                          <span className={styles.sectionLabelText}>{group.section}</span>
+                        </button>
+                      ) : null}
+                      {!isCollapsed && (
+                        <div className={styles.sectionItems}>
+                          {group.items.map((item) => {
+                            const Icon = getNavIcon(item.href);
+                            const locked = isSubLocked && item.requiresSubscription;
+                            const active = !locked && isItemActive(item.href);
+                            return (
+                              <SideNavItem
+                                key={item.href}
+                                href={item.href}
+                                label={item.label}
+                                Icon={Icon}
+                                active={active}
+                                compact={false}
+                                locked={locked}
+                                isNew={item.isNew}
+                                isLegacy={item.legacy}
+                                hasPending={!locked && hasPendingApproval(item.href)}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()
             )}
           </nav>
 

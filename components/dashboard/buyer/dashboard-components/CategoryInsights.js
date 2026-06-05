@@ -4,6 +4,7 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { PieChart } from "lucide-react";
 import { getCategoryInsights } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
+import { SkeletonChart } from "@/components/dashboard/shared";
 import styles from "./CategoryInsights.module.scss";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -106,6 +107,7 @@ const CategoryInsights = ({ filters }) => {
       tooltip="Procurement spend split across product categories in this period."
       loading={loading}
       error={error}
+      skeleton={<SkeletonChart legendCount={4} />}
       isEmpty={!chartData}
       renderEmpty={() => (
         <div className={styles.emptyState}>

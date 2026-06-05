@@ -4,6 +4,7 @@ import { UserX, ArrowUpRight } from "lucide-react";
 import moment from "moment";
 import { getMyNoResponseRfqs } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 /** Live RFQs of mine where ≥1 invited vendor hasn't quoted yet —
@@ -15,6 +16,7 @@ const MyNoResponseRFQs = ({ filters }) => (
     tooltip="Your live RFQs where one or more invited vendors haven't submitted a quote yet."
     filters={filters}
     fetcher={getMyNoResponseRfqs}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (
       <div className={styles.emptyState}>

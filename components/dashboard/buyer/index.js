@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useMemo, useRef } from "react";
 import Head from "next/head";
 import moment from "moment";
-import Select from "react-select";
 import { useSelector } from "react-redux";
 import { RefreshCw } from "lucide-react";
 import HotelFilter from "@/components/shared/HotelFilter";
+import { Seg, SkeletonKpiGrid } from "@/components/dashboard/shared";
 import ActionCenter from "./dashboard-components/ActionCenter";
 import ProcurementSnapshot from "./dashboard-components/ProcurementSnapshot";
 import NegotiationSavings from "./dashboard-components/NegotiationSavings";
@@ -20,13 +20,10 @@ import {
 import { COLUMN } from "./DashboardRegistry";
 import styles from "../buyer/BuyerDashboard.module.scss";
 
-const DURATION_OPTIONS = [
-  { label: "Last 7 Days", value: "past7days" },
-  { label: "Last 15 Days", value: "past15days" },
-  { label: "This Month", value: "currentMonth" },
-  { label: "Last 6 Months", value: "past6months" },
-  { label: "All Time", value: "allTime" },
-  { label: "Custom", value: "custom" },
+const RANGE_OPTIONS = [
+  { label: "30D", value: "past30days" },
+  { label: "FY", value: "fy" },
+  { label: "All", value: "allTime" },
 ];
 
 const getGreeting = () => {
@@ -36,41 +33,28 @@ const getGreeting = () => {
   return "Good Evening";
 };
 
-const getDateRange = (type, customStart, customEnd) => {
+// Resolve a Seg value to an inclusive { start_date, end_date } pair (YYYY-MM-DD).
+// FY = current financial year (Apr-Mar IST).
+const getDateRange = (type) => {
   const today = moment().endOf("day");
-  let start_date, end_date;
-
+  let start_date;
   switch (type) {
-    case "past7days":
-      start_date = moment().subtract(6, "days").startOf("day").format("YYYY-MM-DD");
-      end_date = today.format("YYYY-MM-DD");
+    case "past30days":
+      start_date = moment().subtract(29, "days").startOf("day").format("YYYY-MM-DD");
       break;
-    case "past15days":
-      start_date = moment().subtract(14, "days").startOf("day").format("YYYY-MM-DD");
-      end_date = today.format("YYYY-MM-DD");
+    case "fy": {
+      const now = moment();
+      const fyStartYear = now.month() >= 3 ? now.year() : now.year() - 1; // Apr = month 3
+      start_date = moment({ year: fyStartYear, month: 3, day: 1 }).format("YYYY-MM-DD");
       break;
-    case "currentMonth":
-      start_date = moment().startOf("month").format("YYYY-MM-DD");
-      end_date = today.format("YYYY-MM-DD");
-      break;
-    case "past6months":
-      start_date = moment().subtract(5, "months").startOf("month").format("YYYY-MM-DD");
-      end_date = today.format("YYYY-MM-DD");
-      break;
+    }
     case "allTime":
       start_date = "2025-01-01";
-      end_date = today.format("YYYY-MM-DD");
-      break;
-    case "custom":
-      start_date = customStart || moment().subtract(30, "days").format("YYYY-MM-DD");
-      end_date = customEnd || today.format("YYYY-MM-DD");
       break;
     default:
-      start_date = moment().subtract(6, "days").startOf("day").format("YYYY-MM-DD");
-      end_date = today.format("YYYY-MM-DD");
+      start_date = moment().subtract(29, "days").startOf("day").format("YYYY-MM-DD");
   }
-
-  return { start_date, end_date };
+  return { start_date, end_date: today.format("YYYY-MM-DD") };
 };
 
 /** Feature flag: role-aware (registry-driven, permission-gated) dashboard.
@@ -85,27 +69,21 @@ const BuyerPage = () => {
   const firstName = userProfile?.name?.split(" ")?.[0] || "there";
 
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
-  const [duration, setDuration] = useState(DURATION_OPTIONS[0]);
-  const [customStartDate, setCustomStartDate] = useState("");
-  const [customEndDate, setCustomEndDate] = useState("");
+  const [range, setRange] = useState(RANGE_OPTIONS[0].value); // 30D default
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const hotelFilterRef = useRef(null);
 
   const filters = useMemo(() => {
-    const { start_date, end_date } = getDateRange(
-      duration.value,
-      customStartDate,
-      customEndDate
-    );
+    const { start_date, end_date } = getDateRange(range);
     return {
       hotel_ids: selectedHotelIds.join(","),
       start_date,
       end_date,
-      duration_type: duration.value,
+      duration_type: range,
       _refresh: refreshKey,
     };
-  }, [selectedHotelIds, duration, customStartDate, customEndDate, refreshKey]);
+  }, [selectedHotelIds, range, refreshKey]);
 
   // Human-readable label for the BU(s) currently in scope — used in the
   // empty-state copy and any toast that needs to reference the user's
@@ -124,10 +102,6 @@ const BuyerPage = () => {
 
   const handleHotelChange = useCallback((ids) => {
     setSelectedHotelIds(ids || []);
-  }, []);
-
-  const handleDurationChange = useCallback((option) => {
-    setDuration(option);
   }, []);
 
   const handleRefresh = useCallback(() => {
@@ -162,23 +136,13 @@ const BuyerPage = () => {
             </p>
           </div>
           <div className={styles.filterBar}>
+            <Seg options={RANGE_OPTIONS} value={range} onChange={setRange} />
             <div className={styles.filterItem} ref={hotelFilterRef}>
               <HotelFilter
                 selectedHotelIds={selectedHotelIds}
                 onSelectionChange={handleHotelChange}
                 isMulti={true}
                 placeholder="All Business Units"
-              />
-            </div>
-            <div className={styles.filterItem}>
-              <Select
-                options={DURATION_OPTIONS}
-                value={duration}
-                onChange={handleDurationChange}
-                placeholder="Duration"
-                isClearable={false}
-                isSearchable={false}
-                classNamePrefix="react-select"
               />
             </div>
             <button
@@ -188,24 +152,6 @@ const BuyerPage = () => {
             >
               <RefreshCw size={15} className={isRefreshing ? styles.spinning : ""} />
             </button>
-            {duration.value === "custom" && (
-              <>
-                <input
-                  type="date"
-                  className={styles.dateInput}
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  max={customEndDate || undefined}
-                />
-                <input
-                  type="date"
-                  className={styles.dateInput}
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  min={customStartDate || undefined}
-                />
-              </>
-            )}
           </div>
         </div>
 
@@ -255,9 +201,16 @@ const RoleAwareDashboard = ({ filters, selectedHotelLabel, onChangeBu }) => {
   const { widgets, isLoading } = useVisibleDashboardWidgets();
 
   if (isLoading) {
-    // Render nothing during the initial permission load — the page header
-    // is already visible above, no need for a skeleton on the empty area.
-    return null;
+    // First-load only — show a soft page-level skeleton so the surface area
+    // isn't blank. BU changes after the first load don't blank: `isLoading`
+    // stays false and `isRefetching` runs silently, while each widget shows
+    // its own skeleton during data refresh.
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <SkeletonKpiGrid count={5} />
+        <SkeletonKpiGrid count={5} />
+      </div>
+    );
   }
 
   if (!widgets.length) {

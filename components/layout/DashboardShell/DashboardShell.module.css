@@ -52,8 +52,10 @@
   display: flex;
   flex-shrink: 0;
   z-index: 1020;
-  border-right: 1px solid #eee;
-  background: #ffffff;
+  border-right: 1px solid #ebebe6;
+  /* Subtle sand-tinted "tray" — creates visual separation from the white
+     main content. Cards inside the main area still pop on pure white. */
+  background: #fafaf9;
   transition: width 0.2s ease;
 }
 
@@ -91,7 +93,8 @@
   flex-direction: column;
   flex-shrink: 0;
   height: 100%;
-  background: #ffffff;
+  /* inherits #fafaf9 from .sidebar */
+  background: transparent;
   overflow: visible;
   transition: width 0.2s ease;
   position: relative;
@@ -106,7 +109,7 @@
 /* Collapsed rail (icons only, alongside sub-sidebar) */
 .railCollapsed {
   width: 56px;
-  border-right: 1px solid #eee;
+  border-right: 1px solid #ebebe6;
 }
 
 /* Rail header — profile block at top */
@@ -168,8 +171,8 @@
 }
 
 .railNavExpanded {
-  padding: 14px 10px 14px 10px;
-  gap: 3px;
+  padding: 10px 8px 14px 8px;
+  gap: 1px;
   display: flex;
   flex-direction: column;
 }
@@ -187,13 +190,15 @@
 }
 
 /* ── Nav item (expanded: icon + label) ────────── */
+/* Modern SaaS aesthetic: minimal hover bg, no left stripe on active.
+   Active is a slightly more pronounced background + medium-weight text. */
 .navItem {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 8px 12px;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 7px;
   color: #52525b;
   font-size: 13px;
   font-weight: 500;
@@ -203,13 +208,13 @@
   background: transparent;
   width: 100%;
   text-align: left;
-  min-height: 36px;
-  transition: background 0.15s ease, color 0.15s ease;
+  min-height: 30px;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .navItem:hover {
   color: #18181b;
-  background: #fafaf9;
+  background: #f4f4f1;
 }
 
 .navItem:hover .navIcon {
@@ -218,23 +223,12 @@
 
 .navItemActive {
   color: #18181b;
-  background: #f4f4f1;
-  font-weight: 600;
+  background: #ebebe6;
+  font-weight: 550;
 }
 
 .navItemActive .navIcon {
-  color: #2563eb;
-}
-
-.navItemActive::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  background: #2563eb;
-  border-radius: 0 3px 3px 0;
+  color: #18181b;
 }
 
 .navItemDisabled {
@@ -254,9 +248,9 @@
 /* ── Nav item (collapsed: icon-only pill) ────── */
 .navItemCompact {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -265,17 +259,17 @@
   background: transparent;
   text-decoration: none;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .navItemCompact:hover {
   color: #18181b;
-  background: #fafaf9;
+  background: #f4f4f1;
 }
 
 .navItemCompactActive {
-  color: #2563eb;
-  background: #f4f4f1;
+  color: #18181b;
+  background: #ebebe6;
 }
 
 .navItemCompactDisabled {
@@ -312,20 +306,138 @@
   text-overflow: ellipsis;
 }
 
-/* Section labels for grouped nav */
-.sectionLabel {
-  font-size: 10.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: #a1a1aa;
-  padding: 16px 14px 6px;
-  margin: 0;
+/* ── Sidebar nav search ─────────────────────── */
+.navSearch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 10px 10px 4px;
+  height: 30px;
+  padding: 0 8px;
+  background: #ffffff;
+  border: 1px solid #ebebe6;
+  border-radius: 7px;
+  gap: 7px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.navSearch:focus-within {
+  border-color: #d6d6cf;
+  box-shadow: 0 0 0 3px rgba(15, 15, 14, 0.04);
 }
 
-.sectionLabelFirst {
-  padding-top: 2px;
+.navSearchIcon {
+  color: #a1a1aa;
+  flex-shrink: 0;
 }
+
+.navSearchInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: #18181b;
+  letter-spacing: -0.005em;
+  padding: 0;
+}
+.navSearchInput::placeholder { color: #a1a1aa; }
+.navSearchInput::-webkit-search-cancel-button { display: none; }
+
+/* Two-span kbd hint so the ⌘ glyph and the letter render at the same
+   visual size. System mono (SF Mono / Menlo / Consolas) renders the ⌘
+   at the same x-height as letters — Geist Mono does not. */
+.navSearchKbd {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #f4f4f1;
+  border: 1px solid #ebebe6;
+  line-height: 1;
+}
+.navSearchKbdGlyph {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: #71717a;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 9px;
+  text-align: center;
+}
+
+.navSearchClear {
+  flex-shrink: 0;
+  background: transparent;
+  border: 0;
+  padding: 3px;
+  color: #71717a;
+  cursor: pointer;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.navSearchClear:hover { background: #f4f4f1; color: #18181b; }
+
+.navSearchEmpty {
+  padding: 16px 12px;
+  text-align: center;
+  font-size: 11.5px;
+  color: #a1a1aa;
+}
+
+/* Section group container */
+.sectionGroup {
+  display: flex;
+  flex-direction: column;
+}
+.sectionGroup + .sectionGroup { margin-top: 4px; }
+
+.sectionItems {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* Section toggle — clickable button with chevron + uppercase label */
+.sectionToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 0;
+  padding: 11px 10px 5px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #a1a1aa;
+  cursor: pointer;
+  width: fit-content;
+  border-radius: 5px;
+  transition: color 0.12s ease;
+  margin: 0;
+}
+.sectionToggle:hover { color: #52525b; }
+
+.sectionLabelFirst { padding-top: 4px; }
+.sectionLabelText { line-height: 1; }
+
+.sectionChev {
+  color: #a1a1aa;
+  transition: transform 0.18s ease, color 0.12s ease;
+  flex-shrink: 0;
+}
+.sectionToggle:hover .sectionChev { color: #52525b; }
+.sectionChevCollapsed { transform: rotate(-90deg); }
 
 /* Pending approval dot */
 .approvalDot {
@@ -344,7 +456,7 @@
   right: 6px;
   width: 7px;
   height: 7px;
-  box-shadow: 0 0 0 2px #ffffff;
+  box-shadow: 0 0 0 2px #fafaf9;
 }
 
 @keyframes dotGlow {
@@ -398,7 +510,7 @@
   height: 7px;
   border-radius: 50%;
   background: #2563eb;
-  box-shadow: 0 0 0 2px #ffffff;
+  box-shadow: 0 0 0 2px #fafaf9;
   flex-shrink: 0;
 }
 
@@ -894,8 +1006,10 @@
   justify-content: space-between;
   height: 56px;
   padding: 0 16px 0 0;
-  background: #ffffff;
-  border-bottom: 1px solid #eee;
+  /* Matches the sidebar tint so the top + left form a unified "chrome" frame
+     around the white main content. */
+  background: #fafaf9;
+  border-bottom: 1px solid #ebebe6;
   gap: 16px;
 }
 

@@ -2,6 +2,7 @@ import React from "react";
 import { Wallet, CheckCircle2, Clock4 } from "lucide-react";
 import { getAwardValuePipeline } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonStat2Up } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 const fmtINR = (n) => {
@@ -23,6 +24,7 @@ const AwardValuePipeline = ({ filters }) => (
     tooltip="₹ value of awards you've cleared — split between completed (PO approved + vendor accepted) and ongoing (in approval / awaiting vendor)."
     filters={filters}
     fetcher={getAwardValuePipeline}
+    skeleton={<SkeletonStat2Up />}
     isEmpty={(d) =>
       !d || (d.completed_value == null && d.ongoing_value == null)
     }

@@ -6,6 +6,7 @@ import CardTooltip from "./CardTooltip";
 import PendingApprovalsModal from "./PendingApprovalsModal";
 import RejectedPOsModal from "./RejectedPOsModal";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
+import { SkeletonKpiGrid } from "@/components/dashboard/shared";
 import styles from "./ActionCenter.module.scss";
 
 const ACTION_CARDS = [
@@ -106,6 +107,7 @@ const ActionCenter = ({ filters }) => {
         }
         loading={loading}
         error={error}
+        skeleton={<SkeletonKpiGrid count={ACTION_CARDS.length} />}
         onRefresh={() => {
           setLoading(true);
           fetchData();
@@ -119,27 +121,29 @@ const ActionCenter = ({ filters }) => {
 
             const inner = (
               <>
-                <div className={`${styles.iconChip} ${styles[card.accent]}`}>
-                  <IconComponent size={14} />
-                </div>
-                <div className={styles.actionBody}>
+                <div className={styles.actionHead}>
                   <div className={styles.actionLabel}>
                     {card.label}
                     <CardTooltip text={card.tooltip} />
                   </div>
-                  <div className={styles.countRow}>
-                    <div className={`${styles.actionCount} ${isAttention ? styles[card.accent] : ""}`}>
-                      {count}
-                    </div>
-                    {isAttention && card.statusLabel && (
-                      <span className={`${styles.statusPill} ${styles[card.accent]}`}>
-                        {card.statusLabel}
-                      </span>
-                    )}
+                  <div className={`${styles.iconChip} ${styles[card.accent]}`}>
+                    <IconComponent size={13} />
                   </div>
+                </div>
+                <div className={styles.countRow}>
+                  <div className={`${styles.actionCount} ${isAttention ? styles[card.accent] : ""}`}>
+                    {count}
+                  </div>
+                  {isAttention && card.statusLabel && (
+                    <span className={`${styles.statusPill} ${styles[card.accent]}`}>
+                      {card.statusLabel}
+                    </span>
+                  )}
                 </div>
               </>
             );
+
+            const itemClass = `${styles.actionItem} ${styles[card.accent]}`;
 
             if (!card.href) {
               const openModal = () => {
@@ -150,7 +154,7 @@ const ActionCenter = ({ filters }) => {
                 <button
                   type="button"
                   key={card.key}
-                  className={styles.actionItem}
+                  className={itemClass}
                   onClick={openModal}
                 >
                   {inner}
@@ -159,7 +163,7 @@ const ActionCenter = ({ filters }) => {
             }
 
             return (
-              <Link key={card.key} href={card.href} className={styles.actionItem}>
+              <Link key={card.key} href={card.href} className={itemClass}>
                 {inner}
               </Link>
             );

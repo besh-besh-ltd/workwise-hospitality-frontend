@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { getSmartInsightsData } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "./SmartInsights.module.scss";
 
 const INSIGHT_META = {
@@ -76,6 +77,7 @@ const SmartInsights = ({ filters }) => {
       loading={loading}
       error={error}
       isEmpty={insights.length === 0}
+      skeleton={<SkeletonRankList rows={4} />}
       renderEmpty={() => (
         <div className={styles.emptyState}>
           No insights available for the selected period.

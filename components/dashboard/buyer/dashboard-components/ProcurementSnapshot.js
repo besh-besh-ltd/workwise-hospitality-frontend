@@ -3,6 +3,7 @@ import { BarChart3, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { getProcurementSnapshot } from "@/services/dashboard";
 import CardTooltip from "./CardTooltip";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
+import { SkeletonKpiGrid } from "@/components/dashboard/shared";
 import styles from "./ProcurementSnapshot.module.scss";
 
 const formatCurrency = (value) => {
@@ -72,6 +73,7 @@ const ProcurementSnapshot = ({ filters }) => {
       tooltip="Headline counts and spend across the selected business units and period."
       loading={loading}
       error={error}
+      skeleton={<SkeletonKpiGrid count={METRICS.length} />}
       onRefresh={() => {
         setLoading(true);
         fetchData();

@@ -49,7 +49,7 @@ export const roleMenus = {
     { href: "/dashboard/admin/hospitality-manager", label: "Hospitality Network", targetMenu: "nav", section: "Management" },
   ],
   buyer: [
-    { href: "/dashboard/buyer", label: "Dashboard", targetMenu: "nav", section: "Main" },
+    { href: "/dashboard/buyer", label: "Dashboard", targetMenu: "nav", section: null },
     { href: "/dashboard/buyer/start-rfq", label: "Create RFQ", targetMenu: "nav", section: "RFQs" },
     { href: "/dashboard/buyer/rfq-management", label: "Management", targetMenu: "nav", section: "RFQs" },
     { href: "/dashboard/buyer/technical-evaluation", label: "Technical", targetMenu: "nav", section: "RFQs" },

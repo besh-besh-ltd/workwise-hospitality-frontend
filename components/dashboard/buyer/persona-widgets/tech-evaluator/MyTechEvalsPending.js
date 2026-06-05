@@ -4,6 +4,7 @@ import { ClipboardCheck, ArrowUpRight } from "lucide-react";
 import moment from "moment";
 import { getMyTechEvalsPending } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
+import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
 
 /** Products awaiting MY tech-eval clause responses, sorted oldest-first. */
@@ -14,6 +15,7 @@ const MyTechEvalsPending = ({ filters }) => (
     tooltip="Products awaiting your tech-eval clause responses, sorted by age."
     filters={filters}
     fetcher={getMyTechEvalsPending}
+    skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (
       <div className={styles.emptyState}>
