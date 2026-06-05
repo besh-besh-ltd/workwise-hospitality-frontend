@@ -3,23 +3,36 @@ import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { debounce } from "lodash";
 import { toast } from "react-toastify";
+import moment from "moment";
 import {
-  ArrowLeft, ArrowRight, Search, Building2, FileText, Gavel,
-  Check, Plus, X, FilePlus2, Building, CheckCircle2, Edit3,
-  Sparkles, ShoppingBag, Package,
+  ArrowRight, Search, Building2, FileText, Gavel,
+  Check, Plus, X, Building, CheckCircle2,
+  Sparkles, ShoppingBag, Package, Info, Copy, FilePlus2,
+  ChevronLeft, ChevronRight, Trash2, Eye, AlertCircle,
 } from "lucide-react";
 
 import { searchProductsV2 } from "@/services/products";
 import { getRFQHotels } from "@/services/hospitality";
-import { addProductsToDraft, getRecommendedProducts } from "@/services/rfq";
+import {
+  addProductsToDraft,
+  getRecommendedProducts,
+  getDraftById,
+  getDraftRFQs,
+  deleteDraft,
+} from "@/services/rfq";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 import styles from "./StartRFQ.module.scss";
 
-const STEP_LABELS = ["Type", "Business Units", "Products"];
+const VIEW = {
+  LANDING: "landing",
+  BU: "bu",
+  PRODUCTS: "products",
+};
 
 const StartRFQ = () => {
   const userProfile = useSelector((state) => state.userProfile);
@@ -46,25 +59,29 @@ const StartRFQ = () => {
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   // Staged products held in local state until "Create Draft" is clicked.
-  // Each item: { variant_id, name, category_name, product_name }
   const [stagedItems, setStagedItems] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-  const [successData, setSuccessData] = useState(null); // { rfq_id, count } when shown
-  // Explicit advance flag — set true when user clicks Continue on Step 2.
-  // Without this, selecting the first BU on Tender would auto-skip to Step 3.
+  const [successData, setSuccessData] = useState(null);
   const [advancedToProducts, setAdvancedToProducts] = useState(false);
-  // Recommended products (top 4 based on user history + staged categories + popularity)
   const [recommendations, setRecommendations] = useState([]);
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
-  // Pulse animation flag fired briefly when an item is added — gives instant feedback
   const [justAddedId, setJustAddedId] = useState(null);
-  // Tracks variant_ids that were just added — used to show "Added" on the
-  // search/recommendation row for ~2s after a click.
   const [justAddedVariants, setJustAddedVariants] = useState({});
+
+  // Previously-added items for the draft (?rfq_id=…) — read-only in the rail.
+  const [existingProducts, setExistingProducts] = useState([]);
+
+  // Drafts list (landing view) — uses the same backend as the manage-rfq tab.
+  const [drafts, setDrafts] = useState([]);
+  const [draftsLoading, setDraftsLoading] = useState(false);
+  const [draftsTotal, setDraftsTotal] = useState(0);
+  const [draftPage, setDraftPage] = useState(1);
+  const DRAFTS_PER_PAGE = 5;
+  const [deletingDraft, setDeletingDraft] = useState(null);
 
   const searchRef = useRef(null);
 
-  // ── Debounced search ──
+  // ── Debounced product search ──
   const debouncedFetchSuggestions = useRef(
     debounce(async (val, hotelIds) => {
       setSuggestionLoading(true);
@@ -74,8 +91,7 @@ const StartRFQ = () => {
           "products"
         );
         setSuggestions(rsp.data || []);
-      } catch (error) {
-        console.error("Suggestion fetch failed:", error);
+      } catch (_) {
         setSuggestions([]);
       } finally {
         setSuggestionLoading(false);
@@ -84,7 +100,6 @@ const StartRFQ = () => {
   ).current;
 
   // ── Derived ──
-  const isProcurementMode = !!(queryMeta.orderType || queryMeta.rfq_id);
   const isTender = queryMeta.orderType === "tender";
   const entityLabel = isTender ? "Tender" : "RFQ";
 
@@ -96,24 +111,25 @@ const StartRFQ = () => {
   } = useModulePermissions({
     moduleKey,
     hotelIds: selectedHotelIds,
-    enabled: selectedHotelIds.length > 0 && isProcurementMode,
+    enabled: selectedHotelIds.length > 0 && !!queryMeta.orderType,
   });
 
-  const hasWriteAccess = selectedHotelIds.length === 0 || permissionsLoading || canCreate;
-  const isReadOnly = selectedHotelIds.length > 0 && !permissionsLoading && canRead && !canCreate;
-  const isAccessDenied = selectedHotelIds.length > 0 && !permissionsLoading && !canRead;
+  const hasWriteAccess =
+    selectedHotelIds.length === 0 || permissionsLoading || canCreate;
+  const isReadOnly =
+    selectedHotelIds.length > 0 && !permissionsLoading && canRead && !canCreate;
+  const isAccessDenied =
+    selectedHotelIds.length > 0 && !permissionsLoading && !canRead;
 
-  const currentStep = useMemo(() => {
-    if (!queryMeta.orderType && !queryMeta.rfq_id) return 1;
-    // Existing draft → jump straight to products
-    if (queryMeta.rfq_id) return 3;
-    // Stay on Step 2 until user clicks Continue (lets Tender pick multiple BUs)
-    if (!advancedToProducts) return 2;
-    if (selectedHotelIds.length === 0) return 2;
-    return 3;
-  }, [queryMeta.orderType, queryMeta.rfq_id, selectedHotelIds, advancedToProducts]);
+  // Single source of truth for which surface to render.
+  const view = useMemo(() => {
+    if (queryMeta.rfq_id) return VIEW.PRODUCTS;
+    if (!queryMeta.orderType) return VIEW.LANDING;
+    if (!advancedToProducts || selectedHotelIds.length === 0) return VIEW.BU;
+    return VIEW.PRODUCTS;
+  }, [queryMeta.rfq_id, queryMeta.orderType, advancedToProducts, selectedHotelIds]);
 
-  // ── Click outside on search ──
+  // ── Effects ────────────────────────────────
   useEffect(() => {
     if (!showSuggestions) return;
     const listener = (event) => {
@@ -124,20 +140,26 @@ const StartRFQ = () => {
     return () => document.removeEventListener("mousedown", listener);
   }, [showSuggestions]);
 
-  // ── Effects ──
   useEffect(() => {
     const { rfq_id, sheet_id, orderType } = router.query;
     const parsedRfqId =
-      rfq_id && rfq_id !== "null" && !isNaN(parseInt(rfq_id))
-        ? parseInt(rfq_id) : null;
+      rfq_id && rfq_id !== "null" && !isNaN(parseInt(rfq_id)) ? parseInt(rfq_id) : null;
     const parsedSheetId =
       sheet_id && sheet_id !== "null" && !isNaN(parseInt(sheet_id))
-        ? parseInt(sheet_id) : null;
+        ? parseInt(sheet_id)
+        : null;
 
-    setQueryMeta({ rfq_id: parsedRfqId, sheet_id: parsedSheetId, orderType });
+    setQueryMeta({
+      rfq_id: parsedRfqId,
+      sheet_id: parsedSheetId,
+      orderType: orderType || null,
+    });
 
     if (parsedRfqId !== null) {
       getRfqMappedHotels(parsedRfqId);
+      fetchExistingDraftProducts(parsedRfqId, parsedSheetId);
+    } else {
+      setExistingProducts([]);
     }
   }, [router.query]);
 
@@ -155,15 +177,14 @@ const StartRFQ = () => {
     }
   }, [router, loggedin, userProfile]);
 
-  // Fetch recommendations whenever the staged set or hotel selection changes.
-  // Debounced lightly so rapid additions don't trigger many requests.
+  // Recommendations — only on Products view.
   useEffect(() => {
     if (!isLoggedIn) return;
     if (selectedHotelIds.length === 0) {
       setRecommendations([]);
       return;
     }
-    if (currentStep !== 3) return;
+    if (view !== VIEW.PRODUCTS) return;
 
     const stagedVariantIds = stagedItems.map((it) => it.variant_id);
     const handle = setTimeout(async () => {
@@ -172,25 +193,56 @@ const StartRFQ = () => {
         const res = await getRecommendedProducts({
           hotel_ids: selectedHotelIds,
           variant_ids: stagedVariantIds,
-          limit: 5,
+          limit: 8,
         });
         const data = res?.data || res;
         setRecommendations(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Failed to fetch recommendations:", err);
+      } catch (_) {
         setRecommendations([]);
       } finally {
         setRecommendationsLoading(false);
       }
     }, 250);
     return () => clearTimeout(handle);
-  }, [
-    isLoggedIn,
-    currentStep,
-    JSON.stringify(selectedHotelIds),
-    stagedItems.length,
-  ]);
+  }, [isLoggedIn, view, JSON.stringify(selectedHotelIds), stagedItems.length]);
 
+  // Drafts list — fetch on Landing view, refetch when page changes.
+  useEffect(() => {
+    if (view !== VIEW.LANDING || !isLoggedIn) return;
+    let cancelled = false;
+    setDraftsLoading(true);
+    getDraftRFQs({
+      page: draftPage,
+      limit: DRAFTS_PER_PAGE,
+      sort: "DESC",
+      rfq_type: "",
+      reverse_auction: "-1",
+      project_id: -1,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        if (res?.status === 1) {
+          setDrafts(Array.isArray(res.data) ? res.data : []);
+          setDraftsTotal(res.total_items || 0);
+        } else {
+          setDrafts([]);
+          setDraftsTotal(0);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDrafts([]);
+        setDraftsTotal(0);
+      })
+      .finally(() => {
+        if (!cancelled) setDraftsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, isLoggedIn, draftPage]);
+
+  // ── Backend wiring ─────────────────────────
   const getRfqMappedHotels = async (rfq_id) => {
     try {
       const response = await getRFQHotels(rfq_id);
@@ -198,55 +250,104 @@ const StartRFQ = () => {
       setUserHotelMappings(mappings);
       const hotelIds = mappings.map((item) => item.hotel_id);
       setSelectedHotelIds(hotelIds);
-    } catch (error) {
-      console.error("Error fetching RFQ hotels", error);
+    } catch (_) {}
+  };
+
+  const fetchExistingDraftProducts = async (rfqId, sheetId) => {
+    try {
+      const res = await getDraftById(rfqId, sheetId);
+      const raw =
+        res?.data?.rfq_products ||
+        res?.data?.products ||
+        res?.rfq_products ||
+        res?.products ||
+        [];
+      const list = (Array.isArray(raw) ? raw : []).map((p, idx) => {
+        const variantId =
+          p?.product_variant_id ?? p?.variant_id ?? p?.id ?? `prev-${idx}`;
+        const name =
+          p?.variant_name ||
+          p?.product_name ||
+          p?.name ||
+          p?.product?.name ||
+          `Product ${idx + 1}`;
+        const category = p?.category_name || p?.category || p?.category_title || "";
+        return {
+          id: `prev-${variantId}-${idx}`,
+          variant_id: variantId,
+          name,
+          category_name: category,
+        };
+      });
+      setExistingProducts(list);
+    } catch (_) {
+      setExistingProducts([]);
     }
   };
 
-  // ── Handlers ──
-  const handleOrderTypeSelect = (selectedType) => {
+  // ── Handlers ───────────────────────────────
+  const handleStartNew = () => {
     if (!isLoggedIn) {
       setOpenAuthModal(true);
       return;
     }
     router.replace(
-      { pathname: router.pathname, query: { ...router.query, orderType: selectedType } },
+      { pathname: router.pathname, query: { ...router.query, orderType: "rfq" } },
       undefined,
       { shallow: true }
     );
-    setQueryMeta((prev) => ({ ...prev, orderType: selectedType }));
+    setQueryMeta((prev) => ({ ...prev, orderType: "rfq" }));
   };
 
-  // Step-aware back: walk through 3 → 2 → 1 → exit, never jumps to drafts list.
-  const handleBack = () => {
-    if (currentStep === 3) {
-      // Go back to BU selection — keep selected hotels so user can adjust
-      setAdvancedToProducts(false);
-      setStagedItems([]);
-      setSearchProduct("");
-      setSuggestions([]);
-      return;
-    }
-    if (currentStep === 2) {
-      const { orderType: _o, ...rest } = router.query;
-      router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
-      setQueryMeta((prev) => ({ ...prev, orderType: null }));
-      setSelectedHotelIds([]);
-      return;
-    }
-    // step 1 → leave the page entirely
-    router.push("/dashboard/buyer/rfq-management");
+  // All draft rows open in the Edit-Draft wizard. When the current user is NOT
+  // the creator, we tack on view_only=true so the wizard renders read-only.
+  // step=1&max=1 land the user on the first step of the wizard.
+  const handleResumeDraft = (draft) => {
+    if (!draft?.id) return;
+    const myId = userProfile?.id ?? userProfile?.user_id;
+    const ownedByMe =
+      myId != null && draft?.created_by != null && Number(myId) === Number(draft.created_by);
+    const params = new URLSearchParams({
+      tab: "create-rfq",
+      draft_id: String(draft.id),
+      step: "1",
+      max: "1",
+    });
+    if (!ownedByMe) params.set("view_only", "true");
+    router.push(`/dashboard/buyer/rfq-management?${params.toString()}`);
+  };
+
+  const handleOpenDraftEdit = (draftId) => {
+    router.push(`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${draftId}`);
+  };
+
+  const handleBackToLanding = () => {
+    const { orderType: _o, rfq_id: _r, sheet_id: _s, ...rest } = router.query;
+    router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
+    setQueryMeta({ rfq_id: null, sheet_id: null, orderType: null });
+    setSelectedHotelIds([]);
+    setStagedItems([]);
+    setAdvancedToProducts(false);
+    setSearchProduct("");
+    setSuggestions([]);
+    setExistingProducts([]);
+  };
+
+  const handleBackToBu = () => {
+    if (queryMeta.rfq_id) return;
+    setAdvancedToProducts(false);
+    setStagedItems([]);
+    setSearchProduct("");
+    setSuggestions([]);
   };
 
   const handleSelectHotel = (hotelId) => {
-    if (queryMeta.rfq_id) return; // locked when editing existing draft
+    if (queryMeta.rfq_id) return;
     if (isTender) {
-      // multi-select toggle
       setSelectedHotelIds((prev) =>
         prev.includes(hotelId) ? prev.filter((id) => id !== hotelId) : [...prev, hotelId]
       );
     } else {
-      // single-select — clicking a card always selects that one (replaces previous)
       setSelectedHotelIds([hotelId]);
     }
   };
@@ -254,14 +355,12 @@ const StartRFQ = () => {
   const handleSearchChange = (e) => {
     const val = e.target.value;
     setSearchProduct(val);
-
     if (selectedHotelIds.length === 0) {
       debouncedFetchSuggestions.cancel();
       setSuggestions([]);
       if (val.length > 2) setShowSuggestions(true);
       return;
     }
-
     if (val.length > 2) {
       debouncedFetchSuggestions(val, selectedHotelIds);
       setShowSuggestions(true);
@@ -272,8 +371,6 @@ const StartRFQ = () => {
     }
   };
 
-  // Stage product locally — keeps dropdown open, doesn't filter the suggestion list.
-  // Backend is only hit when "Create Draft" is clicked.
   const handleSuggestionClick = (item) => {
     if (selectedHotelIds.length === 0) {
       toast.info("Please select at least one business unit first.");
@@ -294,11 +391,9 @@ const StartRFQ = () => {
         product_name: item.product_name,
       },
     ]);
-    // Pulse animation on the new item for instant visual feedback
     setJustAddedId(newId);
     setTimeout(() => setJustAddedId((curr) => (curr === newId ? null : curr)), 800);
 
-    // Show "Added" feedback on the source row for ~1s
     const variantKey = item.variant_id;
     setJustAddedVariants((prev) => ({ ...prev, [variantKey]: Date.now() }));
     setTimeout(() => {
@@ -308,12 +403,33 @@ const StartRFQ = () => {
         return next;
       });
     }, 1000);
-    // Don't close suggestions — user may want to add more
   };
 
-  const handleRemoveStaged = (id) => {
-    setStagedItems((prev) => prev.filter((it) => it.id !== id));
+  const handleRemoveOneGrouped = (variantId) => {
+    setStagedItems((prev) => {
+      const reverseIdx = [...prev].reverse().findIndex((it) => it.variant_id === variantId);
+      if (reverseIdx === -1) return prev;
+      const realIdx = prev.length - 1 - reverseIdx;
+      return prev.slice(0, realIdx).concat(prev.slice(realIdx + 1));
+    });
   };
+
+  const groupedStagedItems = useMemo(() => {
+    const order = [];
+    const byVariant = new Map();
+    stagedItems.forEach((it) => {
+      const key = String(it.variant_id);
+      if (!byVariant.has(key)) {
+        order.push(key);
+        byVariant.set(key, { ...it, count: 1, firstId: it.id, lastId: it.id });
+      } else {
+        const cur = byVariant.get(key);
+        cur.count += 1;
+        cur.lastId = it.id;
+      }
+    });
+    return order.map((k) => byVariant.get(k));
+  }, [stagedItems]);
 
   const handleCreateDraft = async () => {
     if (stagedItems.length === 0) {
@@ -332,13 +448,9 @@ const StartRFQ = () => {
       const response = await addProductsToDraft(payload);
       const result = response?.data || response;
       const rfq_id = result?.rfq_id || queryMeta.rfq_id;
-
-      if (!rfq_id) {
-        throw new Error("Draft was not created. Please try again.");
-      }
+      if (!rfq_id) throw new Error("Draft was not created. Please try again.");
       setSuccessData({ rfq_id, count: stagedItems.length });
-    } catch (error) {
-      console.error("Bulk add failed:", error);
+    } catch (_) {
       toast.error("Failed to create draft. Please try again.");
     } finally {
       setSubmitting(false);
@@ -346,7 +458,6 @@ const StartRFQ = () => {
   };
 
   const handleAddMoreFromSuccess = () => {
-    // Update URL with the new rfq_id so further adds append, then reset staging
     if (successData?.rfq_id && !queryMeta.rfq_id) {
       router.replace(
         { pathname: router.pathname, query: { ...router.query, rfq_id: successData.rfq_id } },
@@ -368,571 +479,715 @@ const StartRFQ = () => {
     }
   };
 
-  // ── Render ──
-  return (
-    <div className={styles.page}>
-      {/* Header — back button on the LEFT for prominence */}
-      <div className={styles.pageHeader}>
-        <button type="button" className={styles.backBtnLeft} onClick={handleBack}>
-          <ArrowLeft size={16} />
-          {currentStep === 1 ? "Cancel" : "Back"}
-        </button>
-        <div className={styles.pageTitleBlock}>
-          <h1 className={styles.pageTitle}>
-            {queryMeta.rfq_id
-              ? `Add products to ${entityLabel}`
-              : "Start a new procurement"}
-          </h1>
-          <p className={styles.pageSubtitle}>
-            {queryMeta.rfq_id
-              ? `Search and stage products, then create or update your draft.`
-              : "Create a Tender or RFQ in 3 simple steps."}
-          </p>
-        </div>
-      </div>
+  const confirmDeleteDraft = async () => {
+    if (!deletingDraft) return;
+    try {
+      const res = await deleteDraft(deletingDraft.id);
+      if (res?.status === 1) {
+        toast.success("Draft deleted");
+        setDraftPage(1);
+        setDrafts((prev) => prev.filter((d) => d.id !== deletingDraft.id));
+      } else {
+        toast.error("Failed to delete draft");
+      }
+    } catch (_) {
+      toast.error("Failed to delete draft");
+    } finally {
+      setDeletingDraft(null);
+    }
+  };
 
-      {/* Progress indicator */}
-      <div className={styles.progress}>
-        {STEP_LABELS.map((label, idx) => {
-          const stepNum = idx + 1;
-          const isActive = stepNum === currentStep;
-          const isDone = stepNum < currentStep;
-          return (
-            <React.Fragment key={label}>
-              <div
-                className={`${styles.progressStep} ${
-                  isActive ? styles.progressStepActive : ""
-                } ${isDone ? styles.progressStepDone : ""}`}
-              >
-                <div className={styles.progressCircle}>
-                  {isDone ? <Check size={14} strokeWidth={3} /> : stepNum}
-                </div>
-                <span className={styles.progressLabel}>{label}</span>
-              </div>
-              {idx < STEP_LABELS.length - 1 && (
-                <div
-                  className={`${styles.progressBar} ${
-                    isDone ? styles.progressBarFilled : ""
-                  }`}
-                />
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
+  // ── Subcomponents ─────────────────────────
+  const PageHeader = ({ title, sub, breadcrumb }) => (
+    <div className={styles.pageHeader}>
+      {breadcrumb && <div className={styles.breadcrumb}>{breadcrumb}</div>}
+      <h1 className={styles.pageTitle}>{title}</h1>
+      {sub && <p className={styles.pageSub}>{sub}</p>}
+    </div>
+  );
 
-      {/* ═══ STEP 1: Type Selection ═══ */}
-      {currentStep === 1 && (
-        <div className={styles.step}>
-          <div className={styles.stepHeader}>
-            <h2 className={styles.stepTitle}>What would you like to create?</h2>
-            <p className={styles.stepDesc}>
-              Choose the procurement type that fits your need.
-            </p>
-          </div>
+  // ── Render: LANDING ───────────────────────
+  const renderLanding = () => {
+    const totalPages = Math.max(1, Math.ceil(draftsTotal / DRAFTS_PER_PAGE));
+    return (
+      <>
+        <PageHeader
+          title="Create RFQ"
+          sub="Start a new RFQ, copy from a past one, or resume an in-progress draft."
+        />
 
-          <div className={styles.typeGrid}>
-            <div
-              className={styles.typeCard}
-              onClick={() => handleOrderTypeSelect("tender")}
-            >
-              <div className={styles.typeCardIcon}>
-                <Gavel size={22} />
-              </div>
-              <h3 className={styles.typeCardName}>Tender</h3>
-              <p className={styles.typeCardDesc}>
-                Formal procurement with multi-level approvals, technical
-                evaluation, and award documents. Best for large or strategic
-                purchases.
-              </p>
-              <div className={styles.typeCardFooter}>
-                <span className={styles.typeCardTag}>Multi-BU · ARC</span>
-                <span className={styles.typeCardArrow}>
-                  <ArrowRight size={14} />
+        <div className={styles.entryGrid}>
+          <button type="button" className={styles.entryCard} onClick={handleStartNew}>
+            <span className={`${styles.entryIcon} ${styles.entryIconPrimary}`}>
+              <FilePlus2 size={18} />
+            </span>
+            <div className={styles.entryBody}>
+              <div className={styles.entryHead}>
+                <span className={styles.entryTitle}>Start new</span>
+                <span className={styles.entryCta}>
+                  Start <ArrowRight size={13} />
                 </span>
               </div>
-            </div>
-
-            <div
-              className={styles.typeCard}
-              onClick={() => handleOrderTypeSelect("rfq")}
-            >
-              <div className={styles.typeCardIcon}>
-                <FileText size={22} />
-              </div>
-              <h3 className={styles.typeCardName}>RFQ</h3>
-              <p className={styles.typeCardDesc}>
-                Quick quote requests for routine purchases. Send to vendors,
-                receive bids, and finalize fast — without heavy approvals.
-              </p>
-              <div className={styles.typeCardFooter}>
-                <span className={styles.typeCardTag}>Single BU · Fast</span>
-                <span className={styles.typeCardArrow}>
-                  <ArrowRight size={14} />
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {!isLoggedIn && (
-            <div className={styles.loginHint}>
-              You need to be logged in to create a procurement request.{" "}
-              <span
-                className={styles.loginLink}
-                onClick={() => setOpenAuthModal(true)}
-              >
-                Log in
+              <span className={styles.entryDesc}>
+                Pick the business units and add the products you need quotes for.
               </span>
             </div>
-          )}
+          </button>
 
-          <div className={styles.guide}>
-            <h4 className={styles.guideTitle}>How it works</h4>
-            <div className={styles.guideList}>
-              <div className={styles.guideItem}>
-                <span className={styles.guideNum}>1</span>
-                <span className={styles.guideText}>
-                  Pick Tender for formal procurement, RFQ for quick quotes
-                </span>
-              </div>
-              <div className={styles.guideItem}>
-                <span className={styles.guideNum}>2</span>
-                <span className={styles.guideText}>
-                  Choose which business units this procurement applies to
-                </span>
-              </div>
-              <div className={styles.guideItem}>
-                <span className={styles.guideNum}>3</span>
-                <span className={styles.guideText}>
-                  Search and add products — vendors are auto-matched
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ STEP 2: Business Units ═══ */}
-      {currentStep === 2 && (
-        <div className={styles.step}>
-          <div className={styles.stepHeader}>
-            <span className={styles.typeBadge}>
-              {isTender ? <Gavel size={11} /> : <FileText size={11} />}
-              {entityLabel}
+          <button
+            type="button"
+            className={`${styles.entryCard} ${styles.entryCardDisabled}`}
+            disabled
+            title="Coming soon"
+          >
+            <span className={`${styles.entryIcon} ${styles.entryIconMuted}`}>
+              <Copy size={18} />
             </span>
-            <h2 className={styles.stepTitle} style={{ marginTop: 8 }}>
-              Select business units
-            </h2>
-            <p className={styles.stepDesc}>
-              {isTender
-                ? "Tenders can span multiple business units. Select all that this procurement applies to."
-                : "An RFQ applies to a single business unit. Pick the one this procurement is for."}
-            </p>
-          </div>
-
-          {userHotelMappings.length === 0 ? (
-            <div className={styles.huEmpty}>
-              <Building size={20} style={{ marginBottom: 8, color: "#cbd5e1" }} />
-              <div>You don't have access to any business units yet.</div>
-              <div className={styles.addedSubtext}>
-                Contact your administrator to get access.
+            <div className={styles.entryBody}>
+              <div className={styles.entryHead}>
+                <span className={styles.entryTitle}>Copy from existing</span>
+                <span className={styles.comingSoon}>Coming soon</span>
               </div>
+              <span className={styles.entryDesc}>
+                Clone a past RFQ — copy its products, BUs and vendors as a starting point.
+              </span>
             </div>
-          ) : (
-            <div className={styles.huList}>
-              {userHotelMappings.map((m) => {
-                const id = m.hospitality_hotel_id || m.hotel_id;
-                const isActive = selectedHotelIds.includes(id);
-                return (
-                  <div
-                    key={id}
-                    className={`${styles.huItem} ${
-                      isActive ? styles.huItemActive : ""
-                    }`}
-                    onClick={() => handleSelectHotel(id)}
-                  >
-                    {/* Checkbox only for Tender (multi-select).
-                        RFQ uses card-only single-select to avoid misleading UI. */}
-                    {isTender && (
-                      <div className={styles.huCheck}>
-                        {isActive && <Check size={13} strokeWidth={3} />}
-                      </div>
-                    )}
-                    <Building2
-                      size={18}
-                      style={{
-                        color: isActive ? "var(--primary-color, #2E5BA8)" : "#94a3b8",
-                        flexShrink: 0,
-                      }}
-                    />
-                    <div className={styles.huInfo}>
-                      <div className={styles.huName}>
-                        {m.hotel_name || m.name || "Business Unit"}
-                      </div>
-                      {m.company_name && (
-                        <div className={styles.huMeta}>{m.company_name}</div>
-                      )}
-                    </div>
-                    {/* Active radio indicator for RFQ (single-select) */}
-                    {!isTender && isActive && (
-                      <div className={styles.huActiveDot}>
-                        <Check size={12} strokeWidth={3} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div className={styles.stepActions}>
-            <div />
-            <button
-              type="button"
-              className={styles.btnPrimary}
-              disabled={selectedHotelIds.length === 0}
-              onClick={() => setAdvancedToProducts(true)}
-            >
-              Continue <ArrowRight size={14} />
-            </button>
-          </div>
+          </button>
         </div>
-      )}
 
-      {/* ═══ STEP 3: Products — 70/30 layout ═══ */}
-      {currentStep === 3 && (
-        <div className={styles.step}>
-          <div className={styles.stepHeader}>
-            <span className={styles.typeBadge}>
-              {isTender ? <Gavel size={11} /> : <FileText size={11} />}
-              {entityLabel}
-            </span>
-            <h2 className={styles.stepTitle} style={{ marginTop: 8 }}>
-              Add products
-            </h2>
-            <p className={styles.stepDesc}>
-              Search and add the items you need quotes for.
-              {selectedHotelIds.length > 0 &&
-                ` ${selectedHotelIds.length} business unit${
-                  selectedHotelIds.length > 1 ? "s" : ""
-                } selected.`}
-            </p>
-          </div>
+        <div className={styles.inlineNote}>
+          <Info size={12} className={styles.inlineNoteIc} />
+          <span>
+            AI vendor suggestions appear during the wizard — ranked by past on-time
+            delivery, response speed, and your approved-vendor list.
+          </span>
+        </div>
 
-          {/* Permission banners */}
-          {isAccessDenied && (
-            <div className={styles.bannerWrap}>
-              <AccessDeniedPage showBackButton={false} />
-            </div>
-          )}
-          {isReadOnly && !isAccessDenied && (
-            <div className={styles.bannerWrap}>
-              <ReadOnlyBanner
-                title="View Only Mode"
-                message="You have read-only access for the selected business units."
-              />
-            </div>
-          )}
-
-          {/* 70/30 grid: Left = search + recommendations, Right = staged products */}
-          <div className={styles.productLayout}>
-            {/* ── LEFT pane: search + results + recommendations ── */}
-            <div className={styles.productLeft}>
-              {/* Search input */}
-              <div className={styles.searchBox} ref={searchRef}>
-                <div className={styles.searchInputWrap}>
-                  <Search size={16} className={styles.searchIcon} />
-                  <input
-                    type="text"
-                    className={styles.searchInput}
-                    placeholder="Search products by name (e.g. Pipes, Valves, Flanges...)"
-                    value={searchProduct}
-                    onChange={handleSearchChange}
-                    onFocus={() => searchProduct.length > 2 && setShowSuggestions(true)}
-                    disabled={isReadOnly || isAccessDenied}
-                  />
-                  {searchProduct && (
-                    <button
-                      type="button"
-                      className={styles.searchClear}
-                      onClick={() => {
-                        setSearchProduct("");
-                        setSuggestions([]);
-                        setShowSuggestions(false);
-                      }}
-                      aria-label="Clear"
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Inline results panel — replaces the floating dropdown.
-                  Always shown when searching; otherwise shows recommendations. */}
-              {searchProduct.length > 0 ? (
-                <div className={styles.resultsPanel}>
-                  <div className={styles.resultsPanelHeader}>
-                    <Search size={13} />
-                    <span>
-                      {searchProduct.length < 3
-                        ? "Type at least 3 characters"
-                        : suggestionLoading
-                        ? "Searching..."
-                        : `${suggestions.length} result${suggestions.length === 1 ? "" : "s"} for "${searchProduct}"`}
-                    </span>
-                  </div>
-                  {suggestionLoading ? (
-                    <div className={styles.resultsLoading}>
-                      <div className={styles.spinner} />
-                      <span>Finding products...</span>
-                    </div>
-                  ) : suggestions.length === 0 && searchProduct.length >= 3 ? (
-                    <div className={styles.resultsEmpty}>
-                      <Package size={28} style={{ color: "#cbd5e1", marginBottom: 8 }} />
-                      <div>No products match "{searchProduct}"</div>
-                      <div className={styles.resultsEmptyHint}>
-                        Try a different keyword or category name.
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={styles.resultsList}>
-                      {suggestions.map((item, idx) => {
-                        const noVendors =
-                          item.vendor_count !== undefined &&
-                          parseInt(item.vendor_count) === 0;
-                        const wasAdded = !!justAddedVariants[item.variant_id];
-                        return (
-                          <div
-                            key={`${item.variant_id}-${idx}`}
-                            className={`${styles.resultItem} ${
-                              noVendors ? styles.resultItemNoVendors : ""
-                            } ${wasAdded ? styles.resultItemAdded : ""}`}
-                            onClick={() => handleSuggestionClick(item)}
-                          >
-                            <div className={styles.resultIcon}>
-                              <Package size={16} />
-                            </div>
-                            <div className={styles.resultMain}>
-                              <div className={styles.resultName}>
-                                {item.variant_name || item.product_name}
-                              </div>
-                              {(item.category_name || item.product_name) && (
-                                <div className={styles.resultMeta}>
-                                  {item.category_name}
-                                  {item.category_name && item.product_name && " · "}
-                                  {item.variant_name &&
-                                    item.product_name !== item.variant_name &&
-                                    item.product_name}
-                                </div>
-                              )}
-                            </div>
-                            {noVendors ? (
-                              <span className={styles.noVendorsBadge}>
-                                No vendors
-                              </span>
-                            ) : wasAdded ? (
-                              <span className={`${styles.addPillBtn} ${styles.addPillBtnAdded}`}>
-                                <Check size={13} strokeWidth={3} /> Added
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                className={styles.addPillBtn}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSuggestionClick(item);
-                                }}
-                              >
-                                <Plus size={13} /> Add
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* Recommendations — shown when search is empty */
-                <div className={styles.resultsPanel}>
-                  <div className={styles.resultsPanelHeader}>
-                    <Sparkles size={13} className={styles.recIcon} />
-                    <span>Recommended for you</span>
-                    <span className={styles.recHint}>
-                      Based on your history{stagedItems.length > 0 ? " & selected items" : ""}
-                    </span>
-                  </div>
-                  {recommendationsLoading ? (
-                    <div className={styles.resultsLoading}>
-                      <div className={styles.spinner} />
-                      <span>Finding recommendations...</span>
-                    </div>
-                  ) : recommendations.length === 0 ? (
-                    <div className={styles.resultsEmpty}>
-                      <Sparkles size={28} style={{ color: "#cbd5e1", marginBottom: 8 }} />
-                      <div>No recommendations yet</div>
-                      <div className={styles.resultsEmptyHint}>
-                        Start by searching products above. As you add items, we'll
-                        suggest related products based on your history.
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={styles.resultsList}>
-                      {recommendations.map((item, idx) => {
-                        const noVendors =
-                          item.vendor_count !== undefined &&
-                          parseInt(item.vendor_count) === 0;
-                        const wasAdded = !!justAddedVariants[item.variant_id];
-                        return (
-                          <div
-                            key={`rec-${item.variant_id}-${idx}`}
-                            className={`${styles.resultItem} ${styles.resultItemRec} ${
-                              noVendors ? styles.resultItemNoVendors : ""
-                            } ${wasAdded ? styles.resultItemAdded : ""}`}
-                            onClick={() => handleSuggestionClick(item)}
-                          >
-                            <div className={styles.resultIconRec}>
-                              <Sparkles size={14} />
-                            </div>
-                            <div className={styles.resultMain}>
-                              <div className={styles.resultName}>
-                                {item.variant_name || item.product_name}
-                              </div>
-                              {item.category_name && (
-                                <div className={styles.resultMeta}>
-                                  {item.category_name}
-                                </div>
-                              )}
-                            </div>
-                            {noVendors ? (
-                              <span className={styles.noVendorsBadge}>No vendors</span>
-                            ) : wasAdded ? (
-                              <span className={`${styles.addPillBtn} ${styles.addPillBtnAdded}`}>
-                                <Check size={13} strokeWidth={3} /> Added
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                className={styles.addPillBtn}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSuggestionClick(item);
-                                }}
-                              >
-                                <Plus size={13} /> Add
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+        <section className={styles.draftsPanel}>
+          <div className={styles.draftsHead}>
+            <div className={styles.draftsTitleRow}>
+              <span className={styles.draftsTitle}>RFQ drafts</span>
+              {draftsTotal > 0 && (
+                <span className={styles.draftsCount}>{draftsTotal}</span>
               )}
             </div>
+            <span className={styles.draftsSub}>
+              Resume where you left off
+            </span>
+          </div>
 
-            {/* ── RIGHT pane: staged products + sticky CTA ── */}
-            <aside className={styles.productRight}>
-              <div className={styles.stagedHeader}>
-                <ShoppingBag size={14} />
-                <span className={styles.stagedTitle}>Your selection</span>
-                <span className={styles.stagedCount}>{stagedItems.length}</span>
+          <div className={styles.draftsBody}>
+            {draftsLoading ? (
+              <div className={styles.draftsSkel}>
+                {[0, 1, 2].map((i) => (
+                  <div className={styles.draftRowSkel} key={i}>
+                    <span className={`${styles.skelBar}`} style={{ width: "42%" }} />
+                    <span className={`${styles.skelBar}`} style={{ width: "18%" }} />
+                    <span className={`${styles.skelBar}`} style={{ width: "14%" }} />
+                    <span className={`${styles.skelBar}`} style={{ width: "12%" }} />
+                  </div>
+                ))}
               </div>
+            ) : drafts.length === 0 ? (
+              <div className={styles.draftsEmpty}>
+                <div className={styles.draftsEmptyIc}>
+                  <FilePlus2 size={18} />
+                </div>
+                <div className={styles.draftsEmptyTitle}>No drafts yet</div>
+                <div className={styles.draftsEmptyDesc}>
+                  Drafts you start and don't finish will appear here.
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className={styles.draftsTableHead}>
+                  <span>RFQ</span>
+                  <span>Business units</span>
+                  <span className={styles.draftsColRight}>Items</span>
+                  <span>Created by</span>
+                  <span className={styles.draftsColRight}>Created</span>
+                  <span />
+                </div>
+                <div className={styles.draftsList}>
+                  {drafts.map((d) => {
+                    const itemsCount = d.items_count ?? d.products_count ?? d.product_count ?? 0;
+                    const created = d.timestamp ? moment(d.timestamp).format("DD MMM") : "—";
+                    const title = d.title || "Untitled";
+                    const number = d.rfq_no ? `#${d.rfq_no}` : "—";
 
-              <div className={styles.stagedBody}>
-                {stagedItems.length > 0 ? (
-                  <div className={styles.stagedList}>
-                    {stagedItems.map((it) => (
-                      <div
-                        key={it.id}
-                        className={`${styles.stagedItem} ${
-                          justAddedId === it.id ? styles.stagedItemAdded : ""
-                        }`}
+                    // Business units (array of {id, name}) — show first + " +N more".
+                    const hotels = Array.isArray(d.hotels) ? d.hotels : [];
+                    const buFirst = hotels[0]?.name;
+                    const buMore = hotels.length > 1 ? hotels.length - 1 : 0;
+
+                    // Ownership — drives the "View only" badge + the view_only=true URL param.
+                    const myId = userProfile?.id ?? userProfile?.user_id;
+                    const ownedByMe =
+                      myId != null && d?.created_by != null && Number(myId) === Number(d.created_by);
+                    const creator = d.creator_name || (ownedByMe ? "You" : "—");
+
+                    return (
+                      <button
+                        type="button"
+                        key={d.id}
+                        className={styles.draftRow}
+                        onClick={() => handleResumeDraft(d)}
                       >
-                        <span className={styles.stagedDot}>
-                          <Check size={11} strokeWidth={3} />
+                        <span className={styles.draftCellId}>
+                          <span className={styles.draftNumber}>{number}</span>
+                          <span className={styles.draftTitle}>{title}</span>
                         </span>
-                        <div className={styles.stagedItemInfo}>
-                          <div className={styles.stagedItemName}>{it.name}</div>
-                          {it.category_name && (
-                            <div className={styles.stagedItemCat}>
-                              {it.category_name}
+                        <span className={styles.draftCellBu}>
+                          {buFirst ? (
+                            <>
+                              <Building2 size={11} className={styles.draftMetaIc} />
+                              <span className={styles.draftBuName} title={hotels.map((h) => h.name).join(", ")}>
+                                {buFirst}
+                              </span>
+                              {buMore > 0 && (
+                                <span className={styles.draftBuMore}>+{buMore}</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className={styles.draftMuted}>—</span>
+                          )}
+                        </span>
+                        <span className={`${styles.draftCellNum} ${styles.draftsColRight}`}>
+                          {itemsCount > 0 ? `${itemsCount} item${itemsCount === 1 ? "" : "s"}` : "—"}
+                        </span>
+                        <span className={styles.draftCellCreator}>
+                          <span className={styles.draftCreatorName} title={creator}>
+                            {creator}
+                          </span>
+                          {!ownedByMe && (
+                            <span className={styles.viewOnlyPill}>
+                              <Eye size={9} strokeWidth={2.4} /> View only
+                            </span>
+                          )}
+                        </span>
+                        <span className={`${styles.draftCellDate} ${styles.draftsColRight}`}>
+                          {created}
+                        </span>
+                        <span className={styles.draftActions}>
+                          {ownedByMe && (
+                            <button
+                              type="button"
+                              className={styles.draftDelBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletingDraft(d);
+                              }}
+                              aria-label="Delete draft"
+                              title="Delete draft"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                          <ChevronRight size={13} className={styles.draftChev} />
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {totalPages > 1 && (
+                  <div className={styles.draftsPaging}>
+                    <button
+                      type="button"
+                      className={styles.draftsPgBtn}
+                      onClick={() => setDraftPage((p) => Math.max(1, p - 1))}
+                      disabled={draftPage <= 1}
+                    >
+                      <ChevronLeft size={12} /> Prev
+                    </button>
+                    <span className={styles.draftsPgInfo}>
+                      Page <b>{draftPage}</b> of <b>{totalPages}</b>
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.draftsPgBtn}
+                      onClick={() => setDraftPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={draftPage >= totalPages}
+                    >
+                      Next <ChevronRight size={12} />
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </section>
+      </>
+    );
+  };
+
+  // ── Render: BU SELECTION ───────────────────
+  const renderBu = () => (
+    <>
+      <PageHeader
+        title="Pick the business units"
+        sub={
+          isTender
+            ? "Tenders can span multiple business units. Select all that this procurement applies to."
+            : "An RFQ applies to a single business unit. Pick the one this procurement is for."
+        }
+        breadcrumb={
+          <>
+            <button type="button" className={styles.breadcrumbLink} onClick={handleBackToLanding}>
+              Create RFQ
+            </button>
+            <ChevronRight size={11} className={styles.breadcrumbSep} />
+            <span className={styles.breadcrumbHere}>Business units</span>
+          </>
+        }
+      />
+
+      {userHotelMappings.length === 0 ? (
+        <div className={styles.emptyState}>
+          <div className={styles.emptyStateIc}>
+            <Building size={20} />
+          </div>
+          <div className={styles.emptyStateTitle}>No business unit access</div>
+          <div className={styles.emptyStateDesc}>
+            Contact your administrator to get access.
+          </div>
+        </div>
+      ) : (
+        <div className={styles.buList}>
+          {userHotelMappings.map((m) => {
+            const id = m.hospitality_hotel_id || m.hotel_id;
+            const isActive = selectedHotelIds.includes(id);
+            return (
+              <button
+                type="button"
+                key={id}
+                className={`${styles.buRow} ${isActive ? styles.buRowActive : ""}`}
+                onClick={() => handleSelectHotel(id)}
+              >
+                <span className={`${styles.buCheck} ${isTender ? styles.buCheckSquare : ""}`}>
+                  {isActive && <Check size={12} strokeWidth={3} />}
+                </span>
+                <Building2 size={15} className={styles.buIcon} />
+                <span className={styles.buInfo}>
+                  <span className={styles.buName}>
+                    {m.hotel_name || m.name || "Business Unit"}
+                  </span>
+                  {m.company_name && (
+                    <span className={styles.buMeta}>{m.company_name}</span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div className={styles.stepActions}>
+        <button type="button" className={styles.btnGhost} onClick={handleBackToLanding}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={styles.btnPrimary}
+          disabled={selectedHotelIds.length === 0}
+          onClick={() => setAdvancedToProducts(true)}
+        >
+          Continue <ArrowRight size={13} />
+        </button>
+      </div>
+    </>
+  );
+
+  // ── Render: PRODUCTS ──────────────────────
+  const renderProducts = () => (
+    <>
+      <PageHeader
+        title={queryMeta.rfq_id ? `Add products to ${entityLabel}` : "Add products"}
+        sub={
+          queryMeta.rfq_id
+            ? "Search and stage products, then add them to your draft."
+            : "Search and add the items you need quotes for."
+        }
+        breadcrumb={
+          <>
+            <button type="button" className={styles.breadcrumbLink} onClick={handleBackToLanding}>
+              Create RFQ
+            </button>
+            <ChevronRight size={11} className={styles.breadcrumbSep} />
+            {!queryMeta.rfq_id && (
+              <>
+                <button type="button" className={styles.breadcrumbLink} onClick={handleBackToBu}>
+                  Business units
+                </button>
+                <ChevronRight size={11} className={styles.breadcrumbSep} />
+              </>
+            )}
+            <span className={styles.breadcrumbHere}>Products</span>
+          </>
+        }
+      />
+
+      {isAccessDenied && (
+        <div className={styles.bannerWrap}>
+          <AccessDeniedPage showBackButton={false} />
+        </div>
+      )}
+      {isReadOnly && !isAccessDenied && (
+        <div className={styles.bannerWrap}>
+          <ReadOnlyBanner
+            title="View Only Mode"
+            message="You have read-only access for the selected business units."
+          />
+        </div>
+      )}
+
+      <div className={styles.productLayout}>
+        {/* LEFT: search + recommendations */}
+        <div className={styles.productLeft}>
+          <div className={styles.searchBox} ref={searchRef}>
+            <Search size={14} className={styles.searchIcon} />
+            <input
+              type="text"
+              className={styles.searchInput}
+              placeholder="Search products by name (e.g. Pipes, Valves, Flanges…)"
+              value={searchProduct}
+              onChange={handleSearchChange}
+              onFocus={() => searchProduct.length > 2 && setShowSuggestions(true)}
+              disabled={isReadOnly || isAccessDenied}
+            />
+            {searchProduct && (
+              <button
+                type="button"
+                className={styles.searchClear}
+                onClick={() => {
+                  setSearchProduct("");
+                  setSuggestions([]);
+                  setShowSuggestions(false);
+                }}
+                aria-label="Clear"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {searchProduct.length > 0 ? (
+            <div className={styles.panel}>
+              <div className={styles.panelHead}>
+                <Search size={12} />
+                <span>
+                  {searchProduct.length < 3
+                    ? "Type at least 3 characters"
+                    : suggestionLoading
+                    ? "Searching…"
+                    : `${suggestions.length} result${suggestions.length === 1 ? "" : "s"} for "${searchProduct}"`}
+                </span>
+              </div>
+              {suggestionLoading ? (
+                <div className={styles.panelLoading}>
+                  <div className={styles.spinner} />
+                  <span>Finding products…</span>
+                </div>
+              ) : suggestions.length === 0 && searchProduct.length >= 3 ? (
+                <div className={styles.panelEmpty}>
+                  <Package size={22} className={styles.panelEmptyIc} />
+                  <div>No products match &ldquo;{searchProduct}&rdquo;</div>
+                  <div className={styles.panelEmptyHint}>
+                    Try a different keyword or category name.
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.resultList}>
+                  {suggestions.map((item, idx) => {
+                    const noVendors =
+                      item.vendor_count !== undefined &&
+                      parseInt(item.vendor_count) === 0;
+                    const wasAdded = !!justAddedVariants[item.variant_id];
+                    return (
+                      <div
+                        key={`${item.variant_id}-${idx}`}
+                        className={`${styles.resultRow} ${noVendors ? styles.resultRowNoVendors : ""} ${wasAdded ? styles.resultRowAdded : ""}`}
+                        onClick={() => handleSuggestionClick(item)}
+                      >
+                        <span className={styles.resultIcon}>
+                          <Package size={13} />
+                        </span>
+                        <div className={styles.resultMain}>
+                          <div className={styles.resultName}>
+                            {item.variant_name || item.product_name}
+                          </div>
+                          {(item.category_name || item.product_name) && (
+                            <div className={styles.resultMeta}>
+                              {item.category_name}
+                              {item.category_name && item.product_name && " · "}
+                              {item.variant_name &&
+                                item.product_name !== item.variant_name &&
+                                item.product_name}
                             </div>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          className={styles.removeBtn}
-                          onClick={() => handleRemoveStaged(it.id)}
-                          aria-label="Remove"
-                        >
-                          <X size={13} />
-                        </button>
+                        <div className={styles.resultActions}>
+                          {noVendors && !wasAdded && (
+                            <span
+                              className={styles.noVendorsHint}
+                              title="No vendors are currently mapped for this product. You can still add it — vendors can be assigned later."
+                            >
+                              <AlertCircle size={10} strokeWidth={2.4} /> No vendors
+                            </span>
+                          )}
+                          {wasAdded ? (
+                            <span className={`${styles.addBtn} ${styles.addBtnDone}`}>
+                              <Check size={11} strokeWidth={3} /> Added
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className={styles.addBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSuggestionClick(item);
+                              }}
+                            >
+                              <Plus size={11} /> Add
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    ))}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={styles.panel}>
+              <div className={styles.panelHead}>
+                <Sparkles size={12} className={styles.panelHeadIc} />
+                <span>Recommended for you</span>
+                <span className={styles.panelHint}>
+                  Based on your history{stagedItems.length > 0 ? " & selected items" : ""}
+                </span>
+              </div>
+              {recommendationsLoading ? (
+                <div className={styles.panelLoading}>
+                  <div className={styles.spinner} />
+                  <span>Finding recommendations…</span>
+                </div>
+              ) : recommendations.length === 0 ? (
+                <div className={styles.panelEmpty}>
+                  <Sparkles size={22} className={styles.panelEmptyIc} />
+                  <div>No recommendations yet</div>
+                  <div className={styles.panelEmptyHint}>
+                    Start by searching products above. As you add items, we&apos;ll
+                    suggest related products based on your history.
                   </div>
-                ) : (
-                  <div className={styles.stagedEmpty}>
-                    <ShoppingBag
-                      size={28}
-                      style={{ color: "#cbd5e1", marginBottom: 8 }}
-                    />
-                    <div className={styles.stagedEmptyTitle}>No products yet</div>
-                    <div className={styles.stagedEmptyDesc}>
-                      Search or pick from recommendations to add products.
+                </div>
+              ) : (
+                <div className={styles.resultList}>
+                  {recommendations.map((item, idx) => {
+                    const noVendors =
+                      item.vendor_count !== undefined &&
+                      parseInt(item.vendor_count) === 0;
+                    const wasAdded = !!justAddedVariants[item.variant_id];
+                    return (
+                      <div
+                        key={`rec-${item.variant_id}-${idx}`}
+                        className={`${styles.resultRow} ${noVendors ? styles.resultRowNoVendors : ""} ${wasAdded ? styles.resultRowAdded : ""}`}
+                        onClick={() => handleSuggestionClick(item)}
+                      >
+                        <span className={`${styles.resultIcon} ${styles.resultIconRec}`}>
+                          <Sparkles size={12} />
+                        </span>
+                        <div className={styles.resultMain}>
+                          <div className={styles.resultName}>
+                            {item.variant_name || item.product_name}
+                          </div>
+                          {item.category_name && (
+                            <div className={styles.resultMeta}>{item.category_name}</div>
+                          )}
+                        </div>
+                        <div className={styles.resultActions}>
+                          {noVendors && !wasAdded && (
+                            <span
+                              className={styles.noVendorsHint}
+                              title="No vendors are currently mapped for this product. You can still add it — vendors can be assigned later."
+                            >
+                              <AlertCircle size={10} strokeWidth={2.4} /> No vendors
+                            </span>
+                          )}
+                          {wasAdded ? (
+                            <span className={`${styles.addBtn} ${styles.addBtnDone}`}>
+                              <Check size={11} strokeWidth={3} /> Added
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className={styles.addBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSuggestionClick(item);
+                              }}
+                            >
+                              <Plus size={11} /> Add
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT: staged */}
+        <aside className={styles.productRight}>
+          <div className={styles.stagedHead}>
+            <ShoppingBag size={13} />
+            <span className={styles.stagedTitle}>Your selection</span>
+            <span className={styles.stagedCount}>{stagedItems.length}</span>
+          </div>
+
+          <div className={styles.stagedBody}>
+            {queryMeta.rfq_id && existingProducts.length > 0 && (
+              <>
+                <div className={styles.stagedSection}>
+                  Previously added · {existingProducts.length}
+                </div>
+                <div className={styles.existingNote}>
+                  <Info size={12} className={styles.existingNoteIc} />
+                  <span>
+                    Previously added items can be removed from the{" "}
+                    <button
+                      type="button"
+                      className={styles.inlineLink}
+                      onClick={() => handleOpenDraftEdit(queryMeta.rfq_id)}
+                    >
+                      Edit Draft
+                    </button>{" "}
+                    page. Add more here, or go there to manage existing items.
+                  </span>
+                </div>
+                <div className={styles.stagedList}>
+                  {existingProducts.map((it) => (
+                    <div
+                      key={it.id}
+                      className={`${styles.stagedItem} ${styles.stagedItemReadonly}`}
+                      title="Already on this draft"
+                    >
+                      <span className={styles.stagedDot}>
+                        <Check size={10} strokeWidth={3} />
+                      </span>
+                      <div className={styles.stagedItemInfo}>
+                        <div className={styles.stagedItemName}>{it.name}</div>
+                        {it.category_name && (
+                          <div className={styles.stagedItemCat}>{it.category_name}</div>
+                        )}
+                      </div>
                     </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {groupedStagedItems.length > 0 ? (
+              <>
+                {queryMeta.rfq_id && existingProducts.length > 0 && (
+                  <div className={styles.stagedSection}>
+                    Adding now · {stagedItems.length}
                   </div>
                 )}
-              </div>
-
-              <div className={styles.stagedFooter}>
-                <button
-                  type="button"
-                  className={styles.btnPrimary}
-                  disabled={stagedItems.length === 0 || submitting}
-                  onClick={handleCreateDraft}
-                  style={{ width: "100%", justifyContent: "center" }}
-                >
-                  {submitting
-                    ? "Creating draft..."
-                    : queryMeta.rfq_id
-                    ? `Add ${stagedItems.length} to draft`
-                    : `Create draft (${stagedItems.length})`}
-                  {!submitting && <ArrowRight size={14} />}
-                </button>
-              </div>
-            </aside>
+                <div className={styles.stagedList}>
+                  {groupedStagedItems.map((it) => (
+                    <div
+                      key={it.firstId}
+                      className={`${styles.stagedItem} ${justAddedId === it.lastId ? styles.stagedItemAdded : ""}`}
+                    >
+                      <span className={styles.stagedDot}>
+                        <Check size={10} strokeWidth={3} />
+                      </span>
+                      <div className={styles.stagedItemInfo}>
+                        <div className={styles.stagedItemName}>
+                          {it.name}
+                          {it.count > 1 && (
+                            <span className={styles.qtyBadge}>×{it.count}</span>
+                          )}
+                        </div>
+                        {it.category_name && (
+                          <div className={styles.stagedItemCat}>{it.category_name}</div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.removeBtn}
+                        onClick={() => handleRemoveOneGrouped(it.variant_id)}
+                        aria-label={it.count > 1 ? "Remove one" : "Remove"}
+                        title={it.count > 1 ? "Remove one" : "Remove"}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              (!queryMeta.rfq_id || existingProducts.length === 0) && (
+                <div className={styles.stagedEmpty}>
+                  <ShoppingBag size={22} className={styles.stagedEmptyIc} />
+                  <div className={styles.stagedEmptyTitle}>No products yet</div>
+                  <div className={styles.stagedEmptyDesc}>
+                    Search or pick from recommendations to add products.
+                  </div>
+                </div>
+              )
+            )}
           </div>
-        </div>
-      )}
 
-      {/* Success modal — minimal, clean confirmation */}
+          <div className={styles.stagedFooter}>
+            <button
+              type="button"
+              className={`${styles.btnPrimary} ${styles.btnBlock}`}
+              disabled={stagedItems.length === 0 || submitting}
+              onClick={handleCreateDraft}
+            >
+              {submitting
+                ? queryMeta.rfq_id
+                  ? "Adding…"
+                  : "Creating draft…"
+                : queryMeta.rfq_id
+                ? `Add items to Draft (${stagedItems.length})`
+                : `Create Draft (${stagedItems.length})`}
+              {!submitting && <ArrowRight size={13} />}
+            </button>
+          </div>
+        </aside>
+      </div>
+    </>
+  );
+
+  // ── Page render ───────────────────────────
+  return (
+    <div className={styles.page}>
+      {view === VIEW.LANDING && renderLanding()}
+      {view === VIEW.BU && renderBu()}
+      {view === VIEW.PRODUCTS && renderProducts()}
+
+      {/* Success modal */}
       {successData && (
-        <div
-          className={styles.successOverlay}
-          onClick={() => setSuccessData(null)}
-        >
-          <div
-            className={styles.successCard}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className={styles.successOverlay} onClick={() => setSuccessData(null)}>
+          <div className={styles.successCard} onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               className={styles.successClose}
               onClick={() => setSuccessData(null)}
               aria-label="Close"
             >
-              <X size={16} />
+              <X size={14} />
             </button>
-
-            <div className={styles.successAccent} />
-
-            <div className={styles.successHeader}>
+            <div className={styles.successHead}>
               <div className={styles.successIcon}>
-                <CheckCircle2 size={22} strokeWidth={2} />
+                <CheckCircle2 size={18} strokeWidth={2} />
               </div>
-              <div className={styles.successHeaderText}>
+              <div>
                 <h3 className={styles.successTitle}>Draft saved</h3>
                 <p className={styles.successDesc}>
                   {successData.count} product{successData.count > 1 ? "s" : ""}{" "}
@@ -940,32 +1195,39 @@ const StartRFQ = () => {
                 </p>
               </div>
             </div>
-
-            <div className={styles.successDivider} />
-
-            <p className={styles.successPrompt}>What would you like to do next?</p>
-
             <div className={styles.successActions}>
               <button
                 type="button"
-                className={styles.successBtnSecondary}
+                className={styles.btnGhost}
                 onClick={handleAddMoreFromSuccess}
               >
-                <Plus size={14} />
-                <span>Add More</span>
+                <Plus size={12} /> Add more
               </button>
               <button
                 type="button"
-                className={styles.successBtnPrimary}
+                className={styles.btnPrimary}
                 onClick={handleEditDraft}
               >
-                <span>Edit Draft</span>
-                <ArrowRight size={14} />
+                Edit draft <ArrowRight size={12} />
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Delete-draft confirm */}
+      <ConfirmationModal
+        isOpen={!!deletingDraft}
+        onClose={() => setDeletingDraft(null)}
+        onConfirm={confirmDeleteDraft}
+        title="Delete this draft?"
+        description={`Draft ${
+          deletingDraft?.rfq_no ? `#${deletingDraft.rfq_no}` : ""
+        } will be removed permanently. This can't be undone.`}
+        confirmButtonColor="danger"
+        confirmButtonText="Delete"
+        cancelButtonText="Keep draft"
+      />
 
       <LoginContainer
         loading={isLoading}

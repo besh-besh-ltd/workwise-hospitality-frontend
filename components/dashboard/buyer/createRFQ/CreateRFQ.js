@@ -41,6 +41,7 @@ import AddVendorModal from "../editRFQ/AddVendorModal";
 import { BusinessTypes } from "@/utils/constants";
 
 import CreateRFQModal from "./CreateRFQModal";
+import AddProductsModal from "./AddProductsModal";
 import ValidationErrorsDisplay from "./ValidationErrorsDisplay";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { IoIosCloseCircleOutline } from "react-icons/io";
@@ -562,6 +563,12 @@ const CreateRFQ = () => {
   const [refreshingVendors, setRefreshingVendors] = useState(false);
   const [showRemoveProductConfirmModal, setShowRemoveProductConfirmModal] = useState(false);
   const [pendingProductToRemove, setPendingProductToRemove] = useState(null);
+  // In-page modal for adding products to draft OR existing RFQ. Replaces the
+  // legacy redirect to /dashboard/buyer/start-rfq?rfq_id=… which broke for
+  // published RFQs (it tried to load them via /rfq/get-draft-by-id and 403d).
+  // The modal stages products into Redux; the existing snapshot save in
+  // PUT /rfq/update persists them as diff.products.added.
+  const [showAddProductsModal, setShowAddProductsModal] = useState(false);
   const [queryMeta, setQueryMeta] = useState({
     draft_id: null,
     sheet_id: null,
@@ -649,7 +656,20 @@ const CreateRFQ = () => {
 
   const fetchVendorsForProduct = async (rfqProductId, refetch = false) => {
     try {
-      if(!rfqProductId) return;
+      // Bail early for staged-but-unsaved products. Their accordion key is
+      // the stringified `undefined` from `${product.id}`, which slips past a
+      // plain `!rfqProductId` check; cast and number-check to reject both
+      // missing values and string keys like "undefined" / "null" / "NaN".
+      const numericId = Number(rfqProductId);
+      if (
+        rfqProductId == null ||
+        rfqProductId === "" ||
+        rfqProductId === "undefined" ||
+        rfqProductId === "null" ||
+        Number.isNaN(numericId)
+      ) {
+        return;
+      }
 
       const key = `${rfqProductId}`;
       if(!refetch && vendors?.[key] && vendors[key].length > 0) return;
@@ -3427,13 +3447,14 @@ useEffect(() => {
                         <div className="rfq-products-empty">
                           <p className="rfq-products-empty__title">No products yet</p>
                           <p className="rfq-products-empty__hint">Add products from the catalog to start building this {getEntityLabel(rfqFormDataFromStore.is_tender)}.</p>
-                          <Link
-                            href={`/vendor/all${rfqDetails !== -1 ? `?rfq_id=${rfqDetails}` : ""}`}
+                          <button
+                            type="button"
                             className="rfq-btn rfq-btn--primary"
                             id="add_products-create_rfq_page"
+                            onClick={() => setShowAddProductsModal(true)}
                           >
                             Add Products
-                          </Link>
+                          </button>
                         </div>
                       ) : (
                         <>
@@ -3475,13 +3496,14 @@ useEffect(() => {
                                 </button>
                               )}
                               {!isViewOnlyDraft && !isReadOnly && !isRestrictedEdit && (
-                                <Link
-                                  href={`/vendor/all${rfqDetails !== -1 ? `?rfq_id=${rfqDetails}${selectedSheet ? `&sheet_id=${selectedSheet.value}` : ``}` : ""}`}
+                                <button
+                                  type="button"
                                   className="rfq-btn rfq-btn--primary rfq-btn--sm"
                                   id="add_more_products-create_rfq_page"
+                                  onClick={() => setShowAddProductsModal(true)}
                                 >
                                   + Add Products
-                                </Link>
+                                </button>
                               )}
                             </div>
                           </div>
@@ -4570,6 +4592,14 @@ useEffect(() => {
         confirmButtonColor="danger"
         confirmButtonText="Remove"
         cancelButtonText="Cancel"
+      />
+
+      <AddProductsModal
+        isOpen={showAddProductsModal}
+        onClose={() => setShowAddProductsModal(false)}
+        hotelIds={selectedHotelIds}
+        isRestrictedEdit={isRestrictedEdit}
+        rfqLabel={getEntityLabel(rfqFormDataFromStore?.is_tender)}
       />
       <style jsx>{`
         .refresh-vendors-btn {
