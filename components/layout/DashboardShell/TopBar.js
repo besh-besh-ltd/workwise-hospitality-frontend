@@ -14,6 +14,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "@/services/Notifications";
+import VendorSubscriptionPill from "./VendorSubscriptionPill";
 import styles from "./DashboardShell.module.css";
 
 const NOTIF_POLL_MS = 30 * 1000;
@@ -265,6 +266,8 @@ const TopBar = ({
       </div>
 
       <div className={styles.topBarRight}>
+        {currentUserType === "vendor" && <VendorSubscriptionPill />}
+
         {showBuBadge && (
           <div className={styles.buBadge}>
             <Building2 size={14} strokeWidth={1.75} className={styles.buBadgeIcon} />
@@ -292,11 +295,12 @@ const TopBar = ({
               onClick={toggleNotif}
               aria-label={`Notifications${notifCount > 0 ? ` — ${notifCount} unread` : ""}`}
             >
-              <Bell size={18} strokeWidth={1.9} />
+              <Bell size={19} strokeWidth={1.5} />
+              {/* Tiny indicator dot — count is shown in the dropdown so this
+                  stays calm. aria-label on the button carries the actual count
+                  for screen readers. */}
               {notifCount > 0 && (
-                <span className={styles.notifBadge}>
-                  {notifCount > 99 ? "99+" : notifCount}
-                </span>
+                <span className={styles.notifBadge} aria-hidden="true" />
               )}
             </button>
 
@@ -391,7 +395,7 @@ const TopBar = ({
                 {!notifLoading && notifItems.length > 0 && (
                   <div className={styles.notifFooter}>
                     <Link
-                      href="/notifications"
+                      href="/dashboard/notifications"
                       onClick={() => setNotifOpen(false)}
                       className={styles.notifViewAll}
                     >

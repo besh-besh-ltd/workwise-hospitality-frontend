@@ -112,13 +112,13 @@
   border-right: 1px solid #ebebe6;
 }
 
-/* Rail header — profile block at top */
+/* Rail header — workwise logo strip. No border; the sidebar background
+   and topbar share the same tone so the strip blends quietly into chrome. */
 .railHeader {
   display: flex;
   align-items: center;
   min-height: 56px;
   flex-shrink: 0;
-  border-bottom: 1px solid #f4f4f1;
 }
 
 .railHeaderExpanded {
@@ -171,7 +171,7 @@
 }
 
 .railNavExpanded {
-  padding: 10px 8px 14px 8px;
+  padding: 6px 8px 12px 8px;
   gap: 1px;
   display: flex;
   flex-direction: column;
@@ -189,18 +189,22 @@
   width: 0;
 }
 
-/* ── Nav item (expanded: icon + label) ────────── */
-/* Modern SaaS aesthetic: minimal hover bg, no left stripe on active.
-   Active is a slightly more pronounced background + medium-weight text. */
+/* ── Nav item (expanded: icon + label) ────────────────────
+   Modern SaaS look: nav items sit on the tinted sidebar (#fafaf9).
+   - Hover is a very subtle dark wash, not a beige rectangle.
+   - Active becomes a pure-white "card" lifted off the tinted tray with a
+     hairline border + crisp shadow. The contrast against #fafaf9 is what
+     reads as "selected" — no heavy fill, no left stripe.
+   - Icon nudges dark on hover/active; text weight bumps to 600. */
 .navItem {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
-  border-radius: 7px;
+  gap: 9px;
+  padding: 5px 9px;
+  border-radius: 6px;
   color: #52525b;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   letter-spacing: -0.005em;
   text-decoration: none;
@@ -208,8 +212,10 @@
   background: transparent;
   width: 100%;
   text-align: left;
-  min-height: 30px;
-  transition: background 0.12s ease, color 0.12s ease;
+  min-height: 28px;
+  border: 1px solid transparent;
+  transition: background 0.14s ease, color 0.14s ease,
+              border-color 0.14s ease, box-shadow 0.14s ease;
 }
 
 .navItem:hover {
@@ -221,10 +227,15 @@
   color: #18181b;
 }
 
-.navItemActive {
+/* Active = solid beige fill — readable, confident, no shimmer. The compact
+   sizing keeps it tight; the fill gives it presence. */
+.navItemActive,
+.navItemActive:hover {
   color: #18181b;
   background: #ebebe6;
-  font-weight: 550;
+  border-color: transparent;
+  font-weight: 600;
+  box-shadow: none;
 }
 
 .navItemActive .navIcon {
@@ -267,9 +278,11 @@
   background: #f4f4f1;
 }
 
-.navItemCompactActive {
+.navItemCompactActive,
+.navItemCompactActive:hover {
   color: #18181b;
   background: #ebebe6;
+  box-shadow: none;
 }
 
 .navItemCompactDisabled {
@@ -283,8 +296,8 @@
 }
 
 .navIcon {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -294,8 +307,8 @@
 }
 
 .navIcon svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .navLabel {
@@ -306,23 +319,29 @@
   text-overflow: ellipsis;
 }
 
-/* ── Sidebar nav search ─────────────────────── */
+/* ── Sidebar nav search ───────────────────────
+   White surface against the #fafaf9 tinted tray reads as "this is an input"
+   without shouting. The hairline border (same #ebebe6 as section dividers)
+   defines the field; hover and focus deepen the border in the same color
+   family as the rest of the nav — natural progression, not standout. */
 .navSearch {
   position: relative;
   display: flex;
   align-items: center;
-  margin: 10px 10px 4px;
-  height: 30px;
-  padding: 0 8px;
+  margin: 10px 8px 8px;
+  height: 32px;
+  padding: 0 10px;
   background: #ffffff;
   border: 1px solid #ebebe6;
   border-radius: 7px;
-  gap: 7px;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  gap: 8px;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+.navSearch:hover {
+  border-color: #d6d6cf;
 }
 .navSearch:focus-within {
-  border-color: #d6d6cf;
-  box-shadow: 0 0 0 3px rgba(15, 15, 14, 0.04);
+  border-color: #a1a1aa;
 }
 
 .navSearchIcon {
@@ -353,11 +372,16 @@
   display: inline-flex;
   align-items: center;
   gap: 1px;
-  padding: 3px 6px;
+  padding: 2px 5px;
   border-radius: 4px;
-  background: #f4f4f1;
+  background: #fafaf9;
   border: 1px solid #ebebe6;
   line-height: 1;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+.navSearch:focus-within .navSearchKbd {
+  background: #f4f4f1;
+  border-color: #d6d6cf;
 }
 .navSearchKbdGlyph {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -393,12 +417,13 @@
   color: #a1a1aa;
 }
 
-/* Section group container */
+/* Section group container — separation is implied through label rhythm,
+   not lines. A thin top margin between groups is enough. */
 .sectionGroup {
   display: flex;
   flex-direction: column;
 }
-.sectionGroup + .sectionGroup { margin-top: 4px; }
+.sectionGroup + .sectionGroup { margin-top: 2px; }
 
 .sectionItems {
   display: flex;
@@ -406,19 +431,20 @@
   gap: 1px;
 }
 
-/* Section toggle — clickable button with chevron + uppercase label */
+/* Section toggle — uppercase micro-label, chevron hover-revealed so the
+   rest state stays calm. */
 .sectionToggle {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   background: transparent;
   border: 0;
-  padding: 11px 10px 5px;
+  padding: 8px 10px 4px;
   font-family: inherit;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: #a1a1aa;
   cursor: pointer;
   width: fit-content;
@@ -470,34 +496,32 @@
   }
 }
 
-/* "NEW" badge for freshly shipped nav links (expanded rail) */
+/* Badges — softer chips that read as labels, not buttons. Border dropped
+   in favour of a single-tone tinted bg; small enough to sit behind the
+   nav label without competing for attention. */
 .newBadge {
   flex-shrink: 0;
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 8.5px;
+  font-weight: 600;
   line-height: 1;
-  letter-spacing: 0.06em;
-  padding: 3px 5px;
-  border-radius: 5px;
+  letter-spacing: 0.08em;
+  padding: 3px 6px;
+  border-radius: 999px;
   color: #2563eb;
-  background: #eff6ff;
-  border: 1px solid rgba(37, 99, 235, 0.22);
+  background: rgba(37, 99, 235, 0.1);
   text-transform: uppercase;
 }
 
-/* "LEGACY" badge for deprecated nav links (expanded rail) — muted amber/zinc,
-   distinct from the blue .newBadge */
 .legacyBadge {
   flex-shrink: 0;
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 8.5px;
+  font-weight: 600;
   line-height: 1;
-  letter-spacing: 0.06em;
-  padding: 3px 5px;
-  border-radius: 5px;
+  letter-spacing: 0.08em;
+  padding: 3px 6px;
+  border-radius: 999px;
   color: #b45309;
-  background: #fffbeb;
-  border: 1px solid rgba(180, 83, 9, 0.22);
+  background: rgba(180, 83, 9, 0.1);
   text-transform: uppercase;
 }
 
@@ -539,12 +563,12 @@
 
 /* Rail footer (logout) */
 .railFooter {
-  border-top: 1px solid #f4f4f1;
+  border-top: 1px solid rgba(24, 24, 27, 0.05);
   flex-shrink: 0;
 }
 
 .railFooterExpanded {
-  padding: 8px;
+  padding: 6px 8px;
 }
 
 .railFooterCollapsed {
@@ -702,23 +726,23 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: none;
+  gap: 9px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid transparent;
   background: transparent;
   color: #71717a;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   letter-spacing: -0.005em;
   cursor: pointer;
-  min-height: 36px;
-  transition: background 0.15s ease, color 0.15s ease;
+  min-height: 28px;
+  transition: background 0.14s ease, color 0.14s ease;
 }
 
 .logoutBtn:hover {
   color: #b91c1c;
-  background: #fef2f2;
+  background: rgba(185, 28, 28, 0.06);
 }
 
 /* Sidebar logout button — compact (icon only) */
@@ -1029,12 +1053,14 @@
   flex-shrink: 0;
 }
 
-/* Notifications button on topbar */
+/* Notifications button on topbar — minimal ghost button, the bell icon
+   carries the meaning. Hover lifts to a subtle gray wash matching the
+   nav-hover tone so it feels native to the shell. */
 .notifBtn {
   position: relative;
   width: 36px;
   height: 36px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: none;
   background: transparent;
   color: #52525b;
@@ -1042,11 +1068,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.14s ease, color 0.14s ease;
 }
 
 .notifBtn:hover {
-  background: #fafaf9;
+  background: rgba(24, 24, 27, 0.05);
   color: #18181b;
 }
 
@@ -1215,16 +1241,203 @@
   flex-shrink: 0;
 }
 
-/* Profile avatar button (minimal, YouTube-style) */
+/* ── Vendor subscription pill (topbar) ──────────────────────────────
+   Compact state-tinted pill mirroring the buBadge pattern. Click =
+   navigate to /dashboard/vendor/subscription. Hover opens the popover
+   below with detailed status + a contextual CTA. */
+.subPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.subPillIcon { flex-shrink: 0; }
+.subPillLabel {
+  letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* State tints — pill background + border + icon/text color. Stays
+   readable on the #fafaf9 topbar without overpowering it. */
+.subPillActive {
+  background: #ecfdf5;
+  border-color: rgba(21, 128, 61, 0.22);
+  color: #15803d;
+}
+.subPillActive:hover  { border-color: rgba(21, 128, 61, 0.4); }
+.subPillActive .subPillIcon { color: #15803d; }
+
+.subPillWarn {
+  background: #fef7ed;
+  border-color: rgba(180, 83, 9, 0.22);
+  color: #b45309;
+}
+.subPillWarn:hover  { border-color: rgba(180, 83, 9, 0.4); }
+.subPillWarn .subPillIcon { color: #b45309; }
+
+.subPillDanger {
+  background: #fef2f2;
+  border-color: rgba(185, 28, 28, 0.22);
+  color: #b91c1c;
+}
+.subPillDanger:hover  { border-color: rgba(185, 28, 28, 0.4); }
+.subPillDanger .subPillIcon { color: #b91c1c; }
+
+.subPillPending {
+  background: #eef2ff;
+  border-color: rgba(67, 56, 202, 0.22);
+  color: #4338ca;
+}
+.subPillPending:hover  { border-color: rgba(67, 56, 202, 0.4); }
+.subPillPending .subPillIcon { color: #4338ca; }
+
+.subPillMuted {
+  background: #ffffff;
+  border-color: #ebebe6;
+  color: #52525b;
+}
+.subPillMuted:hover  { border-color: #d6d6cf; color: #18181b; }
+.subPillMuted .subPillIcon { color: #71717a; }
+
+/* Tooltip — anchored under the pill, shows full subscription detail.
+   Reuses popoverIn keyframe defined earlier in this file. */
+.subTooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #ebebe6;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  z-index: 1060;
+  min-width: 260px;
+  max-width: 320px;
+  padding: 0;
+  overflow: hidden;
+  animation: popoverIn 0.12s ease;
+  text-align: left;
+}
+.subPill:hover .subTooltip,
+.subPill:focus-visible .subTooltip {
+  display: block;
+}
+
+.subTooltipHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #fafaf9;
+  border-bottom: 1px solid #f4f4f1;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+.subTooltipHead svg { color: inherit; }
+
+.subTooltipBody {
+  padding: 10px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.subTooltipRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+}
+.subTooltipKey {
+  color: #71717a;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.subTooltipVal {
+  color: #18181b;
+  font-weight: 500;
+  text-align: right;
+  letter-spacing: -0.005em;
+}
+
+.subTooltipMsg {
+  font-size: 12px;
+  color: #52525b;
+  line-height: 1.45;
+}
+.subTooltipMsg strong { color: #18181b; font-weight: 600; }
+
+.subTooltipProgress {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 2px;
+}
+.subTooltipProgressTrack {
+  width: 100%;
+  height: 4px;
+  background: #f4f4f1;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.subTooltipProgressFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.subTooltipProgressFill.subPillActive  { background: #15803d; }
+.subTooltipProgressFill.subPillWarn    { background: #b45309; }
+.subTooltipProgressFill.subPillDanger  { background: #b91c1c; }
+.subTooltipProgressFill.subPillPending { background: #4338ca; }
+.subTooltipProgressFill.subPillMuted   { background: #a1a1aa; }
+
+.subTooltipProgressLabel {
+  font-size: 11px;
+  color: #71717a;
+  letter-spacing: -0.005em;
+}
+
+.subTooltipFoot {
+  padding: 9px 12px;
+  background: #fafaf9;
+  border-top: 1px solid #f4f4f1;
+}
+.subTooltipCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #18181b;
+  letter-spacing: -0.005em;
+}
+
+/* Profile avatar button — small refined circle. Sized to feel proportional
+   to the bell glyph next to it, with a slightly softer letter weight so it
+   doesn't dominate the topbar. */
 .profileAvatarBtn {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: none;
   background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
   color: #ffffff;
-  font-size: 11.5px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1344,25 +1557,20 @@
   animation: popoverIn 0.12s ease;
 }
 
-/* ── Notifications (bell badge + dropdown) ─────────────── */
-/* refined unread badge — sits in the top-right of the bell, subtle pill */
+/* ── Notifications (bell badge + dropdown) ───────────────
+   Indicator-only badge — a single solid dot at the bell's top-right
+   corner. No number, no border (the topbar bg cuts it out cleanly via
+   a 2px halo). Count is surfaced inside the dropdown header. */
 .notifBadge {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
+  top: 7px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
   background: #ef4444;
-  color: #ffffff;
-  font-family: 'Geist Mono', monospace;
-  font-size: 9.5px;
-  font-weight: 700;
-  line-height: 16px;
-  text-align: center;
-  border: 1.5px solid #ffffff;
-  letter-spacing: 0.02em;
+  box-shadow: 0 0 0 2px #fafaf9;
+  pointer-events: none;
 }
 
 /* the notif dropdown — wider than the profile popover */

@@ -13,6 +13,7 @@ import CategoryInsights from "./dashboard-components/CategoryInsights";
 import WorkflowEfficiency from "./dashboard-components/WorkflowEfficiency";
 import SmartInsights from "./dashboard-components/SmartInsights";
 import EmptyDashboard from "./EmptyDashboard";
+import BuyerStatusBanner from "./BuyerStatusBanner";
 import {
   DashboardPermissionsProvider,
   useVisibleDashboardWidgets,
@@ -154,6 +155,8 @@ const BuyerPage = () => {
             </button>
           </div>
         </div>
+
+        <BuyerStatusBanner hotelIds={selectedHotelIds} filters={filters} />
 
         {ROLE_AWARE_DASHBOARD_ENABLED ? (
           <DashboardPermissionsProvider hotelIds={selectedHotelIds}>

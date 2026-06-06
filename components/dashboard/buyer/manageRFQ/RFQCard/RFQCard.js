@@ -155,7 +155,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               className={styles.copiedFromChip}
               title={`Open source RFQ #${data.copied_from_rfq_no}`}
             >
-              <CopyIcon size={12} />
+              <CopyIcon size={11} />
               <span className={styles.copiedFromLabel}>Copied from</span>
               <span className={styles.copiedFromNum}>#{data.copied_from_rfq_no}</span>
             </Link>
@@ -168,10 +168,13 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               </span>
             </>
           )}
-        </div>
 
-        {/* Right: Lifecycle + Date + Expand */}
-        <div className={styles.rightSection}>
+          {/* Right edge of row 1: lifecycle pill + expand chevron. Pushed
+              to the far right via margin-left:auto in compactRow1, so the
+              identity (badges + title + meta + copied-from) keeps its
+              natural left-aligned flow without wrapping the chevron to
+              a second visual line. */}
+          <div className={styles.rightSection}>
           {/* Lifecycle Pill - hidden for drafts and terminated RFQs */}
           {lifecycleConfig && !isDraft && statusConfig.key !== 'terminated' && (() => {
             const stagesFiltered = LIFECYCLE_STAGES_ORDERED.filter(k => k !== 'TECHNICAL_REJECTED');
@@ -246,7 +249,8 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
           <div className={styles.expandToggle}>
             {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </div>
-        </div>
+          </div>{/* /rightSection */}
+        </div>{/* /compactRow1 */}
 
         {/* ── Row 2: Metadata (vendors, date, project, created) ── */}
         <div className={styles.compactRow2}>
@@ -408,10 +412,11 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                   legitimately copyable. */}
               {hasEditPermission && (
                 <button
-                  className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}
+                  type="button"
+                  className={`${styles.actionBtn} ${styles.btnSecondary}`}
                   onClick={() => setCopyOpen(true)}
                 >
-                  <CopyIcon size={12} style={{ marginRight: 4 }} /> Copy
+                  <CopyIcon size={12} /> Copy
                 </button>
               )}
 

@@ -11,6 +11,19 @@ export const getActionCenterData = (params) => {
   });
 };
 
+// Status banner hero on /dashboard/buyer. Returns
+// { mode, counts, soonest_closing, weekly, greeting }.
+export const getBuyerStatusBanner = (params) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get('/dashboard-v2/buyer-status-banner', { params });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error.message });
+    }
+  });
+};
+
 export const getProcurementSnapshot = (params) => {
   return new Promise(async (resolve, reject) => {
     try {

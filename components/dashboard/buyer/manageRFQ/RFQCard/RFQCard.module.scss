@@ -143,7 +143,10 @@
   &:hover { background-color: #fafaf9; }
 }
 
-// Row 1: badges + title + lifecycle + expand
+// Row 1: badges + title + meta + (right edge) lifecycle + chevron.
+// rightSection nests inside this row and is pushed to the far right via
+// margin-left:auto — so the chevron and lifecycle pill never wrap onto a
+// new visual line.
 .compactRow1 {
   display: flex;
   align-items: center;
@@ -152,7 +155,11 @@
 }
 
 .compactRow1 .title {
-  flex: 1;
+  // Was flex:1 — that consumed all remaining horizontal space and pushed
+  // the right-edge content far past the title. We want the title to shrink
+  // (truncating with ellipsis) so the right-side pill/chevron sit close to
+  // the meta. Cap to its natural width with shrink, no grow.
+  flex: 0 1 auto;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -170,56 +177,64 @@
   text-overflow: ellipsis;
 }
 
+// Lineage chip — restated in the neutral palette so it sits flush with
+// the rest of the card (the previous indigo bg/border clashed against the
+// minimal grayscale aesthetic).
 .copiedFromChip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 9px;
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid #ebebe6;
   border-radius: 5px;
-  font-size: 0.72rem;
+  font-size: 11px;
   font-weight: 500;
-  color: #4338ca;
+  color: #52525b;
+  letter-spacing: -0.005em;
   white-space: nowrap;
   flex-shrink: 0;
-  margin-left: 0.6rem;
   text-decoration: none;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 
   svg {
-    color: #6366f1;
+    color: #a1a1aa;
     flex-shrink: 0;
   }
 
   &:hover {
-    background: #e0e7ff;
-    border-color: #a5b4fc;
-    color: #3730a3;
+    background: #fafaf9;
+    border-color: #d6d6cf;
+    color: #18181b;
     text-decoration: none;
 
-    svg { color: #4f46e5; }
+    svg { color: #71717a; }
   }
 }
 
 .copiedFromLabel {
-  color: #6b7280;
+  color: #71717a;
   font-weight: 500;
 }
 
 .copiedFromNum {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   font-weight: 600;
-  color: inherit;
+  letter-spacing: -0.01em;
+  color: #18181b;
 }
 
-// Right Section: Lifecycle + Expand toggle
+// Right Section: Lifecycle + Expand toggle. Lives at the right edge of
+// compactRow1 — margin-left:auto pushes it past the title + meta cluster.
 .rightSection {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex-shrink: 0;
+  margin-left: auto;
 
   @media (max-width: 991px) {
+    margin-left: 0;
     justify-content: space-between;
     width: 100%;
   }

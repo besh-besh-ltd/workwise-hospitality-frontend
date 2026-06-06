@@ -32,3 +32,16 @@ export const getVendorInsights = (params) => {
     }
   });
 };
+
+// Status banner hero on /dashboard/vendor. Returns
+// { mode, counts, soonest_closing, weekly, greeting }.
+export const getVendorStatusBanner = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get('/vendor-dashboard/status-banner');
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error.message });
+    }
+  });
+};

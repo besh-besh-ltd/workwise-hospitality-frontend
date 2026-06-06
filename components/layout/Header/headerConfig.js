@@ -59,6 +59,7 @@ export const roleMenus = {
     { href: "/dashboard/buyer/purchase-orders", label: "PO Dashboard", targetMenu: "nav", section: "Purchase Orders", isNew: true },
     { href: "/dashboard/buyer/purchase-orders/tracking", label: "PO Tracking", targetMenu: "nav", section: "Purchase Orders", isNew: true },
     { href: "/dashboard/buyer/purchase-orders/analytics", label: "PO Analytics", targetMenu: "nav", section: "Purchase Orders", isNew: true },
+    { href: "/dashboard/notifications", label: "Notifications", targetMenu: "nav", section: "Inbox" },
     { href: "/dashboard/buyer/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
   ],
   vendor: [
@@ -67,6 +68,7 @@ export const roleMenus = {
     { href: "/dashboard/vendor/product-management", label: "Product Management", targetMenu: "nav", requiresSubscription: true, section: "Catalogue" },
     { href: "/dashboard/vendor/inquiries-received", label: "Received Inquiries", targetMenu: "nav", requiresSubscription: true, section: "Orders" },
     { href: "/dashboard/vendor/order-book", label: "Order Book", targetMenu: "nav", requiresSubscription: true, section: "Orders" },
+    { href: "/dashboard/notifications", label: "Notifications", targetMenu: "nav", section: "Inbox" },
     { href: "/dashboard/vendor/subscription", label: "Subscription", targetMenu: "nav", section: "Account" },
   ],
 };

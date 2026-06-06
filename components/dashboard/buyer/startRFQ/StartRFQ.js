@@ -25,6 +25,7 @@ import { useModulePermissions } from "@/hooks/useModulePermissions";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import CopyFromExistingModal from "./CopyFromExistingModal";
 
 import styles from "./StartRFQ.module.scss";
 
@@ -78,6 +79,8 @@ const StartRFQ = () => {
   const [draftPage, setDraftPage] = useState(1);
   const DRAFTS_PER_PAGE = 5;
   const [deletingDraft, setDeletingDraft] = useState(null);
+  // "Copy from existing" two-phase modal (pick RFQ → BU → copy → "Edit draft?").
+  const [showCopyFromModal, setShowCopyFromModal] = useState(false);
 
   const searchRef = useRef(null);
 
@@ -536,17 +539,18 @@ const StartRFQ = () => {
 
           <button
             type="button"
-            className={`${styles.entryCard} ${styles.entryCardDisabled}`}
-            disabled
-            title="Coming soon"
+            className={styles.entryCard}
+            onClick={() => setShowCopyFromModal(true)}
           >
-            <span className={`${styles.entryIcon} ${styles.entryIconMuted}`}>
+            <span className={styles.entryIcon}>
               <Copy size={18} />
             </span>
             <div className={styles.entryBody}>
               <div className={styles.entryHead}>
                 <span className={styles.entryTitle}>Copy from existing</span>
-                <span className={styles.comingSoon}>Coming soon</span>
+                <span className={styles.entryCta}>
+                  Browse <ArrowRight size={13} />
+                </span>
               </div>
               <span className={styles.entryDesc}>
                 Clone a past RFQ — copy its products, BUs and vendors as a starting point.
@@ -1227,6 +1231,11 @@ const StartRFQ = () => {
         confirmButtonColor="danger"
         confirmButtonText="Delete"
         cancelButtonText="Keep draft"
+      />
+
+      <CopyFromExistingModal
+        isOpen={showCopyFromModal}
+        onClose={() => setShowCopyFromModal(false)}
       />
 
       <LoginContainer

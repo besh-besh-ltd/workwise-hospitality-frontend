@@ -13,7 +13,7 @@ import {
   Package, ArrowRight, BarChart3, LineChart, Target, PieChart, Layers, RefreshCw,
 } from "lucide-react";
 import { getVendorOpportunities, getVendorPerformance, getVendorInsights } from "@/services/vendorDashboard";
-import SubscriptionStatus from "./SubscriptionStatus";
+import VendorStatusBanner from "./VendorStatusBanner";
 import { PersonaCardShell } from "../buyer/persona-widgets/PersonaCard";
 import {
   Seg,
@@ -65,7 +65,6 @@ const formatCurrency = (v) => {
 const Vendor = () => {
   const userProfile = useSelector((state) => state.userProfile);
   const firstName = userProfile?.name?.split(" ")?.[0] || "there";
-  const isHospitalityVendor = userProfile && (userProfile.is_hospitality === 1 || userProfile.is_hospitality === '1');
 
   const [range, setRange] = useState(RANGE_OPTIONS[1].value); // FY default
   const [opp, setOpp] = useState(null);
@@ -188,8 +187,9 @@ const Vendor = () => {
           </div>
         </div>
 
-        {/* Subscription banner — kept full-width but restyled */}
-        {isHospitalityVendor && <SubscriptionStatus />}
+        <VendorStatusBanner />
+
+        {/* Subscription status moved to the topbar pill (VendorSubscriptionPill). */}
 
         {/* Opportunities */}
         <PersonaCardShell
