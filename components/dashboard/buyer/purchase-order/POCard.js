@@ -14,7 +14,18 @@ const POCard = ({
   onApprove,
   onReject,
   initiatePO,
-  onRegenerate
+  onRegenerate,
+  // Bulk-select wiring. The parent (POListing) computes selectability and the
+  // current bulk mode; the row only renders the checkbox and forwards changes.
+  // `selectMode` is one of:
+  //   'eligible'        — row matches the active bulk mode, normal checkbox
+  //   'disabled-mismatch' — row is selectable in principle but a different
+  //                         mode is currently locked, so block selection
+  //   null              — row not selectable in this listing context at all
+  selectMode = null,
+  isSelected = false,
+  onSelectChange,
+  disabledReason,
 }) => {
   const statusConfig = {
     pending_approval: { label: 'Pending', variant: 'warning', requiresAction: true },
@@ -34,6 +45,46 @@ const POCard = ({
   const isDraft = po.status === 'draft';
   const isApproved = po.status === 'approved';
   const isPendingApproval = po.status === 'pending_approval';
+
+  // Surface the current pending approver(s) so the user can see who's blocking
+  // each PO without opening it. Supports both the new (multi-approver per
+  // step) and legacy (single approver) workflows. Step labelling uses
+  // current_step / total_steps when available.
+  const pendingApproverInfo = useMemo(() => {
+    if (!isPendingApproval) return null;
+    const a = po.approval_status;
+    if (!a) return null;
+    let names = [];
+    if (a.type === 'new' && Array.isArray(a.pending_approvers)) {
+      names = a.pending_approvers.map(p => p?.name).filter(Boolean);
+    } else if (a.type === 'legacy' && a.current_approver_name) {
+      names = [a.current_approver_name];
+    }
+    if (names.length === 0) return null;
+    const stepLabel = a.type === 'new' && a.current_step && a.total_steps
+      ? `Level ${a.current_step}${a.total_steps > 1 ? `/${a.total_steps}` : ''}`
+      : null;
+    return { names, stepLabel };
+  }, [isPendingApproval, po.approval_status]);
+
+  const pendingAtCaption = useMemo(() => {
+    if (!pendingApproverInfo) return null;
+    const { names } = pendingApproverInfo;
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]}, ${names[1]}`;
+    return `${names[0]} +${names.length - 1}`;
+  }, [pendingApproverInfo]);
+
+  const pendingAtTooltip = useMemo(() => {
+    if (!pendingApproverInfo) return null;
+    const { names, stepLabel } = pendingApproverInfo;
+    const list = names.length === 1
+      ? names[0]
+      : names.length === 2
+        ? `${names[0]} & ${names[1]}`
+        : `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
+    return stepLabel ? `${stepLabel} — pending at ${list}` : `Pending at ${list}`;
+  }, [pendingApproverInfo]);
 
   // Display total = line subtotal + document-level global charges. The
   // backend stores the grand total on po.total_value at draft, but legacy
@@ -137,13 +188,65 @@ const POCard = ({
   const handleView = (e) => { e.stopPropagation(); onClick?.(po); };
   const handleRegenerate = (e) => { e.stopPropagation(); onRegenerate?.(po); };
 
+  const handleCheckboxChange = (e) => {
+    e.stopPropagation();
+    onSelectChange?.(po, e.target.checked);
+  };
+
+  const checkboxCell = selectMode ? (
+    <div className={styles.colSelect} onClick={(e) => e.stopPropagation()}>
+      <OverlayTrigger
+        placement="top"
+        overlay={
+          <Tooltip id={`select-tip-${po.id}`}>
+            {selectMode === 'disabled-mismatch'
+              ? (disabledReason || 'Mixed selection — clear current selection to switch')
+              : 'Select for bulk action'}
+          </Tooltip>
+        }
+      >
+        <input
+          type="checkbox"
+          checked={isSelected}
+          disabled={selectMode === 'disabled-mismatch'}
+          onChange={handleCheckboxChange}
+          aria-label={`Select PO ${po.po_number}`}
+        />
+      </OverlayTrigger>
+    </div>
+  ) : (
+    <div className={styles.colSelect} aria-hidden="true" />
+  );
+
   if (isMobile) {
     return (
       <div className={`${styles.mobileCard} ${showApprovalActions ? styles.userAction : ''}`} onClick={handleRowClick}>
         <div className={styles.mobileCardTop}>
+          {selectMode && (
+            <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center', marginRight: 6 }}>
+              <input
+                type="checkbox"
+                checked={isSelected}
+                disabled={selectMode === 'disabled-mismatch'}
+                onChange={handleCheckboxChange}
+                style={{ width: 16, height: 16, accentColor: '#1a56db', cursor: selectMode === 'disabled-mismatch' ? 'not-allowed' : 'pointer' }}
+                aria-label={`Select PO ${po.po_number}`}
+              />
+            </span>
+          )}
           <Badge bg={currentStatus.variant} className={styles.statusBadge}>{currentStatus.label}</Badge>
           <span className={styles.poNum}>#{po.po_number}</span>
         </div>
+        {pendingAtCaption && (
+          <div
+            className={styles.pendingAtCaption}
+            style={{ padding: '2px 0 4px' }}
+            title={pendingAtTooltip}
+          >
+            <span className={styles.pendingAtLabel}>Pending at:</span>{' '}
+            <span className={styles.pendingAtName}>{pendingAtCaption}</span>
+          </div>
+        )}
         <div className={styles.mobileCardMiddle}>
           <div className={styles.mobileVendor}>{po.finalized_vendor_name || 'No vendor'}</div>
           <div className={styles.mobileValueRow}>
@@ -185,8 +288,17 @@ const POCard = ({
       className={`${styles.poRow} ${currentStatus.requiresAction ? styles.requiresAction : ''} ${isDraft ? styles.isDraft : ''} ${isApproved ? styles.isApproved : ''} ${showApprovalActions ? styles.userAction : ''} ${currentStatus.isVendorRejected ? styles.isRejected : ''}`}
       onClick={handleRowClick}
     >
+      {checkboxCell}
       <div className={styles.colStatus}>
         <Badge bg={currentStatus.variant} className={styles.statusBadge}>{currentStatus.label}</Badge>
+        {pendingAtCaption && (
+          <OverlayTrigger placement="top" overlay={<Tooltip id={`pending-at-${po.id}`}>{pendingAtTooltip}</Tooltip>}>
+            <div className={styles.pendingAtCaption}>
+              <span className={styles.pendingAtLabel}>Pending at:</span>{' '}
+              <span className={styles.pendingAtName}>{pendingAtCaption}</span>
+            </div>
+          </OverlayTrigger>
+        )}
       </div>
 
       <div className={styles.colPoNumber}>

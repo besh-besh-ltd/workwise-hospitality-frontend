@@ -553,6 +553,7 @@ const PurchaseOrders = () => {
                       canWrite={canWrite}
                       canApprove={canApprove}
                       canRegenerate={canRegenerate}
+                      canCreate={canCreate && !isRfqClosed}
                     />
                     </>
                   )}
@@ -603,6 +604,7 @@ const PurchaseOrders = () => {
                       canWrite={canWrite}
                       canApprove={canApprove}
                       canRegenerate={canRegenerate}
+                      canCreate={canCreate && !isRfqClosed}
                     />
                     </>
                   )}
