@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, UserCheck, Users, Folder, FileText, Gavel, AlertTriangle, Zap, Send, UserX } from 'lucide-react';
+import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, UserCheck, Users, Folder, FileText, Gavel, AlertTriangle, Zap, Send, UserX, Copy as CopyIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useSelector } from 'react-redux';
 import moment from 'moment';
 import { getRFQPublishState, formatRFQNumber, textCapitalize, canEditRfq } from '@/utils/sharedFunctions';
 import PublishDateTimer from '@/components/shared/PublishDateTimer';
 import { getStatusConfig, STATUS_CONFIG, getLifecycleConfig, LIFECYCLE_STAGES_ORDERED } from './statusConfig';
+import CopyRFQModal from '../CopyRFQModal';
 import styles from './RFQCard.module.scss';
 
 const RFQ_TIMEZONE_OFFSET = '+05:30';
@@ -40,6 +41,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAutoPublished, setIsAutoPublished] = useState(false);
   const [showLifecycleTooltip, setShowLifecycleTooltip] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
 
   // WH-69: edit permission helper — see canEditRfq() in sharedFunctions.js
   const currentUser = useSelector((state) => state.userProfile);
@@ -117,7 +119,60 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
             </span>
           )}
 
-          {/* Lifecycle Pill */}
+          {!isDraft && (
+            <>
+              {/* Divider */}
+              <span className={styles.sectionDivider} />
+
+              {/* Vendor Stats */}
+              <div className={styles.vendorChip}>
+                <Users size={13} className={styles.vendorIconBlue} />
+                <span className={styles.vendorNum}>{totalVendors}</span>
+                <span className={styles.vendorLabel}>Invited</span>
+
+                <span className={styles.vendorSep} />
+
+                <Send size={13} className={allQuotesReceived ? styles.vendorIconGreen : styles.vendorIconOrange} />
+                <span className={styles.vendorNum}>{quotesReceived}</span>
+                <span className={styles.vendorLabel}>Participated</span>
+
+                {quotesRegretted > 0 && (
+                  <>
+                    <span className={styles.vendorSep} />
+                    <UserX size={13} className={styles.vendorIconRed} />
+                    <span className={styles.vendorNum}>{quotesRegretted}</span>
+                    <span className={styles.vendorLabel}>Regretted</span>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {data.copied_from_rfq_id && data.copied_from_rfq_no && (
+            <Link
+              href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.copied_from_rfq_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className={styles.copiedFromChip}
+              title={`Open source RFQ #${data.copied_from_rfq_no}`}
+            >
+              <CopyIcon size={12} />
+              <span className={styles.copiedFromLabel}>Copied from</span>
+              <span className={styles.copiedFromNum}>#{data.copied_from_rfq_no}</span>
+            </Link>
+          )}
+          {isDraft && data.status === 5 && (
+            <>
+              <span className={styles.sectionDivider} />
+              <span className={styles.statusBadge} style={{ backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffc107', fontSize: '0.7rem' }}>
+                Previously submitted for publishing
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Right: Lifecycle + Date + Expand */}
+        <div className={styles.rightSection}>
+          {/* Lifecycle Pill - hidden for drafts and terminated RFQs */}
           {lifecycleConfig && !isDraft && statusConfig.key !== 'terminated' && (() => {
             const stagesFiltered = LIFECYCLE_STAGES_ORDERED.filter(k => k !== 'TECHNICAL_REJECTED');
             const stepNum = stagesFiltered.indexOf(data.lifecycle_stage) + 1;
@@ -345,6 +400,21 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                 View Details
               </Link>
 
+              {/* Copy RFQ — opens a small modal where the user picks the
+                  target business unit and creates a fresh DRAFT clone of the
+                  source RFQ. Available wherever the user can create RFQs
+                  (hasEditPermission gate, same as Edit/Create). Intentionally
+                  NOT gated by canEditRfq() — a finalized/closed RFQ is still
+                  legitimately copyable. */}
+              {hasEditPermission && (
+                <button
+                  className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}
+                  onClick={() => setCopyOpen(true)}
+                >
+                  <CopyIcon size={12} style={{ marginRight: 4 }} /> Copy
+                </button>
+              )}
+
               {/* WH-69: Edit button is always rendered, but disabled with a
                   hover tooltip when canEditRfq() says no. The user sees the
                   exact reason (not the creator, bid window passed, all POs
@@ -388,6 +458,11 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
           )}
         </div>
       </div>
+      <CopyRFQModal
+        show={copyOpen}
+        onClose={() => setCopyOpen(false)}
+        sourceRfq={data}
+      />
     </div>
   );
 };
