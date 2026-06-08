@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { useRouter } from 'next/router';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { Plus, History, ShieldCheck } from 'lucide-react';
 import { getAllActiveNegotiationRounds, getNegotiationRounds } from '@/services/negotiation';
@@ -23,6 +24,7 @@ const NegotiationCompactBanner = ({
   preloadedApprovalBundle = null,
   finalizationApprovalCompleted = false,
 }) => {
+  const router = useRouter();
   const [activeRounds, setActiveRounds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -159,8 +161,8 @@ const NegotiationCompactBanner = ({
   };
 
   const handleCreateClick = () => {
-    setModalMode('create');
-    setShowModal(true);
+    if (!rfq_id) return;
+    router.push(`/dashboard/buyer/negotiation/${rfq_id}/create`);
   };
 
   const handleHistoryClick = () => {

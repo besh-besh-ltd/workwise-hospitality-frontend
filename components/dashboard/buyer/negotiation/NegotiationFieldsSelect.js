@@ -42,21 +42,24 @@ export const getChargeTargetKey = (fieldValue) => {
   return `target_${fieldValue}`;
 };
 
-const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData, onFormChange, disabled = false, dynamicChargeFields = [], defaultCharges = [] }) => {
+const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData, onFormChange, disabled = false, dynamicChargeFields = [], defaultCharges = [], excludeKeys = [], l1Map = null }) => {
 
   // Build the full list of fields: static options + default charges from API (created_by === null)
+  // `excludeKeys` lets callers hide options (e.g. fields handled by a separate UI surface).
   const allFieldOptions = React.useMemo(() => {
-    const fields = [...NEGOTIATION_FIELD_OPTIONS];
+    const excluded = new Set(excludeKeys);
+    const fields = NEGOTIATION_FIELD_OPTIONS.filter(f => !excluded.has(f.value));
     const existingSlugs = new Set(fields.map(f => f.value));
     defaultCharges.filter(c => !c.is_global).forEach(charge => {
       const slug = charge.slug || charge.name;
+      if (excluded.has(slug)) return;
       if (!existingSlugs.has(slug)) {
         existingSlugs.add(slug);
         fields.push(buildChargeFieldOption(charge));
       }
     });
     return fields;
-  }, [defaultCharges]);
+  }, [defaultCharges, excludeKeys]);
 
   const handleCardClick = (fieldValue) => {
     if (disabled) return;
@@ -105,9 +108,30 @@ const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData,
             >
               <div className={styles.negFieldCardHeader}>
                 <p className={styles.negFieldCardLabel}>{field.label}</p>
-                <span className={`${styles.negFieldCardCheck} ${isSelected ? styles.negFieldCardCheckActive : ''}`}>
-                  {isSelected ? '✓' : ''}
-                </span>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  {l1Map && l1Map[field.value] && (
+                    <span
+                      title={`Lowest from ${l1Map[field.value].vendorName || 'vendor'}`}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        letterSpacing: '0.04em',
+                        textTransform: 'uppercase',
+                        color: '#15803d',
+                        background: '#dcfce7',
+                        border: '1px solid #bbf7d0',
+                        padding: '2px 8px',
+                        borderRadius: 4,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      L1: {l1Map[field.value].displayText}
+                    </span>
+                  )}
+                  <span className={`${styles.negFieldCardCheck} ${isSelected ? styles.negFieldCardCheckActive : ''}`}>
+                    {isSelected ? '✓' : ''}
+                  </span>
+                </div>
               </div>
 
               {isSelected && (
