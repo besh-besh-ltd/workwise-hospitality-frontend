@@ -3,7 +3,7 @@ import { FiCheck, FiFileText } from "react-icons/fi";
 import { useDispatch } from "react-redux";
 import { setUserProfile } from "@/redux/slice";
 import { LoginService, SWSubscribe, getProfile } from "@/services/Auth";
-import { testRazorPayEndpoint, getMatchingOpenRfqs, joinOpenRfqs } from "@/services/subscription";
+import { verifyHospitalityPayment, getMatchingOpenRfqs, joinOpenRfqs } from "@/services/subscription";
 import storageInstance from "@/utils/storageInstance";
 import styles from "./Register.module.css";
 
@@ -38,12 +38,11 @@ const PostPaymentFlow = ({ show, razorpayData, orderId, userCredentials, swSubsc
     hasRunRef.current = true;
 
     try {
-      // Phase 1: Verify payment
+      // Phase 1: Verify payment (signature-validated)
       setPhase(PHASE.VERIFYING);
-      const verifyRes = await testRazorPayEndpoint({
-        order_id: orderId,
-        razorpay_payment_id: razorpayData.razorpay_payment_id,
+      const verifyRes = await verifyHospitalityPayment({
         razorpay_order_id: razorpayData.razorpay_order_id,
+        razorpay_payment_id: razorpayData.razorpay_payment_id,
         razorpay_signature: razorpayData.razorpay_signature,
       });
 
@@ -52,7 +51,7 @@ const PostPaymentFlow = ({ show, razorpayData, orderId, userCredentials, swSubsc
         return;
       }
 
-      setSummary(verifyRes.data?.payment_summary || {});
+      setSummary(verifyRes.data || {});
       setPhase(PHASE.CONFIRMED);
 
       // Phase 2: Auto-login
