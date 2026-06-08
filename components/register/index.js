@@ -188,25 +188,25 @@ const Register = ({
   };
 
   // ── Fetch metadata on mount ────────────────────
+  // Each call is independent — one failure must not block the others
+  // (previously Promise.all would empty Country + Categories together).
   useEffect(() => {
-    const fetchFormMeta = async () => {
-      try {
-        const [codesRes, countriesRes, categoriesRes] = await Promise.all([
-          getCountryCodes(),
-          getCountries(),
-          nestedCategoryData(0, "", false),
-        ]);
-        setCountryCode(codesRes?.data || []);
-        setLocationOptions((prev) => ({ ...prev, countries: countriesRes?.data || [] }));
-        const mapped = Array.isArray(categoriesRes?.data)
-          ? categoriesRes.data.map((item) => ({ id: item.id, value: item.id, label: item.title || item.name || "Category" }))
+    getCountryCodes()
+      .then((res) => setCountryCode(res?.data || []))
+      .catch((err) => console.error("Error fetching country codes:", err));
+
+    getCountries()
+      .then((res) => setLocationOptions((prev) => ({ ...prev, countries: res?.data || [] })))
+      .catch((err) => console.error("Error fetching countries:", err));
+
+    nestedCategoryData(0, "", false)
+      .then((res) => {
+        const mapped = Array.isArray(res?.data)
+          ? res.data.map((item) => ({ id: item.id, value: item.id, label: item.title || item.name || "Category" }))
           : [];
         setCategoryOptions(mapped);
-      } catch (error) {
-        console.error("Error fetching registration metadata:", error);
-      }
-    };
-    fetchFormMeta();
+      })
+      .catch((err) => console.error("Error fetching categories:", err));
   }, []);
 
   // Notify parent of step changes
