@@ -58,11 +58,154 @@ const resolveChargeMeta = (slug, chargeNamesList) => {
   return c || null;
 };
 
+// `vendor.paymentTerms` can be a string OR an array of structured entries
+// `{ id, type, value, days, comment, … }`. The vendor accordion / charge card
+// needs a plain string for display. Mirrors the modal's existing formatting
+// in NegotiationModal.formatVendorFieldValue.
+const formatPaymentTerms = (pt) => {
+  if (!pt) return '';
+  if (typeof pt === 'string') return pt;
+  if (Array.isArray(pt)) {
+    return pt.map(t => {
+      const parts = [];
+      if (t?.value) parts.push(`${t.value}%`);
+      if (t?.type) parts.push(t.type);
+      if (t?.days) parts.push(`${t.days} days`);
+      if (t?.comment) parts.push(t.comment);
+      return parts.join(' ');
+    }).filter(Boolean).join(', ');
+  }
+  return '';
+};
+
+// Defensive string coercion for other potentially-structured text fields.
+const safeText = (v) => {
+  if (v == null) return '';
+  if (typeof v === 'string' || typeof v === 'number') return String(v);
+  if (Array.isArray(v)) return v.map(safeText).filter(Boolean).join(', ');
+  // Object — pick the most likely human-readable property.
+  return v.value || v.text || v.details || v.comment || '';
+};
+
 // Turn a vendor's quotation into a list of {kind,fieldKey,label,value,...}
 // charge descriptors that VendorChargeCard can render.
-const buildChargeList = (vendor, globalSelectedFields = [], chargeNamesList = []) => {
+//
+// `mode` controls which slice of the vendor's quote we surface:
+//   - 'product' (default): base price + per-product other charges, plus
+//     vendor_tc / comment / delivery_period / documents and demand cards.
+//   - 'rfq': quote-level global charges (TCS etc.) + payment_terms +
+//     global_comment + documents. No base price, no delivery period, no
+//     per-product other_charges.
+const buildChargeList = (vendor, globalSelectedFields = [], chargeNamesList = [], mode = 'product') => {
   const list = [];
   const seen = new Set();
+
+  if (mode === 'rfq') {
+    // Quote-level global charges — pulled either from `globalCharges` (the
+    // quote's `q.global_charges`) or from `is_global` entries in otherCharges.
+    const seenGlobalSlug = new Set();
+    const pushGlobal = (slug, name, amount, amountMode, tax, taxMode) => {
+      if (!slug || seenGlobalSlug.has(slug)) return;
+      seenGlobalSlug.add(slug);
+      list.push({
+        kind: 'numeric',
+        fieldKey: slug,
+        label: name || titleCase(slug),
+        value: amount,
+        mode: amountMode || 'percentage',
+        tax,
+        taxMode,
+        unitHint: amountMode === 'amount' ? 'flat' : '% of base',
+        supportsTarget: true,
+      });
+      seen.add(slug);
+    };
+    (vendor.globalCharges || []).forEach((c) => {
+      const slug = c.slug || c.name;
+      // global_charges entries from the engine use `tax` for the charge
+      // value and `additional_tax` for the GST on top (when present).
+      pushGlobal(slug, c.name, c.tax, c.tax_mode, c.additional_tax, c.additional_tax_mode);
+    });
+    (vendor.otherCharges || []).forEach((c) => {
+      if (!c.is_global) return;
+      const slug = c.slug || c.name;
+      pushGlobal(slug, c.name, c.amount, c.amount_mode, c.tax, c.tax_mode);
+    });
+
+    // Payment terms — text field, vendor-quoted (or demand if not quoted).
+    // `vendor.paymentTerms` can be an array of structured entries; flatten
+    // to a plain display string here so VendorChargeCard renders cleanly.
+    const ptDisplay = formatPaymentTerms(vendor.paymentTerms);
+    if (ptDisplay) {
+      list.push({
+        kind: 'text',
+        fieldKey: 'payment_terms',
+        label: 'Payment Terms',
+        value: ptDisplay,
+        supportsTarget: true,
+      });
+      seen.add('payment_terms');
+    }
+
+    // Global comment — text field
+    const gcDisplay = safeText(vendor.globalComment);
+    if (gcDisplay) {
+      list.push({
+        kind: 'text',
+        fieldKey: 'global_comment',
+        label: 'Global Comment',
+        value: gcDisplay,
+        supportsTarget: true,
+      });
+      seen.add('global_comment');
+    }
+
+    // Documents — same shape as the product flow
+    if (Array.isArray(vendor.documentFiles) && vendor.documentFiles.length > 0) {
+      list.push({
+        kind: 'text',
+        fieldKey: 'documents',
+        label: 'Documents',
+        value: `${vendor.documentFiles.length} file${vendor.documentFiles.length > 1 ? 's' : ''}`,
+        supportsTarget: true,
+      });
+      seen.add('documents');
+    }
+
+    // Demand cards — RFQ-level slugs the buyer added that this vendor
+    // didn't quote. Mirrors the product-mode demand handling below.
+    (globalSelectedFields || []).forEach((slug) => {
+      if (!slug || seen.has(slug)) return;
+      if (slug === 'payment_terms' || slug === 'global_comment' || slug === 'documents') {
+        list.push({
+          kind: 'demand-text',
+          fieldKey: slug,
+          label: STATIC_LABELS[slug]
+            || (slug === 'payment_terms' ? 'Payment Terms'
+                : slug === 'global_comment' ? 'Global Comment'
+                : resolveLabel(slug, chargeNamesList)),
+          isDemand: true,
+          supportsTarget: true,
+        });
+        return;
+      }
+      const meta = resolveChargeMeta(slug, chargeNamesList);
+      const defaultMode = meta?.amount_mode || 'percentage';
+      list.push({
+        kind: 'demand-numeric',
+        fieldKey: slug,
+        label: resolveLabel(slug, chargeNamesList),
+        mode: defaultMode,
+        unitHint: defaultMode === 'amount' ? 'flat' : '% of base',
+        isDemand: true,
+        supportsTarget: true,
+      });
+    });
+
+    return list;
+  }
+
+  // ─── Product mode (existing behaviour) ──────────────────────────────────
 
   // Base Price — amount only, supports per-vendor override
   if (vendor.unitPrice > 0) {
@@ -88,6 +231,8 @@ const buildChargeList = (vendor, globalSelectedFields = [], chargeNamesList = []
       label: c.name || titleCase(slug),
       value: c.amount,
       mode: c.amount_mode || 'percentage',
+      tax: c.tax,
+      taxMode: c.tax_mode,
       unitHint: c.amount_mode === 'amount' ? 'flat' : '% of base',
       supportsTarget: true,
     });
@@ -124,12 +269,13 @@ const buildChargeList = (vendor, globalSelectedFields = [], chargeNamesList = []
   }
 
   // Comment — text
-  if (vendor.comment) {
+  const commentDisplay = safeText(vendor.comment);
+  if (commentDisplay) {
     list.push({
       kind: 'text',
       fieldKey: 'comment',
       label: 'Comment',
-      value: vendor.comment,
+      value: commentDisplay,
       supportsTarget: true,
     });
     seen.add('comment');
@@ -209,6 +355,7 @@ const VendorListPanel = ({
   onVendorLocalFieldToggle,
   onVendorFieldExcludeToggle,
   onOpenTextFieldModal,
+  mode = 'product',
 }) => {
   const vendors = useMemo(() => {
     return (productPriceData.vendors || [])
@@ -294,7 +441,7 @@ const VendorListPanel = ({
             const open = isOpen(vendor.id);
             const tint = tintFor(vendor.name);
             const charges = open
-              ? buildChargeList(vendor.raw, formData?.negotiation_fields || [], chargeNamesList)
+              ? buildChargeList(vendor.raw, formData?.negotiation_fields || [], chargeNamesList, mode)
               : [];
 
             return (

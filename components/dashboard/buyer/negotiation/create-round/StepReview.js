@@ -8,6 +8,7 @@ import {
   getVendorPriceData,
   TEXT_ONLY_NEG_FIELDS,
   compareTargetToQuoted,
+  aggregateRfqVendors,
 } from './negotiationHelpers';
 import { buildPreviewItem, buildPreviewItemFromQueuedFields } from './buildPreviewItems';
 import styles from './CreateRound.module.scss';
@@ -31,9 +32,32 @@ const fmtINR = (n) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`
 const fmtINRDecimal = (n) =>
   `₹${(Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
+// Vendor's `paymentTerms` arrives as a structured array
+// (`[{ id, type, value, days, comment, ... }, ...]`). Flatten to a display
+// string so JSX doesn't render the raw objects as `[object Object]`.
+// Mirrors the same logic in NegotiationModal.formatVendorFieldValue.
+const formatPaymentTermsToString = (pt) => {
+  if (!pt) return '';
+  if (typeof pt === 'string') return pt;
+  if (Array.isArray(pt)) {
+    return pt.map(t => {
+      const parts = [];
+      if (t?.value) parts.push(`${t.value}%`);
+      if (t?.type) parts.push(t.type);
+      if (t?.days) parts.push(`${t.days} days`);
+      if (t?.comment) parts.push(t.comment);
+      return parts.join(' ');
+    }).filter(Boolean).join(', ');
+  }
+  return '';
+};
+
 // Render a target/quoted token: amount (₹) or percentage. Falls back to raw
-// string for text-only fields (vendor_tc, comment, etc.).
-const fmtFieldValue = (fieldKey, value, mode) => {
+// string for text-only fields. When `basePrice` is supplied and the field is
+// a percentage, append the bare rupee equivalent in brackets — `5% (₹105)`.
+// Tax is shown separately by `fmtTaxValue` so the bracket here equals the
+// user-visible amount (not amount + tax).
+const fmtFieldValue = (fieldKey, value, mode, basePrice = 0) => {
   if (value == null || value === '') return '—';
   if (fieldKey === 'documents') {
     try {
@@ -51,7 +75,19 @@ const fmtFieldValue = (fieldKey, value, mode) => {
   if (TEXT_ONLY_NEG_FIELDS.has(fieldKey)) return String(value);
   if (fieldKey === 'base_price') return `₹${value}`;
   if (mode === 'amount' || mode === 'absolute') return `₹${value}`;
-  return `${value}%`;
+  const pctText = `${value}%`;
+  const amount = basePrice > 0 ? (Number(value) / 100) * basePrice : 0;
+  return amount > 0
+    ? `${pctText} (₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })})`
+    : pctText;
+};
+
+// Format a tax token for the per-field row. Returns null when no tax to show.
+const fmtTaxValue = (tax, taxMode) => {
+  if (tax == null || tax === '') return null;
+  const num = parseFloat(tax);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return (taxMode === 'amount' || taxMode === 'absolute') ? `Tax ₹${num}` : `Tax ${num}%`;
 };
 
 // Resolve `productPriceData` for a queued round so we can show the same
@@ -62,21 +98,29 @@ const resolveProduct = (productId, products = []) => {
   return { product: p, details: getProductDetails(p), priceData: getVendorPriceData(p) };
 };
 
-// Pull the vendor's quoted value (+ mode) for a given negotiation field. Used
-// to render the "Quoted X → Target Y" pair next to each target. Returns
-// `{ value, mode }` or null when the vendor didn't quote that field.
+// Pull the vendor's quoted value (+ mode + own tax) for a given negotiation
+// field. Used to render the "Quoted X → Target Y" pair. The tax fields let the
+// bracket display include the charge's actual contribution (amount + its tax)
+// so `total − bracket` math matches what the projection engine returns.
 const readQuotedForField = (vendorInfo, fieldKey) => {
   if (!vendorInfo) return null;
   if (fieldKey === 'base_price') {
     const v = parseFloat(vendorInfo.unitPrice);
-    return Number.isFinite(v) && v > 0 ? { value: v, mode: 'amount' } : null;
+    if (!Number.isFinite(v) || v <= 0) return null;
+    return {
+      value: v,
+      mode: 'amount',
+      tax: vendorInfo.tax,
+      taxMode: vendorInfo.taxMode,
+    };
   }
   if (fieldKey === 'delivery_period') {
     const v = parseFloat(vendorInfo.deliveryPeriod);
     return Number.isFinite(v) && v > 0 ? { value: v, mode: 'amount' } : null;
   }
   if (fieldKey === 'payment_terms') {
-    return vendorInfo.paymentTerms ? { value: vendorInfo.paymentTerms, mode: 'text' } : null;
+    const display = formatPaymentTermsToString(vendorInfo.paymentTerms);
+    return display ? { value: display, mode: 'text' } : null;
   }
   if (fieldKey === 'vendor_tc') {
     return vendorInfo.vendorTC ? { value: vendorInfo.vendorTC, mode: 'text' } : null;
@@ -91,7 +135,12 @@ const readQuotedForField = (vendorInfo, fieldKey) => {
     (c.slug || c.name) === fieldKey || c.name === fieldKey
   );
   if (charge) {
-    return { value: charge.amount, mode: charge.amount_mode || 'percentage' };
+    return {
+      value: charge.amount,
+      mode: charge.amount_mode || 'percentage',
+      tax: charge.tax,
+      taxMode: charge.tax_mode,
+    };
   }
   const gCharge = (vendorInfo.globalCharges || []).find(c =>
     (c.slug || c.name) === fieldKey || c.name === fieldKey
@@ -108,17 +157,21 @@ const buildVendorRowsFromPayload = (vendorTargets, priceData) => {
     const vendorInfo = priceData.vendors.find(v => v.vendorId === Number(vt.vendor_id));
     const vendorName = vendorInfo ? vendorInfo.vendorName : `Vendor ${vt.vendor_id}`;
     const quotedTotal = vendorInfo?.totalPrice || 0;
+    const basePrice = (parseFloat(vendorInfo?.unitPrice) || 0) * (parseFloat(vendorInfo?.quantity) || 0);
     const targets = (vt.fields || []).map(f => {
       const targetMode = f.mode === 'absolute' ? 'amount' : (f.mode || 'percentage');
       const quoted = readQuotedForField(vendorInfo, f.name);
       const cmp = quoted
         ? compareTargetToQuoted(f.target, targetMode, vendorInfo, f.name)
         : null;
+      const targetTaxMode = f.tax_mode === 'absolute' ? 'amount' : f.tax_mode;
       return {
         fieldKey: f.name,
         label: labelFor(f.name),
-        targetDisplay: fmtFieldValue(f.name, f.target, targetMode),
-        quotedDisplay: quoted ? fmtFieldValue(f.name, quoted.value, quoted.mode) : '—',
+        targetDisplay: fmtFieldValue(f.name, f.target, targetMode, basePrice),
+        quotedDisplay: quoted ? fmtFieldValue(f.name, quoted.value, quoted.mode, basePrice) : '—',
+        quotedTaxDisplay: quoted ? fmtTaxValue(quoted.tax, quoted.taxMode) : null,
+        targetTaxDisplay: fmtTaxValue(f.tax, targetTaxMode),
         deltaDisplay: cmp ? `${cmp.result === 'lower' ? '−' : (cmp.result === 'greater' ? '+' : '')}${cmp.diffAmt}` : null,
         deltaDirection: cmp?.result || null,
       };
@@ -140,6 +193,7 @@ const buildVendorRowsFromLiveState = ({
     const vendorInfo = priceData.vendors.find(v => v.vendorId === vid);
     const vendorName = vendorInfo ? vendorInfo.vendorName : `Vendor ${vid}`;
     const quotedTotal = vendorInfo?.totalPrice || 0;
+    const basePrice = (parseFloat(vendorInfo?.unitPrice) || 0) * (parseFloat(vendorInfo?.quantity) || 0);
 
     const localKeys = Object.keys(vt).filter(k =>
       k !== '_localFields'
@@ -162,6 +216,14 @@ const buildVendorRowsFromLiveState = ({
       const localMode = vt[`${fieldKey}_mode`];
       const globalMode = formData[`target_${fieldKey}_mode`];
       const mode = localMode || globalMode || 'percentage';
+      // Target tax: per-vendor wins, else global. Mode stored as 'percentage'
+      // or 'amount' in the live state.
+      const localTax = vt[`${fieldKey}_tax`];
+      const globalTax = formData[`target_${fieldKey}_tax`];
+      const targetTax = localTax != null && localTax !== '' ? localTax : globalTax;
+      const targetTaxMode = vt[`${fieldKey}_tax_mode`]
+        || formData[`target_${fieldKey}_tax_mode`]
+        || 'percentage';
       const quoted = readQuotedForField(vendorInfo, fieldKey);
       const cmp = quoted
         ? compareTargetToQuoted(value, mode, vendorInfo, fieldKey)
@@ -169,8 +231,10 @@ const buildVendorRowsFromLiveState = ({
       return {
         fieldKey,
         label: labelFor(fieldKey),
-        targetDisplay: fmtFieldValue(fieldKey, value, mode),
-        quotedDisplay: quoted ? fmtFieldValue(fieldKey, quoted.value, quoted.mode) : '—',
+        targetDisplay: fmtFieldValue(fieldKey, value, mode, basePrice),
+        quotedDisplay: quoted ? fmtFieldValue(fieldKey, quoted.value, quoted.mode, basePrice) : '—',
+        quotedTaxDisplay: quoted ? fmtTaxValue(quoted.tax, quoted.taxMode) : null,
+        targetTaxDisplay: fmtTaxValue(targetTax, targetTaxMode),
         deltaDisplay: cmp ? `${cmp.result === 'lower' ? '−' : (cmp.result === 'greater' ? '+' : '')}${cmp.diffAmt}` : null,
         deltaDirection: cmp?.result || null,
       };
@@ -239,9 +303,11 @@ const useReviewProjections = ({ rounds, formData, vendorTargets, chargeNamesList
   return projection;
 };
 
-// Render a single round card — used for both queued and current.
+// Render a single round card — used for both queued and current, in either
+// product or RFQ-level mode.
 const ReviewProductCard = ({ round, projection, onEdit, onRemove }) => {
-  const productHeader = round.productMeta;
+  const productHeader = round.productMeta || {};
+  const isRfq = round.mode === 'rfq';
 
   // Per-vendor projected totals, falling back to quoted when no projection
   // (e.g. vendor had no in-scope deltas, or the API hasn't returned yet).
@@ -255,11 +321,12 @@ const ReviewProductCard = ({ round, projection, onEdit, onRemove }) => {
   });
 
   return (
-    <article className={styles.reviewProductCard}>
+    <article className={`${styles.reviewProductCard} ${isRfq ? styles.reviewRfqCard : ''}`}>
       <div className={styles.reviewProductHead}>
         <div className={styles.reviewProductHeadMain}>
           <p className={styles.reviewProductTag}>
             {round.isCurrent ? 'Current round' : 'Queued round'}
+            {isRfq && <span className={styles.reviewRfqChip}>RFQ-WIDE</span>}
           </p>
           <h3 className={styles.reviewProductName}>{round.productName}</h3>
         </div>
@@ -284,26 +351,41 @@ const ReviewProductCard = ({ round, projection, onEdit, onRemove }) => {
       </div>
 
       <div className={styles.reviewProductMetaGrid}>
-        {productHeader.spec && (
-          <div>
-            <span className={styles.reviewKey}>Spec</span>
-            <p className={styles.reviewVal}>{productHeader.spec}</p>
-          </div>
-        )}
-        <div>
-          <span className={styles.reviewKey}>Quantity</span>
-          <p className={styles.reviewVal}>
-            {productHeader.quantity || '-'}{productHeader.unit ? ` ${productHeader.unit}` : ''}
-          </p>
-        </div>
-        {productHeader.l1Total > 0 && (
-          <div>
-            <span className={styles.reviewKey}>L1 Total</span>
-            <p className={styles.reviewVal}>
-              {fmtINR(productHeader.l1Total)}
-              {productHeader.l1VendorName ? ` · ${productHeader.l1VendorName}` : ''}
-            </p>
-          </div>
+        {isRfq ? (
+          <>
+            <div>
+              <span className={styles.reviewKey}>Scope</span>
+              <p className={styles.reviewVal}>RFQ-wide (no product)</p>
+            </div>
+            <div>
+              <span className={styles.reviewKey}>Vendors</span>
+              <p className={styles.reviewVal}>{vendorRowsWithTotals.length}</p>
+            </div>
+          </>
+        ) : (
+          <>
+            {productHeader.spec && (
+              <div>
+                <span className={styles.reviewKey}>Spec</span>
+                <p className={styles.reviewVal}>{productHeader.spec}</p>
+              </div>
+            )}
+            <div>
+              <span className={styles.reviewKey}>Quantity</span>
+              <p className={styles.reviewVal}>
+                {productHeader.quantity || '-'}{productHeader.unit ? ` ${productHeader.unit}` : ''}
+              </p>
+            </div>
+            {productHeader.l1Total > 0 && (
+              <div>
+                <span className={styles.reviewKey}>L1 Total</span>
+                <p className={styles.reviewVal}>
+                  {fmtINR(productHeader.l1Total)}
+                  {productHeader.l1VendorName ? ` · ${productHeader.l1VendorName}` : ''}
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -323,26 +405,33 @@ const ReviewProductCard = ({ round, projection, onEdit, onRemove }) => {
               <div key={vr.vid} className={styles.reviewVendorRow}>
                 <div className={styles.reviewVendorHead}>
                   <p className={styles.reviewVendorName}>{vr.vendorName}</p>
-                  <div className={styles.reviewVendorTotals}>
-                    {vr.hasProjection && Math.abs(vendorDelta) > 0.5 ? (
-                      <>
-                        <span className={styles.reviewVendorTotalQuoted}>
+                  {/* Vendor-level totals are only meaningful for product
+                      rounds — the line subtotal we display doesn't include
+                      RFQ-wide globals, so projecting an RFQ-level change on
+                      top of it produces a misleading number. Per-field
+                      deltas (below) carry the real comparison. */}
+                  {!isRfq && (
+                    <div className={styles.reviewVendorTotals}>
+                      {vr.hasProjection && Math.abs(vendorDelta) > 0.5 ? (
+                        <>
+                          <span className={styles.reviewVendorTotalQuoted}>
+                            {fmtINR(vr.quotedTotal)}
+                          </span>
+                          <ArrowRight size={12} className={styles.reviewArrow} />
+                          <span className={styles.reviewVendorTotalProjected}>
+                            {fmtINR(vr.projectedTotal)}
+                          </span>
+                          <span className={`${styles.reviewDeltaPill} ${vendorDeltaClass}`}>
+                            {vendorDelta < 0 ? '−' : '+'}{fmtINR(Math.abs(vendorDelta))}
+                          </span>
+                        </>
+                      ) : (
+                        <span className={styles.reviewVendorTotalProjected}>
                           {fmtINR(vr.quotedTotal)}
                         </span>
-                        <ArrowRight size={12} className={styles.reviewArrow} />
-                        <span className={styles.reviewVendorTotalProjected}>
-                          {fmtINR(vr.projectedTotal)}
-                        </span>
-                        <span className={`${styles.reviewDeltaPill} ${vendorDeltaClass}`}>
-                          {vendorDelta < 0 ? '−' : '+'}{fmtINR(Math.abs(vendorDelta))}
-                        </span>
-                      </>
-                    ) : (
-                      <span className={styles.reviewVendorTotalProjected}>
-                        {fmtINR(vr.quotedTotal)}
-                      </span>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {vr.targets.length > 0 ? (
                   <ul className={styles.reviewFieldList}>
@@ -350,11 +439,17 @@ const ReviewProductCard = ({ round, projection, onEdit, onRemove }) => {
                       <li key={t.fieldKey} className={styles.reviewFieldRow}>
                         <span className={styles.reviewFieldLabel}>{t.label}</span>
                         <span className={styles.reviewFieldQuoted}>
-                          Quoted {t.quotedDisplay}
+                          {t.quotedDisplay}
+                          {t.quotedTaxDisplay && (
+                            <em className={styles.reviewFieldTaxNote}> · {t.quotedTaxDisplay}</em>
+                          )}
                         </span>
                         <ArrowRight size={11} className={styles.reviewArrow} />
                         <span className={styles.reviewFieldTarget}>
-                          Target {t.targetDisplay}
+                          {t.targetDisplay}
+                          {t.targetTaxDisplay && (
+                            <em className={styles.reviewFieldTaxNote}> · {t.targetTaxDisplay}</em>
+                          )}
                         </span>
                         {t.deltaDisplay && (
                           <span className={`${styles.reviewFieldDelta} ${
@@ -401,6 +496,7 @@ const StepReview = ({
   onEditProduct,
   onEditVendors,
   onRemoveQueuedRound,
+  mode = 'product',
 }) => {
   const endDateUtc = useMemo(() => {
     if (!formData.end_date) return null;
@@ -414,10 +510,16 @@ const StepReview = ({
     const list = [];
 
     queuedRounds.forEach((r, idx) => {
-      const resolved = resolveProduct(r.rfq_product_id, products);
+      const isQueuedRfq = r.mode === 'rfq';
+      // For RFQ-level queued rounds, the `rfq_product_id` is a carrier — its
+      // product details aren't meaningful. The aggregated vendor data (built
+      // off every RFQ product) is what we use to render the vendor block.
+      const resolved = isQueuedRfq
+        ? { product: null, details: {}, priceData: aggregateRfqVendors(products) }
+        : resolveProduct(r.rfq_product_id, products);
       const priceData = resolved?.priceData || { vendors: [], l1: null };
       const details = resolved?.details || {};
-      const key = `queued-${idx}-${r.rfq_product_id}`;
+      const key = `queued-${idx}-${r.rfq_product_id}-${isQueuedRfq ? 'rfq' : 'prd'}`;
       const previewItems = [];
       (r.vendor_targets || []).forEach((vt) => {
         const vendorInfo = priceData.vendors.find(v => v.vendorId === Number(vt.vendor_id));
@@ -432,7 +534,8 @@ const StepReview = ({
         key,
         isCurrent: false,
         queueIndex: idx,
-        productName: r.productName || details.name || `Product ${r.rfq_product_id}`,
+        mode: isQueuedRfq ? 'rfq' : 'product',
+        productName: r.productName || details.name || (isQueuedRfq ? 'RFQ-level round' : `Product ${r.rfq_product_id}`),
         productMeta: {
           spec: details.spec,
           quantity: details.quantity,
@@ -445,10 +548,11 @@ const StepReview = ({
       });
     });
 
-    if (product) {
-      const details = getProductDetails(product);
+    const isCurrentRfq = mode === 'rfq';
+    if (product || isCurrentRfq) {
+      const details = product ? getProductDetails(product) : {};
       const priceData = productPriceData || { vendors: [], l1: null };
-      const key = `current-${product.id}`;
+      const key = isCurrentRfq ? 'current-rfq' : `current-${product.id}`;
       const globalSelectedFields = formData.negotiation_fields || [];
       const previewItems = [];
       (selectedVendorIds || []).forEach((vid) => {
@@ -466,7 +570,10 @@ const StepReview = ({
       list.push({
         key,
         isCurrent: true,
-        productName: details.name || `Product ${product.id}`,
+        mode: isCurrentRfq ? 'rfq' : 'product',
+        productName: isCurrentRfq
+          ? 'RFQ-level round'
+          : (details.name || `Product ${product.id}`),
         productMeta: {
           spec: details.spec,
           quantity: details.quantity,
@@ -485,8 +592,16 @@ const StepReview = ({
       });
     }
 
+    // RFQ-level card sorts first; product rounds keep queue order; the current
+    // round appears last (unless it's the RFQ one, which pops to the top).
+    list.sort((a, b) => {
+      if (a.mode === 'rfq' && b.mode !== 'rfq') return -1;
+      if (b.mode === 'rfq' && a.mode !== 'rfq') return 1;
+      return 0;
+    });
+
     return list;
-  }, [queuedRounds, products, product, productPriceData, selectedVendorIds, vendorTargets, formData, effectiveFields, chargeNamesList]);
+  }, [queuedRounds, products, product, productPriceData, selectedVendorIds, vendorTargets, formData, effectiveFields, chargeNamesList, mode]);
 
   const projection = useReviewProjections({ rounds, formData, vendorTargets, chargeNamesList });
 
@@ -502,12 +617,14 @@ const StepReview = ({
     return Array.from(seen);
   }, [rounds]);
 
-  // Grand total across every round in this submission. Falls back to quoted
-  // when projection hasn't returned (or vendor has no deltas).
+  // Grand total across product rounds in this submission. Excludes RFQ-level
+  // rounds — those edit globals (TCS etc.) whose contribution isn't captured
+  // in the line subtotal, so summing them would be misleading.
   const { grandQuoted, grandProjected } = useMemo(() => {
     let quoted = 0;
     let projected = 0;
     rounds.forEach((r) => {
+      if (r.mode === 'rfq') return;
       r.vendorRows.forEach((vr) => {
         const p = projection[`${r.key}:${vr.vid}`];
         quoted += vr.quotedTotal || 0;

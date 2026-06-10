@@ -289,9 +289,12 @@ export const buildVendorTargetsPayload = ({
     const excludedForVendor = new Set(vt._excludedFields || []);
     const fields = [];
 
-    // Per-vendor local targets (only for fields NOT globally claimed)
+    // Per-vendor local targets (only for fields NOT globally claimed).
+    // `_tax` and `_tax_mode` siblings of each field aren't field names — they
+    // attach to the parent entry below.
     Object.keys(vt).forEach(k => {
       if (k === '_localFields' || k === '_excludedFields' || k.endsWith('_mode')) return;
+      if (k.endsWith('_tax')) return;
       if (vt[k] == null || vt[k] === '') return;
       if (globalFields.has(k)) return;
 
@@ -324,6 +327,24 @@ export const buildVendorTargetsPayload = ({
         const modeVal = vt[`${k}_mode`] || 'percentage';
         fieldObj.mode = modeVal === 'amount' ? 'absolute' : modeVal;
       }
+      // Tax attaches to base_price (GST) and to dynamic numeric charges,
+      // but never to text-only / delivery_period fields. Only sent when it
+      // strictly beats the vendor's quoted tax — same rule as the amount.
+      if (k === 'base_price' || !nonModeKeys.includes(k)) {
+        const taxVal = vt[`${k}_tax`];
+        if (taxVal != null && taxVal !== '') {
+          const taxModeVal = vt[`${k}_tax_mode`] || 'percentage';
+          if (targetTaxBeatsQuoted({
+            targetTax: taxVal,
+            targetTaxMode: taxModeVal,
+            quoteData: vendorDataForCheck,
+            fieldKey: k,
+          })) {
+            fieldObj.tax = taxVal;
+            fieldObj.tax_mode = taxModeVal === 'amount' ? 'absolute' : taxModeVal;
+          }
+        }
+      }
       fields.push(fieldObj);
     });
 
@@ -345,6 +366,21 @@ export const buildVendorTargetsPayload = ({
         const modeVal = formData[modeKey] || 'percentage';
         fieldObj.mode = modeVal === 'amount' ? 'absolute' : modeVal;
       }
+      if (f === 'base_price' || !nonModeKeys.includes(f)) {
+        const taxVal = formData[`target_${f}_tax`];
+        if (taxVal != null && taxVal !== '') {
+          const taxModeVal = formData[`target_${f}_tax_mode`] || 'percentage';
+          if (targetTaxBeatsQuoted({
+            targetTax: taxVal,
+            targetTaxMode: taxModeVal,
+            quoteData: vendorDataForCheck,
+            fieldKey: f,
+          })) {
+            fieldObj.tax = taxVal;
+            fieldObj.tax_mode = taxModeVal === 'amount' ? 'absolute' : taxModeVal;
+          }
+        }
+      }
       fields.push(fieldObj);
     });
 
@@ -354,6 +390,48 @@ export const buildVendorTargetsPayload = ({
 
 // Convert datetime-local input → UTC ISO string for the API.
 export const toUtcEndDate = (local) => moment(local).utc().format();
+
+// Aggregate vendors across every product in the RFQ for the RFQ-level
+// negotiation round flow. Returns a `productPriceData`-shaped object
+// (`{ vendors, l1: null, l1BasePrice: null }`) so downstream consumers
+// (VendorListPanel, computeFieldL1, useVendorProjection, …) don't need to
+// branch.
+//
+// Dedupe rule per vendor: globals (globalCharges, paymentTerms, globalComment,
+// documentFiles, vendorTC, comment) are quote-wide — the first non-empty
+// occurrence across the vendor's product lines wins. Numeric line fields
+// (unitPrice, quantity, tax, taxMode, totalPrice) come from the vendor's
+// first product line and are used only as a projection base.
+export const aggregateRfqVendors = (products = []) => {
+  const byVendor = new Map();
+  products.forEach((p) => {
+    const pd = getVendorPriceData(p);
+    pd.vendors.forEach((v) => {
+      if (!v.vendorId) return;
+      const existing = byVendor.get(v.vendorId);
+      if (!existing) {
+        byVendor.set(v.vendorId, { ...v });
+        return;
+      }
+      // Merge globals (first non-empty wins). Keeps existing line numbers
+      // (unitPrice/qty/totalPrice) from the first product we saw.
+      if ((!existing.globalCharges || existing.globalCharges.length === 0) && v.globalCharges?.length) {
+        existing.globalCharges = v.globalCharges;
+      }
+      if (!existing.paymentTerms && v.paymentTerms) existing.paymentTerms = v.paymentTerms;
+      if (!existing.globalComment && v.globalComment) existing.globalComment = v.globalComment;
+      if (!existing.vendorTC && v.vendorTC) existing.vendorTC = v.vendorTC;
+      if (!existing.comment && v.comment) existing.comment = v.comment;
+      if ((!existing.documentFiles || existing.documentFiles.length === 0) && v.documentFiles?.length) {
+        existing.documentFiles = v.documentFiles;
+      }
+      // A vendor is regret-only if every product's row is a regret.
+      existing.isRegret = existing.isRegret && v.isRegret;
+    });
+  });
+  const vendors = Array.from(byVendor.values());
+  return { vendors, l1: null, l1BasePrice: null };
+};
 
 // Compute the L1 (lowest) value across vendors for a single negotiation
 // field. Charges in %/₹ are normalized to amount using each vendor's
@@ -441,9 +519,11 @@ export const compareTargetToQuoted = (targetValue, targetMode, quoteData, fieldK
     const diffPct = ((diff / quotedValue) * 100);
     const fmtDiff = `₹${diff.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
     const fmtPct = `${diffPct.toFixed(2)}%`;
-    if (target > quotedValue) return { result: 'greater', diffAmt: fmtDiff, diffPct: fmtPct };
-    if (target === quotedValue) return { result: 'equal', diffAmt: '₹0', diffPct: '0%' };
-    return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct };
+    const fmtQuoted = `₹${quotedValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+    const fmtTarget = `₹${target.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+    if (target > quotedValue) return { result: 'greater', diffAmt: fmtDiff, diffPct: fmtPct, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+    if (target === quotedValue) return { result: 'equal', diffAmt: '₹0', diffPct: '0%', quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+    return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
   }
 
   const charge = (quoteData.otherCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
@@ -465,8 +545,148 @@ export const compareTargetToQuoted = (targetValue, targetMode, quoteData, fieldK
   const diffPct = quotedAmt > 0 ? ((diffAmt / quotedAmt) * 100) : 0;
   const fmtDiff = `₹${diffAmt.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
   const fmtPct = `${diffPct.toFixed(2)}%`;
+  const fmtQuoted = `₹${quotedAmt.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+  const fmtTarget = `₹${targetAmt.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
-  if (Math.abs(targetAmt - quotedAmt) < 0.01) return { result: 'equal', diffAmt: '₹0', diffPct: '0%' };
-  if (targetAmt > quotedAmt) return { result: 'greater', diffAmt: fmtDiff, diffPct: fmtPct };
-  return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct };
+  if (Math.abs(targetAmt - quotedAmt) < 0.01) return { result: 'equal', diffAmt: '₹0', diffPct: '0%', quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+  if (targetAmt > quotedAmt) return { result: 'greater', diffAmt: fmtDiff, diffPct: fmtPct, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+  return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+};
+
+// Compare a target TAX against the vendor's quoted tax for the same field.
+// Tax target must be strictly lower than quoted to be sent (same rule as the
+// amount target). Both values are normalized to rupees using the field's
+// quoted charge amount as the tax base, so a 18% tax target competes fairly
+// against a flat ₹150 tax. Returns the same shape as compareTargetToQuoted.
+//
+// `quotedAmount` is the rupee amount the quoted tax applies to:
+//   - base_price: unitPrice × qty
+//   - charge with %: charge.amount / 100 × basePrice
+//   - charge with ₹: charge.amount
+export const compareTaxToQuoted = ({ targetTax, targetTaxMode, quotedTax, quotedTaxMode, quotedAmount }) => {
+  if (targetTax == null || targetTax === '') return null;
+  const target = parseFloat(targetTax);
+  const quoted = parseFloat(quotedTax);
+  if (!Number.isFinite(target) || !Number.isFinite(quoted) || quoted <= 0) return null;
+  const base = parseFloat(quotedAmount) || 0;
+  if (base <= 0) return null;
+  const tMode = (targetTaxMode === 'amount' || targetTaxMode === 'absolute') ? 'amount' : 'percentage';
+  const qMode = (quotedTaxMode === 'amount' || quotedTaxMode === 'absolute') ? 'amount' : 'percentage';
+  const targetAmt = tMode === 'percentage' ? (target / 100) * base : target;
+  const quotedAmt = qMode === 'percentage' ? (quoted / 100) * base : quoted;
+  const diff = Math.abs(targetAmt - quotedAmt);
+  const diffPct = quotedAmt > 0 ? (diff / quotedAmt) * 100 : 0;
+  const fmtDiff = `₹${diff.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+  const fmtPct = `${diffPct.toFixed(2)}%`;
+  const fmtQuoted = `₹${quotedAmt.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+  const fmtTarget = `₹${targetAmt.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+  if (Math.abs(targetAmt - quotedAmt) < 0.01) return { result: 'equal', diffAmt: '₹0', diffPct: '0%', quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+  if (targetAmt > quotedAmt) return { result: 'greater', diffAmt: fmtDiff, diffPct: fmtPct, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+  return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+};
+
+// Resolve the rupee amount that the quoted tax applies to for a given field.
+// Used by compareTaxToQuoted and the payload builder to make tax comparisons
+// apples-to-apples.
+export const quotedAmountFor = (fieldKey, quoteData) => {
+  if (!quoteData) return 0;
+  const unitPrice = parseFloat(quoteData.unitPrice) || 0;
+  const quantity = parseFloat(quoteData.quantity) || 1;
+  const basePrice = unitPrice * quantity;
+  if (fieldKey === 'base_price') return basePrice;
+  const charge = (quoteData.otherCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
+  if (!charge) return 0;
+  const val = parseFloat(charge.amount);
+  if (!Number.isFinite(val) || val <= 0) return 0;
+  const mode = charge.amount_mode || 'percentage';
+  return mode === 'percentage' ? (val / 100) * basePrice : val;
+};
+
+// Mirrors computeFieldL1 but for the field's TAX (GST). Each vendor's quoted
+// tax is normalized to a rupee amount using their own charge amount as the
+// base, so 18% on (5% × 2100) competes fairly against a flat ₹150.
+export const computeFieldTaxL1 = (fieldKey, productPriceData) => {
+  if (!fieldKey || !productPriceData?.vendors?.length) return null;
+  if (TEXT_ONLY_NEG_FIELDS.has(fieldKey)) return null;
+  if (fieldKey === 'delivery_period') return null;
+
+  let best = null;
+  productPriceData.vendors.forEach((v) => {
+    if (v.isRegret) return;
+
+    let taxValue;
+    let taxMode = 'percentage';
+    let chargeAmt;
+
+    const basePrice = (parseFloat(v.unitPrice) || 0) * (parseFloat(v.quantity) || 1);
+
+    if (fieldKey === 'base_price') {
+      taxValue = parseFloat(v.tax);
+      taxMode = v.taxMode || 'percentage';
+      chargeAmt = basePrice;
+    } else {
+      const charge = (v.otherCharges || []).find(c =>
+        (c.slug || c.name) === fieldKey || c.name === fieldKey
+      );
+      const gCharge = !charge
+        ? (v.globalCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey)
+        : null;
+      if (charge) {
+        taxValue = parseFloat(charge.tax);
+        taxMode = charge.tax_mode || 'percentage';
+        const amtVal = parseFloat(charge.amount);
+        const amtMode = charge.amount_mode || 'percentage';
+        if (!Number.isFinite(amtVal) || amtVal <= 0) return;
+        chargeAmt = amtMode === 'percentage' ? (amtVal / 100) * basePrice : amtVal;
+      } else if (gCharge) {
+        // Global charges store the charge amount in `tax` and the GST on top
+        // (if any) in `additional_tax`. For tax L1 we surface the GST.
+        taxValue = parseFloat(gCharge.additional_tax);
+        taxMode = gCharge.additional_tax_mode || 'percentage';
+        const amtVal = parseFloat(gCharge.tax);
+        const amtMode = gCharge.tax_mode || 'percentage';
+        if (!Number.isFinite(amtVal) || amtVal <= 0) return;
+        chargeAmt = amtMode === 'percentage' ? (amtVal / 100) * basePrice : amtVal;
+      } else {
+        return;
+      }
+    }
+
+    if (!Number.isFinite(taxValue) || taxValue <= 0) return;
+    if (!Number.isFinite(chargeAmt) || chargeAmt <= 0) return;
+    const amount = (taxMode === 'amount' || taxMode === 'absolute')
+      ? taxValue
+      : (taxValue / 100) * chargeAmt;
+    if (!Number.isFinite(amount) || amount <= 0) return;
+
+    if (!best || amount < best.amount) {
+      best = { value: taxValue, mode: taxMode, amount, vendorName: v.vendorName };
+    }
+  });
+
+  if (!best) return null;
+  const displayText = (best.mode === 'amount' || best.mode === 'absolute')
+    ? `₹${best.value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+    : `${best.value}%`;
+  return { ...best, displayText };
+};
+
+// True when the target tax is strictly lower than the quoted tax (the only
+// case where we send it). Mirrors `targetBeatsQuoted` for the amount side.
+export const targetTaxBeatsQuoted = ({ targetTax, targetTaxMode, quoteData, fieldKey }) => {
+  const charge = fieldKey === 'base_price'
+    ? null
+    : (quoteData?.otherCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
+  const quotedTax = fieldKey === 'base_price'
+    ? parseFloat(quoteData?.tax)
+    : (charge ? parseFloat(charge.tax) : NaN);
+  const quotedTaxMode = fieldKey === 'base_price'
+    ? (quoteData?.taxMode || 'percentage')
+    : (charge?.tax_mode || 'percentage');
+  if (!Number.isFinite(quotedTax) || quotedTax <= 0) return false;
+  const cmp = compareTaxToQuoted({
+    targetTax, targetTaxMode, quotedTax, quotedTaxMode,
+    quotedAmount: quotedAmountFor(fieldKey, quoteData),
+  });
+  return cmp?.result === 'lower';
 };

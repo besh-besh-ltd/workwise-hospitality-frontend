@@ -7,6 +7,8 @@ import {
   getProductDetails,
   buildVendorTargetsPayload,
   toUtcEndDate,
+  aggregateRfqVendors,
+  getProductRoundStatus,
 } from './negotiationHelpers';
 
 // Owns all wizard state for the Create Negotiation Round page. Returns a
@@ -18,6 +20,10 @@ import {
 //   - step 3 reviews + submits
 export default function useCreateRoundState({ products = [], preSelectedProductId = null } = {}) {
   const [step, setStep] = useState(1);
+  // `mode` controls whether the CURRENT round being built targets one product
+  // ('product') or RFQ-wide settings ('rfq'). Queued rounds carry their own
+  // `mode` so the submit loop can branch per entry.
+  const [mode, setModeState] = useState('product');
   const [selectedProductId, setSelectedProductId] = useState(preSelectedProductId);
   const [selectedVendorIds, setSelectedVendorIds] = useState([]);
   const [vendorTargets, setVendorTargets] = useState({});
@@ -36,10 +42,19 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     [products, selectedProductId]
   );
 
-  const productPriceData = useMemo(
-    () => (selectedProduct ? getVendorPriceData(selectedProduct) : { vendors: [], l1: null }),
-    [selectedProduct]
+  // RFQ-wide vendor data (union across all products). Built only when mode=rfq
+  // is in play, since aggregation walks every product's quote list.
+  const aggregatedPriceData = useMemo(
+    () => aggregateRfqVendors(products),
+    [products]
   );
+
+  // The "active" price data that Step 2 / Step 3 consumes — switches based on
+  // the current round's mode. Downstream code stays mode-agnostic.
+  const productPriceData = useMemo(() => {
+    if (mode === 'rfq') return aggregatedPriceData;
+    return selectedProduct ? getVendorPriceData(selectedProduct) : { vendors: [], l1: null };
+  }, [mode, aggregatedPriceData, selectedProduct]);
 
   // Default to base_price when nothing is picked yet (matches modal).
   const effectiveFields = useMemo(() => {
@@ -51,6 +66,7 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
   // Falls back to quotation-derived vendor ids when product_vendors is empty
   // (some RFQs only carry vendors through quotations).
   const handleSelectProduct = useCallback((productId) => {
+    setModeState('product');
     setSelectedProductId(productId);
     const product = products.find(p => String(p.id) === String(productId));
     if (product) {
@@ -143,8 +159,30 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     setShowTargetWarning(offending);
   }, [vendorTargets, formData, selectedVendorIds, effectiveFields, productPriceData]);
 
-  // Step gating
-  const canGoToStep2 = !!selectedProductId;
+  // Switching to RFQ-level mode clears product-specific state so per-product
+  // selections / targets / fields don't leak into the RFQ submission. The
+  // end date is preserved (rounds typically share the deadline).
+  const setMode = useCallback((nextMode) => {
+    setModeState(nextMode);
+    setSelectedProductId(null);
+    setSelectedVendorIds(() => {
+      // When entering RFQ mode, preselect every non-regretted vendor across
+      // the RFQ — saves the user a tedious manual selection on Step 2.
+      if (nextMode === 'rfq') {
+        return aggregatedPriceData.vendors
+          .filter(v => v.vendorId && !v.isRegret)
+          .map(v => v.vendorId);
+      }
+      return [];
+    });
+    setVendorTargets({});
+    setFormData(prev => ({ end_date: prev.end_date || '', negotiation_fields: [] }));
+    setEndDateError(false);
+    setShowTargetWarning(false);
+  }, [aggregatedPriceData]);
+
+  // Step gating — RFQ mode skips product selection.
+  const canGoToStep2 = mode === 'rfq' || !!selectedProductId;
 
   const step2Errors = useMemo(() => {
     const errors = [];
@@ -172,6 +210,11 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
 
   const canGoToStep3 = step2Errors.length === 0;
 
+  // Queueing a round requires Step 2 to be valid (vendors + targets), but NOT
+  // the end date — the end date is a single value applied to every round in
+  // the submission at the moment Send is clicked.
+  const canAddToQueue = step2Errors.length === 0;
+
   // Step 3 holds the end-date pick so submission is gated on it here.
   const step3Errors = useMemo(() => {
     const errors = [];
@@ -195,7 +238,15 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
   }, []);
 
   const selectAllVendorsExplicit = useCallback(() => {
-    if (!selectedProduct) return;
+    // In RFQ mode there's no `selectedProduct` — fall back to every
+    // non-regretted vendor in the aggregated price data.
+    if (!selectedProduct) {
+      const ids = productPriceData.vendors
+        .filter(v => v.vendorId && !v.isRegret)
+        .map(v => v.vendorId);
+      setSelectedVendorIds(ids);
+      return;
+    }
     const allVendorIds = Array.from(getVendorIdsForProduct(selectedProduct));
     const availableIds = allVendorIds.filter(vid => {
       const priceInfo = productPriceData.vendors.find(vp => vp.vendorId === vid);
@@ -210,10 +261,11 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
 
   const deselectAllVendors = useCallback(() => setSelectedVendorIds([]), []);
 
-  // Reset everything for the next product, keeping `end_date` since all rounds
-  // on the same RFQ usually share the deadline.
+  // Reset everything for the next round, keeping `end_date` since all rounds
+  // on the same RFQ usually share the deadline. Mode falls back to 'product'.
   const resetForAnotherProduct = useCallback(() => {
     setStep(1);
+    setModeState('product');
     setSelectedProductId(null);
     setSelectedVendorIds([]);
     setVendorTargets({});
@@ -225,11 +277,24 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     setShowTargetWarning(false);
   }, []);
 
-  // Build the current Step-3-ready payload using the same builder used at
-  // submission time. Returns `null` if the wizard isn't in a submittable state.
-  const buildCurrentRoundPayload = useCallback(() => {
-    if (!selectedProduct || !formData.end_date) return null;
+  // Pick the first eligible product on the RFQ to carry the RFQ-level round
+  // (backend requires `rfq_product_id` on every row). Eligible = has quotes
+  // and isn't already in an approved / pending / active round. Falls back to
+  // the first product if none are eligible — the submit handler will surface
+  // a clearer error in that case.
+  const pickCarrierProductId = useCallback((quoteApprovalStatuses = {}) => {
+    if (products.length === 0) return null;
+    const eligible = products.find(p => !getProductRoundStatus(p, quoteApprovalStatuses).isDisabled);
+    return parseInt((eligible || products[0]).id);
+  }, [products]);
+
+  // Build the current Step-3-ready payload. Returns `null` if the wizard
+  // doesn't have enough to queue (no vendors / no targets / no product in
+  // product mode). Note: end_date is NOT required to build — it's applied at
+  // submit time uniformly across every queued round.
+  const buildCurrentRoundPayload = useCallback((opts = {}) => {
     if (selectedVendorIds.length === 0) return null;
+    if (mode === 'product' && !selectedProduct) return null;
 
     const vendor_targets = buildVendorTargetsPayload({
       selectedVendorIds,
@@ -240,28 +305,51 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     });
     if (vendor_targets.length === 0) return null;
 
+    const endDate = formData.end_date ? toUtcEndDate(formData.end_date) : null;
+
+    if (mode === 'rfq') {
+      const carrier = pickCarrierProductId(opts.quoteApprovalStatuses || {});
+      if (carrier == null) return null;
+      return {
+        payload: {
+          rfq_product_id: carrier,
+          end_date: endDate,
+          vendor_targets,
+          is_rfq_level: true,
+        },
+        mode: 'rfq',
+        productName: 'RFQ-level round',
+        summary: {
+          vendorCount: selectedVendorIds.length,
+          fieldCount: vendor_targets.reduce((acc, v) => Math.max(acc, v.fields.length), 0),
+        },
+      };
+    }
+
     const details = getProductDetails(selectedProduct);
     return {
       payload: {
         rfq_product_id: parseInt(selectedProduct.id),
-        end_date: toUtcEndDate(formData.end_date),
+        end_date: endDate,
         vendor_targets,
       },
+      mode: 'product',
       productName: details.name || `Product ${selectedProduct.id}`,
       summary: {
         vendorCount: selectedVendorIds.length,
         fieldCount: vendor_targets.reduce((acc, v) => Math.max(acc, v.fields.length), 0),
       },
     };
-  }, [selectedProduct, selectedVendorIds, vendorTargets, effectiveFields, formData, productPriceData]);
+  }, [mode, selectedProduct, selectedVendorIds, vendorTargets, effectiveFields, formData, productPriceData, pickCarrierProductId]);
 
-  const addCurrentToQueue = useCallback(() => {
-    const built = buildCurrentRoundPayload();
+  const addCurrentToQueue = useCallback((opts = {}) => {
+    const built = buildCurrentRoundPayload(opts);
     if (!built) return false;
     setQueuedRounds(prev => [
       ...prev,
       {
         ...built.payload,
+        mode: built.mode,
         productName: built.productName,
         summary: built.summary,
       },
@@ -283,17 +371,30 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
 
   const clearQueue = useCallback(() => setQueuedRounds([]), []);
 
+  // Product-only queue lookup (the RFQ-level entry has no product id semantic,
+  // so it's tracked separately via `hasQueuedRfqRound`).
   const queuedProductIds = useMemo(
-    () => new Set(queuedRounds.map(r => Number(r.rfq_product_id))),
+    () => new Set(
+      queuedRounds
+        .filter(r => r.mode !== 'rfq')
+        .map(r => Number(r.rfq_product_id))
+    ),
+    [queuedRounds]
+  );
+
+  const hasQueuedRfqRound = useMemo(
+    () => queuedRounds.some(r => r.mode === 'rfq'),
     [queuedRounds]
   );
 
   return {
     // state
     step,
+    mode,
     selectedProductId,
     selectedProduct,
     productPriceData,
+    aggregatedPriceData,
     selectedVendorIds,
     vendorTargets,
     formData,
@@ -304,10 +405,13 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     step3Errors,
     canGoToStep2,
     canGoToStep3,
+    canAddToQueue,
     canSubmit,
     queuedRounds,
     queuedProductIds,
+    hasQueuedRfqRound,
     // mutators
+    setMode,
     handleSelectProduct,
     toggleVendor,
     selectAllVendors,

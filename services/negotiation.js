@@ -11,6 +11,7 @@ export const createNegotiationRound = ({
   target_delivery_date,
   target_payment_terms, target_vendor_tc, target_comments,
   vendor_targets,
+  is_rfq_level,
 }) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -21,6 +22,7 @@ export const createNegotiationRound = ({
         target_price: target_base_price || target_price || null,
         end_date
       };
+      if (is_rfq_level) payload.is_rfq_level = true;
       if (vendor_ids && vendor_ids.length > 0) {
         payload.vendor_ids = vendor_ids;
       }

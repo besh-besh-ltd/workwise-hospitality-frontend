@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Box } from 'lucide-react';
+import { Box, Settings } from 'lucide-react';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import {
   getProductDetails,
   getVendorNames,
@@ -8,15 +9,22 @@ import {
 } from './negotiationHelpers';
 import styles from './CreateRound.module.scss';
 
-// Step 1 — product picker. Lists every product on the RFQ as a radio row.
-// Eligibility logic + counts mirror NegotiationModal.renderCreateForm so
-// behavior is identical to the modal it replaces.
+// Step 1 — product picker. Lists every product on the RFQ as a radio row,
+// plus a card on top for RFQ-level negotiation (no product picked, targets
+// quote-wide settings like payment_terms / global_comment / documents /
+// global charges).
 const StepProduct = ({
   products = [],
   quoteApprovalStatuses = {},
   queuedProductIds,
   selectedProductId,
   onSelectProduct,
+  // RFQ-level wiring
+  mode = 'product',
+  onSelectRfqMode,
+  hasQueuedRfqRound = false,
+  rfqFieldCount = 0,
+  rfqVendorCount = 0,
 }) => {
   const [search, setSearch] = useState('');
 
@@ -47,7 +55,80 @@ const StepProduct = ({
     }).length;
   }, [products, quoteApprovalStatuses, queuedSet]);
 
+  const isRfqMode = mode === 'rfq';
+  const rfqDisabledTooltip = hasQueuedRfqRound
+    ? 'RFQ-level round already queued — only one RFQ-level round per submission.'
+    : null;
+  const rfqDisabled = !!rfqDisabledTooltip;
+
   return (
+    <>
+      <section className={styles.card}>
+        <div className={styles.cardHeader}>
+          <span className={styles.cardHeaderIcon}>
+            <Settings size={20} strokeWidth={1.75} />
+          </span>
+          <div className={styles.cardHeaderTextWrap}>
+            <p className={styles.cardHeaderTitle}>RFQ-level negotiation</p>
+            <p className={styles.cardHeaderSub}>
+              Negotiate vendor-wide settings instead of a specific product.
+            </p>
+          </div>
+        </div>
+
+        <OverlayTrigger
+          placement="top"
+          overlay={
+            rfqDisabled
+              ? <Tooltip id="rfq-level-disabled-tooltip">{rfqDisabledTooltip}</Tooltip>
+              : <span />
+          }
+        >
+          <div
+            className={`${styles.rfqLevelRow} ${isRfqMode ? styles.productRowSelected : ''} ${rfqDisabled ? styles.productRowDisabled : ''}`}
+            onClick={() => !rfqDisabled && onSelectRfqMode && onSelectRfqMode()}
+            role="button"
+            tabIndex={rfqDisabled ? -1 : 0}
+            onKeyDown={(e) => {
+              if (!rfqDisabled && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                onSelectRfqMode && onSelectRfqMode();
+              }
+            }}
+          >
+            <input
+              type="radio"
+              name="selectedScope"
+              checked={isRfqMode}
+              disabled={rfqDisabled}
+              readOnly
+              className={styles.productRadio}
+              aria-label="Start negotiation with RFQ-level fields"
+            />
+            <div className={styles.rfqLevelMain}>
+              <p className={styles.rfqLevelTitle}>Start negotiation with RFQ-level fields</p>
+              <p className={styles.rfqLevelSub}>
+                Vendor-wide settings: Payment Terms · Global Charges (TCS) · Documents · Global Comment
+              </p>
+              <div className={styles.rfqLevelMeta}>
+                <div>
+                  <p className={styles.productMetaLabel}>SCOPE</p>
+                  <p className={styles.productMetaValue}>RFQ-wide (no product)</p>
+                </div>
+                <div>
+                  <p className={styles.productMetaLabel}>FIELDS</p>
+                  <p className={styles.productMetaValue}>{rfqFieldCount} available</p>
+                </div>
+                <div>
+                  <p className={styles.productMetaLabel}>VENDORS</p>
+                  <p className={styles.productMetaValue}>{rfqVendorCount} in RFQ</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </OverlayTrigger>
+      </section>
+
     <section className={styles.card}>
       <div className={styles.cardHeader}>
         <span className={styles.cardHeaderIcon}>
@@ -169,6 +250,7 @@ const StepProduct = ({
         </div>
       )}
     </section>
+    </>
   );
 };
 

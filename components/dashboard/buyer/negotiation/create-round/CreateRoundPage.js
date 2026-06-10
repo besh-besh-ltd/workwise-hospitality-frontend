@@ -115,6 +115,28 @@ const CreateRoundPage = () => {
     return eligibleAfterQueue.filter(p => String(p.id) !== String(wizard.selectedProductId)).length;
   }, [eligibleAfterQueue, wizard.selectedProductId]);
 
+  // RFQ-level meta for the Step 1 card. Field count = static RFQ-level slugs
+  // (payment_terms, global_comment, documents) + any is_global charge slug
+  // from the charge registry. Vendor count = unique vendors who quoted any
+  // product on the RFQ.
+  const rfqFieldCount = useMemo(() => {
+    const slugs = new Set(['payment_terms', 'global_comment', 'documents']);
+    chargeNamesList.forEach(c => {
+      if (c.is_global) slugs.add(c.slug || c.name);
+    });
+    return slugs.size;
+  }, [chargeNamesList]);
+
+  const rfqVendorCount = useMemo(
+    () => (wizard.aggregatedPriceData?.vendors || []).filter(v => v.vendorId && !v.isRegret).length,
+    [wizard.aggregatedPriceData]
+  );
+
+  // Can the user still queue another round? Three signals: there's an
+  // eligible product the buyer hasn't already queued, OR they can still add
+  // an RFQ-level round (only one allowed per submission).
+  const canQueueMore = otherEligibleCount > 0 || (!wizard.hasQueuedRfqRound && wizard.mode !== 'rfq');
+
   const handleCancel = () => {
     if (wizard.queuedRounds.length > 0) {
       const ok = window.confirm(
@@ -130,12 +152,14 @@ const CreateRoundPage = () => {
   };
 
   const handleAddMoreProduct = () => {
-    if (!wizard.canSubmit || !wizard.selectedProduct) {
-      if (!wizard.formData.end_date) wizard.setEndDateError(true);
-      toast.error('Complete the current round before adding another product.');
+    const hasCurrent = wizard.mode === 'rfq' || wizard.selectedProduct;
+    // Queueing only needs Step 2 valid (vendors + targets). End date is
+    // collected once and applied at submit time.
+    if (!wizard.canAddToQueue || !hasCurrent) {
+      toast.error('Pick vendors and set at least one target before adding the round.');
       return;
     }
-    const ok = wizard.addCurrentToQueue();
+    const ok = wizard.addCurrentToQueue({ quoteApprovalStatuses });
     if (!ok) {
       toast.error('Nothing to queue — check the current round.');
       return;
@@ -145,21 +169,26 @@ const CreateRoundPage = () => {
   };
 
   const handleSendForApproval = async () => {
-    if (!wizard.canSubmit || !wizard.selectedProduct) {
+    const hasCurrent = wizard.mode === 'rfq' || wizard.selectedProduct;
+    if (!wizard.canSubmit || !hasCurrent) {
       if (!wizard.formData.end_date) wizard.setEndDateError(true);
       toast.error('Please complete the current round before submitting.');
       return;
     }
-    const built = wizard.buildCurrentRoundPayload();
+    const built = wizard.buildCurrentRoundPayload({ quoteApprovalStatuses });
     if (!built) {
       toast.error('No vendor targets to submit. Please set at least one target.');
       return;
     }
+    // Apply the same end_date (current Step 3 input) to every round —
+    // queued entries may have been added before the date was set.
+    const sharedEndDate = built.payload.end_date;
     const all = [
       ...wizard.queuedRounds.map(r => ({
         rfq_product_id: r.rfq_product_id,
-        end_date: r.end_date,
+        end_date: sharedEndDate,
         vendor_targets: r.vendor_targets,
+        ...(r.is_rfq_level ? { is_rfq_level: true } : {}),
       })),
       built.payload,
     ];
@@ -214,11 +243,18 @@ const CreateRoundPage = () => {
         : `Send for approval${wizard.queuedRounds.length > 0 ? ` (${totalRoundsForSubmit})` : ''}`)
     : 'Next';
 
-  // +Add More Product gating
-  const addMoreDisabled = submitting || !wizard.canSubmit || otherEligibleCount < 1;
-  const addMoreTooltip = otherEligibleCount < 1
-    ? 'No other eligible products left to add to this submission.'
-    : (!wizard.canSubmit ? 'Complete the current round first.' : 'Add this round to the queue and pick another product.');
+  // +Add More gating. RFQ mode adds a second axis: the RFQ-level slot is
+  // single-use, so once it's queued there's no "another RFQ" to add — only
+  // remaining products count. Queueing only needs Step 2 valid (end date is
+  // applied later at submit time).
+  const addMoreDisabled = submitting || !wizard.canAddToQueue || !canQueueMore;
+  const addMoreTooltip = !canQueueMore
+    ? (wizard.hasQueuedRfqRound && otherEligibleCount < 1
+        ? 'RFQ-level round queued and no other eligible products to add.'
+        : 'No other eligible rounds left to add to this submission.')
+    : (!wizard.canAddToQueue
+        ? 'Pick vendors and set at least one target before adding this round.'
+        : 'Add this round to the queue and pick another round.');
 
   if (loading) {
     return (
@@ -347,10 +383,15 @@ const CreateRoundPage = () => {
             queuedProductIds={wizard.queuedProductIds}
             selectedProductId={wizard.selectedProductId}
             onSelectProduct={wizard.handleSelectProduct}
+            mode={wizard.mode}
+            onSelectRfqMode={() => wizard.setMode('rfq')}
+            hasQueuedRfqRound={wizard.hasQueuedRfqRound}
+            rfqFieldCount={rfqFieldCount}
+            rfqVendorCount={rfqVendorCount}
           />
         )}
 
-        {wizard.step === 2 && wizard.selectedProduct && (
+        {wizard.step === 2 && (wizard.selectedProduct || wizard.mode === 'rfq') && (
           <StepVendorsAndTargets
             product={wizard.selectedProduct}
             productPriceData={wizard.productPriceData}
@@ -366,10 +407,11 @@ const CreateRoundPage = () => {
             showTargetWarning={wizard.showTargetWarning}
             step2Errors={wizard.step2Errors}
             chargeNamesList={chargeNamesList}
+            mode={wizard.mode}
           />
         )}
 
-        {wizard.step === 3 && wizard.selectedProduct && (
+        {wizard.step === 3 && (wizard.selectedProduct || wizard.mode === 'rfq') && (
           <StepReview
             product={wizard.selectedProduct}
             productPriceData={wizard.productPriceData}
@@ -386,6 +428,7 @@ const CreateRoundPage = () => {
             onEditVendors={() => wizard.goToStep(2)}
             onRemoveQueuedRound={wizard.removeFromQueue}
             chargeNamesList={chargeNamesList}
+            mode={wizard.mode}
           />
         )}
       </div>
@@ -394,7 +437,12 @@ const CreateRoundPage = () => {
         <div className={styles.footerInner}>
           <div className={styles.footerStepInfo}>
             <span><span className={styles.footerStepNum}>Step {wizard.step} of 3</span></span>
-            {selectedDetails && (
+            {wizard.mode === 'rfq' && (
+              <span className={styles.footerProductTag} title="RFQ-level fields">
+                RFQ-level fields
+              </span>
+            )}
+            {wizard.mode !== 'rfq' && selectedDetails && (
               <span className={styles.footerProductTag} title={selectedDetails.name}>
                 {selectedDetails.name}
               </span>

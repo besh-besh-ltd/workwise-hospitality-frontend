@@ -42,24 +42,53 @@ export const getChargeTargetKey = (fieldValue) => {
   return `target_${fieldValue}`;
 };
 
-const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData, onFormChange, disabled = false, dynamicChargeFields = [], defaultCharges = [], excludeKeys = [], l1Map = null }) => {
+const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData, onFormChange, disabled = false, dynamicChargeFields = [], defaultCharges = [], excludeKeys = [], l1Map = null, l1TaxMap = null, showTaxInput = false, includeOnlyKeys = null }) => {
 
-  // Build the full list of fields: static options + default charges from API (created_by === null)
-  // `excludeKeys` lets callers hide options (e.g. fields handled by a separate UI surface).
+  // Build the full list of fields: static options + default charges from API.
+  // - `excludeKeys` hides specific options.
+  // - `includeOnlyKeys` (when provided) RESTRICTS the list to those slugs.
+  //   Used by the RFQ-level wizard mode, which surfaces only payment_terms,
+  //   global_comment, documents, and quote-level global charges (is_global).
   const allFieldOptions = React.useMemo(() => {
     const excluded = new Set(excludeKeys);
-    const fields = NEGOTIATION_FIELD_OPTIONS.filter(f => !excluded.has(f.value));
+    const includeOnly = includeOnlyKeys ? new Set(includeOnlyKeys) : null;
+    const passes = (slug) =>
+      !excluded.has(slug) && (!includeOnly || includeOnly.has(slug));
+
+    const fields = NEGOTIATION_FIELD_OPTIONS.filter(f => passes(f.value));
     const existingSlugs = new Set(fields.map(f => f.value));
-    defaultCharges.filter(c => !c.is_global).forEach(charge => {
-      const slug = charge.slug || charge.name;
-      if (excluded.has(slug)) return;
-      if (!existingSlugs.has(slug)) {
-        existingSlugs.add(slug);
-        fields.push(buildChargeFieldOption(charge));
-      }
-    });
+
+    // RFQ-level mode also needs `global_comment` and `documents` — they're
+    // not in the static NEGOTIATION_FIELD_OPTIONS list, so synthesize them
+    // when the caller has asked for them via `includeOnlyKeys`.
+    const synthesizeText = (slug, label) => {
+      if (!passes(slug)) return;
+      if (existingSlugs.has(slug)) return;
+      existingSlugs.add(slug);
+      fields.push({
+        value: slug,
+        label,
+        inputType: 'text',
+        placeholder: `Enter target ${label.toLowerCase()}`,
+      });
+    };
+    if (includeOnly?.has('global_comment')) synthesizeText('global_comment', 'Global Comment');
+    if (includeOnly?.has('documents')) synthesizeText('documents', 'RFQ Documents');
+
+    // In RFQ-level mode we want is_global charges; otherwise per-product only.
+    const wantGlobal = !!includeOnly;
+    defaultCharges
+      .filter(c => wantGlobal ? c.is_global : !c.is_global)
+      .forEach(charge => {
+        const slug = charge.slug || charge.name;
+        if (!passes(slug)) return;
+        if (!existingSlugs.has(slug)) {
+          existingSlugs.add(slug);
+          fields.push(buildChargeFieldOption(charge));
+        }
+      });
     return fields;
-  }, [defaultCharges, excludeKeys]);
+  }, [defaultCharges, excludeKeys, includeOnlyKeys]);
 
   const handleCardClick = (fieldValue) => {
     if (disabled) return;
@@ -176,6 +205,74 @@ const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData,
                       </div>
                     )}
                   </div>
+                  {showTaxInput && (field.hasMode || field.value === 'base_price') && (() => {
+                    // Second input row for the field's target tax (GST). Only
+                    // for fields that have a %/₹ mode — base_price and
+                    // delivery_period don't carry a per-charge tax.
+                    const taxKey = `target_${field.value}_tax`;
+                    const taxModeKey = `target_${field.value}_tax_mode`;
+                    const taxValue = formData[taxKey] || '';
+                    const taxMode = formData[taxModeKey] || 'percentage';
+                    const taxL1 = l1TaxMap && l1TaxMap[field.value];
+                    return (
+                      <>
+                        <label className={styles.negFieldInputLabel} style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                          <span>
+                            Target Tax (GST)
+                            <span className={styles.modeLabelHint}>
+                              ({taxMode === 'percentage' ? '%' : '₹'})
+                            </span>
+                          </span>
+                          {taxL1 && (
+                            <span
+                              title={`Lowest tax from ${taxL1.vendorName || 'vendor'}`}
+                              style={{
+                                fontSize: 10.5,
+                                fontWeight: 600,
+                                letterSpacing: '0.04em',
+                                textTransform: 'uppercase',
+                                color: '#15803d',
+                                background: '#dcfce7',
+                                border: '1px solid #bbf7d0',
+                                padding: '1px 6px',
+                                borderRadius: 4,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              L1: {taxL1.displayText}
+                            </span>
+                          )}
+                        </label>
+                        <div className={styles.negFieldInputRow}>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={taxValue}
+                            onChange={(e) => handleInputChange(taxKey, e.target.value)}
+                            placeholder="Target tax"
+                            className={styles.negFieldInput}
+                          />
+                          <div className={styles.modeToggle}>
+                            <button
+                              type="button"
+                              className={`${styles.modeToggleBtn} ${taxMode === 'percentage' ? styles.modeToggleBtnActive : ''}`}
+                              onClick={() => handleModeToggle(taxModeKey, taxMode)}
+                            >
+                              %
+                            </button>
+                            <button
+                              type="button"
+                              className={`${styles.modeToggleBtn} ${taxMode === 'amount' ? styles.modeToggleBtnActive : ''}`}
+                              onClick={() => handleModeToggle(taxModeKey, taxMode)}
+                            >
+                              ₹
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>

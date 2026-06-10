@@ -345,6 +345,58 @@ $danger: #dc2626;
   cursor: not-allowed;
 }
 
+// RFQ-level radio row on Step 1. Looser layout than the product list because
+// it has no QTY / L1 / VENDORS columns — just a radio + main content block
+// with title, sub, and a three-column meta strip (SCOPE / FIELDS / VENDORS).
+.rfqLevelRow {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 24px;
+  border-top: 1px solid $divider;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  background: $surface;
+
+  &:first-child {
+    border-top: none;
+  }
+
+  &:hover:not(.productRowDisabled) {
+    background: rgba(46, 91, 168, 0.03);
+  }
+}
+
+.rfqLevelMain {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rfqLevelTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: $ink-strong;
+  margin: 0;
+}
+
+.rfqLevelSub {
+  font-size: 12.5px;
+  color: $ink-soft;
+  margin: 0;
+}
+
+.rfqLevelMeta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed $divider;
+}
+
 .productRadio {
   width: 18px;
   height: 18px;
@@ -707,6 +759,28 @@ $danger: #dc2626;
   color: $ink-muted;
   text-transform: uppercase;
   margin: 0 0 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// RFQ-WIDE chip next to the round tag — only on RFQ-level review cards.
+.reviewRfqChip {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #15803d;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+// Subtle accent on the RFQ-level review card — green left border so it
+// reads as the "scope-wide" entry at a glance.
+.reviewRfqCard {
+  box-shadow: inset 4px 0 0 0 #16a34a;
 }
 
 .reviewProductName {
@@ -862,6 +936,13 @@ $danger: #dc2626;
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 999px;
+}
+
+.reviewFieldTaxNote {
+  font-style: normal;
+  font-size: 11.5px;
+  color: $ink-muted;
+  margin-left: 2px;
 }
 
 .reviewFieldEmpty {

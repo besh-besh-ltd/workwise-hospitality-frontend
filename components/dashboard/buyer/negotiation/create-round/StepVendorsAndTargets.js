@@ -3,12 +3,17 @@ import { Info, AlertTriangle } from 'lucide-react';
 import NegotiationFieldsSelect, { getChargeTargetKey } from '../NegotiationFieldsSelect';
 import VendorListPanel from './VendorListPanel';
 import TextFieldTargetModal from './TextFieldTargetModal';
-import { getProductDetails, computeFieldL1 } from './negotiationHelpers';
+import { getProductDetails, computeFieldL1, computeFieldTaxL1 } from './negotiationHelpers';
 import styles from './CreateRound.module.scss';
 
 // Fields handled by a separate surface — hide them from both the global
 // Negotiation Fields list and the per-vendor charge cards.
 const DEFERRED_FIELD_KEYS = ['payment_terms', 'global_comment'];
+
+// RFQ-level field set: payment_terms + global_comment + documents + every
+// quote-level global charge slug. Used to restrict NegotiationFieldsSelect
+// when `mode='rfq'`.
+const RFQ_STATIC_KEYS = ['payment_terms', 'global_comment', 'documents'];
 
 // Step 2 — pick fields + global targets, end date, vendors.
 // Per-vendor overrides happen inside the vendor accordion: each charge card
@@ -29,27 +34,75 @@ const StepVendorsAndTargets = ({
   showTargetWarning,
   step2Errors,
   chargeNamesList = [],
+  mode = 'product',
 }) => {
   const productDetails = product ? getProductDetails(product) : null;
   const hasVendors = selectedVendorIds.length > 0;
+  const isRfqMode = mode === 'rfq';
+
+  // In RFQ mode the field grid is restricted to RFQ-level slugs: the static
+  // text fields above + every distinct is_global charge slug pulled from the
+  // chargeNamesList. NegotiationFieldsSelect's `includeOnlyKeys` filter
+  // applies this on the rendered card grid.
+  const includeOnlyKeys = useMemo(() => {
+    if (!isRfqMode) return null;
+    const out = new Set(RFQ_STATIC_KEYS);
+    (chargeNamesList || []).forEach(c => {
+      if (c.is_global) out.add(c.slug || c.name);
+    });
+    return Array.from(out);
+  }, [isRfqMode, chargeNamesList]);
 
   // L1 (lowest quoted value) per field, computed across all vendors who
-  // actually quoted it. Shown on each global Negotiation Fields card as
-  // a quick anchor while the buyer types their target.
+  // actually quoted it. Shown on each global Negotiation Fields card as a
+  // quick anchor while the buyer types their target. The field set switches
+  // on mode: product mode uses per-product slugs; RFQ mode uses is_global
+  // slugs (TCS etc.) — text fields have no L1.
   const l1Map = useMemo(() => {
-    const fields = new Set(['base_price', 'delivery_period']);
-    (chargeNamesList || []).forEach(c => {
-      if (c.is_global) return;
-      const slug = c.slug || c.name;
-      if (slug && !DEFERRED_FIELD_KEYS.includes(slug)) fields.add(slug);
-    });
+    const fields = new Set();
+    if (isRfqMode) {
+      (chargeNamesList || []).forEach(c => {
+        if (c.is_global) fields.add(c.slug || c.name);
+      });
+    } else {
+      fields.add('base_price');
+      fields.add('delivery_period');
+      (chargeNamesList || []).forEach(c => {
+        if (c.is_global) return;
+        const slug = c.slug || c.name;
+        if (slug && !DEFERRED_FIELD_KEYS.includes(slug)) fields.add(slug);
+      });
+    }
     const out = {};
     fields.forEach(f => {
       const l1 = computeFieldL1(f, productPriceData);
       if (l1) out[f] = l1;
     });
     return out;
-  }, [productPriceData, chargeNamesList]);
+  }, [productPriceData, chargeNamesList, isRfqMode]);
+
+  // L1 (lowest tax) per field — anchor for the Target Tax input.
+  const l1TaxMap = useMemo(() => {
+    const fields = new Set();
+    if (isRfqMode) {
+      (chargeNamesList || []).forEach(c => {
+        if (c.is_global) fields.add(c.slug || c.name);
+      });
+    } else {
+      fields.add('base_price');
+      (chargeNamesList || []).forEach(c => {
+        if (c.is_global) return;
+        const slug = c.slug || c.name;
+        if (slug && !DEFERRED_FIELD_KEYS.includes(slug)) fields.add(slug);
+      });
+    }
+    const out = {};
+    fields.forEach(f => {
+      const l1 = computeFieldTaxL1(f, productPriceData);
+      if (l1) out[f] = l1;
+    });
+    return out;
+  }, [productPriceData, chargeNamesList, isRfqMode]);
 
   // Text-field sub-modal state — used for payment_terms / vendor_tc /
   // comment / documents per-vendor overrides.
@@ -211,12 +264,15 @@ const StepVendorsAndTargets = ({
         onFormChange={updateFormData}
         disabled={!hasVendors}
         defaultCharges={chargeNamesList.filter(c => c.created_by === null)}
-        excludeKeys={DEFERRED_FIELD_KEYS}
+        excludeKeys={isRfqMode ? [] : DEFERRED_FIELD_KEYS}
+        includeOnlyKeys={includeOnlyKeys}
         l1Map={l1Map}
+        l1TaxMap={l1TaxMap}
+        showTaxInput
       />
 
       <VendorListPanel
-        productName={productDetails?.name}
+        productName={isRfqMode ? 'RFQ-level round' : productDetails?.name}
         productPriceData={productPriceData}
         selectedVendorIds={selectedVendorIds}
         vendorTargets={vendorTargets}
@@ -229,6 +285,7 @@ const StepVendorsAndTargets = ({
         onVendorLocalFieldToggle={handleVendorLocalFieldToggle}
         onVendorFieldExcludeToggle={handleVendorFieldExcludeToggle}
         onOpenTextFieldModal={handleOpenTextFieldModal}
+        mode={mode}
       />
 
       {showTargetWarning && (
