@@ -175,10 +175,15 @@ const RfqManagementPreview = () => {
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
 
-  // Engine-driven breakup for the vendor's previously-submitted quote. The
-  // hook hits /pricing/preview once per render of this page, which the
-  // backend computes statelessly. Falls back to an empty draft when no
-  // quote is present, so the hook is a no-op for fresh inquiries.
+  // Transitional shim: recomputes the GrandTotalBreakup for a submitted quote
+  // via /pricing/preview because the backend does not yet persist the base/
+  // tax/charges decomposition needed by the breakup. Drop this memo + the
+  // usePreviewTotals call below once the backend persists per-quote aggregates
+  // (base_amount, total_tax, total_charges, grand_total) at submit time.
+  // Quantity is sourced from the submitted line itself (p.quantity); if the
+  // payload doesn't carry it, fall back to matching the RFQ line by
+  // rfq_product_id — NOT product_id, since BOQ flows reuse product_id across
+  // multiple RFQ lines and a product_id-only match silently picks the first.
   const submittedPreviewDraft = React.useMemo(() => {
     const submitted = rfqDetails?.quotations?.[0];
     if (!submitted || submitted.is_regret !== 0) return null;
@@ -186,8 +191,11 @@ const RfqManagementPreview = () => {
     if (products.length === 0) return null;
     return {
       items: products.map((p) => {
-        const rfqProduct = rfqDetails.products?.find((rp) => rp.product_id === p.product_id);
-        const qty = parseFloat(rfqProduct?.product_specs?.find((s) => s?.title === "Quantity")?.value) || 0;
+        let qty = parseFloat(p.quantity);
+        if (!Number.isFinite(qty) || qty <= 0) {
+          const rfqProduct = rfqDetails.products?.find((rp) => rp.id === p.rfq_product_id);
+          qty = parseFloat(rfqProduct?.product_specs?.find((s) => s?.title === "Quantity")?.value) || 0;
+        }
         return {
           unit_price: p.unit_price,
           quantity: qty,
@@ -2761,7 +2769,7 @@ const RfqManagementPreview = () => {
                                       && vendorQuote.is_regret === 0
                                       && Array.isArray(vendorQuote.products)
                                       && vendorQuote.products.some(
-                                        (qp) => qp.product_id === item.product_id && qp.variant === item.variant
+                                        (qp) => qp.rfq_product_id === item.id
                                       );
                                     return (
                                       <td>
@@ -2774,17 +2782,17 @@ const RfqManagementPreview = () => {
                                     );
                                   })()}
                                   {type != "buyer-view" && (() => {
-                                    // Match this product to its line in the
-                                    // engine-computed totals so we can show the
-                                    // submitted per-product total + unit price.
+                                    // Read the submitted per-line total + unit
+                                    // price straight off the persisted quote
+                                    // line. Match by rfq_product_id (the unique
+                                    // RFQ line id) — product_id alone is not
+                                    // unique in BOQ flows where the same product
+                                    // appears on multiple lines.
                                     const vendorQuote = rfqDetails?.quotations?.[0];
                                     const quoteProducts = Array.isArray(vendorQuote?.products) ? vendorQuote.products : [];
-                                    const lineIndex = quoteProducts.findIndex(
-                                      (qp) => qp.product_id === item.product_id && qp.variant === item.variant
-                                    );
-                                    const line = lineIndex >= 0 ? (submittedQuoteTotals?.lines || [])[lineIndex] : null;
-                                    const totalVal = Number(line?.total) || 0;
-                                    const unitPriceVal = lineIndex >= 0 ? Number(quoteProducts[lineIndex]?.unit_price) || 0 : 0;
+                                    const quoteLine = quoteProducts.find((qp) => qp.rfq_product_id === item.id) || null;
+                                    const totalVal = Number(quoteLine?.total_price) || 0;
+                                    const unitPriceVal = Number(quoteLine?.unit_price) || 0;
                                     return (
                                       <td>
                                         {totalVal > 0 ? (
