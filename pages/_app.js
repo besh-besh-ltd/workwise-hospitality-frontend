@@ -15,6 +15,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import "@/styles/style.scss";
+import "@/styles/utilities.css";
+import "@/styles/arc_v2.css";
 import "react-toastify/dist/ReactToastify.css";
 // import Font Awesome CSS
 import "@fortawesome/fontawesome-svg-core/styles.css";

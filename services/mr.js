@@ -1,0 +1,24 @@
+// Material Requisition — frontend service client. Wraps /v1/mr/* endpoints
+// exposed by backend/app/routes/mr/index.js. Contracted-items-only per phase:
+// the picker (searchContractedItems) is the only source of truth for which
+// items can be added to an MR.
+
+import axiosInstance from "@/lib/axios";
+
+const BASE = "/mr";
+
+// Listing + dashboard counts.
+export const listMrs = (params = {}) => axiosInstance.get(`${BASE}`, { params });
+export const getDashboardKpis = (params = {}) => axiosInstance.get(`${BASE}/kpis`, { params });
+
+// Contracted-item picker (drives the MR-create wizard).
+export const searchContractedItems = ({ hotel_id, department_id, q = null, limit = 25 } = {}) =>
+  axiosInstance.get(`${BASE}/search-contracted-items`, {
+    params: { hotel_id, department_id, q, limit },
+  });
+
+// CRUD.
+export const getMrById   = (id) => axiosInstance.get(`${BASE}/${id}`);
+export const createDraft = (payload) => axiosInstance.post(`${BASE}`, payload);
+export const submit      = (id) => axiosInstance.post(`${BASE}/${id}/submit`, {});
+export const cancel      = (id) => axiosInstance.post(`${BASE}/${id}/cancel`, {});

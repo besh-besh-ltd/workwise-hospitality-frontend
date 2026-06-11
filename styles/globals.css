@@ -1,0 +1,3 @@
+/* Reserved for future global resets. Currently empty — Tailwind preflight
+   (which was leaking a blue focus ring onto every input app-wide) has been
+   removed, so no project-wide focus override is needed. */

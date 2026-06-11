@@ -1,0 +1,138 @@
+// ARC v2 — frontend service client. Wraps the /v1/arc-v2/* endpoints exposed
+// by backend/app/routes/arc_v2/*. Mirrors the existing service-file pattern
+// (one named export per route, promise-returning, errors surface via Axios's
+// global interceptor).
+
+import axiosInstance from "@/lib/axios";
+
+const BASE = "/arc-v2";
+
+// ============================================================
+// Buyer — listing + dashboard + wizard
+// ============================================================
+
+export const listContracts = (params = {}) =>
+  axiosInstance.get(`${BASE}`, { params });
+
+export const getDashboardKpis = (params = {}) =>
+  axiosInstance.get(`${BASE}/kpis`, { params });
+
+export const getDepartmentsForCategory = ({ category_id, hospitality_company_id } = {}) =>
+  axiosInstance.get(`${BASE}/category-departments`, {
+    params: { category_id, hospitality_company_id },
+  });
+
+export const getSubCategories = (categoryId) =>
+  axiosInstance.get(`${BASE}/sub-categories`, { params: { category_id: categoryId } });
+
+// Wizard pickers — categories, hotels, variants, eligible vendors.
+export const listRootCategories = () => axiosInstance.get(`${BASE}/categories`);
+export const listAccessibleHotels = () => axiosInstance.get(`${BASE}/hotels`);
+export const searchVariants = ({ category_id, sub_category_ids, q, limit } = {}) =>
+  axiosInstance.get(`${BASE}/variants`, {
+    params: {
+      category_id,
+      sub_category_ids: Array.isArray(sub_category_ids) && sub_category_ids.length > 0
+        ? sub_category_ids.join(',') : undefined,
+      q: q || undefined,
+      limit,
+    },
+  });
+export const listEligibleVendors = ({ category_id, hotel_id } = {}) =>
+  axiosInstance.get(`${BASE}/eligible-vendors`, { params: { category_id, hotel_id } });
+
+export const getContractDetail = (id) => axiosInstance.get(`${BASE}/${id}`);
+export const getActiveSummary  = (id) => axiosInstance.get(`${BASE}/${id}/active-summary`);
+
+export const createDraft = (payload) => axiosInstance.post(`${BASE}`, payload);
+export const updateDraft = (id, patch) => axiosInstance.patch(`${BASE}/${id}`, patch);
+export const publish    = (id) => axiosInstance.post(`${BASE}/${id}/publish`, {});
+export const withdraw   = (id) => axiosInstance.post(`${BASE}/${id}/withdraw`, {});
+export const terminate  = (id, reason) => axiosInstance.post(`${BASE}/${id}/terminate`, { reason });
+
+// ============================================================
+// Buyer — Tech evaluation
+// ============================================================
+
+export const setupTechEval = (itemId, payload) =>
+  axiosInstance.post(`${BASE}/evaluation/items/${itemId}/tech-eval`, payload);
+
+export const getTechEvalForItem = (itemId) =>
+  axiosInstance.get(`${BASE}/evaluation/items/${itemId}/tech-eval`);
+
+export const recordVendorResponse = (payload) =>
+  axiosInstance.post(`${BASE}/evaluation/tech-eval/response`, payload);
+
+export const scoreResponse = (payload) =>
+  axiosInstance.post(`${BASE}/evaluation/tech-eval/score`, payload);
+
+export const submitTechEval = (arcId) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/tech-eval/submit`, {});
+
+// ============================================================
+// Buyer — Commercial evaluation (with split-award reconciliation)
+// ============================================================
+
+export const getCommEval = (arcId) => axiosInstance.get(`${BASE}/evaluation/${arcId}/comm-eval`);
+
+export const saveAllocation = (arcId, { item_id, allocations }) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/allocation`, { item_id, allocations });
+
+export const finalizeCommEval = (arcId) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/finalize`, {});
+
+export const sendBackCommEval = (arcId, reason) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/send-back`, { reason });
+
+// ============================================================
+// Buyer — Committee
+// ============================================================
+
+export const getCommitteeView = (arcId) => axiosInstance.get(`${BASE}/committee/${arcId}`);
+// decision: 'approve' | 'reject' (reject = send back; comment mandatory).
+export const decideCommittee  = (arcId, body) => axiosInstance.post(`${BASE}/committee/${arcId}/decide`, body);
+
+// ============================================================
+// Vendor portal — quote submission + contract acceptance
+// ============================================================
+
+export const vendorListRequests        = () => axiosInstance.get(`${BASE}/vendor/requests`);
+export const vendorGetRequestDetail    = (arcId) => axiosInstance.get(`${BASE}/vendor/requests/${arcId}`);
+export const vendorSaveQuoteDraft      = (payload) => axiosInstance.post(`${BASE}/vendor/quote/draft`, payload);
+export const vendorSubmitQuote         = (arcId) => axiosInstance.post(`${BASE}/vendor/quote/submit`, { arc_id: arcId });
+export const vendorWithdrawQuote       = (arcId) => axiosInstance.post(`${BASE}/vendor/quote/withdraw`, { arc_id: arcId });
+
+// Dashboard rollups — counts, totals, spend ranks, recent call-offs, activity.
+export const vendorGetDashboard          = (params = {}) => axiosInstance.get(`${BASE}/vendor/dashboard`, { params });
+export const vendorListPendingAcceptance = () => axiosInstance.get(`${BASE}/vendor/pending-acceptance`);
+export const vendorListActiveContracts   = () => axiosInstance.get(`${BASE}/vendor/active`);
+export const vendorGetContract           = (id) => axiosInstance.get(`${BASE}/vendor/contracts/${id}`);
+export const vendorRequestOtp            = (id) => axiosInstance.post(`${BASE}/vendor/contracts/${id}/otp/request`, {});
+export const vendorVerifyOtp             = (id, code) => axiosInstance.post(`${BASE}/vendor/contracts/${id}/otp/verify`, { code });
+export const vendorDeclineContract       = (id, reason) => axiosInstance.post(`${BASE}/vendor/contracts/${id}/decline`, { reason });
+// All of the vendor's amendment requests across contracts (My Amendments page).
+export const vendorListAmendments        = () => axiosInstance.get(`${BASE}/vendor/amendments`);
+
+// Amendments — request + list live now; approve/reject ship with the
+// committee gate (Phase C, still 501).
+//
+// requestAmendment payload shape:
+//   {
+//     arc_contract_id, amendment_type, amendment_from, amendment_to?,
+//     reason, payload: { … type-specific fields … }
+//   }
+// type-specific payload:
+//   price       : { arc_contract_line_id, new_rate }
+//   qty         : { arc_contract_line_id, new_qty }
+//   item_add    : { product_variant_id, new_qty, new_rate }
+//   item_remove : { arc_contract_line_id }
+//   term        : { }  (amendment_from = new end date)
+// Vendor-side — vendor portal page POSTs here to request an amendment.
+export const requestAmendment        = (payload)         => axiosInstance.post(`${BASE}/amendments/request`, payload);
+// Buyer-side — list (active + requested) and the single review endpoint
+// that drives approve / reject / edit-then-approve transitions.
+export const listAmendments          = (params = {})     => axiosInstance.get(`${BASE}/amendments`, { params });
+export const reviewAmendment         = (amendmentId, body) => axiosInstance.post(`${BASE}/amendments/${amendmentId}/review`, body);
+// Legacy aliases — backend returns 501 → use reviewAmendment instead.
+export const approveAmendment        = (amendmentId)     => axiosInstance.post(`${BASE}/amendments/${amendmentId}/approve`, {});
+export const rejectAmendment         = (amendmentId, r)  => axiosInstance.post(`${BASE}/amendments/${amendmentId}/reject`, { reason: r });

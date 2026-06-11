@@ -59,6 +59,14 @@ export const roleMenus = {
     { href: "/dashboard/buyer/purchase-orders", label: "PO Dashboard", targetMenu: "nav", section: "Purchase Orders", isNew: true },
     { href: "/dashboard/buyer/purchase-orders/tracking", label: "PO Tracking", targetMenu: "nav", section: "Purchase Orders", isNew: true },
     { href: "/dashboard/buyer/purchase-orders/analytics", label: "PO Analytics", targetMenu: "nav", section: "Purchase Orders", isNew: true },
+    // ── Rate Contracts (ARC v2)
+    { href: "/dashboard/buyer/rate-contracts",        label: "Dashboard",      targetMenu: "nav", section: "Rate Contracts", isNew: true },
+    { href: "/dashboard/buyer/rate-contracts/all",    label: "All Contracts",  targetMenu: "nav", section: "Rate Contracts", isNew: true },
+    { href: "/dashboard/buyer/rate-contracts/create", label: "Create New",     targetMenu: "nav", section: "Rate Contracts", isNew: true },
+    // ── Material Requisitions
+    { href: "/dashboard/buyer/material-requisitions",        label: "Dashboard",   targetMenu: "nav", section: "Material Requisitions", isNew: true },
+    { href: "/dashboard/buyer/material-requisitions/all",    label: "All MRs",     targetMenu: "nav", section: "Material Requisitions", isNew: true },
+    { href: "/dashboard/buyer/material-requisitions/create", label: "Raise New",   targetMenu: "nav", section: "Material Requisitions", isNew: true },
     { href: "/dashboard/notifications", label: "Notifications", targetMenu: "nav", section: "Inbox" },
     { href: "/dashboard/buyer/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
   ],
@@ -68,8 +76,17 @@ export const roleMenus = {
     { href: "/dashboard/vendor/product-management", label: "Product Management", targetMenu: "nav", requiresSubscription: true, section: "Catalogue" },
     { href: "/dashboard/vendor/inquiries-received", label: "Received Inquiries", targetMenu: "nav", requiresSubscription: true, section: "Orders" },
     { href: "/dashboard/vendor/order-book", label: "Order Book", targetMenu: "nav", requiresSubscription: true, section: "Orders" },
-    { href: "/dashboard/notifications", label: "Notifications", targetMenu: "nav", section: "Inbox" },
+    // ── Rate Contracts (ARC v2 — vendor portal)
+    { href: "/dashboard/vendor/rate-contracts",                            label: "Dashboard",          targetMenu: "nav", section: "Rate Contracts", isNew: true },
+    { href: "/dashboard/vendor/rate-contracts/requests",                   label: "Received Requests",  targetMenu: "nav", section: "Rate Contracts", isNew: true },
+    { href: "/dashboard/vendor/rate-contracts/requests?tab=submitted",     label: "Submitted Quotes",   targetMenu: "nav", section: "Rate Contracts", isNew: true },
+    { href: "/dashboard/vendor/rate-contracts/requests?tab=awaiting-sign", label: "Pending Acceptance", targetMenu: "nav", section: "Rate Contracts", isNew: true },
+    { href: "/dashboard/vendor/rate-contracts/active",                     label: "Active Contracts",   targetMenu: "nav", section: "Rate Contracts", isNew: true },
+    // ── Amendments (ARC v2 — vendor portal)
+    { href: "/dashboard/vendor/rate-contracts/amendments",                 label: "My Amendments",      targetMenu: "nav", section: "Amendments", isNew: true },
+    { href: "/dashboard/vendor/rate-contracts/amendments/request",         label: "Request Amendment",  targetMenu: "nav", section: "Amendments", isNew: true },
     { href: "/dashboard/vendor/subscription", label: "Subscription", targetMenu: "nav", section: "Account" },
+    { href: "/dashboard/notifications", label: "Notifications", targetMenu: "nav", section: "Inbox" },
   ],
 };
 

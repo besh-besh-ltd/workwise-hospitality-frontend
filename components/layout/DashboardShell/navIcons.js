@@ -17,6 +17,15 @@ import {
   Store,
   Bell,
   FileText,
+  LayoutDashboard,
+  ScrollText,
+  FilePlus2,
+  ClipboardList,
+  ClipboardPlus,
+  FileSignature,
+  Handshake,
+  FileDiff,
+  FilePen,
 } from "lucide-react";
 
 /**
@@ -75,6 +84,27 @@ export const NAV_ICONS = {
   "/dashboard/vendor/subscription": CreditCard,
   // Order book → literal open book.
   "/dashboard/vendor/order-book": BookOpen,
+
+  // Rate Contracts (buyer) — dashboard view, contract list, new wizard.
+  "/dashboard/buyer/rate-contracts":        LayoutDashboard,
+  "/dashboard/buyer/rate-contracts/all":    ScrollText,
+  "/dashboard/buyer/rate-contracts/create": FilePlus2,
+
+  // Material Requisitions (buyer) — dashboard, list, raise-new.
+  "/dashboard/buyer/material-requisitions":        LayoutDashboard,
+  "/dashboard/buyer/material-requisitions/all":    ClipboardList,
+  "/dashboard/buyer/material-requisitions/create": ClipboardPlus,
+
+  // Rate Contracts (vendor) — dashboard, incoming, in-progress, active deals.
+  "/dashboard/vendor/rate-contracts":                            LayoutDashboard,
+  "/dashboard/vendor/rate-contracts/requests":                   Inbox,
+  "/dashboard/vendor/rate-contracts/requests?tab=submitted":     FileSignature,
+  "/dashboard/vendor/rate-contracts/requests?tab=awaiting-sign": Handshake,
+  "/dashboard/vendor/rate-contracts/active":                     ScrollText,
+
+  // Amendments (vendor) — tracked edits across contracts + raise a new one.
+  "/dashboard/vendor/rate-contracts/amendments":         FileDiff,
+  "/dashboard/vendor/rate-contracts/amendments/request": FilePen,
 };
 
 export const getNavIcon = (href) => NAV_ICONS[href] || FileText;

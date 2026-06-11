@@ -13,7 +13,8 @@ const ENTITY_TYPE_TO_HREF = {
   NEGOTIATION: "/dashboard/buyer/quote-compare",
   NEGOTIATION_QUOTE: "/dashboard/buyer/quote-compare",
   PO: "/dashboard/buyer/purchase-order",
-  ARC: "/dashboard/buyer/arc-committee",
+  // ARC (v1) removed during ARC v2 quarantine.
+  // v2 will add: ARC_TECH, ARC_COMMITTEE, ARC_AMENDMENT, MR — wired to /rate-contracts/* and /material-requisitions/*.
 };
 
 const POLL_INTERVAL_MS = 5000;
