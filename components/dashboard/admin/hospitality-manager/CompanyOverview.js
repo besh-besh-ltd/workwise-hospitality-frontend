@@ -27,7 +27,7 @@ const CompanyOverview = ({ company, hotelCount, userCount, activeCount }) => {
       <div className={styles.statsRow}>
         <div className={`${styles.statCard} ${styles.statTeal}`}>
           <div className={styles.statIconWrap}>
-            <BsBuilding color="#fff" size={22} />
+            <BsBuilding size={17} />
           </div>
           <div>
             <div className={styles.statValue}>{hotelCount}</div>
@@ -37,7 +37,7 @@ const CompanyOverview = ({ company, hotelCount, userCount, activeCount }) => {
 
         <div className={`${styles.statCard} ${styles.statAmber}`}>
           <div className={styles.statIconWrap}>
-            <BsPeople color="#fff" size={22} />
+            <BsPeople size={17} />
           </div>
           <div>
             <div className={styles.statValue}>{userCount}</div>
@@ -47,7 +47,7 @@ const CompanyOverview = ({ company, hotelCount, userCount, activeCount }) => {
 
         <div className={`${styles.statCard} ${styles.statGreen}`}>
           <div className={styles.statIconWrap}>
-            <BsCheckCircle color="#fff" size={22} />
+            <BsCheckCircle size={17} />
           </div>
           <div>
             <div className={styles.statValue}>

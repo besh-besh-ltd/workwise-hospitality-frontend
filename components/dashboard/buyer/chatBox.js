@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import "bootstrap/dist/css/bootstrap.min.css";
 import { sendQueryMessage, broadcastMessage } from "@/services/rfq";
 import Link from "next/link";
 import { formatDate } from "@/utils/sharedFunctions";
@@ -132,71 +131,55 @@ const ChatBox = ({
   };
 
   return (
-    <div className="d-flex flex-column h-100">
-      <div className="mb-3 border-bottom pb-2 d-flex">
-        <h5 className="me-auto mb-0">
+    <div className="query-chat">
+      {/* Chat header */}
+      <div className="query-chat-header">
+        <h5 className="query-chat-title">
           {isBroadcastMode
             ? `Send message to ${selectedVendors.length} vendors`
-            : (vendor?.display_name || vendor?.company_name || "Select a vendor to continue the conversation")}
+            : (vendor?.display_name || vendor?.company_name || "Select a vendor to continue")}
         </h5>
-        
-        {/* Suggestion toggle button for vendors only */}
         {isVendor && !isBroadcastMode && (
-          <button 
-            className="btn btn-outline btn-sm btn-secondary"
+          <button
+            className="query-suggestion-toggle"
             onClick={() => setShowSuggestions(!showSuggestions)}
             title="Message suggestions"
           >
-            <FontAwesomeIcon icon={faLightbulb} className="me-1" />
+            <FontAwesomeIcon icon={faLightbulb} />
             Suggestions
           </button>
         )}
       </div>
 
-     {/* Suggestions panel for vendors */}
+      {/* Suggestions panel */}
       {isVendor && showSuggestions && (
-        <div className="card border-0 shadow-sm mb-3">
-          <div className="card-header bg-light d-flex justify-content-between align-items-center py-2">
-            <h6 className="mb-0 text-muted small">
-              💡 Helpful suggestions for your response
-            </h6>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary"
-              onClick={() => setShowSuggestions(false)}
-            >
+        <div className="query-suggestions">
+          <div className="query-suggestions-header">
+            <span>Helpful suggestions</span>
+            <button type="button" onClick={() => setShowSuggestions(false)}>
               <FontAwesomeIcon icon={faTimes} />
             </button>
           </div>
-          <div className="card-body p-2">
-            <div className="d-flex flex-wrap gap-2">
-              {vendorSuggestions.map((suggestion, index) => (
-                <span
-                  key={index}
-                  role="button"
-                  className="badge rounded-pill bg-light text-dark border px-3 py-2 text-start"
-                  style={{
-                    cursor: "pointer",
-                    maxWidth: "250px",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  title={suggestion}
-                >
-                  {suggestion}
-                </span>
-              ))}
-            </div>
+          <div className="query-suggestions-body">
+            {vendorSuggestions.map((suggestion, index) => (
+              <span
+                key={index}
+                role="button"
+                className="query-suggestion-pill"
+                onClick={() => handleSuggestionClick(suggestion)}
+                title={suggestion}
+              >
+                {suggestion}
+              </span>
+            ))}
           </div>
         </div>
       )}
 
-
-      <div className="chat-messages flex-grow-1 mb-3" style={{ overflowY: "auto" }}>
+      {/* Message thread */}
+      <div className="query-messages">
         {isBroadcastMode ? (
-          <div className="mb-3 border-bottom pb-2">
+          <div className="query-broadcast-list">
             <h6>Selected Vendors:</h6>
             <ul>
               {selectedVendors.map((v) => (
@@ -205,117 +188,88 @@ const ChatBox = ({
             </ul>
           </div>
         ) : (
-          messages.map((message, index) => (
-            <div
-              key={message.message_id}
-              ref={index === messages.length - 1 ? latestMessageRef : null}
-              className={`d-flex ${
-                message.direction === "received" ? "" : "justify-content-end"
-              } mb-2`}
-            >
+          messages.map((message, index) => {
+            const isReceived = message.direction === "received";
+            return (
               <div
-                className={`px-3 py-2 me-2 bg-light text-dark rounded shadow-sm`}
-                style={{ maxWidth: "70%" }}
+                key={message.message_id}
+                ref={index === messages.length - 1 ? latestMessageRef : null}
+                className={`query-message-row ${isReceived ? 'query-message-received' : 'query-message-sent'}`}
               >
-                <p className="mb-0">{message.message_text}</p>
-                {message.files && message.files.length > 0 && (
-                  <div className="mt-2">
-                    {message.files.map((file, idx) => (
-                      <Link
-                        key={idx}
-                        href={file.file_url}
-                        download={file.file_name}
-                        target="_blank"
-                        className="d-inline-block badge bg-secondary me-1"
-                        style={{
-                          maxWidth: "48%",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {file.file_name}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                <small className="text-muted d-block mt-1">
-                  {(() => {
-                    // In tender mode, hide vendor real names from the buyer's view.
-                    if (isTender && role === "buyer" && message.direction === "received") {
-                      if (!isBroadcastMode && vendor?.display_name) {
-                        return `${vendor.display_name} -  ${formatDate(message.created_at)}`;
+                <div className="query-message-bubble">
+                  <p>{message.message_text}</p>
+                  {message.files && message.files.length > 0 && (
+                    <div className="query-message-files">
+                      {message.files.map((file, idx) => (
+                        <Link
+                          key={idx}
+                          href={file.file_url}
+                          download={file.file_name}
+                          target="_blank"
+                          className="query-file-badge"
+                        >
+                          {file.file_name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                  <span className="query-message-time">
+                    {(() => {
+                      if (isTender && role === "buyer" && isReceived) {
+                        if (!isBroadcastMode && vendor?.display_name) {
+                          return `${vendor.display_name} · ${formatDate(message.created_at)}`;
+                        }
+                        return `Vendor · ${formatDate(message.created_at)}`;
                       }
-                      return `Vendor -  ${formatDate(message.created_at)}`;
-                    }
-
-                    return `${message?.sender_name} -  ${formatDate(message.created_at)}`;
-                  })()}
-                </small>
+                      return `${message?.sender_name} · ${formatDate(message.created_at)}`;
+                    })()}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
+      {/* Staged files preview */}
       {files.length > 0 && (
-        <div className="uploaded-files mb-3">
-          <div className="row mt-2">
-            {files.map((file, idx) => (
-              <div key={idx} className="col-6">
-                <span
-                  className="badge bg-secondary d-inline-flex align-items-center justify-content-between w-100 mx-1 my-1"
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  <span
-                    style={{
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      maxWidth: "95%",
-                    }}
-                  >
-                    {file.name}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn-close btn-close-white ms-2"
-                    aria-label="Remove"
-                    onClick={() => handleRemoveFile(file.name)}
-                    style={{ fontSize: "0.8rem" }}
-                    id={`remove_file_${idx}-chat_files-chat_box`}
-                  />
-                </span>
-              </div>
-            ))}
-          </div>
+        <div className="query-staged-files">
+          {files.map((file, idx) => (
+            <span key={idx} className="query-staged-file">
+              <span>{file.name}</span>
+              <button
+                type="button"
+                aria-label="Remove"
+                onClick={() => handleRemoveFile(file.name)}
+                id={`remove_file_${idx}-chat_files-chat_box`}
+              >×</button>
+            </span>
+          ))}
         </div>
       )}
 
-      <div className="chat-input d-flex align-items-center border-top pt-2">
-        <input
-          id="browse_attachments-message_input-queries_page"
-          type="file"
-          multiple
-          onChange={handleFileUpload}
-          className="form-control me-2"
-          style={{ maxWidth: "120px" }}
-        />
-
+      {/* Input bar */}
+      <div className="query-input-bar">
+        <label className="query-file-upload">
+          <input
+            id="browse_attachments-message_input-queries_page"
+            type="file"
+            multiple
+            onChange={handleFileUpload}
+          />
+          <span>Attach</span>
+        </label>
         <input
           id="type_message-message_input-queries_page"
           type="text"
-          className="form-control me-2"
+          className="query-text-input"
           value={messageText}
           onChange={(e) => setMessageText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !sendButtonLoading) handleSendMessage(); }}
           placeholder="Type a message..."
         />
-
         <button
-          className="btn btn-secondary p-2"
+          className="query-send-btn"
           onClick={handleSendMessage}
           disabled={sendButtonLoading}
           id="send_message-message_input-queries_page"

@@ -1,0 +1,802 @@
+/* RFQLifecycleJourneyV2 — translated from prototypes/rfq_details_ui/styles.css
+   (.journey, .journey-head, .timeline-v2, .stage-*, .owner-card, .up-next).
+   :root tokens inlined to literal values. The outer sticky shell is provided by
+   ViewRFQ.module.scss (.journeyShell), so this card fills that wrapper. */
+
+.journey {
+  background: #ffffff;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: calc(100vh - 86px);
+}
+
+.journeyHead {
+  padding: 14px 18px;
+  border-bottom: 1px solid #e8e8e3;
+  background: linear-gradient(180deg, #fdfdfb 0%, #ffffff 100%);
+  flex-shrink: 0;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  h2 {
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin: 0;
+    color: #18181b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #b45309;
+  box-shadow: 0 0 0 3px #fef7ed;
+  animation: liveDotPulse 2s ease-in-out infinite;
+}
+
+@keyframes liveDotPulse {
+  0%, 100% { box-shadow: 0 0 0 3px #fef7ed; }
+  50%      { box-shadow: 0 0 0 5px rgba(180, 83, 9, 0.10); }
+}
+
+.journeyStageLabel {
+  margin-top: 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #a1a1aa;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  .em {
+    color: #18181b;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    text-transform: none;
+    font-size: 12px;
+  }
+}
+
+.dotSep { color: #a1a1aa; }
+
+.journeyProgress {
+  margin-top: 9px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.pbar {
+  flex: 1;
+  height: 4px;
+  background: #f4f4f1;
+  border-radius: 99px;
+  display: flex;
+  gap: 2px;
+}
+
+.seg {
+  flex: 1;
+  background: #f4f4f1;
+  border-radius: 99px;
+  transition: background 0.2s ease;
+}
+
+.segDone { background: #15803d; }
+.segSkipped { background: #d6d6cf; }
+.segCurrent { background: #b45309; }
+.segExpired { background: #b91c1c; }
+.segClosed { background: #b91c1c; }
+
+.pct {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 10.5px;
+  color: #71717a;
+  font-weight: 500;
+}
+
+.journeyBody {
+  overflow-y: auto;
+  flex: 1;
+  padding: 18px 16px;
+  position: relative;
+
+  &::-webkit-scrollbar { width: 8px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: #e8e8e3;
+    border-radius: 99px;
+    border: 2px solid #ffffff;
+  }
+  &::-webkit-scrollbar-thumb:hover { background: #d6d6cf; }
+}
+
+/* Timeline */
+.timelineV2 {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    bottom: 10px;
+    width: 1.5px;
+    background: #e8e8e3;
+    border-radius: 99px;
+  }
+}
+
+.stageV2 {
+  position: relative;
+  padding-left: 32px;
+  padding-bottom: 14px;
+
+  &:last-child { padding-bottom: 0; }
+}
+
+/* Node */
+.node {
+  position: absolute;
+  left: 3px;
+  top: 11px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #d6d6cf;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+}
+
+.isDone .node {
+  background: #15803d;
+  border-color: #15803d;
+
+  /* Standard centred checkmark: a rotated "L" (right + bottom borders).
+     place-items:center on .node centres the box; the -1px top nudge optically
+     centres the tick within the circle. */
+  &::after {
+    content: '';
+    width: 4px;
+    height: 7.5px;
+    border: solid white;
+    border-width: 0 1.6px 1.6px 0;
+    transform: rotate(45deg);
+    margin-top: -1.5px;
+  }
+}
+
+.isSkipped .node {
+  background: #ffffff;
+  border-color: #d6d6cf;
+  border-style: dashed;
+
+  &::after {
+    content: '';
+    width: 6px;
+    height: 1.5px;
+    background: #a1a1aa;
+    border-radius: 99px;
+  }
+}
+
+.isCurrent .node {
+  background: white;
+  border-color: #b45309;
+  border-width: 2.5px;
+  box-shadow: 0 0 0 4px rgba(180, 83, 9, 0.14);
+  animation: nodePulse 2.4s ease-in-out infinite;
+
+  &::after {
+    content: '';
+    width: 5px;
+    height: 5px;
+    background: #b45309;
+    border-radius: 50%;
+  }
+}
+
+@keyframes nodePulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(180, 83, 9, 0.14); }
+  50%      { box-shadow: 0 0 0 6px rgba(180, 83, 9, 0.07); }
+}
+
+/* Expired = auto-published terminal stage. A muted/red filled node (no pulse)
+   that reads as closed rather than the live orange focus node. */
+.isExpired .node {
+  background: #b91c1c;
+  border-color: #b91c1c;
+
+  &::after {
+    content: '';
+    width: 6px;
+    height: 1.5px;
+    background: white;
+    border-radius: 99px;
+  }
+}
+
+.isExpired .stageMini .name { color: #71717a; }
+
+/* Closed = RFQ closed at this stage. Same terminal red node as expired. */
+.isClosed .node {
+  background: #b91c1c;
+  border-color: #b91c1c;
+
+  &::after {
+    content: '';
+    width: 6px;
+    height: 1.5px;
+    background: white;
+    border-radius: 99px;
+  }
+}
+.isClosed .stageMini .name { color: #71717a; }
+
+/* Trailing "more stages" marker */
+.isMore {
+  padding-bottom: 0;
+
+  .node {
+    width: 12px;
+    height: 12px;
+    left: 5px;
+    top: 5px;
+    border-style: dotted;
+    border-color: #c4c4bd;
+    background: #f7f7f5;
+
+    &::after { content: none; }
+  }
+}
+
+.moreLabel {
+  font-size: 11.5px;
+  color: #a1a1aa;
+  font-style: italic;
+  padding-top: 2px;
+}
+
+/* Pills */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  font-size: 10.5px;
+  font-weight: 500;
+  border-radius: 999px;
+  background: #f4f4f1;
+  color: #3f3f46;
+  border: 1px solid #e8e8e3;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+
+  &.success { background: #ecfdf5; color: #15803d; border-color: rgba(21, 128, 61, 0.18); }
+  &.warn    { background: #fef7ed; color: #b45309; border-color: rgba(180, 83, 9, 0.18); }
+  &.neutral { background: #f4f4f1; color: #71717a; border-color: #e8e8e3; }
+  &.danger  { background: #fef2f2; color: #b91c1c; border-color: rgba(185, 28, 28, 0.18); }
+}
+
+.pdot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Mini card for done/skipped */
+.stageMini {
+  padding: 4px 0 0;
+  min-height: 32px;
+
+  .row1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #18181b;
+    letter-spacing: -0.01em;
+  }
+
+  .row2 {
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11.5px;
+    color: #71717a;
+    flex-wrap: wrap;
+
+    &.muted { color: #a1a1aa; }
+
+    .by { color: #3f3f46; font-weight: 500; }
+    .sep { color: #a1a1aa; }
+    .when {
+      font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+      font-size: 11px;
+      color: #a1a1aa;
+    }
+  }
+}
+
+.isSkipped .stageMini .name { color: #71717a; }
+
+.miniAvatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  flex-shrink: 0;
+  letter-spacing: -0.01em;
+  border: 1.5px solid white;
+  box-shadow: 0 0 0 1px #e8e8e3;
+}
+
+/* Avatar tone variants */
+.sky    { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1e3a8a; }
+.warm   { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
+.green  { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #14532d; }
+.rose   { background: linear-gradient(135deg, #fee2e2, #fecaca); color: #7f1d1d; }
+.indigo { background: linear-gradient(135deg, #e0e7ff, #c7d2fe); color: #3730a3; }
+
+/* Current-stage focus card */
+.stageFocus {
+  background: linear-gradient(180deg, white 0%, #fffdf7 100%);
+  border: 1px solid rgba(180, 83, 9, 0.24);
+  border-radius: 12px;
+  /* visible so the waiting-on hover tooltip can overflow the card */
+  overflow: visible;
+  box-shadow:
+    0 1px 0 rgba(180, 83, 9, 0.06),
+    0 8px 24px -10px rgba(180, 83, 9, 0.12);
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #b45309, transparent);
+    opacity: 0.7;
+  }
+}
+
+.focusHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 10px;
+
+  .name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #18181b;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.hereNow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #b45309;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+
+  &::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    background: #b45309;
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.14);
+  }
+}
+
+.focusSection {
+  padding: 11px 14px;
+  border-top: 1px solid rgba(180, 83, 9, 0.10);
+}
+
+.ssubLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #a1a1aa;
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ssubCount {
+  text-transform: none;
+  letter-spacing: -0.005em;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #71717a;
+  background: #f4f4f1;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* Owner list — we can be waiting on several people at once */
+.ownerList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Multi-owner: collapsed avatar stack that expands to full rows on hover. */
+.ownerStackWrap {
+  position: relative;
+}
+
+.ownerStack {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: white;
+  border: 1px solid #e8e8e3;
+  border-radius: 9px;
+  cursor: default;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.stackAvatars {
+  display: flex;
+  align-items: center;
+}
+
+.stackAvatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #d6d6cf;
+  flex-shrink: 0;
+
+  & + & { margin-left: -10px; }
+}
+
+.stackMore {
+  background: #f4f4f1;
+  color: #52525b;
+  font-size: 10.5px;
+}
+
+.stackSummary {
+  font-size: 12px;
+  color: #71717a;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+/* Hover tooltip — portaled to body with fixed positioning so the scrollable
+   journey column can never clip it. */
+.ownerTooltip {
+  position: fixed;
+  z-index: 4000;
+  background: #ffffff;
+  border: 1px solid #e8e8e3;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px -8px rgba(15, 15, 14, 0.24), 0 2px 6px rgba(15, 15, 14, 0.08);
+  padding: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  animation: tipFade 0.1s ease;
+}
+
+/* Anchor point sits at the row edge; shift the card off the anchor. */
+.tipAbove { transform: translateY(-100%); }
+.tipBelow { transform: translateY(0); }
+
+@keyframes tipFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ownerTooltipHead {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: #a1a1aa;
+  padding: 4px 8px 8px;
+}
+
+.ownerTooltipList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ownerTooltipRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: 7px;
+
+  &:hover { background: #fafaf9; }
+}
+
+.tipAvatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+  border: 1.5px solid white;
+  box-shadow: 0 0 0 1px #e8e8e3;
+}
+
+.tipMeta { min-width: 0; flex: 1; }
+
+.tipName {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #18181b;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tipEmail {
+  font-size: 11px;
+  color: #71717a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Owner card */
+.ownerCard {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  background: white;
+  border: 1px solid #e8e8e3;
+  border-radius: 9px;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #d6d6cf, 0 4px 8px -2px rgba(15, 15, 14, 0.08);
+  letter-spacing: -0.01em;
+}
+
+.ownerMeta { flex: 1; min-width: 0; }
+
+.ownerName {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #18181b;
+  letter-spacing: -0.01em;
+}
+
+.role {
+  font-size: 11.5px;
+  color: #71717a;
+  margin-top: 1px;
+}
+
+.actionContext {
+  margin-top: 10px;
+  padding: 9px 11px;
+  background: #fafaf9;
+  border: 1px solid #e8e8e3;
+  border-radius: 8px;
+
+  .lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: #a1a1aa;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .action {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #18181b;
+    letter-spacing: -0.005em;
+  }
+
+  .ctxMeta {
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: #71717a;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+
+    .amt {
+      font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+      font-weight: 600;
+      color: #3f3f46;
+    }
+  }
+
+  .policy {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #a1a1aa;
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+    font-weight: 500;
+  }
+}
+
+/* Action buttons (approve/reject for live instance) */
+.actRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.actBtn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+
+  &:disabled { opacity: 0.55; cursor: not-allowed; }
+}
+
+.actApprove {
+  background: #15803d;
+  color: #ffffff;
+
+  &:hover:not(:disabled) { background: #166534; }
+}
+
+.actReject {
+  background: #ffffff;
+  border-color: #d6d6cf;
+  color: #b91c1c;
+
+  &:hover:not(:disabled) { background: #fef2f2; border-color: #b91c1c; }
+}
+
+/* Up next */
+.upNext {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 7px 0;
+    border-top: 1px dashed #e8e8e3;
+
+    &:first-child { border-top: none; padding-top: 2px; }
+  }
+}
+
+.unNum {
+  flex-shrink: 0;
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f4f4f1;
+  color: #a1a1aa;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  border: 1px solid #e8e8e3;
+  margin-top: 1px;
+}
+
+.unBody { min-width: 0; flex: 1; }
+
+.unName {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #3f3f46;
+  letter-spacing: -0.005em;
+}
+
+.unDetail {
+  font-size: 11px;
+  color: #a1a1aa;
+  line-height: 1.45;
+  margin-top: 2px;
+}
+
+/* Loading */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 18px;
+  font-size: 12.5px;
+  color: #71717a;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e8e8e3;
+  border-top-color: #b45309;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

@@ -1,0 +1,213 @@
+/* Buyer status banner — tall hero card, navy gradient by default. Inspired
+   by the wisely / project-OS hero pattern: small brand label + date in the
+   top-left, refresh in the top-right, big greeting, narrative paragraph
+   where the load-bearing numbers are highlighted in gold (or red for
+   critical mode). No CTAs — the dashboard widgets below ARE the actions. */
+
+.banner {
+  position: relative;
+  padding: 22px 26px 24px;
+  border-radius: 14px;
+  margin-bottom: 18px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: #ffffff;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+/* Subtle radial highlight so the card doesn't read as a flat slab. */
+.banner::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -10%;
+  width: 60%;
+  height: 180%;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.04) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.topRow {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.brandBlock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brandIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1;
+}
+
+.brandName {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #fbbf24;
+}
+
+.brandDate {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: -0.005em;
+}
+
+.refreshBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+.refreshBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.headline {
+  position: relative;
+  margin: 0 0 10px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.narrative {
+  position: relative;
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.78);
+  letter-spacing: -0.005em;
+  max-width: 80ch;
+}
+
+/* Highlight fragments are sometimes plain text, sometimes a Next <Link>
+   or a <button> (when they open a modal). Reset link/button chrome so all
+   three variants render identically, then add a subtle underline-on-hover
+   affordance for the interactive ones. */
+.highlight {
+  color: #fbbf24;
+  font-weight: 600;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-decoration: none;
+}
+a.highlight,
+button.highlight {
+  cursor: pointer;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: text-decoration-color 0.14s ease, color 0.14s ease;
+}
+a.highlight:hover,
+button.highlight:hover {
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  color: #fcd34d;
+}
+.highlightBtn { display: inline; }
+
+/* ── Mode tints ──────────────────────────────────────────────────────
+   The base card stays navy across all modes; only the highlight color
+   and a subtle edge accent change so the banner never goes "alarming"
+   unless something actually demands attention. */
+
+.modeClear .brandName,
+.modeClear .brandIcon { color: #4ade80; }
+.modeClear .brandIcon { background: rgba(74, 222, 128, 0.16); }
+.modeClear .highlight { color: #4ade80; }
+
+.modeSteady .brandName,
+.modeSteady .brandIcon { color: #60a5fa; }
+.modeSteady .brandIcon { background: rgba(96, 165, 250, 0.16); }
+.modeSteady .highlight { color: #fbbf24; }
+
+.modeActionNeeded .brandName,
+.modeActionNeeded .brandIcon { color: #fbbf24; }
+.modeActionNeeded .highlight { color: #fbbf24; }
+
+.modeCritical {
+  background: linear-gradient(135deg, #2a1015 0%, #1a0507 100%);
+}
+.modeCritical .brandName,
+.modeCritical .brandIcon { color: #fca5a5; }
+.modeCritical .brandIcon { background: rgba(252, 165, 165, 0.18); }
+.modeCritical .highlight { color: #fca5a5; }
+
+/* ── Skeleton ─────────────────────────────────────────────────────── */
+
+.skeleton {
+  height: 156px;
+}
+.skeleton .shimmerHead,
+.skeleton .shimmerSub {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.skeleton .shimmerHead {
+  width: 38%;
+  height: 22px;
+  margin-top: 38px;
+}
+.skeleton .shimmerSub {
+  width: 70%;
+  margin-top: 14px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .banner {
+    padding: 18px 18px 20px;
+  }
+  .headline { font-size: 22px; }
+  .narrative { font-size: 13.5px; }
+}

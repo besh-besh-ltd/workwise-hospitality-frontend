@@ -18,6 +18,7 @@ import RfqTermsModal from "@/components/modal/RfqTermsModal";
 import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
+import { TwoPanelPage } from "@/components/layout/DashboardShell";
 import useIsMobile from "@/hooks/useIsMobile";
 import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown, BsLock, BsClock, BsCheckCircleFill, BsCheck2All } from "react-icons/bs";
 import styles from "./TechnicalEvaluation.module.scss";
@@ -600,90 +601,79 @@ const BuyerTechnicalEvaluation = () => {
     return items;
   };
 
+  const techEvalSidebar = (
+    <RFQListSidebar
+      title={null}
+      embedded
+      mobileOpen={isMobile ? sidebarOpen : undefined}
+      onMobileClose={() => setSidebarOpen(false)}
+      rfqList={rfqList}
+      loading={loading}
+      selectedRfqId={rfq_id}
+      onItemClick={handleRfqSelect}
+      linkPrefix="/dashboard/buyer/technical-evaluation"
+      linkQueryKey="rfq_id"
+      tabs={[
+        {
+          key: 'action_required',
+          label: 'Action Required',
+          filter: (item) => {
+            // Closed RFQs are read-only — no action possible
+            if (String(item.status) === '2') return false;
+            // Bid submission window must have closed before evaluation/approval is meaningful
+            const bidEnded = item.bid_end_date && new Date(item.bid_end_date) < new Date();
+            if (!bidEnded) return false;
+            // Current user must have something to do: a product to evaluate,
+            // a rejected evaluation to redo, or a pending approval where they are the approver.
+            return item.has_pending_evaluation || item.te_approval_rejected || item.approval_required;
+          },
+        },
+        {
+          key: 'in_progress',
+          label: 'In Progress',
+          filter: (item) => {
+            if (String(item.status) === '2') return false;
+            return !item.has_pending_evaluation && !item.te_approval_rejected
+              && !item.approval_required && item.has_pending_te_approval;
+          },
+        },
+        { key: 'all', label: 'All', filter: null },
+      ]}
+      defaultTab="action_required"
+      rfqNo={rfqNo}
+      onRfqNoChange={(val) => setRfqNo(val)}
+      searchPlaceholder="Search by number..."
+      userHotelMappings={userHotelMappings}
+      selectedHotelIds={selectedHotelIds}
+      onHotelSelectionChange={handleHotelSelectionChange}
+      showTypeFilter={true}
+      isTenderFilter={isTenderFilter}
+      onTenderFilterChange={(val) => setIsTenderFilter(val)}
+      getItemTags={(item) => {
+        if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
+        if (item.te_approval_rejected) return [{ label: 'Evaluation Rejected', variant: 'danger' }];
+        if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
+        if (item.has_pending_te_approval) return [{ label: 'In Approval', variant: 'info' }];
+        if (item.te_completed === true) return [{ label: 'Completed', variant: 'success' }];
+        return [];
+      }}
+      pageId="technical_evaluation"
+    />
+  );
+
   const commentHasContent =
     currentRfq?.comment && currentRfq.comment.replace(/<[^>]*>/g, "").trim() !== "";
 
   return (
     <>
-      <section className="quote-common-header compare-received-quote sc-pt-80">
-        <div className="container-fluid">
-          <div className="row">
-            <div className="col-md-6">
-              <h3 className="heading">Technical Evaluation</h3>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="quote-edit-sec-1">
-        <div className="container-fluid">
-          <div className={styles.layoutRow}>
-
-            {/* RFQ List */}
-              {isMobile && (
-                <button className={styles.mobileSidebarToggle} onClick={() => setSidebarOpen(true)}>
-                  <BsList size={18} /> Select RFQ
-                </button>
-              )}
-              <RFQListSidebar
-                title="Technical Evaluation"
-                mobileOpen={isMobile ? sidebarOpen : undefined}
-                onMobileClose={() => setSidebarOpen(false)}
-                rfqList={rfqList}
-                loading={loading}
-                selectedRfqId={rfq_id}
-                onItemClick={handleRfqSelect}
-                linkPrefix="/dashboard/buyer/technical-evaluation"
-                linkQueryKey="rfq_id"
-                tabs={[
-                  {
-                    key: 'action_required',
-                    label: 'Action Required',
-                    filter: (item) => {
-                      // Closed RFQs are read-only — no action possible
-                      if (String(item.status) === '2') return false;
-                      // Bid submission window must have closed before evaluation/approval is meaningful
-                      const bidEnded = item.bid_end_date && new Date(item.bid_end_date) < new Date();
-                      if (!bidEnded) return false;
-                      // Current user must have something to do: a product to evaluate,
-                      // a rejected evaluation to redo, or a pending approval where they are the approver.
-                      return item.has_pending_evaluation || item.te_approval_rejected || item.approval_required;
-                    },
-                  },
-                  {
-                    key: 'in_progress',
-                    label: 'In Progress',
-                    filter: (item) => {
-                      if (String(item.status) === '2') return false;
-                      return !item.has_pending_evaluation && !item.te_approval_rejected
-                        && !item.approval_required && item.has_pending_te_approval;
-                    },
-                  },
-                  { key: 'all', label: 'All', filter: null },
-                ]}
-                defaultTab="action_required"
-                rfqNo={rfqNo}
-                onRfqNoChange={(val) => setRfqNo(val)}
-                searchPlaceholder="Search by number..."
-                userHotelMappings={userHotelMappings}
-                selectedHotelIds={selectedHotelIds}
-                onHotelSelectionChange={handleHotelSelectionChange}
-                showTypeFilter={true}
-                isTenderFilter={isTenderFilter}
-                onTenderFilterChange={(val) => setIsTenderFilter(val)}
-                getItemTags={(item) => {
-                  if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
-                  if (item.te_approval_rejected) return [{ label: 'Evaluation Rejected', variant: 'danger' }];
-                  if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
-                  if (item.has_pending_te_approval) return [{ label: 'In Approval', variant: 'info' }];
-                  if (item.te_completed === true) return [{ label: 'Completed', variant: 'success' }];
-                  return [];
-                }}
-                pageId="technical_evaluation"
-              />
-
-            {/* Main Container */}
-            <div className={styles.contentColumn}>
+      <TwoPanelPage
+        title="Technical Evaluation"
+        subtitle="Review vendor submissions against technical clauses."
+        sidebar={techEvalSidebar}
+        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
+        mobileSidebarOpen={sidebarOpen}
+        mobileToggleLabel="Select RFQ"
+      >
               <div className="quote-sec-table quote-sec-tab">
 
                 {/* Inline loader - shows inside content area while loading/verifying */}
@@ -1063,10 +1053,7 @@ const BuyerTechnicalEvaluation = () => {
                   </>
                 </div>}
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      </TwoPanelPage>
       <Tooltip id="spec-tooltip" place="top" style={{ maxWidth: 320, fontSize: 12, borderRadius: 8, zIndex: 9999, wordBreak: 'break-word' }} />
       <RfqTermsModal
         open={showTncModal}

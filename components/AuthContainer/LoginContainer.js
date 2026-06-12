@@ -199,7 +199,7 @@ const LoginContainer = (props) => {
                     } else if (prod_name != "" && prod_name != "all" && userType != "vendor" && userType != "admin") {
                         router.push(`/vendor/${prod_name}`);
                     } else if (userType == "buyer") {
-                        router.push(`/vendor/all?loggedin=true`);
+                        router.push(`/dashboard/buyer/start-rfq?loggedin=true`);
                     } else if (userType == "vendor" && pathname.includes("/dashboard/vendor/inquiries-details")) {
                         console.log("Push Sent")
                     } else if (userType == "admin") {
@@ -286,7 +286,7 @@ const LoginContainer = (props) => {
                         dispatch(setUserProfile(profileRes.data));
                     } catch (err) {}
                     if (userType == "buyer") {
-                        router.push(`/vendor/all?loggedin=true`);
+                        router.push(`/dashboard/buyer/start-rfq?loggedin=true`);
                     } else if (userType == "admin") {
                         router.push(`/dashboard/admin/hospitality-manager`);
                     } else if (userType == "finance" || userType == "engineering") {

@@ -1,0 +1,64 @@
+// RFQ Management — minimal pill tab bar (matches the new design theme)
+
+.tabPills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: #f4f4f1;
+  border: 1px solid #ebebe6;
+  border-radius: 9px;
+  margin: 10px 0 12px;
+  overflow-x: auto;
+
+  // Hide scrollbar on horizontal overflow (mobile)
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+.tabPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: #71717a;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &:hover { color: #18181b; }
+}
+
+.tabPillActive {
+  background: #ffffff;
+  color: #18181b;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.06);
+
+  &:hover { color: #18181b; }
+}
+
+// Inline count after the label — mono, muted
+.tabPillCount {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #a1a1aa;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.tabPillActive .tabPillCount {
+  color: #52525b;
+}

@@ -5,9 +5,6 @@ import ChatBox from "./chatBox.js";
 import { listQueryMessages, listQueries, getRfqDetails, broadcastMessage } from "@/services/rfq";
 import FullLoader from "@/components/shared/FullLoader";
 import { toast } from "react-toastify";
-import { Button } from "react-bootstrap";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import { getEntityLabel } from "@/utils/sharedFunctions";
 
 const QueryComponent = () => {
@@ -196,59 +193,50 @@ const handleSelectVendor = (vendor) => {
   }, [selectedVendorIds, vendors]);
 
   return (
-    <>
-  <section className="small-size-heading buyer-common-header ">
-    <div className="container-fluid">
-      <div className="d-flex justify-content-between align-items-center">
+    <div className="query-page-root">
+      <section className="query-page-header">
         <h1 className="heading">
           {isFromTechEval
             ? `Technical Evaluation Query - ${vendor_code || 'Vendor'}`
             : `Queries for ${getEntityLabel(rfqDetails?.is_tender)}#${rfqDetails?.rfq_no}`}
         </h1>
-      </div>
-    </div>
-  </section>
+      </section>
 
-  <div className="container-fluid">
-    <div className="row">
-      {role === "buyer" && !isFromTechEval ? (
-        <div className="col-md-4 my-3">
-          <VendorList
-  vendors={vendors}
-  onSelectVendor={handleSelectVendor}
-  onToggleVendor={handleToggleVendor}
-  selectedVendorIds={selectedVendorIds}
-  vendorName={vendorName}
-  setVendorName={setVendorName}
-  loading={vendorsLoading}
-/>
+      <div className="query-page-body">
+        {role === "buyer" && !isFromTechEval ? (
+          <div className="query-vendor-panel">
+            <VendorList
+              vendors={vendors}
+              onSelectVendor={handleSelectVendor}
+              onToggleVendor={handleToggleVendor}
+              selectedVendorIds={selectedVendorIds}
+              vendorName={vendorName}
+              setVendorName={setVendorName}
+              loading={vendorsLoading}
+            />
+          </div>
+        ) : null}
+
+        <div className="query-chat-panel">
+          {messagesLoading ? (
+            <div className="hasFullLoader h-100">
+              <FullLoader />
+            </div>
+          ) : (
+            <ChatBox
+              messages={messages}
+              vendor={isFromTechEval && vendor_code ? { ...selectedVendor, display_name: vendor_code } : selectedVendor}
+              rfq_id={rfq_id}
+              role={role}
+              onMessageSent={handleMessageSent}
+              vendorwithoutlogintoken={token}
+              selectedVendors={selectedVendors}
+              isTender={rfqDetails?.is_tender === 1}
+            />
+          )}
         </div>
-      ) : null}
-
-      <div
-        className={`col-md-${role === "buyer" && !isFromTechEval ? "8" : "12"} p-3 my-3 border rounded shadow-sm`}
-        style={{ height: "65vh" }}
-      >
-        {messagesLoading ? (
-  <div className="hasFullLoader h-100">
-    <FullLoader />
-  </div>
-) : (
-  <ChatBox
-    messages={messages}
-    vendor={isFromTechEval && vendor_code ? { ...selectedVendor, display_name: vendor_code } : selectedVendor}
-    rfq_id={rfq_id}
-    role={role}
-    onMessageSent={handleMessageSent}
-    vendorwithoutlogintoken={token}
-    selectedVendors={selectedVendors}   // <-- PASS THE ARRAY FOR BROADCAST
-    isTender={rfqDetails?.is_tender === 1}
-  />
-)}
       </div>
     </div>
- </div>
-</>
   );
 };
 

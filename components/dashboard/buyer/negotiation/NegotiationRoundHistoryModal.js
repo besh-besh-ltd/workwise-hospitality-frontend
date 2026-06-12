@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Modal, Badge, Card, Collapse } from "react-bootstrap";
 import { formatDisplayDate } from "@/utils/sharedFunctions";
 
-const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id }) => {
+const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id, productName }) => {
   const [expandedRounds, setExpandedRounds] = useState({});
 
   const toggleRound = (roundId) => {
@@ -52,7 +52,7 @@ const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id }) => {
   return (
     <Modal show={show} onHide={onHide} size="lg" centered>
       <Modal.Header closeButton>
-        <Modal.Title>Negotiation Round History</Modal.Title>
+        <Modal.Title>{productName ? `Negotiation Rounds — ${productName}` : "Negotiation Round History"}</Modal.Title>
       </Modal.Header>
       <Modal.Body style={{ maxHeight: "70vh", overflowY: "auto" }}>
         {!rounds || rounds.length === 0 ? (

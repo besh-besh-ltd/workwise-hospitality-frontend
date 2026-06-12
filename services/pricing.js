@@ -47,3 +47,26 @@ export const getQuoteComparison = (rfq_id, opts = {}) => {
     }
   });
 };
+
+// Flat, prototype-shaped quote-comparison view for the new Quote Comparison
+// page. The axios interceptor unwraps response.data, so this resolves to the
+// contract object directly:
+//   { rfq, vendors[], categories[], products[] (per-cell quote components +
+//     engine total + state open|pending|approved|rejected + finalized_vendor +
+//     reject_info + lpr + target + round), approval_chain[] }
+// opts.freight: true (default, landed incl. freight) | false (base, no freight).
+export const getQuoteComparisonView = (rfq_id, opts = {}) => {
+  const params = new URLSearchParams();
+  // Default landed; send freight=0 only when explicitly disabled.
+  if (opts.freight === false) params.set("freight", "0");
+  const qs = params.toString();
+  const url = `/rfq/quote-comparison-view/${rfq_id}${qs ? `?${qs}` : ""}`;
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(url);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};

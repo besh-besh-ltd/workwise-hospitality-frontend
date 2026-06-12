@@ -1,0 +1,104 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: rgba(253, 245, 245, 0.92);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border-radius: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  padding: 16px 28px;
+  border-radius: 12px;
+  border: 1px solid #fcdcdc;
+  box-shadow: 0 4px 20px rgba(219, 10, 10, 0.06);
+}
+
+.iconWrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #fef0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e04444;
+}
+
+.message {
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+  margin: 0;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.retryBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: #e04444;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #c93a3a;
+    box-shadow: 0 2px 8px rgba(219, 10, 10, 0.2);
+  }
+}
+
+/* ── Inline variant for small sections ── */
+.inlineBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fef5f5;
+  border: 1px solid #fcdcdc;
+  border-radius: 8px;
+  color: #d44;
+}
+
+.inlineText {
+  font-size: 12px;
+  font-weight: 500;
+  color: #777;
+  flex: 1;
+}
+
+.inlineRetry {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #d44;
+  background: none;
+  border: 1px solid rgba(221, 68, 68, 0.2);
+  border-radius: 5px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    background: rgba(221, 68, 68, 0.06);
+    border-color: #d44;
+  }
+}

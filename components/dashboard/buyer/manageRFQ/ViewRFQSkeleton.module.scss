@@ -1,0 +1,254 @@
+/* ViewRFQSkeleton — shaped loading placeholder mirroring ViewRFQ's layout.
+   Same minimal tokens + full-bleed shell so it settles into place. */
+
+.page {
+  margin: -20px -24px;
+  background: #f7f7f5;
+  background-image: radial-gradient(circle at 1px 1px, rgba(15, 15, 14, 0.035) 1px, transparent 0);
+  background-size: 22px 22px;
+  min-height: calc(100vh - 56px);
+}
+
+/* Shimmer bar primitive */
+.bar {
+  display: block;
+  background: linear-gradient(90deg, #ebebe6 25%, #f5f5f2 37%, #ebebe6 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* ── Header ── */
+.header {
+  background: #ffffff;
+  border-bottom: 1px solid #ebebe6;
+  padding: 18px 24px 20px;
+}
+
+.headerInner {
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+.eyebrowRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.titleBlock {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.subRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.actionsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* Stat strip */
+.statStrip {
+  margin-top: 18px;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #ebebe6;
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+  flex-wrap: wrap;
+}
+
+.statCell {
+  flex: 1;
+  min-width: 180px;
+  padding: 12px 16px;
+  border-right: 1px solid #ebebe6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  &:last-child { border-right: none; }
+}
+
+.statBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+/* ── Body grid ── */
+.body {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 20px;
+  align-items: start;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.leftCol {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.rightCol {
+  min-width: 0;
+}
+
+/* ── Cards ── */
+.card {
+  background: #ffffff;
+  border: 1px solid #ebebe6;
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f4f4f1;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px 20px;
+
+  @media (max-width: 640px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.detailCell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Products */
+.productRow {
+  padding: 16px 0;
+  border-top: 1px solid #f4f4f1;
+
+  &:first-of-type { border-top: none; padding-top: 4px; }
+}
+
+.productTop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.productMeta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.productBody {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Terms */
+.termsList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.termRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── Right rail journey ── */
+.journeyCard {
+  background: #ffffff;
+  border: 1px solid #ebebe6;
+  border-radius: 14px;
+  overflow: hidden;
+  position: sticky;
+  top: 24px;
+}
+
+.journeyHead {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #f4f4f1;
+  background: linear-gradient(180deg, #fdfdfb 0%, #ffffff 100%);
+}
+
+.journeyBody {
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.timelineRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.timelineMeta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 1px;
+}
