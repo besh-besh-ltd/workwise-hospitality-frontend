@@ -327,22 +327,13 @@ export const buildVendorTargetsPayload = ({
         const modeVal = vt[`${k}_mode`] || 'percentage';
         fieldObj.mode = modeVal === 'amount' ? 'absolute' : modeVal;
       }
-      // Tax attaches to base_price (GST) and to dynamic numeric charges,
-      // but never to text-only / delivery_period fields. Only sent when it
-      // strictly beats the vendor's quoted tax — same rule as the amount.
+      // Buyer's free-text tax demand/negotiation note for this field —
+      // attaches to base_price (GST) and dynamic numeric charges, never to
+      // text-only / delivery_period fields.
       if (k === 'base_price' || !nonModeKeys.includes(k)) {
-        const taxVal = vt[`${k}_tax`];
-        if (taxVal != null && taxVal !== '') {
-          const taxModeVal = vt[`${k}_tax_mode`] || 'percentage';
-          if (targetTaxBeatsQuoted({
-            targetTax: taxVal,
-            targetTaxMode: taxModeVal,
-            quoteData: vendorDataForCheck,
-            fieldKey: k,
-          })) {
-            fieldObj.tax = taxVal;
-            fieldObj.tax_mode = taxModeVal === 'amount' ? 'absolute' : taxModeVal;
-          }
+        const taxNote = vt[`${k}_tax`];
+        if (taxNote != null && String(taxNote).trim() !== '') {
+          fieldObj.tax_demand = String(taxNote).trim();
         }
       }
       fields.push(fieldObj);
@@ -351,37 +342,48 @@ export const buildVendorTargetsPayload = ({
     // Global fallback for effective fields not already set per-vendor.
     // Each vendor can explicitly opt out of a globally-claimed field via
     // _excludedFields, in which case we skip that field entirely for them.
+    // A per-vendor override (vt[f]) wins over the global value for this
+    // vendor; left blank, the global target applies. (documents keep the
+    // global value — their per-vendor structure is handled separately.)
     const setFieldNames = new Set(fields.map(f => f.name));
     effectiveFields.forEach(f => {
       if (setFieldNames.has(f)) return;
       if (excludedForVendor.has(f)) return;
       const targetKey = getChargeTargetKey(f);
       const globalVal = targetKey && formData[targetKey];
-      if (!globalVal) return;
+      const overrideVal = f === 'documents' ? null : vt[f];
+      const hasOverride = overrideVal != null && overrideVal !== '';
+      const effVal = hasOverride ? overrideVal : globalVal;
+      if (!effVal) return;
       if (isFieldTargetInvalid(f, vt, vendorDataForCheck, formData)) return;
 
-      const fieldObj = { name: f, target: globalVal };
+      const fieldObj = { name: f, target: effVal };
       if (!nonModeKeys.includes(f)) {
-        const modeKey = `target_${f}_mode`;
-        const modeVal = formData[modeKey] || 'percentage';
+        const modeVal = (hasOverride ? vt[`${f}_mode`] : formData[`target_${f}_mode`]) || 'percentage';
         fieldObj.mode = modeVal === 'amount' ? 'absolute' : modeVal;
       }
       if (f === 'base_price' || !nonModeKeys.includes(f)) {
-        const taxVal = formData[`target_${f}_tax`];
-        if (taxVal != null && taxVal !== '') {
-          const taxModeVal = formData[`target_${f}_tax_mode`] || 'percentage';
-          if (targetTaxBeatsQuoted({
-            targetTax: taxVal,
-            targetTaxMode: taxModeVal,
-            quoteData: vendorDataForCheck,
-            fieldKey: f,
-          })) {
-            fieldObj.tax = taxVal;
-            fieldObj.tax_mode = taxModeVal === 'amount' ? 'absolute' : taxModeVal;
-          }
+        const taxNote = vt[`${f}_tax`];
+        if (taxNote != null && String(taxNote).trim() !== '') {
+          fieldObj.tax_demand = String(taxNote).trim();
         }
       }
       fields.push(fieldObj);
+    });
+
+    // Tax-only entries: the buyer raised a tax demand/negotiation on a field
+    // without setting any amount target (and no global target exists). These
+    // still make the round valid — emit the field with just the note.
+    const named = new Set(fields.map(f => f.name));
+    Object.keys(vt).forEach(k => {
+      if (!k.endsWith('_tax')) return;
+      const base = k.slice(0, -4);
+      if (named.has(base)) return;
+      if (excludedForVendor.has(base)) return;
+      if (TEXT_ONLY_NEG_FIELDS.has(base) || base === 'delivery_period' || base === 'documents') return;
+      const note = vt[k];
+      if (note == null || String(note).trim() === '') return;
+      fields.push({ name: base, tax_demand: String(note).trim() });
     });
 
     return { vendor_id: vid, fields };
@@ -431,6 +433,55 @@ export const aggregateRfqVendors = (products = []) => {
   });
   const vendors = Array.from(byVendor.values());
   return { vendors, l1: null, l1BasePrice: null };
+};
+
+// Resolve a quote-level global charge (TCS etc.) to a rupee amount against a
+// given base (the vendor's whole-quote line subtotal). Mirrors the math in
+// quoteCompare/BreakupInsightModal: the charge value lives in `.tax` and an
+// optional GST-on-charge in `.additional_tax`.
+const resolveGlobalChargeAmount = (charge, base) => {
+  const val = parseFloat(charge?.tax);
+  if (!Number.isFinite(val) || val <= 0) return 0;
+  const mode = charge.tax_mode || 'percentage';
+  const chargeBase = mode === 'percentage' ? (base * val) / 100 : val;
+  const extra = parseFloat(charge?.additional_tax);
+  const extraAmt = Number.isFinite(extra) && extra > 0
+    ? (charge.additional_tax_mode === 'percentage' ? (chargeBase * extra) / 100 : extra)
+    : 0;
+  return chargeBase + extraAmt;
+};
+
+// Per-vendor full-RFQ grand total (incl. GST and quote-level globals like
+// TCS), matching what the vendor sees on their send-quote summary. Computed
+// as Σ(per-product line totals, incl. line taxes) + global charges resolved
+// ONCE against that sum. Returns `{ [vendorId]: grandTotal }`.
+//
+// Why not sum per-product `engine_grand_total`? A flat global charge (e.g.
+// TCS ₹1,000) is folded into EVERY product's grand, so summing would multiply
+// it. Resolving globals once against the total subtotal counts them correctly
+// for both flat and percentage modes.
+export const computeVendorGrandTotals = (products = []) => {
+  const acc = new Map(); // vendorId -> { lineSum, globalCharges }
+  products.forEach((p) => {
+    const pd = getVendorPriceData(p);
+    pd.vendors.forEach((v) => {
+      if (!v.vendorId || v.isRegret) return;
+      const entry = acc.get(v.vendorId) || { lineSum: 0, globalCharges: null };
+      entry.lineSum += Number(v.totalPrice) || 0;
+      if ((!entry.globalCharges || entry.globalCharges.length === 0) && v.globalCharges?.length) {
+        entry.globalCharges = v.globalCharges;
+      }
+      acc.set(v.vendorId, entry);
+    });
+  });
+  const out = {};
+  acc.forEach((entry, vid) => {
+    const base = entry.lineSum;
+    const globalTotal = (entry.globalCharges || [])
+      .reduce((sum, c) => sum + resolveGlobalChargeAmount(c, base), 0);
+    out[vid] = base + globalTotal;
+  });
+  return out;
 };
 
 // Compute the L1 (lowest) value across vendors for a single negotiation
@@ -488,8 +539,11 @@ export const computeFieldL1 = (fieldKey, productPriceData) => {
 
   if (!best) return null;
 
+  // For percentage L1 also surface the rupee equivalent in brackets — e.g.
+  // `5% (₹250)` — so the badge reads the same as the per-vendor cards.
+  const amtTxt = `₹${Number(best.amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
   const displayText = best.mode === 'percentage'
-    ? `${best.value}%`
+    ? (best.amount > 0 ? `${best.value}% (${amtTxt})` : `${best.value}%`)
     : `₹${best.value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
   return { ...best, displayText };
@@ -521,9 +575,9 @@ export const compareTargetToQuoted = (targetValue, targetMode, quoteData, fieldK
     const fmtPct = `${diffPct.toFixed(2)}%`;
     const fmtQuoted = `₹${quotedValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
     const fmtTarget = `₹${target.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-    if (target > quotedValue) return { result: 'greater', diffAmt: fmtDiff, diffPct: fmtPct, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
-    if (target === quotedValue) return { result: 'equal', diffAmt: '₹0', diffPct: '0%', quotedAmt: fmtQuoted, targetAmt: fmtTarget };
-    return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+    if (target > quotedValue) return { result: 'greater', diffAmt: fmtDiff, diffPct: fmtPct, diffValue: diff, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+    if (target === quotedValue) return { result: 'equal', diffAmt: '₹0', diffPct: '0%', diffValue: 0, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+    return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct, diffValue: diff, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
   }
 
   const charge = (quoteData.otherCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
@@ -548,9 +602,9 @@ export const compareTargetToQuoted = (targetValue, targetMode, quoteData, fieldK
   const fmtQuoted = `₹${quotedAmt.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
   const fmtTarget = `₹${targetAmt.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
-  if (Math.abs(targetAmt - quotedAmt) < 0.01) return { result: 'equal', diffAmt: '₹0', diffPct: '0%', quotedAmt: fmtQuoted, targetAmt: fmtTarget };
-  if (targetAmt > quotedAmt) return { result: 'greater', diffAmt: fmtDiff, diffPct: fmtPct, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
-  return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+  if (Math.abs(targetAmt - quotedAmt) < 0.01) return { result: 'equal', diffAmt: '₹0', diffPct: '0%', diffValue: 0, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+  if (targetAmt > quotedAmt) return { result: 'greater', diffAmt: fmtDiff, diffPct: fmtPct, diffValue: diffAmt, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+  return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct, diffValue: diffAmt, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
 };
 
 // Compare a target TAX against the vendor's quoted tax for the same field.
@@ -665,9 +719,12 @@ export const computeFieldTaxL1 = (fieldKey, productPriceData) => {
   });
 
   if (!best) return null;
+  // Percentage tax L1 also shows its rupee equivalent in brackets, e.g.
+  // `18% (₹45)`.
+  const taxAmtTxt = `₹${Number(best.amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
   const displayText = (best.mode === 'amount' || best.mode === 'absolute')
     ? `₹${best.value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
-    : `${best.value}%`;
+    : (best.amount > 0 ? `${best.value}% (${taxAmtTxt})` : `${best.value}%`);
   return { ...best, displayText };
 };
 

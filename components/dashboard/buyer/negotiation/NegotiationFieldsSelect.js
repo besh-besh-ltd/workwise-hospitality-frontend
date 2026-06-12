@@ -206,71 +206,33 @@ const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData,
                     )}
                   </div>
                   {showTaxInput && (field.hasMode || field.value === 'base_price') && (() => {
-                    // Second input row for the field's target tax (GST). Only
-                    // for fields that have a %/₹ mode — base_price and
-                    // delivery_period don't carry a per-charge tax.
-                    const taxKey = `target_${field.value}_tax`;
-                    const taxModeKey = `target_${field.value}_tax_mode`;
-                    const taxValue = formData[taxKey] || '';
-                    const taxMode = formData[taxModeKey] || 'percentage';
+                    // Tax is no longer a numeric target at the global level —
+                    // buyers raise tax demands per vendor via the card's
+                    // Demand/Negotiate flow. Here we only anchor with the
+                    // lowest quoted tax (L1).
                     const taxL1 = l1TaxMap && l1TaxMap[field.value];
+                    if (!taxL1) return null;
                     return (
-                      <>
-                        <label className={styles.negFieldInputLabel} style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <span>
-                            Target Tax (GST)
-                            <span className={styles.modeLabelHint}>
-                              ({taxMode === 'percentage' ? '%' : '₹'})
-                            </span>
-                          </span>
-                          {taxL1 && (
-                            <span
-                              title={`Lowest tax from ${taxL1.vendorName || 'vendor'}`}
-                              style={{
-                                fontSize: 10.5,
-                                fontWeight: 600,
-                                letterSpacing: '0.04em',
-                                textTransform: 'uppercase',
-                                color: '#15803d',
-                                background: '#dcfce7',
-                                border: '1px solid #bbf7d0',
-                                padding: '1px 6px',
-                                borderRadius: 4,
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              L1: {taxL1.displayText}
-                            </span>
-                          )}
-                        </label>
-                        <div className={styles.negFieldInputRow}>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={taxValue}
-                            onChange={(e) => handleInputChange(taxKey, e.target.value)}
-                            placeholder="Target tax"
-                            className={styles.negFieldInput}
-                          />
-                          <div className={styles.modeToggle}>
-                            <button
-                              type="button"
-                              className={`${styles.modeToggleBtn} ${taxMode === 'percentage' ? styles.modeToggleBtnActive : ''}`}
-                              onClick={() => handleModeToggle(taxModeKey, taxMode)}
-                            >
-                              %
-                            </button>
-                            <button
-                              type="button"
-                              className={`${styles.modeToggleBtn} ${taxMode === 'amount' ? styles.modeToggleBtnActive : ''}`}
-                              onClick={() => handleModeToggle(taxModeKey, taxMode)}
-                            >
-                              ₹
-                            </button>
-                          </div>
-                        </div>
-                      </>
+                      <label className={styles.negFieldInputLabel} style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <span>Tax (GST)</span>
+                        <span
+                          title={`Lowest tax from ${taxL1.vendorName || 'vendor'}`}
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: 600,
+                            letterSpacing: '0.04em',
+                            textTransform: 'uppercase',
+                            color: '#15803d',
+                            background: '#dcfce7',
+                            border: '1px solid #bbf7d0',
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          L1: {taxL1.displayText}
+                        </span>
+                      </label>
                     );
                   })()}
                 </div>

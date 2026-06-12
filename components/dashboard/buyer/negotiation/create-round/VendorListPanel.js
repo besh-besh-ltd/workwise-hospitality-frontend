@@ -478,6 +478,14 @@ const VendorListPanel = ({
                         ? `₹${vendor.total.toLocaleString('en-IN')}`
                         : '—';
 
+                      // In RFQ mode the displayed line subtotal excludes the
+                      // quote-level globals being negotiated, so projecting an
+                      // RFQ change on top of it is misleading. Show the plain
+                      // line subtotal as a neutral reference, no old→new delta.
+                      if (mode === 'rfq') {
+                        return <span className={styles.total}>{quoted}</span>;
+                      }
+
                       if (!projection || projection.isUnchanged) {
                         return <span className={styles.total}>{quoted}</span>;
                       }

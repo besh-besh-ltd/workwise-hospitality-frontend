@@ -224,6 +224,22 @@ const StepVendorsAndTargets = ({
   const getVendorTextFieldValue = useCallback((vendorId, fieldKey) => {
     const vendorData = productPriceData.vendors.find(v => v.vendorId === vendorId);
     if (!vendorData) return '--';
+    // Tax demand/negotiate sub-modal: surface the vendor's quoted tax on the
+    // underlying field as the "current value".
+    if (fieldKey.endsWith('_tax')) {
+      const base = fieldKey.slice(0, -4);
+      if (base === 'base_price') {
+        const t = parseFloat(vendorData.tax);
+        return Number.isFinite(t) && t > 0
+          ? ((vendorData.taxMode === 'amount' || vendorData.taxMode === 'absolute') ? `₹${t}` : `${t}%`)
+          : 'No tax was given';
+      }
+      const c = (vendorData.otherCharges || []).find(x => (x.slug || x.name) === base || x.name === base);
+      const t = parseFloat(c?.tax);
+      return Number.isFinite(t) && t > 0
+        ? ((c.tax_mode === 'amount' || c.tax_mode === 'absolute') ? `₹${t}` : `${t}%`)
+        : 'No tax was given';
+    }
     switch (fieldKey) {
       case 'payment_terms':
         if (!vendorData.paymentTerms) return '--';

@@ -130,24 +130,34 @@ export const buildPreviewItem = ({
       // charge entirely (round won't apply it to this vendor).
       if (excluded.has(slug)) return;
 
+      // A per-vendor override wins over the global value for this vendor.
+      const lVal = vt[slug];
+      const hasOverride = lVal != null && lVal !== '';
       const { value: gVal, mode: gMode } = globalTargetFor(slug, formData);
-      if (gVal != null && targetBeatsQuoted(slug, gVal, gMode, vendorQuoteData)) {
-        amount = parseFloat(gVal);
-        amount_mode = gMode;
-        used = 'global';
+      const effVal = hasOverride ? lVal : gVal;
+      const effMode = hasOverride ? (vt[`${slug}_mode`] || gMode || 'percentage') : gMode;
+      if (effVal != null && targetBeatsQuoted(slug, effVal, effMode, vendorQuoteData)) {
+        amount = parseFloat(effVal);
+        amount_mode = effMode;
+        used = hasOverride ? 'local' : 'global';
       }
       // Target tax overrides vendor's quoted tax when present AND when it
-      // strictly beats the quoted tax (same rule as the amount).
+      // strictly beats the quoted tax (same rule as the amount). Per-vendor
+      // tax override wins over the global tax.
+      const lTax = vt[`${slug}_tax`];
+      const hasTaxOverride = lTax != null && lTax !== '';
       const { value: gTaxVal, mode: gTaxMode } = globalTargetTaxFor(slug, formData);
-      if (gTaxVal != null && targetTaxBeatsQuoted({
-        targetTax: gTaxVal,
-        targetTaxMode: gTaxMode,
+      const effTaxVal = hasTaxOverride ? lTax : gTaxVal;
+      const effTaxMode = hasTaxOverride ? (vt[`${slug}_tax_mode`] || 'percentage') : gTaxMode;
+      if (effTaxVal != null && targetTaxBeatsQuoted({
+        targetTax: effTaxVal,
+        targetTaxMode: effTaxMode,
         quoteData: vendorQuoteData,
         fieldKey: slug,
       })) {
-        tax = parseFloat(gTaxVal);
-        tax_mode = gTaxMode;
-        used = 'global';
+        tax = parseFloat(effTaxVal);
+        tax_mode = effTaxMode;
+        used = hasTaxOverride ? 'local' : 'global';
       }
     } else if (localFields.has(slug)) {
       const lVal = vt[slug];

@@ -190,6 +190,36 @@ $accent-green: #16a34a;
   font-weight: 600;
 }
 
+// "Demand" / "Negotiate" / "Edit" pill next to the quoted tax — opens the
+// free-text tax sub-modal for this vendor + field.
+.taxActionBtn {
+  border: 1px solid $divider-strong;
+  background: $surface;
+  color: $primary-soft;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: rgba(46, 91, 168, 0.06);
+    border-color: $primary-soft;
+  }
+}
+
+// The buyer's tax note, rendered under the tax row once set.
+.taxNoteText {
+  font-size: 12px;
+  font-style: italic;
+  color: $accent-green;
+  margin: 4px 0 0;
+  word-break: break-word;
+}
+
 .inputRow {
   display: flex;
   align-items: stretch;

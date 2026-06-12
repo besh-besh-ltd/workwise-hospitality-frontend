@@ -2,7 +2,7 @@ import React from 'react';
 import { Check, Pencil, AlertTriangle, TrendingDown } from 'lucide-react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { getChargeTargetKey } from '../NegotiationFieldsSelect';
-import { compareTargetToQuoted, compareTaxToQuoted, quotedAmountFor } from './negotiationHelpers';
+import { compareTargetToQuoted } from './negotiationHelpers';
 import styles from './VendorChargeCard.module.scss';
 
 // Field keys that take free-text targets (open in a sub-modal).
@@ -70,7 +70,9 @@ const formatQuotedTax = (charge, basePrice = 0, vendorQuoteData = null) => {
   return taxRupees > 0 ? `Tax ${tax}% (${fmtAmount(taxRupees)})` : `Tax ${tax}%`;
 };
 
-const formatTarget = (rawValue, mode, fieldKey) => {
+// `basePrice` lets us append the rupee equivalent of a percentage target in
+// brackets — `8% (₹160)` — mirroring the quoted side so both read alike.
+const formatTarget = (rawValue, mode, fieldKey, basePrice = 0) => {
   if (rawValue == null || rawValue === '') return null;
   if (TEXT_FIELDS.has(fieldKey)) {
     if (fieldKey === 'documents') {
@@ -84,7 +86,10 @@ const formatTarget = (rawValue, mode, fieldKey) => {
     return String(rawValue);
   }
   if (AMOUNT_ONLY.has(fieldKey)) return `₹${rawValue}`;
-  return mode === 'amount' ? `₹${rawValue}` : `${rawValue}%`;
+  if (mode === 'amount') return `₹${rawValue}`;
+  const pctText = `${rawValue}%`;
+  const amount = basePrice > 0 ? (Number(rawValue) / 100) * basePrice : 0;
+  return amount > 0 ? `${pctText} (${fmtAmount(amount)})` : pctText;
 };
 
 // One card per charge on a vendor's quotation. Card has:
@@ -119,14 +124,13 @@ const VendorChargeCard = ({
   const excludedFields = vt._excludedFields || [];
   const localTarget = vt[fieldKey];
   const localMode = vt[`${fieldKey}_mode`];
-  const localTax = vt[`${fieldKey}_tax`];
-  const localTaxMode = vt[`${fieldKey}_tax_mode`];
+  // Buyer's free-text tax demand/negotiation note for this field+vendor —
+  // set via the Demand/Negotiate sub-modal, no numeric tax targets anymore.
+  const taxNote = vt[`${fieldKey}_tax`];
 
   const globalKey = getChargeTargetKey(fieldKey);
   const globalTarget = formData?.[globalKey];
   const globalMode = formData?.[`target_${fieldKey}_mode`];
-  const globalTax = formData?.[`target_${fieldKey}_tax`];
-  const globalTaxMode = formData?.[`target_${fieldKey}_tax_mode`];
 
   // A field can be EITHER global (same target per vendor — vendor opts in/out
   // via the card check) OR per-vendor (target lives on the card).
@@ -142,25 +146,20 @@ const VendorChargeCard = ({
   const isLocallyActive = !isGloballyClaimed &&
     (localFields.includes(fieldKey) || (localTarget != null && localTarget !== ''));
 
-  // Effective target shown on the card: global value when claimed (only if
-  // this vendor is included), per-vendor value when locally active, else
-  // nothing.
+  // A per-vendor override can now win even for globally-claimed fields: if
+  // the buyer types a value on this card it takes precedence over the global
+  // target for this vendor; left blank, the global applies as before.
+  const hasLocalOverride = localTarget != null && localTarget !== '';
+
+  // Effective target shown on the card: per-vendor override first, then the
+  // global value (claimed + included), then nothing.
   const effectiveTargetRaw = isGloballyClaimed
-    ? (isIncludedForVendor ? (globalTarget || '') : '')
+    ? (isIncludedForVendor ? (hasLocalOverride ? localTarget : (globalTarget || '')) : '')
     : (isLocallyActive ? localTarget : (globalTarget || ''));
   const effectiveMode = isGloballyClaimed
-    ? (globalMode || 'percentage')
+    ? (isIncludedForVendor && hasLocalOverride ? (localMode || globalMode || 'percentage') : (globalMode || 'percentage'))
     : (isLocallyActive ? (localMode || globalMode || 'percentage') : (globalMode || 'percentage'));
-  const targetText = supportsTarget ? formatTarget(effectiveTargetRaw, effectiveMode, fieldKey) : null;
-
-  // Effective target tax (parallel to effective target amount). Used both for
-  // the inline annotation and as the default for the second input field.
-  const effectiveTargetTaxRaw = isGloballyClaimed
-    ? (isIncludedForVendor ? (globalTax || '') : '')
-    : (isLocallyActive ? (localTax || '') : (globalTax || ''));
-  const effectiveTaxMode = isGloballyClaimed
-    ? (globalTaxMode || 'percentage')
-    : (isLocallyActive ? (localTaxMode || globalTaxMode || 'percentage') : (globalTaxMode || 'percentage'));
+  const targetText = supportsTarget ? formatTarget(effectiveTargetRaw, effectiveMode, fieldKey, basePrice) : null;
 
   // Per-card validity: target must be strictly *better* than the vendor's
   // quoted value (i.e. lower price / lower charges / shorter days). The diff
@@ -170,34 +169,7 @@ const VendorChargeCard = ({
   const comparison = supportsTarget
     ? compareTargetToQuoted(effectiveTargetRaw, effectiveMode, vendorQuoteData, fieldKey)
     : null;
-  // Same rule for tax: target must be strictly lower than vendor's quoted tax.
-  // Skip comparison when there's no quoted tax to beat (demand fields, etc.).
-  const taxComparison = (supportsTarget && effectiveTargetTaxRaw !== '' && effectiveTargetTaxRaw != null)
-    ? (() => {
-        const quotedTax = fieldKey === 'base_price'
-          ? parseFloat(vendorQuoteData?.tax)
-          : (() => {
-              const c = (vendorQuoteData?.otherCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
-              return c ? parseFloat(c.tax) : NaN;
-            })();
-        const quotedTaxMode = fieldKey === 'base_price'
-          ? (vendorQuoteData?.taxMode || 'percentage')
-          : (() => {
-              const c = (vendorQuoteData?.otherCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
-              return c?.tax_mode || 'percentage';
-            })();
-        if (!Number.isFinite(quotedTax) || quotedTax <= 0) return null;
-        return compareTaxToQuoted({
-          targetTax: effectiveTargetTaxRaw,
-          targetTaxMode: effectiveTaxMode,
-          quotedTax,
-          quotedTaxMode,
-          quotedAmount: quotedAmountFor(fieldKey, vendorQuoteData),
-        });
-      })()
-    : null;
-  const isInvalidTax = taxComparison && (taxComparison.result === 'greater' || taxComparison.result === 'equal');
-  const isInvalidTarget = (comparison && (comparison.result === 'greater' || comparison.result === 'equal')) || isInvalidTax;
+  const isInvalidTarget = comparison && (comparison.result === 'greater' || comparison.result === 'equal');
   const tooltipText = comparison
     ? (comparison.result === 'greater'
         ? `Target is ${comparison.diffAmt} (${comparison.diffPct}) higher than the quoted ${comparison.quotedAmt} — vendor can’t negotiate this field.`
@@ -220,6 +192,13 @@ const VendorChargeCard = ({
   const isTextField = TEXT_FIELDS.has(fieldKey);
   const isAmountOnly = AMOUNT_ONLY.has(fieldKey);
   const hasMode = supportsTarget && !isTextField && !isAmountOnly;
+
+  // Show the per-vendor override input when the field is locally active OR
+  // when it's a globally-claimed field included for this vendor (the buyer can
+  // override the global target for this specific vendor). Base Price stays
+  // global-only.
+  const showOverrideInput = supportsTarget && !isBasePrice &&
+    (isLocallyActive || (isGloballyClaimed && isIncludedForVendor));
 
   const handleToggleSelected = (e) => {
     e.stopPropagation();
@@ -319,38 +298,35 @@ const VendorChargeCard = ({
       </div>
 
       {(() => {
+        // Tax is negotiated via free text per vendor: "Demand" when the
+        // vendor gave no tax, "Negotiate" when they did, "Edit" once the
+        // buyer has written a note. Text/info fields carry no tax.
+        if (isTextField || charge.kind === 'info' || !supportsTarget) return null;
+        if (isGloballyClaimed && !isIncludedForVendor) return null;
         const quotedTaxText = formatQuotedTax(charge, basePrice, vendorQuoteData);
-        const targetTaxText = effectiveTargetTaxRaw !== '' && effectiveTargetTaxRaw != null
-          ? (effectiveTaxMode === 'amount' || effectiveTaxMode === 'absolute'
-              ? `Tax ₹${effectiveTargetTaxRaw}`
-              : `Tax ${effectiveTargetTaxRaw}%`)
-          : null;
-        if (!quotedTaxText && !targetTaxText) return null;
         return (
-          <div className={styles.taxRow}>
-            <span className={styles.quotedTax}>{quotedTaxText || '—'}</span>
-            {targetTaxText && (
-              <>
-                <span className={styles.arrow} aria-hidden="true">→</span>
-                <span className={`${styles.targetTax} ${isInvalidTax ? styles.targetInvalid : ''}`}>
-                  {targetTaxText}
-                </span>
-              </>
-            )}
-          </div>
+          <>
+            <div className={styles.taxRow}>
+              <span className={styles.quotedTax}>
+                {quotedTaxText || 'No tax was given'}
+              </span>
+              <button
+                type="button"
+                className={styles.taxActionBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onOpenTextFieldModal) {
+                    onOpenTextFieldModal(vendorId, `${fieldKey}_tax`, `${charge.label} — Tax`);
+                  }
+                }}
+              >
+                {taxNote ? 'Edit' : (quotedTaxText ? 'Negotiate' : 'Demand')}
+              </button>
+            </div>
+            {taxNote ? <p className={styles.taxNoteText}>“{taxNote}”</p> : null}
+          </>
         );
       })()}
-
-      {taxComparison && taxComparison.result === 'greater' && (
-        <p className={styles.invalidLine}>
-          Target tax is {taxComparison.diffAmt} ({taxComparison.diffPct}) higher than the quoted tax {taxComparison.quotedAmt} — tax won’t be sent.
-        </p>
-      )}
-      {taxComparison && taxComparison.result === 'equal' && (
-        <p className={styles.invalidLine}>
-          Target tax matches the quoted tax ({taxComparison.quotedAmt}) — no improvement, tax won’t be sent.
-        </p>
-      )}
 
       {comparison && comparison.result === 'greater' && (
         <p className={styles.invalidLine}>
@@ -363,7 +339,7 @@ const VendorChargeCard = ({
         </p>
       )}
 
-      {isLocallyActive && supportsTarget && !isBasePrice && (
+      {showOverrideInput && (
         isTextField ? (
           <button
             type="button"
@@ -371,7 +347,7 @@ const VendorChargeCard = ({
             onClick={handleOpenSubModal}
           >
             <Pencil size={12} strokeWidth={2} />
-            {targetText ? 'Edit target' : 'Set target'}
+            {hasLocalOverride ? 'Edit target' : (isGloballyClaimed ? 'Override for this vendor' : 'Set target')}
           </button>
         ) : (
           <>
@@ -382,7 +358,7 @@ const VendorChargeCard = ({
                 min="0"
                 value={localTarget ?? ''}
                 onChange={(e) => handleInputChange(e.target.value)}
-                placeholder={isAmountOnly ? 'Target (₹)' : 'Target amount'}
+                placeholder={isGloballyClaimed ? 'Override for this vendor (optional)' : (isAmountOnly ? 'Target (₹)' : 'Target amount')}
                 className={styles.input}
                 onClick={(e) => e.stopPropagation()}
               />
@@ -405,42 +381,6 @@ const VendorChargeCard = ({
                 </div>
               )}
             </div>
-            {hasMode && (
-              <div className={styles.inputRow}>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={localTax ?? ''}
-                  onChange={(e) => onVendorTargetChange && onVendorTargetChange(vendorId, `${fieldKey}_tax`, e.target.value)}
-                  placeholder="Target tax (GST)"
-                  className={styles.input}
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <div className={styles.modeToggle} onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    className={`${styles.modeBtn} ${(localTaxMode || globalTaxMode || 'percentage') === 'percentage' ? styles.modeBtnActive : ''}`}
-                    onClick={() => {
-                      const next = (localTaxMode || globalTaxMode || 'percentage') === 'percentage' ? 'amount' : 'percentage';
-                      if (onVendorTargetChange) onVendorTargetChange(vendorId, `${fieldKey}_tax_mode`, next);
-                    }}
-                  >
-                    %
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.modeBtn} ${(localTaxMode || globalTaxMode || 'percentage') === 'amount' ? styles.modeBtnActive : ''}`}
-                    onClick={() => {
-                      const next = (localTaxMode || globalTaxMode || 'percentage') === 'percentage' ? 'amount' : 'percentage';
-                      if (onVendorTargetChange) onVendorTargetChange(vendorId, `${fieldKey}_tax_mode`, next);
-                    }}
-                  >
-                    ₹
-                  </button>
-                </div>
-              </div>
-            )}
           </>
         )
       )}

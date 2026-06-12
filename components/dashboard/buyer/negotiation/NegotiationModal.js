@@ -109,6 +109,9 @@ const NegotiationModal = ({
   departmentId,
   preloadedApprovalBundle = null,
   preSelectedProductId = null,
+  // Scopes history mode to one product (per-product "Negotiation History"
+  // on quote-compare). Null = RFQ-wide history (legacy behavior).
+  selectedProduct = null,
 }) => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [formData, setFormData] = useState({
@@ -244,10 +247,12 @@ const NegotiationModal = ({
       return;
     }
 
-    // Fallback: fetch from API
+    // Fallback: fetch from API. When the modal is scoped to one product
+    // (per-product history on quote-compare), fetch only that product's
+    // rounds — the backend also matches multi-product rounds covering it.
     try {
       setLoading(true);
-      const response = await getNegotiationRounds(rfq_id);
+      const response = await getNegotiationRounds(rfq_id, selectedProduct?.id || null);
 
       let rounds = [];
       if (response) {
@@ -1058,9 +1063,14 @@ const NegotiationModal = ({
     const allRounds = mode === 'history' ? roundsHistory : [...activeRounds, ...roundsHistory];
 
     // Deduplicate rounds by ID
-    const uniqueRounds = allRounds.filter((round, index, self) =>
+    let uniqueRounds = allRounds.filter((round, index, self) =>
       index === self.findIndex(r => r.id === round.id)
     );
+
+    // Product-scoped history: count only rounds covering the selected product.
+    if (mode === 'history' && selectedProduct?.id != null) {
+      uniqueRounds = uniqueRounds.filter(r => roundCoversProduct(r, selectedProduct.id));
+    }
 
     const counts = {
       active: 0,
@@ -1721,21 +1731,42 @@ const NegotiationModal = ({
     return `${mins}m remaining`;
   };
 
+  // Does a round cover the given product? Multi-product rounds list covered
+  // products in `products[]` (rfq_product_id is NULL on the row).
+  const roundCoversProduct = (round, productId) => {
+    if (round?.rfq_product_id != null && String(round.rfq_product_id) === String(productId)) return true;
+    if (Array.isArray(round?.products)) {
+      return round.products.some(p => p?.rfq_product_id != null && String(p.rfq_product_id) === String(productId));
+    }
+    return false;
+  };
+
   const renderHistory = () => {
     // Merge activeRounds (which have enriched approval data) with roundsHistory
     const allRounds = [...activeRounds, ...roundsHistory];
-    const uniqueRounds = allRounds.filter((round, index, self) =>
+    let uniqueRounds = allRounds.filter((round, index, self) =>
       index === self.findIndex(r => r.id === round.id)
     );
 
-    // Group by product
+    // Product-scoped history: only rounds covering the selected product.
+    if (selectedProduct?.id != null) {
+      uniqueRounds = uniqueRounds.filter(r => roundCoversProduct(r, selectedProduct.id));
+    }
+
+    // Group by product. When scoped to one product, everything groups under
+    // that product (multi rounds have a NULL rfq_product_id and would
+    // otherwise split into their own bucket).
     const grouped = {};
     uniqueRounds.forEach(round => {
-      const productId = round.rfq_product_id;
+      const productId = selectedProduct?.id != null ? selectedProduct.id : round.rfq_product_id;
       if (!grouped[productId]) {
         const product = products.find(p => String(p.id) === String(productId));
         grouped[productId] = {
-          productName: round.product_name || (product ? getProductName(product) : `Product ${productId}`),
+          productName: selectedProduct?.id != null
+            ? getProductName(selectedProduct)
+            : ((Array.isArray(round.product_names) && round.product_names.length > 1)
+                ? round.product_names.map(p => p?.product_name).filter(Boolean).join(', ')
+                : (round.product_name || (product ? getProductName(product) : `Product ${productId}`))),
           productDetails: product ? getProductDetails(product) : null,
           rounds: []
         };
@@ -2039,7 +2070,9 @@ const NegotiationModal = ({
                 <p className={styles.vaSectionTitle}>Pending Approval</p>
                 {pendingRounds.map((round) => {
                   const product = products.find(p => String(p.id) === String(round.rfq_product_id));
-                  const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
+                  const productName = (Array.isArray(round.product_names) && round.product_names.length > 1)
+                    ? round.product_names.map(p => p?.product_name).filter(Boolean).join(', ')
+                    : (round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`));
                   const approvals = round.approvals || [];
                   const approvalInstance = approvalInstances[round.id];
                   const canApprove = approvalInstance
@@ -2284,7 +2317,9 @@ const NegotiationModal = ({
                 <p className={styles.vaSectionTitle}>Active Rounds</p>
                 {activeRoundsList.map((round) => {
                   const product = products.find(p => String(p.id) === String(round.rfq_product_id));
-                  const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
+                  const productName = (Array.isArray(round.product_names) && round.product_names.length > 1)
+                    ? round.product_names.map(p => p?.product_name).filter(Boolean).join(', ')
+                    : (round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`));
                   return (
                     <div key={round.id} className={styles.vaCard}>
                       <div className={styles.vaCardHead}>

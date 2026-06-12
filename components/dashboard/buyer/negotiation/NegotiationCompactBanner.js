@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useRouter } from 'next/router';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { Plus, History, ShieldCheck } from 'lucide-react';
+import { Plus, ShieldCheck } from 'lucide-react';
 import { getAllActiveNegotiationRounds, getNegotiationRounds } from '@/services/negotiation';
 import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
 import NegotiationModal from './NegotiationModal';
@@ -163,12 +163,6 @@ const NegotiationCompactBanner = ({
   const handleCreateClick = () => {
     if (!rfq_id) return;
     router.push(`/dashboard/buyer/negotiation/${rfq_id}/create`);
-  };
-
-  const handleHistoryClick = () => {
-    setModalMode('history');
-    loadRoundsHistory();
-    setShowModal(true);
   };
 
   const handleViewApproveClick = () => {
@@ -398,14 +392,8 @@ const NegotiationCompactBanner = ({
               Create Round
             </button>
           )}
-          <button
-            type="button"
-            onClick={handleHistoryClick}
-            className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
-          >
-            <History size={14} strokeWidth={2} />
-            View History
-          </button>
+          {/* "View History" moved to the per-product header on quote-compare —
+              negotiation history is browsed per product now. */}
           {pendingApprovalsCount > 0 && (
             <button
               type="button"

@@ -8,7 +8,6 @@ import {
   buildVendorTargetsPayload,
   toUtcEndDate,
   aggregateRfqVendors,
-  getProductRoundStatus,
 } from './negotiationHelpers';
 
 // Owns all wizard state for the Create Negotiation Round page. Returns a
@@ -196,8 +195,15 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
       });
       const vendorsWithoutTarget = selectedVendorIds.filter(vid => {
         const vt = vendorTargets[vid] || {};
+        // Any per-vendor value counts: amount targets AND free-text tax
+        // demand notes (`<field>_tax`). A round with only tax demands is
+        // valid. Bookkeeping keys (_localFields/_excludedFields/_mode)
+        // don't count.
         const hasOwnTarget = Object.keys(vt).some(k =>
-          k !== '_localFields' && !k.endsWith('_mode') && vt[k]
+          k !== '_localFields'
+          && k !== '_excludedFields'
+          && !k.endsWith('_mode')
+          && vt[k] != null && String(vt[k]).trim() !== ''
         );
         return !hasOwnTarget && !hasAnyGlobalTarget;
       });
@@ -222,7 +228,24 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     return errors;
   }, [formData.end_date]);
 
-  const canSubmit = step2Errors.length === 0 && step3Errors.length === 0;
+  // Is there an in-progress current round (a product picked, or RFQ mode)?
+  // When false but the queue is non-empty, the wizard is in "queue-only"
+  // state — the buyer cancelled the current selection but can still submit
+  // the rounds they already queued.
+  const hasCurrentRound = mode === 'rfq' || !!selectedProductId;
+
+  const canSubmit = !!formData.end_date && (
+    hasCurrentRound
+      ? step2Errors.length === 0
+      : queuedRounds.length > 0
+  );
+
+  // UTC end date — applied uniformly to every round (queued + current) at
+  // submit time. Null when the buyer hasn't picked a date yet.
+  const endDateUtc = useMemo(
+    () => (formData.end_date ? toUtcEndDate(formData.end_date) : null),
+    [formData.end_date]
+  );
 
   const goNext = useCallback(() => {
     if (step === 1 && canGoToStep2) setStep(2);
@@ -277,16 +300,23 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     setShowTargetWarning(false);
   }, []);
 
-  // Pick the first eligible product on the RFQ to carry the RFQ-level round
-  // (backend requires `rfq_product_id` on every row). Eligible = has quotes
-  // and isn't already in an approved / pending / active round. Falls back to
-  // the first product if none are eligible — the submit handler will surface
-  // a clearer error in that case.
-  const pickCarrierProductId = useCallback((quoteApprovalStatuses = {}) => {
-    if (products.length === 0) return null;
-    const eligible = products.find(p => !getProductRoundStatus(p, quoteApprovalStatuses).isDisabled);
-    return parseInt((eligible || products[0]).id);
-  }, [products]);
+  // Discard the in-progress current round (not yet queued) and jump straight
+  // to the Review step. Used when the buyer backs out of adding another
+  // product but still has queued rounds to submit. Same reset as
+  // resetForAnotherProduct but lands on Step 3 instead of Step 1.
+  const cancelCurrentRound = useCallback(() => {
+    setModeState('product');
+    setSelectedProductId(null);
+    setSelectedVendorIds([]);
+    setVendorTargets({});
+    setFormData(prev => ({
+      end_date: prev.end_date || '',
+      negotiation_fields: [],
+    }));
+    setEndDateError(false);
+    setShowTargetWarning(false);
+    setStep(3);
+  }, []);
 
   // Build the current Step-3-ready payload. Returns `null` if the wizard
   // doesn't have enough to queue (no vendors / no targets / no product in
@@ -308,11 +338,10 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     const endDate = formData.end_date ? toUtcEndDate(formData.end_date) : null;
 
     if (mode === 'rfq') {
-      const carrier = pickCarrierProductId(opts.quoteApprovalStatuses || {});
-      if (carrier == null) return null;
+      // RFQ-level entries carry no product id — the backend stores them as an
+      // `is_rfq_level` entry inside the single round's products array.
       return {
         payload: {
-          rfq_product_id: carrier,
           end_date: endDate,
           vendor_targets,
           is_rfq_level: true,
@@ -340,7 +369,7 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
         fieldCount: vendor_targets.reduce((acc, v) => Math.max(acc, v.fields.length), 0),
       },
     };
-  }, [mode, selectedProduct, selectedVendorIds, vendorTargets, effectiveFields, formData, productPriceData, pickCarrierProductId]);
+  }, [mode, selectedProduct, selectedVendorIds, vendorTargets, effectiveFields, formData, productPriceData]);
 
   const addCurrentToQueue = useCallback((opts = {}) => {
     const built = buildCurrentRoundPayload(opts);
@@ -352,15 +381,46 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
         mode: built.mode,
         productName: built.productName,
         summary: built.summary,
+        // Live wizard-state snapshot so the entry can be restored for editing
+        // (the payload above is the flattened submit shape — lossy to reverse).
+        // Stripped before POST by the submit loop's explicit field mapping.
+        _snapshot: {
+          mode,
+          selectedProductId,
+          selectedVendorIds,
+          vendorTargets,
+          formData: { ...formData },
+        },
       },
     ]);
     resetForAnotherProduct();
     return true;
-  }, [buildCurrentRoundPayload, resetForAnotherProduct]);
+  }, [buildCurrentRoundPayload, resetForAnotherProduct, mode, selectedProductId, selectedVendorIds, vendorTargets, formData]);
 
   const removeFromQueue = useCallback((idx) => {
     setQueuedRounds(prev => prev.filter((_, i) => i !== idx));
   }, []);
+
+  // Pop a queued round back into the wizard for editing: restore its snapshot
+  // as the current round, drop it from the queue, land on Step 2. The shared
+  // end date keeps whatever the buyer typed most recently.
+  const editQueuedRound = useCallback((idx) => {
+    const entry = queuedRounds[idx];
+    if (!entry?._snapshot) return false;
+    const snap = entry._snapshot;
+    setModeState(snap.mode || 'product');
+    setSelectedProductId(snap.selectedProductId ?? null);
+    setSelectedVendorIds(snap.selectedVendorIds || []);
+    setVendorTargets(snap.vendorTargets || {});
+    setFormData(prev => ({
+      ...snap.formData,
+      end_date: prev.end_date || snap.formData?.end_date || '',
+    }));
+    setEndDateError(false);
+    setQueuedRounds(prev => prev.filter((_, i) => i !== idx));
+    setStep(2);
+    return true;
+  }, [queuedRounds]);
 
   // After a sequential submit fails mid-way, shrink the queue to remove any
   // entries that were already committed to the backend.
@@ -407,11 +467,14 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     canGoToStep3,
     canAddToQueue,
     canSubmit,
+    hasCurrentRound,
+    endDateUtc,
     queuedRounds,
     queuedProductIds,
     hasQueuedRfqRound,
     // mutators
     setMode,
+    cancelCurrentRound,
     handleSelectProduct,
     toggleVendor,
     selectAllVendors,
@@ -431,6 +494,7 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     buildCurrentRoundPayload,
     addCurrentToQueue,
     removeFromQueue,
+    editQueuedRound,
     dropQueuePrefix,
     clearQueue,
     resetForAnotherProduct,

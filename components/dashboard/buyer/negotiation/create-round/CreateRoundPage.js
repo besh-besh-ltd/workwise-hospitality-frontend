@@ -37,6 +37,9 @@ const CreateRoundPage = () => {
   const [submitProgress, setSubmitProgress] = useState(null);
   const submitting = submitProgress != null;
   const [queueExpanded, setQueueExpanded] = useState(false);
+  // Cancel confirmation modal — opened only when there are queued rounds to
+  // protect, offering "cancel whole" vs "cancel this selection, keep queue".
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
 
   const wizard = useCreateRoundState({
     products,
@@ -137,13 +140,7 @@ const CreateRoundPage = () => {
   // an RFQ-level round (only one allowed per submission).
   const canQueueMore = otherEligibleCount > 0 || (!wizard.hasQueuedRfqRound && wizard.mode !== 'rfq');
 
-  const handleCancel = () => {
-    if (wizard.queuedRounds.length > 0) {
-      const ok = window.confirm(
-        `You have ${wizard.queuedRounds.length} round(s) queued. They will be discarded if you leave. Continue?`
-      );
-      if (!ok) return;
-    }
+  const exitWizard = () => {
     if (rfqId) {
       router.push(`/dashboard/buyer/quote-compare?rfq=${rfqId}&tab=product`);
     } else {
@@ -151,11 +148,44 @@ const CreateRoundPage = () => {
     }
   };
 
+  const handleCancel = () => {
+    // With queued rounds, offer a choice: drop everything, or just drop the
+    // current in-progress selection and continue with what's queued.
+    if (wizard.queuedRounds.length > 0) {
+      setCancelModalOpen(true);
+      return;
+    }
+    exitWizard();
+  };
+
+  // Modal option 1 — discard everything and leave the wizard.
+  const handleCancelWhole = () => {
+    setCancelModalOpen(false);
+    wizard.clearQueue();
+    exitWizard();
+  };
+
+  // Modal option 2 — discard the current selection (if any) and return to
+  // the Review step with the queued rounds intact. Works from any step:
+  // cancelCurrentRound resets the in-progress state and lands on Step 3.
+  const handleContinueWithQueued = () => {
+    setCancelModalOpen(false);
+    wizard.cancelCurrentRound();
+    setQueueExpanded(false);
+    toast.info('Continuing with your queued rounds.');
+  };
+
   const handleAddMoreProduct = () => {
-    const hasCurrent = wizard.mode === 'rfq' || wizard.selectedProduct;
+    // Queue-only review (current selection was cancelled) — nothing to queue,
+    // just go pick another product/RFQ.
+    if (!wizard.hasCurrentRound) {
+      wizard.goToStep(1);
+      setQueueExpanded(false);
+      return;
+    }
     // Queueing only needs Step 2 valid (vendors + targets). End date is
     // collected once and applied at submit time.
-    if (!wizard.canAddToQueue || !hasCurrent) {
+    if (!wizard.canAddToQueue) {
       toast.error('Pick vendors and set at least one target before adding the round.');
       return;
     }
@@ -168,57 +198,82 @@ const CreateRoundPage = () => {
     toast.success('Round added to queue');
   };
 
-  const handleSendForApproval = async () => {
-    const hasCurrent = wizard.mode === 'rfq' || wizard.selectedProduct;
-    if (!wizard.canSubmit || !hasCurrent) {
-      if (!wizard.formData.end_date) wizard.setEndDateError(true);
-      toast.error('Please complete the current round before submitting.');
-      return;
-    }
-    const built = wizard.buildCurrentRoundPayload({ quoteApprovalStatuses });
-    if (!built) {
-      toast.error('No vendor targets to submit. Please set at least one target.');
-      return;
-    }
-    // Apply the same end_date (current Step 3 input) to every round —
-    // queued entries may have been added before the date was set.
-    const sharedEndDate = built.payload.end_date;
-    const all = [
-      ...wizard.queuedRounds.map(r => ({
-        rfq_product_id: r.rfq_product_id,
-        end_date: sharedEndDate,
-        vendor_targets: r.vendor_targets,
-        ...(r.is_rfq_level ? { is_rfq_level: true } : {}),
-      })),
-      built.payload,
-    ];
-
-    let committed = 0;
-    for (let i = 0; i < all.length; i++) {
-      setSubmitProgress({ index: i + 1, total: all.length });
-      try {
-        await createNegotiationRound({ rfq_id: rfqId, ...all[i] });
-        committed++;
-      } catch (error) {
-        console.error('Create round error:', error);
-        // Anything submitted before this point is already on the server —
-        // shrink the local queue so a retry doesn't double-submit.
-        const submittedFromQueue = Math.min(committed, wizard.queuedRounds.length);
-        wizard.dropQueuePrefix(submittedFromQueue);
-        toast.error(
-          `Submitted ${committed} of ${all.length}. Round ${i + 1} failed: ${error?.message || 'unknown error'}`
-        );
-        setSubmitProgress(null);
+  // Pull a queued round back into the wizard for editing. If another round is
+  // currently in progress, park it in the queue first (when valid) so no work
+  // is lost; if it isn't valid yet, ask the buyer to finish or discard it.
+  const handleEditQueuedRound = (idx) => {
+    if (wizard.hasCurrentRound) {
+      if (!wizard.canAddToQueue) {
+        toast.error('Finish or cancel your current selection before editing a queued round.');
         return;
       }
+      const queued = wizard.addCurrentToQueue({ quoteApprovalStatuses });
+      if (!queued) {
+        toast.error('Could not park the current round — check its targets.');
+        return;
+      }
+    }
+    const ok = wizard.editQueuedRound(idx);
+    if (!ok) toast.error('This round can’t be edited — remove and re-add it instead.');
+  };
+
+  const handleSendForApproval = async () => {
+    if (!wizard.canSubmit) {
+      if (!wizard.formData.end_date) wizard.setEndDateError(true);
+      toast.error('Please complete the round before submitting.');
+      return;
+    }
+
+    // Build the current round's payload only when there's a current selection.
+    // In "queue-only" state (the buyer cancelled their current selection but
+    // kept the queue) we submit exactly what's queued.
+    let currentPayload = null;
+    if (wizard.hasCurrentRound) {
+      const built = wizard.buildCurrentRoundPayload({ quoteApprovalStatuses });
+      if (!built) {
+        toast.error('No vendor targets to submit. Please set at least one target.');
+        return;
+      }
+      currentPayload = built.payload;
+    } else if (wizard.queuedRounds.length === 0) {
+      toast.error('Nothing to submit.');
+      return;
+    }
+
+    // ONE round for the whole submission: every queued entry plus the current
+    // selection becomes a products[] entry on a single POST. One approval,
+    // one email, the vendor updates all covered products at once.
+    const toEntry = (r) => (r.mode === 'rfq' || r.is_rfq_level
+      ? { is_rfq_level: true, vendor_targets: r.vendor_targets }
+      : { rfq_product_id: r.rfq_product_id, vendor_targets: r.vendor_targets });
+    const products = [
+      ...wizard.queuedRounds.map(toEntry),
+      ...(currentPayload ? [toEntry(currentPayload)] : []),
+    ];
+
+    const sharedEndDate = currentPayload?.end_date || wizard.endDateUtc;
+
+    setSubmitProgress({ index: 1, total: 1 });
+    try {
+      await createNegotiationRound({
+        rfq_id: rfqId,
+        end_date: sharedEndDate,
+        products,
+      });
+    } catch (error) {
+      console.error('Create round error:', error);
+      // Single transaction — nothing was committed, queue stays intact.
+      toast.error(`Failed to create the negotiation round: ${error?.message || 'unknown error'}`);
+      setSubmitProgress(null);
+      return;
     }
 
     setSubmitProgress(null);
     wizard.clearQueue();
     toast.success(
-      all.length === 1
+      products.length === 1
         ? 'Negotiation round created successfully'
-        : `All ${all.length} negotiation rounds created`
+        : `Negotiation round created covering ${products.length} item(s)`
     );
     router.push(`/dashboard/buyer/quote-compare?rfq=${rfqId}&tab=product`);
   };
@@ -236,25 +291,29 @@ const CreateRoundPage = () => {
     return false;
   }, [wizard.step, wizard.canGoToStep2, wizard.canGoToStep3, wizard.canSubmit, submitting]);
 
-  const totalRoundsForSubmit = wizard.queuedRounds.length + 1;
+  const totalRoundsForSubmit = wizard.queuedRounds.length + (wizard.hasCurrentRound ? 1 : 0);
   const primaryLabel = wizard.step === 3
     ? (submitting
-        ? `Sending ${submitProgress.index} of ${submitProgress.total}…`
-        : `Send for approval${wizard.queuedRounds.length > 0 ? ` (${totalRoundsForSubmit})` : ''}`)
+        ? 'Sending…'
+        : `Send for approval${totalRoundsForSubmit > 1 ? ` (${totalRoundsForSubmit})` : ''}`)
     : 'Next';
 
   // +Add More gating. RFQ mode adds a second axis: the RFQ-level slot is
   // single-use, so once it's queued there's no "another RFQ" to add — only
   // remaining products count. Queueing only needs Step 2 valid (end date is
   // applied later at submit time).
-  const addMoreDisabled = submitting || !wizard.canAddToQueue || !canQueueMore;
+  // In queue-only review there's no current round to complete, so the
+  // canAddToQueue gate only applies when a current round exists.
+  const addMoreDisabled = submitting
+    || !canQueueMore
+    || (wizard.hasCurrentRound && !wizard.canAddToQueue);
   const addMoreTooltip = !canQueueMore
     ? (wizard.hasQueuedRfqRound && otherEligibleCount < 1
         ? 'RFQ-level round queued and no other eligible products to add.'
         : 'No other eligible rounds left to add to this submission.')
-    : (!wizard.canAddToQueue
+    : (wizard.hasCurrentRound && !wizard.canAddToQueue
         ? 'Pick vendors and set at least one target before adding this round.'
-        : 'Add this round to the queue and pick another round.');
+        : 'Add another round to this submission.');
 
   if (loading) {
     return (
@@ -350,14 +409,17 @@ const CreateRoundPage = () => {
           {STEPS.map((s, i) => {
             const isActive = wizard.step === s.idx;
             const isDone = wizard.step > s.idx;
-            const clickable = isDone; // only past steps can be revisited; forward gated by validation
+            // Step 2 has no content without a current round (queue-only state),
+            // so it isn't a valid revisit target then.
+            const isDeadStep = s.idx === 2 && !wizard.hasCurrentRound;
+            const clickable = isDone && !isDeadStep;
             return (
               <React.Fragment key={s.idx}>
                 <div
                   role="listitem"
                   className={`${styles.stepperItem} ${clickable ? styles.stepperItemClickable : ''}`}
                   onClick={() => {
-                    if (s.idx < wizard.step) wizard.goToStep(s.idx);
+                    if (s.idx < wizard.step && clickable) wizard.goToStep(s.idx);
                   }}
                 >
                   <span
@@ -411,7 +473,7 @@ const CreateRoundPage = () => {
           />
         )}
 
-        {wizard.step === 3 && (wizard.selectedProduct || wizard.mode === 'rfq') && (
+        {wizard.step === 3 && (wizard.selectedProduct || wizard.mode === 'rfq' || wizard.queuedRounds.length > 0) && (
           <StepReview
             product={wizard.selectedProduct}
             productPriceData={wizard.productPriceData}
@@ -427,6 +489,7 @@ const CreateRoundPage = () => {
             onEditProduct={() => wizard.goToStep(1)}
             onEditVendors={() => wizard.goToStep(2)}
             onRemoveQueuedRound={wizard.removeFromQueue}
+            onEditQueuedRound={handleEditQueuedRound}
             chargeNamesList={chargeNamesList}
             mode={wizard.mode}
           />
@@ -453,7 +516,12 @@ const CreateRoundPage = () => {
               <button
                 type="button"
                 className={styles.btnSecondary}
-                onClick={wizard.goBack}
+                onClick={() => {
+                  // Queue-only review has no current round, so Step 2 is empty —
+                  // Back jumps to the product picker instead.
+                  if (wizard.step === 3 && !wizard.hasCurrentRound) wizard.goToStep(1);
+                  else wizard.goBack();
+                }}
                 disabled={submitting}
               >
                 Back
@@ -497,6 +565,54 @@ const CreateRoundPage = () => {
           </div>
         </div>
       </footer>
+
+      {cancelModalOpen && (
+        <div
+          className={styles.cancelModalOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-negotiation-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCancelModalOpen(false);
+          }}
+        >
+          <div className={styles.cancelModal}>
+            <button
+              type="button"
+              className={styles.cancelModalClose}
+              onClick={() => setCancelModalOpen(false)}
+              aria-label="Close"
+            >
+              <X size={16} strokeWidth={2.5} />
+            </button>
+            <h3 id="cancel-negotiation-title" className={styles.cancelModalTitle}>
+              Cancel negotiation?
+            </h3>
+            <p className={styles.cancelModalBody}>
+              You have <strong>{wizard.queuedRounds.length}</strong> round
+              {wizard.queuedRounds.length === 1 ? '' : 's'} queued. You can keep
+              {wizard.queuedRounds.length === 1 ? ' it' : ' them'} and review, or
+              discard everything.
+            </p>
+            <div className={styles.cancelModalActions}>
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                onClick={handleContinueWithQueued}
+              >
+                Continue with queued products
+              </button>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={handleCancelWhole}
+              >
+                Cancel the whole negotiation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
