@@ -206,7 +206,7 @@ export default function CallOffContext() {
             <Icon.Plus />
             Raise an MR
           </Link>
-          <Link href={`/dashboard/buyer/rate-contracts/${contractId}/active`} className="btn btn-ghost">
+          <Link href={`/dashboard/buyer/rate-contracts/${contractId}?stage=active`} className="btn btn-ghost">
             <Icon.Back />
             Back to active contract
           </Link>

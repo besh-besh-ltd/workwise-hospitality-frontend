@@ -181,6 +181,12 @@ a { color: inherit; text-decoration: none; }
 .btn-blue:hover:not(:disabled)     { background:#1d4ed8; }
 .btn-success  { background:var(--success); }
 .btn-success:hover:not(:disabled)  { background:#166534; }
+/* body.dashboard-route's generic .btn-success (#22c55e !important in
+   _dashboard.scss) washes out the ARC approve CTAs — pin them back to the
+   design-system green with higher specificity, matching .btn-warn's weight. */
+body.dashboard-route .main-body .btn-success { background:var(--success) !important; border-color:var(--success) !important; color:#ffffff !important; }
+body.dashboard-route .main-body .btn-success:hover:not(:disabled) { background:#166534 !important; border-color:#166534 !important; }
+body.dashboard-route .main-body .btn-success:disabled { opacity:0.5; }
 .btn-warn     { background:var(--warn); }
 .btn-warn:hover:not(:disabled)     { background:#9a4708; }
 .btn-danger   { background:var(--danger); }
@@ -586,6 +592,129 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 .scope-card.selected .sc-pick::after { content:''; width:10px; height:10px; border-radius:50%; background:var(--primary); }
 
 /* ═══════════════════════════════════════════════════════════
+   ARC LIFECYCLE STAGE RAIL (single authoritative page)
+   One slim connected row: [node · title+status] —— [node …].
+   Node kinds: done · skipped · current · partial · act (your
+   decision) · wait (with others) · live (calm green) · locked ·
+   ended. Connectors: done (solid green) · flow (animated into
+   the working stage) · todo (dashed).
+   ═══════════════════════════════════════════════════════════ */
+.stage-rail-wrap { position:relative; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:10px 14px 13px; overflow:hidden; }
+
+/* orientation row — always tells the user where they stand */
+.rail-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 4px 8px; }
+.rail-head .rh-eyebrow { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.09em; color:var(--fg-4); }
+.rail-head .rh-pos { font-size:11px; color:var(--fg-3); white-space:nowrap; }
+.rail-head .rh-pos .em { font-weight:650; color:var(--primary); }
+.rail-head .rh-pos .em.act { color:var(--warn); }
+.rail-head .rh-pos .em.ok { color:var(--success); }
+
+.stage-rail { display:flex; align-items:center; overflow-x:auto; }
+.stage-rail .stg { position:relative; display:flex; align-items:center; gap:9px; flex:0 0 auto; padding:7px 12px; border:none; background:transparent; cursor:pointer; font-family:inherit; text-align:left; border-radius:9px; transition:background 0.13s ease, box-shadow 0.13s ease; }
+.stage-rail .stg:not(.is-locked):not(.is-selected):hover { background:var(--surface-2); }
+.stage-rail .stg.is-locked { cursor:not-allowed; }
+
+/* journey progress — a thin track along the bottom of the card */
+.rail-progress { position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--surface-3); }
+.rail-progress span { display:block; height:100%; background:linear-gradient(90deg, rgba(5,118,66,0.55), var(--success)); border-radius:0 99px 99px 0; transition:width 0.6s ease; }
+
+/* connectors fill the space between steps — quiet threads with direction */
+.rail-seg { position:relative; flex:1 1 18px; min-width:14px; height:2px; border-radius:99px; margin:0 2px; }
+.rail-seg.rail-done { background:rgba(5,118,66,0.40); }
+.rail-seg.rail-todo { background:repeating-linear-gradient(90deg, var(--border-strong) 0 4px, transparent 4px 9px); }
+.rail-seg.rail-flow { background:linear-gradient(90deg, rgba(5,118,66,0.40) 0%, rgba(5,118,66,0.40) 35%, rgba(37,99,235,0.45) 65%, rgba(5,118,66,0.40) 100%); background-size:200% 100%; animation:rail-flow 2.4s linear infinite; }
+.rail-seg.rail-flow::after { content:''; position:absolute; right:-1px; top:50%; transform:translateY(-50%); border-left:5px solid rgba(37,99,235,0.50); border-top:3.5px solid transparent; border-bottom:3.5px solid transparent; }
+@keyframes rail-flow { from { background-position:200% 0; } to { background-position:0% 0; } }
+.stage-rail-wrap.is-settled .rail-seg.rail-flow { background:rgba(5,118,66,0.40); animation:none; }
+.stage-rail-wrap.is-settled .rail-seg.rail-flow::after { border-left-color:rgba(5,118,66,0.45); }
+
+/* ── nodes (22px) — soft tints, same language as .status-pill ── */
+.stg .stg-node { position:relative; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; flex-shrink:0; background:var(--surface); border:1px solid var(--border-strong); color:var(--fg-3); }
+.stg.n-done .stg-node { background:var(--success-soft); border-color:rgba(5,118,66,0.35); color:var(--success); }
+.stg.n-skipped .stg-node { background:var(--surface-3); border-color:var(--border); color:var(--fg-4); }
+.stg.n-locked .stg-node { background:var(--surface-2); border-style:dashed; border-color:var(--border-strong); color:var(--fg-4); }
+.stg.n-ended .stg-node { background:var(--surface-3); border-color:var(--border-strong); color:var(--fg-2); }
+.stg.n-current .stg-node { background:var(--primary-tint); border-color:rgba(37,99,235,0.35); color:var(--primary); animation:node-pulse-blue 2.4s ease-in-out infinite; }
+.stg.n-wait .stg-node { background:var(--primary-tint); border-color:rgba(37,99,235,0.35); color:var(--primary); }
+.stg.n-act .stg-node { background:var(--warn-soft); border-color:rgba(180,83,9,0.35); color:var(--warn); animation:node-pulse-amber 1.8s ease-in-out infinite; }
+.stg.n-live .stg-node { background:var(--success-soft); border-color:rgba(5,118,66,0.30); color:var(--success); animation:node-glow-green 3.2s ease-in-out infinite; }
+
+/* partial = real progress ring (set --frac inline), soft amber arc */
+.stg.n-partial .stg-node { border:none; background:conic-gradient(rgba(180,83,9,0.55) var(--frac, 50%), var(--border) var(--frac, 50%)); color:var(--warn); }
+.stg.n-partial .stg-node::before { content:''; position:absolute; inset:2px; border-radius:50%; background:var(--warn-soft); }
+.stg .stg-node-ic { position:relative; display:grid; place-items:center; }
+
+@keyframes node-pulse-blue {
+  0%, 100% { box-shadow:0 0 0 0 rgba(37,99,235,0.18); }
+  50%      { box-shadow:0 0 0 4px rgba(37,99,235,0.04); }
+}
+@keyframes node-pulse-amber {
+  0%, 100% { box-shadow:0 0 0 0 rgba(180,83,9,0.20); }
+  50%      { box-shadow:0 0 0 4px rgba(180,83,9,0.05); }
+}
+@keyframes node-glow-green {
+  0%, 100% { box-shadow:0 0 0 0 rgba(5,118,66,0.14); }
+  50%      { box-shadow:0 0 0 3px rgba(5,118,66,0.04); }
+}
+.stage-rail-wrap.is-settled .stg .stg-node { animation:none; }
+
+/* "you are here" — the in-motion stage carries a touch more weight even
+   when another tab is open */
+.stage-rail .stg.is-here .stg-node { box-shadow:0 0 0 3px var(--surface), 0 0 0 4.5px rgba(37,99,235,0.22); }
+.stage-rail .stg.is-here.n-act .stg-node { box-shadow:0 0 0 3px var(--surface), 0 0 0 4.5px rgba(180,83,9,0.26); }
+.stage-rail .stg.is-here.n-live .stg-node { box-shadow:0 0 0 3px var(--surface), 0 0 0 4.5px rgba(5,118,66,0.22); }
+
+/* ── two tight text lines: title + status ── */
+.stg .stg-txt { display:flex; flex-direction:column; gap:1.5px; min-width:0; }
+.stg .stg-title { font-size:12.5px; font-weight:600; color:var(--fg); white-space:nowrap; letter-spacing:-0.01em; line-height:1.25; }
+.stg.is-locked .stg-title, .stg.n-skipped .stg-title { color:var(--fg-4); font-weight:500; }
+.stg .stg-status { font-size:10.5px; font-weight:500; line-height:1.3; white-space:nowrap; }
+.stg-status.t-ok      { color:var(--success); }
+.stg-status.t-warn    { color:var(--warn); }
+.stg-status.t-info    { color:var(--primary); }
+.stg-status.t-danger  { color:var(--danger); }
+.stg-status.t-neutral { color:var(--fg-3); }
+.stg-status.t-dim     { color:var(--fg-4); }
+.stg-status.t-slate   { color:var(--fg-3); }
+/* urgency: "your decision" — soft amber chip, gently breathing */
+.stg-status.t-act { align-self:flex-start; padding:0.5px 7px; border-radius:99px; background:var(--warn-soft); color:var(--warn); border:1px solid rgba(180,83,9,0.22); font-size:9.5px; font-weight:600; animation:pill-breathe 1.8s ease-in-out infinite; }
+@keyframes pill-breathe {
+  0%, 100% { box-shadow:0 0 0 0 rgba(180,83,9,0.16); }
+  50%      { box-shadow:0 0 0 4px rgba(180,83,9,0.03); }
+}
+
+/* selected = the OPEN tab — a crisp lifted card whose accent (ring, title,
+   background wash) follows the STAGE's own tone:
+     blue = in motion · green = fully done / live · amber = partial or your
+     decision · grey = skipped / ended */
+.stage-rail .stg.is-selected { background:rgba(37,99,235,0.045); box-shadow:0 1px 2px rgba(15,23,42,0.06), inset 0 0 0 1px rgba(37,99,235,0.28); }
+.stage-rail .stg.is-selected .stg-title { color:var(--primary); }
+
+.stage-rail .stg.n-done.is-selected,
+.stage-rail .stg.n-live.is-selected { background:rgba(5,118,66,0.045); box-shadow:0 1px 2px rgba(15,23,42,0.06), inset 0 0 0 1px rgba(5,118,66,0.30); }
+.stage-rail .stg.n-done.is-selected .stg-title,
+.stage-rail .stg.n-live.is-selected .stg-title { color:var(--success); }
+
+.stage-rail .stg.n-partial.is-selected { background:rgba(180,83,9,0.045); box-shadow:0 1px 2px rgba(15,23,42,0.06), inset 0 0 0 1px rgba(180,83,9,0.30); }
+.stage-rail .stg.n-partial.is-selected .stg-title { color:var(--warn); }
+
+.stage-rail .stg.n-skipped.is-selected,
+.stage-rail .stg.n-ended.is-selected { background:var(--surface-2); box-shadow:0 1px 2px rgba(15,23,42,0.06), inset 0 0 0 1px var(--border-strong); }
+.stage-rail .stg.n-skipped.is-selected .stg-title,
+.stage-rail .stg.n-ended.is-selected .stg-title { color:var(--fg-2); }
+
+/* a stage waiting on YOUR decision is amber through and through — title,
+   ring and selection accent included, never bluish */
+.stage-rail .stg.n-act .stg-title { color:var(--warn); }
+.stage-rail .stg.n-act.is-selected { background:rgba(180,83,9,0.045); box-shadow:0 1px 2px rgba(15,23,42,0.06), inset 0 0 0 1px rgba(180,83,9,0.32); }
+.stage-rail .stg.n-act.is-selected .stg-title { color:var(--warn); }
+.stage-rail .stg.n-act:not(.is-locked):not(.is-selected):hover { background:var(--warn-soft); }
+
+@media (max-width:1100px) {
+  .stg .stg-status { max-width:120px; overflow:hidden; text-overflow:ellipsis; }
+}
+
+/* ═══════════════════════════════════════════════════════════
    COMMITTEE REVIEW (buyer) — ported from buyer-committee.html
    ═══════════════════════════════════════════════════════════ */
 .ccm-grid { display:grid; grid-template-columns:1fr 360px; gap:18px; align-items:flex-start; }
@@ -902,11 +1031,15 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 
 /* price cell */
 .matrix tbody td.cell { border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:0; vertical-align:top; position:relative; }
+/* awarded paint lives on the TD so the green always fills the full cell
+   height regardless of how tall siblings in the row are */
+.matrix tbody td.cell.cell-awarded { background:var(--success-soft); box-shadow:inset 0 0 0 2px var(--success); }
+.matrix tbody td.cell.cell-l1 { background:var(--success-tint); }
 .matrix tbody td.cell:last-child { border-right:none; }
 .price-cell { padding:14px 18px; cursor:pointer; transition:background 0.15s ease; min-height:78px; position:relative; display:flex; flex-direction:column; gap:3px; }
 .price-cell:hover { background:var(--surface-2); }
-.price-cell.is-l1 { background:var(--success-tint); }
-.price-cell.is-l1:hover { background:#eaf7ef; }
+.price-cell.is-l1 { background:transparent; }
+.price-cell.is-l1:hover { background:rgba(5,118,66,0.05); }
 .price-cell .p-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .price-cell .price { font-family:'Geist Mono',monospace; font-size:15px; font-weight:700; color:var(--fg); letter-spacing:-0.015em; }
 .price-cell.is-l1 .price { color:var(--success); }
@@ -923,8 +1056,8 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 .cell-select-btn { margin-top:8px; width:100%; padding:6px; font-size:11.5px; font-weight:600; border:1px solid var(--info); color:var(--info); background:white; border-radius:6px; cursor:pointer; font-family:inherit; opacity:0; transition:opacity 0.15s ease; display:flex; align-items:center; justify-content:center; gap:5px; }
 .price-cell:hover .cell-select-btn { opacity:1; }
 .cell-select-btn:hover { background:var(--info-soft); }
-.price-cell.is-awarded { background:var(--success-soft); box-shadow:inset 0 0 0 2px var(--success); }
-.price-cell.is-awarded.is-l1 { background:#dcf2e3; }
+.price-cell.is-awarded { background:transparent; box-shadow:none; }
+.price-cell.is-awarded:hover { background:rgba(5,118,66,0.05); }
 .cell-pill-awarded { margin-top:8px; width:100%; padding:6px; font-size:11.5px; font-weight:600; border-radius:6px; background:var(--success); color:white; display:flex; align-items:center; justify-content:center; gap:5px; border:none; }
 
 /* total row */
@@ -943,6 +1076,28 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 .bd-cell { padding:9px 14px; font-size:12.5px; color:var(--fg-2); border-right:1px solid var(--border); vertical-align:middle; }
 .bd-cell:last-child { border-right:none; }
 .bd-cell.is-l1col { background:var(--success-tint); }
+
+/* awarded pill — the trailing ✕ hints "click to remove; rest re-divide" */
+.cell-pill-awarded .pill-x { display:inline-grid; place-items:center; margin-left:6px; opacity:0.55; }
+.cell-pill-awarded:hover .pill-x { opacity:1; }
+
+/* awarded cell actions: pill + the per-vendor share override (split items) */
+.awarded-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; width:100%; }
+.share-adjust { margin:0 auto; border:none; background:transparent; color:var(--success); font-size:10.5px; font-weight:600; font-family:inherit; padding:2px 9px; border-radius:99px; cursor:pointer; transition:all 0.13s ease; }
+.share-adjust:hover:not(:disabled) { background:var(--success-soft); }
+.share-adjust:disabled { opacity:0.5; cursor:default; }
+
+/* share editor — the awarded pill itself, with the % editable in place */
+.share-edit { margin-top:8px; width:100%; padding:3px 4px; border-radius:6px; background:var(--success); border:none; display:flex; align-items:center; justify-content:center; gap:4px; }
+.share-edit input { width:44px; border:none; outline:none; background:transparent; font-size:12.5px; font-weight:700; font-family:'Geist Mono',monospace; text-align:right; color:white; caret-color:white; }
+.share-edit input::-webkit-outer-spin-button, .share-edit input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+.share-edit input[type=number] { -moz-appearance:textfield; appearance:textfield; }
+.share-edit .suffix { font-size:11px; color:rgba(255,255,255,0.75); font-weight:600; padding-right:3px; }
+.share-edit .se-ok, .share-edit .se-cancel { display:grid; place-items:center; width:22px; height:22px; border-radius:5px; border:none; cursor:pointer; transition:all 0.13s ease; }
+.share-edit .se-ok { background:white; color:var(--success); }
+.share-edit .se-ok:hover:not(:disabled) { background:var(--success-soft); }
+.share-edit .se-cancel { background:transparent; color:rgba(255,255,255,0.70); }
+.share-edit .se-cancel:hover { background:rgba(255,255,255,0.16); color:white; }
 .bd-cell .mono { font-family:'Geist Mono',monospace; font-weight:600; color:var(--fg); }
 .bd-cell .bd-unit { color:var(--fg-4); font-weight:400; font-size:11.5px; }
 .bd-cell .bd-warn { color:var(--warn); font-weight:600; }

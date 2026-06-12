@@ -501,7 +501,7 @@ export default function MrDetailPage() {
                   <div className="as-right">
                     {arcMatches[0]?.contractId && (
                       <Link
-                        href={`/dashboard/buyer/rate-contracts/${arcMatches[0].contractId}/active`}
+                        href={`/dashboard/buyer/rate-contracts/${arcMatches[0].contractId}?stage=active`}
                         className="vote-pill-mr approved"
                         style={{ textDecoration: "none" }}
                       >
@@ -534,7 +534,7 @@ export default function MrDetailPage() {
                   <span key={m.contractId}>
                     {" "}
                     <Link
-                      href={`/dashboard/buyer/rate-contracts/${m.contractId}/active`}
+                      href={`/dashboard/buyer/rate-contracts/${m.contractId}?stage=active`}
                       className="mono fw-700"
                       style={{ color: "var(--success)" }}
                     >
@@ -595,7 +595,7 @@ export default function MrDetailPage() {
                       <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>
                         ARC{" "}
                         <Link
-                          href={`/dashboard/buyer/rate-contracts/${m.contractId}/active`}
+                          href={`/dashboard/buyer/rate-contracts/${m.contractId}?stage=active`}
                           className="mono fw-600"
                         >
                           {m.arcNumber || ("#" + m.arcId)}

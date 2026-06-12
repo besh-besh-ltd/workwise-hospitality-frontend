@@ -15,13 +15,13 @@ import styles from "./ContractDetail.module.scss";
 function NextAction({ arc }) {
   const cards = [];
   if (arc.status === "draft")             cards.push({ to: `?step=2`, label: "Continue editing draft" });
-  if (arc.status === "submission_closed") cards.push({ to: `./${arc.id}/tech-eval`, label: "Start tech evaluation" });
-  if (arc.status === "tech_eval_approved") cards.push({ to: `./${arc.id}/comm-eval`, label: "Start commercial evaluation" });
+  if (arc.status === "submission_closed") cards.push({ to: `/dashboard/buyer/rate-contracts/${arc.id}?stage=technical`, label: "Start tech evaluation" });
+  if (arc.status === "tech_eval_approved") cards.push({ to: `/dashboard/buyer/rate-contracts/${arc.id}?stage=commercial`, label: "Start commercial evaluation" });
   if (arc.status === "comm_eval_finalized" || arc.status === "committee_review") {
-    cards.push({ to: `./${arc.id}/committee`, label: "Open committee dashboard" });
+    cards.push({ to: `/dashboard/buyer/rate-contracts/${arc.id}?stage=awarding`, label: "Open committee dashboard" });
   }
   if (arc.status === "contract_active" || arc.status === "expiring_soon") {
-    cards.push({ to: `./${arc.id}/active`, label: "Active contract dashboard" });
+    cards.push({ to: `/dashboard/buyer/rate-contracts/${arc.id}?stage=active`, label: "Active contract dashboard" });
   }
   if (cards.length === 0) return null;
   return (

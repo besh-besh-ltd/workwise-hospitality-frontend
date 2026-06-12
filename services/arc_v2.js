@@ -42,6 +42,9 @@ export const listEligibleVendors = ({ category_id, hotel_id } = {}) =>
   axiosInstance.get(`${BASE}/eligible-vendors`, { params: { category_id, hotel_id } });
 
 export const getContractDetail = (id) => axiosInstance.get(`${BASE}/${id}`);
+// Lifecycle spine for the single authoritative ARC page — computed stage
+// states + the caller's per-ARC permissions.
+export const getLifecycle      = (id) => axiosInstance.get(`${BASE}/${id}/lifecycle`);
 export const getActiveSummary  = (id) => axiosInstance.get(`${BASE}/${id}/active-summary`);
 
 export const createDraft = (payload) => axiosInstance.post(`${BASE}`, payload);
@@ -65,6 +68,13 @@ export const recordVendorResponse = (payload) =>
 
 export const scoreResponse = (payload) =>
   axiosInstance.post(`${BASE}/evaluation/tech-eval/score`, payload);
+
+// Tech-eval approval — chain view + approve/reject/amend (approver-only;
+// amend = { marks: [{ response_id, buyer_marks, buyer_remark }] }).
+export const getTechEvalApproval = (arcId) =>
+  axiosInstance.get(`${BASE}/evaluation/${arcId}/tech-eval/approval`);
+export const techEvalDecide = (arcId, body) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/tech-eval/decide`, body);
 
 export const submitTechEval = (arcId) =>
   axiosInstance.post(`${BASE}/evaluation/${arcId}/tech-eval/submit`, {});

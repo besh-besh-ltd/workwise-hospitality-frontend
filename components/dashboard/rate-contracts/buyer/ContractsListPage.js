@@ -91,17 +91,19 @@ const PRESET_SUB = {
   ended:    "Expired, terminated, or closed without award.",
 };
 
-// Route resolver — the prototype's cf() helper.
+// Route resolver — everything (except drafts) lands on the single lifecycle
+// page; ?stage= hints jump straight to the stage matching the row's status,
+// and the page itself falls back to its server-computed default stage.
 function detailHref(row, bucket) {
   if (bucket === "draft")     return `/dashboard/buyer/rate-contracts/create?c=${row.id}`;
   if (bucket === "floated")   return `/dashboard/buyer/rate-contracts/${row.id}`;
   if (bucket === "eval") {
     if (row.status && row.status.startsWith("comm_eval"))
-      return `/dashboard/buyer/rate-contracts/${row.id}/comm-eval`;
-    return `/dashboard/buyer/rate-contracts/${row.id}/tech-eval`;
+      return `/dashboard/buyer/rate-contracts/${row.id}?stage=commercial`;
+    return `/dashboard/buyer/rate-contracts/${row.id}?stage=technical`;
   }
-  if (bucket === "committee") return `/dashboard/buyer/rate-contracts/${row.id}/committee`;
-  return `/dashboard/buyer/rate-contracts/${row.id}/active`;
+  if (bucket === "committee") return `/dashboard/buyer/rate-contracts/${row.id}?stage=awarding`;
+  return `/dashboard/buyer/rate-contracts/${row.id}?stage=active`;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -564,7 +566,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                 ? Math.round((Number(row.submitted_count || 0) / Number(row.invited_count)) * 100)
                 : 0;
               const href = Number(row.requested_amendments) > 0 && (bucket === "active" || bucket === "expiring")
-                ? `/dashboard/buyer/rate-contracts/${row.id}/active?tab=amendments`
+                ? `/dashboard/buyer/rate-contracts/${row.id}?stage=active&tab=amendments`
                 : detailHref(row, bucket);
               return (
                 <Link key={row.id} href={href} className={cardClass(row)}>

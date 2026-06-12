@@ -135,11 +135,11 @@ function detailHref(row, bucket) {
   if (bucket === "floated")   return `/dashboard/buyer/rate-contracts/${row.id}`;
   if (bucket === "eval") {
     if (row.status && row.status.startsWith("comm_eval"))
-      return `/dashboard/buyer/rate-contracts/${row.id}/comm-eval`;
-    return `/dashboard/buyer/rate-contracts/${row.id}/tech-eval`;
+      return `/dashboard/buyer/rate-contracts/${row.id}?stage=commercial`;
+    return `/dashboard/buyer/rate-contracts/${row.id}?stage=technical`;
   }
-  if (bucket === "committee") return `/dashboard/buyer/rate-contracts/${row.id}/committee`;
-  return `/dashboard/buyer/rate-contracts/${row.id}/active`;
+  if (bucket === "committee") return `/dashboard/buyer/rate-contracts/${row.id}?stage=awarding`;
+  return `/dashboard/buyer/rate-contracts/${row.id}?stage=active`;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
