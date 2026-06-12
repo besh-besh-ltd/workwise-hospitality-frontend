@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import ReadMore from "@/components/shared/ReadMore";
 import LPRModal from "@/components/shared/LPRModal";
 import ProductComparisonMatrix from "@/components/dashboard/buyer/quoteCompare/tables/ProductComparisonMatrix";
 import QuoteVisibilityLockPanel from "@/components/dashboard/buyer/quoteCompare/QuoteVisibilityLockPanel";
+import NegotiationModal from "@/components/dashboard/buyer/negotiation/NegotiationModal";
+import { getNegotiationRounds } from "@/services/negotiation";
 import {
   addCommasToNumber,
   formatPrice,
@@ -74,6 +76,33 @@ const ProductComparisonTab = ({
   const contextRFQ = currentRFQ || comparisonContext?.currentRFQ;
   const negotiationMap = productNegotiationData || comparisonContext?.maps?.productNegotiationData || {};
   const visibility = quoteVisibility || comparisonContext?.quoteVisibility || null;
+
+  // Per-product negotiation history modal ("View History" moved here from the
+  // Negotiation Desk banner). One shared modal; rounds fetched per product.
+  const [historyProduct, setHistoryProduct] = useState(null);
+  const [historyRounds, setHistoryRounds] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const openNegotiationHistory = async (item) => {
+    setHistoryProduct(item);
+    setHistoryRounds([]);
+    setHistoryLoading(true);
+    try {
+      // Backend matches multi-product rounds covering this product too.
+      const res = await getNegotiationRounds(currentRfqId, item.id);
+      setHistoryRounds(res?.data || []);
+    } catch (err) {
+      console.error("Failed to load negotiation history:", err);
+      setHistoryRounds([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const closeNegotiationHistory = () => {
+    setHistoryProduct(null);
+    setHistoryRounds([]);
+  };
 
   if (quotesLoading) {
     return null; // Handled by the parent's informative loader
@@ -171,7 +200,17 @@ const ProductComparisonTab = ({
                   </p>
                 ) : null}
               </div>
-              <div>
+              <div className="d-flex gap-2 flex-wrap justify-content-end">
+                {!visibility?.locked && (
+                  <button
+                    id="view_negotiation_history-quote_actions-quote_compare_page"
+                    className={styles.actionBtnDark}
+                    onClick={() => openNegotiationHistory(item)}
+                    disabled={historyLoading && historyProduct?.id === item.id}
+                  >
+                    {historyLoading && historyProduct?.id === item.id ? 'Loading…' : 'Negotiation History'}
+                  </button>
+                )}
                 {!visibility?.locked && (
                   <button
                     id="view_lpr_button-quote_actions-quote_compare_page"
@@ -327,6 +366,29 @@ const ProductComparisonTab = ({
           </div>
         );
       })}
+
+      {/* Per-product negotiation history modal (relocated from the
+          Negotiation Desk banner) — scoped to one product's rounds. */}
+      {historyProduct && (
+        <NegotiationModal
+          show={!!historyProduct}
+          handleShow={() => {}}
+          onHide={closeNegotiationHistory}
+          mode="history"
+          rfq_id={currentRfqId}
+          products={quotes}
+          activeRounds={[]}
+          roundsHistory={historyRounds}
+          selectedProduct={historyProduct}
+          onProductSelect={() => {}}
+          onRefresh={() => openNegotiationHistory(historyProduct)}
+          canWrite={canWriteQuoteCompare}
+          permissionsLoading={quoteComparePermissionsLoading}
+          hospitalityCompanyId={contextRFQ?.hospitality_company_id}
+          hotelId={contextRFQ?.hotel_id}
+          departmentId={contextRFQ?.department_id}
+        />
+      )}
     </>
   );
 };

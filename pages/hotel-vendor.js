@@ -21,13 +21,9 @@ import { setUserProfile } from '@/redux/slice';
 
 const HotelVendor = () => {
   const router = useRouter();
-  const { register, login, redirect: redirectParam, payment_loader_preview: paymentLoaderPreview } = router.query;
+  const { register, login, redirect: redirectParam } = router.query;
   const dispatch = useDispatch();
   const swSubscription = useSelector((data) => data.swSubscription);
-  const showPaymentLoaderPreview =
-    paymentLoaderPreview === '' ||
-    paymentLoaderPreview === 'true' ||
-    (Array.isArray(paymentLoaderPreview) && (paymentLoaderPreview[0] === '' || paymentLoaderPreview[0] === 'true'));
 
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -118,7 +114,7 @@ const HotelVendor = () => {
       handler: function (response) {
         // Mark payment as successful so token isn't cleared on unmount
         paymentSuccessfulRef.current = true;
-        // Launch PostPaymentFlow — it handles verification, login, RFQs, and dashboard redirect
+        // Hand off to PostPaymentFlow — it handles verify, login, RFQ auto-join, and dashboard redirect
         setPostPaymentData({
           razorpayData: {
             razorpay_payment_id: response.razorpay_payment_id,
@@ -128,63 +124,6 @@ const HotelVendor = () => {
           orderId,
           userCredentials,
         });
-        setShowPaymentProcessingModal(true);
-        // Secure, signature-validated path. The deprecated
-        // /users/test-razorpay-webhook bypassed signature verification
-        // and did not handle the modification/extension branches.
-        const payload = {
-          razorpay_order_id: response.razorpay_order_id,
-          razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_signature: response.razorpay_signature,
-        };
-        verifyHospitalityPayment(payload)
-          .then(async (res) => {
-            if (res && res.status === 1) {
-              const summary = res.data?.payment_summary || {};
-
-              // Auto-login after successful payment
-              if (userCredentials?.email && userCredentials?.password) {
-                try {
-                  const loginResponse = await LoginService(userCredentials, false);
-                  if (loginResponse?.token) {
-                    storageInstance.setStorage('token', loginResponse.token);
-                    storageInstance.setStorage('current-user-type', 'vendor');
-                    SWSubscribe({ subscription: swSubscription, token: loginResponse.token })
-                      .catch(() => {});
-                    try {
-                      const profileRes = await getProfile();
-                      dispatch(setUserProfile(profileRes.data));
-                    } catch (err) {}
-                  }
-                } catch (loginError) {
-                  console.error('Auto-login error:', loginError);
-                }
-              }
-
-              // Mark payment as successful so token isn't cleared on unmount (use ref for sync update)
-              paymentSuccessfulRef.current = true;
-              toast.success('Payment successful!');
-              // Redirect to generic payment success page with summary
-              router.push({
-                pathname: '/payment-success',
-                query: {
-                  type: 'hospitality_vendor',
-                  order_id: orderId,
-                  amount: summary.amount || '',
-                  currency: 'INR',
-                  description: 'Hospitality Vendor Registration',
-                  expiry_date: summary.expiry_date || '',
-                }
-              });
-            } else {
-              setShowPaymentProcessingModal(false);
-              toast.error('Payment processed but could not verify status. Please try logging in again.');
-            }
-          })
-          .catch(() => {
-            setShowPaymentProcessingModal(false);
-            toast.error('Payment verification failed. Please contact support if your amount was debited.');
-          });
       },
       modal: {
         ondismiss: function () {
@@ -1129,9 +1068,9 @@ const HotelVendor = () => {
       />
 
       <PostPaymentFlow
-        show={!!postPaymentData || showPaymentLoaderPreview}
-        razorpayData={postPaymentData?.razorpayData || (showPaymentLoaderPreview ? { razorpay_payment_id: 'preview', razorpay_order_id: 'preview', razorpay_signature: 'preview' } : null)}
-        orderId={postPaymentData?.orderId || (showPaymentLoaderPreview ? 'preview' : null)}
+        show={!!postPaymentData}
+        razorpayData={postPaymentData?.razorpayData}
+        orderId={postPaymentData?.orderId}
         userCredentials={postPaymentData?.userCredentials}
         swSubscription={swSubscription}
         onDone={() => { paymentSuccessfulRef.current = true; }}

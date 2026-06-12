@@ -11,9 +11,25 @@ export const createNegotiationRound = ({
   target_delivery_date,
   target_payment_terms, target_vendor_tc, target_comments,
   vendor_targets,
+  is_rfq_level,
+  products,
 }) => {
   return new Promise(async (resolve, reject) => {
     try {
+      // New multi-product shape: ONE round covering several products and/or
+      // RFQ-level fields. `products` = [{rfq_product_id, vendor_targets}, ...,
+      // {is_rfq_level: true, vendor_targets}]. The backend creates a single
+      // round + a single approval instance for the whole submission.
+      if (Array.isArray(products) && products.length > 0) {
+        const response = await axiosInstance.post('/negotiation/rounds', {
+          rfq_id,
+          end_date,
+          products,
+        });
+        resolve(response);
+        return;
+      }
+
       const payload = {
         rfq_id,
         rfq_product_id,
@@ -21,6 +37,7 @@ export const createNegotiationRound = ({
         target_price: target_base_price || target_price || null,
         end_date
       };
+      if (is_rfq_level) payload.is_rfq_level = true;
       if (vendor_ids && vendor_ids.length > 0) {
         payload.vendor_ids = vendor_ids;
       }
@@ -178,10 +195,11 @@ export const getRoundQuotes = (round_id) => {
 /**
  * Vendor submits quote for a round
  */
-export const submitVendorRoundQuote = ({ round_id, quoted_price, previous_price }) => {
+export const submitVendorRoundQuote = ({ round_id, rfq_product_id, quoted_price, previous_price }) => {
   return new Promise(async (resolve, reject) => {
     try {
       const response = await axiosInstance.post(`/negotiation/rounds/${round_id}/quote`, {
+        rfq_product_id,
         quoted_price,
         previous_price
       });
